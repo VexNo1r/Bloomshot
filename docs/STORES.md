@@ -11,7 +11,7 @@ Added in the mobile-release pass, October 3 2026. Status: written and unit-teste
 | `bloomshot/store-ui.js` | A "Purchases" section in Settings with **Restore purchases**. It stays hidden unless a store is live. |
 | `bloomshot/qa/test-store.cjs` | 14 checks with a fake store plugin. |
 
-The game itself does not call the store yet. When paid content exists, gate it with `BloomStore.owns('world_koi')`.
+The Koi Conservatory is the first gated content: `app.js` opens pools 3 to 8 only when `BloomStore.owns('world_koi')` is true, and its unlock panel calls `BloomStore.purchase('bloomshot.world.koi')` only when the store is live and the product is `available`.
 
 ## Three modes, chosen at startup
 

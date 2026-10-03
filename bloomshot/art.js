@@ -156,6 +156,17 @@
       }
       ctx.restore();
     } else if (theme === 'koi') {
+      for (const [x, y, r, a] of [[30, 210, 22, .4], [392, 170, 18, 2.2], [36, 470, 26, 1.1], [388, 420, 21, 3.4], [300, 34, 15, 4.6], [120, 30, 13, 5.5]]) {
+        ctx.save(); ctx.translate(x, y); ctx.rotate(a);
+        const pad = ctx.createRadialGradient(-r * .3, -r * .3, 1, 0, 0, r);
+        pad.addColorStop(0, '#7fe08a'); pad.addColorStop(1, '#249a62');
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, r, .25, TAU - .05); ctx.closePath(); ctx.fillStyle = pad; ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = .8;
+        for (let k = 0; k < 6; k++) { ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(.5 + k) * r * .85, Math.sin(.5 + k) * r * .85); ctx.stroke(); }
+        ctx.restore();
+      }
+      paintFlower(ctx, 392, 170, 8, 'coral', 1, 0, 2.2);
+      paintFlower(ctx, 36, 470, 9, 'lilac', 1, 0, .6);
       ctx.save(); ctx.globalAlpha = .27; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.3;
       for (let i = 0; i < 5; i++) {
         ctx.beginPath(); ctx.ellipse(346, 376, 25 + i * 19, 7 + i * 5.5, -.18, 0, TAU); ctx.stroke();
@@ -853,6 +864,66 @@
     ctx.restore();
   }
 
+  // Koi lanes: translucent water ribbons whose streaks and chevrons travel
+  // with the flow, plus a koi that swims each lane. Brightens while in use.
+  function koiFish(ctx, x, y, angle, time, size, palette) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
+    const wag = Math.sin(time * 9) * .35;
+    ctx.globalAlpha *= .92;
+    ctx.save(); ctx.translate(-size * .9, 0); ctx.rotate(wag);
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(-size * .5, -size * .55, -size * .75, -size * .42);
+    ctx.quadraticCurveTo(-size * .55, 0, -size * .75, size * .42); ctx.quadraticCurveTo(-size * .5, size * .55, 0, 0);
+    ctx.fillStyle = palette[0]; ctx.fill(); ctx.restore();
+    ctx.beginPath(); ctx.ellipse(0, 0, size, size * .38, 0, 0, TAU);
+    const body = ctx.createLinearGradient(0, -size * .4, 0, size * .4);
+    body.addColorStop(0, '#fffaf2'); body.addColorStop(.55, palette[1]); body.addColorStop(1, palette[0]);
+    ctx.fillStyle = body; ctx.fill();
+    ctx.fillStyle = palette[0];
+    ctx.beginPath(); ctx.ellipse(size * .25, -size * .05, size * .32, size * .2, .3, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(-size * .35, size * .08, size * .22, size * .15, -.4, 0, TAU); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.75)';
+    for (const side of [-1, 1]) { ctx.beginPath(); ctx.ellipse(size * .15, side * size * .42, size * .28, size * .1, side * .7 + wag * .4, 0, TAU); ctx.fill(); }
+    circle(ctx, size * .72, -size * .14, size * .07, '#1b2a33');
+    ctx.restore();
+  }
+  function drawCurrents(ctx, currents, time, reducedMotion) {
+    if (!Array.isArray(currents) || !currents.length) return;
+    const fishes = [['#f0552f', '#ffb48a'], ['#f7a21b', '#ffe3a1'], ['#e8364f', '#ffd0d6'], ['#ffffff', '#ffe7c7']];
+    currents.forEach((lane, index) => {
+      const L = lane.length, W = lane.width, ux = Math.cos(lane.angle), uy = Math.sin(lane.angle);
+      const used = Number.isFinite(lane.lastUsed) ? clamp(1 - (time - lane.lastUsed) / .5, 0, 1) : 0;
+      ctx.save(); ctx.translate(lane.x, lane.y); ctx.rotate(lane.angle);
+      const water = ctx.createLinearGradient(0, -W / 2, 0, W / 2);
+      water.addColorStop(0, 'rgba(120,236,255,0)'); water.addColorStop(.2, `rgba(92,214,240,${.30 + used * .2})`);
+      water.addColorStop(.5, `rgba(160,246,255,${.38 + used * .25})`); water.addColorStop(.8, `rgba(92,214,240,${.30 + used * .2})`); water.addColorStop(1, 'rgba(120,236,255,0)');
+      ctx.fillStyle = water; roundRect(ctx, -L / 2, -W / 2, L, W, W / 2); ctx.fill();
+      ctx.beginPath(); roundRect(ctx, -L / 2, -W / 2, L, W, W / 2); ctx.clip();
+      const shift = reducedMotion ? 0 : (time * 70) % 36;
+      ctx.lineCap = 'round';
+      for (let row = -1; row <= 1; row++) {
+        ctx.strokeStyle = `rgba(255,255,255,${.42 + used * .3})`; ctx.lineWidth = 1.4;
+        ctx.setLineDash([12, 24]); ctx.lineDashOffset = -shift - row * 11;
+        ctx.beginPath();
+        for (let x = -L / 2; x <= L / 2; x += 8) { const y = row * W * .28 + Math.sin(x * .05 + time * 2 + row) * 2.2; if (x === -L / 2) ctx.moveTo(x, y); else ctx.lineTo(x, y); }
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+      for (let x = -L / 2 + shift; x < L / 2; x += 36) {
+        const fade = Math.min(1, (x + L / 2) / 30, (L / 2 - x) / 30);
+        ctx.globalAlpha = .55 * fade; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2.2;
+        ctx.beginPath(); ctx.moveTo(x - 5, -6); ctx.lineTo(x + 2, 0); ctx.lineTo(x - 5, 6); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      if (!reducedMotion) {
+        const along = ((time * 34 + index * 97) % (L + 60)) - L / 2 - 30;
+        koiFish(ctx, along, Math.sin(time * 1.3 + index) * W * .18, Math.cos(time * 1.3 + index) * .12, time + index, Math.min(13, W * .24), fishes[index % fishes.length]);
+      }
+      ctx.restore();
+      ctx.save(); ctx.globalAlpha = .5 + used * .5; ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 1;
+      ctx.translate(lane.x, lane.y); ctx.rotate(lane.angle); roundRect(ctx, -L / 2, -W / 2, L, W, W / 2); ctx.stroke(); ctx.restore();
+    });
+  }
+
   function drawPop(ctx, floater, reducedMotion) {
     const life = Math.max(0, floater.life), duration = floater.maxLife || .8, age = duration - life;
     const scale = reducedMotion ? 1 : Math.min(1.25, .4 + age * 9) - Math.max(0, age - .1) * .4;
@@ -1070,6 +1141,7 @@
       drawLivingFoliage(ctx, time, colors, options.reducedMotion);
       drawVines(ctx, buds, time, colors, options.reducedMotion);
     }
+    drawCurrents(ctx, state.currents, time, options.reducedMotion);
     drawGates(ctx, state.gates, time, options.reducedMotion);
     // Bloom rings are drawn under the flowers, never on top of aiming feedback.
     for (const bud of buds) {
@@ -1170,5 +1242,5 @@
     }
   }
 
-  root.BloomArt = { draw, drawFlower, drawGarden, drawMoon };
+  root.BloomArt = { draw, drawFlower, drawGarden, drawMoon, koiFish };
 })(typeof window !== 'undefined' ? window : globalThis);

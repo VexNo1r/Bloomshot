@@ -86,7 +86,7 @@ async function main() {
   });
   await test('Dense mixed events stay within sixteen voices and thirty-two oscillators', () => {
     const h = fixture(); h.sound.wake(); let maxVoices = 0, maxOscillators = 0;
-    const cues = ['bloom', 'bounce', 'launch', 'rotate', 'tap', 'won', 'burst', 'split', 'wave', 'life', 'crack', 'fever', 'lost', 'gate'];
+    const cues = ['bloom', 'bounce', 'launch', 'rotate', 'tap', 'won', 'burst', 'split', 'wave', 'life', 'crack', 'fever', 'lost', 'gate', 'current', 'shimmer'];
     for (let frame = 0; frame < 1200; frame++) {
       for (const cue of cues) h.sound.play(cue, { combo: frame + 1, kind: 'bumper', bud: { x: frame % 420 } });
       maxVoices = Math.max(maxVoices, h.voices().length); maxOscillators = Math.max(maxOscillators, h.oscillators().length);
@@ -191,6 +191,21 @@ async function main() {
     assert.equal(h.context.nodes.length, mutedNodes);
     assert(h.oscillators().every(n => n.stopAt <= h.context.currentTime + 0.025));
     h.tick(0.04); assert.equal(h.voices().length, 0); assert.equal(h.oscillators().length, 0);
+  });
+  await test('Koi currents play two quiet rising water drops and debounce lane re-entry', () => {
+    const h = fixture(); h.sound.wake(); h.tick(1);
+    h.sound.play('current', { x: 100 });
+    const notes = h.voices().sort((a, b) => a.startAt - b.startAt);
+    assert.equal(notes.length, 2); assert.equal(h.oscillators().length, 2, 'Water drops are single sine oscillators');
+    assert(notes[1].frequency.value > notes[0].frequency.value);
+    for (const note of notes) {
+      assert(note.connections[0].gain.events.every(e => e.value === undefined || (e.value >= 0 && e.value <= 0.06)));
+      assert(note.stopAt - note.startAt < 0.3);
+    }
+    const nodes = h.context.nodes.length;
+    for (let i = 0; i < 50; i++) h.sound.play('current');
+    assert.equal(h.context.nodes.length, nodes, 'Rapid lane changes share one response');
+    h.tick(2); assert.equal(h.voices().length, 0);
   });
   await test('Position changes restrained stereo pan, with mono fallback for older implementations', () => {
     const h = fixture(); h.sound.wake(); h.sound.play('bloom', { bud: { x: 0 } }); h.tick(0.03);

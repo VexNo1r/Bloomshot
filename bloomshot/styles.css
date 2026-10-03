@@ -133,3 +133,26 @@ dialog[open]{animation:dialog-in .38s var(--press)}
 .turn-petal-btn{white-space:nowrap;padding:0 10px;font-size:12.5px}
 body[data-mode="rush"] .game-actions{grid-template-columns:100px minmax(0,1fr) 44px}
 .world-card{overflow:visible}.world-art{box-shadow:0 10px 24px #1a5b4a26,0 0 0 1px #e1cd8f}
+/* Koi Conservatory: chapter HUD, jade pool trail, and the unlock panel. */
+.desktop-mode-koi{display:none}body[data-world="koi"] .desktop-mode-campaign,body[data-world="koi"] .desktop-mode-rush{display:none}body[data-world="koi"] .desktop-mode-koi{display:block}
+body[data-world="koi"] .combo-meter{border-color:#a9dccf}body[data-world="koi"] .combo-fill,body[data-world="koi"] .combo-spark{display:none}
+body[data-world="koi"] #combo-label,body[data-world="koi"] #guide-label{color:#13665d}
+@media(max-width:350px){body[data-world="koi"] .seed-dot{width:5px;height:8px}body[data-world="koi"] #seed-count{gap:3px}body[data-world="koi"] .combo-meter,body[data-world="koi"] #combo-label,body[data-world="koi"] #guide-label{font-size:11px}}
+.koi-trail::before{background:linear-gradient(#7fd8cb,#e7b65a)}
+.koi-trail .moon-trial{border-bottom-color:#d6ece6}
+.koi-trail .moon-trial-number{background:linear-gradient(180deg,#e9fbf6,#c9f0e6);color:#11675d;border-color:#86cfc1}
+.koi-trail .moon-trial-name{color:#174f48}
+.koi-trail .moon-trial-stars{color:#c48a1c}
+.free-tag{display:inline-block;margin-left:8px;padding:2px 7px;border-radius:999px;background:var(--jade-light);color:var(--jade-deep);font:800 10px/1.3 var(--sans);letter-spacing:.08em;vertical-align:3px}
+.moon-trial.paid-lock .moon-trial-number{background:linear-gradient(180deg,#fff8de,#f6e2a6);color:#8a6418;border-color:#e0c578}
+.moon-trial.paid-lock .moon-trial-name{color:#6b7f79}
+.moon-trial.paid-lock .moon-trial-stars{color:#e07a96;font-size:16px}
+.unlock-panel{margin:4px 0 22px;padding:16px 16px 14px;border-radius:18px;background:radial-gradient(120% 90% at 100% 0%,#ffe9b8 0%,transparent 60%),linear-gradient(160deg,#eafcf6 0%,#d5f3ea 55%,#c3ebe0 100%);box-shadow:0 0 0 1px #e1cd8f,0 3px 0 #b7dccf,0 10px 22px #1a5b4a1f;position:relative;overflow:hidden}
+.unlock-panel::after{content:'';position:absolute;right:-26px;bottom:-30px;width:120px;height:120px;border-radius:50%;border:1.5px solid #ffffff99;box-shadow:0 0 0 14px #ffffff33,0 0 0 30px #ffffff1f;pointer-events:none}
+.unlock-copy{position:relative;z-index:1}
+.unlock-copy strong{display:block;font:800 19px/1.2 var(--display);color:#12423b;margin:4px 0 6px}
+.unlock-copy p{margin:0 0 12px;font-size:14px;color:#2f5e56}
+.unlock-btn{width:100%;background:linear-gradient(180deg,#ffe28a,#e9b53f);color:#4a3206;box-shadow:0 3px 0 #b8862a,0 8px 16px #c9a24c55;border:0}
+.unlock-btn:disabled{opacity:.7}
+.unlock-fine{font-size:12px!important;color:#557a72!important;margin:10px 0 0!important}
+.world-detail .koi-hint{color:#2f7a70}

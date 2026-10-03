@@ -94,8 +94,9 @@
     gain.gain.exponentialRampToValueAtTime(0.0001, at + duration);
     gain.gain.linearRampToValueAtTime(0, end);
     oscillator.type = style === 'wood' ? 'triangle' : 'sine';
-    oscillator.frequency.setValueAtTime(frequency * 1.003, at);
-    oscillator.frequency.exponentialRampToValueAtTime(frequency, at + Math.min(0.075, duration / 2));
+    // A water drop rises quickly into its pitch; bells and wood settle onto theirs.
+    oscillator.frequency.setValueAtTime(frequency * (style === 'drop' ? 0.56 : 1.003), at);
+    oscillator.frequency.exponentialRampToValueAtTime(frequency, at + (style === 'drop' ? 0.05 : Math.min(0.075, duration / 2)));
     oscillator.connect(gain);
     if (style === 'bell') {
       const partial = context.createOscillator(), partialGain = context.createGain();
@@ -151,6 +152,11 @@
       // A quiet rising fifth follows the seed through the paired apertures.
       note(293.66, 0, 0.22, 0.078, pan * 0.5);
       note(440, 0.072, 0.36, 0.064, pan * 0.5);
+    }
+    // Koi currents: two soft water drops when a seed slips into a lane.
+    else if (type === 'current' && allowed('current', 0.18)) {
+      note(523.25, 0, 0.16, 0.06, pan * 0.5, 'drop');
+      note(783.99, 0.055, 0.2, 0.045, pan * 0.5, 'drop');
     }
     // Chain milestones: a quick rising shimmer above the bloom notes.
     else if (type === 'shimmer' && allowed('shimmer', 0.3)) phrase([783.99, 987.77, 1174.66, 1567.98], 0.045, 0.32, 0.05, pan * 0.5);

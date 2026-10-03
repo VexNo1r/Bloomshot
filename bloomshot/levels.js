@@ -48,9 +48,9 @@
       price: 0, theme: 'moon', available: true,
       mechanic: 'Matching gates carry your seed across the garden. Read the exit, turn a leaf, and make each shot count.' },
     { id: 'koi', name: 'Koi Conservatory', tagline: 'Follow the quiet current.',
-      description: 'A planned permanent garden pack. Its art and levels are still in development.',
-      price: null, theme: 'koi', available: false,
-      mechanic: 'Planned: gentle currents that bend a seed\'s path.' }
+      description: 'Eight pools of moving water. Five seeds each. Currents turn your seed toward the way they flow, so the best shot is rarely a straight one.',
+      price: 4.99, theme: 'koi', available: true,
+      mechanic: 'Currents turn a seed toward the way the water runs without changing its speed. Read the water, ride a lane, and land the shot a straight line never could.' }
   ];
 
   // Dense, deliberately arranged flowerbeds. Each mask is an authored garden silhouette.

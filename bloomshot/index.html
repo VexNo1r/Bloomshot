@@ -17,6 +17,7 @@
   <script src="store.js" defer></script>
   <script src="levels.js" defer></script>
   <script src="moon.js" defer></script>
+  <script src="koi.js" defer></script>
   <script src="garden.js" defer></script>
   <script src="engine.js" defer></script>
   <script src="rush.js" defer></script>
@@ -34,6 +35,7 @@
     <p class="desktop-copy desktop-mode-campaign">Three volleys.<br>A whole world in bloom.</p>
     <p class="desktop-copy desktop-mode-rush">One seed at a time.<br>Keep the meadow clear.</p>
     <p class="desktop-copy desktop-mode-moon">Five seeds.<br>A path through moonlight.</p>
+    <p class="desktop-copy desktop-mode-koi">Five seeds.<br>Read the water.</p>
     <svg class="botanical-drawing" viewBox="0 0 260 250" fill="none">
       <path d="M114 237Q142 180 112 128" stroke="#26b498" stroke-width="13" stroke-linecap="round"/><path d="M124 206Q54 211 44 162Q111 145 124 206" fill="#50cba9"/><path d="M124 188Q190 200 207 145Q144 139 124 188" fill="#20b895"/>
       <g transform="translate(111 102)"><g fill="#ff698c"><ellipse cy="-37" rx="27" ry="45"/><ellipse cy="-37" rx="27" ry="45" transform="rotate(60)"/><ellipse cy="-37" rx="27" ry="45" transform="rotate(120)"/><ellipse cy="-37" rx="27" ry="45" transform="rotate(180)"/><ellipse cy="-37" rx="27" ry="45" transform="rotate(240)"/><ellipse cy="-37" rx="27" ry="45" transform="rotate(300)"/></g><circle r="29" fill="#ffc950"/><circle cx="-6" cy="-8" r="17" fill="#ffdb71"/></g>
@@ -147,10 +149,10 @@
         <div class="page-heading">
           <span class="eyebrow">EXPLORE THE WORLDS</span>
           <h1 id="worlds-title">Beyond the meadow</h1>
-          <p>New gardens are taking shape.</p>
+          <p>Three gardens to explore, each with its own way to play.</p>
         </div>
         <div id="worlds-grid" class="worlds-grid" aria-label="Gardens to explore"></div>
-        <p class="page-footnote">The meadow is free to play.</p>
+        <p class="page-footnote">The Meadow and Moon Garden are free to play, and so are the first two koi pools.</p>
       </section>
     </div>
 
@@ -227,6 +229,11 @@
     <details id="moon-help" class="help-mode">
       <summary><span>Moon Garden</span><small>FIVE-SEED TRIALS</small></summary>
       <ol class="help-steps"><li><span class="help-number">01</span><div><h3>Find a path through the gates.</h3><p>Matching gates carry a seed between them. The dotted aim line shows where your seed will emerge.</p></div></li><li><span class="help-number">02</span><div><h3>Make each seed count.</h3><p>You have five single-seed shots. Aim before releasing; moon seeds cannot be steered in flight.</p></div></li><li><span class="help-number">03</span><div><h3>Turn a leaf. Change the route.</h3><p>Tap a leaf bumper between shots to rotate it. Clear the flowers with fewer shots to earn more stars.</p></div></li></ol>
+    </details>
+    <details id="koi-help" class="help-mode">
+      <summary><span>Koi Conservatory</span><small>CURRENT POOLS</small></summary>
+      <ol class="help-steps"><li><span class="help-number">01</span><div><h3>Read the water.</h3><p>Currents gently turn your seed toward the way they flow. The dotted aim line follows the water, so you can see the bend before you shoot.</p></div></li><li><span class="help-number">02</span><div><h3>Ride a lane.</h3><p>A current never speeds a seed up or slows it down. It only changes the heading, and a longer ride turns it further.</p></div></li><li><span class="help-number">03</span><div><h3>Make each seed count.</h3><p>Five single-seed shots with no steering in flight. Turn a leaf between shots, and clear the pool in fewer shots for more stars.</p></div></li></ol>
+      <p class="help-tip">Pools 1 and 2 are free. Pools 3 to 8 come with the full Koi Conservatory, a one-time purchase in the app.</p>
     </details>
     <p class="settings-footnote">On a keyboard, use arrow keys to aim and Space to shoot.</p>
   </dialog>

@@ -6,6 +6,7 @@ const vm = require('node:vm');
 const Garden = require('../garden.js');
 const Levels = require('../levels.js');
 const Moon = require('../moon.js');
+const Koi = require('../koi.js');
 const Engine = require('../engine.js');
 const Rush = require('../rush.js');
 const source = fs.readFileSync(path.join(__dirname, '../app.js'), 'utf8');
@@ -21,7 +22,16 @@ function legacySave() {
     rush: { best: 2100, bestWave: 3, runs: 5, blooms: 25 }, lastLevel: 2,
     settings: { sound: false, haptics: false, motion: false } };
 }
-function boot(raw, { storageFails = false, search = '', otherSave } = {}) {
+// Future worlds still open as visual previews; one is added here so that path stays covered.
+const FUTURE = { id: 'orchard', name: 'Night Orchard', tagline: 'Soon.', description: 'A future garden.', price: null, theme: 'moon', available: false, mechanic: 'Planned.' };
+function fakeStore({ owned = [], live = false, available = false, price = '$4.99', mode = 'native' } = {}) {
+  const have = new Set(owned), listeners = [], purchases = [];
+  return { mode, busy: false, purchases, isLive: () => live, owns: id => have.has(id),
+    products: () => [{ id: Koi.product, entitlement: Koi.entitlement, kind: 'world', available, owned: have.has(Koi.entitlement), price }],
+    purchase: id => { purchases.push(id); have.add(Koi.entitlement); listeners.forEach(fn => fn({ type: 'entitlements' })); return Promise.resolve({ ok: true }); },
+    subscribe: fn => { listeners.push(fn); } };
+}
+function boot(raw, { storageFails = false, search = '', otherSave, store } = {}) {
   const key = search.includes('qa') ? 'bloomshot.qa.v1' : 'bloomshot.save.v1';
   const storage = new Map();
   if (raw !== undefined) storage.set(key, JSON.stringify(raw));
@@ -70,8 +80,8 @@ function boot(raw, { storageFails = false, search = '', otherSave } = {}) {
     performance: { now: () => now }, devicePixelRatio: 1,
     matchMedia: () => ({ matches: false, addEventListener: noop }),
     requestAnimationFrame: fn => { nextFrame = fn; }, setTimeout: () => 1, clearTimeout: noop,
-    BloomLevels: Levels, BloomMoon: Moon, BloomGarden: Garden, BloomEngine: { ...Engine, Game: ObservedGame }, BloomRush: { RushGame: ObservedRush },
-    BloomSound: { wake: noop, play: noop, setEnabled: noop }, BloomArt: { draw: noop, drawFlower: noop, drawMoon: noop },
+    BloomLevels: { ...Levels, worlds: [...Levels.worlds, FUTURE] }, BloomMoon: Moon, BloomKoi: Koi, BloomGarden: Garden, ...(store ? { BloomStore: store } : {}), BloomEngine: { ...Engine, Game: ObservedGame }, BloomRush: { RushGame: ObservedRush },
+    BloomSound: { wake: noop, play: noop, setEnabled: noop }, BloomArt: { draw: noop, drawFlower: noop, drawMoon: noop, koiFish: noop },
     BloomMeadow: { plots: Garden.plots.map((p, i) => ({ id: p.id, x: 65 + i * 50, y: 150, labelY: 180, accent: p.color })),
       draw: (ctx, options) => meadowDraws.push(clone(options)) }
   });
@@ -82,7 +92,7 @@ function boot(raw, { storageFails = false, search = '', otherSave } = {}) {
     const target = dataset ? Object.assign(element(), { dataset }) : $(id);
     $(id).emit('click', { target });
   }
-  function preview() { click('worlds-btn'); click('worlds-grid', { world: 'koi' }); click('world-preview-btn'); }
+  function preview() { click('worlds-btn'); click('worlds-grid', { world: 'orchard' }); click('world-preview-btn'); }
   function finishRush(blooms = 24, wave = 3) {
     const game = games.at(-1); assert.equal(game.mode, 'rush');
     // An engine completion fixture tests the app's event boundary, not the run's physics.
@@ -194,17 +204,54 @@ test('Moon trials use separate records, reward new stars, unlock the next trial,
 test('Locked Moon buttons and malformed individual Moon records cannot grant or erase progress', () => {
   const before = legacySave(); before.moon = { 'moon-1': null, 'moon-2': { best: 100, stars: 7 }, 'moon-6': { best: 400, stars: 1, attempts: 1 } };
   const app = boot(before); const initial = app.games.at(-1);
-  app.click('world-detail', { moon: 'moon-2' }); assert.equal(app.games.at(-1), initial);
+  app.click('world-detail', { trial: 'moon-2', chapter: 'moon' }); assert.equal(app.games.at(-1), initial);
   assert.deepEqual(app.saved().moon, { 'moon-6': before.moon['moon-6'] }); assert.deepEqual(app.saved().progress, before.progress);
   assert.equal(app.saved().garden.seeds, 4);
 });
-test('Koi preview restores a Moon trial and its reward without leaking it to Meadow or daily records', () => {
+test('A world preview restores a Moon trial and its reward without leaking it to Meadow or daily records', () => {
   const app = boot(legacySave()); app.click('worlds-btn'); app.click('worlds-grid', { world: 'moon' }); app.click('world-preview-btn');
   app.games.at(-1).fire(0, -1); app.games.at(-1).win(); app.frame(); const after = app.saved();
   app.click('garden-btn'); app.preview(); app.games.at(-1).win(); app.frame();
   app.click('worlds-btn'); app.click('rush-btn');
   assert.equal(app.context.bloomshotState.level, 'moon-1'); assert.equal(app.context.bloomshotState.theme, 'moon');
   assert.equal(app.$('reward-seeds').textContent, '+12 seeds'); assert.deepEqual(app.saved(), after);
+});
+test('Koi pools 1 and 2 are free, keep their own records, and pools 3 to 8 never start without the pack', () => {
+  const app = boot(legacySave());
+  app.click('worlds-btn'); app.click('worlds-grid', { world: 'koi' });
+  assert.match(app.$('world-detail').innerHTML, /unlock in the Bloomshot app/); assert(!app.$('world-detail').innerHTML.includes('data-buy'));
+  app.click('world-preview-btn'); let game = app.games.at(-1);
+  assert.equal(game.level.id, 'koi-1'); assert.equal(app.context.bloomshotState.theme, 'koi'); assert.equal(game.rules.guide, false);
+  game.fire(0, -1); game.win(); app.frame();
+  let after = app.saved(); assert.equal(after.koi['koi-1'].stars, 3); assert.equal(after.garden.koiBest['koi-1'], 3); assert.deepEqual(after.moon, {});
+  assert.equal(after.garden.seeds, 16);
+  app.click('next-btn'); game = app.games.at(-1); assert.equal(game.level.id, 'koi-2');
+  game.fire(0, -1); game.win(); for (let i = 0; i < 12; i++) app.frame(60);
+  assert.equal(app.$('result-dialog').open, true); assert.equal(app.$('next-btn').textContent, 'See all eight pools');
+  const started = app.games.length; app.click('next-btn');
+  assert.equal(app.games.length, started); assert.equal(app.$('world-dialog').open, true);
+  app.click('world-detail', { trial: 'koi-3', chapter: 'koi' }); assert.equal(app.games.length, started);
+  after = app.saved(); assert.deepEqual(boot(after).saved().koi, after.koi);
+  const paid = boot(after, { store: fakeStore({ owned: [Koi.entitlement] }) });
+  paid.click('worlds-btn'); paid.click('worlds-grid', { world: 'koi' });
+  assert(!paid.$('world-detail').innerHTML.includes('unlock-panel')); paid.click('world-preview-btn');
+  assert.equal(paid.games.at(-1).level.id, 'koi-3');
+});
+test('The Koi unlock names its contents and store price and buys only through the store', () => {
+  const save = legacySave(); save.koi = { 'koi-1': { best: 900, stars: 3, attempts: 1 }, 'koi-2': { best: 800, stars: 2, attempts: 2 } };
+  const notForSale = boot(save, { store: fakeStore({ live: true, available: false }) });
+  notForSale.click('worlds-btn'); notForSale.click('worlds-grid', { world: 'koi' });
+  assert.match(notForSale.$('world-detail').innerHTML, /not on sale yet/); assert(!notForSale.$('world-detail').innerHTML.includes('data-buy'));
+  const store = fakeStore({ live: true, available: true, price: '$4.99' }), app = boot(save, { store });
+  app.click('worlds-btn'); app.click('worlds-grid', { world: 'koi' });
+  const html = app.$('world-detail').innerHTML;
+  assert.match(html, /Unlock all 8 pools · \$4\.99/); assert.match(html, /6 more pools/); assert.match(html, /one-time purchase/i);
+  const started = app.games.length;
+  app.click('world-detail', { trial: 'koi-3', chapter: 'koi' }); assert.equal(app.games.length, started);
+  app.click('world-detail', { buy: Koi.product }); assert.deepEqual(store.purchases, [Koi.product]);
+  assert(!app.$('world-detail').innerHTML.includes('unlock-panel'));
+  app.click('world-detail', { trial: 'koi-3', chapter: 'koi' }); assert.equal(app.games.at(-1).level.id, 'koi-3');
+  assert.deepEqual(app.saved().koi, save.koi);
 });
 const report = { passed: results.filter(r => r.passed).length, failed: results.filter(r => !r.passed).length,
   methodology: 'Executes the complete current app.js in an isolated Node VM using real garden/level/engine modules, fake localStorage, and DOM/canvas adapters. Completion fixtures exercise actual engine completion events and app handlers. No real browser or user saves are read or changed.',

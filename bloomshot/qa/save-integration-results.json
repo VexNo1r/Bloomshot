@@ -1,5 +1,5 @@
 {
-  "passed": 14,
+  "passed": 16,
   "failed": 0,
   "methodology": "Executes the complete current app.js in an isolated Node VM using real garden/level/engine modules, fake localStorage, and DOM/canvas adapters. Completion fixtures exercise actual engine completion events and app handlers. No real browser or user saves are read or changed.",
   "limitations": [
@@ -60,7 +60,15 @@
       "passed": true
     },
     {
-      "name": "Koi preview restores a Moon trial and its reward without leaking it to Meadow or daily records",
+      "name": "A world preview restores a Moon trial and its reward without leaking it to Meadow or daily records",
+      "passed": true
+    },
+    {
+      "name": "Koi pools 1 and 2 are free, keep their own records, and pools 3 to 8 never start without the pack",
+      "passed": true
+    },
+    {
+      "name": "The Koi unlock names its contents and store price and buys only through the store",
       "passed": true
     }
   ]

@@ -3,7 +3,7 @@
 // A "careful player" picks the angle whose ±noise neighbourhood blooms the most
 // on average, then fires with Gaussian aim error. Reports clear rate over runs.
 const { Game } = require('../engine.js');
-const { levels } = require('../moon.js');
+const { levels } = require(process.env.BLOOM_WORLD === 'koi' ? '../koi.js' : '../moon.js');
 const copy = x => JSON.parse(JSON.stringify(x));
 function clone(level, game) { const g = new Game(level); Object.assign(g, copy(game)); g.events = []; return g; }
 function shoot(level, game, angle) {

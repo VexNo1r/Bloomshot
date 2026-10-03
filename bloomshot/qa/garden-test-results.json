@@ -1,5 +1,5 @@
 {
-  "passed": 20,
+  "passed": 21,
   "failed": 0,
   "observations": {
     "starterSeeds": 4,
@@ -109,6 +109,10 @@
     },
     {
       "name": "Moon rewards stay separate from Meadow records and survive normalization and receipt aging",
+      "passed": true
+    },
+    {
+      "name": "Koi pool rewards pay once per new star and keep their own records",
       "passed": true
     }
   ]

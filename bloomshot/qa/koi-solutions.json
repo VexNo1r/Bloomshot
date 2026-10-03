@@ -1,0 +1,131 @@
+{
+  "method": "Beam search over 1.5° aims and optional leaf turns; width 8; five shots max.",
+  "levels": [
+    {
+      "id": "koi-1",
+      "par": 2,
+      "shots": [
+        {
+          "angleRadians": -2.1467549799530254,
+          "rotateId": null,
+          "bloomsAfter": 12
+        }
+      ],
+      "score": 4100
+    },
+    {
+      "id": "koi-2",
+      "par": 3,
+      "shots": [
+        {
+          "angleRadians": -1.2828170002158323,
+          "rotateId": null,
+          "bloomsAfter": 15
+        }
+      ],
+      "score": 5000
+    },
+    {
+      "id": "koi-3",
+      "par": 3,
+      "shots": [
+        {
+          "angleRadians": -1.9896753472735356,
+          "rotateId": null,
+          "bloomsAfter": 14
+        },
+        {
+          "angleRadians": -2.9321531433504737,
+          "rotateId": null,
+          "bloomsAfter": 18
+        }
+      ],
+      "score": 4600
+    },
+    {
+      "id": "koi-4",
+      "par": 3,
+      "shots": [
+        {
+          "angleRadians": -2.2252947962927703,
+          "rotateId": null,
+          "bloomsAfter": 12
+        },
+        {
+          "angleRadians": -2.9845130209103035,
+          "rotateId": null,
+          "bloomsAfter": 15
+        }
+      ],
+      "score": 3900
+    },
+    {
+      "id": "koi-5",
+      "par": 3,
+      "shots": [
+        {
+          "angleRadians": -0.7853981633974483,
+          "rotateId": null,
+          "bloomsAfter": 15
+        },
+        {
+          "angleRadians": -2.9059732045705586,
+          "rotateId": null,
+          "bloomsAfter": 18
+        }
+      ],
+      "score": 4800
+    },
+    {
+      "id": "koi-6",
+      "par": 3,
+      "shots": [
+        {
+          "angleRadians": -1.9896753472735356,
+          "rotateId": null,
+          "bloomsAfter": 17
+        },
+        {
+          "angleRadians": -2.9059732045705586,
+          "rotateId": null,
+          "bloomsAfter": 18
+        }
+      ],
+      "score": 5400
+    },
+    {
+      "id": "koi-7",
+      "par": 3,
+      "shots": [
+        {
+          "angleRadians": -0.9686577348568529,
+          "rotateId": null,
+          "bloomsAfter": 16
+        },
+        {
+          "angleRadians": -2.17293491873294,
+          "rotateId": null,
+          "bloomsAfter": 18
+        }
+      ],
+      "score": 5100
+    },
+    {
+      "id": "koi-8",
+      "par": 4,
+      "shots": [
+        {
+          "angleRadians": -0.6283185307179586,
+          "rotateId": null,
+          "bloomsAfter": 15
+        },
+        {
+          "angleRadians": -1.5969762655748114,
+          "rotateId": "k8-petal",
+          "bloomsAfter": 18
+        }
+      ],
+      "score": 4800
+    }
+  ]
+}
