@@ -1,0 +1,23 @@
+name: Web tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: bloomshot
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run every suite
+        run: |
+          for t in test-engine test-rush test-pwa test-sound test-garden test-save-integration test-moon-engine test-moon-levels test-precache-streams test-store; do
+            echo "== $t"
+            node qa/$t.cjs > /dev/null || { echo "FAILED: $t"; node qa/$t.cjs | tail -40; exit 1; }
+          done

@@ -8,8 +8,8 @@ const vm = require('node:vm');
 
 const swPath = path.resolve(process.argv[2] || path.join(__dirname, '../sw.js'));
 const PREFIX = 'bloomshot-shell-';
-const ASSETS = ['./', './index.html', './styles.css', './levels.js', './moon.js', './garden.js', './engine.js', './rush.js',
-  './art.js', './meadow.js', './sound.js', './app.js', './pwa.js', './manifest.webmanifest', './icons/icon.svg',
+const ASSETS = ['./', './index.html', './styles.css', './store-config.js', './store.js', './levels.js', './moon.js', './garden.js', './engine.js', './rush.js',
+  './art.js', './meadow.js', './sound.js', './app.js', './store-ui.js', './pwa.js', './manifest.webmanifest', './icons/icon.svg',
   './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png', './icons/apple-touch-icon.png', './assets/botanical-header.png', './assets/split-leaf.png'];
 const results = [];
 
