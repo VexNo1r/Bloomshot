@@ -11,6 +11,10 @@
   var MAX_SEEDS = 1000000;
   var MAX_TOTAL = 1000000000;
   var RECEIPT_LIMIT = 64;
+  // The daily garden pays once per new star, like any garden. Clearing any four daily gardens in one
+  // Monday-to-Sunday week also gathers that week's bouquet. Missed days never take anything away.
+  var DAILY_LIMIT = 21, BOUQUET_GOAL = 4, BOUQUET_SEEDS = 12, BOUQUET_LIMIT = 8;
+  var DAY = 86400000;
   var STAGES = Object.freeze([
     Object.freeze({ stage: 1, name: 'First shoots', cost: COSTS[0] }),
     Object.freeze({ stage: 2, name: 'Young flowers', cost: COSTS[1] }),
@@ -34,6 +38,20 @@
     return typeof value === 'number' && Number.isFinite(value) ? Math.min(maximum, Math.max(0, Math.floor(value))) : 0;
   }
   function validPlot(id) { return typeof id === 'string' && plots.some(function (p) { return p.id === id; }); }
+  // 'daily-YYYY-MM-DD' to a UTC day number, or null for anything that is not a real calendar date.
+  function dailyDay(id) {
+    var match = typeof id === 'string' && /^daily-(\d{4})-(\d{2})-(\d{2})$/.exec(id);
+    if (!match) return null;
+    var y = Number(match[1]), m = Number(match[2]) - 1, d = Number(match[3]), time = Date.UTC(y, m, d), date = new Date(time);
+    return date.getUTCFullYear() === y && date.getUTCMonth() === m && date.getUTCDate() === d ? time / DAY : null;
+  }
+  function dailyId(day) { return 'daily-' + new Date(day * DAY).toISOString().slice(0, 10); }
+  function weekStart(day) { return day - (new Date(day * DAY).getUTCDay() + 6) % 7; }
+  function weekId(day) { return 'week-' + new Date(weekStart(day) * DAY).toISOString().slice(0, 10); }
+  function validWeek(id) {
+    var day = typeof id === 'string' && id.slice(0, 5) === 'week-' ? dailyDay('daily-' + id.slice(5)) : null;
+    return day !== null && weekStart(day) === day;
+  }
   function receiptId(value) {
     return typeof value === 'string' && value.length <= 160 && value.trim().length > 0 ? value.trim() : null;
   }
@@ -73,18 +91,31 @@
       var koiStars = own(savedKoi, koiId) ? integer(savedKoi[koiId], 3) : 0;
       if (koiStars) koiBest[koiId] = koiStars;
     }
+    var dailyBest = {};
+    var savedDaily = own(source, 'dailyBest') && record(source.dailyBest) ? source.dailyBest : {};
+    Object.keys(savedDaily).filter(function (id) {
+      var stars = savedDaily[id];
+      return dailyDay(id) !== null && Number.isInteger(stars) && stars >= 1 && stars <= 3;
+    }).sort().slice(-DAILY_LIMIT).forEach(function (id) { dailyBest[id] = savedDaily[id]; });
+    var bouquets = [];
+    if (own(source, 'bouquets') && Array.isArray(source.bouquets)) source.bouquets.forEach(function (id) {
+      if (validWeek(id) && bouquets.indexOf(id) < 0) bouquets.push(id);
+    });
+    bouquets = bouquets.sort().slice(-BOUQUET_LIMIT);
     return { version: 1,
       seeds: isNew ? 4 : (own(source, 'seeds') ? integer(source.seeds, MAX_SEEDS) : 0),
       selectedId: own(source, 'selectedId') && validPlot(source.selectedId) ? source.selectedId : 'sunbell',
       levels: levels, receipts: receipts, campaignBest: campaignBest, moonBest: moonBest, koiBest: koiBest,
+      dailyBest: dailyBest, bouquets: bouquets,
       starterSeeds: isNew ? 4 : (own(source, 'starterSeeds') ? integer(source.starterSeeds, 4) : 0),
       totalSeedsEarned: own(source, 'totalSeedsEarned') ? integer(source.totalSeedsEarned, MAX_TOTAL) : 0,
       totalSeedsSpent: own(source, 'totalSeedsSpent') ? integer(source.totalSeedsSpent, MAX_TOTAL) : 0 };
   }
   function grant(state, reward) {
     var next = normalize(state);
+    var bouquet = null;
     function result(amount, reason, duplicate) {
-      return { state: next, awarded: amount, seeds: amount, reason: reason, duplicate: !!duplicate };
+      return { state: next, awarded: amount, seeds: amount, reason: reason, duplicate: !!duplicate, bouquet: bouquet };
     }
     if (!record(reward)) return result(0, 'invalid-reward');
     if (reward.completed !== true) return result(0, 'incomplete');
@@ -108,6 +139,21 @@
       // Pay the same lifetime reward whether a player earns stars now or improves later.
       earned = previous === 0 ? 8 + (reward.stars - 1) * 2 : Math.max(0, reward.stars - previous) * 2;
       bests[reward.levelId] = Math.max(previous, reward.stars);
+    } else if (reward.mode === 'daily') {
+      var day = dailyDay(reward.levelId), kept = Object.keys(next.dailyBest).sort();
+      if (day === null || !Number.isInteger(reward.stars) || reward.stars < 1 || reward.stars > 3) return result(0, 'invalid-reward');
+      // Only recent days are remembered, so a garden older than all of them cannot be claimed again.
+      if (kept.length >= DAILY_LIMIT && reward.levelId < kept[0]) return result(0, 'expired');
+      var before = Math.max(next.dailyBest[reward.levelId] || 0, integer(reward.previousStars, 3));
+      earned = before === 0 ? 6 + (reward.stars - 1) * 2 : Math.max(0, reward.stars - before) * 2;
+      next.dailyBest[reward.levelId] = Math.max(before, reward.stars);
+      Object.keys(next.dailyBest).sort().slice(0, -DAILY_LIMIT).forEach(function (id) { delete next.dailyBest[id]; });
+      var thisWeek = week(next, reward.levelId);
+      if (!thisWeek.claimed && thisWeek.cleared >= BOUQUET_GOAL) {
+        next.bouquets = next.bouquets.concat(thisWeek.id).sort().slice(-BOUQUET_LIMIT);
+        bouquet = { week: thisWeek.id, seeds: BOUQUET_SEEDS };
+        earned += BOUQUET_SEEDS;
+      }
     } else return result(0, 'invalid-mode');
     // Record even valid zero-seed results: the same completion cannot later be edited and claimed.
     next.receipts.push(runId);
@@ -116,6 +162,19 @@
     next.seeds += added;
     next.totalSeedsEarned = Math.min(MAX_TOTAL, next.totalSeedsEarned + added);
     return result(added, added ? 'awarded' : (earned ? 'balance-full' : 'no-new-reward'));
+  }
+  // The Monday-to-Sunday week around a daily garden: which days were cleared and whether its bouquet is gathered.
+  function week(state, levelId) {
+    var current = normalize(state), day = dailyDay(levelId);
+    if (day === null) return null;
+    var start = weekStart(day), days = [];
+    for (var i = 0; i < 7; i++) {
+      var id = dailyId(start + i);
+      days.push({ id: id, stars: current.dailyBest[id] || 0, today: start + i === day, future: start + i > day });
+    }
+    var cleared = days.filter(function (d) { return d.stars > 0; }).length, id = weekId(day);
+    return { id: id, days: days, cleared: cleared, goal: BOUQUET_GOAL, seeds: BOUQUET_SEEDS,
+      claimed: current.bouquets.indexOf(id) >= 0 };
   }
   function plant(state, plotId) {
     var next = normalize(state);
@@ -159,5 +218,6 @@
       nextCost: current.levels[current.selectedId] < 3 ? COSTS[current.levels[current.selectedId]] : null,
       plots: beds };
   }
-  return Object.freeze({ plots: plots, normalize: normalize, grant: grant, plant: plant, select: select, summary: summary });
+  return Object.freeze({ plots: plots, normalize: normalize, grant: grant, plant: plant, select: select, summary: summary, week: week,
+    daily: Object.freeze({ firstClear: [6, 8, 10], perStar: 2, bouquetGoal: BOUQUET_GOAL, bouquetSeeds: BOUQUET_SEEDS }) });
 });

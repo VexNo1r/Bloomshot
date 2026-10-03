@@ -42,7 +42,11 @@ function fakeStore({ owned = [], live = false, available = false, price = '$4.99
     },
     subscribe: fn => { listeners.push(fn); } };
 }
-function boot(raw, { storageFails = false, search = '', otherSave, store } = {}) {
+// A clock fixed at one local moment, so the daily garden and its week are known in advance.
+function fixedDate(moment) {
+  return class extends Date { constructor(...args) { if (args.length) super(...args); else super(moment); } static now() { return new Date(moment).getTime(); } };
+}
+function boot(raw, { storageFails = false, search = '', otherSave, store, today } = {}) {
   const key = search.includes('qa') ? 'bloomshot.qa.v1' : 'bloomshot.save.v1';
   const storage = new Map();
   if (raw !== undefined) storage.set(key, JSON.stringify(raw));
@@ -83,7 +87,7 @@ function boot(raw, { storageFails = false, search = '', otherSave, store } = {})
   const document = { getElementById: $, createElement: () => element(), body: element('body'), hidden: false, addEventListener: noop };
   class ObservedGame extends Engine.Game { constructor(level) { super(level); games.push(this); } }
   class ObservedRush extends Rush.RushGame { constructor() { super(); games.push(this); } }
-  const context = vm.createContext({ console, structuredClone, URLSearchParams, Date, Math, Map, Set,
+  const context = vm.createContext({ console, structuredClone, URLSearchParams, Date: today ? fixedDate(today) : Date, Math, Map, Set,
     document, location: { search }, navigator: {}, crypto: { randomUUID: () => 'test-run-' + (++uuid) },
     localStorage: { getItem: name => storage.get(name) || null, setItem: (name, value) => {
       if (storageFails) throw new Error('Storage blocked'); storage.set(name, value); writes.push({ key: name, value });
@@ -367,6 +371,50 @@ test('The Keepsake Collection shows the store price, buys only through the store
   store.revoke(Keepsakes.entitlement); app.frame();
   assert.equal(app.boardDraws.at(-1), 'meadow'); assert.equal(app.saved().keepsake, 'gilded');
   assert.deepEqual(app.saved().koi, save.koi || {}); assert.deepEqual(app.saved().progress, save.progress);
+});
+// Saturday 3 October 2026; its week runs Monday 28 September to Sunday 4 October.
+const SATURDAY = '2026-10-03T12:00:00';
+function finishDaily(app) {
+  const game = app.games.at(-1); assert.equal(game.level.id, 'daily-2026-10-03');
+  game.win(); for (let i = 0; i < 60 && !app.$('result-dialog').open; i++) app.frame(); assert(app.$('result-dialog').open);
+  return game;
+}
+test('The daily garden card shows today, this week and the bouquet, and its first clear pays seeds plus the bouquet on the fourth day', () => {
+  const save = legacySave(); save.daily = {}; save.garden = { seeds: 0, levels: {}, dailyBest: { 'daily-2026-09-28': 2, 'daily-2026-09-29': 1, 'daily-2026-10-01': 3 } };
+  const app = boot(save, { today: SATURDAY });
+  assert(app.$('garden-btn').classList.contains('has-daily'), 'the Garden tab marks a daily garden not yet cleared');
+  app.click('garden-btn');
+  assert.equal(app.$('daily-eyebrow').textContent, 'DAILY GARDEN · SATURDAY');
+  assert.match(app.$('daily-status').innerHTML, /^A fresh angle on .+\. Clear it for 6 to 10 seeds\.$/);
+  assert.equal(app.$('daily-bouquet').textContent, '3 of 4 for a 12\u2011seed bouquet this week.');
+  const days = app.$('daily-week').innerHTML.match(/<span class="[^"]*">/g);
+  assert.deepEqual(days, ['<span class="bloomed">', '<span class="bloomed">', '<span class="">', '<span class="bloomed">', '<span class="">', '<span class="today">', '<span class="later">']);
+  app.click('daily-btn'); finishDaily(app);
+  const saved = app.saved();
+  assert.equal(saved.daily['daily-2026-10-03'].stars, 3); assert.equal(saved.garden.dailyBest['daily-2026-10-03'], 3);
+  assert.equal(saved.garden.seeds, 10 + 12); assert.deepEqual(saved.garden.bouquets, ['week-2026-09-28']);
+  assert.equal(app.$('result-eyebrow').textContent, "TODAY'S GARDEN COMPLETE");
+  assert.equal(app.$('reward-seeds').textContent, '+22 seeds'); assert.equal(app.$('garden-reward').hidden, false);
+  assert.match(app.$('reward-flower').innerHTML, /WEEKLY BOUQUET GATHERED.*\+12 bonus seeds/); assert.equal(app.$('reward-flower').hidden, false);
+  assert.equal(app.$('reward-goal').textContent, 'Enough to plant Sunbell now.');
+  // Playing it again the same day pays nothing more and never repeats the bouquet.
+  app.click('retry-btn'); finishDaily(app);
+  assert.equal(app.saved().garden.seeds, 22); assert.equal(app.$('garden-reward').hidden, true); assert.equal(app.$('reward-flower').hidden, true);
+  app.click('result-garden-btn');
+  assert(!app.$('garden-btn').classList.contains('has-daily'));
+  assert.match(app.$('daily-status').innerHTML, /★★★<\/span> A new garden grows tomorrow\./);
+  assert.equal(app.$('daily-bouquet').textContent, 'Bouquet gathered this week: +12 seeds.');
+});
+test('A daily garden cleared before this update pays only for new stars, and the seed reward names the next thing to grow', () => {
+  const save = legacySave(); save.daily = { 'daily-2026-10-03': { best: 9000, stars: 2, attempts: 3 } };
+  save.garden = { seeds: 0, levels: { sunbell: 1 }, selectedId: 'sunbell' };
+  const app = boot(save, { today: SATURDAY });
+  assert(!app.$('garden-btn').classList.contains('has-daily'), 'a day already cleared is not marked as new');
+  app.click('garden-btn'); assert.match(app.$('daily-status').innerHTML, /★★☆<\/span> Each new star adds 2 seeds\./);
+  app.click('daily-btn'); finishDaily(app);
+  assert.equal(app.saved().garden.seeds, 2); assert.equal(app.$('reward-seeds').textContent, '+2 seeds');
+  assert.equal(app.$('reward-goal').textContent, '6 more seeds to grow Sunbell.');
+  assert.equal(app.saved().daily['daily-2026-10-03'].attempts, 4);
 });
 const report = { passed: results.filter(r => r.passed).length, failed: results.filter(r => !r.passed).length,
   methodology: 'Executes the complete current app.js in an isolated Node VM using real garden/level/engine modules, fake localStorage, and DOM/canvas adapters. Completion fixtures exercise actual engine completion events and app handlers. No real browser or user saves are read or changed.',
