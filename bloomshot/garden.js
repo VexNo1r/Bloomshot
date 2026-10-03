@@ -1,0 +1,156 @@
+(function (root, factory) {
+  'use strict';
+  var garden = factory();
+  if (typeof module === 'object' && module.exports) module.exports = garden;
+  else root.BloomGarden = garden;
+})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+  'use strict';
+
+  // A local, earned-only garden. Collection unlocks and game difficulty live elsewhere.
+  var COSTS = Object.freeze([4, 8, 14]);
+  var MAX_SEEDS = 1000000;
+  var MAX_TOTAL = 1000000000;
+  var RECEIPT_LIMIT = 64;
+  var STAGES = Object.freeze([
+    Object.freeze({ stage: 1, name: 'First shoots', cost: COSTS[0] }),
+    Object.freeze({ stage: 2, name: 'Young flowers', cost: COSTS[1] }),
+    Object.freeze({ stage: 3, name: 'Full bloom', cost: COSTS[2] })
+  ]);
+  function plot(id, name, flowerId, type, color, description) {
+    return Object.freeze({ id: id, name: name, flowerId: flowerId, type: type,
+      color: color, description: description, costs: COSTS, stages: STAGES });
+  }
+  var plots = Object.freeze([
+    plot('sunbell', 'Sunbell', 'sunbell', 'gold', '#F7C975', 'Golden bells catch the first light.'),
+    plot('coral', 'Coral Cup', 'coral-cup', 'coral', '#F38F8D', 'Soft coral petals warm a little corner of the meadow.'),
+    plot('lilac', 'Lilac Star', 'lilac-star', 'lilac', '#B8A0DC', 'A constellation of lilac flowers takes root.'),
+    plot('honey', 'Honeyburst', 'honeyburst', 'gold', '#EAAF58', 'Honey-colored crowns gather the afternoon sun.'),
+    plot('moon', 'Moon Poppy', 'moon-poppy', 'lilac', '#C5B6EB', 'Pale poppies bring a little moonlight to the meadow.'),
+    plot('dawn', 'Dawn Crown', 'dawn-crown', 'coral', '#F19B90', 'Bright coral crowns greet a new day.')
+  ]);
+  function own(object, key) { return Object.prototype.hasOwnProperty.call(object, key); }
+  function record(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
+  function integer(value, maximum) {
+    return typeof value === 'number' && Number.isFinite(value) ? Math.min(maximum, Math.max(0, Math.floor(value))) : 0;
+  }
+  function validPlot(id) { return typeof id === 'string' && plots.some(function (p) { return p.id === id; }); }
+  function receiptId(value) {
+    return typeof value === 'string' && value.length <= 160 && value.trim().length > 0 ? value.trim() : null;
+  }
+  function normalize(raw) {
+    // Only an absent field receives starter seeds. An existing zero balance stays zero.
+    var isNew = raw === undefined;
+    var source = record(raw) ? raw : {};
+    var levels = {};
+    var savedLevels = own(source, 'levels') && record(source.levels) ? source.levels : {};
+    plots.forEach(function (p) { levels[p.id] = own(savedLevels, p.id) ? integer(savedLevels[p.id], 3) : 0; });
+    var receipts = [];
+    if (own(source, 'receipts') && Array.isArray(source.receipts)) {
+      // Walk backward so the most recent occurrence wins; storage never grows with run count.
+      for (var i = source.receipts.length - 1; i >= 0 && receipts.length < RECEIPT_LIMIT; i--) {
+        var id = receiptId(source.receipts[i]);
+        if (id && receipts.indexOf(id) < 0) receipts.push(id);
+      }
+      receipts.reverse();
+    }
+    var campaignBest = {};
+    var savedBest = own(source, 'campaignBest') && record(source.campaignBest) ? source.campaignBest : {};
+    for (var level = 1; level <= 18; level++) {
+      var best = own(savedBest, level) ? integer(savedBest[level], 3) : 0;
+      if (best) campaignBest[level] = best;
+    }
+    var moonBest = {};
+    var savedMoon = own(source, 'moonBest') && record(source.moonBest) ? source.moonBest : {};
+    for (var trial = 1; trial <= 6; trial++) {
+      var moonId = 'moon-' + trial;
+      var moonStars = own(savedMoon, moonId) ? integer(savedMoon[moonId], 3) : 0;
+      if (moonStars) moonBest[moonId] = moonStars;
+    }
+    return { version: 1,
+      seeds: isNew ? 4 : (own(source, 'seeds') ? integer(source.seeds, MAX_SEEDS) : 0),
+      selectedId: own(source, 'selectedId') && validPlot(source.selectedId) ? source.selectedId : 'sunbell',
+      levels: levels, receipts: receipts, campaignBest: campaignBest, moonBest: moonBest,
+      starterSeeds: isNew ? 4 : (own(source, 'starterSeeds') ? integer(source.starterSeeds, 4) : 0),
+      totalSeedsEarned: own(source, 'totalSeedsEarned') ? integer(source.totalSeedsEarned, MAX_TOTAL) : 0,
+      totalSeedsSpent: own(source, 'totalSeedsSpent') ? integer(source.totalSeedsSpent, MAX_TOTAL) : 0 };
+  }
+  function grant(state, reward) {
+    var next = normalize(state);
+    function result(amount, reason, duplicate) {
+      return { state: next, awarded: amount, seeds: amount, reason: reason, duplicate: !!duplicate };
+    }
+    if (!record(reward)) return result(0, 'invalid-reward');
+    if (reward.completed !== true) return result(0, 'incomplete');
+    var runId = receiptId(reward.runId);
+    if (!runId) return result(0, 'invalid-run-id');
+    if (next.receipts.indexOf(runId) >= 0) return result(0, 'duplicate', true);
+    var earned = 0;
+    if (reward.mode === 'rush') {
+      if (!Number.isInteger(reward.blooms) || reward.blooms < 0 || !Number.isInteger(reward.wave) || reward.wave < 1) {
+        return result(0, 'invalid-reward');
+      }
+      earned = Math.min(40, Math.floor(reward.blooms / 4) + Math.max(0, reward.wave - 1));
+      if (reward.blooms > 0) earned = Math.max(1, earned);
+    } else if (reward.mode === 'campaign' || reward.mode === 'moon') {
+      var moon = reward.mode === 'moon';
+      var validLevel = moon ? typeof reward.levelId === 'string' && /^moon-[1-6]$/.test(reward.levelId) : Number.isInteger(reward.levelId) && reward.levelId >= 1 && reward.levelId <= 18;
+      if (!validLevel || !Number.isInteger(reward.stars) || reward.stars < 1 || reward.stars > 3) return result(0, 'invalid-reward');
+      var bests = moon ? next.moonBest : next.campaignBest;
+      // The caller supplies pre-run progress on the first award after upgrading an older save.
+      var previous = Math.max(bests[reward.levelId] || 0, integer(reward.previousStars, 3));
+      // Pay the same lifetime reward whether a player earns stars now or improves later.
+      earned = previous === 0 ? 8 + (reward.stars - 1) * 2 : Math.max(0, reward.stars - previous) * 2;
+      bests[reward.levelId] = Math.max(previous, reward.stars);
+    } else return result(0, 'invalid-mode');
+    // Record even valid zero-seed results: the same completion cannot later be edited and claimed.
+    next.receipts.push(runId);
+    next.receipts = next.receipts.slice(-RECEIPT_LIMIT);
+    var added = Math.min(earned, MAX_SEEDS - next.seeds);
+    next.seeds += added;
+    next.totalSeedsEarned = Math.min(MAX_TOTAL, next.totalSeedsEarned + added);
+    return result(added, added ? 'awarded' : (earned ? 'balance-full' : 'no-new-reward'));
+  }
+  function plant(state, plotId) {
+    var next = normalize(state);
+    function result(success, reason, cost, stage) {
+      return { state: next, success: success, reason: reason, cost: cost, stage: stage };
+    }
+    if (!validPlot(plotId)) return result(false, 'unknown-plot', 0, null);
+    var current = next.levels[plotId];
+    if (current >= 3) return result(false, 'complete', 0, current);
+    var cost = COSTS[current];
+    if (next.seeds < cost) return result(false, 'insufficient-seeds', cost, current);
+    next.seeds -= cost;
+    next.levels[plotId] = current + 1;
+    next.selectedId = plotId;
+    next.totalSeedsSpent = Math.min(MAX_TOTAL, next.totalSeedsSpent + cost);
+    return result(true, 'planted', cost, current + 1);
+  }
+  function select(state, plotId) {
+    var next = normalize(state);
+    if (validPlot(plotId)) next.selectedId = plotId;
+    return next;
+  }
+  function summary(state) {
+    var current = normalize(state);
+    var totalStages = 0;
+    var completedPlots = 0;
+    var beds = plots.map(function (p) {
+      var stage = current.levels[p.id];
+      var cost = stage < 3 ? COSTS[stage] : null;
+      totalStages += stage;
+      if (stage === 3) completedPlots++;
+      return { id: p.id, name: p.name, flowerId: p.flowerId, type: p.type, color: p.color,
+        description: p.description, costs: p.costs, stages: p.stages,
+        stage: stage, stageName: stage ? STAGES[stage - 1].name : 'Waiting to grow',
+        nextCost: cost, canPlant: cost !== null && current.seeds >= cost,
+        selected: current.selectedId === p.id };
+    });
+    return { seeds: current.seeds, selectedId: current.selectedId,
+      totalStages: totalStages, completedPlots: completedPlots, totalPlots: plots.length,
+      totalSeedsEarned: current.totalSeedsEarned, totalSeedsSpent: current.totalSeedsSpent,
+      nextCost: current.levels[current.selectedId] < 3 ? COSTS[current.levels[current.selectedId]] : null,
+      plots: beds };
+  }
+  return Object.freeze({ plots: plots, normalize: normalize, grant: grant, plant: plant, select: select, summary: summary });
+});

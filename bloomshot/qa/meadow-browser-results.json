@@ -1,0 +1,24 @@
+{
+  "checked_at": "2026-10-02 Pacific",
+  "worker_version": "ae07268742f99a5b",
+  "browser": "Codex in-app Chromium, local http://127.0.0.1:4387/?qa=1",
+  "method": "Real pointer and keyboard controls, visible UI and DOM attributes; no save injection or progress mutation",
+  "passed": [
+    "Update from prior shell preserved 2100 Rush best and six campaign stars",
+    "First meadow opened with four starter seeds and zero planted stages",
+    "Plant Sunbell spent exactly four seeds and rendered first shoots",
+    "Reload preserved Sunbell stage one and zero balance",
+    "Selecting Coral Cup preserved balance and disabled unaffordable planting",
+    "Actual Rush run ended at wave one with two blooms and 200 points, awarded one seed",
+    "Returning to result and garden did not award the completion twice",
+    "Explicit update to final release preserved one seed, planted patch and prior records",
+    "Final source loaded meadow and saved progress from cache with local server stopped",
+    "Settings still reported Ready to play offline after offline reload",
+    "320x568 layout had no horizontal overflow; all six patch targets measured about 72x52 pixels",
+    "390x844 and 768x1024 layouts rendered, puzzle accordion retained correct stars and unlocks",
+    "No page console errors in the exercised online flow"
+  ],
+  "qa_save_after_test": {"seeds":1,"selectedId":"sunbell","sunbellStage":1,"otherStages":0,"rushBest":2100,"rushTotalBlooms":21,"campaignStars":6},
+  "server_restored": true,
+  "limits": ["Resized desktop browser, not physical phones or tablets", "No perceptual audio listening", "No native compilation or installation", "Hosted private authentication and installation not exercised", "Source-only automated reports cover campaign rewards and preview restoration separately"]
+}

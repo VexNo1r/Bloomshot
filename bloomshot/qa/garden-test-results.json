@@ -1,0 +1,115 @@
+{
+  "passed": 20,
+  "failed": 0,
+  "observations": {
+    "starterSeeds": 4,
+    "costsPerPlot": [
+      4,
+      8,
+      14
+    ],
+    "completeMeadowCost": 156,
+    "decentRush": {
+      "blooms": 24,
+      "wave": 3,
+      "awarded": 8
+    },
+    "weakPositiveRushMinimum": 1,
+    "rushRewardCap": 40,
+    "firstCampaignClearByStars": {
+      "1": 8,
+      "2": 10,
+      "3": 12
+    },
+    "improvedCampaignStar": 2,
+    "receiptWindow": 64,
+    "limitations": [
+      "Local save logic is not a server-authoritative payment or anti-tampering system.",
+      "Rush receipt deduplication covers the most recent 64 completions; the UI must issue one unique ID per run.",
+      "The caller must persist the initial garden and each successful state transition.",
+      "This suite verifies domain behavior; browser rendering and storage integration need separate checks."
+    ]
+  },
+  "results": [
+    {
+      "name": "Browser UMD and CommonJS expose the same public API",
+      "passed": true
+    },
+    {
+      "name": "Six beds match the existing earned flower catalog without changing its unlocks",
+      "passed": true
+    },
+    {
+      "name": "Only an absent garden receives starter seeds; serialization cannot refill a spent balance",
+      "passed": true
+    },
+    {
+      "name": "Malformed fields normalize to bounded safe values, ignoring inherited and unknown properties",
+      "passed": true
+    },
+    {
+      "name": "All six beds are immediately selectable and the first shoots cost exactly four seeds",
+      "passed": true
+    },
+    {
+      "name": "Purchases are atomic, immutable, and fail without any partial progress",
+      "passed": true
+    },
+    {
+      "name": "Each bed reaches full bloom after exactly 26 seeds and cannot be over-upgraded",
+      "passed": true
+    },
+    {
+      "name": "A decent Rush run awards eight seeds; weak positive runs still award one",
+      "passed": true
+    },
+    {
+      "name": "Rush reward formula is deterministic over small runs and caps at forty seeds",
+      "passed": true
+    },
+    {
+      "name": "Incomplete, missing-ID, malformed, and unknown-mode results cannot award or consume receipts",
+      "passed": true
+    },
+    {
+      "name": "Duplicate completion IDs are idempotent across modes and edited reward payloads",
+      "passed": true
+    },
+    {
+      "name": "Receipt history keeps the latest sixty-four unique completions",
+      "passed": true
+    },
+    {
+      "name": "Campaign first clears award eight plus star quality, then only two seeds per improved star",
+      "passed": true
+    },
+    {
+      "name": "Immediate three stars and improvement from one to three earn equal lifetime seeds",
+      "passed": true
+    },
+    {
+      "name": "Existing campaign stars form the reward baseline without resetting unrelated progress",
+      "passed": true
+    },
+    {
+      "name": "Campaign replay resistance remains after its run receipt has aged out",
+      "passed": true
+    },
+    {
+      "name": "Grant, select, normalize, and summary never mutate caller-owned state or reward objects",
+      "passed": true
+    },
+    {
+      "name": "Summary provides affordable next actions and selection without side effects",
+      "passed": true
+    },
+    {
+      "name": "Balance saturation never wraps and reports only seeds actually added",
+      "passed": true
+    },
+    {
+      "name": "Moon rewards stay separate from Meadow records and survive normalization and receipt aging",
+      "passed": true
+    }
+  ]
+}

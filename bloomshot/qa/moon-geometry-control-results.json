@@ -1,0 +1,44 @@
+[
+  {
+    "id": "moon-4",
+    "priorRouteShots": 2,
+    "priorRoute": [
+      {
+        "angleRadians": -1.0559711737564128,
+        "rotateId": "m4-petal",
+        "bloomsAfter": 13,
+        "gatePassages": 2
+      },
+      {
+        "angleRadians": -2.356194490192345,
+        "rotateId": null,
+        "bloomsAfter": 18,
+        "gatePassages": 4
+      }
+    ],
+    "newGeometryStatus": "aiming",
+    "newGeometryBlooms": 10,
+    "newGeometryTotal": 24
+  },
+  {
+    "id": "moon-6",
+    "priorRouteShots": 2,
+    "priorRoute": [
+      {
+        "angleRadians": -2.558580028585261,
+        "rotateId": null,
+        "bloomsAfter": 14,
+        "gatePassages": 2
+      },
+      {
+        "angleRadians": -0.7068583470577035,
+        "rotateId": null,
+        "bloomsAfter": 24,
+        "gatePassages": 1
+      }
+    ],
+    "newGeometryStatus": "aiming",
+    "newGeometryBlooms": 2,
+    "newGeometryTotal": 24
+  }
+]

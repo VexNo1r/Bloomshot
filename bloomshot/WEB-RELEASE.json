@@ -1,0 +1,19 @@
+{
+  "published": true,
+  "audience": "owner-private",
+  "url": "https://bloomshot-meadow.trevor-owens1996.chatgpt.site",
+  "project_id": "appgprj_6ac04fc69fa881919f50dedb89a70cd6",
+  "deployment_id": "appgdep_6ac06be95a10819191e10f8774a54fea",
+  "version_id": "appgprj_6ac04fc69fa881919f50dedb89a70cd6~appgver_11582ca3b7988191bab8cdcdcf742637",
+  "source_commit": "3d12655f71f9a1d366c3cceee4f9ad44e795a286",
+  "worker_version": "dd9f6269858015fa",
+  "confirmed_at": "2026-10-03T02:44:00.357038+00:00",
+  "physical_devices_verified": false,
+  "payments_live": false,
+  "local_browser_offline_reload": true,
+  "local_explicit_update": true,
+  "local_meadow_progression_verified": true,
+  "local_moon_chapter_available_offline": true,
+  "native_source_generated": true,
+  "native_compilation_verified": false
+}

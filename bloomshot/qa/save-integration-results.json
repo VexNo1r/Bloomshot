@@ -1,0 +1,67 @@
+{
+  "passed": 14,
+  "failed": 0,
+  "methodology": "Executes the complete current app.js in an isolated Node VM using real garden/level/engine modules, fake localStorage, and DOM/canvas adapters. Completion fixtures exercise actual engine completion events and app handlers. No real browser or user saves are read or changed.",
+  "limitations": [
+    "DOM and canvas adapters verify integration state, not visual appearance, accessibility behavior, or browser-specific storage.",
+    "Completion fixtures do not measure gameplay difficulty; dedicated physics and Rush tests cover mechanics."
+  ],
+  "results": [
+    {
+      "name": "Startup migrates an old save once and preserves all existing progress and preferences",
+      "passed": true
+    },
+    {
+      "name": "Malformed individual daily entries cannot reset valid campaign, Rush, or planted meadow records",
+      "passed": true
+    },
+    {
+      "name": "Actual selection and planting handlers persist exactly one stage, including a zero-balance reload",
+      "passed": true
+    },
+    {
+      "name": "Completed Rush rewards are saved before the result dialog and cannot repeat on dialog reopen",
+      "passed": true
+    },
+    {
+      "name": "Restarting an unfinished run does not grant rewards",
+      "passed": true
+    },
+    {
+      "name": "Visual previews grant no progress and restore the original in-progress run ID for its reward",
+      "passed": true
+    },
+    {
+      "name": "Visual preview restoration retains an already-earned result amount without regranting",
+      "passed": true
+    },
+    {
+      "name": "Campaign integration supplies pre-mutation stars so only new stars earn seeds",
+      "passed": true
+    },
+    {
+      "name": "Reduced-motion planting draws the final saved growth and stops unnecessary meadow redraws",
+      "passed": true
+    },
+    {
+      "name": "QA and normal storage namespaces remain isolated",
+      "passed": true
+    },
+    {
+      "name": "Unavailable device storage reports the limitation while keeping this visit playable",
+      "passed": true
+    },
+    {
+      "name": "Moon trials use separate records, reward new stars, unlock the next trial, and keep Meadow progress",
+      "passed": true
+    },
+    {
+      "name": "Locked Moon buttons and malformed individual Moon records cannot grant or erase progress",
+      "passed": true
+    },
+    {
+      "name": "Koi preview restores a Moon trial and its reward without leaking it to Meadow or daily records",
+      "passed": true
+    }
+  ]
+}

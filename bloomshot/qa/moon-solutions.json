@@ -1,0 +1,323 @@
+{
+  "method": "Deterministic direct/grazing/wall/gate angles and one-petal turns; beam width 10; maximum five shots. Gate traversal required. Moon 1 deliberately starts straight up to teach its gate; a stronger two-shot route is known. These are executable routes, not a human playtest or optimality proof.",
+  "simulatedShots": 15108,
+  "elapsedSeconds": 15.137,
+  "levels": [
+    {
+      "id": "moon-1",
+      "name": "A Door in the Dark",
+      "par": 3,
+      "shots": [
+        {
+          "angleRadians": -1.5707963267948966,
+          "rotateId": null,
+          "bloomsAfter": 2,
+          "gatePassages": 2
+        },
+        {
+          "angleRadians": -1.387998742226947,
+          "rotateId": null,
+          "bloomsAfter": 11,
+          "gatePassages": 1
+        },
+        {
+          "angleRadians": -1.6157963267948965,
+          "rotateId": null,
+          "bloomsAfter": 12,
+          "gatePassages": 1
+        }
+      ],
+      "score": 2600,
+      "stars": 3,
+      "portals": [
+        {
+          "entry": "m1-a",
+          "exit": "m1-b"
+        },
+        {
+          "entry": "m1-b",
+          "exit": "m1-a"
+        },
+        {
+          "entry": "m1-a",
+          "exit": "m1-b"
+        },
+        {
+          "entry": "m1-a",
+          "exit": "m1-b"
+        }
+      ]
+    },
+    {
+      "id": "moon-2",
+      "name": "Turn of the Moon",
+      "par": 2,
+      "shots": [
+        {
+          "angleRadians": -2.077686193593766,
+          "rotateId": null,
+          "bloomsAfter": 11,
+          "gatePassages": 1
+        },
+        {
+          "angleRadians": -2.123985335220012,
+          "rotateId": null,
+          "bloomsAfter": 12,
+          "gatePassages": 1
+        }
+      ],
+      "score": 3400,
+      "stars": 3,
+      "portals": [
+        {
+          "entry": "m2-a",
+          "exit": "m2-b"
+        },
+        {
+          "entry": "m2-a",
+          "exit": "m2-b"
+        }
+      ]
+    },
+    {
+      "id": "moon-3",
+      "name": "Crescent Relay",
+      "par": 3,
+      "shots": [
+        {
+          "angleRadians": -1.1550166744001296,
+          "rotateId": null,
+          "bloomsAfter": 8,
+          "gatePassages": 2
+        },
+        {
+          "angleRadians": -1.0995574287564276,
+          "rotateId": null,
+          "bloomsAfter": 14,
+          "gatePassages": 2
+        },
+        {
+          "angleRadians": -0.8593372010553886,
+          "rotateId": null,
+          "bloomsAfter": 15,
+          "gatePassages": 1
+        }
+      ],
+      "score": 2900,
+      "stars": 3,
+      "portals": [
+        {
+          "entry": "m3-a",
+          "exit": "m3-b"
+        },
+        {
+          "entry": "m3-b",
+          "exit": "m3-a"
+        },
+        {
+          "entry": "m3-b",
+          "exit": "m3-a"
+        },
+        {
+          "entry": "m3-a",
+          "exit": "m3-b"
+        },
+        {
+          "entry": "m3-a",
+          "exit": "m3-b"
+        }
+      ]
+    },
+    {
+      "id": "moon-4",
+      "name": "Crossed Stars",
+      "par": 3,
+      "shots": [
+        {
+          "angleRadians": -1.6797913986635722,
+          "rotateId": null,
+          "bloomsAfter": 14,
+          "gatePassages": 5
+        },
+        {
+          "angleRadians": -0.7567601616438747,
+          "rotateId": "m4-petal",
+          "bloomsAfter": 22,
+          "gatePassages": 5
+        },
+        {
+          "angleRadians": -2.748893571891069,
+          "rotateId": null,
+          "bloomsAfter": 24,
+          "gatePassages": 1
+        }
+      ],
+      "score": 5000,
+      "stars": 3,
+      "portals": [
+        {
+          "entry": "m4-two-a",
+          "exit": "m4-two-b"
+        },
+        {
+          "entry": "m4-one-a",
+          "exit": "m4-one-b"
+        },
+        {
+          "entry": "m4-one-b",
+          "exit": "m4-one-a"
+        },
+        {
+          "entry": "m4-one-a",
+          "exit": "m4-one-b"
+        },
+        {
+          "entry": "m4-two-b",
+          "exit": "m4-two-a"
+        },
+        {
+          "entry": "m4-two-a",
+          "exit": "m4-two-b"
+        },
+        {
+          "entry": "m4-two-a",
+          "exit": "m4-two-b"
+        },
+        {
+          "entry": "m4-two-a",
+          "exit": "m4-two-b"
+        },
+        {
+          "entry": "m4-one-b",
+          "exit": "m4-one-a"
+        },
+        {
+          "entry": "m4-one-b",
+          "exit": "m4-one-a"
+        },
+        {
+          "entry": "m4-one-a",
+          "exit": "m4-one-b"
+        }
+      ]
+    },
+    {
+      "id": "moon-5",
+      "name": "Petal Observatory",
+      "par": 3,
+      "shots": [
+        {
+          "angleRadians": -1.526410917622178,
+          "rotateId": null,
+          "bloomsAfter": 10,
+          "gatePassages": 4
+        },
+        {
+          "angleRadians": -1.6779116501471285,
+          "rotateId": "m5-lower-petal",
+          "bloomsAfter": 17,
+          "gatePassages": 6
+        },
+        {
+          "angleRadians": -2.317450578174577,
+          "rotateId": null,
+          "bloomsAfter": 18,
+          "gatePassages": 1
+        }
+      ],
+      "score": 3500,
+      "stars": 3,
+      "portals": [
+        {
+          "entry": "m5-one-a",
+          "exit": "m5-one-b"
+        },
+        {
+          "entry": "m5-two-b",
+          "exit": "m5-two-a"
+        },
+        {
+          "entry": "m5-two-a",
+          "exit": "m5-two-b"
+        },
+        {
+          "entry": "m5-two-a",
+          "exit": "m5-two-b"
+        },
+        {
+          "entry": "m5-one-b",
+          "exit": "m5-one-a"
+        },
+        {
+          "entry": "m5-two-a",
+          "exit": "m5-two-b"
+        },
+        {
+          "entry": "m5-two-b",
+          "exit": "m5-two-a"
+        },
+        {
+          "entry": "m5-one-a",
+          "exit": "m5-one-b"
+        },
+        {
+          "entry": "m5-two-b",
+          "exit": "m5-two-a"
+        },
+        {
+          "entry": "m5-one-b",
+          "exit": "m5-one-a"
+        },
+        {
+          "entry": "m5-one-a",
+          "exit": "m5-one-b"
+        }
+      ]
+    },
+    {
+      "id": "moon-6",
+      "name": "Lunar Waltz",
+      "par": 3,
+      "shots": [
+        {
+          "angleRadians": -2.0117914221226987,
+          "rotateId": "m6-lower-petal",
+          "bloomsAfter": 12,
+          "gatePassages": 1
+        },
+        {
+          "angleRadians": -2.1205750411731104,
+          "rotateId": null,
+          "bloomsAfter": 23,
+          "gatePassages": 3
+        },
+        {
+          "angleRadians": -1.860915265886641,
+          "rotateId": null,
+          "bloomsAfter": 24,
+          "gatePassages": 0
+        }
+      ],
+      "score": 5000,
+      "stars": 3,
+      "portals": [
+        {
+          "entry": "m6-two-b",
+          "exit": "m6-two-a"
+        },
+        {
+          "entry": "m6-one-b",
+          "exit": "m6-one-a"
+        },
+        {
+          "entry": "m6-two-b",
+          "exit": "m6-two-a"
+        },
+        {
+          "entry": "m6-two-a",
+          "exit": "m6-two-b"
+        }
+      ]
+    }
+  ]
+}

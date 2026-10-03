@@ -1,0 +1,5663 @@
+{
+  "generatedAt": "2026-10-03T04:16:00.863Z",
+  "geometry": [
+    {
+      "id": "moon-1",
+      "buds": 12,
+      "groups": 4,
+      "gatePairs": 1,
+      "petals": 1
+    },
+    {
+      "id": "moon-2",
+      "buds": 12,
+      "groups": 4,
+      "gatePairs": 1,
+      "petals": 1
+    },
+    {
+      "id": "moon-3",
+      "buds": 15,
+      "groups": 0,
+      "gatePairs": 1,
+      "petals": 1
+    },
+    {
+      "id": "moon-4",
+      "buds": 24,
+      "groups": 0,
+      "gatePairs": 2,
+      "petals": 1
+    },
+    {
+      "id": "moon-5",
+      "buds": 18,
+      "groups": 0,
+      "gatePairs": 2,
+      "petals": 2
+    },
+    {
+      "id": "moon-6",
+      "buds": 24,
+      "groups": 0,
+      "gatePairs": 2,
+      "petals": 2
+    }
+  ],
+  "levels": [
+    {
+      "id": "moon-1",
+      "name": "A Door in the Dark",
+      "shotsUsed": 3,
+      "authoredPar": 3,
+      "parMet": true,
+      "gatePassages": 4,
+      "gateEntries": [
+        "m1-a",
+        "m1-b"
+      ],
+      "score": 2600,
+      "stars": 3,
+      "replayedFps": [
+        30,
+        60,
+        144
+      ],
+      "identicalReplayOutcomes": true,
+      "noGatesReplay": {
+        "status": "aiming",
+        "blooms": 6
+      },
+      "openingSurvey": {
+        "attempts": 110,
+        "firstShotWins": 0,
+        "maxBlooms": 11,
+        "attemptsDetail": [
+          {
+            "degrees": -171,
+            "rotateId": null,
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -171,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -168,
+            "rotateId": null,
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -168,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -165,
+            "rotateId": null,
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -165,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -162,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -162,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -159,
+            "rotateId": null,
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -159,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -156,
+            "rotateId": null,
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -156,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -153,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -153,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -150,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -150,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -147,
+            "rotateId": null,
+            "won": false,
+            "blooms": 6,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -147,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 6,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -144,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -144,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -141,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -141,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -138,
+            "rotateId": null,
+            "won": false,
+            "blooms": 7,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -138,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -135,
+            "rotateId": null,
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -135,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -132,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -132,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -129,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -129,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -126,
+            "rotateId": null,
+            "won": false,
+            "blooms": 9,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -126,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 9,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -123,
+            "rotateId": null,
+            "won": false,
+            "blooms": 9,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -123,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 9,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -120,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -120,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -117,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -117,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 6,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -114,
+            "rotateId": null,
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -114,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -111,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -111,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -108,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -108,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -105,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -105,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -102,
+            "rotateId": null,
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -102,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -99,
+            "rotateId": null,
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -99,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -96,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -96,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -93,
+            "rotateId": null,
+            "won": false,
+            "blooms": 9,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -93,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 9,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -90,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -90,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -87,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -87,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -84,
+            "rotateId": null,
+            "won": false,
+            "blooms": 7,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -84,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 7,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -81,
+            "rotateId": null,
+            "won": false,
+            "blooms": 8,
+            "gatePassages": 3
+          },
+          {
+            "degrees": -81,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -78,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -78,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -75,
+            "rotateId": null,
+            "won": false,
+            "blooms": 6,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -75,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 11,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -72,
+            "rotateId": null,
+            "won": false,
+            "blooms": 6,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -72,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -69,
+            "rotateId": null,
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -69,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 6,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -66,
+            "rotateId": null,
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -66,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -63,
+            "rotateId": null,
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -63,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -60,
+            "rotateId": null,
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -60,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -57,
+            "rotateId": null,
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -57,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -54,
+            "rotateId": null,
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -54,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -51,
+            "rotateId": null,
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -51,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -48,
+            "rotateId": null,
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -48,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 7,
+            "gatePassages": 3
+          },
+          {
+            "degrees": -45,
+            "rotateId": null,
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -45,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -42,
+            "rotateId": null,
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -42,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -39,
+            "rotateId": null,
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -39,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -36,
+            "rotateId": null,
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -36,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -33,
+            "rotateId": null,
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -33,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -30,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -30,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -27,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -27,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 8,
+            "gatePassages": 3
+          },
+          {
+            "degrees": -24,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -24,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -21,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -21,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -18,
+            "rotateId": null,
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -18,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -15,
+            "rotateId": null,
+            "won": false,
+            "blooms": 8,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -15,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 8,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -12,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -12,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -9,
+            "rotateId": null,
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -9,
+            "rotateId": "m1-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "moon-2",
+      "name": "Turn of the Moon",
+      "shotsUsed": 2,
+      "authoredPar": 2,
+      "parMet": true,
+      "gatePassages": 2,
+      "gateEntries": [
+        "m2-a"
+      ],
+      "score": 3400,
+      "stars": 3,
+      "replayedFps": [
+        30,
+        60,
+        144
+      ],
+      "identicalReplayOutcomes": true,
+      "noGatesReplay": {
+        "status": "aiming",
+        "blooms": 4
+      },
+      "openingSurvey": {
+        "attempts": 110,
+        "firstShotWins": 0,
+        "maxBlooms": 10,
+        "attemptsDetail": [
+          {
+            "degrees": -171,
+            "rotateId": null,
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -171,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 6,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -168,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -168,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -165,
+            "rotateId": null,
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -165,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -162,
+            "rotateId": null,
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -162,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -159,
+            "rotateId": null,
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -159,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -156,
+            "rotateId": null,
+            "won": false,
+            "blooms": 8,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -156,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -153,
+            "rotateId": null,
+            "won": false,
+            "blooms": 6,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -153,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -150,
+            "rotateId": null,
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -150,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -147,
+            "rotateId": null,
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -147,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -144,
+            "rotateId": null,
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -144,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -141,
+            "rotateId": null,
+            "won": false,
+            "blooms": 10,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -141,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 10,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -138,
+            "rotateId": null,
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -138,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -135,
+            "rotateId": null,
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 3
+          },
+          {
+            "degrees": -135,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -132,
+            "rotateId": null,
+            "won": false,
+            "blooms": 7,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -132,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 7,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -129,
+            "rotateId": null,
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 3
+          },
+          {
+            "degrees": -129,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 3
+          },
+          {
+            "degrees": -126,
+            "rotateId": null,
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -126,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -123,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -123,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 8,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -120,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -120,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -117,
+            "rotateId": null,
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -117,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -114,
+            "rotateId": null,
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -114,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -111,
+            "rotateId": null,
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -111,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -108,
+            "rotateId": null,
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -108,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -105,
+            "rotateId": null,
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -105,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -102,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -102,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -99,
+            "rotateId": null,
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -99,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -96,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 3
+          },
+          {
+            "degrees": -96,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -93,
+            "rotateId": null,
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -93,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -90,
+            "rotateId": null,
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -90,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -87,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -87,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -84,
+            "rotateId": null,
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -84,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -81,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -81,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -78,
+            "rotateId": null,
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 5
+          },
+          {
+            "degrees": -78,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -75,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -75,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -72,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -72,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -69,
+            "rotateId": null,
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -69,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -66,
+            "rotateId": null,
+            "won": false,
+            "blooms": 7,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -66,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 7,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -63,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -63,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -60,
+            "rotateId": null,
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -60,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -57,
+            "rotateId": null,
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -57,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -54,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -54,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -51,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -51,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -48,
+            "rotateId": null,
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -48,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -45,
+            "rotateId": null,
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -45,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -42,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -42,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -39,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -39,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -36,
+            "rotateId": null,
+            "won": false,
+            "blooms": 6,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -36,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 6,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -33,
+            "rotateId": null,
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -33,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -30,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -30,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -27,
+            "rotateId": null,
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -27,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -24,
+            "rotateId": null,
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -24,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -21,
+            "rotateId": null,
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -21,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -18,
+            "rotateId": null,
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -18,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -15,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -15,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -12,
+            "rotateId": null,
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -12,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -9,
+            "rotateId": null,
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -9,
+            "rotateId": "m2-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "moon-3",
+      "name": "Crescent Relay",
+      "shotsUsed": 3,
+      "authoredPar": 3,
+      "parMet": true,
+      "gatePassages": 5,
+      "gateEntries": [
+        "m3-a",
+        "m3-b"
+      ],
+      "score": 2900,
+      "stars": 3,
+      "replayedFps": [
+        30,
+        60,
+        144
+      ],
+      "identicalReplayOutcomes": true,
+      "noGatesReplay": {
+        "status": "aiming",
+        "blooms": 10
+      },
+      "openingSurvey": {
+        "attempts": 110,
+        "firstShotWins": 0,
+        "maxBlooms": 8,
+        "attemptsDetail": [
+          {
+            "degrees": -171,
+            "rotateId": null,
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -171,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -168,
+            "rotateId": null,
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -168,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -165,
+            "rotateId": null,
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -165,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -162,
+            "rotateId": null,
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -162,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -159,
+            "rotateId": null,
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -159,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -156,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -156,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 6,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -153,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -153,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -150,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -150,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -147,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -147,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -144,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -144,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -141,
+            "rotateId": null,
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -141,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -138,
+            "rotateId": null,
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -138,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -135,
+            "rotateId": null,
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -135,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -132,
+            "rotateId": null,
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -132,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -129,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -129,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -126,
+            "rotateId": null,
+            "won": false,
+            "blooms": 8,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -126,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -123,
+            "rotateId": null,
+            "won": false,
+            "blooms": 6,
+            "gatePassages": 3
+          },
+          {
+            "degrees": -123,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -120,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -120,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -117,
+            "rotateId": null,
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -117,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -114,
+            "rotateId": null,
+            "won": false,
+            "blooms": 6,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -114,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 6,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -111,
+            "rotateId": null,
+            "won": false,
+            "blooms": 8,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -111,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 8,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -108,
+            "rotateId": null,
+            "won": false,
+            "blooms": 6,
+            "gatePassages": 3
+          },
+          {
+            "degrees": -108,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 6,
+            "gatePassages": 3
+          },
+          {
+            "degrees": -105,
+            "rotateId": null,
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -105,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -102,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -102,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -99,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -99,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -96,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -96,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -93,
+            "rotateId": null,
+            "won": false,
+            "blooms": 6,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -93,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 6,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -90,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -90,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -87,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -87,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -84,
+            "rotateId": null,
+            "won": false,
+            "blooms": 7,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -84,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 7,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -81,
+            "rotateId": null,
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -81,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -78,
+            "rotateId": null,
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -78,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -75,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -75,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -72,
+            "rotateId": null,
+            "won": false,
+            "blooms": 6,
+            "gatePassages": 4
+          },
+          {
+            "degrees": -72,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 6,
+            "gatePassages": 4
+          },
+          {
+            "degrees": -69,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -69,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -66,
+            "rotateId": null,
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -66,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -63,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -63,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -60,
+            "rotateId": null,
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -60,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -57,
+            "rotateId": null,
+            "won": false,
+            "blooms": 6,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -57,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 6,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -54,
+            "rotateId": null,
+            "won": false,
+            "blooms": 7,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -54,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 8,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -51,
+            "rotateId": null,
+            "won": false,
+            "blooms": 6,
+            "gatePassages": 3
+          },
+          {
+            "degrees": -51,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -48,
+            "rotateId": null,
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -48,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -45,
+            "rotateId": null,
+            "won": false,
+            "blooms": 6,
+            "gatePassages": 4
+          },
+          {
+            "degrees": -45,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 6,
+            "gatePassages": 4
+          },
+          {
+            "degrees": -42,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -42,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -39,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -39,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -36,
+            "rotateId": null,
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -36,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -33,
+            "rotateId": null,
+            "won": false,
+            "blooms": 6,
+            "gatePassages": 3
+          },
+          {
+            "degrees": -33,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 6,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -30,
+            "rotateId": null,
+            "won": false,
+            "blooms": 6,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -30,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -27,
+            "rotateId": null,
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -27,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -24,
+            "rotateId": null,
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -24,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 6,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -21,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -21,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -18,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -18,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -15,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -15,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -12,
+            "rotateId": null,
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -12,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -9,
+            "rotateId": null,
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -9,
+            "rotateId": "m3-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "moon-4",
+      "name": "Crossed Stars",
+      "shotsUsed": 3,
+      "authoredPar": 3,
+      "parMet": true,
+      "gatePassages": 11,
+      "gateEntries": [
+        "m4-two-a",
+        "m4-one-a",
+        "m4-one-b",
+        "m4-two-b"
+      ],
+      "score": 5000,
+      "stars": 3,
+      "replayedFps": [
+        30,
+        60,
+        144
+      ],
+      "identicalReplayOutcomes": true,
+      "noGatesReplay": {
+        "status": "aiming",
+        "blooms": 8
+      },
+      "openingSurvey": {
+        "attempts": 110,
+        "firstShotWins": 0,
+        "maxBlooms": 14,
+        "attemptsDetail": [
+          {
+            "degrees": -171,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -171,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -168,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -168,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -165,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -165,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -162,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -162,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -159,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -159,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -156,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -156,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -153,
+            "rotateId": null,
+            "won": false,
+            "blooms": 7,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -153,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 7,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -150,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -150,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -147,
+            "rotateId": null,
+            "won": false,
+            "blooms": 6,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -147,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 6,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -144,
+            "rotateId": null,
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -144,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -141,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -141,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -138,
+            "rotateId": null,
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -138,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 10,
+            "gatePassages": 4
+          },
+          {
+            "degrees": -135,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -135,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 10
+          },
+          {
+            "degrees": -132,
+            "rotateId": null,
+            "won": false,
+            "blooms": 12,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -132,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 12,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -129,
+            "rotateId": null,
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -129,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -126,
+            "rotateId": null,
+            "won": false,
+            "blooms": 12,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -126,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -123,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 4
+          },
+          {
+            "degrees": -123,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -120,
+            "rotateId": null,
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -120,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -117,
+            "rotateId": null,
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -117,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -114,
+            "rotateId": null,
+            "won": false,
+            "blooms": 7,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -114,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 7,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -111,
+            "rotateId": null,
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -111,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -108,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -108,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -105,
+            "rotateId": null,
+            "won": false,
+            "blooms": 8,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -105,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 11,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -102,
+            "rotateId": null,
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -102,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 11,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -99,
+            "rotateId": null,
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -99,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 7,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -96,
+            "rotateId": null,
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 12
+          },
+          {
+            "degrees": -96,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -93,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 3
+          },
+          {
+            "degrees": -93,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -90,
+            "rotateId": null,
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -90,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -87,
+            "rotateId": null,
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -87,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -84,
+            "rotateId": null,
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -84,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -81,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -81,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -78,
+            "rotateId": null,
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -78,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -75,
+            "rotateId": null,
+            "won": false,
+            "blooms": 8,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -75,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 10,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -72,
+            "rotateId": null,
+            "won": false,
+            "blooms": 10,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -72,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 10,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -69,
+            "rotateId": null,
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -69,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -66,
+            "rotateId": null,
+            "won": false,
+            "blooms": 7,
+            "gatePassages": 3
+          },
+          {
+            "degrees": -66,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 7,
+            "gatePassages": 3
+          },
+          {
+            "degrees": -63,
+            "rotateId": null,
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -63,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -60,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -60,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 8,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -57,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -57,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -54,
+            "rotateId": null,
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -54,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -51,
+            "rotateId": null,
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -51,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -48,
+            "rotateId": null,
+            "won": false,
+            "blooms": 14,
+            "gatePassages": 4
+          },
+          {
+            "degrees": -48,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 8,
+            "gatePassages": 3
+          },
+          {
+            "degrees": -45,
+            "rotateId": null,
+            "won": false,
+            "blooms": 13,
+            "gatePassages": 3
+          },
+          {
+            "degrees": -45,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 13,
+            "gatePassages": 3
+          },
+          {
+            "degrees": -42,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -42,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -39,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -39,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -36,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -36,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -33,
+            "rotateId": null,
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -33,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -30,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -30,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 9,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -27,
+            "rotateId": null,
+            "won": false,
+            "blooms": 10,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -27,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -24,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -24,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -21,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 5
+          },
+          {
+            "degrees": -21,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 5
+          },
+          {
+            "degrees": -18,
+            "rotateId": null,
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -18,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -15,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -15,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -12,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -12,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -9,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -9,
+            "rotateId": "m4-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "moon-5",
+      "name": "Petal Observatory",
+      "shotsUsed": 3,
+      "authoredPar": 3,
+      "parMet": true,
+      "gatePassages": 11,
+      "gateEntries": [
+        "m5-one-a",
+        "m5-two-b",
+        "m5-two-a",
+        "m5-one-b"
+      ],
+      "score": 3500,
+      "stars": 3,
+      "replayedFps": [
+        30,
+        60,
+        144
+      ],
+      "identicalReplayOutcomes": true,
+      "noGatesReplay": {
+        "status": "aiming",
+        "blooms": 12
+      },
+      "openingSurvey": {
+        "attempts": 165,
+        "firstShotWins": 0,
+        "maxBlooms": 12,
+        "attemptsDetail": [
+          {
+            "degrees": -171,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -171,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -171,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -168,
+            "rotateId": null,
+            "won": false,
+            "blooms": 9,
+            "gatePassages": 4
+          },
+          {
+            "degrees": -168,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 9,
+            "gatePassages": 3
+          },
+          {
+            "degrees": -168,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 9,
+            "gatePassages": 4
+          },
+          {
+            "degrees": -165,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -165,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 6,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -165,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -162,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -162,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -162,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -159,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -159,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 6,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -159,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -156,
+            "rotateId": null,
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 3
+          },
+          {
+            "degrees": -156,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 3
+          },
+          {
+            "degrees": -156,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -153,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -153,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -153,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -150,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -150,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -150,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -147,
+            "rotateId": null,
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -147,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -147,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 3
+          },
+          {
+            "degrees": -144,
+            "rotateId": null,
+            "won": false,
+            "blooms": 6,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -144,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 6,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -144,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 8,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -141,
+            "rotateId": null,
+            "won": false,
+            "blooms": 8,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -141,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -141,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 12,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -138,
+            "rotateId": null,
+            "won": false,
+            "blooms": 7,
+            "gatePassages": 3
+          },
+          {
+            "degrees": -138,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 7,
+            "gatePassages": 3
+          },
+          {
+            "degrees": -138,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -135,
+            "rotateId": null,
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -135,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -135,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -132,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -132,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -132,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -129,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -129,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -129,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -126,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -126,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -126,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -123,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -123,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -123,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -120,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -120,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -120,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -117,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -117,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -117,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -114,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -114,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -114,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -111,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -111,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -111,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -108,
+            "rotateId": null,
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -108,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -108,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -105,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -105,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -105,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -102,
+            "rotateId": null,
+            "won": false,
+            "blooms": 9,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -102,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 9,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -102,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 9,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -99,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -99,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -99,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -96,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -96,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -96,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -93,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -93,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -93,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -90,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -90,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -90,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -87,
+            "rotateId": null,
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -87,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -87,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -84,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -84,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -84,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -81,
+            "rotateId": null,
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -81,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -81,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -78,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -78,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -78,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -75,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -75,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -75,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -72,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -72,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -72,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -69,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -69,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -69,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -66,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -66,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -66,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -63,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -63,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -63,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -60,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -60,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -60,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -57,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -57,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -57,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -54,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -54,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -54,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -51,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -51,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -51,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -48,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -48,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -48,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -45,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -45,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -45,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -42,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -42,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -42,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -39,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -39,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -39,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -36,
+            "rotateId": null,
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -36,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -36,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -33,
+            "rotateId": null,
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -33,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -33,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 6
+          },
+          {
+            "degrees": -30,
+            "rotateId": null,
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -30,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -30,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 8,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -27,
+            "rotateId": null,
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -27,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -27,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -24,
+            "rotateId": null,
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -24,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -24,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -21,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -21,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -21,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -18,
+            "rotateId": null,
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 4
+          },
+          {
+            "degrees": -18,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -18,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 3
+          },
+          {
+            "degrees": -15,
+            "rotateId": null,
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 6
+          },
+          {
+            "degrees": -15,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 6
+          },
+          {
+            "degrees": -15,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 6
+          },
+          {
+            "degrees": -12,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -12,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 10,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -12,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -9,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -9,
+            "rotateId": "m5-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -9,
+            "rotateId": "m5-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "moon-6",
+      "name": "Lunar Waltz",
+      "shotsUsed": 3,
+      "authoredPar": 3,
+      "parMet": true,
+      "gatePassages": 4,
+      "gateEntries": [
+        "m6-two-b",
+        "m6-one-b",
+        "m6-two-a"
+      ],
+      "score": 5000,
+      "stars": 3,
+      "replayedFps": [
+        30,
+        60,
+        144
+      ],
+      "identicalReplayOutcomes": true,
+      "noGatesReplay": {
+        "status": "aiming",
+        "blooms": 19
+      },
+      "openingSurvey": {
+        "attempts": 165,
+        "firstShotWins": 0,
+        "maxBlooms": 15,
+        "attemptsDetail": [
+          {
+            "degrees": -171,
+            "rotateId": null,
+            "won": false,
+            "blooms": 7,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -171,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 6,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -171,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -168,
+            "rotateId": null,
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -168,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -168,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -165,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -165,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -165,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -162,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -162,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -162,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -159,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -159,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -159,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -156,
+            "rotateId": null,
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -156,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -156,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -153,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -153,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -153,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -150,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -150,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -150,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -147,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -147,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -147,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -144,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -144,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -144,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -141,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -141,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -141,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -138,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -138,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -138,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -135,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -135,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -135,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -132,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -132,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -132,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -129,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -129,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -129,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -126,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -126,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -126,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -123,
+            "rotateId": null,
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -123,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 10,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -123,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -120,
+            "rotateId": null,
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -120,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -120,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -117,
+            "rotateId": null,
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -117,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -117,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -114,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -114,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -114,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -111,
+            "rotateId": null,
+            "won": false,
+            "blooms": 12,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -111,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 9,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -111,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 6,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -108,
+            "rotateId": null,
+            "won": false,
+            "blooms": 7,
+            "gatePassages": 3
+          },
+          {
+            "degrees": -108,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 9,
+            "gatePassages": 3
+          },
+          {
+            "degrees": -108,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 7,
+            "gatePassages": 3
+          },
+          {
+            "degrees": -105,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -105,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 11,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -105,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -102,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -102,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -102,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -99,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -99,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -99,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -96,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -96,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -96,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -93,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -93,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -93,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -90,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -90,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -90,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -87,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -87,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -87,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -84,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -84,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -84,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -81,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -81,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -81,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -78,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -78,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -78,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -75,
+            "rotateId": null,
+            "won": false,
+            "blooms": 11,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -75,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 7,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -75,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 11,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -72,
+            "rotateId": null,
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 3
+          },
+          {
+            "degrees": -72,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 12,
+            "gatePassages": 4
+          },
+          {
+            "degrees": -72,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 3
+          },
+          {
+            "degrees": -69,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -69,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -69,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -66,
+            "rotateId": null,
+            "won": false,
+            "blooms": 15,
+            "gatePassages": 3
+          },
+          {
+            "degrees": -66,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -66,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 8,
+            "gatePassages": 3
+          },
+          {
+            "degrees": -63,
+            "rotateId": null,
+            "won": false,
+            "blooms": 9,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -63,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 9,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -63,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 9,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -60,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -60,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -60,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -57,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -57,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -57,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -54,
+            "rotateId": null,
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -54,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -54,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 2,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -51,
+            "rotateId": null,
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -51,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -51,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -48,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -48,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -48,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -45,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -45,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -45,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -42,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -42,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -42,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -39,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -39,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -39,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -36,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -36,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -36,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -33,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -33,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -33,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -30,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -30,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -30,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -27,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -27,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -27,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -24,
+            "rotateId": null,
+            "won": false,
+            "blooms": 7,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -24,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -24,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 8,
+            "gatePassages": 0
+          },
+          {
+            "degrees": -21,
+            "rotateId": null,
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -21,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 11,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -21,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 0,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -18,
+            "rotateId": null,
+            "won": false,
+            "blooms": 8,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -18,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 8,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -18,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -15,
+            "rotateId": null,
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -15,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 2
+          },
+          {
+            "degrees": -15,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 8,
+            "gatePassages": 4
+          },
+          {
+            "degrees": -12,
+            "rotateId": null,
+            "won": false,
+            "blooms": 8,
+            "gatePassages": 6
+          },
+          {
+            "degrees": -12,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 3,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -12,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 5,
+            "gatePassages": 4
+          },
+          {
+            "degrees": -9,
+            "rotateId": null,
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 1
+          },
+          {
+            "degrees": -9,
+            "rotateId": "m6-lower-petal",
+            "won": false,
+            "blooms": 4,
+            "gatePassages": 12
+          },
+          {
+            "degrees": -9,
+            "rotateId": "m6-upper-petal",
+            "won": false,
+            "blooms": 1,
+            "gatePassages": 1
+          }
+        ]
+      }
+    }
+  ],
+  "limits": "Deterministic solver proofs, not human difficulty, fun, device rendering, optimal routes, or proof that every solution requires gates.",
+  "geometryTightening": [
+    {
+      "id": "moon-4",
+      "priorRouteShots": 2,
+      "priorGeometryWon": true,
+      "currentGeometryWon": false,
+      "currentGeometryBlooms": 10
+    },
+    {
+      "id": "moon-6",
+      "priorRouteShots": 2,
+      "priorGeometryWon": true,
+      "currentGeometryWon": false,
+      "currentGeometryBlooms": 2
+    }
+  ],
+  "teachingRoute": {
+    "id": "moon-1",
+    "recordedShots": 3,
+    "knownStrongerRouteShots": 2,
+    "knownStrongerRoute": [
+      {
+        "angleRadians": -2.029010725916235,
+        "rotateId": null
+      },
+      {
+        "angleRadians": -1.9660107259162354,
+        "rotateId": null
+      }
+    ],
+    "reason": "Recorded route starts straight up to explicitly teach gate entry; it is not the shortest known solution."
+  },
+  "simulatedShotsThisRun": 770
+}

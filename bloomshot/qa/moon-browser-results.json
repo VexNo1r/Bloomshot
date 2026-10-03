@@ -1,0 +1,33 @@
+{
+  "checked_at": "2026-10-02 Pacific",
+  "worker_version": "dd9f6269858015fa",
+  "browser": "Codex in-app Chromium, local http://127.0.0.1:4387/?qa=1",
+  "method": "Actual pointer and keyboard controls, visible UI and DOM attributes; no save injection or reset",
+  "passed": [
+    "Explicit update loaded final Moon chapter and retained prior progress",
+    "Worlds opens six trials; only the first is initially unlocked",
+    "Moon HUD shows five single seeds and the correct shot par",
+    "At 390x844, actual Space then pointer release at 176,189 cleared Moon 1 in two shots: 12 flowers, five gate crossings, 3200 points and three stars",
+    "Moon clear awarded exactly 12 meadow seeds, raising the existing balance from one to 13",
+    "Next moon trial opened Moon 2 with five seeds and its authored hint",
+    "Garden growth spent eight earned seeds and raised Sunbell to stage two",
+    "Reload preserved five seeds, Sunbell stage two, prior six Meadow stars and 2100 Rush best",
+    "Reload retained Moon 1 three stars, Moon 2 unlocked and Moon 3-6 locked",
+    "320x568 trial dialog scrolls and Moon HUD fits without horizontal overflow",
+    "Final build and Moon chapter opened from cache after local server was stopped",
+    "Server restored on port4387 in task session12304",
+    "No console errors in exercised online flow after restoring the server"
+  ],
+  "aim_sensitivity_finding": {
+    "canvas_rect_after_first_shot": {"x":8,"y":177,"width":374,"height":504.625},
+    "fractional_teaching_route": "Rounding the second teaching-shot coordinate to253,310 yielded five total blooms rather than11. Exact-angle solver success did not predict pointer tolerance.",
+    "integration_route": "Space straight up, wait for aiming, then click176,189 with the recorded rect; no petal turns",
+    "limit": "The successful second point is narrow. Neighboring-pixel probes are reported separately; this is integration proof, not validated mobile balance. Prioritize a forgiving teaching route next."
+  },
+  "qa_save_after_test": {"seeds":5,"selectedId":"sunbell","sunbellStage":2,"otherStages":0,"rushBest":2100,"rushTotalBlooms":21,"campaignStars":6,"moon1Stars":3,"moon1Score":3200,"moon2Unlocked":true},
+  "screenshots": ["../moon-gates-preview.png","../moon-trial-result.png","../moon-earned-growth.png"],
+  "server_restored": true,
+  "temporary_browser_tab_closed": true,
+  "viewport_override_reset": true,
+  "limits": ["Resized desktop browser, not physical devices", "No perceptual audio listening or measured audiovisual latency", "No native compilation, installation or purchases", "Hosted private authentication and home-screen installation not exercised", "The successful pointer route is sensitive and should not be treated as a balanced tutorial"]
+}

@@ -1,0 +1,87 @@
+{
+  "runAt": "2026-10-03T04:16:08.948Z",
+  "passed": 20,
+  "failed": 0,
+  "results": [
+    {
+      "name": "Swept circle finds mid-segment, tangent, and moving-away cases",
+      "passed": true
+    },
+    {
+      "name": "Swept paddle face, quarter-turn, and end cap intersections",
+      "passed": true
+    },
+    {
+      "name": "A fast ball cannot tunnel through a bud between frame endpoints",
+      "passed": true
+    },
+    {
+      "name": "Side walls and a simultaneous top corner reflect inward",
+      "passed": true
+    },
+    {
+      "name": "An actual fast shot reflects from the paddle capsule",
+      "passed": true
+    },
+    {
+      "name": "Only one petal rotation is permitted before each shot",
+      "passed": true
+    },
+    {
+      "name": "Invalid shots and steps do not consume seeds or corrupt state",
+      "passed": true
+    },
+    {
+      "name": "Direct hits, queued cascades, and repeated wins never award twice",
+      "passed": true
+    },
+    {
+      "name": "Layered buds crack, bloom on the final hit, and cannot award again",
+      "passed": true
+    },
+    {
+      "name": "A linked cascade damages a layered sibling without bypassing its hp",
+      "passed": true
+    },
+    {
+      "name": "Three missed seeds end the game and a retry starts fresh",
+      "passed": true
+    },
+    {
+      "name": "The last seed still ends in loss after a pending partial cascade settles",
+      "passed": true
+    },
+    {
+      "name": "A volley schedules three staggered balls and consumes one volley",
+      "passed": true
+    },
+    {
+      "name": "Burst scheduling and spawning respect the five-ball cap",
+      "passed": true
+    },
+    {
+      "name": "Guiding changes the path, preserves speed, drains, releases, and refills",
+      "passed": true
+    },
+    {
+      "name": "Level speed increases and a daily garden preserves source speed",
+      "passed": true
+    },
+    {
+      "name": "All 18 stored solutions win at 30 FPS",
+      "passed": true
+    },
+    {
+      "name": "All 18 stored solutions win at 60 FPS",
+      "passed": true
+    },
+    {
+      "name": "All 18 stored solutions win at 144 FPS",
+      "passed": true
+    },
+    {
+      "name": "All 12 daily mirror solutions replay at 60 FPS",
+      "passed": true
+    }
+  ]
+}

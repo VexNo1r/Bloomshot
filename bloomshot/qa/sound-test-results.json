@@ -1,0 +1,58 @@
+{
+  "passed": 12,
+  "failed": 0,
+  "limits": "Instrumented Web Audio API scheduling/graph tests, not a rendered browser audio capture or a listening assessment. Device speakers, perceptual loudness, and audio-to-screen latency still require on-device listening.",
+  "results": [
+    {
+      "name": "Public interface stays unchanged; audio remains lazy and unsupported browsers stay playable",
+      "passed": true
+    },
+    {
+      "name": "The first gesture cue survives async resume without duplicate resume calls",
+      "passed": true
+    },
+    {
+      "name": "Blocked or stale unlock events never replay a backlog of old effects",
+      "passed": true
+    },
+    {
+      "name": "Stress measurement",
+      "passed": true,
+      "eventsSubmitted": 16800,
+      "maxVoices": 16,
+      "maxOscillators": 32
+    },
+    {
+      "name": "Dense mixed events stay within sixteen voices and thirty-two oscillators",
+      "passed": true
+    },
+    {
+      "name": "The final output curve is symmetric, finite, monotonic, and bounded below0.69",
+      "passed": true
+    },
+    {
+      "name": "Bloom cues begin immediately with soft attacks and moderate harmonic frequencies",
+      "passed": true
+    },
+    {
+      "name": "Planting unfolds in four bounded notes; repeated cues stay capped and mute cancels the pending phrase",
+      "passed": true
+    },
+    {
+      "name": "Moon gates play a quiet two-note response, debounce rapid crossings, and obey mute and voice limits",
+      "passed": true
+    },
+    {
+      "name": "Position changes restrained stereo pan, with mono fallback for older implementations",
+      "passed": true
+    },
+    {
+      "name": "Mute fades existing and future notes, blocks new effects, and re-enables cleanly",
+      "passed": true
+    },
+    {
+      "name": "Repeated wake calls reuse the context and closed contexts recover safely",
+      "passed": true
+    }
+  ]
+}

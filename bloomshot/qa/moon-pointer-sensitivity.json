@@ -1,0 +1,256 @@
+{
+  "generatedAt": "2026-10-03T02:51:53.102Z",
+  "runtimeUnchanged": true,
+  "canvasCssRect": {
+    "x": 8,
+    "y": 177,
+    "width": 374,
+    "height": 504.625
+  },
+  "launcherLogical": {
+    "x": 210,
+    "y": 498
+  },
+  "mapping": "Same canvas coordinates and aimAt clamp used by app.js; clicks away from the rotatable petal.",
+  "sourceHashes": {
+    "engine.js": "65a2d3c35533b2117f9efe19895bf50d6cd1befd2a13362b4b395ca1326d66af",
+    "moon.js": "01acd1856959687ced54c42cd3c38329bd4206fabdb4c9fd18b98c089e3be737",
+    "app.js": "5d8b18c03accf22337ca1d2239b6f6b0ab0a8e9aa6f04131d24370d925bb6b8a"
+  },
+  "integrationProofRoute": [
+    {
+      "action": "Restart Moon1; Space",
+      "angle": -1.5707963267948966,
+      "bloomsAfter": 2
+    },
+    {
+      "action": "Click/release integer canvas screen point",
+      "x": 176,
+      "y": 189,
+      "angle": -1.614790283762623,
+      "bloomsAfter": 12
+    }
+  ],
+  "fpsReplays": [
+    {
+      "fps": 30,
+      "blooms": 12,
+      "score": 3200,
+      "stars": 3
+    },
+    {
+      "fps": 60,
+      "blooms": 12,
+      "score": 3200,
+      "stars": 3
+    },
+    {
+      "fps": 144,
+      "blooms": 12,
+      "score": 3200,
+      "stars": 3
+    }
+  ],
+  "integerRouteNeighborhood": {
+    "radiusCssPixels": 1,
+    "gridPoints": 9,
+    "clearingPoints": 1,
+    "points": [
+      {
+        "x": 175,
+        "y": 188,
+        "angle": -1.616996898881649,
+        "status": "aiming",
+        "blooms": 7,
+        "score": 700,
+        "stars": 0
+      },
+      {
+        "x": 175,
+        "y": 189,
+        "angle": -1.617102529147113,
+        "status": "aiming",
+        "blooms": 8,
+        "score": 900,
+        "stars": 0
+      },
+      {
+        "x": 175,
+        "y": 190,
+        "angle": -1.6172086431854067,
+        "status": "aiming",
+        "blooms": 7,
+        "score": 700,
+        "stars": 0
+      },
+      {
+        "x": 176,
+        "y": 188,
+        "angle": -1.6146899140893245,
+        "status": "aiming",
+        "blooms": 8,
+        "score": 900,
+        "stars": 0
+      },
+      {
+        "x": 176,
+        "y": 189,
+        "angle": -1.614790283762623,
+        "status": "won",
+        "blooms": 12,
+        "score": 3200,
+        "stars": 3
+      },
+      {
+        "x": 176,
+        "y": 190,
+        "angle": -1.6148911132122004,
+        "status": "aiming",
+        "blooms": 10,
+        "score": 1300,
+        "stars": 0
+      },
+      {
+        "x": 177,
+        "y": 188,
+        "angle": -1.6123824616837372,
+        "status": "aiming",
+        "blooms": 2,
+        "score": 200,
+        "stars": 0
+      },
+      {
+        "x": 177,
+        "y": 189,
+        "angle": -1.612477567553879,
+        "status": "aiming",
+        "blooms": 2,
+        "score": 200,
+        "stars": 0
+      },
+      {
+        "x": 177,
+        "y": 190,
+        "angle": -1.6125731091743023,
+        "status": "aiming",
+        "blooms": 2,
+        "score": 200,
+        "stars": 0
+      }
+    ]
+  },
+  "originalRouteSensitivity": {
+    "fractionalPoint": {
+      "x": 252.6150831659607,
+      "y": 310.3651785714286
+    },
+    "intendedAngle": -1.387998742226947,
+    "intendedBloomsAfter": 11,
+    "roundedPoint": {
+      "x": 253,
+      "y": 310
+    },
+    "roundedBloomsAfter": 5,
+    "neighborGrid": [
+      {
+        "x": 251,
+        "y": 309,
+        "angle": -1.3937644689717672,
+        "bloomsAfterSecondShot": 5
+      },
+      {
+        "x": 251,
+        "y": 310,
+        "angle": -1.3932155032536158,
+        "bloomsAfterSecondShot": 11
+      },
+      {
+        "x": 251,
+        "y": 311,
+        "angle": -1.3926631585191747,
+        "bloomsAfterSecondShot": 7
+      },
+      {
+        "x": 251,
+        "y": 312,
+        "angle": -1.392107403814301,
+        "bloomsAfterSecondShot": 4
+      },
+      {
+        "x": 252,
+        "y": 309,
+        "angle": -1.3906705467244653,
+        "bloomsAfterSecondShot": 7
+      },
+      {
+        "x": 252,
+        "y": 310,
+        "angle": -1.3901124037106978,
+        "bloomsAfterSecondShot": 4
+      },
+      {
+        "x": 252,
+        "y": 311,
+        "angle": -1.3895508290626364,
+        "bloomsAfterSecondShot": 4
+      },
+      {
+        "x": 252,
+        "y": 312,
+        "angle": -1.3889857913920738,
+        "bloomsAfterSecondShot": 9
+      },
+      {
+        "x": 253,
+        "y": 309,
+        "angle": -1.3875801067838225,
+        "bloomsAfterSecondShot": 9
+      },
+      {
+        "x": 253,
+        "y": 310,
+        "angle": -1.3870128182333892,
+        "bloomsAfterSecondShot": 5
+      },
+      {
+        "x": 253,
+        "y": 311,
+        "angle": -1.386442045813517,
+        "bloomsAfterSecondShot": 5
+      },
+      {
+        "x": 253,
+        "y": 312,
+        "angle": -1.3858677577076512,
+        "bloomsAfterSecondShot": 4
+      },
+      {
+        "x": 254,
+        "y": 309,
+        "angle": -1.3844932022057845,
+        "bloomsAfterSecondShot": 9
+      },
+      {
+        "x": 254,
+        "y": 310,
+        "angle": -1.3839168003118045,
+        "bloomsAfterSecondShot": 4
+      },
+      {
+        "x": 254,
+        "y": 311,
+        "angle": -1.3833368627005678,
+        "bloomsAfterSecondShot": 8
+      },
+      {
+        "x": 254,
+        "y": 312,
+        "angle": -1.3827533571329402,
+        "bloomsAfterSecondShot": 4
+      }
+    ]
+  },
+  "searchLimits": "A conservative 486-point beam search requiring identical flower outcomes for all9neighbor pixels found no5-shot route. A broader state-set search was stopped before completion. Neither establishes that a robust route is impossible.",
+  "conclusion": "The specific fractional ricochet solution is sensitive to integer pointer rounding. The exact integer route proves integration, but only1/9adjacent pixels clears it in two shots. This is not validated fun, novice difficulty, or a physical-device test.",
+  "nextPassRecommendation": "Reduce first-trial precision sensitivity through readable wider gate-to-flower and return routes, then validate ordinary pointer aiming with small pixel perturbations. Do not treat an exact-angle solver win as an approachable tutorial."
+}

@@ -1,0 +1,89 @@
+{
+  "worker": "C:\\Users\\trevo\\Documents\\Codex\\2026-10-02\\idea\\outputs\\bloomshot\\sw.js",
+  "passed": 20,
+  "failed": 0,
+  "scope": "VM behavior tests at origin-root and nested deployment paths; no network or hosting writes.",
+  "limits": "Mocks exercise worker routing, precache, MIME rejection, update messages, and cache ownership. They do not prove browser registration, manifest installability, actual iOS/Android installation, storage persistence, multi-tab UI consent, or payments.",
+  "results": [
+    {
+      "name": "/ installs the complete same-origin shell using reload and never forces activation",
+      "passed": true
+    },
+    {
+      "name": "/ serves the cached app entry and version-coherent static assets offline, including query URLs",
+      "passed": true
+    },
+    {
+      "name": "/ leaves non-GET, foreign-origin, API, authentication, and unknown routes untouched",
+      "passed": true
+    },
+    {
+      "name": "/ rejects missing asset without deleting the previous release or foreign caches",
+      "passed": true
+    },
+    {
+      "name": "/ rejects network failure without deleting the previous release or foreign caches",
+      "passed": true
+    },
+    {
+      "name": "/ rejects HTML disguised as JavaScript without deleting the previous release or foreign caches",
+      "passed": true
+    },
+    {
+      "name": "/ rejects opaque response without deleting the previous release or foreign caches",
+      "passed": true
+    },
+    {
+      "name": "/ rejects cross-origin redirect without deleting the previous release or foreign caches",
+      "passed": true
+    },
+    {
+      "name": "/ forces takeover only for the explicit message from a same-origin client",
+      "passed": true
+    },
+    {
+      "name": "/ activation removes only older shell caches and claims clients after cleanup",
+      "passed": true
+    },
+    {
+      "name": "/arcade/bloomshot/ installs the complete same-origin shell using reload and never forces activation",
+      "passed": true
+    },
+    {
+      "name": "/arcade/bloomshot/ serves the cached app entry and version-coherent static assets offline, including query URLs",
+      "passed": true
+    },
+    {
+      "name": "/arcade/bloomshot/ leaves non-GET, foreign-origin, API, authentication, and unknown routes untouched",
+      "passed": true
+    },
+    {
+      "name": "/arcade/bloomshot/ rejects missing asset without deleting the previous release or foreign caches",
+      "passed": true
+    },
+    {
+      "name": "/arcade/bloomshot/ rejects network failure without deleting the previous release or foreign caches",
+      "passed": true
+    },
+    {
+      "name": "/arcade/bloomshot/ rejects HTML disguised as JavaScript without deleting the previous release or foreign caches",
+      "passed": true
+    },
+    {
+      "name": "/arcade/bloomshot/ rejects opaque response without deleting the previous release or foreign caches",
+      "passed": true
+    },
+    {
+      "name": "/arcade/bloomshot/ rejects cross-origin redirect without deleting the previous release or foreign caches",
+      "passed": true
+    },
+    {
+      "name": "/arcade/bloomshot/ forces takeover only for the explicit message from a same-origin client",
+      "passed": true
+    },
+    {
+      "name": "/arcade/bloomshot/ activation removes only older shell caches and claims clients after cleanup",
+      "passed": true
+    }
+  ]
+}

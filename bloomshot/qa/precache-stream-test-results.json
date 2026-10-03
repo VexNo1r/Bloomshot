@@ -1,0 +1,305 @@
+{
+  "passed": true,
+  "testedAt": "2026-10-03T04:16:01.705Z",
+  "node": "v22.22.0",
+  "workerSha256": "46c7bd888ca08244803b9b78808198db3518e87c9c5183ea4edc8daa3030f2c0",
+  "maxConnections": 3,
+  "workerVersion": "dd9f6269858015fa",
+  "assetCount": 21,
+  "imageCount": 7,
+  "negativeControl": {
+    "stalledAsExpected": true,
+    "headers": 3,
+    "consumed": 0,
+    "bytes": 0,
+    "peakConnections": 3,
+    "elapsedMs": 281.87
+  },
+  "actualInstall": {
+    "headers": 21,
+    "consumed": 21,
+    "bytes": 1953581,
+    "peakConnections": 3,
+    "cached": 21,
+    "elapsedMs": 79.76,
+    "deadlineMs": 15000,
+    "allBodyHashesMatch": true
+  },
+  "assets": [
+    {
+      "path": "/",
+      "bytes": 21379,
+      "sha256": "c75f9710be4fdc2d129efed71d2c4f26e59c63fdf8516760a83af59f737fca10",
+      "type": "text/html; charset=utf-8"
+    },
+    {
+      "path": "/index.html",
+      "bytes": 21379,
+      "sha256": "c75f9710be4fdc2d129efed71d2c4f26e59c63fdf8516760a83af59f737fca10",
+      "type": "text/html; charset=utf-8"
+    },
+    {
+      "path": "/styles.css",
+      "bytes": 27701,
+      "sha256": "3379aa6dd9532a5e63afea9e3584fc979dabb8999e73bbdce9b4039ad3b09faa",
+      "type": "text/css; charset=utf-8"
+    },
+    {
+      "path": "/levels.js",
+      "bytes": 11712,
+      "sha256": "1fef71a9a8bdd9fca2ca7938d840664daf984633a6c6901d69db1f55a9785426",
+      "type": "text/javascript; charset=utf-8"
+    },
+    {
+      "path": "/moon.js",
+      "bytes": 6373,
+      "sha256": "01acd1856959687ced54c42cd3c38329bd4206fabdb4c9fd18b98c089e3be737",
+      "type": "text/javascript; charset=utf-8"
+    },
+    {
+      "path": "/garden.js",
+      "bytes": 8836,
+      "sha256": "ef84838d307f1422b7d258ce66002859ee6cc0e3ca169e9ca41b50a4b37e02e8",
+      "type": "text/javascript; charset=utf-8"
+    },
+    {
+      "path": "/engine.js",
+      "bytes": 18012,
+      "sha256": "65a2d3c35533b2117f9efe19895bf50d6cd1befd2a13362b4b395ca1326d66af",
+      "type": "text/javascript; charset=utf-8"
+    },
+    {
+      "path": "/rush.js",
+      "bytes": 11416,
+      "sha256": "9f71ec37118c15f8de18b197e70dca182999876591676bfd63b98ad69ef12912",
+      "type": "text/javascript; charset=utf-8"
+    },
+    {
+      "path": "/art.js",
+      "bytes": 56166,
+      "sha256": "9162ecbceefb1e41b1e908ead20966a2a21ffbb49ca66f41aac2792f7be17e90",
+      "type": "text/javascript; charset=utf-8"
+    },
+    {
+      "path": "/meadow.js",
+      "bytes": 19612,
+      "sha256": "06f8c3b8328de68fc32d8456b42c646c9090faf16023fd9ab496af70f6f0fcfd",
+      "type": "text/javascript; charset=utf-8"
+    },
+    {
+      "path": "/sound.js",
+      "bytes": 8887,
+      "sha256": "239073c05474d02893233dded94745b706906870c24f456d43c1698f47f8c7e8",
+      "type": "text/javascript; charset=utf-8"
+    },
+    {
+      "path": "/app.js",
+      "bytes": 50927,
+      "sha256": "5d8b18c03accf22337ca1d2239b6f6b0ab0a8e9aa6f04131d24370d925bb6b8a",
+      "type": "text/javascript; charset=utf-8"
+    },
+    {
+      "path": "/pwa.js",
+      "bytes": 5481,
+      "sha256": "05e1444563015afaf8807d73ed27efc1e24171fb8b8243975f1c86e8f128a259",
+      "type": "text/javascript; charset=utf-8"
+    },
+    {
+      "path": "/manifest.webmanifest",
+      "bytes": 715,
+      "sha256": "f69738f0ab37a3647dcbb399ee11b2a0411602f0531d7cd9ea9de532db59a756",
+      "type": "application/manifest+json"
+    },
+    {
+      "path": "/icons/icon.svg",
+      "bytes": 2748,
+      "sha256": "ddad184d64a9b23b9a48089d083cd571c333bbd3a3471add3105431aab4294a4",
+      "type": "image/svg+xml"
+    },
+    {
+      "path": "/icons/icon-192.png",
+      "bytes": 9299,
+      "sha256": "055eb68b59f05dafe84ec41de3516b9ae9c11492854e1058b714711ef205fb1d",
+      "type": "image/png"
+    },
+    {
+      "path": "/icons/icon-512.png",
+      "bytes": 30110,
+      "sha256": "fb2fcad48d9928980f8519e60629edfc6075d37ac486fe3f7c60d93332d27439",
+      "type": "image/png"
+    },
+    {
+      "path": "/icons/icon-maskable-512.png",
+      "bytes": 28102,
+      "sha256": "663a0406b853938ddb5efc8bb5c5bf30149e31a47b882acebee5c1ae3debe3b6",
+      "type": "image/png"
+    },
+    {
+      "path": "/icons/apple-touch-icon.png",
+      "bytes": 8640,
+      "sha256": "27f0def161c0c89a1617902fc2e0ed460888ac819a4499be73783e249227b014",
+      "type": "image/png"
+    },
+    {
+      "path": "/assets/botanical-header.png",
+      "bytes": 396776,
+      "sha256": "718009435c34970232f53d5bff6511e287d89abed7c797244449cfdbe312068d",
+      "type": "image/png"
+    },
+    {
+      "path": "/assets/split-leaf.png",
+      "bytes": 1209310,
+      "sha256": "dafe1734d7af96b5a7e299365ed0c42009970156daf14560e34fbfa5079d96e4",
+      "type": "image/png"
+    }
+  ],
+  "progress": [
+    {
+      "type": "BLOOMSHOT_DOWNLOAD",
+      "completed": 1,
+      "total": 21,
+      "failed": false,
+      "cached": 1
+    },
+    {
+      "type": "BLOOMSHOT_DOWNLOAD",
+      "completed": 2,
+      "total": 21,
+      "failed": false,
+      "cached": 2
+    },
+    {
+      "type": "BLOOMSHOT_DOWNLOAD",
+      "completed": 3,
+      "total": 21,
+      "failed": false,
+      "cached": 3
+    },
+    {
+      "type": "BLOOMSHOT_DOWNLOAD",
+      "completed": 4,
+      "total": 21,
+      "failed": false,
+      "cached": 4
+    },
+    {
+      "type": "BLOOMSHOT_DOWNLOAD",
+      "completed": 5,
+      "total": 21,
+      "failed": false,
+      "cached": 5
+    },
+    {
+      "type": "BLOOMSHOT_DOWNLOAD",
+      "completed": 6,
+      "total": 21,
+      "failed": false,
+      "cached": 6
+    },
+    {
+      "type": "BLOOMSHOT_DOWNLOAD",
+      "completed": 7,
+      "total": 21,
+      "failed": false,
+      "cached": 7
+    },
+    {
+      "type": "BLOOMSHOT_DOWNLOAD",
+      "completed": 8,
+      "total": 21,
+      "failed": false,
+      "cached": 8
+    },
+    {
+      "type": "BLOOMSHOT_DOWNLOAD",
+      "completed": 9,
+      "total": 21,
+      "failed": false,
+      "cached": 9
+    },
+    {
+      "type": "BLOOMSHOT_DOWNLOAD",
+      "completed": 10,
+      "total": 21,
+      "failed": false,
+      "cached": 10
+    },
+    {
+      "type": "BLOOMSHOT_DOWNLOAD",
+      "completed": 11,
+      "total": 21,
+      "failed": false,
+      "cached": 11
+    },
+    {
+      "type": "BLOOMSHOT_DOWNLOAD",
+      "completed": 12,
+      "total": 21,
+      "failed": false,
+      "cached": 12
+    },
+    {
+      "type": "BLOOMSHOT_DOWNLOAD",
+      "completed": 13,
+      "total": 21,
+      "failed": false,
+      "cached": 13
+    },
+    {
+      "type": "BLOOMSHOT_DOWNLOAD",
+      "completed": 14,
+      "total": 21,
+      "failed": false,
+      "cached": 14
+    },
+    {
+      "type": "BLOOMSHOT_DOWNLOAD",
+      "completed": 15,
+      "total": 21,
+      "failed": false,
+      "cached": 15
+    },
+    {
+      "type": "BLOOMSHOT_DOWNLOAD",
+      "completed": 16,
+      "total": 21,
+      "failed": false,
+      "cached": 16
+    },
+    {
+      "type": "BLOOMSHOT_DOWNLOAD",
+      "completed": 17,
+      "total": 21,
+      "failed": false,
+      "cached": 17
+    },
+    {
+      "type": "BLOOMSHOT_DOWNLOAD",
+      "completed": 18,
+      "total": 21,
+      "failed": false,
+      "cached": 18
+    },
+    {
+      "type": "BLOOMSHOT_DOWNLOAD",
+      "completed": 19,
+      "total": 21,
+      "failed": false,
+      "cached": 19
+    },
+    {
+      "type": "BLOOMSHOT_DOWNLOAD",
+      "completed": 20,
+      "total": 21,
+      "failed": false,
+      "cached": 20
+    },
+    {
+      "type": "BLOOMSHOT_DOWNLOAD",
+      "completed": 21,
+      "total": 21,
+      "failed": false,
+      "cached": 21
+    }
+  ]
+}

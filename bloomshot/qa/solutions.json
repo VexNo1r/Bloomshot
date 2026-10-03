@@ -1,0 +1,3584 @@
+{
+  "generatedAt": "2026-10-02T13:06:56.895Z",
+  "timestep": 0.016666666666666666,
+  "method": "Angle grid + direct/grazing/wall aims; beam width 16; at most 3 shots. Each stored path is replayed.",
+  "levels": [
+    {
+      "id": 1,
+      "name": "First Burst",
+      "solved": true,
+      "shots": [
+        {
+          "angleRadians": -1.6697112831131429,
+          "rotate": false,
+          "bumperId": null,
+          "bloomsAfter": 35,
+          "statusAfter": "won"
+        }
+      ],
+      "score": 15000,
+      "stars": 3,
+      "shotsUsed": 1,
+      "authoredPar": 1,
+      "parMet": true
+    },
+    {
+      "id": 2,
+      "name": "Diamond Days",
+      "solved": true,
+      "shots": [
+        {
+          "angleRadians": -2.3511183916590466,
+          "rotate": false,
+          "bumperId": null,
+          "bloomsAfter": 61,
+          "statusAfter": "won"
+        }
+      ],
+      "score": 39500,
+      "stars": 3,
+      "shotsUsed": 1,
+      "authoredPar": 2,
+      "parMet": true
+    },
+    {
+      "id": 3,
+      "name": "Wild at Heart",
+      "solved": true,
+      "shots": [
+        {
+          "angleRadians": -1.845985575924068,
+          "rotate": false,
+          "bumperId": null,
+          "bloomsAfter": 52,
+          "statusAfter": "won"
+        }
+      ],
+      "score": 30500,
+      "stars": 3,
+      "shotsUsed": 1,
+      "authoredPar": 2,
+      "parMet": true
+    },
+    {
+      "id": 4,
+      "name": "Golden Halo",
+      "solved": true,
+      "shots": [
+        {
+          "angleRadians": -1.5707963267948966,
+          "rotate": false,
+          "bumperId": null,
+          "bloomsAfter": 45,
+          "statusAfter": "won"
+        }
+      ],
+      "score": 23500,
+      "stars": 3,
+      "shotsUsed": 1,
+      "authoredPar": 2,
+      "parMet": true
+    },
+    {
+      "id": 5,
+      "name": "Butterfly Effect",
+      "solved": true,
+      "shots": [
+        {
+          "angleRadians": -1.4641059410668862,
+          "rotate": false,
+          "bumperId": null,
+          "bloomsAfter": 49,
+          "statusAfter": "won"
+        }
+      ],
+      "score": 27900,
+      "stars": 3,
+      "shotsUsed": 1,
+      "authoredPar": 2,
+      "parMet": true
+    },
+    {
+      "id": 6,
+      "name": "Lilac Rush",
+      "solved": true,
+      "shots": [
+        {
+          "angleRadians": -1.4305467171582915,
+          "rotate": false,
+          "bumperId": null,
+          "bloomsAfter": 54,
+          "statusAfter": "won"
+        }
+      ],
+      "score": 32950,
+      "stars": 3,
+      "shotsUsed": 1,
+      "authoredPar": 2,
+      "parMet": true
+    },
+    {
+      "id": 7,
+      "name": "Open Windows",
+      "solved": true,
+      "shots": [
+        {
+          "angleRadians": -2.1791539225024534,
+          "rotate": false,
+          "bumperId": null,
+          "bloomsAfter": 48,
+          "statusAfter": "won"
+        }
+      ],
+      "score": 26900,
+      "stars": 3,
+      "shotsUsed": 1,
+      "authoredPar": 2,
+      "parMet": true
+    },
+    {
+      "id": 8,
+      "name": "Bloom Bridge",
+      "solved": true,
+      "shots": [
+        {
+          "angleRadians": -2.2534572681560787,
+          "rotate": false,
+          "bumperId": null,
+          "bloomsAfter": 51,
+          "statusAfter": "won"
+        }
+      ],
+      "score": 30350,
+      "stars": 3,
+      "shotsUsed": 1,
+      "authoredPar": 2,
+      "parMet": true
+    },
+    {
+      "id": 9,
+      "name": "Honeycomb",
+      "solved": true,
+      "shots": [
+        {
+          "angleRadians": -0.7501906659076663,
+          "rotate": false,
+          "bumperId": null,
+          "bloomsAfter": 53,
+          "statusAfter": "won"
+        }
+      ],
+      "score": 32400,
+      "stars": 3,
+      "shotsUsed": 1,
+      "authoredPar": 2,
+      "parMet": true
+    },
+    {
+      "id": 10,
+      "name": "Ribbon Riot",
+      "solved": true,
+      "shots": [
+        {
+          "angleRadians": -2.2534572681560787,
+          "rotate": false,
+          "bumperId": null,
+          "bloomsAfter": 51,
+          "statusAfter": "won"
+        }
+      ],
+      "score": 30400,
+      "stars": 3,
+      "shotsUsed": 1,
+      "authoredPar": 2,
+      "parMet": true
+    },
+    {
+      "id": 11,
+      "name": "Rose Window",
+      "solved": true,
+      "shots": [
+        {
+          "angleRadians": -0.8642533849864857,
+          "rotate": false,
+          "bumperId": null,
+          "bloomsAfter": 56,
+          "statusAfter": "won"
+        }
+      ],
+      "score": 35450,
+      "stars": 3,
+      "shotsUsed": 1,
+      "authoredPar": 2,
+      "parMet": true
+    },
+    {
+      "id": 12,
+      "name": "Evening Fireworks",
+      "solved": true,
+      "shots": [
+        {
+          "angleRadians": -2.4085543677521746,
+          "rotate": false,
+          "bumperId": null,
+          "bloomsAfter": 55,
+          "statusAfter": "won"
+        }
+      ],
+      "score": 35300,
+      "stars": 3,
+      "shotsUsed": 1,
+      "authoredPar": 2,
+      "parMet": true
+    },
+    {
+      "id": 13,
+      "name": "Cross Pollination",
+      "solved": true,
+      "shots": [
+        {
+          "angleRadians": -1.8325957145940461,
+          "rotate": false,
+          "bumperId": null,
+          "bloomsAfter": 48,
+          "statusAfter": "aiming"
+        },
+        {
+          "angleRadians": -1.9010936816241504,
+          "rotate": false,
+          "bumperId": null,
+          "bloomsAfter": 49,
+          "statusAfter": "won"
+        }
+      ],
+      "score": 27700,
+      "stars": 2,
+      "shotsUsed": 2,
+      "authoredPar": 2,
+      "parMet": true
+    },
+    {
+      "id": 14,
+      "name": "Petal Spiral",
+      "solved": true,
+      "shots": [
+        {
+          "angleRadians": -2.2682160409696897,
+          "rotate": false,
+          "bumperId": null,
+          "bloomsAfter": 57,
+          "statusAfter": "won"
+        }
+      ],
+      "score": 37350,
+      "stars": 3,
+      "shotsUsed": 1,
+      "authoredPar": 2,
+      "parMet": true
+    },
+    {
+      "id": 15,
+      "name": "Lantern Festival",
+      "solved": true,
+      "shots": [
+        {
+          "angleRadians": -0.9263602019113069,
+          "rotate": false,
+          "bumperId": null,
+          "bloomsAfter": 53,
+          "statusAfter": "won"
+        }
+      ],
+      "score": 33200,
+      "stars": 3,
+      "shotsUsed": 1,
+      "authoredPar": 2,
+      "parMet": true
+    },
+    {
+      "id": 16,
+      "name": "Glasshouse Jungle",
+      "solved": true,
+      "shots": [
+        {
+          "angleRadians": -0.7917878527941646,
+          "rotate": true,
+          "bumperId": "petal",
+          "bloomsAfter": 52,
+          "statusAfter": "aiming"
+        },
+        {
+          "angleRadians": -1.1978086049948355,
+          "rotate": false,
+          "bumperId": null,
+          "bloomsAfter": 53,
+          "statusAfter": "won"
+        }
+      ],
+      "score": 32500,
+      "stars": 2,
+      "shotsUsed": 2,
+      "authoredPar": 2,
+      "parMet": true
+    },
+    {
+      "id": 17,
+      "name": "Last Sunbeam",
+      "solved": true,
+      "shots": [
+        {
+          "angleRadians": -0.7528778078605342,
+          "rotate": true,
+          "bumperId": "petal",
+          "bloomsAfter": 54,
+          "statusAfter": "aiming"
+        },
+        {
+          "angleRadians": -2.1112158270654806,
+          "rotate": false,
+          "bumperId": null,
+          "bloomsAfter": 55,
+          "statusAfter": "won"
+        }
+      ],
+      "score": 34700,
+      "stars": 2,
+      "shotsUsed": 2,
+      "authoredPar": 2,
+      "parMet": true
+    },
+    {
+      "id": 18,
+      "name": "Full Bloom",
+      "solved": true,
+      "shots": [
+        {
+          "angleRadians": -2.303834612632515,
+          "rotate": true,
+          "bumperId": "petal",
+          "bloomsAfter": 60,
+          "statusAfter": "aiming"
+        },
+        {
+          "angleRadians": -1.089909046599561,
+          "rotate": false,
+          "bumperId": null,
+          "bloomsAfter": 61,
+          "statusAfter": "won"
+        }
+      ],
+      "score": 40950,
+      "stars": 2,
+      "shotsUsed": 2,
+      "authoredPar": 2,
+      "parMet": true
+    }
+  ],
+  "daily": [
+    {
+      "date": "2026-01-01",
+      "sourceLevelId": 10,
+      "solved": true,
+      "shots": [
+        {
+          "angleRadians": -1.7549940138830544,
+          "rotate": false,
+          "bumperId": null,
+          "bloomsAfter": 51,
+          "statusAfter": "won"
+        }
+      ],
+      "score": 30400,
+      "mirroredPathWorks": false
+    },
+    {
+      "date": "2026-01-02",
+      "sourceLevelId": 9,
+      "solved": true,
+      "shots": [
+        {
+          "angleRadians": -2.299374981752022,
+          "rotate": false,
+          "bumperId": null,
+          "bloomsAfter": 53,
+          "statusAfter": "won"
+        }
+      ],
+      "score": 32400,
+      "mirroredPathWorks": false
+    },
+    {
+      "date": "2026-01-03",
+      "sourceLevelId": 8,
+      "solved": true,
+      "shots": [
+        {
+          "angleRadians": -1.6734522801434513,
+          "rotate": false,
+          "bumperId": null,
+          "bloomsAfter": 51,
+          "statusAfter": "won"
+        }
+      ],
+      "score": 30350,
+      "mirroredPathWorks": false
+    },
+    {
+      "date": "2026-01-04",
+      "sourceLevelId": 7,
+      "solved": true,
+      "shots": [
+        {
+          "angleRadians": -1.4977557614917774,
+          "rotate": false,
+          "bumperId": null,
+          "bloomsAfter": 48,
+          "statusAfter": "won"
+        }
+      ],
+      "score": 26900,
+      "mirroredPathWorks": false
+    },
+    {
+      "date": "2026-01-05",
+      "sourceLevelId": 18,
+      "solved": true,
+      "shots": [
+        {
+          "angleRadians": -2.3123753159075697,
+          "rotate": true,
+          "bumperId": "petal",
+          "bloomsAfter": 56,
+          "statusAfter": "aiming"
+        },
+        {
+          "angleRadians": -1.4869852135569042,
+          "rotate": false,
+          "bumperId": null,
+          "bloomsAfter": 61,
+          "statusAfter": "won"
+        }
+      ],
+      "score": 37350,
+      "mirroredPathWorks": false
+    },
+    {
+      "date": "2026-01-06",
+      "sourceLevelId": 17,
+      "solved": true,
+      "shots": [
+        {
+          "angleRadians": -2.3844078608098984,
+          "rotate": false,
+          "bumperId": null,
+          "bloomsAfter": 54,
+          "statusAfter": "aiming"
+        },
+        {
+          "angleRadians": -1.0303768265243125,
+          "rotate": false,
+          "bumperId": null,
+          "bloomsAfter": 55,
+          "statusAfter": "won"
+        }
+      ],
+      "score": 34700,
+      "mirroredPathWorks": false
+    },
+    {
+      "date": "2026-01-07",
+      "sourceLevelId": 16,
+      "solved": true,
+      "shots": [
+        {
+          "angleRadians": -1.8366762311067464,
+          "rotate": false,
+          "bumperId": null,
+          "bloomsAfter": 51,
+          "statusAfter": "aiming"
+        },
+        {
+          "angleRadians": -1.1383885512243588,
+          "rotate": false,
+          "bumperId": null,
+          "bloomsAfter": 53,
+          "statusAfter": "won"
+        }
+      ],
+      "score": 31600,
+      "mirroredPathWorks": false
+    },
+    {
+      "date": "2026-01-08",
+      "sourceLevelId": 15,
+      "solved": true,
+      "shots": [
+        {
+          "angleRadians": -0.20943951023931953,
+          "rotate": false,
+          "bumperId": null,
+          "bloomsAfter": 53,
+          "statusAfter": "won"
+        }
+      ],
+      "score": 33200,
+      "mirroredPathWorks": false
+    },
+    {
+      "date": "2026-01-09",
+      "sourceLevelId": 14,
+      "solved": true,
+      "shots": [
+        {
+          "angleRadians": -0.8881353854337144,
+          "rotate": false,
+          "bumperId": null,
+          "bloomsAfter": 57,
+          "statusAfter": "won"
+        }
+      ],
+      "score": 37350,
+      "mirroredPathWorks": false
+    },
+    {
+      "date": "2026-01-14",
+      "sourceLevelId": 12,
+      "solved": true,
+      "shots": [
+        {
+          "angleRadians": -2.1791539225024534,
+          "rotate": true,
+          "bumperId": "petal",
+          "bloomsAfter": 55,
+          "statusAfter": "won"
+        }
+      ],
+      "score": 35300,
+      "mirroredPathWorks": false
+    },
+    {
+      "date": "2026-01-15",
+      "sourceLevelId": 13,
+      "solved": true,
+      "shots": [
+        {
+          "angleRadians": -2.3123753159075697,
+          "rotate": false,
+          "bumperId": null,
+          "bloomsAfter": 49,
+          "statusAfter": "won"
+        }
+      ],
+      "score": 29100,
+      "mirroredPathWorks": false
+    },
+    {
+      "date": "2026-01-22",
+      "sourceLevelId": 11,
+      "solved": true,
+      "shots": [
+        {
+          "angleRadians": -2.3507449528581326,
+          "rotate": false,
+          "bumperId": null,
+          "bloomsAfter": 56,
+          "statusAfter": "won"
+        }
+      ],
+      "score": 35450,
+      "mirroredPathWorks": false
+    }
+  ],
+  "simulatedShots": 6727,
+  "elapsedSeconds": 21.209,
+  "difficultySurvey": [
+    {
+      "id": 1,
+      "name": "First Burst",
+      "speed": 420,
+      "aims": 31,
+      "oneVolleyWins": 12,
+      "winFraction": 0.3870967741935484,
+      "medianBloomFraction": 0.7142857142857143,
+      "attempts": [
+        {
+          "degrees": -165,
+          "won": false,
+          "blooms": 5
+        },
+        {
+          "degrees": -160,
+          "won": true,
+          "blooms": 35
+        },
+        {
+          "degrees": -155,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -150,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -145,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -140,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -135,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -130,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -125,
+          "won": true,
+          "blooms": 35
+        },
+        {
+          "degrees": -120,
+          "won": true,
+          "blooms": 35
+        },
+        {
+          "degrees": -115,
+          "won": true,
+          "blooms": 35
+        },
+        {
+          "degrees": -110,
+          "won": false,
+          "blooms": 25
+        },
+        {
+          "degrees": -105,
+          "won": true,
+          "blooms": 35
+        },
+        {
+          "degrees": -100,
+          "won": false,
+          "blooms": 25
+        },
+        {
+          "degrees": -95,
+          "won": true,
+          "blooms": 35
+        },
+        {
+          "degrees": -90,
+          "won": false,
+          "blooms": 25
+        },
+        {
+          "degrees": -85,
+          "won": false,
+          "blooms": 25
+        },
+        {
+          "degrees": -80,
+          "won": false,
+          "blooms": 10
+        },
+        {
+          "degrees": -75,
+          "won": true,
+          "blooms": 35
+        },
+        {
+          "degrees": -70,
+          "won": false,
+          "blooms": 5
+        },
+        {
+          "degrees": -65,
+          "won": true,
+          "blooms": 35
+        },
+        {
+          "degrees": -60,
+          "won": false,
+          "blooms": 30
+        },
+        {
+          "degrees": -55,
+          "won": true,
+          "blooms": 35
+        },
+        {
+          "degrees": -50,
+          "won": false,
+          "blooms": 25
+        },
+        {
+          "degrees": -45,
+          "won": true,
+          "blooms": 35
+        },
+        {
+          "degrees": -40,
+          "won": true,
+          "blooms": 35
+        },
+        {
+          "degrees": -35,
+          "won": false,
+          "blooms": 25
+        },
+        {
+          "degrees": -30,
+          "won": false,
+          "blooms": 10
+        },
+        {
+          "degrees": -25,
+          "won": true,
+          "blooms": 35
+        },
+        {
+          "degrees": -20,
+          "won": false,
+          "blooms": 25
+        },
+        {
+          "degrees": -15,
+          "won": false,
+          "blooms": 10
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Diamond Days",
+      "speed": 430,
+      "aims": 31,
+      "oneVolleyWins": 3,
+      "winFraction": 0.0967741935483871,
+      "medianBloomFraction": 0.4262295081967213,
+      "attempts": [
+        {
+          "degrees": -165,
+          "won": false,
+          "blooms": 26
+        },
+        {
+          "degrees": -160,
+          "won": false,
+          "blooms": 31
+        },
+        {
+          "degrees": -155,
+          "won": false,
+          "blooms": 56
+        },
+        {
+          "degrees": -150,
+          "won": false,
+          "blooms": 21
+        },
+        {
+          "degrees": -145,
+          "won": false,
+          "blooms": 51
+        },
+        {
+          "degrees": -140,
+          "won": false,
+          "blooms": 9
+        },
+        {
+          "degrees": -135,
+          "won": false,
+          "blooms": 42
+        },
+        {
+          "degrees": -130,
+          "won": false,
+          "blooms": 53
+        },
+        {
+          "degrees": -125,
+          "won": false,
+          "blooms": 49
+        },
+        {
+          "degrees": -120,
+          "won": false,
+          "blooms": 49
+        },
+        {
+          "degrees": -115,
+          "won": true,
+          "blooms": 61
+        },
+        {
+          "degrees": -110,
+          "won": false,
+          "blooms": 9
+        },
+        {
+          "degrees": -105,
+          "won": false,
+          "blooms": 36
+        },
+        {
+          "degrees": -100,
+          "won": false,
+          "blooms": 21
+        },
+        {
+          "degrees": -95,
+          "won": false,
+          "blooms": 31
+        },
+        {
+          "degrees": -90,
+          "won": false,
+          "blooms": 26
+        },
+        {
+          "degrees": -85,
+          "won": false,
+          "blooms": 8
+        },
+        {
+          "degrees": -80,
+          "won": false,
+          "blooms": 26
+        },
+        {
+          "degrees": -75,
+          "won": false,
+          "blooms": 22
+        },
+        {
+          "degrees": -70,
+          "won": true,
+          "blooms": 61
+        },
+        {
+          "degrees": -65,
+          "won": false,
+          "blooms": 53
+        },
+        {
+          "degrees": -60,
+          "won": true,
+          "blooms": 61
+        },
+        {
+          "degrees": -55,
+          "won": false,
+          "blooms": 56
+        },
+        {
+          "degrees": -50,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -45,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -40,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -35,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -30,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -25,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -20,
+          "won": false,
+          "blooms": 56
+        },
+        {
+          "degrees": -15,
+          "won": false,
+          "blooms": 4
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Wild at Heart",
+      "speed": 440,
+      "aims": 31,
+      "oneVolleyWins": 9,
+      "winFraction": 0.2903225806451613,
+      "medianBloomFraction": 0.8076923076923077,
+      "attempts": [
+        {
+          "degrees": -165,
+          "won": false,
+          "blooms": 4
+        },
+        {
+          "degrees": -160,
+          "won": false,
+          "blooms": 42
+        },
+        {
+          "degrees": -155,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -150,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -145,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -140,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -135,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -130,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -125,
+          "won": false,
+          "blooms": 48
+        },
+        {
+          "degrees": -120,
+          "won": true,
+          "blooms": 52
+        },
+        {
+          "degrees": -115,
+          "won": true,
+          "blooms": 52
+        },
+        {
+          "degrees": -110,
+          "won": true,
+          "blooms": 52
+        },
+        {
+          "degrees": -105,
+          "won": true,
+          "blooms": 52
+        },
+        {
+          "degrees": -100,
+          "won": false,
+          "blooms": 42
+        },
+        {
+          "degrees": -95,
+          "won": false,
+          "blooms": 27
+        },
+        {
+          "degrees": -90,
+          "won": false,
+          "blooms": 23
+        },
+        {
+          "degrees": -85,
+          "won": false,
+          "blooms": 47
+        },
+        {
+          "degrees": -80,
+          "won": false,
+          "blooms": 27
+        },
+        {
+          "degrees": -75,
+          "won": false,
+          "blooms": 47
+        },
+        {
+          "degrees": -70,
+          "won": false,
+          "blooms": 32
+        },
+        {
+          "degrees": -65,
+          "won": false,
+          "blooms": 40
+        },
+        {
+          "degrees": -60,
+          "won": true,
+          "blooms": 52
+        },
+        {
+          "degrees": -55,
+          "won": true,
+          "blooms": 52
+        },
+        {
+          "degrees": -50,
+          "won": false,
+          "blooms": 44
+        },
+        {
+          "degrees": -45,
+          "won": true,
+          "blooms": 52
+        },
+        {
+          "degrees": -40,
+          "won": true,
+          "blooms": 52
+        },
+        {
+          "degrees": -35,
+          "won": false,
+          "blooms": 27
+        },
+        {
+          "degrees": -30,
+          "won": false,
+          "blooms": 17
+        },
+        {
+          "degrees": -25,
+          "won": false,
+          "blooms": 48
+        },
+        {
+          "degrees": -20,
+          "won": false,
+          "blooms": 42
+        },
+        {
+          "degrees": -15,
+          "won": true,
+          "blooms": 52
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Golden Halo",
+      "speed": 450,
+      "aims": 31,
+      "oneVolleyWins": 13,
+      "winFraction": 0.41935483870967744,
+      "medianBloomFraction": 0.8888888888888888,
+      "attempts": [
+        {
+          "degrees": -165,
+          "won": false,
+          "blooms": 10
+        },
+        {
+          "degrees": -160,
+          "won": true,
+          "blooms": 45
+        },
+        {
+          "degrees": -155,
+          "won": false,
+          "blooms": 5
+        },
+        {
+          "degrees": -150,
+          "won": false,
+          "blooms": 10
+        },
+        {
+          "degrees": -145,
+          "won": false,
+          "blooms": 40
+        },
+        {
+          "degrees": -140,
+          "won": true,
+          "blooms": 45
+        },
+        {
+          "degrees": -135,
+          "won": true,
+          "blooms": 45
+        },
+        {
+          "degrees": -130,
+          "won": true,
+          "blooms": 45
+        },
+        {
+          "degrees": -125,
+          "won": true,
+          "blooms": 45
+        },
+        {
+          "degrees": -120,
+          "won": true,
+          "blooms": 45
+        },
+        {
+          "degrees": -115,
+          "won": false,
+          "blooms": 40
+        },
+        {
+          "degrees": -110,
+          "won": false,
+          "blooms": 35
+        },
+        {
+          "degrees": -105,
+          "won": false,
+          "blooms": 20
+        },
+        {
+          "degrees": -100,
+          "won": true,
+          "blooms": 45
+        },
+        {
+          "degrees": -95,
+          "won": false,
+          "blooms": 40
+        },
+        {
+          "degrees": -90,
+          "won": true,
+          "blooms": 45
+        },
+        {
+          "degrees": -85,
+          "won": false,
+          "blooms": 30
+        },
+        {
+          "degrees": -80,
+          "won": false,
+          "blooms": 30
+        },
+        {
+          "degrees": -75,
+          "won": true,
+          "blooms": 45
+        },
+        {
+          "degrees": -70,
+          "won": true,
+          "blooms": 45
+        },
+        {
+          "degrees": -65,
+          "won": false,
+          "blooms": 40
+        },
+        {
+          "degrees": -60,
+          "won": true,
+          "blooms": 45
+        },
+        {
+          "degrees": -55,
+          "won": true,
+          "blooms": 45
+        },
+        {
+          "degrees": -50,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -45,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -40,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -35,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -30,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -25,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -20,
+          "won": true,
+          "blooms": 45
+        },
+        {
+          "degrees": -15,
+          "won": false,
+          "blooms": 5
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Butterfly Effect",
+      "speed": 460,
+      "aims": 31,
+      "oneVolleyWins": 3,
+      "winFraction": 0.0967741935483871,
+      "medianBloomFraction": 0.6326530612244898,
+      "attempts": [
+        {
+          "degrees": -165,
+          "won": false,
+          "blooms": 5
+        },
+        {
+          "degrees": -160,
+          "won": false,
+          "blooms": 44
+        },
+        {
+          "degrees": -155,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -150,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -145,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -140,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -135,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -130,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -125,
+          "won": false,
+          "blooms": 44
+        },
+        {
+          "degrees": -120,
+          "won": false,
+          "blooms": 45
+        },
+        {
+          "degrees": -115,
+          "won": false,
+          "blooms": 43
+        },
+        {
+          "degrees": -110,
+          "won": false,
+          "blooms": 43
+        },
+        {
+          "degrees": -105,
+          "won": false,
+          "blooms": 47
+        },
+        {
+          "degrees": -100,
+          "won": false,
+          "blooms": 30
+        },
+        {
+          "degrees": -95,
+          "won": false,
+          "blooms": 8
+        },
+        {
+          "degrees": -90,
+          "won": false,
+          "blooms": 25
+        },
+        {
+          "degrees": -85,
+          "won": false,
+          "blooms": 47
+        },
+        {
+          "degrees": -80,
+          "won": false,
+          "blooms": 18
+        },
+        {
+          "degrees": -75,
+          "won": false,
+          "blooms": 8
+        },
+        {
+          "degrees": -70,
+          "won": false,
+          "blooms": 43
+        },
+        {
+          "degrees": -65,
+          "won": false,
+          "blooms": 43
+        },
+        {
+          "degrees": -60,
+          "won": false,
+          "blooms": 43
+        },
+        {
+          "degrees": -55,
+          "won": false,
+          "blooms": 44
+        },
+        {
+          "degrees": -50,
+          "won": true,
+          "blooms": 49
+        },
+        {
+          "degrees": -45,
+          "won": true,
+          "blooms": 49
+        },
+        {
+          "degrees": -40,
+          "won": true,
+          "blooms": 49
+        },
+        {
+          "degrees": -35,
+          "won": false,
+          "blooms": 42
+        },
+        {
+          "degrees": -30,
+          "won": false,
+          "blooms": 9
+        },
+        {
+          "degrees": -25,
+          "won": false,
+          "blooms": 5
+        },
+        {
+          "degrees": -20,
+          "won": false,
+          "blooms": 31
+        },
+        {
+          "degrees": -15,
+          "won": false,
+          "blooms": 5
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Lilac Rush",
+      "speed": 470,
+      "aims": 31,
+      "oneVolleyWins": 3,
+      "winFraction": 0.0967741935483871,
+      "medianBloomFraction": 0.6851851851851852,
+      "attempts": [
+        {
+          "degrees": -165,
+          "won": true,
+          "blooms": 54
+        },
+        {
+          "degrees": -160,
+          "won": false,
+          "blooms": 51
+        },
+        {
+          "degrees": -155,
+          "won": false,
+          "blooms": 8
+        },
+        {
+          "degrees": -150,
+          "won": false,
+          "blooms": 8
+        },
+        {
+          "degrees": -145,
+          "won": false,
+          "blooms": 37
+        },
+        {
+          "degrees": -140,
+          "won": false,
+          "blooms": 8
+        },
+        {
+          "degrees": -135,
+          "won": false,
+          "blooms": 52
+        },
+        {
+          "degrees": -130,
+          "won": false,
+          "blooms": 52
+        },
+        {
+          "degrees": -125,
+          "won": true,
+          "blooms": 54
+        },
+        {
+          "degrees": -120,
+          "won": false,
+          "blooms": 53
+        },
+        {
+          "degrees": -115,
+          "won": false,
+          "blooms": 50
+        },
+        {
+          "degrees": -110,
+          "won": false,
+          "blooms": 50
+        },
+        {
+          "degrees": -105,
+          "won": false,
+          "blooms": 41
+        },
+        {
+          "degrees": -100,
+          "won": true,
+          "blooms": 54
+        },
+        {
+          "degrees": -95,
+          "won": false,
+          "blooms": 32
+        },
+        {
+          "degrees": -90,
+          "won": false,
+          "blooms": 35
+        },
+        {
+          "degrees": -85,
+          "won": false,
+          "blooms": 45
+        },
+        {
+          "degrees": -80,
+          "won": false,
+          "blooms": 49
+        },
+        {
+          "degrees": -75,
+          "won": false,
+          "blooms": 37
+        },
+        {
+          "degrees": -70,
+          "won": false,
+          "blooms": 48
+        },
+        {
+          "degrees": -65,
+          "won": false,
+          "blooms": 10
+        },
+        {
+          "degrees": -60,
+          "won": false,
+          "blooms": 53
+        },
+        {
+          "degrees": -55,
+          "won": false,
+          "blooms": 36
+        },
+        {
+          "degrees": -50,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -45,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -40,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -35,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -30,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -25,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -20,
+          "won": false,
+          "blooms": 48
+        },
+        {
+          "degrees": -15,
+          "won": false,
+          "blooms": 4
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "name": "Open Windows",
+      "speed": 480,
+      "aims": 31,
+      "oneVolleyWins": 2,
+      "winFraction": 0.06451612903225806,
+      "medianBloomFraction": 0.75,
+      "attempts": [
+        {
+          "degrees": -165,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -160,
+          "won": false,
+          "blooms": 46
+        },
+        {
+          "degrees": -155,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -150,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -145,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -140,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -135,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -130,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -125,
+          "won": false,
+          "blooms": 32
+        },
+        {
+          "degrees": -120,
+          "won": false,
+          "blooms": 46
+        },
+        {
+          "degrees": -115,
+          "won": false,
+          "blooms": 9
+        },
+        {
+          "degrees": -110,
+          "won": false,
+          "blooms": 46
+        },
+        {
+          "degrees": -105,
+          "won": false,
+          "blooms": 26
+        },
+        {
+          "degrees": -100,
+          "won": false,
+          "blooms": 28
+        },
+        {
+          "degrees": -95,
+          "won": false,
+          "blooms": 45
+        },
+        {
+          "degrees": -90,
+          "won": false,
+          "blooms": 46
+        },
+        {
+          "degrees": -85,
+          "won": false,
+          "blooms": 45
+        },
+        {
+          "degrees": -80,
+          "won": false,
+          "blooms": 42
+        },
+        {
+          "degrees": -75,
+          "won": false,
+          "blooms": 29
+        },
+        {
+          "degrees": -70,
+          "won": false,
+          "blooms": 36
+        },
+        {
+          "degrees": -65,
+          "won": false,
+          "blooms": 36
+        },
+        {
+          "degrees": -60,
+          "won": true,
+          "blooms": 48
+        },
+        {
+          "degrees": -55,
+          "won": false,
+          "blooms": 43
+        },
+        {
+          "degrees": -50,
+          "won": true,
+          "blooms": 48
+        },
+        {
+          "degrees": -45,
+          "won": false,
+          "blooms": 39
+        },
+        {
+          "degrees": -40,
+          "won": false,
+          "blooms": 36
+        },
+        {
+          "degrees": -35,
+          "won": false,
+          "blooms": 37
+        },
+        {
+          "degrees": -30,
+          "won": false,
+          "blooms": 11
+        },
+        {
+          "degrees": -25,
+          "won": false,
+          "blooms": 36
+        },
+        {
+          "degrees": -20,
+          "won": false,
+          "blooms": 47
+        },
+        {
+          "degrees": -15,
+          "won": false,
+          "blooms": 4
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "name": "Bloom Bridge",
+      "speed": 490,
+      "aims": 31,
+      "oneVolleyWins": 0,
+      "winFraction": 0,
+      "medianBloomFraction": 0.21568627450980393,
+      "attempts": [
+        {
+          "degrees": -165,
+          "won": false,
+          "blooms": 11
+        },
+        {
+          "degrees": -160,
+          "won": false,
+          "blooms": 24
+        },
+        {
+          "degrees": -155,
+          "won": false,
+          "blooms": 10
+        },
+        {
+          "degrees": -150,
+          "won": false,
+          "blooms": 7
+        },
+        {
+          "degrees": -145,
+          "won": false,
+          "blooms": 5
+        },
+        {
+          "degrees": -140,
+          "won": false,
+          "blooms": 36
+        },
+        {
+          "degrees": -135,
+          "won": false,
+          "blooms": 38
+        },
+        {
+          "degrees": -130,
+          "won": false,
+          "blooms": 41
+        },
+        {
+          "degrees": -125,
+          "won": false,
+          "blooms": 34
+        },
+        {
+          "degrees": -120,
+          "won": false,
+          "blooms": 9
+        },
+        {
+          "degrees": -115,
+          "won": false,
+          "blooms": 9
+        },
+        {
+          "degrees": -110,
+          "won": false,
+          "blooms": 6
+        },
+        {
+          "degrees": -105,
+          "won": false,
+          "blooms": 43
+        },
+        {
+          "degrees": -100,
+          "won": false,
+          "blooms": 22
+        },
+        {
+          "degrees": -95,
+          "won": false,
+          "blooms": 41
+        },
+        {
+          "degrees": -90,
+          "won": false,
+          "blooms": 50
+        },
+        {
+          "degrees": -85,
+          "won": false,
+          "blooms": 49
+        },
+        {
+          "degrees": -80,
+          "won": false,
+          "blooms": 24
+        },
+        {
+          "degrees": -75,
+          "won": false,
+          "blooms": 47
+        },
+        {
+          "degrees": -70,
+          "won": false,
+          "blooms": 38
+        },
+        {
+          "degrees": -65,
+          "won": false,
+          "blooms": 4
+        },
+        {
+          "degrees": -60,
+          "won": false,
+          "blooms": 44
+        },
+        {
+          "degrees": -55,
+          "won": false,
+          "blooms": 26
+        },
+        {
+          "degrees": -50,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -45,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -40,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -35,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -30,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -25,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -20,
+          "won": false,
+          "blooms": 4
+        },
+        {
+          "degrees": -15,
+          "won": false,
+          "blooms": 3
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "name": "Honeycomb",
+      "speed": 500,
+      "aims": 31,
+      "oneVolleyWins": 1,
+      "winFraction": 0.03225806451612903,
+      "medianBloomFraction": 0.33962264150943394,
+      "attempts": [
+        {
+          "degrees": -165,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -160,
+          "won": false,
+          "blooms": 32
+        },
+        {
+          "degrees": -155,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -150,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -145,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -140,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -135,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -130,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -125,
+          "won": false,
+          "blooms": 26
+        },
+        {
+          "degrees": -120,
+          "won": false,
+          "blooms": 33
+        },
+        {
+          "degrees": -115,
+          "won": false,
+          "blooms": 35
+        },
+        {
+          "degrees": -110,
+          "won": false,
+          "blooms": 24
+        },
+        {
+          "degrees": -105,
+          "won": false,
+          "blooms": 24
+        },
+        {
+          "degrees": -100,
+          "won": false,
+          "blooms": 24
+        },
+        {
+          "degrees": -95,
+          "won": false,
+          "blooms": 11
+        },
+        {
+          "degrees": -90,
+          "won": false,
+          "blooms": 49
+        },
+        {
+          "degrees": -85,
+          "won": false,
+          "blooms": 34
+        },
+        {
+          "degrees": -80,
+          "won": false,
+          "blooms": 8
+        },
+        {
+          "degrees": -75,
+          "won": false,
+          "blooms": 8
+        },
+        {
+          "degrees": -70,
+          "won": false,
+          "blooms": 8
+        },
+        {
+          "degrees": -65,
+          "won": false,
+          "blooms": 18
+        },
+        {
+          "degrees": -60,
+          "won": false,
+          "blooms": 49
+        },
+        {
+          "degrees": -55,
+          "won": false,
+          "blooms": 47
+        },
+        {
+          "degrees": -50,
+          "won": false,
+          "blooms": 41
+        },
+        {
+          "degrees": -45,
+          "won": false,
+          "blooms": 48
+        },
+        {
+          "degrees": -40,
+          "won": false,
+          "blooms": 26
+        },
+        {
+          "degrees": -35,
+          "won": false,
+          "blooms": 11
+        },
+        {
+          "degrees": -30,
+          "won": false,
+          "blooms": 8
+        },
+        {
+          "degrees": -25,
+          "won": false,
+          "blooms": 6
+        },
+        {
+          "degrees": -20,
+          "won": true,
+          "blooms": 53
+        },
+        {
+          "degrees": -15,
+          "won": false,
+          "blooms": 3
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "name": "Ribbon Riot",
+      "speed": 510,
+      "aims": 31,
+      "oneVolleyWins": 1,
+      "winFraction": 0.03225806451612903,
+      "medianBloomFraction": 0.1568627450980392,
+      "attempts": [
+        {
+          "degrees": -165,
+          "won": false,
+          "blooms": 48
+        },
+        {
+          "degrees": -160,
+          "won": false,
+          "blooms": 8
+        },
+        {
+          "degrees": -155,
+          "won": false,
+          "blooms": 6
+        },
+        {
+          "degrees": -150,
+          "won": false,
+          "blooms": 7
+        },
+        {
+          "degrees": -145,
+          "won": false,
+          "blooms": 3
+        },
+        {
+          "degrees": -140,
+          "won": false,
+          "blooms": 8
+        },
+        {
+          "degrees": -135,
+          "won": false,
+          "blooms": 48
+        },
+        {
+          "degrees": -130,
+          "won": false,
+          "blooms": 43
+        },
+        {
+          "degrees": -125,
+          "won": true,
+          "blooms": 51
+        },
+        {
+          "degrees": -120,
+          "won": false,
+          "blooms": 38
+        },
+        {
+          "degrees": -115,
+          "won": false,
+          "blooms": 7
+        },
+        {
+          "degrees": -110,
+          "won": false,
+          "blooms": 4
+        },
+        {
+          "degrees": -105,
+          "won": false,
+          "blooms": 33
+        },
+        {
+          "degrees": -100,
+          "won": false,
+          "blooms": 9
+        },
+        {
+          "degrees": -95,
+          "won": false,
+          "blooms": 6
+        },
+        {
+          "degrees": -90,
+          "won": false,
+          "blooms": 8
+        },
+        {
+          "degrees": -85,
+          "won": false,
+          "blooms": 43
+        },
+        {
+          "degrees": -80,
+          "won": false,
+          "blooms": 41
+        },
+        {
+          "degrees": -75,
+          "won": false,
+          "blooms": 42
+        },
+        {
+          "degrees": -70,
+          "won": false,
+          "blooms": 50
+        },
+        {
+          "degrees": -65,
+          "won": false,
+          "blooms": 7
+        },
+        {
+          "degrees": -60,
+          "won": false,
+          "blooms": 47
+        },
+        {
+          "degrees": -55,
+          "won": false,
+          "blooms": 35
+        },
+        {
+          "degrees": -50,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -45,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -40,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -35,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -30,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -25,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -20,
+          "won": false,
+          "blooms": 30
+        },
+        {
+          "degrees": -15,
+          "won": false,
+          "blooms": 2
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "name": "Rose Window",
+      "speed": 520,
+      "aims": 31,
+      "oneVolleyWins": 0,
+      "winFraction": 0,
+      "medianBloomFraction": 0.19642857142857142,
+      "attempts": [
+        {
+          "degrees": -165,
+          "won": false,
+          "blooms": 3
+        },
+        {
+          "degrees": -160,
+          "won": false,
+          "blooms": 34
+        },
+        {
+          "degrees": -155,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -150,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -145,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -140,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -135,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -130,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -125,
+          "won": false,
+          "blooms": 47
+        },
+        {
+          "degrees": -120,
+          "won": false,
+          "blooms": 54
+        },
+        {
+          "degrees": -115,
+          "won": false,
+          "blooms": 11
+        },
+        {
+          "degrees": -110,
+          "won": false,
+          "blooms": 36
+        },
+        {
+          "degrees": -105,
+          "won": false,
+          "blooms": 31
+        },
+        {
+          "degrees": -100,
+          "won": false,
+          "blooms": 11
+        },
+        {
+          "degrees": -95,
+          "won": false,
+          "blooms": 8
+        },
+        {
+          "degrees": -90,
+          "won": false,
+          "blooms": 6
+        },
+        {
+          "degrees": -85,
+          "won": false,
+          "blooms": 39
+        },
+        {
+          "degrees": -80,
+          "won": false,
+          "blooms": 10
+        },
+        {
+          "degrees": -75,
+          "won": false,
+          "blooms": 9
+        },
+        {
+          "degrees": -70,
+          "won": false,
+          "blooms": 49
+        },
+        {
+          "degrees": -65,
+          "won": false,
+          "blooms": 4
+        },
+        {
+          "degrees": -60,
+          "won": false,
+          "blooms": 34
+        },
+        {
+          "degrees": -55,
+          "won": false,
+          "blooms": 54
+        },
+        {
+          "degrees": -50,
+          "won": false,
+          "blooms": 46
+        },
+        {
+          "degrees": -45,
+          "won": false,
+          "blooms": 46
+        },
+        {
+          "degrees": -40,
+          "won": false,
+          "blooms": 36
+        },
+        {
+          "degrees": -35,
+          "won": false,
+          "blooms": 54
+        },
+        {
+          "degrees": -30,
+          "won": false,
+          "blooms": 15
+        },
+        {
+          "degrees": -25,
+          "won": false,
+          "blooms": 10
+        },
+        {
+          "degrees": -20,
+          "won": false,
+          "blooms": 54
+        },
+        {
+          "degrees": -15,
+          "won": false,
+          "blooms": 7
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "name": "Evening Fireworks",
+      "speed": 530,
+      "aims": 31,
+      "oneVolleyWins": 0,
+      "winFraction": 0,
+      "medianBloomFraction": 0.14545454545454545,
+      "attempts": [
+        {
+          "degrees": -165,
+          "won": false,
+          "blooms": 2
+        },
+        {
+          "degrees": -160,
+          "won": false,
+          "blooms": 24
+        },
+        {
+          "degrees": -155,
+          "won": false,
+          "blooms": 8
+        },
+        {
+          "degrees": -150,
+          "won": false,
+          "blooms": 7
+        },
+        {
+          "degrees": -145,
+          "won": false,
+          "blooms": 50
+        },
+        {
+          "degrees": -140,
+          "won": false,
+          "blooms": 20
+        },
+        {
+          "degrees": -135,
+          "won": false,
+          "blooms": 52
+        },
+        {
+          "degrees": -130,
+          "won": false,
+          "blooms": 37
+        },
+        {
+          "degrees": -125,
+          "won": false,
+          "blooms": 10
+        },
+        {
+          "degrees": -120,
+          "won": false,
+          "blooms": 5
+        },
+        {
+          "degrees": -115,
+          "won": false,
+          "blooms": 8
+        },
+        {
+          "degrees": -110,
+          "won": false,
+          "blooms": 10
+        },
+        {
+          "degrees": -105,
+          "won": false,
+          "blooms": 3
+        },
+        {
+          "degrees": -100,
+          "won": false,
+          "blooms": 8
+        },
+        {
+          "degrees": -95,
+          "won": false,
+          "blooms": 6
+        },
+        {
+          "degrees": -90,
+          "won": false,
+          "blooms": 19
+        },
+        {
+          "degrees": -85,
+          "won": false,
+          "blooms": 4
+        },
+        {
+          "degrees": -80,
+          "won": false,
+          "blooms": 11
+        },
+        {
+          "degrees": -75,
+          "won": false,
+          "blooms": 8
+        },
+        {
+          "degrees": -70,
+          "won": false,
+          "blooms": 16
+        },
+        {
+          "degrees": -65,
+          "won": false,
+          "blooms": 2
+        },
+        {
+          "degrees": -60,
+          "won": false,
+          "blooms": 23
+        },
+        {
+          "degrees": -55,
+          "won": false,
+          "blooms": 2
+        },
+        {
+          "degrees": -50,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -45,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -40,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -35,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -30,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -25,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -20,
+          "won": false,
+          "blooms": 8
+        },
+        {
+          "degrees": -15,
+          "won": false,
+          "blooms": 0
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "name": "Cross Pollination",
+      "speed": 540,
+      "aims": 31,
+      "oneVolleyWins": 1,
+      "winFraction": 0.03225806451612903,
+      "medianBloomFraction": 0.10204081632653061,
+      "attempts": [
+        {
+          "degrees": -165,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -160,
+          "won": false,
+          "blooms": 21
+        },
+        {
+          "degrees": -155,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -150,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -145,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -140,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -135,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -130,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -125,
+          "won": false,
+          "blooms": 10
+        },
+        {
+          "degrees": -120,
+          "won": false,
+          "blooms": 20
+        },
+        {
+          "degrees": -115,
+          "won": false,
+          "blooms": 4
+        },
+        {
+          "degrees": -110,
+          "won": false,
+          "blooms": 18
+        },
+        {
+          "degrees": -105,
+          "won": false,
+          "blooms": 48
+        },
+        {
+          "degrees": -100,
+          "won": false,
+          "blooms": 6
+        },
+        {
+          "degrees": -95,
+          "won": false,
+          "blooms": 2
+        },
+        {
+          "degrees": -90,
+          "won": false,
+          "blooms": 6
+        },
+        {
+          "degrees": -85,
+          "won": false,
+          "blooms": 11
+        },
+        {
+          "degrees": -80,
+          "won": false,
+          "blooms": 4
+        },
+        {
+          "degrees": -75,
+          "won": false,
+          "blooms": 7
+        },
+        {
+          "degrees": -70,
+          "won": false,
+          "blooms": 5
+        },
+        {
+          "degrees": -65,
+          "won": false,
+          "blooms": 5
+        },
+        {
+          "degrees": -60,
+          "won": false,
+          "blooms": 38
+        },
+        {
+          "degrees": -55,
+          "won": true,
+          "blooms": 49
+        },
+        {
+          "degrees": -50,
+          "won": false,
+          "blooms": 5
+        },
+        {
+          "degrees": -45,
+          "won": false,
+          "blooms": 24
+        },
+        {
+          "degrees": -40,
+          "won": false,
+          "blooms": 5
+        },
+        {
+          "degrees": -35,
+          "won": false,
+          "blooms": 35
+        },
+        {
+          "degrees": -30,
+          "won": false,
+          "blooms": 3
+        },
+        {
+          "degrees": -25,
+          "won": false,
+          "blooms": 9
+        },
+        {
+          "degrees": -20,
+          "won": false,
+          "blooms": 26
+        },
+        {
+          "degrees": -15,
+          "won": false,
+          "blooms": 0
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "name": "Petal Spiral",
+      "speed": 550,
+      "aims": 31,
+      "oneVolleyWins": 0,
+      "winFraction": 0,
+      "medianBloomFraction": 0.08771929824561403,
+      "attempts": [
+        {
+          "degrees": -165,
+          "won": false,
+          "blooms": 44
+        },
+        {
+          "degrees": -160,
+          "won": false,
+          "blooms": 4
+        },
+        {
+          "degrees": -155,
+          "won": false,
+          "blooms": 4
+        },
+        {
+          "degrees": -150,
+          "won": false,
+          "blooms": 3
+        },
+        {
+          "degrees": -145,
+          "won": false,
+          "blooms": 3
+        },
+        {
+          "degrees": -140,
+          "won": false,
+          "blooms": 54
+        },
+        {
+          "degrees": -135,
+          "won": false,
+          "blooms": 44
+        },
+        {
+          "degrees": -130,
+          "won": false,
+          "blooms": 56
+        },
+        {
+          "degrees": -125,
+          "won": false,
+          "blooms": 8
+        },
+        {
+          "degrees": -120,
+          "won": false,
+          "blooms": 4
+        },
+        {
+          "degrees": -115,
+          "won": false,
+          "blooms": 6
+        },
+        {
+          "degrees": -110,
+          "won": false,
+          "blooms": 7
+        },
+        {
+          "degrees": -105,
+          "won": false,
+          "blooms": 2
+        },
+        {
+          "degrees": -100,
+          "won": false,
+          "blooms": 7
+        },
+        {
+          "degrees": -95,
+          "won": false,
+          "blooms": 7
+        },
+        {
+          "degrees": -90,
+          "won": false,
+          "blooms": 7
+        },
+        {
+          "degrees": -85,
+          "won": false,
+          "blooms": 5
+        },
+        {
+          "degrees": -80,
+          "won": false,
+          "blooms": 4
+        },
+        {
+          "degrees": -75,
+          "won": false,
+          "blooms": 4
+        },
+        {
+          "degrees": -70,
+          "won": false,
+          "blooms": 54
+        },
+        {
+          "degrees": -65,
+          "won": false,
+          "blooms": 6
+        },
+        {
+          "degrees": -60,
+          "won": false,
+          "blooms": 54
+        },
+        {
+          "degrees": -55,
+          "won": false,
+          "blooms": 7
+        },
+        {
+          "degrees": -50,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -45,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -40,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -35,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -30,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -25,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -20,
+          "won": false,
+          "blooms": 10
+        },
+        {
+          "degrees": -15,
+          "won": false,
+          "blooms": 2
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "name": "Lantern Festival",
+      "speed": 560,
+      "aims": 31,
+      "oneVolleyWins": 0,
+      "winFraction": 0,
+      "medianBloomFraction": 0.09433962264150944,
+      "attempts": [
+        {
+          "degrees": -165,
+          "won": false,
+          "blooms": 1
+        },
+        {
+          "degrees": -160,
+          "won": false,
+          "blooms": 5
+        },
+        {
+          "degrees": -155,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -150,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -145,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -140,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -135,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -130,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -125,
+          "won": false,
+          "blooms": 10
+        },
+        {
+          "degrees": -120,
+          "won": false,
+          "blooms": 24
+        },
+        {
+          "degrees": -115,
+          "won": false,
+          "blooms": 5
+        },
+        {
+          "degrees": -110,
+          "won": false,
+          "blooms": 2
+        },
+        {
+          "degrees": -105,
+          "won": false,
+          "blooms": 40
+        },
+        {
+          "degrees": -100,
+          "won": false,
+          "blooms": 37
+        },
+        {
+          "degrees": -95,
+          "won": false,
+          "blooms": 6
+        },
+        {
+          "degrees": -90,
+          "won": false,
+          "blooms": 4
+        },
+        {
+          "degrees": -85,
+          "won": false,
+          "blooms": 8
+        },
+        {
+          "degrees": -80,
+          "won": false,
+          "blooms": 9
+        },
+        {
+          "degrees": -75,
+          "won": false,
+          "blooms": 7
+        },
+        {
+          "degrees": -70,
+          "won": false,
+          "blooms": 4
+        },
+        {
+          "degrees": -65,
+          "won": false,
+          "blooms": 5
+        },
+        {
+          "degrees": -60,
+          "won": false,
+          "blooms": 5
+        },
+        {
+          "degrees": -55,
+          "won": false,
+          "blooms": 47
+        },
+        {
+          "degrees": -50,
+          "won": false,
+          "blooms": 46
+        },
+        {
+          "degrees": -45,
+          "won": false,
+          "blooms": 10
+        },
+        {
+          "degrees": -40,
+          "won": false,
+          "blooms": 6
+        },
+        {
+          "degrees": -35,
+          "won": false,
+          "blooms": 36
+        },
+        {
+          "degrees": -30,
+          "won": false,
+          "blooms": 3
+        },
+        {
+          "degrees": -25,
+          "won": false,
+          "blooms": 3
+        },
+        {
+          "degrees": -20,
+          "won": false,
+          "blooms": 46
+        },
+        {
+          "degrees": -15,
+          "won": false,
+          "blooms": 2
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "name": "Glasshouse Jungle",
+      "speed": 570,
+      "aims": 31,
+      "oneVolleyWins": 0,
+      "winFraction": 0,
+      "medianBloomFraction": 0.07547169811320754,
+      "attempts": [
+        {
+          "degrees": -165,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -160,
+          "won": false,
+          "blooms": 4
+        },
+        {
+          "degrees": -155,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -150,
+          "won": false,
+          "blooms": 1
+        },
+        {
+          "degrees": -145,
+          "won": false,
+          "blooms": 9
+        },
+        {
+          "degrees": -140,
+          "won": false,
+          "blooms": 3
+        },
+        {
+          "degrees": -135,
+          "won": false,
+          "blooms": 38
+        },
+        {
+          "degrees": -130,
+          "won": false,
+          "blooms": 51
+        },
+        {
+          "degrees": -125,
+          "won": false,
+          "blooms": 34
+        },
+        {
+          "degrees": -120,
+          "won": false,
+          "blooms": 43
+        },
+        {
+          "degrees": -115,
+          "won": false,
+          "blooms": 4
+        },
+        {
+          "degrees": -110,
+          "won": false,
+          "blooms": 4
+        },
+        {
+          "degrees": -105,
+          "won": false,
+          "blooms": 5
+        },
+        {
+          "degrees": -100,
+          "won": false,
+          "blooms": 5
+        },
+        {
+          "degrees": -95,
+          "won": false,
+          "blooms": 10
+        },
+        {
+          "degrees": -90,
+          "won": false,
+          "blooms": 6
+        },
+        {
+          "degrees": -85,
+          "won": false,
+          "blooms": 5
+        },
+        {
+          "degrees": -80,
+          "won": false,
+          "blooms": 9
+        },
+        {
+          "degrees": -75,
+          "won": false,
+          "blooms": 9
+        },
+        {
+          "degrees": -70,
+          "won": false,
+          "blooms": 3
+        },
+        {
+          "degrees": -65,
+          "won": false,
+          "blooms": 2
+        },
+        {
+          "degrees": -60,
+          "won": false,
+          "blooms": 36
+        },
+        {
+          "degrees": -55,
+          "won": false,
+          "blooms": 9
+        },
+        {
+          "degrees": -50,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -45,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -40,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -35,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -30,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -25,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -20,
+          "won": false,
+          "blooms": 43
+        },
+        {
+          "degrees": -15,
+          "won": false,
+          "blooms": 0
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "name": "Last Sunbeam",
+      "speed": 580,
+      "aims": 31,
+      "oneVolleyWins": 0,
+      "winFraction": 0,
+      "medianBloomFraction": 0.05454545454545454,
+      "attempts": [
+        {
+          "degrees": -165,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -160,
+          "won": false,
+          "blooms": 4
+        },
+        {
+          "degrees": -155,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -150,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -145,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -140,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -135,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -130,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -125,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -120,
+          "won": false,
+          "blooms": 2
+        },
+        {
+          "degrees": -115,
+          "won": false,
+          "blooms": 2
+        },
+        {
+          "degrees": -110,
+          "won": false,
+          "blooms": 4
+        },
+        {
+          "degrees": -105,
+          "won": false,
+          "blooms": 2
+        },
+        {
+          "degrees": -100,
+          "won": false,
+          "blooms": 43
+        },
+        {
+          "degrees": -95,
+          "won": false,
+          "blooms": 4
+        },
+        {
+          "degrees": -90,
+          "won": false,
+          "blooms": 9
+        },
+        {
+          "degrees": -85,
+          "won": false,
+          "blooms": 5
+        },
+        {
+          "degrees": -80,
+          "won": false,
+          "blooms": 10
+        },
+        {
+          "degrees": -75,
+          "won": false,
+          "blooms": 1
+        },
+        {
+          "degrees": -70,
+          "won": false,
+          "blooms": 2
+        },
+        {
+          "degrees": -65,
+          "won": false,
+          "blooms": 4
+        },
+        {
+          "degrees": -60,
+          "won": false,
+          "blooms": 8
+        },
+        {
+          "degrees": -55,
+          "won": false,
+          "blooms": 10
+        },
+        {
+          "degrees": -50,
+          "won": false,
+          "blooms": 47
+        },
+        {
+          "degrees": -45,
+          "won": false,
+          "blooms": 51
+        },
+        {
+          "degrees": -40,
+          "won": false,
+          "blooms": 33
+        },
+        {
+          "degrees": -35,
+          "won": false,
+          "blooms": 9
+        },
+        {
+          "degrees": -30,
+          "won": false,
+          "blooms": 1
+        },
+        {
+          "degrees": -25,
+          "won": false,
+          "blooms": 5
+        },
+        {
+          "degrees": -20,
+          "won": false,
+          "blooms": 3
+        },
+        {
+          "degrees": -15,
+          "won": false,
+          "blooms": 0
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "name": "Full Bloom",
+      "speed": 590,
+      "aims": 31,
+      "oneVolleyWins": 0,
+      "winFraction": 0,
+      "medianBloomFraction": 0.08196721311475409,
+      "attempts": [
+        {
+          "degrees": -165,
+          "won": false,
+          "blooms": 3
+        },
+        {
+          "degrees": -160,
+          "won": false,
+          "blooms": 39
+        },
+        {
+          "degrees": -155,
+          "won": false,
+          "blooms": 6
+        },
+        {
+          "degrees": -150,
+          "won": false,
+          "blooms": 5
+        },
+        {
+          "degrees": -145,
+          "won": false,
+          "blooms": 9
+        },
+        {
+          "degrees": -140,
+          "won": false,
+          "blooms": 20
+        },
+        {
+          "degrees": -135,
+          "won": false,
+          "blooms": 8
+        },
+        {
+          "degrees": -130,
+          "won": false,
+          "blooms": 39
+        },
+        {
+          "degrees": -125,
+          "won": false,
+          "blooms": 41
+        },
+        {
+          "degrees": -120,
+          "won": false,
+          "blooms": 27
+        },
+        {
+          "degrees": -115,
+          "won": false,
+          "blooms": 5
+        },
+        {
+          "degrees": -110,
+          "won": false,
+          "blooms": 5
+        },
+        {
+          "degrees": -105,
+          "won": false,
+          "blooms": 4
+        },
+        {
+          "degrees": -100,
+          "won": false,
+          "blooms": 7
+        },
+        {
+          "degrees": -95,
+          "won": false,
+          "blooms": 5
+        },
+        {
+          "degrees": -90,
+          "won": false,
+          "blooms": 11
+        },
+        {
+          "degrees": -85,
+          "won": false,
+          "blooms": 1
+        },
+        {
+          "degrees": -80,
+          "won": false,
+          "blooms": 7
+        },
+        {
+          "degrees": -75,
+          "won": false,
+          "blooms": 3
+        },
+        {
+          "degrees": -70,
+          "won": false,
+          "blooms": 5
+        },
+        {
+          "degrees": -65,
+          "won": false,
+          "blooms": 4
+        },
+        {
+          "degrees": -60,
+          "won": false,
+          "blooms": 18
+        },
+        {
+          "degrees": -55,
+          "won": false,
+          "blooms": 7
+        },
+        {
+          "degrees": -50,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -45,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -40,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -35,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -30,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -25,
+          "won": false,
+          "blooms": 0
+        },
+        {
+          "degrees": -20,
+          "won": false,
+          "blooms": 40
+        },
+        {
+          "degrees": -15,
+          "won": false,
+          "blooms": 0
+        }
+      ]
+    }
+  ]
+}

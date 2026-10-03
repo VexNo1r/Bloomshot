@@ -1,0 +1,82 @@
+{
+  "passed": 15,
+  "failed": 0,
+  "contract": {
+    "gatePair": "Reciprocal partner IDs; invalid pairs are ignored together.",
+    "gateRadius": "10..40, default18; ball center crosses the rim.",
+    "exit": "Partner center plus rotated unit velocity times partner radius +5.5+.1.",
+    "cooldownSeconds": 0.12,
+    "maximumPassesPerBall": 12,
+    "trace": "Exit points have move:true; travel across the board is discontinuous.",
+    "moonRules": {
+      "shots": 5,
+      "ballsPerShot": 1,
+      "guide": false,
+      "autoBurst": false,
+      "ballLifetime": 7
+    },
+    "starRule": "Three stars when shots spent <=par; two <=par+1; one otherwise. Meadow par remains1."
+  },
+  "results": [
+    {
+      "name": "Meadow defaults retain three volleys, three balls, steering, bursts, lifetime, and star ratings",
+      "passed": true
+    },
+    {
+      "name": "Moon fires exactly one centered seed and consumes one of five shots",
+      "passed": true
+    },
+    {
+      "name": "Disabled guidance remains a no-op and cannot alter velocity or gain charge",
+      "passed": true
+    },
+    {
+      "name": "Twelve blooms may celebrate but do not automatically spawn balls when disabled",
+      "passed": true
+    },
+    {
+      "name": "Configured seven-second lifetime ends each shot and the fifth miss ends the level once",
+      "passed": true
+    },
+    {
+      "name": "Moon stars use shots spent against par rather than the five-shot allowance",
+      "passed": true
+    },
+    {
+      "name": "Swept collision selects the nearest gate rim but honors an earlier solid hit",
+      "passed": true
+    },
+    {
+      "name": "A fast gate crossing rotates velocity, preserves speed, clears trail, and emits one located event",
+      "passed": true
+    },
+    {
+      "name": "Remaining travel after teleport can hit and reflect from a flower in the same physics tick",
+      "passed": true
+    },
+    {
+      "name": "Cooldown blocks immediate passage and each ball has a bounded lifetime hop budget",
+      "passed": true
+    },
+    {
+      "name": "Repeated portal and wall travel remains finite, bounded, and eventually ends",
+      "passed": true
+    },
+    {
+      "name": "Malformed, ambiguous, self-paired, unpaired, and unsafe gates are ignored as complete pairs",
+      "passed": true
+    },
+    {
+      "name": "Trace has an explicit gate discontinuity and agrees with the centered live shot target",
+      "passed": true
+    },
+    {
+      "name": "Gate trajectories, event counts, and scoring are identical at 30, 60, and 144 FPS",
+      "passed": true
+    },
+    {
+      "name": "Malformed optional rules normalize to safe bounded values",
+      "passed": true
+    }
+  ]
+}
