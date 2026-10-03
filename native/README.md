@@ -72,7 +72,7 @@ These are development prerequisites, not confirmation that this game meets store
 The earlier `android/`, `ios/`, `www/` and `scripts/` folders were not available, so they were rebuilt from the files that were: `package.json`, the lockfile, `capacitor.config.json` and this README. What was done, so it can be reproduced:
 
 - `scripts/prepare-web.cjs` and `scripts/check.cjs` were rewritten to behave as described above (asset list from the game's `sw.js`, browser-only files dropped, install UI stripped from `index.html`, SHA-256 inventory, failure on unexpected HTML).
-- `npx cap add android` and `npx cap add ios` with the pinned Capacitor 8.5.2, then `npm run sync`. Both worked on Linux. Neither project has been compiled.
+- `npx cap add android` and `npx cap add ios` with the pinned Capacitor 8.5.2, then `npm run sync`. Both worked on Linux. Both then compiled in GitHub Actions on October 3, 2026 (Android debug APK, iOS unsigned simulator build). Neither has been launched on a device or simulator.
 - Launcher icons and splash screens were regenerated from the game's `icons/icon.svg` with `npx @capacitor/assets generate`, from the source images in `assets/`.
 - Portrait only on iPhone and Android (the game is portrait-first). iPad keeps all four orientations, which Apple expects for iPad apps.
 - The runtime copy is now 21 assets, because the purchase layer added `store-config.js`, `store.js` and `store-ui.js`.
