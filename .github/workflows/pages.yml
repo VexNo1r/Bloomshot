@@ -1,0 +1,82 @@
+# Publishes the web version of the game to GitHub Pages on every push to main.
+# One setting must be switched on first (repo Settings, Pages, Source: GitHub Actions). Until then this
+# workflow still builds the site as a check and finishes green, with a notice saying how to turn Pages on,
+# so a missing setting never turns main red.
+name: Web game on GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.pages.outputs.enabled }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build the site
+        run: node .github/scripts/build-pages.cjs
+      - name: Is GitHub Pages switched on?
+        id: pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          type=$(gh api "repos/${{ github.repository }}/pages" --jq .build_type 2>/dev/null || true)
+          if [ "$type" = "workflow" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            if [ "$type" != "workflow" ]; then
+              echo "::notice title=GitHub Pages is not switched on::Open the repo's Settings, then Pages, and set Source to GitHub Actions. The next push to main (or Run workflow on main) publishes the game."
+            else
+              echo "::notice title=Not deploying::Only main is published; this run built the site as a check."
+            fi
+          fi
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.pages.outputs.enabled == 'true'
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    if: needs.build.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/deploy-pages@v4
+        id: deployment
+      # The service worker only caches the manifest if it is served as JSON or a manifest. Say so loudly if
+      # Pages ever serves it differently, because then offline install would silently fail. Warns, never fails.
+      - name: Check how the live site serves its files
+        run: |
+          base="${{ steps.deployment.outputs.page_url }}"
+          for file in sw.js manifest.webmanifest; do
+            type=""
+            for attempt in 1 2 3 4 5 6; do
+              type=$(curl -sI "${base}${file}" | tr -d '\r' | awk -F': ' 'tolower($1)=="content-type"{print tolower($2)}')
+              [ -n "$type" ] && break
+              sleep 10
+            done
+            echo "$file is served as: ${type:-nothing}"
+            case "$file:$type" in
+              sw.js:*javascript*|manifest.webmanifest:*json*|manifest.webmanifest:*manifest*) ;;
+              *) echo "::warning title=Unexpected content type::${file} is served as '${type}'. The game's service worker may refuse to cache it; see docs/WEB-HOSTING.md." ;;
+            esac
+          done
