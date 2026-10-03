@@ -10,8 +10,8 @@
     products: [
       // id must match the product id created in App Store Connect and Google Play Console.
       // entitlement must match the entitlement id created in the RevenueCat dashboard.
-      { id: 'bloomshot.world.koi', entitlement: 'world_koi', kind: 'world', title: 'Koi Garden', priceHint: '$4.99', available: false },
-      { id: 'bloomshot.style.collection1', entitlement: 'style_collection1', kind: 'style', title: 'Appearance collection', priceHint: '$1.99', available: false }
+      { id: 'bloomshot.world.koi', entitlement: 'world_koi', kind: 'world', title: 'Koi Conservatory', priceHint: '$4.99', available: false },
+      { id: 'bloomshot.style.collection1', entitlement: 'style_collection1', kind: 'style', title: 'Keepsake Collection', priceHint: '$1.99', available: false }
     ]
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

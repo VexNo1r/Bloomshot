@@ -1,6 +1,6 @@
 # Store listing draft
 
-Status: draft written October 3, 2026, for the day the Apple and Google developer accounts exist. Nothing here has been entered anywhere. Field limits are the ones I last knew; check each against the console when pasting. The game text matches what the game does today (Meadow Rush, 18 Garden puzzles, six Moon trials, the persistent meadow, and the Koi Conservatory with its first two pools free). Update it if the game changes.
+Status: draft written October 3, 2026, for the day the Apple and Google developer accounts exist. Nothing here has been entered anywhere. Field limits are the ones I last knew; check each against the console when pasting. The game text matches what the game does once the Koi Conservatory pull request is merged (Meadow Rush, 18 Garden puzzles, six Moon trials, the persistent meadow, and the Koi Conservatory with its first two pools free). The Keepsake Collection is not described in the store text yet because it is not built. Update it if the game changes.
 
 Not checked: whether the name "Bloomshot" is free in either store. Search both before creating the app records.
 
@@ -46,6 +46,7 @@ Every star you earn becomes seeds. Plant them in six permanent flower patches an
 | Product | Id | Type | Price | Status |
 |---|---|---|---|---|
 | Koi Conservatory | `bloomshot.world.koi` | Non-consumable (Apple) / one-time in-app product (Google) | test value $4.99; final price is the owner's call | Create only after the Koi content is final |
+| Keepsake Collection | `bloomshot.style.collection1` | Non-consumable (Apple) / one-time in-app product (Google) | test value $1.99; final price is the owner's call | Three seed styles (Sakura Breeze, Firefly Night, Gilded Leaf) that change how a seed looks, never how it plays. Create only after the content is final |
 
 Each product needs a display name, a description and a review screenshot of the unlock screen in Apple's console. Write the description as what the player gets: "Opens pools 3 to 8 of the Koi Conservatory, forever."
 
