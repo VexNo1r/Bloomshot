@@ -1,5 +1,5 @@
-# DRAFT, not yet run. Needs the bloomshot-native folder (Capacitor project) committed beside bloomshot/.
 # Builds an installable debug APK with no Google account, store account or signing key.
+# Run it from the Actions tab (Run workflow). The APK is attached to the run as "bloomshot-debug-apk".
 name: Android debug APK
 
 on:
@@ -10,24 +10,25 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: bloomshot-native
+        working-directory: native
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: bloomshot-native/package-lock.json
+          cache-dependency-path: native/package-lock.json
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 21
       - run: npm ci
       - run: npm run sync:android
+      - run: npm run check
       - run: chmod +x android/gradlew
       - run: ./gradlew assembleDebug
-        working-directory: bloomshot-native/android
+        working-directory: native/android
       - uses: actions/upload-artifact@v4
         with:
           name: bloomshot-debug-apk
-          path: bloomshot-native/android/app/build/outputs/apk/debug/app-debug.apk
+          path: native/android/app/build/outputs/apk/debug/app-debug.apk

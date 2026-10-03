@@ -10,7 +10,9 @@ Verified in this pass:
 - It renders cleanly at phone size (390 x 844) and on an iPad (820 x 1180), where it sits in a centered phone-width column. Safe-area insets are already used for top and bottom.
 - The purchase layer in `docs/STORES.md` passes its own 14 checks and works in a browser in test mode.
 
-Not verified by anyone yet (from the handoff and `NATIVE-VERIFICATION.json`): any native build, any real device, WebView performance, touch feel, audio on phones, and every store step.
+The Android debug APK and the iOS simulator build both compiled in GitHub Actions on October 3, 2026.
+
+Not verified by anyone yet: any real device or simulator run, WebView performance, touch feel, audio on phones, and every store step.
 
 ## Gaps between today and a store release
 
@@ -18,8 +20,8 @@ Not verified by anyone yet (from the handoff and `NATIVE-VERIFICATION.json`): an
 |---|---|---|---|
 | Purchase plumbing | No | Done (this pass) | Test mode only until keys exist. |
 | **Something to sell** | No | Content work | Koi Garden and the paid appearance sets do not exist. The six Moon trials are free. Until a paid world is playable, there is no revenue to wire. |
-| Android debug APK in the cloud | No | Draft workflow written | `.github/workflows/android-debug.yml`. Needs the native folder in the repo. Lets Trevor sideload a real Android build with no account. |
-| iOS compile check in the cloud | No | Draft workflow written | `.github/workflows/ios-simulator.yml`. Compiles unsigned for the simulator; cannot be installed on an iPhone. |
+| Android debug APK in the cloud | No | Built once, October 3 2026 | `.github/workflows/android-debug.yml` (Actions tab, Run workflow). The APK is attached to the run as `bloomshot-debug-apk`. Compiles; has not been launched on a device. Lets Trevor sideload a real Android build with no account. |
+| iOS compile check in the cloud | No | Passed once, October 3 2026 | `.github/workflows/ios-simulator.yml`. Compiles unsigned for the simulator (`BUILD SUCCEEDED`); cannot be installed on an iPhone and has not been run in a simulator. |
 | Final app id and name check | No | Trevor decides | `dev.bloomshot.game` is a placeholder and permanent once published. The name "Bloomshot" has not been searched in either store. |
 | Privacy policy page | No | Claude drafts, Trevor hosts | Required by both stores. The game collects nothing and has no accounts or ads, which makes it short. |
 | Store listing text, screenshots, age ratings | No (drafting) | Claude | Entered into the consoles after enrollment. iPad screenshots are required if iPad is supported. |
@@ -51,7 +53,7 @@ Costs and rules are as of my last information. Confirm each on the official page
 ## Suggested order
 
 1. Repo, name, app id (free, now).
-2. Native folder into the repo; Claude runs the two draft workflows and fixes what they find; Trevor sideloads the Android APK and plays it.
+2. Native folder is in the repo and both cloud builds have compiled once; Trevor sideloads the Android APK and plays it, and Claude fixes what that finds.
 3. Claude adds haptics, Preferences mirroring and store-listing assets while the paid world is built.
 4. Pay for Google Play; start the 12-tester, 14-day closed test with the free game.
 5. Pay for Apple when the next check arrives; TestFlight; sandbox-test purchases.

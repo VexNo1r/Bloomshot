@@ -1,0 +1,7 @@
+{
+  "appId": "dev.bloomshot.game",
+  "appName": "BLOOMSHOT",
+  "webDir": "www",
+  "backgroundColor": "#ddf7f4",
+  "android": { "allowMixedContent": false }
+}
