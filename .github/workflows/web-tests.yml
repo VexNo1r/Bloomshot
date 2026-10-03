@@ -21,3 +21,21 @@ jobs:
             echo "== $t"
             node qa/$t.cjs > /dev/null || { echo "FAILED: $t"; node qa/$t.cjs | tail -40; exit 1; }
           done
+
+  # Keeps the native packaging honest: if a game change breaks the Android/iOS copy step
+  # (a new file missing from sw.js ASSETS, a changed index.html), this fails before anyone ships.
+  native-packaging:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: native
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: native/package-lock.json
+      - run: npm ci
+      - run: npm run sync
+      - run: npm run check

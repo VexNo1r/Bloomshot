@@ -1,5 +1,6 @@
-# DRAFT, not yet run. Compiles the iOS app for the simulator with no Apple account and no signing.
-# Capacitor 8 needs Xcode 26 or newer: if the runner's Xcode is older, pick a newer macOS image.
+# Compiles the iOS app for the simulator with no Apple account and no signing. It proves the project
+# builds; the result cannot be installed on a real iPhone. Capacitor 8 needs Xcode 26 or newer, so the
+# first step prints the runner's Xcode version: if it is older, switch to a newer macOS image.
 name: iOS simulator build
 
 on:
@@ -10,17 +11,18 @@ jobs:
     runs-on: macos-latest
     defaults:
       run:
-        working-directory: bloomshot-native
+        working-directory: native
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: bloomshot-native/package-lock.json
+          cache-dependency-path: native/package-lock.json
       - run: xcodebuild -version
       - run: npm ci
       - run: npm run sync:ios
+      - run: npm run check
       - name: Compile for the simulator, unsigned
         run: >
           xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug
