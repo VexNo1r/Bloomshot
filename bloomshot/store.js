@@ -31,7 +31,7 @@
 
     var native = Boolean(Capacitor && typeof Capacitor.isNativePlatform === 'function' && Capacitor.isNativePlatform());
     var mode = native ? 'native' : env.allowMock ? 'mock' : 'web';
-    var state = { mode: mode, ready: false, configured: false, owned: {}, storeProducts: {}, prices: {}, busy: false };
+    var state = { mode: mode, ready: false, configured: false, owned: {}, storeProducts: {}, prices: {}, amounts: {}, busy: false };
     var listeners = [];
     var initPromise = null;
     var plugin = null;
@@ -63,6 +63,11 @@
       if (mode === 'mock') write(MOCK_KEY, { v: 1, owned: ids, bought: mockBought });
       if (changed) emit('entitlements');
       return changed;
+    }
+    // The price hint is only ever written in US dollars ("$4.99"); anything else has no usable amount.
+    function hintAmount(hint) {
+      var match = /^\s*\$\s*(\d+(?:\.\d{1,2})?)\s*$/.exec(String(hint || ''));
+      return match ? { amount: Number(match[1]), currency: 'USD' } : { amount: null, currency: null };
     }
     function union(a, b) { return a.concat(b.filter(function (id) { return a.indexOf(id) < 0; })); }
     function heldOf(p) { return p.entitlements.filter(function (id) { return state.owned[id]; }); }
@@ -98,7 +103,11 @@
         var ids = catalog.filter(function (p) { return p.available; }).map(function (p) { return p.id; });
         if (ids.length) {
           var found = (await plugin.getProducts({ productIdentifiers: ids, type: 'NON_SUBSCRIPTION' })).products || [];
-          found.forEach(function (sp) { state.storeProducts[sp.identifier] = sp; state.prices[sp.identifier] = sp.priceString; });
+          found.forEach(function (sp) {
+            state.storeProducts[sp.identifier] = sp; state.prices[sp.identifier] = sp.priceString;
+            // The store's own number and currency, so the UI can compare prices exactly instead of parsing a string.
+            state.amounts[sp.identifier] = Number.isFinite(sp.price) && typeof sp.currencyCode === 'string' && sp.currencyCode ? { amount: sp.price, currency: sp.currencyCode } : { amount: null, currency: null };
+          });
           emit('products');
         }
       } catch (_) { /* prices fall back to the hint */ }
@@ -133,7 +142,9 @@
         // buying it would charge for something they have (a bundle after one of its items), so it is refused.
         return { id: p.id, entitlement: p.entitlement, entitlements: p.entitlements.slice(), kind: p.kind, title: p.title, available: p.available,
           owned: p.entitlements.length > 0 && held === p.entitlements.length, partial: held > 0 && held < p.entitlements.length,
-          price: state.prices[p.id] || p.priceHint };
+          price: state.prices[p.id] || p.priceHint,
+          // amount and currency describe the same price as `price`: the store's once it has loaded, else the hint's.
+          amount: (state.amounts[p.id] || hintAmount(p.priceHint)).amount, currency: (state.amounts[p.id] || hintAmount(p.priceHint)).currency };
       });
     }
 

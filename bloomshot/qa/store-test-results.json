@@ -1,5 +1,5 @@
 {
-  "passed": 23,
+  "passed": 24,
   "failed": 0,
   "results": [
     {
@@ -20,6 +20,10 @@
     },
     {
       "name": "native configures once with the platform key and loads prices from the store",
+      "passed": true
+    },
+    {
+      "name": "products report an exact amount and currency: the store's once loaded, the USD price hint before that, nothing when it cannot be known",
       "passed": true
     },
     {

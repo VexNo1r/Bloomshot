@@ -9,7 +9,7 @@ Added in the mobile-release pass, October 3 2026. Status: written and unit-teste
 | `bloomshot/store-config.js` | The catalog (product ids, entitlement ids, test prices) and the RevenueCat public keys. Edit this file to change what is sold. |
 | `bloomshot/store.js` | `BloomStore`: init, `products()`, `owns(entitlement)`, `purchase(productId)`, `restore()`, `subscribe(fn)`. |
 | `bloomshot/store-ui.js` | A "Purchases" section in Settings with **Restore purchases**. It stays hidden unless a store is live. |
-| `bloomshot/qa/test-store.cjs` | 23 checks with a fake store plugin, including the bundle and a consistency check of the shipped catalog. |
+| `bloomshot/qa/test-store.cjs` | 24 checks with a fake store plugin, including the bundle and a consistency check of the shipped catalog. |
 
 The Koi Conservatory is the first gated content: `app.js` opens pools 3 to 8 only when `BloomStore.owns('world_koi')` is true, and its unlock panel calls `BloomStore.purchase('bloomshot.world.koi')` only when the store is live and the product is `available`.
 
@@ -50,6 +50,7 @@ Each item in `BloomStore.products()` carries:
 | `entitlements` | Every entitlement the product grants (one element for a single item). `entitlement` is the first, kept for older code. |
 | `owned` | The player already has all of them. Owning both single items counts as owning the bundle. |
 | `partial` | The player has some but not all. Do not offer the bundle then; offer the remaining single item instead. |
+| `amount`, `currency` | The same price as `price`, as a number and an ISO code: the store's own (`StoreProduct.price` and `currencyCode`) once it has loaded, otherwise parsed from the USD `priceHint`, otherwise `null`. Compare prices only when every amount is finite and the currencies match, for example to say "You save $0.99". |
 
 `purchase()` results always include `entitlements`. Restore (`restore()`) lists the entitlements it brought back in `restored` and their player-facing names in `names`, so the Settings message can say "Restored Koi Conservatory and Keepsake Collection" even when one bundle purchase brought both.
 

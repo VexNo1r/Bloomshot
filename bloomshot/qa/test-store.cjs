@@ -30,7 +30,7 @@ function fakePlugin(options = {}) {
     isConfigured: async () => ({ isConfigured: state.configured }),
     configure: async cfg => { calls.push(['configure', cfg]); state.configured = true; },
     getCustomerInfo: async () => { calls.push(['getCustomerInfo']); if (options.offline) throw new Error('offline'); return { customerInfo: info() }; },
-    getProducts: async opts => { calls.push(['getProducts', opts]); return { products: opts.productIdentifiers.map(id => ({ identifier: id, priceString: '€4,99' })) }; },
+    getProducts: async opts => { calls.push(['getProducts', opts]); return { products: opts.productIdentifiers.map(id => ({ identifier: id, priceString: '€4,99', price: options.noNumber ? undefined : 4.99, currencyCode: options.noNumber ? undefined : 'EUR' })) }; },
     purchaseStoreProduct: async ({ product }) => {
       calls.push(['purchase', product.identifier]);
       if (options.cancel) { const e = new Error('cancelled'); e.userCancelled = true; throw e; }
@@ -115,6 +115,26 @@ const find = (store, id) => store.products().find(p => p.id === id);
     assert.equal(getProducts.type, 'NON_SUBSCRIPTION');
     assert.equal(store.products().find(p => p.id === 'p.live').price, '€4,99');
     assert.equal(store.products().find(p => p.id === 'p.unbuilt').price, '$4.99');
+  });
+
+  await test('products report an exact amount and currency: the store\'s once loaded, the USD price hint before that, nothing when it cannot be known', async () => {
+    const config = { revenueCatKeys: CONFIG.revenueCatKeys, products: [
+      { id: 'p.live', entitlement: 'e_live', title: 'Live', priceHint: '$4.99', available: true },
+      { id: 'p.unbuilt', entitlement: 'e_unbuilt', title: 'Unbuilt', priceHint: ' $1.99 ', available: false },
+      { id: 'p.euro', entitlement: 'e_euro', title: 'Euro', priceHint: '€4,99', available: false },
+      { id: 'p.free', entitlement: 'e_free', title: 'No hint', available: false }
+    ] };
+    const store = Store.create(nativeEnv(fakePlugin(), { config }));
+    const price = id => { const p = find(store, id); return { amount: p.amount, currency: p.currency, price: p.price }; };
+    assert.deepEqual(price('p.live'), { amount: 4.99, currency: 'USD', price: '$4.99' }); // before the store has answered
+    await store.init();
+    assert.deepEqual(price('p.live'), { amount: 4.99, currency: 'EUR', price: '€4,99' }); // from the store product
+    assert.deepEqual(price('p.unbuilt'), { amount: 1.99, currency: 'USD', price: ' $1.99 ' });
+    assert.deepEqual(price('p.euro'), { amount: null, currency: null, price: '€4,99' });
+    assert.deepEqual(price('p.free'), { amount: null, currency: null, price: '' });
+    const bad = Store.create(nativeEnv(fakePlugin({ noNumber: true }), { config })); await bad.init();
+    const badP = find(bad, 'p.live');
+    assert.deepEqual({ amount: badP.amount, currency: badP.currency, price: badP.price }, { amount: null, currency: null, price: '€4,99' }); // the string is the store's, so no USD guess beside it
   });
 
   await test('native purchase grants the entitlement and persists the first-paint cache', async () => {
@@ -312,7 +332,7 @@ const find = (store, id) => store.products().find(p => p.id === id);
     const products = store.products();
     assert.ok(products.length >= 3);
     assert.equal(new Set(products.map(p => p.id)).size, products.length);
-    const price = p => Number(String(p.price).replace(/[^0-9.]/g, ''));
+    const price = p => { assert.ok(Number.isFinite(p.amount) && p.currency === 'USD', `${p.id} needs a USD price hint`); return p.amount; };
     const singles = products.filter(p => p.entitlements.length === 1);
     const sold = new Set(singles.map(p => p.entitlement));
     assert.equal(sold.size, singles.length, 'each single product has its own entitlement');
