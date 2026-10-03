@@ -303,11 +303,31 @@
       game.particles.push({ x: bud.x, y: bud.y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed - 40, life, maxLife: life, color: kind === 'spark' ? '#fff7be' : colors[bud.type] || colors.coral, size: kind === 'pollen' ? 1.2 + Math.random() * 2 : 2.5 + Math.random() * 4, kind, rotation: a, spin: (Math.random() - .5) * 9, drag: kind === 'petal' ? 1.1 : .7, gravity: kind === 'petal' ? 90 : 35 });
     }
   }
+  // Game feel: trauma-based screen shake, brief hit-stop on big moments and a
+  // soft screen flash. All three are skipped when reduced motion is on.
+  let trauma = 0, freeze = 0, flash = 0, lastBump = 0;
+  const POP_COLORS = { coral: '#e8366f', gold: '#e59a12', lilac: '#7b52e6' };
+  function jolt(amount, stop = 0, glow = 0) {
+    if (!save.settings.motion) return;
+    trauma = Math.min(1, trauma + amount); freeze = Math.max(freeze, stop); flash = Math.max(flash, glow);
+  }
+  function bumpScore() {
+    const now = performance.now(); if (now - lastBump < 90) return; lastBump = now;
+    const el = $('score-value'); el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
+  }
   function processEvents() {
     for (const event of game.drainEvents()) {
       BloomSound.play(event.type, event);
       if (event.type === 'bloom') {
-        burst(event.bud);
+        const combo = event.combo || 1;
+        burst(event.bud, 24 + Math.min(36, combo * 3));
+        if (save.settings.motion && event.gain) {
+          const px = event.bud.x, py = event.bud.y - (event.bud.r || 14) - 6;
+          const stacked = game.floaters.filter(f => f.kind === 'pop' && Math.abs(f.x - px) < 34 && Math.abs(f.y - py) < 40).length;
+          game.floaters.push({ x: px + (stacked % 2 ? 14 : -6) * Math.min(1, stacked), y: py - stacked * 17, text: `+${event.gain}`, life: .8, maxLife: .8, kind: 'pop', color: POP_COLORS[event.bud.type] || POP_COLORS.coral, size: Math.min(24, 14 + combo * .8) });
+        }
+        jolt(.08 + Math.min(.2, combo * .015), combo % 5 === 0 ? .055 : 0, combo % 5 === 0 ? .7 : 0);
+        bumpScore();
         if (event.combo % 5 === 0) {
           game.floaters = game.floaters.filter(item => item.kind !== 'combo');
           game.floaters.push({ x: 210, y: 92, text: `${event.combo} BLOOM CHAIN`, life: .9, maxLife: .9, kind: 'combo' });
@@ -327,6 +347,7 @@
         $('game-hint').textContent = `Wave ${game.wave}. The flowers are moving faster.`;
         say(`Wave ${game.wave}. ${game.lives} lives left.`);
       } else if (event.type === 'life') {
+        jolt(.6, .12, 0);
         $('game-hint').textContent = game.lives ? `A cluster crossed the line. ${game.lives} ${game.lives === 1 ? 'life' : 'lives'} left.` : 'The garden reached the line.';
         if (save.settings.haptics && navigator.vibrate) navigator.vibrate([18, 25, 18]);
         say($('game-hint').textContent);
@@ -334,14 +355,15 @@
         burst(event.bud, 45); game.floaters = game.floaters.filter(item => item.kind !== 'bonus');
         game.floaters.push({ x: 210, y: 418, text: '+2 BALLS!', life: 1.05, maxLife: 1.05, kind: 'bonus' });
       } else if (event.type === 'fever') {
+        jolt(.35, .08, 1);
         if (save.settings.haptics && navigator.vibrate) navigator.vibrate([12, 35, 18]);
       } else if (event.type === 'crack') {
-        burst(event.bud, 9);
+        burst(event.bud, 12); jolt(.05);
       } else if (event.type === 'ready') {
         $('game-hint').textContent = isMoon() ? `${game.shotsLeft} seeds left. ${game.level.hint || 'Read the gate exit before your next shot.'}` : event.blooms ? 'Turn a petal, or line up your next volley.' : 'Try another angle. Turn a petal to redirect your shot.';
         say(`${game.bloomedCount} of ${game.buds.length} bloomed. ${game.shotsLeft} ${isMoon() ? 'seeds' : 'volleys'} left.`);
       } else if (event.type === 'won' || event.type === 'lost') {
-        if (event.type === 'won') { burst({ x: 110, y: 210, type: 'coral' }, 70); burst({ x: 310, y: 210, type: 'gold' }, 70); }
+        if (event.type === 'won') { burst({ x: 110, y: 210, type: 'coral' }, 70); burst({ x: 310, y: 210, type: 'gold' }, 70); burst({ x: 210, y: 150, type: 'lilac' }, 60); jolt(.45, .14, 1); }
         resultAt = game.time + (save.settings.motion ? 1.45 : .4); resultShown = false;
         if (isRush()) {
           rushRecordBroken = game.score > save.rush.best;
@@ -574,7 +596,8 @@
     if (document.hidden || route !== 'game') { lastFrame = timestamp; return; }
     const dt = Math.min(lastFrame ? (timestamp - lastFrame) / 1000 : 0, .06); lastFrame = timestamp;
     const paused = narrowLandscape.matches || dialogs.some(id => $(id).open);
-    if (!paused) {
+    if (!paused && freeze > 0) { freeze -= dt; }
+    else if (!paused) {
       accumulator += dt;
       while (accumulator >= 1 / 120) { game.step(1 / 120); accumulator -= 1 / 120; }
       processEvents();
@@ -586,14 +609,17 @@
       }
       game.particles = game.particles.filter(p => p.life > 0).slice(-600);
       for (const p of game.floaters) { p.life -= dt; p.y -= dt * 12; }
-      game.floaters = game.floaters.filter(p => p.life > 0).slice(-4);
+      game.floaters = game.floaters.filter(p => p.life > 0).slice(-16);
       if (!resultShown && game.time >= resultAt) showResult();
     }
     displayScore += (game.score - displayScore) * Math.min(1, dt * 10);
     if (Math.abs(game.score - displayScore) < 1) displayScore = game.score;
     updateHud(); pulseTime += dt;
     if (isRush() && (aiming || game.aim.length)) game.aim = game.trace(Math.cos(angle) * 400, Math.sin(angle) * 400);
-    BloomArt.draw(ctx, game, game.time, { theme, reducedMotion: !save.settings.motion, pointer, showAim: isRush() ? aiming || game.aim.length > 0 : game.status === 'aiming', selectedBumper: isRush() ? game.rotateCooldown <= 0 ? game.bumpers[0]?.id : null : game.status === 'aiming' && !game.rotationUsed ? game.bumpers[0]?.id : null });
+    trauma = Math.max(0, trauma - dt * 1.7); flash = Math.max(0, flash - dt * 3.2);
+    const t2 = trauma * trauma, nt = timestamp / 1000;
+    const shake = t2 > .001 ? { x: Math.sin(nt * 47.3) * Math.cos(nt * 13.1) * 9 * t2, y: Math.sin(nt * 39.7 + 1.3) * 9 * t2, r: Math.sin(nt * 29.1) * .018 * t2 } : null;
+    BloomArt.draw(ctx, game, game.time, { theme, reducedMotion: !save.settings.motion, pointer, shake, flash, showAim: isRush() ? aiming || game.aim.length > 0 : game.status === 'aiming', selectedBumper: isRush() ? game.rotateCooldown <= 0 ? game.bumpers[0]?.id : null : game.status === 'aiming' && !game.rotationUsed ? game.bumpers[0]?.id : null });
   }
   updateSettings(); persist(); renderMeadow();
   const initial = { id: 'rush', name: 'Meadow Rush' };

@@ -145,6 +145,7 @@
       mist.addColorStop(0, color); mist.addColorStop(1, 'rgba(255,255,255,0)');
       ctx.fillStyle = mist; ctx.fillRect(0, 0, 420, 560);
     }
+    paintScenery(ctx, theme, rush, p);
     if (theme === 'moon') {
       drawMoon(ctx, 370, 48, 25.5);
       ctx.save(); ctx.globalAlpha = .8;
@@ -189,6 +190,73 @@
     roundRect(ctx, 13, 13, 394, 534, 28); ctx.stroke();
     ctx.globalAlpha = .7; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.2;
     roundRect(ctx, 16, 16, 388, 528, 25); ctx.stroke();
+    ctx.restore();
+  }
+
+
+  // Painted depth: a warm sun (or nebula), raking light and three rolling
+  // hill bands kept below the play area so targets stay readable.
+  function paintScenery(ctx, theme, rush, p) {
+    const night = theme === 'moon';
+    ctx.save();
+    if (night) {
+      for (const [x, y, r, c] of [[90, 120, 170, 'rgba(255,92,201,.16)'], [330, 260, 190, 'rgba(84,226,255,.13)'], [210, 40, 150, 'rgba(176,120,255,.20)']]) {
+        const neb = ctx.createRadialGradient(x, y, 2, x, y, r);
+        neb.addColorStop(0, c); neb.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = neb; ctx.fillRect(0, 0, 420, 560);
+      }
+      const stars = rng(5101);
+      for (let i = 0; i < 90; i++) {
+        const x = stars() * 420, y = stars() * 430, big = stars() > .9;
+        ctx.globalAlpha = .25 + stars() * .6;
+        if (big) sparkle(ctx, x, y, 2.6, '#f4ecff', stars());
+        else circle(ctx, x, y, .5 + stars() * .9, '#efe6ff');
+      }
+      ctx.globalAlpha = 1;
+    } else {
+      const sun = ctx.createRadialGradient(338, 58, 4, 338, 58, 230);
+      sun.addColorStop(0, 'rgba(255,252,214,.95)'); sun.addColorStop(.18, 'rgba(255,236,150,.55)');
+      sun.addColorStop(.5, 'rgba(255,214,140,.16)'); sun.addColorStop(1, 'rgba(255,214,140,0)');
+      ctx.fillStyle = sun; ctx.fillRect(0, 0, 420, 560);
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 7; i++) {
+        const a = 1.95 + i * .19, spread = .035 + (i % 3) * .018;
+        ctx.beginPath(); ctx.moveTo(338, 58);
+        ctx.lineTo(338 + Math.cos(a - spread) * 700, 58 + Math.sin(a - spread) * 700);
+        ctx.lineTo(338 + Math.cos(a + spread) * 700, 58 + Math.sin(a + spread) * 700);
+        ctx.closePath(); ctx.fillStyle = `rgba(255,250,215,${.025 + (i % 2) * .018})`; ctx.fill();
+      }
+      ctx.globalCompositeOperation = 'source-over';
+    }
+    const bands = night
+      ? [[452, '#5b48b5', .55, 3], [486, '#4a3a9e', .7, 5], [516, '#35297c', .85, 7]]
+      : theme === 'koi'
+        ? [[456, '#7fe0d0', .5, 3], [488, '#4fc8b4', .65, 5], [518, '#2aa894', .8, 7]]
+        : [[452, '#9fe6b0', .55, 3], [484, '#5fd193', .7, 5], [516, '#2fb57c', .85, 7]];
+    bands.forEach(([base, color, alpha, seed], band) => {
+      const r = rng(seed * 977);
+      ctx.beginPath(); ctx.moveTo(-10, 570); ctx.lineTo(-10, base + 10);
+      let x = -10;
+      while (x < 430) {
+        const w = 70 + r() * 90, h = 10 + r() * (18 + band * 6);
+        ctx.quadraticCurveTo(x + w / 2, base - h, x + w, base + (r() - .5) * 10); x += w;
+      }
+      ctx.lineTo(430, 570); ctx.closePath();
+      const g = ctx.createLinearGradient(0, base - 30, 0, 560);
+      g.addColorStop(0, color); g.addColorStop(1, night ? '#21185a' : '#178a62');
+      ctx.globalAlpha = alpha; ctx.fillStyle = g; ctx.fill();
+      // Rim light along each ridge, painted as a soft highlight.
+      ctx.globalAlpha = alpha * .35; ctx.strokeStyle = night ? '#c9b6ff' : '#f6ffd8'; ctx.lineWidth = 1.4; ctx.stroke();
+      // Tiny wildflowers dot the nearer slopes.
+      ctx.globalAlpha = .9;
+      const dots = night ? ['#cfa8ff', '#8ff6ff', '#ffd7f5'] : ['#ff7aa6', '#ffd44f', '#b48cff', '#ffffff'];
+      for (let i = 0; i < 18 + band * 16; i++) {
+        const fx = r() * 420, fy = base + 12 + r() * (560 - base);
+        const c = dots[Math.floor(r() * dots.length)], s = .9 + r() * (1 + band * .6);
+        for (let k = 0; k < 5; k++) circle(ctx, fx + Math.cos(k * 1.257) * s, fy + Math.sin(k * 1.257) * s, s * .75, c);
+        circle(ctx, fx, fy, s * .55, night ? '#fff6c4' : '#fff3a8');
+      }
+    });
     ctx.restore();
   }
 
@@ -723,6 +791,81 @@
     ctx.restore();
   }
 
+
+  // Ambient life: drifting petals, glowing pollen, a passing butterfly and
+  // grass that leans in the breeze. Pure functions of time, so it costs no state.
+  const AMBIENT = {
+    meadow: { petals: ['#ff8fb1', '#ffd45c', '#c2a2ff', '#ffffff'], mote: '255,246,190', grass: ['#2fb57c', '#5fd193', '#8de074'] },
+    koi: { petals: ['#ff9d7a', '#ffe08a', '#ffffff', '#ffb4cf'], mote: '230,255,250', grass: ['#1f9d86', '#47c3a9', '#89e6bb'] },
+    moon: { petals: ['#d9b8ff', '#9ff4ff', '#ffc8ef', '#ffffff'], mote: '200,180,255', grass: ['#4b3ca6', '#6a5bd0', '#8f7ff0'] }
+  };
+  function drawAmbient(ctx, time, theme) {
+    const a = AMBIENT[theme] || AMBIENT.meadow;
+    ctx.save();
+    for (let i = 0; i < 14; i++) {
+      const speed = 13 + (i * 7) % 11, life = 640;
+      const y = ((i * 71 + time * speed) % life) - 40;
+      const x = ((i * 97.3 + time * (9 + i % 4)) % 470) - 25 + Math.sin(time * .9 + i * 1.7) * 18;
+      const spin = time * (1.2 + (i % 5) * .3) + i;
+      ctx.save(); ctx.translate(x, y); ctx.rotate(spin * .6);
+      ctx.scale(.35 + Math.abs(Math.cos(spin)) * .65, 1);
+      ctx.globalAlpha = .62;
+      const size = 3.2 + (i % 4);
+      ctx.beginPath(); ctx.moveTo(0, size); ctx.bezierCurveTo(-size * 1.3, size * .1, -size, -size * .9, 0, -size);
+      ctx.bezierCurveTo(size * .9, -size * 1.2, size * 1.3, size * .1, 0, size);
+      ctx.fillStyle = a.petals[i % a.petals.length]; ctx.fill();
+      ctx.restore();
+    }
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 9; i++) {
+      const x = 30 + ((i * 131.7) % 360) + Math.sin(time * .5 + i * 2.1) * 20;
+      const y = 520 - ((i * 63 + time * (6 + i % 3)) % 470);
+      const pulse = .45 + Math.sin(time * 2.2 + i * 1.3) * .35;
+      const g = ctx.createRadialGradient(x, y, 0, x, y, 9);
+      g.addColorStop(0, `rgba(${a.mote},${.75 * pulse})`); g.addColorStop(1, `rgba(${a.mote},0)`);
+      ctx.fillStyle = g; ctx.fillRect(x - 9, y - 9, 18, 18);
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    const cycle = time % 17;
+    if (cycle < 10 && theme !== 'moon') {
+      const q = cycle / 10, bx = -20 + q * 460, by = 150 + Math.sin(q * 9) * 34 + Math.sin(q * 23) * 6;
+      const flap = Math.abs(Math.sin(time * 15));
+      ctx.save(); ctx.translate(bx, by); ctx.rotate(Math.sin(q * 9) * .25 + .1);
+      for (const side of [-1, 1]) {
+        ctx.save(); ctx.scale(side * (.25 + flap * .75), 1);
+        ctx.beginPath(); ctx.ellipse(5, -4, 6.5, 5, -.5, 0, TAU); ctx.fillStyle = '#ff7aa6'; ctx.fill();
+        ctx.beginPath(); ctx.ellipse(4, 3.5, 4.2, 3.4, .5, 0, TAU); ctx.fillStyle = '#ffd45c'; ctx.fill();
+        circle(ctx, 6, -5, 1.4, '#ffffff');
+        ctx.restore();
+      }
+      ctx.beginPath(); ctx.ellipse(0, 0, 1.2, 5, 0, 0, TAU); ctx.fillStyle = '#3b2b4a'; ctx.fill();
+      ctx.restore();
+    }
+    for (let i = 0; i < 46; i++) {
+      const edge = i < 23, k = edge ? i : i - 23;
+      const x = edge ? 10 + k * 4.6 : 410 - k * 4.6;
+      if (x > 118 && x < 302) continue;
+      const h = 12 + ((i * 37) % 19), lean = Math.sin(time * 1.5 + x * .05) * 4 + (edge ? -2 : 2);
+      ctx.beginPath(); ctx.moveTo(x - 2, 548); ctx.quadraticCurveTo(x + lean * .3, 548 - h * .6, x + lean, 548 - h);
+      ctx.quadraticCurveTo(x + lean * .3 + 1, 548 - h * .5, x + 2, 548);
+      ctx.fillStyle = a.grass[i % 3]; ctx.globalAlpha = .9; ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawPop(ctx, floater, reducedMotion) {
+    const life = Math.max(0, floater.life), duration = floater.maxLife || .8, age = duration - life;
+    const scale = reducedMotion ? 1 : Math.min(1.25, .4 + age * 9) - Math.max(0, age - .1) * .4;
+    ctx.save(); ctx.translate(floater.x, floater.y - (reducedMotion ? 0 : ease(age / duration) * 26));
+    ctx.scale(Math.max(.7, scale), Math.max(.7, scale));
+    ctx.globalAlpha = Math.min(1, life / .25); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const size = floater.size || 15;
+    ctx.font = `900 ${size}px system-ui, sans-serif`; ctx.lineJoin = 'round';
+    ctx.lineWidth = 3.4; ctx.strokeStyle = '#ffffff'; ctx.strokeText(floater.text, 0, 0);
+    ctx.fillStyle = floater.color || '#e2477c'; ctx.fillText(floater.text, 0, 0);
+    ctx.restore();
+  }
+
   function sparkle(ctx, x, y, size, color, rotation) {
     ctx.save(); ctx.translate(x, y); ctx.rotate(rotation || 0);
     ctx.beginPath(); ctx.moveTo(0, -size); ctx.quadraticCurveTo(size * .16, -size * .13, size, 0);
@@ -775,7 +918,15 @@
       }
       ctx.lineTo(ball.x, ball.y); ctx.strokeStyle = '#fffbe1'; ctx.lineWidth = r * .55; ctx.globalAlpha = .8; ctx.stroke();
     }
-    ctx.globalAlpha = 1; ctx.shadowColor = c.base; ctx.shadowBlur = fever ? 19 : 12;
+    ctx.globalAlpha = 1;
+    if (!reducedMotion) {
+      ctx.globalCompositeOperation = 'lighter';
+      const glow = ctx.createRadialGradient(ball.x, ball.y, 0, ball.x, ball.y, r * 4.2);
+      glow.addColorStop(0, c.light + 'aa'); glow.addColorStop(1, c.light + '00');
+      ctx.fillStyle = glow; ctx.fillRect(ball.x - r * 4.2, ball.y - r * 4.2, r * 8.4, r * 8.4);
+      ctx.globalCompositeOperation = 'source-over';
+    }
+    ctx.shadowColor = c.base; ctx.shadowBlur = fever ? 19 : 12;
     circle(ctx, ball.x, ball.y, r + 1.3, c.base);
     ctx.shadowBlur = 0;
     circle(ctx, ball.x, ball.y, r * .78, '#fffdf2');
@@ -894,7 +1045,10 @@
     ctx.save();
     const rush = state.mode === 'rush';
     drawGarden(ctx, 420, 560, options.theme, { mode: state.mode });
+    if (!options.reducedMotion) drawAmbient(ctx, time, options.theme);
     drawAtmosphere(ctx, state, time, options);
+    const shake = options.shake;
+    if (shake && !options.reducedMotion) { ctx.translate(210 + shake.x, 280 + shake.y); ctx.rotate(shake.r || 0); ctx.translate(-210, -280); }
 
     const buds = Array.isArray(state.buds) ? state.buds : [];
     if (rush) drawRushBoundary(ctx, state, options.theme);
@@ -909,6 +1063,15 @@
         const age = time - bud.bloomAt;
         if (age >= 0 && age < .85) {
           const c = FLOWERS[bud.type] || FLOWERS.coral;
+          if (age < .16) {
+            // A brief additive flash sells the instant of impact.
+            const f = 1 - age / .16, fr = (bud.r || 13) * (1.4 + (1 - f) * 1.9);
+            ctx.save(); ctx.globalCompositeOperation = 'lighter';
+            const flash = ctx.createRadialGradient(bud.x, bud.y, 0, bud.x, bud.y, fr);
+            flash.addColorStop(0, `rgba(255,255,240,${.9 * f})`); flash.addColorStop(.45, c.light + Math.round(f * 170).toString(16).padStart(2, '0'));
+            flash.addColorStop(1, c.base + '00');
+            ctx.fillStyle = flash; ctx.fillRect(bud.x - fr, bud.y - fr, fr * 2, fr * 2); ctx.restore();
+          }
           ctx.save(); ctx.globalAlpha = (1 - age / .85) * .56;
           const radius = (bud.r || 13) + ease(age / .85) * 37;
           circle(ctx, bud.x, bud.y, radius, null, c.base, 2.3 - age * 2);
@@ -972,8 +1135,17 @@
     if (!rush) drawGuide(ctx, state, balls, time, options.reducedMotion);
     balls.forEach((ball, index) => drawProjectile(ctx, ball, index, time, options.reducedMotion, state.feverTime > 0));
 
-    for (const floater of state.floaters || []) drawCallout(ctx, floater, options.reducedMotion);
+    for (const floater of state.floaters || []) {
+      if (floater.kind === 'pop') drawPop(ctx, floater, options.reducedMotion);
+      else drawCallout(ctx, floater, options.reducedMotion);
+    }
     ctx.restore();
+    if (options.flash > 0 && !options.reducedMotion) {
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      const v = ctx.createRadialGradient(210, 280, 60, 210, 280, 380);
+      v.addColorStop(0, `rgba(255,248,220,${options.flash * .28})`); v.addColorStop(1, `rgba(255,190,230,${options.flash * .12})`);
+      ctx.fillStyle = v; ctx.fillRect(0, 0, 420, 560); ctx.restore();
+    }
   }
 
   root.BloomArt = { draw, drawFlower, drawGarden, drawMoon };
