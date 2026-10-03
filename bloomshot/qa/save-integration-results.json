@@ -1,5 +1,5 @@
 {
-  "passed": 23,
+  "passed": 25,
   "failed": 0,
   "methodology": "Executes the complete current app.js in an isolated Node VM using real garden/level/engine modules, fake localStorage, and DOM/canvas adapters. Completion fixtures exercise actual engine completion events and app handlers. No real browser or user saves are read or changed.",
   "limitations": [
@@ -97,6 +97,14 @@
     },
     {
       "name": "The Keepsake Collection shows the store price, buys only through the store, and a refund falls back to Meadow without forgetting",
+      "passed": true
+    },
+    {
+      "name": "The daily garden card shows today, this week and the bouquet, and its first clear pays seeds plus the bouquet on the fourth day",
+      "passed": true
+    },
+    {
+      "name": "A daily garden cleared before this update pays only for new stars, and the seed reward names the next thing to grow",
       "passed": true
     }
   ]
