@@ -1,15 +1,9 @@
-# Moon 1 pointer sensitivity
+# Moon aim tolerance
 
-Runtime was left unchanged. The exact canvas rectangle used in this check is **x8, y177, width374, height504.625 CSS pixels**. Coordinates below are screen coordinates for that rectangle only; remeasure after resizing or moving the canvas.
+Earlier passes found that Moon 1's teaching route cleared from only one of nine neighbouring pixels. Pass 2 fixed that by linking whole flower sprigs, so one hit blooms its whole cluster, on every Moon trial except one sprig per board. Gate routes are still required.
 
-For the integration check, restart Moon 1, press Space, and wait for the first shot to settle with two flowers bloomed. Click/release **(176,189)**. That integer point maps to **-1.614790283762623 radians** and clears the board in two shots: **12 flowers, 3,200 points, three stars**. Engine replays match at 30,60 and144FPS.
+`node qa/check-moon-pointer.cjs` measures it. A simulated careful player picks the most forgiving angle for each shot and fires with 3° of Gaussian aim error, which is roughly a fingertip on a phone. It plays 40 runs per trial and asserts these clear-rate floors: 90/80/70/45/45/35%.
 
-This route is brittle: **only one of the nine pixels in its 3×3 neighborhood clears in two shots**. Those counts describe a fixed coordinate grid, not player success probability.
+Results at the time of the change: Moon 1 98%, Moon 2 95%, Moon 3 75%, Moon 4 68%, Moon 5 63%, Moon 6 43%. Before the change they were 72%, 58%, 25%, 3%, 13% and 0%.
 
-The earlier fractional second-shot point (252.6150831659607,310.3651785714286) was meant to aim at -1.387998742226947 radians and produce11 total blooms. Integer (253,310) instead aims at -1.3870128182333892 radians and produces5 total blooms, matching browser QA. Nearby (251,310) gives11; (252,310) and(254,310) give4. The sensitivity is reproduced by the engine using the same coordinate mapping as app.js.
-
-The conservative search requiring identical bloom outcomes across all neighboring pixels did not find a five-shot route. A broader search allowing different intermediate outcomes was stopped before completion; it did not establish a guaranteed robust route. Neither result proves one is impossible.
-
-**Recommendation for the next pass:** reduce first-trial precision sensitivity with readable, wider gate-to-flower and return routes. Re-test normal pointer aiming and small coordinate perturbations before describing it as a learnable tutorial. An exact solver route does not establish fun, ordinary human difficulty, or physical-device usability.
-
-Reproduce the compact check with `node qa/check-moon-pointer.cjs`. Full values and source hashes are saved in `moon-pointer-sensitivity.json`. Exploratory search helpers remain in the workspace's work directory; no runtime change was made for this investigation.
+`node qa/aim-tolerance.cjs [trial] [sigmaDegrees] [runs]` explores other error levels. A simulated player is not a human playtest, so confirm on a real phone.

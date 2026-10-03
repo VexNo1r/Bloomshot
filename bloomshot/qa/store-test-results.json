@@ -1,0 +1,62 @@
+{
+  "passed": 14,
+  "failed": 0,
+  "results": [
+    {
+      "name": "browser and CommonJS expose the same API",
+      "passed": true
+    },
+    {
+      "name": "web mode sells nothing and owns nothing, even with a forged cache",
+      "passed": true
+    },
+    {
+      "name": "native without store keys stays unconfigured and sells nothing",
+      "passed": true
+    },
+    {
+      "name": "native configures once with the platform key and loads prices from the store",
+      "passed": true
+    },
+    {
+      "name": "native purchase grants the entitlement and persists the first-paint cache",
+      "passed": true
+    },
+    {
+      "name": "unbuilt and unknown products cannot be purchased",
+      "passed": true
+    },
+    {
+      "name": "user cancel and store errors are reported without granting anything",
+      "passed": true
+    },
+    {
+      "name": "a second tap during a purchase is rejected, not double-charged",
+      "passed": true
+    },
+    {
+      "name": "restore reports newly restored entitlements",
+      "passed": true
+    },
+    {
+      "name": "a refund is honored: the store answer replaces the cache on next launch",
+      "passed": true
+    },
+    {
+      "name": "offline launch keeps the last known entitlements",
+      "passed": true
+    },
+    {
+      "name": "blocked storage and throwing listeners never break a purchase",
+      "passed": true
+    },
+    {
+      "name": "mock mode simulates purchase, cancel, failure, persistence and reset",
+      "passed": true
+    },
+    {
+      "name": "the real store never exposes the mock controls outside mock mode",
+      "passed": true
+    }
+  ]
+}

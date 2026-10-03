@@ -1,11 +1,11 @@
 {
   "passed": true,
-  "testedAt": "2026-10-03T04:16:01.705Z",
+  "testedAt": "2026-10-03T04:44:02.177Z",
   "node": "v22.22.0",
-  "workerSha256": "46c7bd888ca08244803b9b78808198db3518e87c9c5183ea4edc8daa3030f2c0",
+  "workerSha256": "e2490ddfb89374faad176b9b89b69ab862a216b7052c7edb6e6d751ea0ad527e",
   "maxConnections": 3,
   "workerVersion": "dd9f6269858015fa",
-  "assetCount": 21,
+  "assetCount": 24,
   "imageCount": 7,
   "negativeControl": {
     "stalledAsExpected": true,
@@ -13,36 +13,48 @@
     "consumed": 0,
     "bytes": 0,
     "peakConnections": 3,
-    "elapsedMs": 281.87
+    "elapsedMs": 276.18
   },
   "actualInstall": {
-    "headers": 21,
-    "consumed": 21,
-    "bytes": 1953581,
+    "headers": 24,
+    "consumed": 24,
+    "bytes": 1979273,
     "peakConnections": 3,
-    "cached": 21,
-    "elapsedMs": 79.76,
+    "cached": 24,
+    "elapsedMs": 44.87,
     "deadlineMs": 15000,
     "allBodyHashesMatch": true
   },
   "assets": [
     {
       "path": "/",
-      "bytes": 21379,
-      "sha256": "c75f9710be4fdc2d129efed71d2c4f26e59c63fdf8516760a83af59f737fca10",
+      "bytes": 21512,
+      "sha256": "a8826649d24c54682ec055f8f482f4cc83adedd9b50ea67c97e7941bfd6db11a",
       "type": "text/html; charset=utf-8"
     },
     {
       "path": "/index.html",
-      "bytes": 21379,
-      "sha256": "c75f9710be4fdc2d129efed71d2c4f26e59c63fdf8516760a83af59f737fca10",
+      "bytes": 21512,
+      "sha256": "a8826649d24c54682ec055f8f482f4cc83adedd9b50ea67c97e7941bfd6db11a",
       "type": "text/html; charset=utf-8"
     },
     {
       "path": "/styles.css",
-      "bytes": 27701,
-      "sha256": "3379aa6dd9532a5e63afea9e3584fc979dabb8999e73bbdce9b4039ad3b09faa",
+      "bytes": 28329,
+      "sha256": "fe00d6640110e270fb33d2f9194dc44a49d1ff84eeb86f63629d4f91bb4395d0",
       "type": "text/css; charset=utf-8"
+    },
+    {
+      "path": "/store-config.js",
+      "bytes": 1086,
+      "sha256": "82cc3d26ef57f7c3839adcd7279230277051b0948b0ce9337f6240f595f64527",
+      "type": "text/javascript; charset=utf-8"
+    },
+    {
+      "path": "/store.js",
+      "bytes": 9044,
+      "sha256": "4b699166f9fead0ccc6db743dcad368d411d38efb5c3df025bd12dc4cedc1685",
+      "type": "text/javascript; charset=utf-8"
     },
     {
       "path": "/levels.js",
@@ -52,8 +64,8 @@
     },
     {
       "path": "/moon.js",
-      "bytes": 6373,
-      "sha256": "01acd1856959687ced54c42cd3c38329bd4206fabdb4c9fd18b98c089e3be737",
+      "bytes": 6785,
+      "sha256": "e82457b0e89199600f65dc40eb50ac2691b065882bdb03bfe8d4184b4bdd03c4",
       "type": "text/javascript; charset=utf-8"
     },
     {
@@ -76,8 +88,8 @@
     },
     {
       "path": "/art.js",
-      "bytes": 56166,
-      "sha256": "9162ecbceefb1e41b1e908ead20966a2a21ffbb49ca66f41aac2792f7be17e90",
+      "bytes": 65785,
+      "sha256": "e2c0dbb70a5a135b5fc507fb83fb77a730f3ca5c5ac3c7f298f7c7714637e395",
       "type": "text/javascript; charset=utf-8"
     },
     {
@@ -94,8 +106,14 @@
     },
     {
       "path": "/app.js",
-      "bytes": 50927,
-      "sha256": "5d8b18c03accf22337ca1d2239b6f6b0ab0a8e9aa6f04131d24370d925bb6b8a",
+      "bytes": 52441,
+      "sha256": "cf5d0a1bb56b0b15476396c115caa9f9a00733506874bc0eddf6acb466d0209a",
+      "type": "text/javascript; charset=utf-8"
+    },
+    {
+      "path": "/store-ui.js",
+      "bytes": 3123,
+      "sha256": "a7f5e803acda34306755bc081270cf53bf556ae339c6f5287c92d2cd60d12814",
       "type": "text/javascript; charset=utf-8"
     },
     {
@@ -157,149 +175,170 @@
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 1,
-      "total": 21,
+      "total": 24,
       "failed": false,
       "cached": 1
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 2,
-      "total": 21,
+      "total": 24,
       "failed": false,
       "cached": 2
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 3,
-      "total": 21,
+      "total": 24,
       "failed": false,
       "cached": 3
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 4,
-      "total": 21,
+      "total": 24,
       "failed": false,
       "cached": 4
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 5,
-      "total": 21,
+      "total": 24,
       "failed": false,
       "cached": 5
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 6,
-      "total": 21,
+      "total": 24,
       "failed": false,
       "cached": 6
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 7,
-      "total": 21,
+      "total": 24,
       "failed": false,
       "cached": 7
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 8,
-      "total": 21,
+      "total": 24,
       "failed": false,
       "cached": 8
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 9,
-      "total": 21,
+      "total": 24,
       "failed": false,
       "cached": 9
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 10,
-      "total": 21,
+      "total": 24,
       "failed": false,
       "cached": 10
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 11,
-      "total": 21,
+      "total": 24,
       "failed": false,
       "cached": 11
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 12,
-      "total": 21,
+      "total": 24,
       "failed": false,
       "cached": 12
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 13,
-      "total": 21,
+      "total": 24,
       "failed": false,
       "cached": 13
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 14,
-      "total": 21,
+      "total": 24,
       "failed": false,
       "cached": 14
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 15,
-      "total": 21,
+      "total": 24,
       "failed": false,
       "cached": 15
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 16,
-      "total": 21,
+      "total": 24,
       "failed": false,
       "cached": 16
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 17,
-      "total": 21,
+      "total": 24,
       "failed": false,
       "cached": 17
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 18,
-      "total": 21,
+      "total": 24,
       "failed": false,
       "cached": 18
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 19,
-      "total": 21,
+      "total": 24,
       "failed": false,
       "cached": 19
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 20,
-      "total": 21,
+      "total": 24,
       "failed": false,
       "cached": 20
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 21,
-      "total": 21,
+      "total": 24,
       "failed": false,
       "cached": 21
+    },
+    {
+      "type": "BLOOMSHOT_DOWNLOAD",
+      "completed": 22,
+      "total": 24,
+      "failed": false,
+      "cached": 22
+    },
+    {
+      "type": "BLOOMSHOT_DOWNLOAD",
+      "completed": 23,
+      "total": 24,
+      "failed": false,
+      "cached": 23
+    },
+    {
+      "type": "BLOOMSHOT_DOWNLOAD",
+      "completed": 24,
+      "total": 24,
+      "failed": false,
+      "cached": 24
     }
   ]
 }

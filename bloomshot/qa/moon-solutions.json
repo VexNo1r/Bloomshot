@@ -1,7 +1,7 @@
 {
   "method": "Deterministic direct/grazing/wall/gate angles and one-petal turns; beam width 10; maximum five shots. Gate traversal required. Moon 1 deliberately starts straight up to teach its gate; a stronger two-shot route is known. These are executable routes, not a human playtest or optimality proof.",
-  "simulatedShots": 15108,
-  "elapsedSeconds": 15.137,
+  "simulatedShots": 2450,
+  "elapsedSeconds": 0.903,
   "levels": [
     {
       "id": "moon-1",
@@ -15,19 +15,13 @@
           "gatePassages": 2
         },
         {
-          "angleRadians": -1.387998742226947,
-          "rotateId": null,
-          "bloomsAfter": 11,
-          "gatePassages": 1
-        },
-        {
-          "angleRadians": -1.6157963267948965,
+          "angleRadians": -1.9634954084936207,
           "rotateId": null,
           "bloomsAfter": 12,
-          "gatePassages": 1
+          "gatePassages": 2
         }
       ],
-      "score": 2600,
+      "score": 3200,
       "stars": 3,
       "portals": [
         {
@@ -39,12 +33,12 @@
           "exit": "m1-a"
         },
         {
-          "entry": "m1-a",
-          "exit": "m1-b"
+          "entry": "m1-b",
+          "exit": "m1-a"
         },
         {
-          "entry": "m1-a",
-          "exit": "m1-b"
+          "entry": "m1-b",
+          "exit": "m1-a"
         }
       ]
     },
@@ -54,10 +48,10 @@
       "par": 2,
       "shots": [
         {
-          "angleRadians": -2.077686193593766,
+          "angleRadians": -1.3740457484018285,
           "rotateId": null,
           "bloomsAfter": 11,
-          "gatePassages": 1
+          "gatePassages": 2
         },
         {
           "angleRadians": -2.123985335220012,
@@ -76,6 +70,10 @@
         {
           "entry": "m2-a",
           "exit": "m2-b"
+        },
+        {
+          "entry": "m2-a",
+          "exit": "m2-b"
         }
       ]
     },
@@ -87,37 +85,19 @@
         {
           "angleRadians": -1.1550166744001296,
           "rotateId": null,
-          "bloomsAfter": 8,
-          "gatePassages": 2
-        },
-        {
-          "angleRadians": -1.0995574287564276,
-          "rotateId": null,
           "bloomsAfter": 14,
-          "gatePassages": 2
+          "gatePassages": 1
         },
         {
-          "angleRadians": -0.8593372010553886,
+          "angleRadians": -0.9043372010553886,
           "rotateId": null,
           "bloomsAfter": 15,
           "gatePassages": 1
         }
       ],
-      "score": 2900,
+      "score": 4300,
       "stars": 3,
       "portals": [
-        {
-          "entry": "m3-a",
-          "exit": "m3-b"
-        },
-        {
-          "entry": "m3-b",
-          "exit": "m3-a"
-        },
-        {
-          "entry": "m3-b",
-          "exit": "m3-a"
-        },
         {
           "entry": "m3-a",
           "exit": "m3-b"
@@ -134,67 +114,21 @@
       "par": 3,
       "shots": [
         {
-          "angleRadians": -1.6797913986635722,
+          "angleRadians": -2.5547992392956966,
           "rotateId": null,
-          "bloomsAfter": 14,
-          "gatePassages": 5
-        },
-        {
-          "angleRadians": -0.7567601616438747,
-          "rotateId": "m4-petal",
           "bloomsAfter": 22,
-          "gatePassages": 5
+          "gatePassages": 1
         },
         {
-          "angleRadians": -2.748893571891069,
+          "angleRadians": -1.0210176124166828,
           "rotateId": null,
           "bloomsAfter": 24,
-          "gatePassages": 1
+          "gatePassages": 0
         }
       ],
-      "score": 5000,
+      "score": 7700,
       "stars": 3,
       "portals": [
-        {
-          "entry": "m4-two-a",
-          "exit": "m4-two-b"
-        },
-        {
-          "entry": "m4-one-a",
-          "exit": "m4-one-b"
-        },
-        {
-          "entry": "m4-one-b",
-          "exit": "m4-one-a"
-        },
-        {
-          "entry": "m4-one-a",
-          "exit": "m4-one-b"
-        },
-        {
-          "entry": "m4-two-b",
-          "exit": "m4-two-a"
-        },
-        {
-          "entry": "m4-two-a",
-          "exit": "m4-two-b"
-        },
-        {
-          "entry": "m4-two-a",
-          "exit": "m4-two-b"
-        },
-        {
-          "entry": "m4-two-a",
-          "exit": "m4-two-b"
-        },
-        {
-          "entry": "m4-one-b",
-          "exit": "m4-one-a"
-        },
-        {
-          "entry": "m4-one-b",
-          "exit": "m4-one-a"
-        },
         {
           "entry": "m4-one-a",
           "exit": "m4-one-b"
@@ -207,25 +141,19 @@
       "par": 3,
       "shots": [
         {
-          "angleRadians": -1.526410917622178,
-          "rotateId": null,
-          "bloomsAfter": 10,
-          "gatePassages": 4
-        },
-        {
-          "angleRadians": -1.6779116501471285,
+          "angleRadians": -2.3315689273258764,
           "rotateId": "m5-lower-petal",
           "bloomsAfter": 17,
-          "gatePassages": 6
+          "gatePassages": 3
         },
         {
-          "angleRadians": -2.317450578174577,
+          "angleRadians": -2.415450578174577,
           "rotateId": null,
           "bloomsAfter": 18,
           "gatePassages": 1
         }
       ],
-      "score": 3500,
+      "score": 5400,
       "stars": 3,
       "portals": [
         {
@@ -233,40 +161,12 @@
           "exit": "m5-one-b"
         },
         {
-          "entry": "m5-two-b",
-          "exit": "m5-two-a"
-        },
-        {
-          "entry": "m5-two-a",
-          "exit": "m5-two-b"
-        },
-        {
-          "entry": "m5-two-a",
-          "exit": "m5-two-b"
-        },
-        {
-          "entry": "m5-one-b",
-          "exit": "m5-one-a"
-        },
-        {
-          "entry": "m5-two-a",
-          "exit": "m5-two-b"
-        },
-        {
-          "entry": "m5-two-b",
-          "exit": "m5-two-a"
-        },
-        {
           "entry": "m5-one-a",
           "exit": "m5-one-b"
         },
         {
           "entry": "m5-two-b",
           "exit": "m5-two-a"
-        },
-        {
-          "entry": "m5-one-b",
-          "exit": "m5-one-a"
         },
         {
           "entry": "m5-one-a",
@@ -280,25 +180,19 @@
       "par": 3,
       "shots": [
         {
-          "angleRadians": -2.0117914221226987,
-          "rotateId": "m6-lower-petal",
-          "bloomsAfter": 12,
-          "gatePassages": 1
-        },
-        {
-          "angleRadians": -2.1205750411731104,
+          "angleRadians": -1.8959152658866412,
           "rotateId": null,
-          "bloomsAfter": 23,
+          "bloomsAfter": 21,
           "gatePassages": 3
         },
         {
-          "angleRadians": -1.860915265886641,
+          "angleRadians": -1.167916921885479,
           "rotateId": null,
           "bloomsAfter": 24,
-          "gatePassages": 0
+          "gatePassages": 1
         }
       ],
-      "score": 5000,
+      "score": 7300,
       "stars": 3,
       "portals": [
         {
@@ -306,16 +200,16 @@
           "exit": "m6-two-a"
         },
         {
+          "entry": "m6-one-a",
+          "exit": "m6-one-b"
+        },
+        {
+          "entry": "m6-one-a",
+          "exit": "m6-one-b"
+        },
+        {
           "entry": "m6-one-b",
           "exit": "m6-one-a"
-        },
-        {
-          "entry": "m6-two-b",
-          "exit": "m6-two-a"
-        },
-        {
-          "entry": "m6-two-a",
-          "exit": "m6-two-b"
         }
       ]
     }
