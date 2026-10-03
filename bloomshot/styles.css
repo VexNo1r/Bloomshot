@@ -184,3 +184,10 @@ body[data-world="koi"] #combo-label,body[data-world="koi"] #guide-label{color:#1
 .keepsake-wear{display:inline-block;margin-top:8px;min-height:36px;padding:6px 14px;border-radius:999px;background:var(--jade);color:#fff;font-size:13px;font-weight:750;box-shadow:0 2px 0 var(--jade-deep)}
 .keepsake-wear:disabled{background:var(--jade-light);color:var(--jade-deep);box-shadow:none}
 @media(max-width:350px){.keepsake-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+/* Pass 7: Launch Bundle, a second, clearly priced option inside each unlock panel. */
+.bundle-offer{margin:14px 0 0;padding:12px 0 0;border-top:1px dashed #d9c37f}
+.bundle-offer strong{font-size:16px!important;margin:3px 0 4px!important}
+.bundle-offer p{font-size:13px!important;margin:0 0 8px!important}
+.bundle-btn{margin-top:4px;background:#fffaf0;border:1.5px solid var(--brass);color:#6b4a0e;box-shadow:0 2px 0 #d9c37f}
+.bundle-btn:disabled{opacity:.7}

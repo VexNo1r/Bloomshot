@@ -80,9 +80,27 @@
   const trialCleared = (world, index) => index === 0 || (save[world][chapters[world].levels[index - 1].id]?.stars || 0) > 0;
   const trialOpen = (world, index) => trialCleared(world, index) && trialPaid(world, chapters[world].levels[index]);
   const nextTrial = level => { const list = chapters[level.worldId].levels; return list[list.findIndex(item => item.id === level.id) + 1] || null; };
+  const productInfo = id => (store && store.products().find(item => item.id === id)) || null;
   function offerFor(productId) {
-    const product = store && store.products().find(item => item.id === productId);
+    const product = productInfo(productId);
     return { live: Boolean(store && store.isLive()), available: Boolean(product && product.available), price: product?.price || '', mode: store?.mode || 'web' };
+  }
+  // The Launch Bundle is one store product that grants both Koi and the Keepsake Collection. It is offered
+  // only to a player who owns neither: owning one part means only the other part is offered, never the bundle.
+  const BUNDLE = 'bloomshot.bundle.launch1';
+  function bundleOffer() {
+    const bundle = productInfo(BUNDLE);
+    if (!store || !store.isLive() || !bundle || !bundle.available || bundle.owned || bundle.partial) return '';
+    const koi = productInfo(BloomKoi.product), style = productInfo(Keepsakes.product);
+    if (!koi || !style || koi.owned || style.owned) return '';
+    // The exact saving is shown only when the store gives comparable amounts; otherwise the wording names no number.
+    let saving = ', for less than the two on their own';
+    if ([bundle, koi, style].every(p => Number.isFinite(p.amount) && p.currency && p.currency === bundle.currency)) {
+      const amount = Math.round((koi.amount + style.amount - bundle.amount) * 100) / 100;
+      if (amount > 0) try { saving = `: ${new Intl.NumberFormat(undefined, { style: 'currency', currency: bundle.currency }).format(amount)} less than the two on their own`; } catch (_) { /* keep the plain wording */ }
+    }
+    const separately = koi.price && style.price ? ` (${koi.price} and ${style.price})` : '';
+    return `<div class="bundle-offer"><span class="eyebrow">LAUNCH BUNDLE</span><strong>Koi Conservatory + Keepsake Collection</strong><p>Six more koi pools and three seed styles in one purchase${escape(saving + separately)}.</p><button class="button-secondary bundle-btn" type="button" data-buy="${BUNDLE}">Get both${bundle.price ? ` · ${escape(bundle.price)}` : ''}</button></div>`;
   }
   // Keepsakes: Meadow is free, Moonlit is earned in the Moon Garden, the rest come with the collection.
   const keepsakeContext = () => ({ moon: save.moon, moonLevels: BloomMoon.levels, owns: entitlement => Boolean(store && store.owns(entitlement)) });
@@ -308,7 +326,7 @@
     if (collectionOwned()) return '';
     const offer = offerFor(Keepsakes.product);
     let action;
-    if (offer.live && offer.available) action = `<button class="button-primary unlock-btn" type="button" data-buy="${Keepsakes.product}">Get all three styles${offer.price ? ` · ${escape(offer.price)}` : ''}</button><p class="unlock-fine">${offer.mode === 'mock' ? 'TEST MODE: this purchase is simulated and nothing is charged.' : 'One payment through your app store. Restore it any time from Settings.'}</p>`;
+    if (offer.live && offer.available) action = `<button class="button-primary unlock-btn" type="button" data-buy="${Keepsakes.product}">Get all three styles${offer.price ? ` · ${escape(offer.price)}` : ''}</button>${bundleOffer()}<p class="unlock-fine">${offer.mode === 'mock' ? 'TEST MODE: this purchase is simulated and nothing is charged.' : 'One payment through your app store. Restore it any time from Settings.'}</p>`;
     else if (offer.live) action = '<p class="unlock-fine">The Keepsake Collection is not on sale yet. Every style can still be previewed here.</p>';
     else action = '<p class="unlock-fine">The Keepsake Collection is available in the Bloomshot app for iPhone, iPad and Android.</p>';
     return `<div class="unlock-panel keepsake-offer"><div class="unlock-copy"><span class="eyebrow">THE KEEPSAKE COLLECTION</span><strong>Three seed styles, one purchase</strong><p>Sakura Breeze, Firefly Night and Gilded Leaf. Each changes your seed, its trail and your bloom bursts. Looks only: no style changes how a shot flies.</p>${action}</div></div>`;
@@ -444,7 +462,7 @@
     if (koiOwned()) return '';
     const offer = offerFor(BloomKoi.product), paid = BloomKoi.levels.filter(level => !level.free).length;
     let action;
-    if (offer.live && offer.available) action = `<button class="button-primary unlock-btn" type="button" data-buy="${BloomKoi.product}">Unlock all ${BloomKoi.levels.length} pools${offer.price ? ` · ${escape(offer.price)}` : ''}</button><p class="unlock-fine">${offer.mode === 'mock' ? 'TEST MODE: this purchase is simulated and nothing is charged.' : 'One payment through your app store. Restore it any time from Settings.'}</p>`;
+    if (offer.live && offer.available) action = `<button class="button-primary unlock-btn" type="button" data-buy="${BloomKoi.product}">Unlock all ${BloomKoi.levels.length} pools${offer.price ? ` · ${escape(offer.price)}` : ''}</button>${bundleOffer()}<p class="unlock-fine">${offer.mode === 'mock' ? 'TEST MODE: this purchase is simulated and nothing is charged.' : 'One payment through your app store. Restore it any time from Settings.'}</p>`;
     else if (offer.live) action = `<p class="unlock-fine">The full conservatory is not on sale yet. Your free pools are ready now.</p>`;
     else action = `<p class="unlock-fine">Pools ${BloomKoi.freeBoards + 1} to ${BloomKoi.levels.length} unlock in the Bloomshot app for iPhone, iPad and Android.</p>`;
     return `<div class="unlock-panel" id="koi-unlock"><div class="unlock-copy"><span class="eyebrow">THE FULL CONSERVATORY</span><strong>${paid} more pools of moving water</strong><p>Whirlpools, a waterfall, a reed maze and a moonlit finale. A one-time purchase with no ads, no timers and nothing random. Your stars and seeds carry over.</p>${action}</div></div>`;
@@ -479,19 +497,21 @@
     showDialog('world-dialog');
   }
   const PURCHASES = {
-    [BloomKoi.product]: { entitlement: BloomKoi.entitlement, thanks: 'The Koi Conservatory is yours. Six new pools are open.' },
-    [Keepsakes.product]: { entitlement: Keepsakes.entitlement, thanks: 'The Keepsake Collection is yours. Three new seed styles are ready.' }
+    [BloomKoi.product]: { thanks: 'The Koi Conservatory is yours. Six new pools are open.' },
+    [Keepsakes.product]: { thanks: 'The Keepsake Collection is yours. Three new seed styles are ready.' },
+    [BUNDLE]: { thanks: 'Both are yours: the Koi Conservatory and the Keepsake Collection.' }
   };
   async function buyProduct(button) {
     const id = button.dataset.buy, item = PURCHASES[id];
-    if (!item || !store || store.busy || store.owns(item.entitlement)) return;
+    const product = productInfo(id);
+    if (!item || !store || store.busy || !product || product.owned || product.partial) return;
     button.disabled = true; button.textContent = 'Opening the store…';
     let result;
     try { result = await store.purchase(id); } catch (_) { result = { ok: false }; }
     if (result.ok) {
       BloomSound.wake(); BloomSound.play('won'); toast(item.thanks);
       // Buying while previewing a style puts that style on the seed straight away.
-      if (id === Keepsakes.product && keepsakePreview && keepsakeOpen(keepsakePreview)) { save.keepsake = keepsakePreview; persist(); }
+      if ((id === Keepsakes.product || id === BUNDLE) && keepsakePreview && keepsakeOpen(keepsakePreview)) { save.keepsake = keepsakePreview; persist(); }
     } else toast(result.cancelled ? 'Purchase cancelled. Nothing was charged.' : 'That purchase did not go through. Nothing was charged.');
     refreshStoreViews();
   }

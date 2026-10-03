@@ -1,7 +1,7 @@
 'use strict';
 // Release packaging replaces this tag with the hash of the shipped assets.
 const CACHE_PREFIX = 'bloomshot-shell-';
-const VERSION = '6d2b9f4a1c83e507';
+const VERSION = '7e3c0a5b2d94f618';
 const CACHE_NAME = CACHE_PREFIX + VERSION;
 const ASSETS = ['./', './index.html', './styles.css', './store-config.js', './store.js', './levels.js', './moon.js', './koi.js', './keepsakes.js', './garden.js', './engine.js', './rush.js', './art.js', './meadow.js', './sound.js', './app.js', './store-ui.js', './pwa.js', './manifest.webmanifest', './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png', './icons/apple-touch-icon.png', './assets/botanical-header.png', './assets/split-leaf.png'];
 const BASE = new URL(self.registration.scope);

@@ -1,5 +1,5 @@
 {
-  "passed": 20,
+  "passed": 23,
   "failed": 0,
   "methodology": "Executes the complete current app.js in an isolated Node VM using real garden/level/engine modules, fake localStorage, and DOM/canvas adapters. Completion fixtures exercise actual engine completion events and app handlers. No real browser or user saves are read or changed.",
   "limitations": [
@@ -73,6 +73,18 @@
     },
     {
       "name": "Clearing a Rush wave shows the next tempo, and the HUD and result carry the tempo reached",
+      "passed": true
+    },
+    {
+      "name": "The Launch Bundle states its price and saving, buys both parts at once, and then disappears",
+      "passed": true
+    },
+    {
+      "name": "Owning either part offers only the other part, never the bundle",
+      "passed": true
+    },
+    {
+      "name": "Without comparable amounts the bundle still says it costs less, but names no number; off sale or on the website it is not offered",
       "passed": true
     },
     {
