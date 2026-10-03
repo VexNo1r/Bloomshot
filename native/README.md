@@ -5,10 +5,10 @@ Prepared October 2, 2026 (Pacific). This is an **unreleased native development s
 ## What is included
 
 - Capacitor **8.5.2**, pinned for core, CLI, Android and iOS; reproducible npm lockfile.
-- Local bundled web content, with no remote server URL, accounts, analytics, advertising, billing, or entitlement code added.
+- Local bundled web content, with no remote server URL, accounts, analytics or advertising. The purchase layer and the RevenueCat plugin are installed but stay off until store keys are set (see `../docs/STORES.md`).
 - Meadow Rush, the eighteen Meadow puzzles, the persistent six-bed meadow, and **six playable free Moon Garden trials**. Moon uses real paired gates that transport and turn a seed, with five single-seed shots per trial and no in-flight steering. Koi remains a visual preview.
 - Reproducible runtime copy based on the game's explicit `sw.js` ASSETS list. QA, docs, server code and screenshots are excluded. The native copy omits the service worker, PWA installer, manifest link and browser installation section.
-- The native bundle is every runtime asset listed in the game's `sw.js` (21 at the time of writing, including `moon.js` and the purchase files), copied into `www` and both generated native projects. `web-inventory.json` records each copied source and native SHA-256 hash.
+- The native bundle is every runtime asset listed in the game's `sw.js` (23 at the time of writing, including `moon.js`, `native.js` and the purchase files), copied into `www` and both generated native projects. `web-inventory.json` records each copied source and native SHA-256 hash.
 - SHA-256 inventory plus resource/source-freshness checks. This checks packaging only, not gameplay, compilation, or store suitability.
 - Android Gradle and iOS Xcode/Swift Package Manager projects generated successfully by the official CLI on Windows. Their presence does not establish compilation.
 - Android legacy/adaptive launcher icons and a 1024px opaque iOS icon exported from the game's existing SVG. Regeneration uses `node scripts/export-icons.cjs` with an existing Sharp installation on NODE_PATH; normal builds do not need Sharp.
@@ -50,7 +50,7 @@ The generated Gradle wrapper may download Gradle/dependencies on first build. Th
 
 Provide macOS with Xcode 26+ and command line tools. Capacitor 8 defaults to Swift Package Manager. Run `npm ci`, `npm run sync:ios`, then `npm run open:ios` on that Mac. Choose a development team and final bundle ID only when the owner is ready. Resolve packages and build there. Check both phone and tablet layouts, audio interruptions, orientation and suspend/resume on actual devices.
 
-Native app saves have a different origin from the website. Existing web scores are not migrated. Unfinished runs are in memory only. Browser `navigator.vibrate` support does not establish iPhone haptics; no native haptics plugin is included.
+Native app saves have a different origin from the website. Existing web scores are not migrated. Unfinished runs are in memory only. Browser `navigator.vibrate` does nothing on iPhone, so the app uses the Capacitor Haptics plugin there. The game's save is also copied to the Capacitor Preferences plugin (UserDefaults on iOS), so the OS clearing the WebView's storage cannot wipe a garden; `ios/App/App/PrivacyInfo.xcprivacy` declares that use for Apple. Both plugins compile in the cloud builds but have not run on a real phone.
 
 ## Release and revenue gates
 

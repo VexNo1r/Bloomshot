@@ -31,12 +31,12 @@ function fakeStore({ owned = [], live = false, available = false, price = '$4.99
     purchase: id => { purchases.push(id); have.add(Koi.entitlement); listeners.forEach(fn => fn({ type: 'entitlements' })); return Promise.resolve({ ok: true }); },
     subscribe: fn => { listeners.push(fn); } };
 }
-function boot(raw, { storageFails = false, search = '', otherSave, store } = {}) {
+function boot(raw, { storageFails = false, search = '', otherSave, store, native } = {}) {
   const key = search.includes('qa') ? 'bloomshot.qa.v1' : 'bloomshot.save.v1';
   const storage = new Map();
   if (raw !== undefined) storage.set(key, JSON.stringify(raw));
   if (otherSave) storage.set(key === 'bloomshot.qa.v1' ? 'bloomshot.save.v1' : 'bloomshot.qa.v1', JSON.stringify(otherSave));
-  const writes = [], nodes = new Map(), games = [], meadowDraws = [];
+  const writes = [], reloads = [], nodes = new Map(), games = [], meadowDraws = [];
   let nextFrame, now = 0, uuid = 0;
   const noop = () => {};
   const brush = new Proxy({ globalAlpha: 1, createLinearGradient: () => ({ addColorStop: noop }),
@@ -73,14 +73,14 @@ function boot(raw, { storageFails = false, search = '', otherSave, store } = {})
   class ObservedGame extends Engine.Game { constructor(level) { super(level); games.push(this); } }
   class ObservedRush extends Rush.RushGame { constructor() { super(); games.push(this); } }
   const context = vm.createContext({ console, structuredClone, URLSearchParams, Date, Math, Map, Set,
-    document, location: { search }, navigator: {}, crypto: { randomUUID: () => 'test-run-' + (++uuid) },
+    document, location: { search, reload: () => { reloads.push(true); } }, navigator: {}, crypto: { randomUUID: () => 'test-run-' + (++uuid) },
     localStorage: { getItem: name => storage.get(name) || null, setItem: (name, value) => {
       if (storageFails) throw new Error('Storage blocked'); storage.set(name, value); writes.push({ key: name, value });
     } },
     performance: { now: () => now }, devicePixelRatio: 1,
     matchMedia: () => ({ matches: false, addEventListener: noop }),
     requestAnimationFrame: fn => { nextFrame = fn; }, setTimeout: () => 1, clearTimeout: noop,
-    BloomLevels: { ...Levels, worlds: [...Levels.worlds, FUTURE] }, BloomMoon: Moon, BloomKoi: Koi, BloomGarden: Garden, ...(store ? { BloomStore: store } : {}), BloomEngine: { ...Engine, Game: ObservedGame }, BloomRush: { RushGame: ObservedRush },
+    BloomLevels: { ...Levels, worlds: [...Levels.worlds, FUTURE] }, BloomMoon: Moon, BloomKoi: Koi, BloomGarden: Garden, ...(store ? { BloomStore: store } : {}), ...(native ? { BloomNative: native } : {}), BloomEngine: { ...Engine, Game: ObservedGame }, BloomRush: { RushGame: ObservedRush },
     BloomSound: { wake: noop, play: noop, setEnabled: noop }, BloomArt: { draw: noop, drawFlower: noop, drawMoon: noop, koiFish: noop },
     BloomMeadow: { plots: Garden.plots.map((p, i) => ({ id: p.id, x: 65 + i * 50, y: 150, labelY: 180, accent: p.color })),
       draw: (ctx, options) => meadowDraws.push(clone(options)) }
@@ -98,7 +98,7 @@ function boot(raw, { storageFails = false, search = '', otherSave, store } = {})
     // An engine completion fixture tests the app's event boundary, not the run's physics.
     game.totalBlooms = blooms; game.wave = wave; game.score = 3200; game._lose(); frame(); return game;
   }
-  return { $, click, frame, preview, finishRush, context, games, meadowDraws, writes, storage,
+  return { $, click, frame, preview, finishRush, context, games, meadowDraws, writes, reloads, storage,
     saved: () => JSON.parse(storage.get(key)), key };
 }
 
@@ -252,6 +252,46 @@ test('The Koi unlock names its contents and store price and buys only through th
   assert(!app.$('world-detail').innerHTML.includes('unlock-panel'));
   app.click('world-detail', { trial: 'koi-3', chapter: 'koi' }); assert.equal(app.games.at(-1).level.id, 'koi-3');
   assert.deepEqual(app.saved().koi, save.koi);
+});
+function fakeNative({ restored = false } = {}) {
+  const calls = { haptic: [], mirror: [], restore: [] }; let reloading = false;
+  return { calls, haptic: kind => calls.haptic.push(kind), mirror: (key, json) => calls.mirror.push({ key, json }),
+    get reloading() { return reloading; },
+    // A synchronous thenable keeps this suite synchronous while still exercising the .then(restored => ...) path.
+    // Like the real bridge, a restore that wrote the backup back marks the page as about to reload.
+    restore: key => { calls.restore.push(key); reloading = restored; return { then: fn => { fn(restored); } }; } };
+}
+test('Native bridge: planting buzzes through BloomNative only while the Vibration setting is on', () => {
+  const on = legacySave(); on.settings.haptics = true;
+  const loud = fakeNative(); const a = boot(on, { native: loud }); a.click('garden-btn'); a.click('plant-btn');
+  assert.deepEqual(loud.calls.haptic, ['tap']);
+  const quiet = fakeNative(); const b = boot(legacySave(), { native: quiet }); b.click('garden-btn'); b.click('plant-btn');
+  assert.deepEqual(quiet.calls.haptic, []);
+});
+test('Native bridge: every save is mirrored exactly as stored, under the active storage key', () => {
+  const bridge = fakeNative(); const app = boot(legacySave(), { native: bridge });
+  app.click('garden-btn'); app.click('plant-btn');
+  const last = bridge.calls.mirror.at(-1);
+  assert.equal(last.key, 'bloomshot.save.v1'); assert.equal(last.json, app.storage.get('bloomshot.save.v1'));
+  const qa = fakeNative(); boot(legacySave(), { native: qa, search: '?qa=1' });
+  assert(qa.calls.mirror.every(call => call.key === 'bloomshot.qa.v1'));
+});
+test('Native bridge: a restored backup reloads the page once, and no restore means no reload', () => {
+  const restored = fakeNative({ restored: true }); const a = boot(legacySave(), { native: restored });
+  assert.deepEqual(restored.calls.restore, ['bloomshot.save.v1']); assert.equal(a.reloads.length, 1);
+  const plain = fakeNative(); assert.equal(boot(legacySave(), { native: plain }).reloads.length, 0);
+});
+test('Native bridge: when web storage is blocked the phone backup still gets every save, and the game runs without a bridge at all', () => {
+  const bridge = fakeNative(); const blocked = boot(legacySave(), { storageFails: true, native: bridge });
+  blocked.click('garden-btn'); blocked.click('plant-btn');
+  assert(bridge.calls.mirror.length > 0); assert.equal(blocked.writes.length, 0);
+  for (const call of bridge.calls.mirror) assert.equal(JSON.parse(call.json).version, 1);
+  const app = boot(legacySave()); app.click('garden-btn'); app.click('plant-btn'); assert.equal(Garden.summary(app.saved().garden).totalStages, 1);
+});
+test('Native bridge: once a backup has been restored and a reload is pending, the page saves nothing, so it cannot overwrite the restore', () => {
+  const bridge = fakeNative({ restored: true }); const app = boot(legacySave(), { native: bridge });
+  app.click('garden-btn'); app.click('plant-btn');
+  assert.equal(app.reloads.length, 1); assert.equal(app.writes.length, 0); assert.equal(bridge.calls.mirror.length, 0);
 });
 const report = { passed: results.filter(r => r.passed).length, failed: results.filter(r => !r.passed).length,
   methodology: 'Executes the complete current app.js in an isolated Node VM using real garden/level/engine modules, fake localStorage, and DOM/canvas adapters. Completion fixtures exercise actual engine completion events and app handlers. No real browser or user saves are read or changed.',
