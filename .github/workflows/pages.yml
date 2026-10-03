@@ -62,3 +62,21 @@ jobs:
     steps:
       - uses: actions/deploy-pages@v4
         id: deployment
+      # The service worker only caches the manifest if it is served as JSON or a manifest. Say so loudly if
+      # Pages ever serves it differently, because then offline install would silently fail. Warns, never fails.
+      - name: Check how the live site serves its files
+        run: |
+          base="${{ steps.deployment.outputs.page_url }}"
+          for file in sw.js manifest.webmanifest; do
+            type=""
+            for attempt in 1 2 3 4 5 6; do
+              type=$(curl -sI "${base}${file}" | tr -d '\r' | awk -F': ' 'tolower($1)=="content-type"{print tolower($2)}')
+              [ -n "$type" ] && break
+              sleep 10
+            done
+            echo "$file is served as: ${type:-nothing}"
+            case "$file:$type" in
+              sw.js:*javascript*|manifest.webmanifest:*json*|manifest.webmanifest:*manifest*) ;;
+              *) echo "::warning title=Unexpected content type::${file} is served as '${type}'. The game's service worker may refuse to cache it; see docs/WEB-HOSTING.md." ;;
+            esac
+          done

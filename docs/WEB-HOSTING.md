@@ -20,7 +20,7 @@ It sells nothing. `store.js` only goes live inside the native app (or on localho
 
 ## Checked
 
-Served under a `/Bloomshot/` subpath in Chromium: the service worker registers with that scope, the manifest's `start_url`, `scope` and icons resolve under the subpath, the precache fills, and the game reloads offline. Not checked on a real phone, and not checked against GitHub Pages itself until the first deploy.
+Served under a `/Bloomshot/` subpath in Chromium: the service worker registers with that scope, the manifest's `start_url`, `scope` and icons resolve under the subpath, the precache fills, and the game reloads offline. Not checked on a real phone, and not checked against GitHub Pages itself until the first deploy. After each deploy the workflow looks at how Pages serves `sw.js` and `manifest.webmanifest` and prints a warning (without failing) if either has an unexpected content type, because the game's service worker only caches the manifest when it is served as JSON or a manifest.
 
 ## If the repo goes private
 
