@@ -7,6 +7,7 @@
   const chapters = { moon: BloomMoon, koi: BloomKoi };
   const CHAPTER_NAMES = { moon: 'MOON GARDEN', koi: 'KOI CONSERVATORY' };
   const store = window.BloomStore || null;
+  const native = window.BloomNative || null;
   const STORAGE = new URLSearchParams(location.search).has('qa') ? 'bloomshot.qa.v1' : 'bloomshot.save.v1';
   const defaults = { version: 1, garden: BloomGarden.normalize(), progress: {}, moon: {}, koi: {}, daily: {}, rush: { best: 0, bestWave: 1, runs: 0, blooms: 0 }, lastLevel: 1, settings: { sound: true, haptics: true, motion: !matchMedia('(prefers-reduced-motion: reduce)').matches } };
   let storageAvailable = true;
@@ -36,9 +37,16 @@
   }
   const save = readSave();
   function persist() {
-    try { localStorage.setItem(STORAGE, JSON.stringify(save)); }
+    if (native && native.reloading) return; // a restored save is about to replace this page, so nothing may overwrite it
+    let json = '';
+    try { json = JSON.stringify(save); localStorage.setItem(STORAGE, json); }
     catch (_) { storageAvailable = false; $('settings-storage').textContent = 'Progress is saved for this visit only. This browser is not allowing device storage.'; }
+    if (native && json) native.mirror(STORAGE, json); // the phone's own preferences may still work when web storage does not
   }
+  function haptic(kind) { if (save.settings.haptics && native) native.haptic(kind); }
+  // In the native app a second copy of the save lives in the phone's preferences. If the OS wiped the web
+  // storage, put that copy back and reload once so the game starts from it.
+  if (native) native.restore(STORAGE).then(restored => { if (restored) location.reload(); });
   const canvas = $('game-canvas'), ctx = canvas.getContext('2d');
   const meadowCanvas = $('meadow-canvas'), meadowCtx = meadowCanvas.getContext('2d');
   let meadowDirty = true, meadowFrame = 0, growth = null;
@@ -438,7 +446,7 @@
           game.floaters = game.floaters.filter(item => item.kind !== 'combo');
           game.floaters.push({ x: 210, y: 92, text: `${event.combo} BLOOM CHAIN`, life: .9, maxLife: .9, kind: 'combo' });
         }
-        if (save.settings.haptics && navigator.vibrate && event.combo % 3 === 1) navigator.vibrate(8);
+        if (event.combo % 3 === 1) haptic('tick');
         $('game-hint').textContent = isKoi() ? 'The water carries it on.' : isMoon() ? 'Every opening creates a new path.' : isRush() ? game.splitReady ? 'Split is ready. Choose your moment.' : 'Gold-ring flowers bloom two neighbors. Aim for them.' : game.guideCharge > 0 ? 'Drag toward the flowers. Guide your swarm!' : 'Keep that chain reaction going!';
       } else if (event.type === 'gate') {
         burst({ x: event.entry.x, y: event.entry.y, type: 'lilac' }, 12);
@@ -458,14 +466,14 @@
       } else if (event.type === 'life') {
         jolt(.6, .12, 0);
         $('game-hint').textContent = game.lives ? `A cluster crossed the line. ${game.lives} ${game.lives === 1 ? 'life' : 'lives'} left.` : 'The garden reached the line.';
-        if (save.settings.haptics && navigator.vibrate) navigator.vibrate([18, 25, 18]);
+        haptic('warn');
         say($('game-hint').textContent);
       } else if (event.type === 'burst') {
         burst(event.bud, 45); game.floaters = game.floaters.filter(item => item.kind !== 'bonus');
         game.floaters.push({ x: 210, y: 418, text: '+2 BALLS!', life: 1.05, maxLife: 1.05, kind: 'bonus' });
       } else if (event.type === 'fever') {
         jolt(.35, .08, 1);
-        if (save.settings.haptics && navigator.vibrate) navigator.vibrate([12, 35, 18]);
+        haptic('surge');
       } else if (event.type === 'crack') {
         burst(event.bud, 12); jolt(.05);
       } else if (event.type === 'ready') {
@@ -632,7 +640,7 @@
     save.garden = planted.state; persist(); renderMeadow();
     growth = { plotId: id, fromStage, started: performance.now() };
     BloomSound.wake(); BloomSound.play('plant', { x: BloomMeadow.plots.find(p => p.id === id).x });
-    if (save.settings.haptics && navigator.vibrate) navigator.vibrate(12);
+    haptic('tap');
     say(`${BloomGarden.plots.find(p => p.id === id).name} ${fromStage ? 'grew' : 'planted'}. ${save.garden.seeds} seeds left.`);
   });
   $('collection-btn').addEventListener('click', () => { if (preview) exitPreview(); setRoute('collection'); });
