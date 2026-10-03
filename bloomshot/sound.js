@@ -124,7 +124,7 @@
     if (!enabled || !context) return;
     if (context.state !== 'running') {
       // Keep the first gesture's sound through resume, not a backlog of old audio.
-      if (waiting.length < 8) waiting.push({ type, data: { combo: data.combo, chain: data.chain, kind: data.kind, x: data.bud ? data.bud.x : data.x }, at: Date.now() });
+      if (waiting.length < 8) waiting.push({ type, data: { combo: data.combo, chain: data.chain, kind: data.kind, wave: data.wave, x: data.bud ? data.bud.x : data.x }, at: Date.now() });
       return;
     }
     const pan = panFor(data);
@@ -146,7 +146,14 @@
       if (allowed('crack', 0.045)) note(392, 0, 0.105, 0.083, pan, 'wood');
     } else if (type === 'won' && allowed('won', 0.6)) phrase([261.63, 329.63, 392, 523.25], 0.10, 0.74, 0.13);
     else if ((type === 'burst' || type === 'split') && allowed('split', 0.16)) phrase([329.63, 440, 523.25], 0.038, 0.31, 0.105, pan);
-    else if (type === 'wave' && allowed('wave', 0.4)) phrase([261.63, 392, 440], 0.075, 0.40, 0.11);
+    else if (type === 'wave' && allowed('wave', 0.4)) {
+      // Each Rush wave starts a semitone higher (up to a fifth), so the run audibly climbs.
+      const lift = Math.pow(2, Math.min(7, Math.max(0, (Number(data.wave) || 1) - 2)) / 12);
+      phrase([261.63, 392, 440].map(f => f * lift), 0.075, 0.40, 0.11);
+    } else if (type === 'cleared' && allowed('cleared', 0.5)) {
+      const lift = Math.pow(2, Math.min(7, Math.max(0, (Number(data.wave) || 1) - 1)) / 12);
+      phrase([392, 523.25, 659.25, 783.99].map(f => f * lift), 0.055, 0.5, 0.12);
+    }
     else if (type === 'plant' && allowed('plant', 0.35)) phrase([261.63, 329.63, 392, 523.25], 0.14, 0.55, 0.105, pan);
     else if (type === 'gate' && allowed('gate', 0.14)) {
       // A quiet rising fifth follows the seed through the paired apertures.

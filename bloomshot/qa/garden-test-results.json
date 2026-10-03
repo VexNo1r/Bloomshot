@@ -1,5 +1,5 @@
 {
-  "passed": 21,
+  "passed": 24,
   "failed": 0,
   "observations": {
     "starterSeeds": 4,
@@ -23,6 +23,16 @@
     },
     "improvedCampaignStar": 2,
     "receiptWindow": 64,
+    "firstDailyClearByStars": {
+      "1": 6,
+      "2": 8,
+      "3": 10
+    },
+    "weeklyBouquet": {
+      "dailyClears": 4,
+      "seeds": 12
+    },
+    "dailyMemoryDays": 21,
     "limitations": [
       "Local save logic is not a server-authoritative payment or anti-tampering system.",
       "Rush receipt deduplication covers the most recent 64 completions; the UI must issue one unique ID per run.",
@@ -113,6 +123,18 @@
     },
     {
       "name": "Koi pool rewards pay once per new star and keep their own records",
+      "passed": true
+    },
+    {
+      "name": "A daily garden pays 6, 8 or 10 seeds on its first clear, then two per new star, once per day",
+      "passed": true
+    },
+    {
+      "name": "Any four cleared daily gardens in one Monday-to-Sunday week gather a 12-seed bouquet, once, and missed days take nothing away",
+      "passed": true
+    },
+    {
+      "name": "Daily records keep the latest 21 days and 8 bouquets, reject malformed entries, and old days cannot be claimed again",
       "passed": true
     }
   ]
