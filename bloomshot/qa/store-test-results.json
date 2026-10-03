@@ -1,5 +1,5 @@
 {
-  "passed": 22,
+  "passed": 23,
   "failed": 0,
   "results": [
     {
@@ -12,6 +12,10 @@
     },
     {
       "name": "native without store keys stays unconfigured and sells nothing",
+      "passed": true
+    },
+    {
+      "name": "native finds the purchase plugin where the injected bridge puts it, falls back to registerPlugin, and sells nothing without it",
       "passed": true
     },
     {

@@ -46,8 +46,9 @@ function fakePlugin(options = {}) {
   };
   return plugin;
 }
+// The shape the native WebView really injects: a Plugins map and no registerPlugin (that needs @capacitor/core bundled in).
 function nativeEnv(plugin, extra = {}) {
-  return { config: CONFIG, storage: memoryStorage(), ...extra, Capacitor: { isNativePlatform: () => true, getPlatform: () => 'ios', registerPlugin: name => { assert.equal(name, 'Purchases'); return plugin; } } };
+  return { config: CONFIG, storage: memoryStorage(), ...extra, Capacitor: { isNativePlatform: () => true, getPlatform: () => 'ios', Plugins: { Purchases: plugin } } };
 }
 const BUNDLE = {
   revenueCatKeys: CONFIG.revenueCatKeys,
@@ -87,6 +88,20 @@ const find = (store, id) => store.products().find(p => p.id === id);
     assert.equal(store.isLive(), false);
     assert.equal(plugin.calls.length, 0);
     assert.equal((await store.purchase('p.live')).reason, 'unavailable');
+  });
+
+  await test('native finds the purchase plugin where the injected bridge puts it, falls back to registerPlugin, and sells nothing without it', async () => {
+    const plugin = fakePlugin();
+    const injected = nativeEnv(plugin); assert.equal(injected.Capacitor.registerPlugin, undefined);
+    const viaInjected = Store.create(injected); await viaInjected.init();
+    assert.equal(viaInjected.isLive(), true);
+    const bundled = Store.create({ config: CONFIG, storage: memoryStorage(), Capacitor: { isNativePlatform: () => true, getPlatform: () => 'android', registerPlugin: name => { assert.equal(name, 'Purchases'); return plugin; } } });
+    await bundled.init(); assert.equal(bundled.isLive(), true);
+    assert.deepEqual(plugin.calls.find(c => c[0] === 'configure')[1], { apiKey: 'appl_test' });
+    for (const Capacitor of [{ isNativePlatform: () => true, getPlatform: () => 'ios', Plugins: {} }, { isNativePlatform: () => true, getPlatform: () => 'ios' }]) {
+      const missing = Store.create({ config: CONFIG, storage: memoryStorage(), Capacitor }); await missing.init();
+      assert.equal(missing.isLive(), false); assert.equal((await missing.purchase('p.live')).reason, 'unavailable');
+    }
   });
 
   await test('native configures once with the platform key and loads prices from the store', async () => {

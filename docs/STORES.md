@@ -9,7 +9,7 @@ Added in the mobile-release pass, October 3 2026. Status: written and unit-teste
 | `bloomshot/store-config.js` | The catalog (product ids, entitlement ids, test prices) and the RevenueCat public keys. Edit this file to change what is sold. |
 | `bloomshot/store.js` | `BloomStore`: init, `products()`, `owns(entitlement)`, `purchase(productId)`, `restore()`, `subscribe(fn)`. |
 | `bloomshot/store-ui.js` | A "Purchases" section in Settings with **Restore purchases**. It stays hidden unless a store is live. |
-| `bloomshot/qa/test-store.cjs` | 22 checks with a fake store plugin, including the bundle and a consistency check of the shipped catalog. |
+| `bloomshot/qa/test-store.cjs` | 23 checks with a fake store plugin, including the bundle and a consistency check of the shipped catalog. |
 
 The Koi Conservatory is the first gated content: `app.js` opens pools 3 to 8 only when `BloomStore.owns('world_koi')` is true, and its unlock panel calls `BloomStore.purchase('bloomshot.world.koi')` only when the store is live and the product is `available`.
 
@@ -34,7 +34,7 @@ The Koi Conservatory is the first gated content: `app.js` opens pools 3 to 8 onl
 1. Create the app in App Store Connect and Google Play Console with the final app id (the placeholder `dev.bloomshot.game` is not claimed anywhere; the id cannot change after publishing).
 2. Create each product as a **non-consumable** (Apple) / **one-time in-app product** (Google) with the ids in `store-config.js`.
 3. In RevenueCat (free under its revenue threshold): add both apps, add the products, create one **entitlement per single item** (`world_koi`, `style_collection1`) using the ids from the config, and copy each platform's **public SDK key** into `revenueCatKeys`. Public keys are designed to ship in the app; never put a secret key in the game. For the bundle, attach its **one** product to **both** entitlements; RevenueCat allows one product on several entitlements. The game never needs to know a bundle was bought: it only asks `owns('world_koi')` and `owns('style_collection1')`.
-4. The purchase plugin is already installed: `@revenuecat/purchases-capacitor` 13.7.0 is pinned in `native/package.json` and is part of the Android and iOS projects (it compiled in both cloud builds). It does nothing until a public SDK key is set in step 3, because the store stays off without one. The game talks to the plugin through `Capacitor.registerPlugin('Purchases')`, so no bundler is needed.
+4. The purchase plugin is already installed: `@revenuecat/purchases-capacitor` 13.7.0 is pinned in `native/package.json` and is part of the Android and iOS projects (it compiled in both cloud builds). It does nothing until a public SDK key is set in step 3, because the store stays off without one. The game finds the plugin as `Capacitor.Plugins.Purchases`, which the native WebView injects, so no bundler is needed (`Capacitor.registerPlugin` only exists when `@capacitor/core` is bundled into the page, so it is only a fallback).
 5. `native/scripts/prepare-web.cjs` already tolerates the store script tags: the runtime copy is built from the `sw.js` ASSETS list, which includes `store-config.js`, `store.js` and `store-ui.js`.
 6. Test with a sandbox Apple account and Google license testers. Check: buy, cancel, buy again (should say already owned), restore on a second device, refund.
 7. Only then flip `available` to `true` for finished content.

@@ -38,6 +38,16 @@
     var mockNext = 'success';
     var mockBought = []; // mock mode only: the products the simulated store account has bought, so restore() can grant them again
 
+    // The native WebView injects plugins as Capacitor.Plugins.<Name>. Capacitor.registerPlugin only exists when the
+    // @capacitor/core script is bundled into the page, which this app does not do, so look there second.
+    function findPlugin(name) {
+      try {
+        var found = Capacitor.Plugins && Capacitor.Plugins[name];
+        if (found) return found;
+        if (typeof Capacitor.registerPlugin === 'function') return Capacitor.registerPlugin(name) || null;
+      } catch (_) { /* not installed in this build */ }
+      return null;
+    }
     function read(key) { try { return storage ? JSON.parse(storage.getItem(key) || 'null') : null; } catch (_) { return null; } }
     function write(key, value) { try { if (storage) storage.setItem(key, JSON.stringify(value)); } catch (_) { /* storage can be blocked; the store stays the source of truth */ } }
     function emit(type) {
@@ -75,7 +85,8 @@
       var cached = read(CACHE_KEY); // first paint only; replaced by the store's answer below
       if (cached && Array.isArray(cached.owned)) state.owned = Object.fromEntries(cached.owned.map(function (id) { return [id, true]; }));
       if (!key) return; // no accounts yet: stay unconfigured, sell nothing
-      plugin = Capacitor.registerPlugin('Purchases');
+      plugin = findPlugin('Purchases');
+      if (!plugin) return; // the purchase plugin is missing from this build: stay unconfigured, sell nothing
       try {
         var configured = false;
         try { configured = (await plugin.isConfigured()).isConfigured === true; } catch (_) { configured = false; }
