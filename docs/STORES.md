@@ -32,8 +32,8 @@ The game itself does not call the store yet. When paid content exists, gate it w
 1. Create the app in App Store Connect and Google Play Console with the final app id (the placeholder `dev.bloomshot.game` is not claimed anywhere; the id cannot change after publishing).
 2. Create each product as a **non-consumable** (Apple) / **one-time in-app product** (Google) with the ids in `store-config.js`.
 3. In RevenueCat (free under its revenue threshold): add both apps, add the products, create one **entitlement per product** using the `entitlement` ids from the config, and copy each platform's **public SDK key** into `revenueCatKeys`. Public keys are designed to ship in the app; never put a secret key in the game.
-4. In `native/`: `npm i @revenuecat/purchases-capacitor` (peer: Capacitor 8, matches the pinned 8.5.2), then `npm run sync`. The game talks to the plugin through `Capacitor.registerPlugin('Purchases')`, so no bundler is needed.
-5. Add `store-config.js`, `store.js` and `store-ui.js` to the native copy script's allowlist. It is derived from `sw.js` ASSETS, which already lists them, but the native `prepare-web` script also edits `index.html`; confirm it tolerates the three new script tags.
+4. The purchase plugin is already installed: `@revenuecat/purchases-capacitor` 13.7.0 is pinned in `native/package.json` and is part of the Android and iOS projects (it compiled in both cloud builds). It does nothing until a public SDK key is set in step 3, because the store stays off without one. The game talks to the plugin through `Capacitor.registerPlugin('Purchases')`, so no bundler is needed.
+5. `native/scripts/prepare-web.cjs` already tolerates the store script tags: the runtime copy is built from the `sw.js` ASSETS list, which includes `store-config.js`, `store.js` and `store-ui.js`.
 6. Test with a sandbox Apple account and Google license testers. Check: buy, cancel, buy again (should say already owned), restore on a second device, refund.
 7. Only then flip `available` to `true` for finished content.
 
