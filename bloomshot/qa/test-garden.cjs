@@ -214,6 +214,17 @@ test('Moon rewards stay separate from Meadow records and survive normalization a
   assert.equal(Garden.grant(state, reward('wrong-type', 3, { levelId: 1 })).reason, 'invalid-reward');
   assert.equal(Garden.grant(Garden.normalize(), reward('legacy-moon', 3, { previousStars: 2 })).awarded, 2);
 });
+test('Koi pool rewards pay once per new star and keep their own records', () => {
+  const reward = (runId, stars, extra = {}) => ({ runId, mode: 'koi', completed: true, levelId: 'koi-3', stars, ...extra });
+  let result = Garden.grant(Garden.normalize(), reward('koi-first', 2)); assert.equal(result.awarded, 10);
+  result = Garden.grant(result.state, reward('koi-same', 2)); assert.equal(result.awarded, 0);
+  result = Garden.grant(result.state, reward('koi-better', 3)); assert.equal(result.awarded, 2);
+  const state = Garden.normalize(JSON.parse(JSON.stringify(result.state)));
+  assert.equal(state.koiBest['koi-3'], 3); assert.deepEqual(state.moonBest, {});
+  assert.equal(Garden.grant(state, reward('koi-bad', 3, { levelId: 'koi-9' })).reason, 'invalid-reward');
+  assert.equal(Garden.grant(state, reward('koi-moon-id', 3, { levelId: 'moon-1' })).reason, 'invalid-reward');
+  assert.deepEqual(Garden.normalize({ koiBest: { 'koi-1': 9, 'koi-2': -1, 'koi-12': 3 } }).koiBest, { 'koi-1': 3 });
+});
 const report = {
   passed: results.filter(r => r.passed).length, failed: results.filter(r => !r.passed).length,
   observations: { starterSeeds: 4, costsPerPlot: [4, 8, 14], completeMeadowCost: 156,

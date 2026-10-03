@@ -1,173 +1,96 @@
-# BLOOMSHOT — Claude handoff
+# BLOOMSHOT — handoff to Codex
 
-Updated October 2, 2026 (Pacific). Current pass: six playable Moon trials, paired-gate physics, coordinated gate art and sound, permanent meadow rewards, private web publication and synchronized native source. Keep both handoff copies identical and rebuild the bundles after every pass. No message was sent to Claude; this document is for the user to share.
+Updated October 3, 2026 by Claude after four passes. This replaces the October 2 Codex → Claude handoff. Read all of "Start here" before touching files: the copy of the game in your old workspace is now out of date.
 
 ## Start here
 
-The user wants a beautiful, vibrant mobile game with deliberate control, lasting progress, real challenge and optional purchases people value. Earlier builds were rejected as boring, too easy and too automatic. The interface should itself feel like thematic art. Animations must look and sound pleasing. Current art and balance still need the user's feedback. Code and art are AI-assisted; never claim a human team made them.
+Trevor wants a beautiful, vibrant, fast mobile game that people love enough to pay for optional extras, live on iPhone, iPad and Android and earning money. Art (background and foreground) is the top priority after the game being genuinely compelling. The interface should feel like part of the art. Players should feel in control and feel they are progressing. Code and art are AI-assisted; never claim a human team made them.
 
-Approved order: mobile website proof, then App Store and Google Play work immediately afterward. The overall goal remains active until iPhone, iPad and Android releases support real revenue. A private web preview and native source projects do not complete that goal. Apple/Google developer accounts and Mac access were asked about; the user has not answered. Do not invent an answer or repeatedly ask the same question.
+Keep purchases honest: exact contents and price shown, no fake scarcity, no misleading timers, no paid randomness, no frustration designed to sell relief. The app stores reject the rest anyway.
 
-## Exact deliverables
+**Which copy is authoritative.** Claude worked from your October 2 handoff zip and moved it into a git repository. The newest code is that repository, not `outputs/bloomshot` in your workspace:
 
-Workspace: `C:/Users/trevo/Documents/Codex/2026-10-02/idea`
+- GitHub: https://github.com/VexNo1r/Bloomshot. `main` holds passes 1 to 3 plus the store layer. Pass 4 (Koi) is on branch `koi-world` with its own pull request; the native shell is pull request #1 (`mobile-native-shell`). Work on branches and pull requests; never force-push `main`.
+- Offline copy: `bloomshot.gitbundle` (full history) and `bloomshot-latest.zip` (snapshot) in Trevor's project files under `bloomshot/`.
+- Layout: `bloomshot/` is the game, `native/` the Capacitor Android/iOS shell (once #1 merges), `docs/` release and store notes, `.github/workflows/` CI and cloud builds.
+- `VexNo1r/harborline` is Trevor's separate lead-recovery product. The game never goes there.
+- Before you edit anything, replace your `outputs/bloomshot` with the repo's `bloomshot/` folder (keep your `work/` scripts). Do not merge by hand from your old copy; four passes of changes would be lost.
 
-- Authoritative game: `outputs/bloomshot`
-- Main handoff: `outputs/CLAUDE-HANDOFF.md`; identical copy inside the game folder
-- Complete game bundle: `outputs/BLOOMSHOT-Claude-handoff.zip`
-- Native source: `outputs/bloomshot-native`
-- Native bundle: `outputs/BLOOMSHOT-native-source.zip`
-- Hosting checkout: `outputs/bloomshot-site`
-- Private play URL: https://bloomshot-meadow.trevor-owens1996.chatgpt.site
+Your original native project (`outputs/bloomshot-native`) never reached Claude. The release thread regenerated it as `native/` from your pinned Capacitor 8.5.2 settings, and both cloud builds have compiled once. Prefer `native/` over your old copy.
 
-Private publication succeeded at 2026-10-03T02:44:00Z (October 2, 19:44 Pacific):
+## Saves (never reset)
 
-- Project: `appgprj_6ac04fc69fa881919f50dedb89a70cd6`
-- Deployment: `appgdep_6ac06be95a10819191e10f8774a54fea`
-- Version: `appgprj_6ac04fc69fa881919f50dedb89a70cd6~appgver_11582ca3b7988191bab8cdcdcf742637`
-- Pushed source: `3d12655f71f9a1d366c3cceee4f9ad44e795a286`
-- Worker version: `dd9f6269858015fa`
+Normal save `bloomshot.save.v1`; `?qa` uses `bloomshot.qa.v1`. Trevor plays in both. New save fields are additive: `koi: {}` beside `moon: {}`, and `garden.koiBest` beside `garden.moonBest`. Old saves load unchanged.
 
-The native Sites result confirmed publication. Audience remains owner-private; sign in with the owning account. Hosted phone gameplay, private authentication while offline and actual home-screen installation remain unverified. No payments or store submission occurred. `WEB-RELEASE.json` records the distinction. Reuse this Site; do not create a duplicate or change its audience without instruction.
+## What Claude changed, passes 1 to 4
 
-## Run locally and preserve saves
+**Pass 1, game feel and scenery.** Living meadow backdrop (sun and rays, three rolling hill bands with wildflowers), stateless ambient life (drifting petals, motes, a butterfly every 17 s, swaying grass), and for Moon a nebula and stars. Trauma-based screen shake, short hit-stop on big moments, soft additive flash, colored `+points` pops that stack instead of overlapping, a score bump, a glowing seed. All skipped with reduced motion.
 
-From `outputs/bloomshot`, run `node server.cjs`, then open http://127.0.0.1:4387/ . Task-owned server session 12304 was restored after the offline check. Verify it is still running before starting another. Optional port: `node server.cjs 4388`. Port 4173 is unrelated. The server is localhost-only; phones should use the hosted HTTPS link. No web dependency install or build is required.
+**Pass 2, interface as art.** Parchment shell with a petal pattern, brass hairlines, gilded board frame, rounded display type, jade pill buttons, a brass restart button, springy dialogs, illustrated level and world cards, a jade "pebble" on the active nav button. Tokens live at the top of the pass 2 block in `styles.css` (`--jade`, `--brass`, `--parchment`).
 
-Normal save: `bloomshot.save.v1`. URL `?qa=1` uses `bloomshot.qa.v1`. Neither is disposable: the user also plays in QA. Never reset these to simplify a test. Local, hosted and native origins have separate saves; there is no cloud save or migration. Unfinished runs remain in memory only.
+**Moon fix.** Your pointer report was right: Moon routes needed pixel-exact aim. Sprigs of buds now link (one hit blooms the sprig) with one deliberately unlinked sprig per board so no trial falls to a single lucky shot. A simulated careful finger with 3° of aim error now clears Moon 1 to 6 about 96/89/80/59/60/45% of the time, up from 72/58/25/3/13/0%. `qa/aim-tolerance.cjs` measures it and `qa/check-moon-pointer.cjs` now enforces floors.
 
-Current QA save after real play: Rush best 2,100 and 21 cumulative blooms; two cleared Meadow gardens/six stars; Moon trial 1 cleared with three stars and 3,200 points; Moon trial 2 unlocked, later trials locked. Moon's 12-seed reward raised the existing balance from one to 13. Growing Sunbell cost eight, leaving five seeds and Sunbell at stage two; the other five beds remain empty. Reload preserved all of it. Normal saves were not reset or injected.
+**Pass 3, motion.** Buds sway and open flowers breathe; blooms throw a shockwave ring, glow motes and petals that flutter as they fall; a rainbow trail once a chain passes eight; a rising shimmer cue every fifth bloom in a chain.
 
-Backups under `work`: `pass2-baseline` (before Rush), `web-proof-baseline` (prior UI), `progression-baseline` (before meadow), and `moon-baseline` (app/catalog/garden/UI/worker before this integration). Native `www` and Site `dist` are generated copies, not authoring locations.
+**Pass 4, Koi Conservatory (the first paid world).** A real world with its own mechanic, not a reskin:
 
-## What changed in this pass
+- Currents (`engine.js`: `currentsFor`, `laneAt`, `steer`). A lane is a rotated rectangle. Inside it a seed's heading turns toward the lane's flow at a bounded rate (default 2.4 rad/s); speed never changes. The aim trace sub-steps the same rule, so the dotted line shows the bend. A `current` event fires on lane entry and `game.currentRides` counts them.
+- `koi.js`: eight boards, five single seeds each, no in-flight steering, one leaf turn between shots. First Ripple, Lantern Bend, Two Streams, Whirlpool Steps, Waterfall, Koi Parade, Reed Maze, Moon on the Water. Pools 1 and 2 are free; 3 to 8 need entitlement `world_koi` (product `bloomshot.world.koi`).
+- Art (`art.js` `drawCurrents`, `koiFish`): translucent water ribbons with travelling streaks and chevrons, a koi swimming each lane, lanes brighten when used; lily pads in the koi backdrop; an illustrated koi-pond world card. Sound: two soft rising water drops on lane entry (`sound.js` `current`, a new `drop` note style).
+- App flow (`app.js`): Moon and Koi now share one "chapter" path (`chapters`, `trialOpen`, `trialPaid`, `renderChapter`). Records save to `save.koi`; new stars pay meadow seeds exactly like Moon. After pool 2 without the pack, "Next" opens the conservatory screen instead of a locked board.
+- Unlock panel: names the six extra pools, says it is one payment with no ads, timers or randomness, and shows the store's own price. On the website it only says pools 3 to 8 unlock in the app; when the store is live but the product is not on sale it says so; in test mode it says nothing is charged.
 
-Moon Garden is now an actual six-trial free chapter, opened through Worlds. Each trial has five single-seed shots, a seven-second seed lifetime, one optional petal turn between shots, no in-flight guidance and no automatic extra seeds. Gate routes and independent flowers provide challenge without padding flower health. Completed trials unlock the next; stars save separately from Meadow and award permanent meadow seeds. The final trial returns to the chapter path. Koi is the only remaining visual preview.
+**Store layer (written by the release thread, not Claude's to edit).** `store.js`, `store-ui.js`, `store-config.js`: modes native (RevenueCat), mock (`localhost` plus `?mockstore=1`) and web (sells nothing). `bloomshot.world.koi` is still `available: false`; flip it only after a sandbox purchase and restore work. RevenueCat keys are empty until Trevor's accounts exist. Read `docs/STORES.md` and `docs/MOBILE-RELEASE.md`.
 
-Paired gates transport a seed and rotate its velocity by the difference between gate orientations. Swept entry detection preserves speed and remaining travel in the tick. Exit clearance, a 0.12-second cooldown and a 12-passage limit prevent pathological loops. Invalid or unsafe gate pairs are ignored. The aim trace breaks at the teleport, then marks the exit direction rather than drawing a misleading connector across the board.
+## Code map changes since your handoff
 
-Gate art uses matching cyan/violet apertures, carved crescents, pearl rims, jade vines, pair marks and orientation notches. Passage pulses last 0.6 seconds and trigger bounded entry/exit particles plus a soft rising-fifth chime. Rapid cues are debounced. The existing detailed violet/cyan moon, lunar plains and crater shading are preserved. This is procedural AI-assisted art; provenance is documented.
-
-The six boards are in `moon.js`: A Door in the Dark, Turn of the Moon, Crescent Relay, Crossed Stars, Petal Observatory and Lunar Waltz. Pars are 3, 2, 3, 3, 3, 3 shots. First boards have 12 buds; later ones reach 24. Early boards retain small two-flower links; later buds are independent. Short HUD hints and a scrollable illustrated trial path fit narrow screens.
-
-Only new Moon stars grant rewards: first clear gives 8/10/12 seeds for 1/2/3 stars, then 2 per improved star. Immediate three stars and gradual one-to-three both total 12. Moon records and reward baselines are separate from Meadow. No paid content or entitlements are implemented; these six trials are free.
-
-## Retained game and progression
-
-Meadow Rush remains the default action mode. One seed per release, 0.65-second reload, four-second lifetime, at most five active balls. Flowers descend after the first shot. Three breached clusters end the run. Six direct hits charge a manual Split that adds two trajectories; cascades do not charge it. Gold crowned relays open at most two neighbors; cascaded relays do not propagate another relay. Petal turns have a two-second cooldown. Holding Space does not autofire.
-
-Rush waves increase from 12 to 24 buds, descend faster and introduce two-hit flowers. Descent is capped at 32 logical pixels/second; seed speed at 650. Preserve player decisions and legible threats. User feedback, not solver success, must determine whether it is challenging and fun.
-
-The separate Meadow puzzle campaign has 18 boards and 938 total buds, three volleys of three seeds, optional drag guidance, linked cascades and an earned automatic bonus. Those established rules are unchanged by Moon. Daily boards select from 12 later layouts. Collection flowers unlock with campaign completion. Do not describe all modes as single-seed games.
-
-Garden has six persistent illustrated beds, path, pond, foliage and butterflies. Beds grow through three stages costing 4, 8 and 14 seeds. Four starter seeds are issued only when the garden field is absent. Players choose the bed; growth does not increase firing power. Planting has a 950 ms reveal, 28 bounded accents and a quiet four-note phrase; reduced motion displays the final state immediately. Meadow drawing is capped at 30 FPS while visible, and static when appropriate.
-
-Rush rewards: `min(40, floor(blooms/4) + max(0, wave-1))`, minimum one for a positive-bloom run. Meadow and Moon first clears/new stars use the formula above. Daily boards do not currently award garden seeds. No unfinished run, loss or visual preview grants rewards. A 64-run receipt window plus per-mode star baselines prevent local duplicate awards. This is not secure purchased currency: never attach real money to local balances alone.
-
-Menus, dialogs, hidden tabs and short landscape screens pause gameplay. World previews restore the original active run and reward receipt when closed. Changing game modes begins a new run. Existing progress survives settings updates. Malformed individual daily/Moon records are skipped rather than wiping the whole save.
-
-## Code map
-
-| File | Responsibility |
+| File | New responsibility |
 |---|---|
-| index.html / styles.css | Responsive botanical shell, HUD, trial path, meadow controls and dialogs |
-| app.js | Input, mode transitions, saves, rewards, HUD, effects/audio and results |
-| engine.js | Meadow/Moon physics, gates, optional per-level rules and trace |
-| rush.js | Descending action mode, formations, manual Split and breaches |
-| moon.js | Six authored Moon boards and rule/route metadata |
-| levels.js | Meadow boards, collection, worlds and daily selection |
-| garden.js | Pure normalization, planting and reward accounting |
-| meadow.js | Cached illustrated landscape and planting reveal |
-| art.js | Flowers, detailed moon, gates, trails, bumpers and impact lettering |
-| sound.js | Lazy Web Audio synthesis, event cues, bounds, shaping, mute and unlock |
-| pwa.js / sw.js / manifest.webmanifest | Installation, offline shell and explicit updates |
-| qa/ | Tests, route proofs, browser reports and design notes |
+| koi.js | Eight Koi boards, product and entitlement ids, free-board count |
+| engine.js | Adds currents and the `current` event |
+| art.js | Adds scenery, ambient life, ring/glow particles, currents and koi; exports `koiFish` |
+| app.js | Chapter flow for Moon and Koi, store gating and unlock panel, game-feel layer |
+| garden.js | `koiBest` and `mode: 'koi'` rewards |
+| store*.js | Purchases (release thread) |
 
-Script order: levels → moon → garden → engine → rush → art → meadow → sound → app → pwa. Physics uses 120 Hz fixed steps. Particles and voices are bounded. Sound uses warm mallet tones, gentle harmony/panning and at most 16 voices/32 oscillators. Mute fades scheduled notes; unlocking audio drops stale cues. No recorded soundtrack exists.
+Script order: store-config → store → levels → moon → koi → garden → engine → rush → art → meadow → sound → app → store-ui → pwa. `sw.js` ASSETS includes `koi.js` and the store files; Claude bumped `VERSION` by hand to `4b0c7e1d9a52f3c8`. Your `work/prepare-release.cjs` recomputes it, which is fine.
 
 ## Verification
 
-Run from `outputs/bloomshot`:
+From `bloomshot/`, every suite must exit 0 (CI runs the same list in `.github/workflows/web-tests.yml`):
 
 ```text
-node qa/test-engine.cjs
-node qa/test-rush.cjs
-node qa/test-pwa.cjs
-node qa/test-sound.cjs
-node qa/test-garden.cjs
-node qa/test-save-integration.cjs
-node qa/test-moon-engine.cjs
+node qa/test-engine.cjs           (20)
+node qa/test-rush.cjs             (17)
+node qa/test-pwa.cjs              (20)
+node qa/test-sound.cjs            (13)
+node qa/test-garden.cjs           (21)
+node qa/test-save-integration.cjs (16)
+node qa/test-moon-engine.cjs      (15)
+node qa/test-store.cjs            (14)
 node qa/test-moon-levels.cjs
-node qa/check-moon-pointer.cjs
 node qa/test-precache-streams.cjs
+node qa/check-moon-pointer.cjs
+node qa/test-koi-levels.cjs
 ```
 
-The first seven suites report 118 passing checks: 20 Meadow engine, 17 Rush, 20 worker, 12 sound, 20 garden domain, 14 whole-app save integration and 15 Moon engine. They ran against this pass. Whole-app tests use real game/domain classes with fake DOM/storage; they do not alter browser saves.
+`test-koi-levels` checks geometry, that each board has a recorded win that also fails in still water (the currents matter), replay at 30/60/144 FPS, no lucky one-shot openers past board 1, and aim-tolerance floors. Current tolerance at 3° error: 100/88/85/73/70/60/53/43% for pools 1 to 8. Use `node qa/test-koi-levels.cjs --solve` after moving any Koi geometry, and `BLOOM_WORLD=koi node qa/aim-tolerance.cjs 5 3 400` to measure one pool.
 
-Moon route proofs are separate: all six recorded solutions match at 30, 60 and 144 FPS, use 3/2/3/3/3/3 shots and earn three stars. Every recorded route fails to clear when gates are removed. All 770 sampled opening shots leave flowers unbloomed. This does not prove optimality, a universal requirement to use gates or human difficulty. A stronger two-shot Moon 1 route is explicitly retained. Earlier easy Moon 4/6 routes still work on their preserved old geometry but bloom only 10/24 and 2/24 on the final boards. Read `qa/moon-design-notes.md` and the geometry controls before changing them.
+Screenshots for each pass are in the project files under `bloomshot/screenshots/`. None of this is physical-device proof, and Trevor has not yet given feedback on the Koi pools.
 
-Browser verification uses real pointer/keyboard controls and visible DOM state in Codex's in-app Chromium. No save injection or reset. Current report: `qa/moon-browser-results.json`. Narrow 320×568 and 390×844 layouts were exercised; the small layout has no horizontal overflow and the trial dialog scrolls. The current Moon chapter loaded after stopping the local server, confirming its module and assets were cached. The server was restored afterward. Screenshots are desktop viewport checks, not physical-device proof.
+## Publish this build (your Site)
 
-Important balance finding: the exact-angle Moon 1 teaching route was sensitive to integer pointer rounding. At the settled 390×844 layout, canvas rect (8,177,374,504.625), rounded second point (253,310) gave five total blooms instead of the solver's 11. A real Space shot followed by point (176,189) cleared in two shots, with five gate crossings, 3,200 points, three stars and 12 seeds, but that successful point is also narrow. Do not present this as a forgiving tutorial. Prioritize aim tolerance in the next pass, and read the pointer sensitivity report. Hint wrapping can slightly change canvas height, so always measure current geometry in UI tests.
+Your private Site (`bloomshot-meadow.trevor-owens1996.chatgpt.site`, project `appgprj_6ac04fc69fa881919f50dedb89a70cd6`) still serves the October 2 build. After replacing `outputs/bloomshot`, run your usual release steps: `node work/prepare-release.cjs`, push, publish the archive with the owner-private operation, update `WEB-RELEASE.json`. Reuse the Site; do not change its audience.
 
-`qa/check-moon-pointer.cjs` reproduces the discrepancy and verifies the integer route at 30/60/144 FPS. Only one of nine neighboring pixels clears that two-shot route. A bounded search did not establish a robust alternative; that is not proof none exists. Details: `qa/moon-pointer-sensitivity.md` and `.json`. This limitation is an explicit next-pass design priority.
+## Native
 
-Current screenshots: `moon-gates-preview.png`, `moon-trial-result.png` and `moon-earned-growth.png`. Previous `meadow-progress-preview.png`, `thematic-ui-preview.png`, `thematic-moon-preview.png` and `offline-play-preview.png` retain earlier UI/progression proof. Older images may show earlier geometry. Follow the current report rather than inferring release state from an old screenshot.
+In `native/`, the copy step derives its file list from `sw.js` ASSETS, so `koi.js` and the store files flow through; run `npm run sync` and `npm run check` (CI does the same in the `native-packaging` job) and confirm the native `index.html` keeps the new script tags. For purchases: `npm i @revenuecat/purchases-capacitor`, then follow `docs/STORES.md` steps 1 to 7. The app id `dev.bloomshot.game` is still a placeholder. Trevor cannot pay the Apple ($99/yr) or Google ($25) fees until his next paycheck; build what needs no account first (the Android debug APK and unsigned simulator compile in `.github/workflows/`; both run from the Actions tab).
 
-Audio stress submits 16,800 mixed events while respecting 16 voices/32 oscillators. Planting/gate scheduling, duplicate suppression, mute and cleanup pass. These tests do not establish pleasantness, phone loudness, perceptual audiovisual timing or physical-device audio latency. Listen on real speakers/headphones and obtain user feedback.
+## What to do next
 
-Streaming regression tests the actual worker with only three HTTP connections. The old headers-first negative control stalls at 3/21 headers. Current worker drains bodies independently, caches all 21 URLs including seven images and verifies every hash. Never reinstate a Promise.all barrier waiting for all headers before consuming image bodies. Failed installs preserve old cache.
-
-## Native source
-
-Capacitor 8.5.2 is pinned. Android Gradle and iOS Xcode/SPM source projects are generated and synchronized. All 18 native runtime assets, including `moon.js`, match authoritative source in `www` and both platform copies. Native shell excludes browser PWA installation UI/files and has no remote server URL.
-
-From `outputs/bloomshot-native`:
-
-```text
-npm ci
-npm run sync
-npm run check
-```
-
-Keep it beside `bloomshot`. Do not edit generated copies. Read native `README.md` and `NATIVE-VERIFICATION.json`. The provisional ID `dev.bloomshot.game` is not claimed as owned/registered; confirm it before signing. No APK/IPA has been compiled, signed or installed. No billing or store submission exists.
-
-The bounded local audit found no configured Android Studio, SDK, JDK or Gradle. No large SDKs were installed; about 8.8 GB disk remained in that audit. SideQuest ADB alone cannot compile. No Mac/Xcode access is established. Previously checked native prerequisites were Android Studio 2025.2.1+, JDK 21, SDK 36 and Mac/Xcode 26+; recheck official requirements when building. The developer-account/Mac question is still pending.
-
-A scoped xcode→uuid 11.1.1 override addresses the checked CLI dependency advisory. Xcode parsing/UUID probes and `npm audit` passed previously; recheck when upgrading. This is not a full security review.
-
-Native ZIP: 154 files, 5,751,024 bytes. SHA-256: `8fc33d114a5f55971f2209e605880c1c59ee151c70eb4e9c6db595883017cf2e`. CRC and every archived member hash were checked. Source, lockfile and Gradle wrapper JAR are included; node_modules, build/cache/signing files and local credentials are excluded. Repack with `python work/native-audit/package_native.py` after sync/check. Report: `work/native-audit/native-archive-report.json`.
-
-## Publish and bundle the next pass
-
-1. Reuse the Site project in `bloomshot-site/.openai/hosting.json`; static directory is `dist`. Use the Sites workflow open mode before editing hosted source.
-2. Edit authoritative game files. Add runtime modules to `sw.js` ASSETS and matching worker tests.
-3. Run `node work/prepare-release.cjs` from the workspace. It copies the runtime allowlist and hashes runtime plus worker logic into VERSION; docs/tests/server/screenshots stay out of the hosted app.
-4. Follow the current Sites skill/workflow for exact-source Git push and archive. Keep credentials in memory/stdin only. On Windows, prepend `C:/Program Files/Git/bin` to process PATH and set process `TAR_OPTIONS=--force-local`.
-5. Publish `work/bloomshot-web-release.tar.gz` from the exact pushed SHA with the owner-private operation. Preserve audience. Native success with URL confirms publication; do not invent success from a generic HTTP page.
-6. Sync/check/repack native source after runtime changes. Update `WEB-RELEASE.json`, both handoffs and browser reports. Run `python work/package-handoff.py`, then verify CRC, every file byte and matching handoff copies. Keep native ZIP separate.
-
-The worker validates MIME, rejects redirected/auth HTML, caches only scope-relative allowlisted GET resources and cleans only Bloomshot shell caches. Later releases wait for explicit Restart and update; they never reload an active player automatically. Browser cache/storage can still be evicted.
-
-## What Claude should do next
-
-1. Get physical phone play and listening feedback. Prioritize aim precision and gate readability, impact-to-note timing, dense-scene clarity, mute/reduced motion, interruptions, installation/offline and updates. Assess whether a finger can reproduce satisfying routes without pixel-perfect frustration. A solver clear is not a good-feeling game.
-2. Tune challenge around readable choices: gate exit direction, alternate routes, endangered Rush clusters versus combos, and deliberate petal turns. Keep one-seed firing in Rush/Moon, manual Split and free retries. Record misses, first-loss wave and ability use in voluntary local playtest notes; adjust one variable at a time.
-3. Playtest meadow progress: visible growth should feel worthwhile and 4/8/14 costs should create attainable goals. Connect spectacular results to meaningful earned changes, rather than simply raising particle counts. Preserve the art/UI relationship and detailed stylized moon.
-4. Expand Moon into a complete premium-quality world beyond the free six-trial chapter. Gates now exist: build authored variety, distinctive flowers, progression and coordinated sound around them. The current six remain free. Koi currents and its authored content are still unbuilt; a reskin alone is insufficient paid value.
-5. Build the existing native projects on configured machines after account/Mac details arrive. Confirm the owned app ID, produce debug builds and test them before signing/submission. Source generation is not an installable app. Do not regenerate everything from scratch.
-6. Connect completed paid content to platform products, entitlement validation, delivery, restoration and refund handling. Verify sandbox purchases/restores before live billing. Owner agreements, banking/tax/payout steps require the owner's participation. Do not claim revenue before real payments work.
-
-Purchase hypotheses, not live offers: permanent worlds with unique mechanics and authored levels (test range $3.99–$6.99); coordinated seed/trail/impact/celebration styles with honest previews ($1.99–$2.99); alternative play styles with explicit tradeoffs and dedicated challenges. Keep core tools earnable. Present truthful offers at completed milestones or through voluntary browsing. Avoid fake scarcity, misleading timers, paid randomness or deliberately unfair frustration to sell relief.
-
-## References for release work
-
-- https://capacitorjs.com/docs/getting-started/environment-setup
-- https://capacitorjs.com/docs/android
-- https://capacitorjs.com/docs/ios
-- https://developer.apple.com/in-app-purchase/
-- https://support.google.com/googleplay/android-developer/answer/9858738?hl=en
-- https://support.google.com/googleplay/android-developer/answer/14151465?hl=en
-- https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API/Using_Service_Workers
-
-Verify requirements when acting. Enrollment, platform testing and review can prevent immediate publication even when development starts immediately. Keep the overall goal active.
+1. Put this build on the Site and get Trevor playing Koi on his phone. Ask what feels slow, unfair or flat.
+2. Native: get the debug APK onto Trevor's Android phone, and mirror saves to Capacitor Preferences so an OS cleanup cannot erase a garden. Add Capacitor Haptics, because `navigator.vibrate` does nothing on iPhone.
+3. When accounts exist: products, RevenueCat entitlements, sandbox buy/cancel/restore/refund, then flip Koi to `available: true`.
+4. Rush pacing: Trevor asked for faster, rising pressure the longer a run lasts. Tune by measured first-loss wave, one variable at a time.
+5. Next sellable content, in the order of the monetization plan: Garden Keepsakes (cosmetic seed, trail and bloom styles with honest previews), a bundle, then boosters if any (earnable in play, never sold as relief from designed frustration).
+6. Keep updating this file at the end of every fourth pass.

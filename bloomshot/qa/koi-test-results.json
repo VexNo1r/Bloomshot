@@ -1,0 +1,77 @@
+{
+  "generatedAt": "2026-10-03T05:17:52.448Z",
+  "levels": [
+    {
+      "id": "koi-1",
+      "routeShots": 1,
+      "par": 2,
+      "luckyOpeners": 2,
+      "samples": 55,
+      "clearRateAt3Deg": 1,
+      "avgShots": 2.75
+    },
+    {
+      "id": "koi-2",
+      "routeShots": 1,
+      "par": 3,
+      "luckyOpeners": 0,
+      "samples": 55,
+      "clearRateAt3Deg": 0.875,
+      "avgShots": 3.46
+    },
+    {
+      "id": "koi-3",
+      "routeShots": 2,
+      "par": 3,
+      "luckyOpeners": 0,
+      "samples": 55,
+      "clearRateAt3Deg": 0.85,
+      "avgShots": 3.94
+    },
+    {
+      "id": "koi-4",
+      "routeShots": 2,
+      "par": 3,
+      "luckyOpeners": 0,
+      "samples": 55,
+      "clearRateAt3Deg": 0.725,
+      "avgShots": 4.14
+    },
+    {
+      "id": "koi-5",
+      "routeShots": 2,
+      "par": 3,
+      "luckyOpeners": 0,
+      "samples": 110,
+      "clearRateAt3Deg": 0.7,
+      "avgShots": 4.07
+    },
+    {
+      "id": "koi-6",
+      "routeShots": 2,
+      "par": 3,
+      "luckyOpeners": 0,
+      "samples": 55,
+      "clearRateAt3Deg": 0.6,
+      "avgShots": 3.96
+    },
+    {
+      "id": "koi-7",
+      "routeShots": 2,
+      "par": 3,
+      "luckyOpeners": 0,
+      "samples": 110,
+      "clearRateAt3Deg": 0.525,
+      "avgShots": 4.29
+    },
+    {
+      "id": "koi-8",
+      "routeShots": 2,
+      "par": 4,
+      "luckyOpeners": 0,
+      "samples": 110,
+      "clearRateAt3Deg": 0.425,
+      "avgShots": 4.06
+    }
+  ]
+}

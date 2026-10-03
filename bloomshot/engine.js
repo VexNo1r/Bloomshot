@@ -35,6 +35,32 @@
     const unique = candidates.filter(gate => counts.get(gate.id) === 1);
     return unique.filter(gate => unique.some(other => other.id === gate.pair && other.pair === gate.id));
   }
+  // Koi currents: rotated water lanes that steer a seed toward their flow
+  // direction at a bounded turn rate. Speed never changes, so paths bend
+  // readably instead of accelerating unpredictably.
+  function currentsFor(raw) {
+    if (!Array.isArray(raw)) return [];
+    const out = [];
+    for (const lane of raw.slice(0, 16)) {
+      if (!lane || typeof lane !== 'object') continue;
+      const { x, y, length, width, angle } = lane, turn = lane.turn === undefined ? 2.4 : lane.turn;
+      if (![x, y, length, width, angle, turn].every(Number.isFinite) || length < 30 || length > 600 || width < 16 || width > 200 || turn <= 0 || turn > 8) continue;
+      out.push({ id: String(lane.id || 'lane-' + out.length), x, y, length, width, angle, turn, ux: Math.cos(angle), uy: Math.sin(angle) });
+    }
+    return out;
+  }
+  function laneAt(currents, x, y) {
+    for (const lane of currents) {
+      const dx = x - lane.x, dy = y - lane.y;
+      if (Math.abs(dx * lane.ux + dy * lane.uy) <= lane.length / 2 && Math.abs(-dx * lane.uy + dy * lane.ux) <= lane.width / 2) return lane;
+    }
+    return null;
+  }
+  function steer(vx, vy, lane, dt) {
+    const current = Math.atan2(vy, vx), delta = Math.atan2(Math.sin(lane.angle - current), Math.cos(lane.angle - current));
+    const turned = current + clamp(delta, -lane.turn * dt, lane.turn * dt), speed = Math.hypot(vx, vy);
+    return { x: Math.cos(turned) * speed, y: Math.sin(turned) * speed };
+  }
   function gateTransfer(gates, entry, vx, vy) {
     const exit = gates.find(gate => gate.id === entry.pair && gate.pair === entry.id);
     const speed = Math.hypot(vx, vy);
@@ -100,6 +126,7 @@
       this.rules = rulesFor(level.rules);
       this.starPar = level.rules && Number.isFinite(level.par) ? clamp(Math.floor(level.par), 1, this.rules.shots) : 1;
       this.gates = gatesFor(level.gates); this.gatePasses = 0;
+      this.currents = currentsFor(level.currents); this.currentTime = 0; this.currentRides = 0;
       this.speed = clamp(420 + ((Number(level.difficulty || level.sourceLevelId || level.id) || 1) - 1) * 10, 420, 620);
       this.buds = copy(level.buds).map(bud => ({ ...bud, r: bud.r || 13, hp: bud.hp || 1, maxHp: bud.hp || 1, hitAt: -100, bloomed: false, bloomAt: -100 }));
       this.bumpers = copy(level.bumpers || []);
@@ -230,6 +257,12 @@
           ball.vx = Math.cos(steered) * ball.speed; ball.vy = Math.sin(steered) * ball.speed;
         }
       }
+      if (this.currents.length) {
+        const lane = laneAt(this.currents, ball.x, ball.y);
+        if (lane) { const v = steer(ball.vx, ball.vy, lane, dt); ball.vx = v.x; ball.vy = v.y; this.currentTime += dt; lane.lastUsed = this.time; }
+        if (lane && lane !== ball.lane) { this.currentRides++; this.event('current', { lane: lane.id, x: ball.x, y: ball.y, angle: lane.angle }); }
+        ball.lane = lane;
+      }
       ball.trail.push({ x: ball.x, y: ball.y });
       if (ball.trail.length > 22) ball.trail.shift();
       let remaining = dt;
@@ -274,12 +307,20 @@
       let p = { ...this.launcher, gateCooldown: 0, gateHops: 0 };
       const points = [{ x: p.x, y: p.y }];
       let distance = 350;
-      for (let i = 0; i < (this.gates.length ? 32 : 2) && distance > 1e-7; i++) {
-        const segment = p.gateCooldown > 1e-9 ? Math.min(distance, p.gateCooldown * this.speed) : distance;
+      const flowing = this.currents.length > 0, stepLength = this.speed / 120;
+      for (let i = 0; i < (flowing ? 400 : this.gates.length ? 32 : 2) && distance > 1e-7; i++) {
+        if (flowing) {
+          // Mirror the per-tick steering so the aim line bends exactly like the seed.
+          const lane = laneAt(this.currents, p.x, p.y);
+          if (lane) { const v = steer(direction.x, direction.y, lane, 1 / 120); direction = v; }
+        }
+        let segment = p.gateCooldown > 1e-9 ? Math.min(distance, p.gateCooldown * this.speed) : distance;
+        if (flowing) segment = Math.min(segment, stepLength);
         const d = { x: direction.x * segment, y: direction.y * segment };
         const hit = earliest(this, p, d);
         if (!hit) {
-          p.x += d.x; p.y += d.y; points.push({ x: p.x, y: p.y });
+          p.x += d.x; p.y += d.y;
+          if (!flowing || i % 3 === 0 || distance - segment <= 1e-7) points.push({ x: p.x, y: p.y });
           distance -= segment; p.gateCooldown = Math.max(0, p.gateCooldown - segment / this.speed); continue;
         }
         p.x += d.x * hit.t; p.y += d.y * hit.t;
@@ -304,5 +345,5 @@
       return { level: this.level.id, status: this.status, score: this.score, shotsLeft: this.shotsLeft, balls: this.balls.length, combo: this.combo, guideCharge: this.guideCharge, buds: this.buds.map(({ id, bloomed }) => ({ id, bloomed })), rotationUsed: this.rotationUsed, gatePasses: this.gatePasses };
     }
   }
-  return { Game, WIDTH, HEIGHT, SPEED, RADIUS, BOUNDS, circleHit, capsuleHit, earliest, clamp };
+  return { Game, WIDTH, HEIGHT, SPEED, RADIUS, BOUNDS, circleHit, capsuleHit, earliest, clamp, laneAt, currentsFor };
 });

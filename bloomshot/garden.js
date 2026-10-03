@@ -66,10 +66,17 @@
       var moonStars = own(savedMoon, moonId) ? integer(savedMoon[moonId], 3) : 0;
       if (moonStars) moonBest[moonId] = moonStars;
     }
+    var koiBest = {};
+    var savedKoi = own(source, 'koiBest') && record(source.koiBest) ? source.koiBest : {};
+    for (var pool = 1; pool <= 8; pool++) {
+      var koiId = 'koi-' + pool;
+      var koiStars = own(savedKoi, koiId) ? integer(savedKoi[koiId], 3) : 0;
+      if (koiStars) koiBest[koiId] = koiStars;
+    }
     return { version: 1,
       seeds: isNew ? 4 : (own(source, 'seeds') ? integer(source.seeds, MAX_SEEDS) : 0),
       selectedId: own(source, 'selectedId') && validPlot(source.selectedId) ? source.selectedId : 'sunbell',
-      levels: levels, receipts: receipts, campaignBest: campaignBest, moonBest: moonBest,
+      levels: levels, receipts: receipts, campaignBest: campaignBest, moonBest: moonBest, koiBest: koiBest,
       starterSeeds: isNew ? 4 : (own(source, 'starterSeeds') ? integer(source.starterSeeds, 4) : 0),
       totalSeedsEarned: own(source, 'totalSeedsEarned') ? integer(source.totalSeedsEarned, MAX_TOTAL) : 0,
       totalSeedsSpent: own(source, 'totalSeedsSpent') ? integer(source.totalSeedsSpent, MAX_TOTAL) : 0 };
@@ -91,11 +98,11 @@
       }
       earned = Math.min(40, Math.floor(reward.blooms / 4) + Math.max(0, reward.wave - 1));
       if (reward.blooms > 0) earned = Math.max(1, earned);
-    } else if (reward.mode === 'campaign' || reward.mode === 'moon') {
-      var moon = reward.mode === 'moon';
-      var validLevel = moon ? typeof reward.levelId === 'string' && /^moon-[1-6]$/.test(reward.levelId) : Number.isInteger(reward.levelId) && reward.levelId >= 1 && reward.levelId <= 18;
+    } else if (reward.mode === 'campaign' || reward.mode === 'moon' || reward.mode === 'koi') {
+      var chapter = { moon: /^moon-[1-6]$/, koi: /^koi-[1-8]$/ }[reward.mode];
+      var validLevel = chapter ? typeof reward.levelId === 'string' && chapter.test(reward.levelId) : Number.isInteger(reward.levelId) && reward.levelId >= 1 && reward.levelId <= 18;
       if (!validLevel || !Number.isInteger(reward.stars) || reward.stars < 1 || reward.stars > 3) return result(0, 'invalid-reward');
-      var bests = moon ? next.moonBest : next.campaignBest;
+      var bests = reward.mode === 'moon' ? next.moonBest : reward.mode === 'koi' ? next.koiBest : next.campaignBest;
       // The caller supplies pre-run progress on the first award after upgrading an older save.
       var previous = Math.max(bests[reward.levelId] || 0, integer(reward.previousStars, 3));
       // Pay the same lifetime reward whether a player earns stars now or improves later.
