@@ -106,7 +106,8 @@
       try { value = (await prefs.get({ key: SAVE_KEY })).value; } catch (_) { return false; } // unreadable: leave the backup alone
       var verdict = judge(value);
       if (verdict === 'usable') {
-        try { storage.setItem(SAVE_KEY, value); } catch (_) { return false; }
+        // Reload only if the write can be read back, so a storage that silently drops writes cannot loop restore and reload forever.
+        try { storage.setItem(SAVE_KEY, value); if (storage.getItem(SAVE_KEY) !== value) return false; } catch (_) { return false; }
         markSynced();
         reloading = true; pending = null;
         return true;

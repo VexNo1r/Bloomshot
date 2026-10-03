@@ -1,5 +1,5 @@
 {
-  "passed": 21,
+  "passed": 22,
   "failed": 0,
   "methodology": "Executes the complete current app.js in an isolated Node VM using real garden/level/engine modules, fake localStorage, and DOM/canvas adapters. Completion fixtures exercise actual engine completion events and app handlers. No real browser or user saves are read or changed.",
   "limitations": [
@@ -81,6 +81,10 @@
     },
     {
       "name": "Native bridge: a restored backup reloads the page once, and no restore means no reload",
+      "passed": true
+    },
+    {
+      "name": "Native bridge: the real bridge in its web form changes nothing, vibrating exactly as before only while the Vibration setting is on",
       "passed": true
     },
     {

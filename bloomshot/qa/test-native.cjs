@@ -148,6 +148,16 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
     }
   });
 
+  await test('Restore: storage that accepts a write but loses it never causes a reload loop', async () => {
+    const storage = memoryStorage(); const plugins = fakePlugins({ backup: GOOD });
+    const lossy = { getItem: storage.getItem, setItem: () => {}, data: storage.data }; // swallows every write without throwing
+    const { api, timer } = make({ storage: lossy, plugins });
+    assert.equal(await api.restore(SAVE), false); assert.equal(api.reloading, false);
+    assert.equal(storage.data[SAVE], undefined); assert.equal(storage.data[SYNC], undefined);
+    api.mirror(SAVE, FRESH); timer.run(); api.flush(); await tick();
+    assert.deepEqual(plugins.log.set, []); assert.equal(plugins.store[SAVE], GOOD);
+  });
+
   await test('Restore: a damaged backup (not JSON, empty, not a save) is replaced by the game\'s own save, but another version\'s backup is left alone', async () => {
     for (const backup of ['{not json', '', JSON.stringify([1]), JSON.stringify({}), JSON.stringify(null)]) {
       const storage = memoryStorage(); const plugins = fakePlugins({ backup }); const { api, timer } = make({ storage, plugins });

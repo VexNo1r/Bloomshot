@@ -1,7 +1,7 @@
 {
   "generatedBy": "qa/test-native.cjs",
-  "passed": 12,
-  "total": 12,
+  "passed": 13,
+  "total": 13,
   "methodology": "Fake Capacitor shaped like the injected native bridge (Capacitor.Plugins, no registerPlugin), fake storage and a manual timer. No device, no real preferences store.",
   "limitations": [
     "Plugin names (Haptics, Preferences) and call shapes follow the Capacitor 8 plugin sources and the injected bridge scripts and have not run on a real phone.",
@@ -38,6 +38,10 @@
     },
     {
       "name": "Restore: an interrupted first restore (read fails, or never answers) cannot make the next launch overwrite the real backup",
+      "passed": true
+    },
+    {
+      "name": "Restore: storage that accepts a write but loses it never causes a reload loop",
       "passed": true
     },
     {

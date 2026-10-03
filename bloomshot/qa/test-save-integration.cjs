@@ -281,6 +281,14 @@ test('Native bridge: a restored backup reloads the page once, and no restore mea
   assert.deepEqual(restored.calls.restore, ['bloomshot.save.v1']); assert.equal(a.reloads.length, 1);
   const plain = fakeNative(); assert.equal(boot(legacySave(), { native: plain }).reloads.length, 0);
 });
+test('Native bridge: the real bridge in its web form changes nothing, vibrating exactly as before only while the Vibration setting is on', () => {
+  const Native = require('../native.js'); const buzzes = [];
+  const on = legacySave(); on.settings.haptics = true;
+  const loud = boot(on, { native: Native.create({ navigator: { vibrate: pattern => buzzes.push(pattern) } }) }); loud.click('garden-btn'); loud.click('plant-btn');
+  assert.deepEqual(buzzes, [12]); assert.equal(loud.reloads.length, 0);
+  const quiet = []; const off = boot(legacySave(), { native: Native.create({ navigator: { vibrate: pattern => quiet.push(pattern) } }) }); off.click('garden-btn'); off.click('plant-btn');
+  assert.deepEqual(quiet, []); assert.equal(off.reloads.length, 0);
+});
 test('Native bridge: when web storage is blocked the phone backup still gets every save, and the game runs without a bridge at all', () => {
   const bridge = fakeNative(); const blocked = boot(legacySave(), { storageFails: true, native: bridge });
   blocked.click('garden-btn'); blocked.click('plant-btn');
