@@ -152,6 +152,8 @@
       note(293.66, 0, 0.22, 0.078, pan * 0.5);
       note(440, 0.072, 0.36, 0.064, pan * 0.5);
     }
+    // Chain milestones: a quick rising shimmer above the bloom notes.
+    else if (type === 'shimmer' && allowed('shimmer', 0.3)) phrase([783.99, 987.77, 1174.66, 1567.98], 0.045, 0.32, 0.05, pan * 0.5);
     else if (type === 'life' && allowed('life', 0.15)) phrase([220, 174.61], 0.105, 0.25, 0.12, pan);
     else if (type === 'fever' && allowed('fever', 1.0)) phrase([261.63, 329.63, 392], 0.04, 0.52, 0.085);
     else if (type === 'lost' && allowed('lost', 0.6)) phrase([329.63, 261.63, 220], 0.115, 0.40, 0.105);

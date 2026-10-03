@@ -908,7 +908,8 @@
         if (trail[i].move) continue;
         const f = i / trail.length;
         ctx.beginPath(); ctx.moveTo(trail[i - 1].x, trail[i - 1].y); ctx.lineTo(trail[i].x, trail[i].y);
-        ctx.strokeStyle = c.base; ctx.lineWidth = r * 1.65 * f; ctx.globalAlpha = f * .53; ctx.stroke();
+        ctx.strokeStyle = fever || (ball.hot && !reducedMotion) ? `hsl(${(time * 240 + i * 14) % 360},95%,66%)` : c.base;
+        ctx.lineWidth = r * 1.65 * f; ctx.globalAlpha = f * .53; ctx.stroke();
       }
       const start = Math.max(0, trail.length - 7);
       ctx.beginPath(); ctx.moveTo(trail[start].x, trail[start].y);
@@ -972,6 +973,19 @@
     if (!f) return;
     const size = particle.size || 2.5, color = particle.color || '#ffcd45';
     ctx.save(); ctx.globalAlpha = Math.min(1, f * 1.8);
+    if (particle.kind === 'ring') {
+      const q = 1 - f, rr = (particle.size || 14) + ease(q) * (particle.grow || 46);
+      ctx.globalAlpha = f * .8; ctx.lineWidth = 1 + f * 4; ctx.strokeStyle = color;
+      ctx.beginPath(); ctx.arc(particle.x, particle.y, rr, 0, TAU); ctx.stroke();
+      ctx.restore(); return;
+    }
+    if (particle.kind === 'glow') {
+      ctx.globalCompositeOperation = 'lighter';
+      const gr = size * 3.2, g = ctx.createRadialGradient(particle.x, particle.y, 0, particle.x, particle.y, gr);
+      g.addColorStop(0, '#ffffff'); g.addColorStop(.35, color); g.addColorStop(1, color + '00');
+      ctx.globalAlpha = f; ctx.fillStyle = g; ctx.fillRect(particle.x - gr, particle.y - gr, gr * 2, gr * 2);
+      ctx.restore(); return;
+    }
     if (particle.kind === 'spark') {
       const vx = particle.vx || 0, vy = particle.vy || 0;
       ctx.beginPath(); ctx.moveTo(particle.x, particle.y); ctx.lineTo(particle.x - vx * .035, particle.y - vy * .035);
@@ -1111,6 +1125,14 @@
       // A descending flower retains its drawn variation instead of changing
       // petal orientation whenever its position crosses a pixel boundary.
       if (!flowerVariants.has(bud)) flowerVariants.set(bud, ((Math.floor(bud.x) * 31 + Math.floor(bud.y) * 17) % 7 + 7) % 7);
+      if (!options.reducedMotion) {
+        // Visual-only life: buds sway on their stems, open flowers breathe.
+        // Collision geometry is untouched.
+        const ph = (flowerVariants.get(bud) || 0) * 1.37;
+        const sway = bud.bloomed ? Math.sin(time * 1.1 + ph) * .05 : Math.sin(time * 2.1 + ph) * .07;
+        const breathe = bud.bloomed && openness >= 1 ? 1 + Math.sin(time * 1.7 + ph) * .035 : 1;
+        ctx.translate(bud.x, bud.y); ctx.rotate(sway); ctx.scale(breathe, breathe); ctx.translate(-bud.x, -bud.y);
+      }
       drawFlower(ctx, bud.x, bud.y, bud.r || 16, bud.type, openness, time, flowerVariants.get(bud));
       if (bud.relay && !bud.bloomed) drawRelayCrown(ctx, bud);
       if (!bud.bloomed && (bud.power || bud.burst || bud.kind === 'burst')) {

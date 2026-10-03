@@ -300,7 +300,14 @@
     for (let i = 0; i < count; i++) {
       const a = i / count * Math.PI * 2 + Math.random() * .3, speed = 60 + Math.random() * 150, life = .7 + Math.random() * 1.3;
       const kind = i % 5 === 0 ? 'spark' : i % 3 === 0 ? 'pollen' : 'petal';
-      game.particles.push({ x: bud.x, y: bud.y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed - 40, life, maxLife: life, color: kind === 'spark' ? '#fff7be' : colors[bud.type] || colors.coral, size: kind === 'pollen' ? 1.2 + Math.random() * 2 : 2.5 + Math.random() * 4, kind, rotation: a, spin: (Math.random() - .5) * 9, drag: kind === 'petal' ? 1.1 : .7, gravity: kind === 'petal' ? 90 : 35 });
+      game.particles.push({ x: bud.x, y: bud.y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed - 40, life, maxLife: life, color: kind === 'spark' ? '#fff7be' : colors[bud.type] || colors.coral, size: kind === 'pollen' ? 1.2 + Math.random() * 2 : 2.5 + Math.random() * 4, kind, rotation: a, spin: (Math.random() - .5) * 9, drag: kind === 'petal' ? 1.1 : .7, gravity: kind === 'petal' ? 90 : 35, flutter: kind === 'petal' ? 18 + Math.random() * 30 : 0, phase: Math.random() * 6.28 });
+    }
+    // A colored shockwave ring and a couple of drifting glow motes per burst.
+    const tint = colors[bud.type] || colors.coral;
+    game.particles.push({ x: bud.x, y: bud.y, vx: 0, vy: 0, life: .55, maxLife: .55, kind: 'ring', color: tint, size: (bud.r || 12) * .8, grow: 30 + Math.min(40, count), gravity: 0, drag: 0 });
+    for (let i = 0; i < 3; i++) {
+      const a = Math.random() * Math.PI * 2, life = 1 + Math.random() * .8;
+      game.particles.push({ x: bud.x, y: bud.y, vx: Math.cos(a) * 30, vy: Math.sin(a) * 30 - 25, life, maxLife: life, kind: 'glow', color: tint, size: 2.5 + Math.random() * 2, gravity: -12, drag: .9 });
     }
   }
   // Game feel: trauma-based screen shake, brief hit-stop on big moments and a
@@ -323,12 +330,13 @@
         burst(event.bud, 24 + Math.min(36, combo * 3));
         if (save.settings.motion && event.gain) {
           const px = event.bud.x, py = event.bud.y - (event.bud.r || 14) - 6;
-          const stacked = game.floaters.filter(f => f.kind === 'pop' && Math.abs(f.x - px) < 34 && Math.abs(f.y - py) < 40).length;
-          game.floaters.push({ x: px + (stacked % 2 ? 14 : -6) * Math.min(1, stacked), y: py - stacked * 17, text: `+${event.gain}`, life: .8, maxLife: .8, kind: 'pop', color: POP_COLORS[event.bud.type] || POP_COLORS.coral, size: Math.min(24, 14 + combo * .8) });
+          const stacked = game.floaters.filter(f => f.kind === 'pop' && f.life > f.maxLife - .35 && Math.abs(f.x - px) < 58 && Math.abs(f.y - py) < 50).length;
+          game.floaters.push({ x: px, y: py - stacked * 19, text: `+${event.gain}`, life: .8, maxLife: .8, kind: 'pop', color: POP_COLORS[event.bud.type] || POP_COLORS.coral, size: Math.min(24, 14 + combo * .8) });
         }
         jolt(.08 + Math.min(.2, combo * .015), combo % 5 === 0 ? .055 : 0, combo % 5 === 0 ? .7 : 0);
         bumpScore();
         if (event.combo % 5 === 0) {
+          BloomSound.play('shimmer', event);
           game.floaters = game.floaters.filter(item => item.kind !== 'combo');
           game.floaters.push({ x: 210, y: 92, text: `${event.combo} BLOOM CHAIN`, life: .9, maxLife: .9, kind: 'combo' });
         }
@@ -601,9 +609,11 @@
       accumulator += dt;
       while (accumulator >= 1 / 120) { game.step(1 / 120); accumulator -= 1 / 120; }
       processEvents();
+      for (const ball of game.balls || []) ball.hot = (game.combo || 0) >= 8;
       for (const p of game.particles) {
         p.life -= dt; p.vx *= Math.exp(-(p.drag || 1) * dt); p.vy *= Math.exp(-(p.drag || 1) * dt);
-        p.vy += (p.gravity || 70) * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.rotation += (p.spin || 0) * dt;
+        p.vy += (p.gravity ?? 70) * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.rotation += (p.spin || 0) * dt;
+        if (p.flutter) { p.phase += dt * 5; p.x += Math.sin(p.phase) * p.flutter * dt; p.vy = Math.min(p.vy, 70); }
         if (p.x < 24 || p.x > 396) { p.x = clamp(p.x, 24, 396); p.vx *= -.35; }
         if (p.y > 530) { p.y = 530; p.vy *= -.25; p.vx *= .8; }
       }

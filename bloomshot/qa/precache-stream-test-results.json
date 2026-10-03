@@ -1,6 +1,6 @@
 {
   "passed": true,
-  "testedAt": "2026-10-03T04:46:39.439Z",
+  "testedAt": "2026-10-03T04:49:09.571Z",
   "node": "v22.22.0",
   "workerSha256": "e2490ddfb89374faad176b9b89b69ab862a216b7052c7edb6e6d751ea0ad527e",
   "maxConnections": 3,
@@ -13,15 +13,15 @@
     "consumed": 0,
     "bytes": 0,
     "peakConnections": 3,
-    "elapsedMs": 276.46
+    "elapsedMs": 274.59
   },
   "actualInstall": {
     "headers": 24,
     "consumed": 24,
-    "bytes": 1986824,
+    "bytes": 1989370,
     "peakConnections": 3,
     "cached": 24,
-    "elapsedMs": 44.98,
+    "elapsedMs": 44.05,
     "deadlineMs": 15000,
     "allBodyHashesMatch": true
   },
@@ -88,8 +88,8 @@
     },
     {
       "path": "/art.js",
-      "bytes": 65785,
-      "sha256": "e2c0dbb70a5a135b5fc507fb83fb77a730f3ca5c5ac3c7f298f7c7714637e395",
+      "bytes": 67180,
+      "sha256": "d3d98d98bf15d77bfc033f01e8378ffc59413046bebbd346ea2ab9a1f060ed51",
       "type": "text/javascript; charset=utf-8"
     },
     {
@@ -100,14 +100,14 @@
     },
     {
       "path": "/sound.js",
-      "bytes": 8887,
-      "sha256": "239073c05474d02893233dded94745b706906870c24f456d43c1698f47f8c7e8",
+      "bytes": 9091,
+      "sha256": "87d34d59c49da69a7746e102a9ddafddcce55aadc8024f5904894af66e6451db",
       "type": "text/javascript; charset=utf-8"
     },
     {
       "path": "/app.js",
-      "bytes": 52441,
-      "sha256": "cf5d0a1bb56b0b15476396c115caa9f9a00733506874bc0eddf6acb466d0209a",
+      "bytes": 53388,
+      "sha256": "6228281e6d0817d7e6a207d3a67b0bb87ec4a191081f4b852f1d7d6db3b07a07",
       "type": "text/javascript; charset=utf-8"
     },
     {
