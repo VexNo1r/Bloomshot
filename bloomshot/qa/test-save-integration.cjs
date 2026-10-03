@@ -257,6 +257,19 @@ test('The Koi unlock names its contents and store price and buys only through th
   app.click('world-detail', { trial: 'koi-3', chapter: 'koi' }); assert.equal(app.games.at(-1).level.id, 'koi-3');
   assert.deepEqual(app.saved().koi, save.koi);
 });
+test('Clearing a Rush wave shows the next tempo, and the HUD and result carry the tempo reached', () => {
+  const app = boot(legacySave()); const game = app.games.at(-1);
+  assert(game.fire(0, -1)); app.frame();
+  for (const bud of game.buds) while (!bud.bloomed) game.strike(bud, true);
+  app.frame(20); app.frame(20);
+  const banner = game.floaters.find(f => f.kind === 'wave');
+  assert(banner, 'a wave-clear banner is shown'); assert.equal(banner.text, 'WAVE CLEAR'); assert.equal(banner.label, 'next tempo ×1.1');
+  for (let i = 0; i < 50; i++) app.frame(20);
+  assert.equal(game.wave, 2); assert.match(app.$('level-label').textContent, /^WAVE 02 · TEMPO ×1\.1$/);
+  assert.match(app.$('game-hint').textContent, /every bloom ×1\.1/);
+  game._lose(); for (let i = 0; i < 40; i++) app.frame();
+  assert.match(app.$('result-message').textContent, /tempo ×1\.1/);
+});
 const moonThrough = count => Object.fromEntries(Moon.levels.slice(0, count).map(level => [level.id, { best: 700, stars: 2, attempts: 1 }]));
 test('Keepsakes: a fresh garden wears Meadow, every style previews, and locked styles never go on the seed', () => {
   const before = legacySave(), app = boot(before);

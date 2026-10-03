@@ -207,6 +207,19 @@ async function main() {
     assert.equal(h.context.nodes.length, nodes, 'Rapid lane changes share one response');
     h.tick(2); assert.equal(h.voices().length, 0);
   });
+  await test('Rush waves climb a semitone per wave up to a fifth, and a cleared wave rings a bounded rising chord', () => {
+    const lowest = wave => { const h = fixture(); h.sound.wake(); h.tick(1); h.sound.play('wave', { wave }); return Math.min(...h.voices().map(v => v.frequency.value)); };
+    const base = lowest(2);
+    assert(Math.abs(lowest(1) - base) < 1e-6); assert(Math.abs(lowest(6) / base - Math.pow(2, 4 / 12)) < 1e-6);
+    assert(Math.abs(lowest(9) / base - Math.pow(2, 7 / 12)) < 1e-6); assert(Math.abs(lowest(40) / base - Math.pow(2, 7 / 12)) < 1e-6);
+    const h = fixture(); h.sound.wake(); h.tick(1); h.sound.play('cleared', { wave: 4 });
+    const notes = h.voices().sort((a, b) => a.startAt - b.startAt);
+    assert.equal(notes.length, 4);
+    for (let i = 1; i < notes.length; i++) assert(notes[i].frequency.value > notes[i - 1].frequency.value);
+    assert(notes.every(n => n.frequency.value < 1600 && n.stopAt - n.startAt <= 0.6));
+    const nodes = h.context.nodes.length; h.sound.play('cleared', { wave: 4 }); assert.equal(h.context.nodes.length, nodes);
+    h.tick(3); assert.equal(h.voices().length, 0);
+  });
   await test('Position changes restrained stereo pan, with mono fallback for older implementations', () => {
     const h = fixture(); h.sound.wake(); h.sound.play('bloom', { bud: { x: 0 } }); h.tick(0.03);
     h.sound.play('bloom', { bud: { x: 420 } });

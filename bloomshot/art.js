@@ -557,6 +557,31 @@
     ctx.restore();
   }
 
+  // Rush tempo: as the multiplier climbs, warm light streams up the glasshouse and its edges glow.
+  // Stateless (a function of time), so it costs nothing to keep and nothing to reset.
+  function drawTempo(ctx, state, time) {
+    const heat = clamp((Number(state.tempo) || 1) - 1, 0, 1);
+    if (!(heat > 0) || state.status === 'lost') return;
+    // Normal blending: additive light vanishes against the bright meadow sky.
+    ctx.save(); ctx.lineCap = 'round';
+    const count = 5 + Math.round(heat * 13), speed = 170 + heat * 280;
+    for (let i = 0; i < count; i++) {
+      const x = 34 + (i * 137.508) % 352, length = 16 + heat * 34 + (i % 3) * 9;
+      const y = 610 - ((time * speed * (.75 + (i % 4) * .12) + i * 211.7) % 720);
+      const streak = ctx.createLinearGradient(x, y, x, y + length);
+      streak.addColorStop(0, 'rgba(255,214,120,0)'); streak.addColorStop(.35, `rgba(255,206,104,${.22 + heat * .3})`); streak.addColorStop(1, 'rgba(255,240,190,0)');
+      ctx.strokeStyle = streak; ctx.lineWidth = 1.4 + (i % 2) * .9;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + length); ctx.stroke();
+    }
+    const glow = .10 + heat * .22 + Math.sin(time * 5.5) * .03 * heat;
+    for (const side of [0, 1]) {
+      const edge = ctx.createLinearGradient(side ? 420 : 0, 0, side ? 386 : 34, 0);
+      edge.addColorStop(0, `rgba(255,190,90,${glow})`); edge.addColorStop(1, 'rgba(255,190,90,0)');
+      ctx.fillStyle = edge; ctx.fillRect(side ? 386 : 0, 0, 34, 560);
+    }
+    ctx.restore();
+  }
+
   function drawRushBoundary(ctx, state, theme) {
     const y = clamp(Number(state.dangerY) || 448, 100, 510);
     const night = theme === 'moon';
@@ -1186,14 +1211,15 @@
     const age = Math.max(0, duration - life), text = String(floater.text || '');
     const combo = floater.kind === 'combo' || /CHAIN|in bloom|BLOOM CHAIN/i.test(text);
     const bonus = floater.kind === 'bonus' || /BALLS/i.test(text);
+    const wave = floater.kind === 'wave';
     const number = text.match(/[+]?\d+/)?.[0] || '';
-    const value = number || text;
+    const value = wave ? text : number || text;
     const scale = reducedMotion ? 1 : .55 + .45 * (1 - Math.exp(-age * 12) * Math.cos(age * 22));
     const y = combo ? Math.max(118, floater.y) : floater.y;
     const fade = Math.min(1, life / .24) * (reducedMotion ? 1 : Math.min(1, age / .045));
     ctx.save(); ctx.translate(clamp(floater.x, 78, 342), y - (reducedMotion ? 0 : ease(age / duration) * 6));
     ctx.scale(scale, scale); ctx.globalAlpha = fade; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    const size = combo ? 43 : bonus ? 31 : 21;
+    const size = wave ? 36 : combo ? 43 : bonus ? 31 : 21;
     ctx.font = `900 ${size}px system-ui, sans-serif`;
     // A restrained metallic relief gives the number the finish of a small trophy.
     const face = ctx.createLinearGradient(0, -size * .5, 0, size * .5);
@@ -1202,13 +1228,13 @@
     ctx.shadowColor = 'rgba(53,53,89,.45)'; ctx.shadowBlur = 7; ctx.shadowOffsetY = 3;
     ctx.strokeText(value, 0, 0); ctx.fillStyle = '#be7e49'; ctx.fillText(value, 0, 1.7);
     ctx.shadowBlur = 0; ctx.shadowOffsetY = 0; ctx.fillStyle = face; ctx.fillText(value, 0, 0);
-    if (combo || bonus) {
+    if (combo || bonus || wave) {
       ctx.font = '800 9px system-ui, sans-serif';
-      const label = combo ? 'B L O O M   C H A I N' : 'E X T R A   B A L L S';
+      const label = wave ? String(floater.label || '').toUpperCase().split('').join(' ') : combo ? 'B L O O M   C H A I N' : 'E X T R A   B A L L S';
       ctx.shadowColor = 'rgba(255,255,255,.95)'; ctx.shadowBlur = 4;
       ctx.fillStyle = '#245866'; ctx.fillText(label, 0, size * .62);
       ctx.shadowBlur = 0;
-      const offset = combo ? 49 : 43;
+      const offset = wave ? 112 : combo ? 49 : 43;
       ctx.globalAlpha *= .86;
       for (const side of [-1, 1]) {
         ctx.beginPath(); ctx.moveTo(side * (offset - 2), 13); ctx.quadraticCurveTo(side * (offset + 7), 0, side * offset, -12);
@@ -1233,6 +1259,7 @@
     drawGarden(ctx, 420, 560, options.theme, { mode: state.mode });
     if (!options.reducedMotion) drawAmbient(ctx, time, options.theme);
     drawAtmosphere(ctx, state, time, options);
+    if (rush && !options.reducedMotion) drawTempo(ctx, state, time);
     const shake = options.shake;
     if (shake && !options.reducedMotion) { ctx.translate(210 + shake.x, 280 + shake.y); ctx.rotate(shake.r || 0); ctx.translate(-210, -280); }
 
@@ -1298,6 +1325,14 @@
       // A descending flower retains its drawn variation instead of changing
       // petal orientation whenever its position crosses a pixel boundary.
       if (!flowerVariants.has(bud)) flowerVariants.set(bud, ((Math.floor(bud.x) * 31 + Math.floor(bud.y) * 17) % 7 + 7) % 7);
+      if (!options.reducedMotion && typeof bud.spawnAt === 'number') {
+        // A new Rush wave pops in with a little overshoot; only the drawing scales, never the hitbox.
+        const k = (time - bud.spawnAt) / .42;
+        if (k >= 0 && k < 1) {
+          const back = 1 + 2.70158 * Math.pow(k - 1, 3) + 1.70158 * Math.pow(k - 1, 2);
+          ctx.translate(bud.x, bud.y); ctx.scale(back, back); ctx.translate(-bud.x, -bud.y); ctx.globalAlpha *= Math.min(1, k * 3);
+        }
+      }
       if (!options.reducedMotion) {
         // Visual-only life: buds sway on their stems, open flowers breathe.
         // Collision geometry is untouched.

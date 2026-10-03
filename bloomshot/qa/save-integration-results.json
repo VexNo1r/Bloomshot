@@ -1,5 +1,5 @@
 {
-  "passed": 19,
+  "passed": 20,
   "failed": 0,
   "methodology": "Executes the complete current app.js in an isolated Node VM using real garden/level/engine modules, fake localStorage, and DOM/canvas adapters. Completion fixtures exercise actual engine completion events and app handlers. No real browser or user saves are read or changed.",
   "limitations": [
@@ -69,6 +69,10 @@
     },
     {
       "name": "The Koi unlock names its contents and store price and buys only through the store",
+      "passed": true
+    },
+    {
+      "name": "Clearing a Rush wave shows the next tempo, and the HUD and result carry the tempo reached",
       "passed": true
     },
     {

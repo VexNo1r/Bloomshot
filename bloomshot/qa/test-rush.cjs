@@ -1,6 +1,6 @@
 'use strict';
 const assert = require('assert');
-const { RushGame } = require('../rush.js');
+const { RushGame, tempoFor, fireDelayFor, descentFor } = require('../rush.js');
 const { earliest } = require('../engine.js');
 const results = [], observations = {};
 function test(name, fn) {
@@ -147,12 +147,38 @@ test('Clearing a wave continues the run and progressively increases bounded pres
     assert(game.bloomedCount > before);
     assert.equal(game.buds.filter(b => b.relay).length, game.buds.length / 3);
     assert(game.buds.length >= 18 && game.buds.length <= 24);
-    assert(game.speed >= 460 && game.speed <= 650); assert(game.descentSpeed <= 32);
+    assert(game.speed >= 460 && game.speed <= 650); assert(game.descentSpeed <= (game.wave <= 9 ? 32 : 46));
     assert(game.buds.every(b => b.hp >= 1 && b.hp <= 2));
   }
-  assert.equal(game.speed, 650); assert.equal(game.descentSpeed, 32);
+  assert.equal(game.speed, 650); assert(Math.abs(game.descentSpeed - 42.8) < 1e-9);
   assert.equal(game.events.filter(e => e.type === 'wave').length, 14);
   assert.equal(game.events.some(e => e.type === 'won'), false);
+});
+
+test('Tempo rises a tenth per wave to x2, multiplies every score and shortens the reload to a bounded floor', () => {
+  assert.deepEqual([1, 2, 6, 11, 30].map(tempoFor), [1, 1.1, 1.5, 2, 2]);
+  assert.deepEqual([1, 5, 9, 30].map(fireDelayFor), [0.65, 0.55, 0.45, 0.45]);
+  let previous = 0;
+  for (let wave = 1; wave <= 40; wave++) { const d = descentFor(wave); assert(d >= previous && d <= 46); previous = d; }
+  assert.equal(descentFor(9), 32); assert.equal(descentFor(30), 46);
+  const game = activeEmpty(); clearWave(game); clearWave(game); clearWave(game); clearWave(game); clearWave(game);
+  assert.equal(game.wave, 6); assert.equal(game.tempo, 1.5); assert.equal(game.snapshot().tempo, 1.5);
+  const ordinary = game.buds.find(b => !b.relay && b.hp === 1), layered = game.buds.find(b => !b.relay && b.hp === 2);
+  game.combo = 0; game.lastHitAt = -100;
+  const before = game.score; game.strike(ordinary); assert.equal(game.score - before, 150);
+  const mid = game.score; game.strike(layered); assert.equal(game.score - mid, 75);
+  game.fireCooldown = 0; assert(game.fire(0, -1)); assert(Math.abs(game.fireCooldown - 0.525) < 1e-9);
+});
+
+test('Clearing a wave announces it once, and the next wave drops in with a spawn time', () => {
+  const game = activeEmpty(); for (const bud of game.buds) while (!bud.bloomed) game.strike(bud, true);
+  advance(game, 0.2);
+  const cleared = game.events.filter(e => e.type === 'cleared');
+  assert.equal(cleared.length, 1); assert.equal(cleared[0].wave, 1); assert.equal(cleared[0].next, 1.1);
+  advance(game, 0.6);
+  assert.equal(game.wave, 2); assert.equal(game.events.filter(e => e.type === 'cleared').length, 1);
+  const wave = game.events.find(e => e.type === 'wave'); assert.equal(wave.tempo, 1.1);
+  assert(game.buds.every(b => Number.isFinite(b.spawnAt) && b.spawnAt <= game.time && game.time - b.spawnAt < 0.2));
 });
 
 test('Combo expires after an input gap and repeated hits on open buds never score', () => {
@@ -235,9 +261,9 @@ test('A controller aiming at threatened relays can clear the first four waves', 
 
 const report = {
   passed: results.filter(r => r.passed).length, failed: results.filter(r => !r.passed).length,
-  configuration: { launchCooldownSeconds: 0.65, rotationCooldownSeconds: 2, ballLifetimeSeconds: 4,
+  configuration: { launchCooldownSeconds: 'max(0.45, 0.65 - 0.025*(wave-1))', tempo: 'min(2, 1 + 0.1*(wave-1)) multiplies every score', rotationCooldownSeconds: 2, ballLifetimeSeconds: 4,
     maximumBalls: 5, directHitsPerSplit: 6, targets: '12 initially; then 18, 21, and 24',
-    ballSpeed: 'min(650, 460 + 18*(wave-1))', descentSpeed: 'min(32, 10.2 + 2.8*(wave-1))',
+    ballSpeed: 'min(650, 460 + 18*(wave-1))', descentSpeed: 'min(32, 10.2 + 2.8*(wave-1)) through wave 9, then min(46, 32 + 1.8*(wave-9))',
     layeredTargets: '0 in waves1-2; 1/6 in3; 1/3 in4-5; 1/2 in6-8; 2/3 in9+' },
   probeLimit: 'Deterministic automated input policies; these are not human completion rates or universal survival-time bounds.',
   observations, results

@@ -144,7 +144,7 @@
       $('seed-count').innerHTML = Array.from({ length: isChapter() ? game.rules.shots : 3 }, (_, index) => `<span class="seed-dot ${index < remaining ? 'available' : 'used'}" aria-hidden="true"></span>`).join('') + `<span class="seed-label">${remaining} ${units}</span>`;
       $('seed-count').setAttribute('aria-label', `${remaining} ${units} remaining`);
       $('bloom-count').textContent = rush ? `${game.bloomedCount} ${game.bloomedCount === 1 ? 'bloom' : 'blooms'}` : `${game.bloomedCount} / ${game.buds.length} bloomed`;
-      if (rush) $('level-label').textContent = `SURVIVAL · WAVE ${String(game.wave).padStart(2, '0')}`;
+      if (rush) $('level-label').textContent = `WAVE ${String(game.wave).padStart(2, '0')} · TEMPO ×${game.tempo.toFixed(1)}`;
       $('best-value').textContent = preview ? 'Preview' : record()?.best ? fmt(record().best) : '—';
       canvas.dataset.status = game.status; canvas.dataset.blooms = game.bloomedCount; canvas.dataset.level = game.level.id; canvas.dataset.shots = game.shotsLeft;
       $('rotate-btn').disabled = game.status !== 'aiming' || game.rotationUsed || !game.bumpers.length;
@@ -582,9 +582,16 @@
         game.floaters = game.floaters.filter(item => item.kind !== 'bonus');
         game.floaters.push({ x: 210, y: 418, text: '+2 BALLS!', life: 1.05, maxLife: 1.05, kind: 'bonus' });
         $('game-hint').textContent = 'Your split is in play. Hit flowers to charge the next.';
+      } else if (event.type === 'cleared') {
+        // Clearing a wave is the big beat of a run: a golden shower, a banner with the next tempo, a rising chord.
+        burst({ x: 210, y: 230, type: 'gold', r: 18 }, 46); burst({ x: 120, y: 170, type: 'coral' }, 20); burst({ x: 300, y: 170, type: 'lilac' }, 20);
+        jolt(.32, .07, .85);
+        game.floaters = game.floaters.filter(item => !['wave', 'combo', 'bonus'].includes(item.kind));
+        game.floaters.push({ x: 210, y: 290, text: 'WAVE CLEAR', label: `next tempo ×${event.next.toFixed(1)}`, life: 1, maxLife: 1, kind: 'wave' });
+        if (save.settings.haptics && navigator.vibrate) navigator.vibrate([10, 30, 14]);
       } else if (event.type === 'wave') {
-        $('game-hint').textContent = `Wave ${game.wave}. The flowers are moving faster.`;
-        say(`Wave ${game.wave}. ${game.lives} lives left.`);
+        $('game-hint').textContent = `Wave ${game.wave}. Faster flowers, faster reload, every bloom ×${game.tempo.toFixed(1)}.`;
+        say(`Wave ${game.wave}. Tempo times ${game.tempo.toFixed(1)}. ${game.lives} lives left.`);
       } else if (event.type === 'life') {
         jolt(.6, .12, 0);
         $('game-hint').textContent = game.lives ? `A cluster crossed the line. ${game.lives} ${game.lives === 1 ? 'life' : 'lives'} left.` : 'The garden reached the line.';
@@ -645,7 +652,7 @@
     if (isRush()) {
       $('result-eyebrow').textContent = `WAVE ${game.wave} · RUN COMPLETE`;
       $('result-title').textContent = rushRecordBroken ? 'A new garden record.' : 'Room to grow.';
-      $('result-message').textContent = `${game.bloomedCount} blooms · best chain ${game.bestCombo}. Target gold-ring flowers and save your split for a crowded path.`;
+      $('result-message').textContent = `${game.bloomedCount} blooms · best chain ${game.bestCombo} · tempo ×${game.tempo.toFixed(1)}. Clear waves fast to raise the tempo, and save your split for a crowded path.`;
       $('result-score').textContent = fmt(game.score);
       $('reward-flower').hidden = true; $('next-btn').hidden = true;
       $('retry-btn').textContent = 'Start a new rush'; $('retry-btn').classList.add('primary');
