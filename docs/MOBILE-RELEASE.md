@@ -19,7 +19,7 @@ Not verified by anyone yet: any real device or simulator run, WebView performanc
 | Gap | Needs accounts? | Who | Notes |
 |---|---|---|---|
 | Purchase plumbing | No | Done (this pass) | Test mode only until keys exist. |
-| **Something to sell** | No | Content work, in progress | As of October 3 2026 the Koi Conservatory is built (pools 1 and 2 free, pools 3 to 8 behind `world_koi`) and the Keepsake Collection (three seed styles, `style_collection1`) is next. Both stay `available: false` in `store-config.js` until a sandbox purchase and restore work end to end. The six Moon trials are free. |
+| **Something to sell** | No | Content work, in progress | As of October 3 2026 the Koi Conservatory is built (pools 1 and 2 free, pools 3 to 8 behind `world_koi`) and the Keepsake Collection (three seed styles, `style_collection1`) is next. A Launch Bundle (`bloomshot.bundle.launch1`) grants both. All three stay `available: false` in `store-config.js` until a sandbox purchase and restore work end to end. The six Moon trials are free. |
 | Android debug APK in the cloud | No | Built once, October 3 2026 | `.github/workflows/android-debug.yml` (Actions tab, Run workflow). The APK is attached to the run as `bloomshot-debug-apk`. Compiles; has not been launched on a device. Lets Trevor sideload a real Android build with no account. |
 | iOS compile check in the cloud | No | Passed once, October 3 2026 | `.github/workflows/ios-simulator.yml`. Compiles unsigned for the simulator (`BUILD SUCCEEDED`); cannot be installed on an iPhone and has not been run in a simulator. |
 | Final app id and name check | No | Trevor decides | `dev.bloomshot.game` is a placeholder and permanent once published. The name "Bloomshot" has not been searched in either store. |
