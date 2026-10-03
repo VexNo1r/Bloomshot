@@ -7,6 +7,7 @@ const Garden = require('../garden.js');
 const Levels = require('../levels.js');
 const Moon = require('../moon.js');
 const Koi = require('../koi.js');
+const Keepsakes = require('../keepsakes.js');
 const Engine = require('../engine.js');
 const Rush = require('../rush.js');
 const source = fs.readFileSync(path.join(__dirname, '../app.js'), 'utf8');
@@ -24,11 +25,12 @@ function legacySave() {
 }
 // Future worlds still open as visual previews; one is added here so that path stays covered.
 const FUTURE = { id: 'orchard', name: 'Night Orchard', tagline: 'Soon.', description: 'A future garden.', price: null, theme: 'moon', available: false, mechanic: 'Planned.' };
-function fakeStore({ owned = [], live = false, available = false, price = '$4.99', mode = 'native' } = {}) {
+function fakeStore({ owned = [], live = false, available = false, price = '$4.99', stylePrice = '$1.99', mode = 'native' } = {}) {
   const have = new Set(owned), listeners = [], purchases = [];
-  return { mode, busy: false, purchases, isLive: () => live, owns: id => have.has(id),
-    products: () => [{ id: Koi.product, entitlement: Koi.entitlement, kind: 'world', available, owned: have.has(Koi.entitlement), price }],
-    purchase: id => { purchases.push(id); have.add(Koi.entitlement); listeners.forEach(fn => fn({ type: 'entitlements' })); return Promise.resolve({ ok: true }); },
+  const catalog = [{ id: Koi.product, entitlement: Koi.entitlement, kind: 'world', price }, { id: Keepsakes.product, entitlement: Keepsakes.entitlement, kind: 'style', price: stylePrice }];
+  return { mode, busy: false, purchases, isLive: () => live, owns: id => have.has(id), revoke: id => have.delete(id),
+    products: () => catalog.map(item => ({ ...item, available, owned: have.has(item.entitlement) })),
+    purchase: id => { purchases.push(id); have.add(catalog.find(item => item.id === id).entitlement); listeners.forEach(fn => fn({ type: 'entitlements' })); return Promise.resolve({ ok: true }); },
     subscribe: fn => { listeners.push(fn); } };
 }
 function boot(raw, { storageFails = false, search = '', otherSave, store } = {}) {
@@ -36,7 +38,7 @@ function boot(raw, { storageFails = false, search = '', otherSave, store } = {})
   const storage = new Map();
   if (raw !== undefined) storage.set(key, JSON.stringify(raw));
   if (otherSave) storage.set(key === 'bloomshot.qa.v1' ? 'bloomshot.save.v1' : 'bloomshot.qa.v1', JSON.stringify(otherSave));
-  const writes = [], nodes = new Map(), games = [], meadowDraws = [];
+  const writes = [], nodes = new Map(), games = [], meadowDraws = [], boardDraws = [];
   let nextFrame, now = 0, uuid = 0;
   const noop = () => {};
   const brush = new Proxy({ globalAlpha: 1, createLinearGradient: () => ({ addColorStop: noop }),
@@ -81,7 +83,9 @@ function boot(raw, { storageFails = false, search = '', otherSave, store } = {})
     matchMedia: () => ({ matches: false, addEventListener: noop }),
     requestAnimationFrame: fn => { nextFrame = fn; }, setTimeout: () => 1, clearTimeout: noop,
     BloomLevels: { ...Levels, worlds: [...Levels.worlds, FUTURE] }, BloomMoon: Moon, BloomKoi: Koi, BloomGarden: Garden, ...(store ? { BloomStore: store } : {}), BloomEngine: { ...Engine, Game: ObservedGame }, BloomRush: { RushGame: ObservedRush },
-    BloomSound: { wake: noop, play: noop, setEnabled: noop }, BloomArt: { draw: noop, drawFlower: noop, drawMoon: noop, koiFish: noop },
+    BloomSound: { wake: noop, play: noop, setEnabled: noop }, BloomKeepsakes: Keepsakes,
+    BloomArt: { draw: (ctx, state, time, options) => boardDraws.push(options.keepsake ? options.keepsake.id : 'meadow'), drawFlower: noop, drawMoon: noop, koiFish: noop,
+      drawGarden: noop, drawProjectile: noop, drawParticle: noop, drawSeed: noop },
     BloomMeadow: { plots: Garden.plots.map((p, i) => ({ id: p.id, x: 65 + i * 50, y: 150, labelY: 180, accent: p.color })),
       draw: (ctx, options) => meadowDraws.push(clone(options)) }
   });
@@ -98,7 +102,7 @@ function boot(raw, { storageFails = false, search = '', otherSave, store } = {})
     // An engine completion fixture tests the app's event boundary, not the run's physics.
     game.totalBlooms = blooms; game.wave = wave; game.score = 3200; game._lose(); frame(); return game;
   }
-  return { $, click, frame, preview, finishRush, context, games, meadowDraws, writes, storage,
+  return { $, click, frame, preview, finishRush, context, games, meadowDraws, boardDraws, writes, storage,
     saved: () => JSON.parse(storage.get(key)), key };
 }
 
@@ -252,6 +256,61 @@ test('The Koi unlock names its contents and store price and buys only through th
   assert(!app.$('world-detail').innerHTML.includes('unlock-panel'));
   app.click('world-detail', { trial: 'koi-3', chapter: 'koi' }); assert.equal(app.games.at(-1).level.id, 'koi-3');
   assert.deepEqual(app.saved().koi, save.koi);
+});
+const moonThrough = count => Object.fromEntries(Moon.levels.slice(0, count).map(level => [level.id, { best: 700, stars: 2, attempts: 1 }]));
+test('Keepsakes: a fresh garden wears Meadow, every style previews, and locked styles never go on the seed', () => {
+  const before = legacySave(), app = boot(before);
+  assert.equal(app.saved().keepsake, 'meadow'); assert.deepEqual(app.saved().settings, before.settings);
+  app.click('collection-btn'); app.frame();
+  const grid = app.$('keepsake-grid').innerHTML;
+  for (const style of Keepsakes.styles) assert(grid.includes(`data-keepsake="${style.id}"`), style.id);
+  assert.match(grid, /Wearing now/); assert.match(grid, /0 of 6 Moon trials/); assert.match(grid, /Keepsake Collection/);
+  assert.match(app.$('keepsake-offer').innerHTML, /available in the Bloomshot app/); assert(!app.$('keepsake-offer').innerHTML.includes('data-buy'));
+  for (const id of ['sakura', 'moonlit']) {
+    app.click('keepsake-shelf', { keepsake: id }); app.frame();
+    assert.equal(app.saved().keepsake, 'meadow'); assert.match(app.$('keepsake-grid').innerHTML, new RegExp(`data-keepsake="${id}" aria-pressed="true"`));
+  }
+  assert.match(app.$('keepsake-caption').innerHTML, /Earned, never sold/);
+  app.click('rush-btn'); app.frame(); assert.equal(app.boardDraws.at(-1), 'meadow');
+});
+test('Clearing the last Moon trial earns Moonlit once, the result offers to wear it, and play draws it', () => {
+  const before = legacySave(); before.moon = moonThrough(5);
+  const app = boot(before);
+  app.click('worlds-btn'); app.click('worlds-grid', { world: 'moon' });
+  assert.match(app.$('world-detail').innerHTML, /Clear all six trials to earn the Moonlit seed/);
+  app.click('world-preview-btn'); const game = app.games.at(-1); assert.equal(game.level.id, 'moon-6');
+  game.fire(0, -1); game.win(); for (let i = 0; i < 12; i++) app.frame(60);
+  assert.equal(app.$('result-dialog').open, true); assert.equal(app.$('reward-flower').hidden, false);
+  assert.match(app.$('reward-flower').innerHTML, /NEW KEEPSAKE EARNED/); assert.match(app.$('reward-flower').innerHTML, /data-wear="moonlit"/);
+  assert.equal(app.saved().keepsake, 'meadow');
+  app.click('reward-flower', { wear: 'moonlit' }); assert.equal(app.saved().keepsake, 'moonlit');
+  app.click('retry-btn'); app.games.at(-1).fire(0, -1); app.games.at(-1).win(); for (let i = 0; i < 12; i++) app.frame(60);
+  assert.equal(app.$('reward-flower').hidden, true, 'a replay does not announce it again');
+  assert.equal(app.boardDraws.at(-1), 'moonlit');
+  const reloaded = boot(app.saved()); reloaded.frame(); assert.equal(reloaded.boardDraws.at(-1), 'moonlit');
+  reloaded.click('worlds-btn'); reloaded.click('worlds-grid', { world: 'moon' });
+  assert.match(reloaded.$('world-detail').innerHTML, /You earned the Moonlit seed/);
+});
+test('The Keepsake Collection shows the store price, buys only through the store, and a refund falls back to Meadow without forgetting', () => {
+  const save = legacySave(); save.settings.motion = true;
+  const notForSale = boot(save, { store: fakeStore({ live: true, available: false }) });
+  notForSale.click('collection-btn'); assert.match(notForSale.$('keepsake-offer').innerHTML, /not on sale yet/);
+  assert(!notForSale.$('keepsake-offer').innerHTML.includes('data-buy'));
+  const store = fakeStore({ live: true, available: true, stylePrice: '$1.99' }), app = boot(save, { store });
+  app.click('collection-btn');
+  const offer = app.$('keepsake-offer').innerHTML;
+  assert.match(offer, /Get all three styles · \$1\.99/); assert.match(offer, /Sakura Breeze, Firefly Night and Gilded Leaf/);
+  assert.match(offer, /no style changes how a shot flies/); assert.match(offer, /One payment/);
+  app.click('keepsake-shelf', { keepsake: 'sakura' }); assert.equal(app.saved().keepsake, 'meadow'); assert.deepEqual(store.purchases, []);
+  app.click('keepsake-shelf', { buy: Keepsakes.product }); assert.deepEqual(store.purchases, [Keepsakes.product]);
+  assert.equal(app.$('keepsake-offer').innerHTML, ''); assert(!app.$('keepsake-grid').innerHTML.includes('Keepsake Collection'));
+  app.click('keepsake-shelf', { keepsake: 'gilded' }); assert.equal(app.saved().keepsake, 'gilded');
+  app.click('rush-btn'); app.frame(); assert.equal(app.boardDraws.at(-1), 'gilded');
+  const game = app.games.at(-1); game.particles = []; game.events.push({ type: 'bloom', bud: { x: 200, y: 200, r: 12, type: 'gold' }, combo: 1, gain: 10 }); app.frame();
+  assert(game.particles.some(p => p.kind === 'flake'), 'a bloom throws gold leaf'); assert(!game.particles.some(p => p.kind === 'blossom'));
+  store.revoke(Keepsakes.entitlement); app.frame();
+  assert.equal(app.boardDraws.at(-1), 'meadow'); assert.equal(app.saved().keepsake, 'gilded');
+  assert.deepEqual(app.saved().koi, save.koi || {}); assert.deepEqual(app.saved().progress, save.progress);
 });
 const report = { passed: results.filter(r => r.passed).length, failed: results.filter(r => !r.passed).length,
   methodology: 'Executes the complete current app.js in an isolated Node VM using real garden/level/engine modules, fake localStorage, and DOM/canvas adapters. Completion fixtures exercise actual engine completion events and app handlers. No real browser or user saves are read or changed.',

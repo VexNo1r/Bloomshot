@@ -1,9 +1,9 @@
 'use strict';
 // Release packaging replaces this tag with the hash of the shipped assets.
 const CACHE_PREFIX = 'bloomshot-shell-';
-const VERSION = '4b0c7e1d9a52f3c8';
+const VERSION = '5c1a8e3f7b20d946';
 const CACHE_NAME = CACHE_PREFIX + VERSION;
-const ASSETS = ['./', './index.html', './styles.css', './store-config.js', './store.js', './levels.js', './moon.js', './koi.js', './garden.js', './engine.js', './rush.js', './art.js', './meadow.js', './sound.js', './app.js', './store-ui.js', './pwa.js', './manifest.webmanifest', './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png', './icons/apple-touch-icon.png', './assets/botanical-header.png', './assets/split-leaf.png'];
+const ASSETS = ['./', './index.html', './styles.css', './store-config.js', './store.js', './levels.js', './moon.js', './koi.js', './keepsakes.js', './garden.js', './engine.js', './rush.js', './art.js', './meadow.js', './sound.js', './app.js', './store-ui.js', './pwa.js', './manifest.webmanifest', './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png', './icons/apple-touch-icon.png', './assets/botanical-header.png', './assets/split-leaf.png'];
 const BASE = new URL(self.registration.scope);
 const URLS = ASSETS.map(path => new URL(path, BASE).href);
 const INDEX = new URL('index.html', BASE).href;

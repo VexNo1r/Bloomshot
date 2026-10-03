@@ -18,6 +18,7 @@
   <script src="levels.js" defer></script>
   <script src="moon.js" defer></script>
   <script src="koi.js" defer></script>
+  <script src="keepsakes.js" defer></script>
   <script src="garden.js" defer></script>
   <script src="engine.js" defer></script>
   <script src="rush.js" defer></script>
@@ -137,8 +138,16 @@
         <div class="page-heading">
           <span class="eyebrow">YOUR COLLECTION</span>
           <h1 id="collection-title">Your herbarium</h1>
-          <p>Clear gardens to collect new flowers.</p>
+          <p>Clear gardens to collect new flowers, and choose how your seed looks.</p>
           <p id="collection-summary" class="page-summary">Your first pressed flower is waiting.</p>
+        </div>
+        <div class="section-rule"><span>GARDEN KEEPSAKES</span><span>SEED STYLES</span></div>
+        <div id="keepsake-shelf" class="keepsake-shelf">
+          <div class="keepsake-stage"><canvas id="keepsake-canvas" width="420" height="190" role="img" aria-label="Seed style preview"></canvas></div>
+          <div id="keepsake-caption" class="keepsake-caption" aria-live="polite"></div>
+          <div id="keepsake-grid" class="keepsake-grid" role="group" aria-label="Seed styles"></div>
+          <div id="keepsake-offer"></div>
+          <p class="keepsake-fine">Styles change only how your seed, its trail and your blooms look. Every shot flies exactly the same.</p>
         </div>
         <div class="section-rule"><span>FLOWERS YOU'VE FOUND</span><span>THE MEADOW</span></div>
         <div id="collection-grid" class="collection-grid" aria-label="Collected flowers"></div>

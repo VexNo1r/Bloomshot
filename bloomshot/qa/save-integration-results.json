@@ -1,5 +1,5 @@
 {
-  "passed": 16,
+  "passed": 19,
   "failed": 0,
   "methodology": "Executes the complete current app.js in an isolated Node VM using real garden/level/engine modules, fake localStorage, and DOM/canvas adapters. Completion fixtures exercise actual engine completion events and app handlers. No real browser or user saves are read or changed.",
   "limitations": [
@@ -69,6 +69,18 @@
     },
     {
       "name": "The Koi unlock names its contents and store price and buys only through the store",
+      "passed": true
+    },
+    {
+      "name": "Keepsakes: a fresh garden wears Meadow, every style previews, and locked styles never go on the seed",
+      "passed": true
+    },
+    {
+      "name": "Clearing the last Moon trial earns Moonlit once, the result offers to wear it, and play draws it",
+      "passed": true
+    },
+    {
+      "name": "The Keepsake Collection shows the store price, buys only through the store, and a refund falls back to Meadow without forgetting",
       "passed": true
     }
   ]
