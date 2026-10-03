@@ -1,6 +1,6 @@
 {
   "passed": true,
-  "testedAt": "2026-10-03T04:44:02.177Z",
+  "testedAt": "2026-10-03T04:46:39.439Z",
   "node": "v22.22.0",
   "workerSha256": "e2490ddfb89374faad176b9b89b69ab862a216b7052c7edb6e6d751ea0ad527e",
   "maxConnections": 3,
@@ -13,15 +13,15 @@
     "consumed": 0,
     "bytes": 0,
     "peakConnections": 3,
-    "elapsedMs": 276.18
+    "elapsedMs": 276.46
   },
   "actualInstall": {
     "headers": 24,
     "consumed": 24,
-    "bytes": 1979273,
+    "bytes": 1986824,
     "peakConnections": 3,
     "cached": 24,
-    "elapsedMs": 44.87,
+    "elapsedMs": 44.98,
     "deadlineMs": 15000,
     "allBodyHashesMatch": true
   },
@@ -40,8 +40,8 @@
     },
     {
       "path": "/styles.css",
-      "bytes": 28329,
-      "sha256": "fe00d6640110e270fb33d2f9194dc44a49d1ff84eeb86f63629d4f91bb4395d0",
+      "bytes": 35880,
+      "sha256": "aac110fc8f9d2de3abeaaa235710129c9aa1dc0719c88c8599b111a1f1c4d8c7",
       "type": "text/css; charset=utf-8"
     },
     {
