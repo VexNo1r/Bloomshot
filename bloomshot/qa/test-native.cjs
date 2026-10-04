@@ -22,28 +22,35 @@ function memoryStorage(seed = {}) {
 }
 // A manual timer so debouncing is deterministic.
 function timers() {
-  const queue = [];
-  return { setTimeout: fn => { queue.push(fn); return queue.length; }, clearTimeout: id => { queue[id - 1] = null; },
-    run: () => { for (const fn of queue.splice(0)) if (fn) fn(); }, count: () => queue.filter(Boolean).length };
+  const queue = [], delays = [];
+  return { setTimeout: (fn, ms) => { delays.push(ms); queue.push(fn); return queue.length; }, clearTimeout: id => { queue[id - 1] = null; },
+    run: () => { for (const fn of queue.splice(0)) if (fn) fn(); }, count: () => queue.filter(Boolean).length, delays };
 }
 // options.backup: what the Preferences store holds. getFails / getHangs: the read rejects or never answers.
 // registerOnly: expose the plugins only through Capacitor.registerPlugin, the way a bundled @capacitor/core would.
+// throwSync: plugin methods that throw instead of returning a rejected promise. setRejects: Preferences.set rejects.
 function fakePlugins(options = {}) {
   const log = { impact: [], notification: [], set: [], get: 0 };
   const store = { ...(options.backup === undefined ? {} : { [SAVE]: options.backup }) };
   const plugins = {
     Haptics: {
-      impact: async arg => { log.impact.push(arg.style); if (options.hapticsFail) throw new Error('no haptics'); },
-      notification: async arg => { log.notification.push(arg.type); if (options.hapticsFail) throw new Error('no haptics'); }
+      impact: arg => { log.impact.push(arg.style); if (options.throwSync) throw new Error('bridge down'); return options.hapticsFail ? Promise.reject(new Error('no haptics')) : Promise.resolve(); },
+      notification: arg => { log.notification.push(arg.type); if (options.throwSync) throw new Error('bridge down'); return options.hapticsFail ? Promise.reject(new Error('no haptics')) : Promise.resolve(); }
     },
     Preferences: {
       get: ({ key }) => {
         log.get += 1;
+        if (options.throwSync) throw new Error('bridge down');
         if (options.getHangs) return new Promise(() => {});
         if (options.getFails) return Promise.reject(new Error('read failed'));
         return Promise.resolve({ value: key in store ? store[key] : null });
       },
-      set: async ({ key, value }) => { log.set.push({ key, value }); store[key] = value; }
+      set: ({ key, value }) => {
+        log.set.push({ key, value });
+        if (options.throwSync) throw new Error('bridge down');
+        if (options.setRejects) return Promise.reject(new Error('disk full'));
+        store[key] = value; return Promise.resolve();
+      }
     }
   };
   const Capacitor = { isNativePlatform: () => options.web !== true, getPlatform: () => 'ios' };
@@ -203,6 +210,86 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
     await api.restore(SAVE); timer.run(); await tick();
     api.mirror(SAVE, '{"version":1,"later":true}'); timer.run(); await tick(); // the game calls mirror even when its own localStorage write threw
     assert.equal(plugins.store[SAVE], '{"version":1,"later":true}');
+  });
+
+  await test('Mirror: the debounce re-arms after each write, waits a short time, and nothing is lost', async () => {
+    const storage = memoryStorage({ [SAVE]: GOOD, [SYNC]: '1' }); const plugins = fakePlugins();
+    const { api, timer } = make({ storage, plugins });
+    await api.restore(SAVE); timer.run(); await tick();
+    for (const n of [1, 2, 3]) {
+      api.mirror(SAVE, `{"version":1,"n":${n}}`); assert.equal(timer.count(), 1, `write ${n} must schedule a flush`);
+      timer.run(); await tick();
+    }
+    assert.deepEqual(plugins.log.set.map(call => call.value).slice(1), ['{"version":1,"n":1}', '{"version":1,"n":2}', '{"version":1,"n":3}']);
+    assert(timer.delays.length >= 4 && timer.delays.every(ms => ms > 0 && ms <= 2000), `flush delay should be short, got ${timer.delays}`);
+  });
+
+  await test('Mirror: when the app is hidden a pending save is written at once, through the real page-visibility listener', async () => {
+    const vm = require('node:vm');
+    const storage = memoryStorage({ [SAVE]: GOOD, [SYNC]: '1' }); const plugins = fakePlugins(); const listeners = {};
+    const document = { visibilityState: 'visible', addEventListener: (type, fn) => { listeners[type] = fn; } };
+    const context = vm.createContext({ Capacitor: plugins.Capacitor, localStorage: storage, document, navigator: {}, setTimeout: () => 1, clearTimeout: () => {} });
+    context.globalThis = context;
+    vm.runInContext(fs.readFileSync(path.join(__dirname, '../native.js'), 'utf8'), context);
+    assert.equal(typeof context.BloomNative, 'object'); assert.equal(context.BloomNative.isNative, true); // the global the game looks for
+    assert.equal(typeof listeners.visibilitychange, 'function');
+    await context.BloomNative.restore(SAVE); // the timer here never fires, so only the visibility flush can write
+    context.BloomNative.mirror(SAVE, '{"version":1,"hidden":true}');
+    document.visibilityState = 'visible'; listeners.visibilitychange(); await tick();
+    assert(!plugins.log.set.some(call => call.value === '{"version":1,"hidden":true}'));
+    document.visibilityState = 'hidden'; listeners.visibilitychange(); await tick();
+    assert.equal(plugins.store[SAVE], '{"version":1,"hidden":true}');
+  });
+
+  await test('Packaging: native.js loads before app.js, and app.js uses the bridge for every buzz instead of navigator.vibrate', () => {
+    const html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+    const native = html.indexOf('src="native.js"'), app = html.indexOf('src="app.js"');
+    assert(native > 0 && app > native, 'native.js must be loaded before app.js');
+    const code = fs.readFileSync(path.join(__dirname, '../app.js'), 'utf8');
+    assert(code.includes('window.BloomNative'), 'app.js must read the BloomNative global');
+    assert(!/navigator\.vibrate/.test(code), 'every buzz goes through haptic() so iPhone gets real haptics');
+    for (const kind of ['tick', 'tap', 'surge', 'warn']) assert(code.includes(`haptic('${kind}')`), `haptic('${kind}') call site is missing`);
+    assert(code.includes('native.restore(STORAGE)') && code.includes('native.mirror(STORAGE'), 'app.js must restore and mirror under the active storage key');
+  });
+
+  await test('Restore: storage that refuses the write-back (throws) or the wrong key never restores, reloads or writes', async () => {
+    const plugins = fakePlugins({ backup: GOOD });
+    const refusing = { getItem: () => null, setItem: () => { throw new Error('quota'); } };
+    const { api, timer } = make({ storage: refusing, plugins });
+    assert.equal(await api.restore(SAVE), false); assert.equal(api.reloading, false);
+    api.mirror(SAVE, FRESH); timer.run(); api.flush(); await tick();
+    assert.deepEqual(plugins.log.set, []);
+    const storage = memoryStorage(); const other = fakePlugins({ backup: GOOD }); const second = make({ storage, plugins: other });
+    assert.equal(await second.api.restore('bloomshot.qa.v1'), false);
+    assert.equal(other.log.get, 0); assert.deepEqual(storage.data, {}); assert.equal(second.api.reloading, false);
+  });
+
+  await test('Errors: a plugin that throws or rejects, a registerPlugin that throws, or storage that throws at boot never break the game', async () => {
+    for (const trouble of [{ throwSync: true }, { hapticsFail: true, setRejects: true }]) {
+      const plugins = fakePlugins(trouble); const storage = memoryStorage({ [SAVE]: GOOD, [SYNC]: '1' });
+      const { api, timer } = make({ storage, plugins });
+      for (const kind of ['tick', 'tap', 'surge', 'warn']) assert.doesNotThrow(() => api.haptic(kind), JSON.stringify(trouble));
+      assert.equal(await api.restore(SAVE), false);
+      assert.doesNotThrow(() => { api.mirror(SAVE, GOOD); timer.run(); api.flush(); });
+      await tick(); // an unhandled rejection would crash the process here
+      const fresh = make({ storage: memoryStorage(), plugins: fakePlugins({ ...trouble, backup: GOOD }) });
+      assert.equal(await fresh.api.restore(SAVE), !trouble.throwSync, JSON.stringify(trouble)); // a read that throws is not restored; a plugin that only fails to write or buzz still restores
+    }
+    const throwing = fakePlugins({ registerOnly: true }); throwing.Capacitor.registerPlugin = () => { throw new Error('boom'); };
+    const buzzes = []; const { api } = make({ plugins: throwing, navigator: { vibrate: p => buzzes.push(p) } });
+    assert.equal(api.isNative, true); api.haptic('tap'); assert.deepEqual(buzzes, [12]); // no plugin: back to vibrate
+    const blocked = { getItem: () => { throw new Error('storage blocked'); }, setItem: () => { throw new Error('storage blocked'); } };
+    const plugins = fakePlugins({ backup: GOOD }); const boot = make({ storage: blocked, plugins });
+    assert.equal(await boot.api.restore(SAVE), false); assert.equal(boot.api.reloading, false);
+  });
+
+  await test('Capacitor present but not a native platform: it behaves like the website', async () => {
+    const plugins = fakePlugins({ web: true }); const buzzes = [];
+    const { api, timer } = make({ storage: memoryStorage(), plugins, navigator: { vibrate: p => buzzes.push(p) } });
+    assert.equal(api.isNative, false); api.haptic('warn'); assert.deepEqual(buzzes, [[18, 25, 18]]);
+    assert.deepEqual(plugins.log.impact.concat(plugins.log.notification), []);
+    assert.equal(await api.restore(SAVE), false); api.mirror(SAVE, GOOD); timer.run(); api.flush(); await tick();
+    assert.deepEqual(plugins.log.set, []); assert.equal(plugins.log.get, 0);
   });
 
   const failed = results.filter(r => !r.passed);
