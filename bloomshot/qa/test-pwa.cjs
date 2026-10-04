@@ -10,7 +10,7 @@ const swPath = path.resolve(process.argv[2] || path.join(__dirname, '../sw.js'))
 const PREFIX = 'bloomshot-shell-';
 const ASSETS = ['./', './index.html', './styles.css', './store-config.js', './store.js', './levels.js', './moon.js', './koi.js', './keepsakes.js', './garden.js', './engine.js', './rush.js',
   './art.js', './meadow.js', './sound.js', './native.js', './app.js', './store-ui.js', './pwa.js', './manifest.webmanifest', './icons/icon.svg',
-  './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png', './icons/apple-touch-icon.png', './assets/botanical-header.png', './assets/split-leaf.png'];
+  './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png', './icons/apple-touch-icon.png', './assets/fonts/fredoka.woff2', './assets/fonts/nunito.woff2', './assets/ui/lock.svg'];
 const results = [];
 
 function mime(url) {
@@ -20,6 +20,7 @@ function mime(url) {
   if (pathname.endsWith('.webmanifest')) return 'application/manifest+json';
   if (pathname.endsWith('.svg')) return 'image/svg+xml';
   if (pathname.endsWith('.png')) return 'image/png';
+  if (pathname.endsWith('.woff2')) return 'font/woff2';
   return 'text/html; charset=utf-8';
 }
 function decorate(response, options) {
@@ -219,6 +220,7 @@ async function main() {
       { name: 'missing asset', asset: './rush.js', options: { status: 404 } },
       { name: 'network failure', asset: './sound.js', options: { throw: true } },
       { name: 'HTML disguised as JavaScript', asset: './engine.js', options: { contentType: 'text/html' } },
+      { name: 'HTML disguised as a font', asset: './assets/fonts/fredoka.woff2', options: { contentType: 'text/html' } },
       { name: 'opaque response', asset: './icons/icon-192.png', options: { type: 'opaque' } },
       { name: 'cross-origin redirect', asset: './app.js', options: { redirected: true, responseUrl: 'https://login.example.test/app.js' } }
     ]) {

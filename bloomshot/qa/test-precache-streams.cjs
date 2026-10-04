@@ -15,7 +15,7 @@ const root = path.resolve(__dirname, '..');
 const reportPath = path.join(__dirname, 'precache-stream-test-results.json');
 const source = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
 const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
-const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png' };
+const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2' };
 const round = value => Math.round(value * 100) / 100;
 const installDeadlineMs = 15000;
 const resources = new Map();
@@ -143,7 +143,8 @@ async function main() {
     resources.set(url.pathname, { file, type: types[path.extname(file)] || 'application/octet-stream', bytes: bytes.length, sha256: digest(bytes) });
   }
   assert(metadata.urls.length > 3, 'Fixture must exceed the connection pool.');
-  assert(Math.max(...Array.from(resources.values(), item => item.bytes)) > 256 * 1024, 'Fixture requires a substantial real image body.');
+  // The largest shell file must span several 16 KB stream chunks so a body that is never pulled really stalls.
+  assert(Math.max(...Array.from(resources.values(), item => item.bytes)) > 64 * 1024, 'Fixture requires a substantial real asset body.');
   report.workerVersion = metadata.version;
   report.assetCount = metadata.urls.length;
   report.imageCount = metadata.urls.filter(url => /\.(png|svg)$/.test(url)).length;
