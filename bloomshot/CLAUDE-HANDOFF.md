@@ -31,7 +31,7 @@ Normal save `bloomshot.save.v1`; `?qa` uses `bloomshot.qa.v1`. Trevor plays in b
 
 **Pass 8, the daily garden pays.** A daily garden's first clear pays 6, 8 or 10 seeds by stars, and each later new star pays 2. Any four daily clears in a Monday-to-Sunday week pay a 12-seed bouquet once. A missed day takes nothing away and nothing counts down. Every seed reward on the result screen names the next thing to plant or grow. Logic in `garden.js` (`grant` with `mode: 'daily'`, `week`).
 
-**Native bridge (shipping thread).** `native.js`: real haptics through Capacitor Haptics (iPhone ignores `navigator.vibrate`), and the Preferences save mirror described above. `app.js` calls `haptic(kind)` for every buzz; do not call `navigator.vibrate` directly.
+**Native bridge (shipping thread).** `native.js`: real haptics through Capacitor Haptics (iPhone ignores `navigator.vibrate`), and the Preferences save mirror described above. `app.js` calls `haptic(kind)` for every buzz; any new buzz must call `haptic()` too, never `navigator.vibrate`, or iPhone stays silent. Neither haptics nor the save mirror has been tested on a real phone yet.
 
 ## Storybook redesign
 
