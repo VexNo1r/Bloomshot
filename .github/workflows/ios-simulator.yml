@@ -26,4 +26,12 @@ jobs:
       - name: Compile for the simulator, unsigned
         run: >
           xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug
-          -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
+          -destination 'generic/platform=iOS Simulator' -derivedDataPath ios/DerivedData
+          CODE_SIGNING_ALLOWED=NO build
+      # The Preferences plugin uses UserDefaults, which Apple wants declared in a privacy manifest inside the app.
+      - name: Check the privacy manifest and the web game are inside the built app
+        run: |
+          app=ios/DerivedData/Build/Products/Debug-iphonesimulator/App.app
+          test -f "$app/PrivacyInfo.xcprivacy" || { echo "::error::PrivacyInfo.xcprivacy is not in the built app"; exit 1; }
+          grep -q NSPrivacyAccessedAPICategoryUserDefaults "$app/PrivacyInfo.xcprivacy"
+          test -f "$app/public/native.js" || { echo "::error::native.js is not in the built app"; exit 1; }

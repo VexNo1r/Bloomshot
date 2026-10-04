@@ -18,20 +18,36 @@
     var config = env.config || {};
     var storage = env.storage || null;
     var Capacitor = env.Capacitor || null;
+    // A product grants one or more entitlements: `entitlement: 'x'` for a single item, or
+    // `entitlements: ['x', 'y']` for a bundle (one store product attached to several RevenueCat entitlements).
+    // `entitlement` is always the first of them. A product that grants nothing can never be sold.
     var catalog = (config.products || []).map(function (p) {
-      return { id: String(p.id), entitlement: String(p.entitlement), kind: p.kind || 'item', title: String(p.title || p.id), priceHint: p.priceHint || '', available: p.available === true };
+      var list = Array.isArray(p.entitlements) ? p.entitlements : p.entitlement != null ? [p.entitlement] : [];
+      var granted = list.map(String).filter(function (id, i, all) { return id && all.indexOf(id) === i; });
+      return { id: String(p.id), entitlements: granted, entitlement: granted[0] || '', kind: p.kind || 'item', title: String(p.title || p.id), priceHint: p.priceHint || '', available: p.available === true && granted.length > 0 };
     });
     var byId = {};
     catalog.forEach(function (p) { byId[p.id] = p; });
 
     var native = Boolean(Capacitor && typeof Capacitor.isNativePlatform === 'function' && Capacitor.isNativePlatform());
     var mode = native ? 'native' : env.allowMock ? 'mock' : 'web';
-    var state = { mode: mode, ready: false, configured: false, owned: {}, storeProducts: {}, prices: {}, busy: false };
+    var state = { mode: mode, ready: false, configured: false, owned: {}, storeProducts: {}, prices: {}, amounts: {}, busy: false };
     var listeners = [];
     var initPromise = null;
     var plugin = null;
     var mockNext = 'success';
+    var mockBought = []; // mock mode only: the products the simulated store account has bought, so restore() can grant them again
 
+    // The native WebView injects plugins as Capacitor.Plugins.<Name>. Capacitor.registerPlugin only exists when the
+    // @capacitor/core script is bundled into the page, which this app does not do, so look there second.
+    function findPlugin(name) {
+      try {
+        var found = Capacitor.Plugins && Capacitor.Plugins[name];
+        if (found) return found;
+        if (typeof Capacitor.registerPlugin === 'function') return Capacitor.registerPlugin(name) || null;
+      } catch (_) { /* not installed in this build */ }
+      return null;
+    }
     function read(key) { try { return storage ? JSON.parse(storage.getItem(key) || 'null') : null; } catch (_) { return null; } }
     function write(key, value) { try { if (storage) storage.setItem(key, JSON.stringify(value)); } catch (_) { /* storage can be blocked; the store stays the source of truth */ } }
     function emit(type) {
@@ -44,9 +60,21 @@
       var changed = ownedIds().sort().join('|') !== Object.keys(next).sort().join('|');
       state.owned = next;
       if (mode === 'native') write(CACHE_KEY, { v: 1, owned: ids });
-      if (mode === 'mock') write(MOCK_KEY, { v: 1, owned: ids });
+      if (mode === 'mock') write(MOCK_KEY, { v: 1, owned: ids, bought: mockBought });
       if (changed) emit('entitlements');
       return changed;
+    }
+    // The price hint is only ever written in US dollars ("$4.99"); anything else has no usable amount.
+    function hintAmount(hint) {
+      var match = /^\s*\$\s*(\d+(?:\.\d{1,2})?)\s*$/.exec(String(hint || ''));
+      return match ? { amount: Number(match[1]), currency: 'USD' } : { amount: null, currency: null };
+    }
+    function union(a, b) { return a.concat(b.filter(function (id) { return a.indexOf(id) < 0; })); }
+    function heldOf(p) { return p.entitlements.filter(function (id) { return state.owned[id]; }); }
+    // The title the player knows an entitlement by: the single-item product that grants it.
+    function nameOf(entitlement) {
+      var single = catalog.filter(function (p) { return p.entitlements.length === 1 && p.entitlements[0] === entitlement; })[0];
+      return single ? single.title : entitlement;
     }
     function activeFrom(info) {
       var active = info && info.entitlements && info.entitlements.active;
@@ -62,7 +90,8 @@
       var cached = read(CACHE_KEY); // first paint only; replaced by the store's answer below
       if (cached && Array.isArray(cached.owned)) state.owned = Object.fromEntries(cached.owned.map(function (id) { return [id, true]; }));
       if (!key) return; // no accounts yet: stay unconfigured, sell nothing
-      plugin = Capacitor.registerPlugin('Purchases');
+      plugin = findPlugin('Purchases');
+      if (!plugin) return; // the purchase plugin is missing from this build: stay unconfigured, sell nothing
       try {
         var configured = false;
         try { configured = (await plugin.isConfigured()).isConfigured === true; } catch (_) { configured = false; }
@@ -74,7 +103,11 @@
         var ids = catalog.filter(function (p) { return p.available; }).map(function (p) { return p.id; });
         if (ids.length) {
           var found = (await plugin.getProducts({ productIdentifiers: ids, type: 'NON_SUBSCRIPTION' })).products || [];
-          found.forEach(function (sp) { state.storeProducts[sp.identifier] = sp; state.prices[sp.identifier] = sp.priceString; });
+          found.forEach(function (sp) {
+            state.storeProducts[sp.identifier] = sp; state.prices[sp.identifier] = sp.priceString;
+            // The store's own number and currency, so the UI can compare prices exactly instead of parsing a string.
+            state.amounts[sp.identifier] = Number.isFinite(sp.price) && typeof sp.currencyCode === 'string' && sp.currencyCode ? { amount: sp.price, currency: sp.currencyCode } : { amount: null, currency: null };
+          });
           emit('products');
         }
       } catch (_) { /* prices fall back to the hint */ }
@@ -83,6 +116,7 @@
     function initMock() {
       var saved = read(MOCK_KEY);
       if (saved && Array.isArray(saved.owned)) state.owned = Object.fromEntries(saved.owned.map(function (id) { return [id, true]; }));
+      if (saved && Array.isArray(saved.bought)) mockBought = saved.bought.filter(function (id) { return byId[id]; });
       state.configured = true;
     }
 
@@ -103,7 +137,14 @@
 
     function products() {
       return catalog.map(function (p) {
-        return { id: p.id, entitlement: p.entitlement, kind: p.kind, title: p.title, available: p.available, owned: Boolean(state.owned[p.entitlement]), price: state.prices[p.id] || p.priceHint };
+        var held = heldOf(p).length;
+        // owned: everything this product grants is already the player's. partial: some of it is, which means
+        // buying it would charge for something they have (a bundle after one of its items), so it is refused.
+        return { id: p.id, entitlement: p.entitlement, entitlements: p.entitlements.slice(), kind: p.kind, title: p.title, available: p.available,
+          owned: p.entitlements.length > 0 && held === p.entitlements.length, partial: held > 0 && held < p.entitlements.length,
+          price: state.prices[p.id] || p.priceHint,
+          // amount and currency describe the same price as `price`: the store's once it has loaded, else the hint's.
+          amount: (state.amounts[p.id] || hintAmount(p.priceHint)).amount, currency: (state.amounts[p.id] || hintAmount(p.priceHint)).currency };
       });
     }
 
@@ -113,7 +154,9 @@
       if (!p.available) return { ok: false, reason: 'unavailable-product' };
       await init();
       if (!live()) return { ok: false, reason: 'unavailable' };
-      if (state.owned[p.entitlement]) return { ok: true, alreadyOwned: true, entitlement: p.entitlement };
+      var held = heldOf(p);
+      if (held.length === p.entitlements.length) return { ok: true, alreadyOwned: true, entitlement: p.entitlement, entitlements: p.entitlements.slice() };
+      if (held.length) return { ok: false, reason: 'partly-owned', owned: held }; // never charge for part of a bundle the player already has
       if (state.busy) return { ok: false, reason: 'busy' };
       state.busy = true; emit('busy');
       try {
@@ -122,14 +165,18 @@
           var outcome = mockNext; mockNext = 'success';
           if (outcome === 'cancel') return { ok: false, cancelled: true, reason: 'cancelled' };
           if (outcome === 'fail') return { ok: false, reason: 'error', message: 'Simulated store failure' };
-          setOwned(ownedIds().concat(p.entitlement));
-          return { ok: true, entitlement: p.entitlement };
+          mockBought = union(mockBought, [p.id]);
+          setOwned(union(ownedIds(), p.entitlements));
+          return { ok: true, entitlement: p.entitlement, entitlements: p.entitlements.slice() };
         }
         var product = state.storeProducts[p.id];
         if (!product) return { ok: false, reason: 'product-not-found' }; // not live in the store yet
         var result = await plugin.purchaseStoreProduct({ product: product });
         setOwned(activeFrom(result.customerInfo));
-        return state.owned[p.entitlement] ? { ok: true, entitlement: p.entitlement } : { ok: false, reason: 'not-granted' };
+        // A bundle must grant every entitlement it lists. If the store product is not attached to all of them in
+        // RevenueCat, say so instead of pretending the player got everything.
+        var missing = p.entitlements.filter(function (id) { return !state.owned[id]; });
+        return missing.length ? { ok: false, reason: 'not-granted', missing: missing } : { ok: true, entitlement: p.entitlement, entitlements: p.entitlements.slice() };
       } catch (error) {
         return classify(error);
       } finally {
@@ -143,10 +190,15 @@
       var before = ownedIds();
       try {
         if (mode === 'native') setOwned(activeFrom((await plugin.restorePurchases()).customerInfo));
-        else await new Promise(function (resolve) { setTimeout(resolve, env.mockDelay == null ? 350 : env.mockDelay); });
+        else {
+          await new Promise(function (resolve) { setTimeout(resolve, env.mockDelay == null ? 350 : env.mockDelay); });
+          // The simulated account remembers its purchases, like the real one: restoring grants everything they include.
+          setOwned(mockBought.reduce(function (all, id) { return byId[id] ? union(all, byId[id].entitlements) : all; }, ownedIds()));
+        }
       } catch (error) { return classify(error); }
       var after = ownedIds();
-      return { ok: true, restored: after.filter(function (id) { return before.indexOf(id) < 0; }), total: after.length };
+      var restored = after.filter(function (id) { return before.indexOf(id) < 0; });
+      return { ok: true, restored: restored, names: restored.map(nameOf), total: after.length };
     }
 
     var api = {
@@ -165,7 +217,10 @@
     if (mode === 'mock') {
       api.dev = {
         nextResult: function (outcome) { mockNext = outcome; },
-        reset: function () { state.owned = {}; write(MOCK_KEY, { v: 1, owned: [] }); emit('entitlements'); }
+        // reset: a brand new store account. forgetLocal: a reinstall, where the account still has its purchases but the
+        // device has lost them, so only Restore purchases brings them back.
+        reset: function () { state.owned = {}; mockBought = []; write(MOCK_KEY, { v: 1, owned: [], bought: [] }); emit('entitlements'); },
+        forgetLocal: function () { state.owned = {}; write(MOCK_KEY, { v: 1, owned: [], bought: mockBought }); emit('entitlements'); }
       };
     }
     return api;

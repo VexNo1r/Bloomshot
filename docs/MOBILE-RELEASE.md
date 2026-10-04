@@ -19,14 +19,14 @@ Not verified by anyone yet: any real device or simulator run, WebView performanc
 | Gap | Needs accounts? | Who | Notes |
 |---|---|---|---|
 | Purchase plumbing | No | Done (this pass) | Test mode only until keys exist. |
-| **Something to sell** | No | Content work, in progress | As of October 3 2026 the Koi Conservatory is built (pools 1 and 2 free, pools 3 to 8 behind `world_koi`) and the Keepsake Collection (three seed styles, `style_collection1`) is next. Both stay `available: false` in `store-config.js` until a sandbox purchase and restore work end to end. The six Moon trials are free. |
+| **Something to sell** | No | Content work, in progress | As of October 3 2026 the Koi Conservatory is built (pools 1 and 2 free, pools 3 to 8 behind `world_koi`) and the Keepsake Collection (three seed styles, `style_collection1`) is next. A Launch Bundle (`bloomshot.bundle.launch1`) grants both. All three stay `available: false` in `store-config.js` until a sandbox purchase and restore work end to end. The six Moon trials are free. |
 | Android debug APK in the cloud | No | Built once, October 3 2026 | `.github/workflows/android-debug.yml` (Actions tab, Run workflow). The APK is attached to the run as `bloomshot-debug-apk`. Compiles; has not been launched on a device. Lets Trevor sideload a real Android build with no account. |
 | iOS compile check in the cloud | No | Passed once, October 3 2026 | `.github/workflows/ios-simulator.yml`. Compiles unsigned for the simulator (`BUILD SUCCEEDED`); cannot be installed on an iPhone and has not been run in a simulator. |
 | Final app id and name check | No | Trevor decides | `dev.bloomshot.game` is a placeholder and permanent once published. The name "Bloomshot" has not been searched in either store. |
 | Privacy policy page | No | Claude drafts, Trevor hosts | Required by both stores. The game collects nothing and has no accounts or ads, which makes it short. |
 | Store listing text, screenshots, age ratings | No (drafting) | Claude | Entered into the consoles after enrollment. iPad screenshots are required if iPad is supported. |
-| iPhone haptics | No | Claude | `navigator.vibrate` does nothing on iOS. Add the Capacitor Haptics plugin. |
-| Progress safety in the native app | No | Claude | Progress lives in `localStorage` per the handoff. Mirror it to Capacitor Preferences so an OS storage cleanup cannot erase a player's garden. |
+| iPhone haptics | No | Written, October 3 2026 | `navigator.vibrate` does nothing on iOS, so `bloomshot/native.js` sends buzzes to the Capacitor Haptics plugin in the app (found as `Capacitor.Plugins.Haptics`, the way the injected native bridge exposes it) and keeps `vibrate()` on the web. Unit-tested with a fake plugin shaped like that bridge; the feel on a real iPhone and Android phone is untested. |
+| Progress safety in the native app | No | Written, October 3 2026 | Progress lives in `localStorage`. In the app, `bloomshot/native.js` also copies each save to the phone's preferences. Until an install has checked its local save against that backup (a marker stored beside the save), the local save is treated as unverified: a usable backup is restored over it and the page reloads once, and a backup that cannot be read is never overwritten. This guards against the OS clearing the WebView's storage while the app stays installed. It does not survive deleting the app, it cannot tell which of two valid copies is newer once an install has been checked, and it has not run on a real device. |
 | Real device testing | Android: no. iPhone/iPad: yes | Trevor + Claude | See below. |
 | Signing, TestFlight, sandbox purchases, submission | **Yes** | Trevor | Below. |
 
@@ -54,7 +54,7 @@ Costs and rules are as of my last information. Confirm each on the official page
 
 1. Repo, name, app id (free, now).
 2. Native folder is in the repo and both cloud builds have compiled once; Trevor sideloads the Android APK and plays it, and Claude fixes what that finds.
-3. Claude adds haptics, Preferences mirroring and store-listing assets while the paid world is built.
+3. Haptics and the save backup are written; store-listing text is drafted; screenshots wait for the final art.
 4. Pay for Google Play; start the 12-tester, 14-day closed test with the free game.
 5. Pay for Apple when the next check arrives; TestFlight; sandbox-test purchases.
 6. Create products and entitlements; flip `available` on finished content; submit both.

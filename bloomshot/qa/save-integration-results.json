@@ -1,5 +1,5 @@
 {
-  "passed": 25,
+  "passed": 31,
   "failed": 0,
   "methodology": "Executes the complete current app.js in an isolated Node VM using real garden/level/engine modules, fake localStorage, and DOM/canvas adapters. Completion fixtures exercise actual engine completion events and app handlers. No real browser or user saves are read or changed.",
   "limitations": [
@@ -105,6 +105,30 @@
     },
     {
       "name": "A daily garden cleared before this update pays only for new stars, and the seed reward names the next thing to grow",
+      "passed": true
+    },
+    {
+      "name": "Native bridge: planting buzzes through BloomNative only while the Vibration setting is on",
+      "passed": true
+    },
+    {
+      "name": "Native bridge: every save is mirrored exactly as stored, under the active storage key",
+      "passed": true
+    },
+    {
+      "name": "Native bridge: a restored backup reloads the page once, and no restore means no reload",
+      "passed": true
+    },
+    {
+      "name": "Native bridge: the real bridge in its web form changes nothing, vibrating exactly as before only while the Vibration setting is on",
+      "passed": true
+    },
+    {
+      "name": "Native bridge: when web storage is blocked the phone backup still gets every save, and the game runs without a bridge at all",
+      "passed": true
+    },
+    {
+      "name": "Native bridge: once a backup has been restored and a reload is pending, the page saves nothing, so it cannot overwrite the restore",
       "passed": true
     }
   ]

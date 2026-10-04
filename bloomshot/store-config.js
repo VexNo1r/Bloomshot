@@ -11,7 +11,11 @@
       // id must match the product id created in App Store Connect and Google Play Console.
       // entitlement must match the entitlement id created in the RevenueCat dashboard.
       { id: 'bloomshot.world.koi', entitlement: 'world_koi', kind: 'world', title: 'Koi Conservatory', priceHint: '$4.99', available: false },
-      { id: 'bloomshot.style.collection1', entitlement: 'style_collection1', kind: 'style', title: 'Keepsake Collection', priceHint: '$1.99', available: false }
+      { id: 'bloomshot.style.collection1', entitlement: 'style_collection1', kind: 'style', title: 'Keepsake Collection', priceHint: '$1.99', available: false },
+      // A bundle is its own store product that grants several entitlements: in RevenueCat, attach this one product
+      // to every entitlement listed here. Keep its price below the sum of the items, or it is not a bundle.
+      // Never offer it to a player who already owns one of its items (the store refuses it as 'partly-owned').
+      { id: 'bloomshot.bundle.launch1', entitlements: ['world_koi', 'style_collection1'], kind: 'bundle', title: 'Launch Bundle', priceHint: '$5.99', available: false }
     ]
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

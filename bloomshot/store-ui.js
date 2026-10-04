@@ -14,6 +14,9 @@
     return node;
   }
 
+  // "A", "A and B", "A, B and C".
+  function sentence(names) { return names.length < 2 ? names.join('') : names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1]; }
+
   var section = el('section', { id: 'store-section', class: 'install-section', 'aria-labelledby': 'store-title', hidden: '' });
   var status = el('p', { id: 'store-status', role: 'status' });
   var restore = el('button', { id: 'restore-btn', class: 'button-secondary', type: 'button' }, 'Restore purchases');
@@ -28,8 +31,9 @@
     list.textContent = '';
     if (store.mode !== 'mock') return;
     store.products().forEach(function (product) {
-      var button = el('button', { class: 'button-link', type: 'button', 'data-product': product.id }, product.owned ? product.title + ' (owned)' : 'Test buy: ' + product.title + (product.available ? '' : ' (not built yet)'));
-      button.disabled = product.owned || !product.available || store.busy;
+      var label = product.owned ? product.title + ' (owned)' : product.partial ? product.title + ' (you own part of it)' : 'Test buy: ' + product.title + (product.available ? '' : ' (not built yet)');
+      var button = el('button', { class: 'button-link', type: 'button', 'data-product': product.id }, label);
+      button.disabled = product.owned || product.partial || !product.available || store.busy;
       button.addEventListener('click', async function () {
         status.dataset.auto = '0';
         status.textContent = 'Simulating purchase…';
@@ -56,7 +60,7 @@
     var result = await store.restore();
     restore.disabled = false;
     if (!result.ok) status.textContent = 'Could not reach the store. Check your connection and try again.';
-    else status.textContent = result.restored.length ? 'Restored ' + result.restored.length + ' purchase' + (result.restored.length === 1 ? '' : 's') + '.' : 'No earlier purchases were found for this account.';
+    else status.textContent = result.restored.length ? 'Restored ' + sentence(result.names && result.names.length ? result.names : result.restored) + '.' : 'No earlier purchases were found for this account.';
   });
 
   store.subscribe(paint);

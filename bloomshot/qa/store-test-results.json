@@ -1,5 +1,5 @@
 {
-  "passed": 14,
+  "passed": 24,
   "failed": 0,
   "results": [
     {
@@ -15,7 +15,15 @@
       "passed": true
     },
     {
+      "name": "native finds the purchase plugin where the injected bridge puts it, falls back to registerPlugin, and sells nothing without it",
+      "passed": true
+    },
+    {
       "name": "native configures once with the platform key and loads prices from the store",
+      "passed": true
+    },
+    {
+      "name": "products report an exact amount and currency: the store's once loaded, the USD price hint before that, nothing when it cannot be known",
       "passed": true
     },
     {
@@ -56,6 +64,38 @@
     },
     {
       "name": "the real store never exposes the mock controls outside mock mode",
+      "passed": true
+    },
+    {
+      "name": "bundle: one product lists several entitlements, singles still list one, and a product that grants nothing is never sold",
+      "passed": true
+    },
+    {
+      "name": "bundle: a native purchase grants every entitlement, is cached for first paint, and shows the singles as owned",
+      "passed": true
+    },
+    {
+      "name": "bundle: a store product that is attached to only some entitlements is reported, not treated as success",
+      "passed": true
+    },
+    {
+      "name": "bundle: a player who already owns one item is never charged for the bundle",
+      "passed": true
+    },
+    {
+      "name": "bundle: restore brings back every entitlement of a bundle bought earlier, and names them",
+      "passed": true
+    },
+    {
+      "name": "bundle: mock mode grants both entitlements and Restore purchases grants them again after a reinstall",
+      "passed": true
+    },
+    {
+      "name": "bundle: mock mode refuses the bundle after one of its items, and loads a mock account saved before bundles existed",
+      "passed": true
+    },
+    {
+      "name": "the shipped catalog is consistent: unique ids, bundles only grant entitlements that single products sell, and a bundle is cheaper than its parts",
       "passed": true
     }
   ]

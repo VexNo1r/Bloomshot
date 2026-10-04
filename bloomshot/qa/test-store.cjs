@@ -30,14 +30,15 @@ function fakePlugin(options = {}) {
     isConfigured: async () => ({ isConfigured: state.configured }),
     configure: async cfg => { calls.push(['configure', cfg]); state.configured = true; },
     getCustomerInfo: async () => { calls.push(['getCustomerInfo']); if (options.offline) throw new Error('offline'); return { customerInfo: info() }; },
-    getProducts: async opts => { calls.push(['getProducts', opts]); return { products: opts.productIdentifiers.map(id => ({ identifier: id, priceString: '€4,99' })) }; },
+    getProducts: async opts => { calls.push(['getProducts', opts]); return { products: opts.productIdentifiers.map(id => ({ identifier: id, priceString: '€4,99', price: options.noNumber ? undefined : 4.99, currencyCode: options.noNumber ? undefined : 'EUR' })) }; },
     purchaseStoreProduct: async ({ product }) => {
       calls.push(['purchase', product.identifier]);
       if (options.cancel) { const e = new Error('cancelled'); e.userCancelled = true; throw e; }
       if (options.fail) throw new Error('billing unavailable');
       if (options.slow) await new Promise(r => setTimeout(r, 30));
       if (options.noGrant) return { customerInfo: info() };
-      state.active = state.active.concat('e_live');
+      const grant = options.grants ? options.grants[product.identifier] : ['e_live'];
+      state.active = state.active.concat(grant.filter(id => !state.active.includes(id)));
       return { customerInfo: info() };
     },
     restorePurchases: async () => { calls.push(['restore']); state.active = options.restoreTo || state.active; return { customerInfo: info() }; },
@@ -45,9 +46,21 @@ function fakePlugin(options = {}) {
   };
   return plugin;
 }
+// The shape the native WebView really injects: a Plugins map and no registerPlugin (that needs @capacitor/core bundled in).
 function nativeEnv(plugin, extra = {}) {
-  return { config: CONFIG, storage: memoryStorage(), ...extra, Capacitor: { isNativePlatform: () => true, getPlatform: () => 'ios', registerPlugin: name => { assert.equal(name, 'Purchases'); return plugin; } } };
+  return { config: CONFIG, storage: memoryStorage(), ...extra, Capacitor: { isNativePlatform: () => true, getPlatform: () => 'ios', Plugins: { Purchases: plugin } } };
 }
+const BUNDLE = {
+  revenueCatKeys: CONFIG.revenueCatKeys,
+  products: [
+    { id: 'p.a', entitlement: 'e_a', kind: 'world', title: 'World A', priceHint: '$4.99', available: true },
+    { id: 'p.b', entitlement: 'e_b', kind: 'style', title: 'Style B', priceHint: '$1.99', available: true },
+    { id: 'p.both', entitlements: ['e_a', 'e_b'], kind: 'bundle', title: 'Both', priceHint: '$5.99', available: true }
+  ]
+};
+const GRANTS = { 'p.a': ['e_a'], 'p.b': ['e_b'], 'p.both': ['e_a', 'e_b'] };
+const bundleEnv = (plugin, extra = {}) => nativeEnv(plugin, { config: BUNDLE, ...extra });
+const find = (store, id) => store.products().find(p => p.id === id);
 
 (async () => {
   await test('browser and CommonJS expose the same API', () => {
@@ -77,6 +90,20 @@ function nativeEnv(plugin, extra = {}) {
     assert.equal((await store.purchase('p.live')).reason, 'unavailable');
   });
 
+  await test('native finds the purchase plugin where the injected bridge puts it, falls back to registerPlugin, and sells nothing without it', async () => {
+    const plugin = fakePlugin();
+    const injected = nativeEnv(plugin); assert.equal(injected.Capacitor.registerPlugin, undefined);
+    const viaInjected = Store.create(injected); await viaInjected.init();
+    assert.equal(viaInjected.isLive(), true);
+    const bundled = Store.create({ config: CONFIG, storage: memoryStorage(), Capacitor: { isNativePlatform: () => true, getPlatform: () => 'android', registerPlugin: name => { assert.equal(name, 'Purchases'); return plugin; } } });
+    await bundled.init(); assert.equal(bundled.isLive(), true);
+    assert.deepEqual(plugin.calls.find(c => c[0] === 'configure')[1], { apiKey: 'appl_test' });
+    for (const Capacitor of [{ isNativePlatform: () => true, getPlatform: () => 'ios', Plugins: {} }, { isNativePlatform: () => true, getPlatform: () => 'ios' }]) {
+      const missing = Store.create({ config: CONFIG, storage: memoryStorage(), Capacitor }); await missing.init();
+      assert.equal(missing.isLive(), false); assert.equal((await missing.purchase('p.live')).reason, 'unavailable');
+    }
+  });
+
   await test('native configures once with the platform key and loads prices from the store', async () => {
     const plugin = fakePlugin();
     const store = Store.create(nativeEnv(plugin));
@@ -90,17 +117,37 @@ function nativeEnv(plugin, extra = {}) {
     assert.equal(store.products().find(p => p.id === 'p.unbuilt').price, '$4.99');
   });
 
+  await test('products report an exact amount and currency: the store\'s once loaded, the USD price hint before that, nothing when it cannot be known', async () => {
+    const config = { revenueCatKeys: CONFIG.revenueCatKeys, products: [
+      { id: 'p.live', entitlement: 'e_live', title: 'Live', priceHint: '$4.99', available: true },
+      { id: 'p.unbuilt', entitlement: 'e_unbuilt', title: 'Unbuilt', priceHint: ' $1.99 ', available: false },
+      { id: 'p.euro', entitlement: 'e_euro', title: 'Euro', priceHint: '€4,99', available: false },
+      { id: 'p.free', entitlement: 'e_free', title: 'No hint', available: false }
+    ] };
+    const store = Store.create(nativeEnv(fakePlugin(), { config }));
+    const price = id => { const p = find(store, id); return { amount: p.amount, currency: p.currency, price: p.price }; };
+    assert.deepEqual(price('p.live'), { amount: 4.99, currency: 'USD', price: '$4.99' }); // before the store has answered
+    await store.init();
+    assert.deepEqual(price('p.live'), { amount: 4.99, currency: 'EUR', price: '€4,99' }); // from the store product
+    assert.deepEqual(price('p.unbuilt'), { amount: 1.99, currency: 'USD', price: ' $1.99 ' });
+    assert.deepEqual(price('p.euro'), { amount: null, currency: null, price: '€4,99' });
+    assert.deepEqual(price('p.free'), { amount: null, currency: null, price: '' });
+    const bad = Store.create(nativeEnv(fakePlugin({ noNumber: true }), { config })); await bad.init();
+    const badP = find(bad, 'p.live');
+    assert.deepEqual({ amount: badP.amount, currency: badP.currency, price: badP.price }, { amount: null, currency: null, price: '€4,99' }); // the string is the store's, so no USD guess beside it
+  });
+
   await test('native purchase grants the entitlement and persists the first-paint cache', async () => {
     const plugin = fakePlugin();
     const env = nativeEnv(plugin);
     const store = Store.create(env);
     const seen = [];
     store.subscribe(e => seen.push(e.type));
-    assert.deepEqual(await store.purchase('p.live'), { ok: true, entitlement: 'e_live' });
+    assert.deepEqual(await store.purchase('p.live'), { ok: true, entitlement: 'e_live', entitlements: ['e_live'] });
     assert.equal(store.owns('e_live'), true);
     assert.ok(seen.includes('entitlements'));
     assert.deepEqual(JSON.parse(env.storage.data['bloomshot.entitlements.v1']).owned, ['e_live']);
-    assert.deepEqual(await store.purchase('p.live'), { ok: true, alreadyOwned: true, entitlement: 'e_live' });
+    assert.deepEqual(await store.purchase('p.live'), { ok: true, alreadyOwned: true, entitlement: 'e_live', entitlements: ['e_live'] });
     assert.equal(plugin.calls.filter(c => c[0] === 'purchase').length, 1);
   });
 
@@ -138,9 +185,9 @@ function nativeEnv(plugin, extra = {}) {
     const plugin = fakePlugin({ restoreTo: ['e_live'] });
     const store = Store.create(nativeEnv(plugin));
     const result = await store.restore();
-    assert.deepEqual(result, { ok: true, restored: ['e_live'], total: 1 });
+    assert.deepEqual(result, { ok: true, restored: ['e_live'], names: ['Live World'], total: 1 });
     assert.equal(store.owns('e_live'), true);
-    assert.deepEqual(await store.restore(), { ok: true, restored: [], total: 1 });
+    assert.deepEqual(await store.restore(), { ok: true, restored: [], names: [], total: 1 });
   });
 
   await test('a refund is honored: the store answer replaces the cache on next launch', async () => {
@@ -186,6 +233,121 @@ function nativeEnv(plugin, extra = {}) {
   await test('the real store never exposes the mock controls outside mock mode', () => {
     assert.equal(Store.create({ config: CONFIG }).dev, undefined);
     assert.equal(Store.create(nativeEnv(fakePlugin())).dev, undefined);
+  });
+
+  await test('bundle: one product lists several entitlements, singles still list one, and a product that grants nothing is never sold', async () => {
+    const config = { revenueCatKeys: CONFIG.revenueCatKeys, products: BUNDLE.products.concat([
+      { id: 'p.dup', entitlements: ['e_a', 'e_a', '', 'e_b'], title: 'Dup', available: true },
+      { id: 'p.none', title: 'Nothing', available: true },
+      { id: 'p.empty', entitlements: [], title: 'Empty', available: true }
+    ]) };
+    const store = Store.create(nativeEnv(fakePlugin({ grants: GRANTS }), { config }));
+    assert.deepEqual(find(store, 'p.both').entitlements, ['e_a', 'e_b']);
+    assert.equal(find(store, 'p.both').entitlement, 'e_a');
+    assert.equal(find(store, 'p.both').kind, 'bundle');
+    assert.deepEqual(find(store, 'p.a').entitlements, ['e_a']);
+    assert.deepEqual(find(store, 'p.dup').entitlements, ['e_a', 'e_b']);
+    for (const id of ['p.none', 'p.empty']) {
+      assert.equal(find(store, id).available, false); assert.deepEqual(find(store, id).entitlements, []); assert.equal(find(store, id).owned, false);
+      assert.equal((await store.purchase(id)).reason, 'unavailable-product');
+    }
+  });
+
+  await test('bundle: a native purchase grants every entitlement, is cached for first paint, and shows the singles as owned', async () => {
+    const plugin = fakePlugin({ grants: GRANTS }); const env = bundleEnv(plugin);
+    const store = Store.create(env);
+    assert.deepEqual(await store.purchase('p.both'), { ok: true, entitlement: 'e_a', entitlements: ['e_a', 'e_b'] });
+    assert.equal(store.owns('e_a'), true); assert.equal(store.owns('e_b'), true);
+    for (const id of ['p.a', 'p.b', 'p.both']) { assert.equal(find(store, id).owned, true, id); assert.equal(find(store, id).partial, false, id); }
+    assert.deepEqual(JSON.parse(env.storage.data['bloomshot.entitlements.v1']).owned.sort(), ['e_a', 'e_b']);
+    assert.equal((await store.purchase('p.both')).alreadyOwned, true);
+    assert.equal(plugin.calls.filter(c => c[0] === 'purchase').length, 1);
+    const relaunch = Store.create(bundleEnv(fakePlugin({ grants: GRANTS, offline: true }), { storage: env.storage })); await relaunch.init(); // offline: the cache keeps both
+    assert.equal(relaunch.owns('e_a') && relaunch.owns('e_b'), true);
+  });
+
+  await test('bundle: a store product that is attached to only some entitlements is reported, not treated as success', async () => {
+    const plugin = fakePlugin({ grants: { 'p.both': ['e_a'] } });
+    const store = Store.create(bundleEnv(plugin));
+    const result = await store.purchase('p.both');
+    assert.deepEqual(result, { ok: false, reason: 'not-granted', missing: ['e_b'] });
+    assert.equal(store.owns('e_a'), true); assert.equal(store.owns('e_b'), false);
+    assert.equal(find(store, 'p.both').partial, true); assert.equal(find(store, 'p.both').owned, false);
+  });
+
+  await test('bundle: a player who already owns one item is never charged for the bundle', async () => {
+    const plugin = fakePlugin({ grants: GRANTS, active: ['e_a'] });
+    const store = Store.create(bundleEnv(plugin));
+    assert.deepEqual(await store.purchase('p.both'), { ok: false, reason: 'partly-owned', owned: ['e_a'] });
+    assert.equal(plugin.calls.filter(c => c[0] === 'purchase').length, 0);
+    assert.equal(find(store, 'p.both').partial, true); assert.equal(find(store, 'p.a').partial, false);
+    assert.equal((await store.purchase('p.b')).ok, true); // the rest can still be bought on its own
+    assert.equal(find(store, 'p.both').owned, true); // and owning both items is owning the bundle
+    assert.equal((await store.purchase('p.both')).alreadyOwned, true);
+    assert.equal(plugin.calls.filter(c => c[0] === 'purchase').length, 1);
+  });
+
+  await test('bundle: restore brings back every entitlement of a bundle bought earlier, and names them', async () => {
+    const plugin = fakePlugin({ grants: GRANTS, restoreTo: ['e_a', 'e_b'] });
+    const store = Store.create(bundleEnv(plugin));
+    assert.deepEqual(await store.restore(), { ok: true, restored: ['e_a', 'e_b'], names: ['World A', 'Style B'], total: 2 });
+    assert.equal(store.owns('e_a') && store.owns('e_b'), true);
+    assert.equal(find(store, 'p.both').owned, true);
+  });
+
+  await test('bundle: mock mode grants both entitlements and Restore purchases grants them again after a reinstall', async () => {
+    const storage = memoryStorage();
+    const make = () => Store.create({ config: BUNDLE, storage, allowMock: true, mockDelay: 0 });
+    const store = make(); await store.init();
+    assert.deepEqual(await store.purchase('p.both'), { ok: true, entitlement: 'e_a', entitlements: ['e_a', 'e_b'] });
+    assert.equal(store.owns('e_a') && store.owns('e_b'), true);
+    const saved = JSON.parse(storage.data['bloomshot.mockstore.v1']);
+    assert.deepEqual(saved.owned.sort(), ['e_a', 'e_b']); assert.deepEqual(saved.bought, ['p.both']);
+    const again = make(); await again.init(); assert.equal(again.owns('e_a') && again.owns('e_b'), true); // survives a relaunch
+    again.dev.forgetLocal(); // the device lost its ownership, the account still has the purchase
+    assert.equal(again.owns('e_a') || again.owns('e_b'), false);
+    const restored = await again.restore();
+    assert.deepEqual(restored, { ok: true, restored: ['e_a', 'e_b'], names: ['World A', 'Style B'], total: 2 });
+    assert.equal(again.owns('e_a') && again.owns('e_b'), true);
+    assert.deepEqual(await again.restore(), { ok: true, restored: [], names: [], total: 2 });
+    again.dev.reset(); // a fresh store account has nothing to restore
+    assert.deepEqual(await again.restore(), { ok: true, restored: [], names: [], total: 0 });
+    assert.equal(again.owns('e_a'), false);
+  });
+
+  await test('bundle: mock mode refuses the bundle after one of its items, and loads a mock account saved before bundles existed', async () => {
+    const storage = memoryStorage({ 'bloomshot.mockstore.v1': JSON.stringify({ v: 1, owned: ['e_a'] }) }); // no `bought` list: an older save
+    const store = Store.create({ config: BUNDLE, storage, allowMock: true, mockDelay: 0 }); await store.init();
+    assert.equal(store.owns('e_a'), true);
+    assert.deepEqual(await store.purchase('p.both'), { ok: false, reason: 'partly-owned', owned: ['e_a'] });
+    assert.equal((await store.restore()).ok, true); assert.equal(store.owns('e_a'), true); assert.equal(store.owns('e_b'), false);
+    assert.equal((await store.purchase('p.b')).ok, true);
+    assert.equal(find(store, 'p.both').owned, true);
+  });
+
+  await test('the shipped catalog is consistent: unique ids, bundles only grant entitlements that single products sell, and a bundle is cheaper than its parts', () => {
+    const context = vm.createContext({});
+    vm.runInContext(fs.readFileSync(path.join(__dirname, '../store-config.js'), 'utf8'), context);
+    const store = Store.create({ config: context.BloomStoreConfig });
+    const products = store.products();
+    assert.ok(products.length >= 3);
+    assert.equal(new Set(products.map(p => p.id)).size, products.length);
+    const price = p => { assert.ok(Number.isFinite(p.amount) && p.currency === 'USD', `${p.id} needs a USD price hint`); return p.amount; };
+    const singles = products.filter(p => p.entitlements.length === 1);
+    const sold = new Set(singles.map(p => p.entitlement));
+    assert.equal(sold.size, singles.length, 'each single product has its own entitlement');
+    for (const p of products) {
+      assert.ok(p.entitlements.length > 0, p.id);
+      assert.match(p.id, /^bloomshot\.[a-z0-9]+\.[a-z0-9]+$/, p.id);
+      if (p.entitlements.length < 2) continue;
+      assert.equal(p.kind, 'bundle', p.id);
+      const parts = p.entitlements.map(e => singles.find(s => s.entitlement === e));
+      assert.ok(parts.every(Boolean), `${p.id} grants an entitlement no single product sells`);
+      assert.ok(price(p) < parts.reduce((sum, s) => sum + price(s), 0), `${p.id} must cost less than its items together`);
+    }
+    // The content that uses a product must name the same ids the catalog sells.
+    const Koi = require('../koi.js'); const koi = products.find(p => p.id === Koi.product);
+    assert.ok(koi && koi.entitlement === Koi.entitlement, 'koi.js and store-config.js disagree');
   });
 
   const failed = results.filter(r => !r.passed);
