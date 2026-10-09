@@ -457,6 +457,7 @@
     return storageAvailable;
   }
   if (store && typeof store.onConsumable === 'function') store.onConsumable(grantPower);
+  const notBought = result => result.cancelled ? 'Purchase cancelled. Nothing was charged.' : "Purchase didn't go through. Nothing was charged.";
   async function buyPower(button) {
     const def = Powers.byProduct[button.dataset.buy], product = def && productInfo(def.product);
     if (!def || !store || store.busy || !product || !product.available) return;
@@ -467,7 +468,7 @@
     // A store that only reports the purchase (without handing it over first) still gets it counted, once.
     if (result.ok && save.powers[def.id] === before) grantPower({ power: def.id, count: result.count || 1, transaction: result.transaction });
     if (result.ok) { BloomSound.wake(); BloomSound.play('gift'); toast(`+1 ${def.name}! You have ${save.powers[def.id]}.`); }
-    else toast(result.cancelled ? 'Purchase cancelled. Nothing was charged.' : "Purchase didn't go through. Nothing was charged.");
+    else toast(result.pending ? `Your payment is waiting to clear. The ${def.name} arrives as soon as it does.` : notBought(result));
     renderPowerShelf();
   }
   // The unlock is described exactly: what it contains, the price the store reports, and that it is one payment.
@@ -852,7 +853,7 @@
       BloomSound.wake(); BloomSound.play('won'); toast(typeof item.thanks === 'function' ? item.thanks() : item.thanks);
       // Buying while previewing a style puts that style on the seed straight away.
       if ((id === Keepsakes.product || id === BUNDLE) && keepsakePreview && keepsakeOpen(keepsakePreview)) { save.keepsake = keepsakePreview; persist(); }
-    } else toast(result.cancelled ? 'Purchase cancelled. Nothing was charged.' : "Purchase didn't go through. Nothing was charged.");
+    } else toast(result.pending ? 'Your payment is waiting to clear. It unlocks as soon as it does.' : notBought(result));
     refreshStoreViews();
   }
   function refreshStoreViews() {
