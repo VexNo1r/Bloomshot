@@ -54,8 +54,9 @@
     var mockTxs = []; // mock mode only: the simulated account's consumable transactions, shaped like RevenueCat's
     var now = typeof env.now === 'function' ? env.now : function () { return Date.now(); };
     var grantsKey = mode === 'mock' ? MOCK_GRANTS_KEY : GRANTS_KEY;
-    // baseline: the account has been checked at least once, so a new purchase cannot be confused with an old one. seen: consumable transaction ids already
-    // dealt with. inflight: consumable purchases this install started and has not settled. owed: grants the game has not taken.
+    // The powerup ledger. baseline: the account has been checked at least once, so a new purchase cannot be confused
+    // with an old one. seen: consumable transaction ids already dealt with. inflight: consumable purchases this install
+    // started and has not settled. owed: grants the game has not taken yet.
     var ledger = { baseline: false, seen: [], inflight: [], owed: [] };
 
     // The native WebView injects plugins as Capacitor.Plugins.<Name>. Capacitor.registerPlugin only exists when the
