@@ -1,96 +1,96 @@
 # BLOOMSHOT — handoff to Codex
 
-Updated October 3, 2026 by Claude after four passes. This replaces the October 2 Codex → Claude handoff. Read all of "Start here" before touching files: the copy of the game in your old workspace is now out of date.
+Updated October 4, 2026 by Claude after passes 5 to 8 and the Storybook redesign. This replaces the October 3 handoff. Read all of "Start here" before touching files.
 
 ## Start here
 
-Trevor wants a beautiful, vibrant, fast mobile game that people love enough to pay for optional extras, live on iPhone, iPad and Android and earning money. Art (background and foreground) is the top priority after the game being genuinely compelling. The interface should feel like part of the art. Players should feel in control and feel they are progressing. Code and art are AI-assisted; never claim a human team made them.
+Trevor wants a beautiful, vibrant, fast mobile game that people love enough to pay for optional extras, live on iPhone, iPad and Android and earning money. Players should feel in control and feel they are progressing. Code and art are AI-assisted; never claim a human team made them.
+
+**The design bar.** Trevor's words: the UI and text must look "made by a team of humans, not AI". On October 3 he said the old parchment-and-brass interface still looked AI-made, and he chose the "Storybook game" direction for the redesign. Every later pass must hold the rules in "Storybook rules" below, including store listing copy and the web page.
 
 Keep purchases honest: exact contents and price shown, no fake scarcity, no misleading timers, no paid randomness, no frustration designed to sell relief. The app stores reject the rest anyway.
 
-**Which copy is authoritative.** Claude worked from your October 2 handoff zip and moved it into a git repository. The newest code is that repository, not `outputs/bloomshot` in your workspace:
+**Which copy is authoritative.** The GitHub repository, not any older zip or workspace copy:
 
-- GitHub: https://github.com/VexNo1r/Bloomshot. `main` holds passes 1 to 3 plus the store layer. Pass 4 (Koi) is on branch `koi-world` with its own pull request; the native shell is pull request #1 (`mobile-native-shell`). Work on branches and pull requests; never force-push `main`.
-- Offline copy: `bloomshot.gitbundle` (full history) and `bloomshot-latest.zip` (snapshot) in Trevor's project files under `bloomshot/`.
-- Layout: `bloomshot/` is the game, `native/` the Capacitor Android/iOS shell (once #1 merges), `docs/` release and store notes, `.github/workflows/` CI and cloud builds.
+- GitHub: https://github.com/VexNo1r/Bloomshot. Work on a branch and open every pull request against `main`. Do not stack pull requests on each other: Trevor merges from his phone, and on October 3 three stacked PRs merged into a feature branch instead of `main`. Never force-push `main`.
+- Layout: `bloomshot/` is the game, `native/` the Capacitor Android/iOS shell, `docs/` release and store notes, `.github/workflows/` CI, cloud builds and the GitHub Pages deploy.
+- Web build: `.github/workflows/pages.yml` publishes `bloomshot/` to https://vexno1r.github.io/Bloomshot/ once Pages is enabled with Source set to GitHub Actions (a setting only Trevor can change).
 - `VexNo1r/harborline` is Trevor's separate lead-recovery product. The game never goes there.
-- Before you edit anything, replace your `outputs/bloomshot` with the repo's `bloomshot/` folder (keep your `work/` scripts). Do not merge by hand from your old copy; four passes of changes would be lost.
-
-Your original native project (`outputs/bloomshot-native`) never reached Claude. The release thread regenerated it as `native/` from your pinned Capacitor 8.5.2 settings, and both cloud builds have compiled once. Prefer `native/` over your old copy.
 
 ## Saves (never reset)
 
-Normal save `bloomshot.save.v1`; `?qa` uses `bloomshot.qa.v1`. Trevor plays in both. New save fields are additive: `koi: {}` beside `moon: {}`, and `garden.koiBest` beside `garden.moonBest`. Old saves load unchanged.
+Normal save `bloomshot.save.v1`; `?qa` uses `bloomshot.qa.v1`. Trevor plays in both. New fields are always additive and old saves load unchanged. Fields added since the last handoff: `keepsake` (the worn seed style, default `meadow`), `daily` (per-day records, latest 14), `garden.dailyBest` (stars per daily garden, latest 21), `garden.bouquets` (weeks already paid, latest 8), `rush.bestWave`. In the native app `native.js` mirrors every save to Capacitor Preferences and restores it if the OS wipes web storage.
 
-## What Claude changed, passes 1 to 4
+## What changed, passes 5 to 8
 
-**Pass 1, game feel and scenery.** Living meadow backdrop (sun and rays, three rolling hill bands with wildflowers), stateless ambient life (drifting petals, motes, a butterfly every 17 s, swaying grass), and for Moon a nebula and stars. Trauma-based screen shake, short hit-stop on big moments, soft additive flash, colored `+points` pops that stack instead of overlapping, a score bump, a glowing seed. All skipped with reduced motion.
+**Pass 5, Garden Keepsakes.** Seed styles that change the seed, its trail and bloom particles, never physics. Meadow is free, Moonlit is earned by clearing all six Moon trials and never sold, and Sakura Breeze, Firefly Night and Gilded Leaf come together as the Keepsake Collection (`bloomshot.style.collection1`, entitlement `style_collection1`). Every style previews in motion on the Collection screen before it is earned or bought. A locked or refunded choice shows Meadow without erasing the saved choice. Code: `keepsakes.js` (catalog and unlock rules), `art.js` (styled seeds, trails, four particle kinds), `app.js` (shelf, preview, Moonlit reward, one `buyProduct` for every product).
 
-**Pass 2, interface as art.** Parchment shell with a petal pattern, brass hairlines, gilded board frame, rounded display type, jade pill buttons, a brass restart button, springy dialogs, illustrated level and world cards, a jade "pebble" on the active nav button. Tokens live at the top of the pass 2 block in `styles.css` (`--jade`, `--brass`, `--parchment`).
+**Pass 6, Rush tempo.** Each cleared wave raises the tempo by ×0.1, up to ×2: flowers descend faster, reload is quicker, and every bloom scores more. Clearing a wave shows a golden "Wave clear!" moment with the next tempo, and pressure keeps climbing the longer a run lasts. `rush.js` holds the numbers; `qa/test-rush.cjs` checks them.
 
-**Moon fix.** Your pointer report was right: Moon routes needed pixel-exact aim. Sprigs of buds now link (one hit blooms the sprig) with one deliberately unlinked sprig per board so no trial falls to a single lucky shot. A simulated careful finger with 3° of aim error now clears Moon 1 to 6 about 96/89/80/59/60/45% of the time, up from 72/58/25/3/13/0%. `qa/aim-tolerance.cjs` measures it and `qa/check-moon-pointer.cjs` now enforces floors.
+**Pass 7, Launch Bundle offer.** `bloomshot.bundle.launch1` grants Koi and the Keepsake Collection in one purchase. It is shown only to a player who owns neither part, only when the store says it is on sale, with its price and the exact saving when the store reports comparable amounts (otherwise it says "less than buying both" with no number). Owning one part offers only the other part.
 
-**Pass 3, motion.** Buds sway and open flowers breathe; blooms throw a shockwave ring, glow motes and petals that flutter as they fall; a rainbow trail once a chain passes eight; a rising shimmer cue every fifth bloom in a chain.
+**Pass 8, the daily garden pays.** A daily garden's first clear pays 6, 8 or 10 seeds by stars, and each later new star pays 2. Any four daily clears in a Monday-to-Sunday week pay a 12-seed bouquet once. A missed day takes nothing away and nothing counts down. Every seed reward on the result screen names the next thing to plant or grow. Logic in `garden.js` (`grant` with `mode: 'daily'`, `week`).
 
-**Pass 4, Koi Conservatory (the first paid world).** A real world with its own mechanic, not a reskin:
+**Native bridge (shipping thread).** `native.js`: real haptics through Capacitor Haptics (iPhone ignores `navigator.vibrate`), and the Preferences save mirror described above. `app.js` calls `haptic(kind)` for every buzz; any new buzz must call `haptic()` too, never `navigator.vibrate`, or iPhone stays silent. Neither haptics nor the save mirror has been tested on a real phone yet.
 
-- Currents (`engine.js`: `currentsFor`, `laneAt`, `steer`). A lane is a rotated rectangle. Inside it a seed's heading turns toward the lane's flow at a bounded rate (default 2.4 rad/s); speed never changes. The aim trace sub-steps the same rule, so the dotted line shows the bend. A `current` event fires on lane entry and `game.currentRides` counts them.
-- `koi.js`: eight boards, five single seeds each, no in-flight steering, one leaf turn between shots. First Ripple, Lantern Bend, Two Streams, Whirlpool Steps, Waterfall, Koi Parade, Reed Maze, Moon on the Water. Pools 1 and 2 are free; 3 to 8 need entitlement `world_koi` (product `bloomshot.world.koi`).
-- Art (`art.js` `drawCurrents`, `koiFish`): translucent water ribbons with travelling streaks and chevrons, a koi swimming each lane, lanes brighten when used; lily pads in the koi backdrop; an illustrated koi-pond world card. Sound: two soft rising water drops on lane entry (`sound.js` `current`, a new `drop` note style).
-- App flow (`app.js`): Moon and Koi now share one "chapter" path (`chapters`, `trialOpen`, `trialPaid`, `renderChapter`). Records save to `save.koi`; new stars pay meadow seeds exactly like Moon. After pool 2 without the pack, "Next" opens the conservatory screen instead of a locked board.
-- Unlock panel: names the six extra pools, says it is one payment with no ads, timers or randomness, and shows the store's own price. On the website it only says pools 3 to 8 unlock in the app; when the store is live but the product is not on sale it says so; in test mode it says nothing is charged.
+## Storybook redesign
 
-**Store layer (written by the release thread, not Claude's to edit).** `store.js`, `store-ui.js`, `store-config.js`: modes native (RevenueCat), mock (`localhost` plus `?mockstore=1`) and web (sells nothing). `bloomshot.world.koi` is still `available: false`; flip it only after a sandbox purchase and restore work. RevenueCat keys are empty until Trevor's accounts exist. Read `docs/STORES.md` and `docs/MOBILE-RELEASE.md`.
+The October 4 redesign replaced the whole interface. Rules for every later pass:
 
-## Code map changes since your handoff
+- **Type.** Two self-hosted open-source fonts in `assets/fonts/` (SIL Open Font License): Fredoka for titles, buttons, tags and canvas text, Nunito for body text. No system-ui on canvas, no other fonts.
+- **No tracked uppercase.** No small spaced-out capital "eyebrow" labels and no letter-spaced canvas text. Tags are pill `.card-tag`s in sentence case.
+- **Short game labels.** "Garden clear!", "Perfect!", "Wave 3 · ×1.2", "Get all three · $1.99". Cut any sentence that explains a feeling ("Beautiful chaos", "Room to grow"). Hints are a few words. Prices and what a purchase contains stay exact.
+- **Chunky tactile UI.** Pill buttons with a solid darker bottom edge that presses down (green primary, gold for purchases, cream secondary), cream panels with an inked edge, ribbon titles with notched tails, filled tab icons. Colors are tokens at the top of `styles.css` (`--green*`, `--gold*`, `--pink*`, `--sky*`, `--cream`, `--edge`, `--ink`).
+- **No AI-generated raster art in the UI.** The two image-generator PNGs were removed. Interface graphics are CSS and inline SVG; `assets/ui/lock.svg` is the padlock. `ART-PROVENANCE.md` records this honestly; keep it accurate.
 
-| File | New responsibility |
+Screenshots of every screen, and before/after sheets, are in `docs/screenshots/storybook/`.
+
+## Code map
+
+| File | Responsibility |
 |---|---|
+| keepsakes.js | Seed style catalog, unlock rules, product and entitlement ids |
 | koi.js | Eight Koi boards, product and entitlement ids, free-board count |
-| engine.js | Adds currents and the `current` event |
-| art.js | Adds scenery, ambient life, ring/glow particles, currents and koi; exports `koiFish` |
-| app.js | Chapter flow for Moon and Koi, store gating and unlock panel, game-feel layer |
-| garden.js | `koiBest` and `mode: 'koi'` rewards |
-| store*.js | Purchases (release thread) |
+| garden.js | Seeds, plots, rewards for every mode, daily and weekly bouquet |
+| engine.js / rush.js | Puzzle physics with currents and gates; endless Rush with tempo |
+| art.js | All canvas art: scenery, flowers, seeds and styles, particles, callouts |
+| app.js | Screens, HUD, results, offers, chapters, keepsake shelf, game feel |
+| native.js | Haptics and the native save mirror (shipping thread) |
+| store*.js | Purchases (shipping thread; send requests instead of editing) |
 
-Script order: store-config → store → levels → moon → koi → garden → engine → rush → art → meadow → sound → app → store-ui → pwa. `sw.js` ASSETS includes `koi.js` and the store files; Claude bumped `VERSION` by hand to `4b0c7e1d9a52f3c8`. Your `work/prepare-release.cjs` recomputes it, which is fine.
+Script order: store-config → store → levels → moon → koi → keepsakes → garden → engine → rush → art → meadow → sound → native → app → store-ui → pwa. `sw.js` ASSETS lists every shipped file, including the two fonts and `lock.svg`; bump `VERSION` whenever an asset changes (the Pages build replaces it with a content hash). The native copy step derives its file list from ASSETS.
 
 ## Verification
 
 From `bloomshot/`, every suite must exit 0 (CI runs the same list in `.github/workflows/web-tests.yml`):
 
 ```text
-node qa/test-engine.cjs           (20)
-node qa/test-rush.cjs             (17)
-node qa/test-pwa.cjs              (20)
-node qa/test-sound.cjs            (13)
-node qa/test-garden.cjs           (21)
-node qa/test-save-integration.cjs (16)
-node qa/test-moon-engine.cjs      (15)
-node qa/test-store.cjs            (14)
+node qa/test-engine.cjs
+node qa/test-rush.cjs
+node qa/test-pwa.cjs
+node qa/test-sound.cjs
+node qa/test-garden.cjs
+node qa/test-save-integration.cjs
+node qa/test-moon-engine.cjs
 node qa/test-moon-levels.cjs
 node qa/test-precache-streams.cjs
+node qa/test-store.cjs
+node qa/test-native.cjs
 node qa/check-moon-pointer.cjs
 node qa/test-koi-levels.cjs
+node qa/test-keepsakes.cjs
 ```
 
-`test-koi-levels` checks geometry, that each board has a recorded win that also fails in still water (the currents matter), replay at 30/60/144 FPS, no lucky one-shot openers past board 1, and aim-tolerance floors. Current tolerance at 3° error: 100/88/85/73/70/60/53/43% for pools 1 to 8. Use `node qa/test-koi-levels.cjs --solve` after moving any Koi geometry, and `BLOOM_WORLD=koi node qa/aim-tolerance.cjs 5 3 400` to measure one pool.
+Then in `native/`: `npm ci && npm run sync && npm run check`. Running the suites rewrites several `qa/*-results.json` files with new timestamps; commit only the ones your change actually affects. None of this is physical-device proof.
 
-Screenshots for each pass are in the project files under `bloomshot/screenshots/`. None of this is physical-device proof, and Trevor has not yet given feedback on the Koi pools.
+## Store state
 
-## Publish this build (your Site)
-
-Your private Site (`bloomshot-meadow.trevor-owens1996.chatgpt.site`, project `appgprj_6ac04fc69fa881919f50dedb89a70cd6`) still serves the October 2 build. After replacing `outputs/bloomshot`, run your usual release steps: `node work/prepare-release.cjs`, push, publish the archive with the owner-private operation, update `WEB-RELEASE.json`. Reuse the Site; do not change its audience.
-
-## Native
-
-In `native/`, the copy step derives its file list from `sw.js` ASSETS, so `koi.js` and the store files flow through; run `npm run sync` and `npm run check` (CI does the same in the `native-packaging` job) and confirm the native `index.html` keeps the new script tags. For purchases: `npm i @revenuecat/purchases-capacitor`, then follow `docs/STORES.md` steps 1 to 7. The app id `dev.bloomshot.game` is still a placeholder. Trevor cannot pay the Apple ($99/yr) or Google ($25) fees until his next paycheck; build what needs no account first (the Android debug APK and unsigned simulator compile in `.github/workflows/`; both run from the Actions tab).
+Koi (`bloomshot.world.koi`, $4.99), Keepsake Collection (`bloomshot.style.collection1`, $1.99) and Launch Bundle (`bloomshot.bundle.launch1`, $5.99) are all `available: false` in `store-config.js`. Flip one only after a sandbox purchase and restore work for it. RevenueCat keys stay empty until Trevor's store accounts exist; he cannot pay the Apple ($99/yr) or Google ($25) fees until his next paycheck. Read `docs/STORES.md` and `docs/MOBILE-RELEASE.md`.
 
 ## What to do next
 
-1. Put this build on the Site and get Trevor playing Koi on his phone. Ask what feels slow, unfair or flat.
-2. Native: get the debug APK onto Trevor's Android phone, and mirror saves to Capacitor Preferences so an OS cleanup cannot erase a garden. Add Capacitor Haptics, because `navigator.vibrate` does nothing on iPhone.
-3. When accounts exist: products, RevenueCat entitlements, sandbox buy/cancel/restore/refund, then flip Koi to `available: true`.
-4. Rush pacing: Trevor asked for faster, rising pressure the longer a run lasts. Tune by measured first-loss wave, one variable at a time.
-5. Next sellable content, in the order of the monetization plan: Garden Keepsakes (cosmetic seed, trail and bloom styles with honest previews), a bundle, then boosters if any (earnable in play, never sold as relief from designed frustration).
-6. Keep updating this file at the end of every fourth pass.
+1. Get Trevor playing the redesigned build on his phone through GitHub Pages and ask what feels slow, unfair or flat.
+2. When store accounts exist: products, RevenueCat entitlements, sandbox buy, cancel, restore and refund, then flip products to available one at a time.
+3. More content in the order of the monetization plan: new earnable keepsakes and worlds; boosters only if earnable in play and never sold as relief from designed frustration.
+4. Keep every new screen and line of text to the Storybook rules above.
+5. Update this file at the end of every fourth pass.

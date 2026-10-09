@@ -597,8 +597,8 @@
       ctx.beginPath(); ctx.moveTo(x, y - 4); ctx.lineTo(x + 3, y); ctx.lineTo(x, y + 4); ctx.lineTo(x - 3, y); ctx.closePath();
       ctx.fillStyle = night ? '#ffd8e5' : '#e86189'; ctx.fill();
     }
-    ctx.font = '700 8px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillStyle = night ? '#ffcedd' : '#a54164'; ctx.fillText('D A N G E R   L I N E', 210, y + 15);
+    ctx.font = '600 11px Fredoka, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = night ? '#ffcedd' : '#a54164'; ctx.fillText('Danger line', 210, y + 15);
     ctx.restore();
   }
 
@@ -957,7 +957,7 @@
     ctx.scale(Math.max(.7, scale), Math.max(.7, scale));
     ctx.globalAlpha = Math.min(1, life / .25); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     const size = floater.size || 15;
-    ctx.font = `900 ${size}px system-ui, sans-serif`; ctx.lineJoin = 'round';
+    ctx.font = `700 ${size}px Fredoka, system-ui, sans-serif`; ctx.lineJoin = 'round';
     ctx.lineWidth = 3.4; ctx.strokeStyle = '#ffffff'; ctx.strokeText(floater.text, 0, 0);
     ctx.fillStyle = floater.color || '#e2477c'; ctx.fillText(floater.text, 0, 0);
     ctx.restore();
@@ -1220,7 +1220,7 @@
     ctx.save(); ctx.translate(clamp(floater.x, 78, 342), y - (reducedMotion ? 0 : ease(age / duration) * 6));
     ctx.scale(scale, scale); ctx.globalAlpha = fade; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     const size = wave ? 36 : combo ? 43 : bonus ? 31 : 21;
-    ctx.font = `900 ${size}px system-ui, sans-serif`;
+    ctx.font = `700 ${size}px Fredoka, system-ui, sans-serif`;
     // A restrained metallic relief gives the number the finish of a small trophy.
     const face = ctx.createLinearGradient(0, -size * .5, 0, size * .5);
     face.addColorStop(0, '#fff8ba'); face.addColorStop(.3, '#ffe984'); face.addColorStop(.57, '#ffc956'); face.addColorStop(1, '#e99a4d');
@@ -1229,12 +1229,12 @@
     ctx.strokeText(value, 0, 0); ctx.fillStyle = '#be7e49'; ctx.fillText(value, 0, 1.7);
     ctx.shadowBlur = 0; ctx.shadowOffsetY = 0; ctx.fillStyle = face; ctx.fillText(value, 0, 0);
     if (combo || bonus || wave) {
-      ctx.font = '800 9px system-ui, sans-serif';
-      const label = wave ? String(floater.label || '').toUpperCase().split('').join(' ') : combo ? 'B L O O M   C H A I N' : 'E X T R A   B A L L S';
+      ctx.font = '600 13px Fredoka, system-ui, sans-serif';
+      const label = wave ? String(floater.label || '') : combo ? 'chain!' : 'extra seeds';
       ctx.shadowColor = 'rgba(255,255,255,.95)'; ctx.shadowBlur = 4;
       ctx.fillStyle = '#245866'; ctx.fillText(label, 0, size * .62);
       ctx.shadowBlur = 0;
-      const offset = wave ? 112 : combo ? 49 : 43;
+      const offset = wave ? 124 : combo ? 49 : 43;
       ctx.globalAlpha *= .86;
       for (const side of [-1, 1]) {
         ctx.beginPath(); ctx.moveTo(side * (offset - 2), 13); ctx.quadraticCurveTo(side * (offset + 7), 0, side * offset, -12);

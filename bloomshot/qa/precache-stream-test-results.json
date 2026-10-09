@@ -1,47 +1,47 @@
 {
   "passed": true,
-  "testedAt": "2026-10-04T00:44:31.173Z",
+  "testedAt": "2026-10-04T05:56:56.135Z",
   "node": "v22.22.0",
-  "workerSha256": "679855eae20f28b3b0090734b252d642b3c81cef9bdffe6f82a06d2935f35b93",
+  "workerSha256": "3d5988b5867487359357750574687463052f61ba162332dd0e1b6302d37ceedf",
   "maxConnections": 3,
-  "workerVersion": "1876c23da6609933",
-  "assetCount": 27,
-  "imageCount": 7,
+  "workerVersion": "081b7e4bc5a9cb14",
+  "assetCount": 28,
+  "imageCount": 6,
   "negativeControl": {
     "stalledAsExpected": true,
     "headers": 3,
     "consumed": 0,
     "bytes": 0,
     "peakConnections": 3,
-    "elapsedMs": 276.39
+    "elapsedMs": 275.9
   },
   "actualInstall": {
-    "headers": 27,
-    "consumed": 27,
-    "bytes": 2080944,
+    "headers": 28,
+    "consumed": 28,
+    "bytes": 534089,
     "peakConnections": 3,
-    "cached": 27,
-    "elapsedMs": 48.98,
+    "cached": 28,
+    "elapsedMs": 42.69,
     "deadlineMs": 15000,
     "allBodyHashesMatch": true
   },
   "assets": [
     {
       "path": "/",
-      "bytes": 23453,
-      "sha256": "9be38b7408d4b4b0e44c2a6798e72371401036d013eb3b092c19e766d5237b57",
+      "bytes": 20992,
+      "sha256": "2a34c05f269b785fbbfa94f568903c9ecaaa8b1480b51c8ef26c3edcbc55e6f3",
       "type": "text/html; charset=utf-8"
     },
     {
       "path": "/index.html",
-      "bytes": 23453,
-      "sha256": "9be38b7408d4b4b0e44c2a6798e72371401036d013eb3b092c19e766d5237b57",
+      "bytes": 20992,
+      "sha256": "2a34c05f269b785fbbfa94f568903c9ecaaa8b1480b51c8ef26c3edcbc55e6f3",
       "type": "text/html; charset=utf-8"
     },
     {
       "path": "/styles.css",
-      "bytes": 43660,
-      "sha256": "798abcf33e0daa296b3f8b03315f1ffd3711183e5fa3213a131f4b65df1e2480",
+      "bytes": 41327,
+      "sha256": "4a8b7ad7c321aec6a56db48d7b19f1a1597c7ae02b6c35bc04e29959f9c59394",
       "type": "text/css; charset=utf-8"
     },
     {
@@ -58,8 +58,8 @@
     },
     {
       "path": "/levels.js",
-      "bytes": 11876,
-      "sha256": "3a7f5c673b27d3a2783766e182342a458a0deb871ac204c23bc094f198708a7f",
+      "bytes": 11404,
+      "sha256": "c7adb2a7a5bcbc607fdd7214973f4faf4c95e9fd67827f22ab020af8f9032f3a",
       "type": "text/javascript; charset=utf-8"
     },
     {
@@ -76,8 +76,8 @@
     },
     {
       "path": "/keepsakes.js",
-      "bytes": 5145,
-      "sha256": "9865953050b03bfd147857d169fb6936ab60a198edb3eb4208794964ff6433cb",
+      "bytes": 4983,
+      "sha256": "cad08fffbb506ff89eda09b39dac39387bc7c91d1d67734792fa87890c390ebc",
       "type": "text/javascript; charset=utf-8"
     },
     {
@@ -100,8 +100,8 @@
     },
     {
       "path": "/art.js",
-      "bytes": 81418,
-      "sha256": "b7b8019068664b84960b52cde3f797fed47398bb18ebc6fa4f6fa443c6520134",
+      "bytes": 81387,
+      "sha256": "a208b448c638c8e8a87597136e6da2a12a54b05498530737681e7b33f5417efb",
       "type": "text/javascript; charset=utf-8"
     },
     {
@@ -124,8 +124,8 @@
     },
     {
       "path": "/app.js",
-      "bytes": 84469,
-      "sha256": "075d123a3a79577c5dfaa0e9d576871c31b962884c2afcc31bc0995f23bdcbbe",
+      "bytes": 82424,
+      "sha256": "d7072d3aaa948379e56e4f3444972c2dd22a6f19e002e9363c9a6fab0d38d82a",
       "type": "text/javascript; charset=utf-8"
     },
     {
@@ -177,207 +177,220 @@
       "type": "image/png"
     },
     {
-      "path": "/assets/botanical-header.png",
-      "bytes": 396776,
-      "sha256": "718009435c34970232f53d5bff6511e287d89abed7c797244449cfdbe312068d",
-      "type": "image/png"
+      "path": "/assets/fonts/fredoka.woff2",
+      "bytes": 29732,
+      "sha256": "99d6c78e043710d4f83ed90716779798b7b04eb690f73e0ad0e8f32d1f0e98c2",
+      "type": "font/woff2"
     },
     {
-      "path": "/assets/split-leaf.png",
-      "bytes": 1209310,
-      "sha256": "dafe1734d7af96b5a7e299365ed0c42009970156daf14560e34fbfa5079d96e4",
-      "type": "image/png"
+      "path": "/assets/fonts/nunito.woff2",
+      "bytes": 39128,
+      "sha256": "ba344451eab25b217a165363b1982048a5e5830a0daf36577973955a04cac793",
+      "type": "font/woff2"
+    },
+    {
+      "path": "/assets/ui/lock.svg",
+      "bytes": 336,
+      "sha256": "0c3dabba990c2c48077f0d055b3feebd7919846a2431382a9602ae95eb5aee6d",
+      "type": "image/svg+xml"
     }
   ],
   "progress": [
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 1,
-      "total": 27,
+      "total": 28,
       "failed": false,
       "cached": 1
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 2,
-      "total": 27,
+      "total": 28,
       "failed": false,
       "cached": 2
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 3,
-      "total": 27,
+      "total": 28,
       "failed": false,
       "cached": 3
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 4,
-      "total": 27,
+      "total": 28,
       "failed": false,
       "cached": 4
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 5,
-      "total": 27,
+      "total": 28,
       "failed": false,
       "cached": 5
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 6,
-      "total": 27,
+      "total": 28,
       "failed": false,
       "cached": 6
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 7,
-      "total": 27,
+      "total": 28,
       "failed": false,
       "cached": 7
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 8,
-      "total": 27,
+      "total": 28,
       "failed": false,
       "cached": 8
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 9,
-      "total": 27,
+      "total": 28,
       "failed": false,
       "cached": 9
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 10,
-      "total": 27,
+      "total": 28,
       "failed": false,
       "cached": 10
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 11,
-      "total": 27,
+      "total": 28,
       "failed": false,
       "cached": 11
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 12,
-      "total": 27,
+      "total": 28,
       "failed": false,
       "cached": 12
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 13,
-      "total": 27,
+      "total": 28,
       "failed": false,
       "cached": 13
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 14,
-      "total": 27,
+      "total": 28,
       "failed": false,
       "cached": 14
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 15,
-      "total": 27,
+      "total": 28,
       "failed": false,
       "cached": 15
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 16,
-      "total": 27,
+      "total": 28,
       "failed": false,
       "cached": 16
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 17,
-      "total": 27,
+      "total": 28,
       "failed": false,
       "cached": 17
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 18,
-      "total": 27,
+      "total": 28,
       "failed": false,
       "cached": 18
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 19,
-      "total": 27,
+      "total": 28,
       "failed": false,
       "cached": 19
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 20,
-      "total": 27,
+      "total": 28,
       "failed": false,
       "cached": 20
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 21,
-      "total": 27,
+      "total": 28,
       "failed": false,
       "cached": 21
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 22,
-      "total": 27,
+      "total": 28,
       "failed": false,
       "cached": 22
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 23,
-      "total": 27,
+      "total": 28,
       "failed": false,
       "cached": 23
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 24,
-      "total": 27,
+      "total": 28,
       "failed": false,
       "cached": 24
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 25,
-      "total": 27,
+      "total": 28,
       "failed": false,
       "cached": 25
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 26,
-      "total": 27,
+      "total": 28,
       "failed": false,
       "cached": 26
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 27,
-      "total": 27,
+      "total": 28,
       "failed": false,
       "cached": 27
+    },
+    {
+      "type": "BLOOMSHOT_DOWNLOAD",
+      "completed": 28,
+      "total": 28,
+      "failed": false,
+      "cached": 28
     }
   ]
 }

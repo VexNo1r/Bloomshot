@@ -5,7 +5,7 @@
   const { levels, flowers, worlds } = BloomLevels;
   // Five-seed chapters share one flow: Moon gates are free, Koi currents are free for two pools.
   const chapters = { moon: BloomMoon, koi: BloomKoi };
-  const CHAPTER_NAMES = { moon: 'MOON GARDEN', koi: 'KOI CONSERVATORY' };
+  const CHAPTER_NAMES = { moon: 'Moon', koi: 'Koi' };
   const store = window.BloomStore || null;
   const Keepsakes = window.BloomKeepsakes;
   const native = window.BloomNative || null;
@@ -43,7 +43,7 @@
     if (native && native.reloading) return; // a restored save is about to replace this page, so nothing may overwrite it
     let json = '';
     try { json = JSON.stringify(save); localStorage.setItem(STORAGE, json); }
-    catch (_) { storageAvailable = false; $('settings-storage').textContent = 'Progress is saved for this visit only. This browser is not allowing device storage.'; }
+    catch (_) { storageAvailable = false; $('settings-storage').textContent = "This browser won't save, so progress lasts for this visit only."; }
     if (native && json) native.mirror(STORAGE, json); // the phone's own preferences may still work when web storage does not
   }
   function haptic(kind) { if (save.settings.haptics && native) native.haptic(kind); }
@@ -60,7 +60,8 @@
   let lastFrame = 0, accumulator = 0, toastTimer, currentWorld = null, newFlower = null, newKeepsake = null;
   let displayScore = 0, hudKey = '', pulseTime = 0, rushRecordBroken = false;
   const dialogs = ['result-dialog', 'settings-dialog', 'help-dialog', 'world-dialog'];
-  const starText = n => '★'.repeat(n) + '☆'.repeat(3 - n);
+  // Three filled stars, the unearned ones dimmed, so a row of stars always reads the same width.
+  const starHTML = n => '<span>★</span>'.repeat(n) + '<span class="off">★</span>'.repeat(3 - n);
   const fmt = number => Math.round(number).toLocaleString();
   const escape = text => String(text).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
   function say(text) { $('announcement').textContent = text; }
@@ -103,13 +104,13 @@
     const koi = productInfo(BloomKoi.product), style = productInfo(Keepsakes.product);
     if (!koi || !style || koi.owned || style.owned) return '';
     // The exact saving is shown only when the store gives comparable amounts; otherwise the wording names no number.
-    let saving = ', for less than the two on their own';
+    let saving = 'Less than buying both';
     if ([bundle, koi, style].every(p => Number.isFinite(p.amount) && p.currency && p.currency === bundle.currency)) {
       const amount = Math.round((koi.amount + style.amount - bundle.amount) * 100) / 100;
-      if (amount > 0) try { saving = `: ${new Intl.NumberFormat(undefined, { style: 'currency', currency: bundle.currency }).format(amount)} less than the two on their own`; } catch (_) { /* keep the plain wording */ }
+      if (amount > 0) try { saving = `${new Intl.NumberFormat(undefined, { style: 'currency', currency: bundle.currency }).format(amount)} less than buying both`; } catch (_) { /* keep the plain wording */ }
     }
-    const separately = koi.price && style.price ? ` (${koi.price} and ${style.price})` : '';
-    return `<div class="bundle-offer"><span class="eyebrow">LAUNCH BUNDLE</span><strong>Koi Conservatory + Keepsake Collection</strong><p>Six more koi pools and three seed styles in one purchase${escape(saving + separately)}.</p><button class="button-secondary bundle-btn" type="button" data-buy="${BUNDLE}">Get both${bundle.price ? ` · ${escape(bundle.price)}` : ''}</button></div>`;
+    const separately = koi.price && style.price ? ` (${koi.price} + ${style.price})` : '';
+    return `<div class="bundle-offer"><span class="card-tag gold">Bundle</span><strong>Koi pools + seed styles</strong><p>${escape(saving + separately)}.</p><button class="button-secondary bundle-btn" type="button" data-buy="${BUNDLE}">Get both${bundle.price ? ` · ${escape(bundle.price)}` : ''}</button></div>`;
   }
   // Keepsakes: Meadow is free, Moonlit is earned in the Moon Garden, the rest come with the collection.
   const keepsakeContext = () => ({ moon: save.moon, moonLevels: BloomMoon.levels, owns: entitlement => Boolean(store && store.owns(entitlement)) });
@@ -145,17 +146,17 @@
     runId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`; runAward = 0; runBouquet = null;
     if (!preview && typeof level.id === 'number') { save.lastLevel = level.id; persist(); }
     $('level-name').textContent = level.name;
-    $('level-label').textContent = preview ? `${theme === 'moon' ? 'MOON GARDEN' : 'KOI GARDEN'} · VISUAL PREVIEW` : typeof level.id === 'number' ? `THE MEADOW · ${String(level.id).padStart(2, '0')} / ${levels.length}` : 'THE DAILY GARDEN';
-    $('game-hint').textContent = preview ? 'Preview the colors of a future garden.' : level.id === 1 ? 'Aim & release. Then drag to guide your swarm!' : 'Aim your volley. Drag to guide it into the flowers.';
-    canvas.setAttribute('aria-label', `${level.name}. Aim with arrow keys and press Space to launch three balls. While flying, arrow keys guide the swarm. Press R to rotate a petal. Three volleys to bloom the garden.`);
+    $('level-label').textContent = preview ? 'Preview' : typeof level.id === 'number' ? `Garden ${level.id}/${levels.length}` : 'Daily garden';
+    $('game-hint').textContent = preview ? 'A look at a garden still being built.' : level.id === 1 ? 'Pull back, let go, then drag to steer.' : 'Aim, let go, then drag to steer.';
+    canvas.setAttribute('aria-label', `${level.name}. Aim with arrow keys and press Space to launch three balls. While flying, arrow keys guide the swarm. Press R to turn a petal. Three shots to bloom the garden.`);
     if (isRush()) {
       $('level-name').textContent = 'Meadow Rush';
-      $('game-hint').textContent = 'Aim & release one seed. Keep flowers above the line.';
+      $('game-hint').textContent = 'Keep the flowers above the line.';
       canvas.setAttribute('aria-label', 'Meadow Rush. Aim and release one seed at a time. Flowers descend after your first shot. Three breached clusters end your run. Arrow keys aim, Space fires, S splits after six direct hits, R turns the petal.');
     }
     if (isChapter()) {
       const list = chapters[level.worldId].levels;
-      $('level-label').textContent = `${CHAPTER_NAMES[level.worldId]} · ${String(list.findIndex(item => item.id === level.id) + 1).padStart(2, '0')} / ${list.length}`;
+      $('level-label').textContent = `${CHAPTER_NAMES[level.worldId]} ${list.findIndex(item => item.id === level.id) + 1}/${list.length}`;
       $('game-hint').textContent = level.hint || level.description;
       canvas.setAttribute('aria-label', `${level.name}. Five single-seed shots. ${isKoi() ? 'Flowing currents turn your seed toward the way the water runs.' : 'Paired moon gates transport your seed.'} Aim with arrows, Space fires, R turns a leaf between shots. No in-flight steering.`);
     }
@@ -167,11 +168,11 @@
     if (key !== hudKey) {
       hudKey = key;
       const remaining = rush ? game.lives : game.shotsLeft;
-      const units = rush ? remaining === 1 ? 'life' : 'lives' : isChapter() ? remaining === 1 ? 'seed' : 'seeds' : remaining === 1 ? 'volley' : 'volleys';
+      const units = rush ? remaining === 1 ? 'life' : 'lives' : isChapter() ? remaining === 1 ? 'seed' : 'seeds' : remaining === 1 ? 'shot' : 'shots';
       $('seed-count').innerHTML = Array.from({ length: isChapter() ? game.rules.shots : 3 }, (_, index) => `<span class="seed-dot ${index < remaining ? 'available' : 'used'}" aria-hidden="true"></span>`).join('') + `<span class="seed-label">${remaining} ${units}</span>`;
       $('seed-count').setAttribute('aria-label', `${remaining} ${units} remaining`);
       $('bloom-count').textContent = rush ? `${game.bloomedCount} ${game.bloomedCount === 1 ? 'bloom' : 'blooms'}` : `${game.bloomedCount} / ${game.buds.length} bloomed`;
-      if (rush) $('level-label').textContent = `WAVE ${String(game.wave).padStart(2, '0')} · TEMPO ×${game.tempo.toFixed(1)}`;
+      if (rush) $('level-label').textContent = `Wave ${game.wave} · ×${game.tempo.toFixed(1)}`;
       $('best-value').textContent = preview ? 'Preview' : record()?.best ? fmt(record().best) : '—';
       canvas.dataset.status = game.status; canvas.dataset.blooms = game.bloomedCount; canvas.dataset.level = game.level.id; canvas.dataset.shots = game.shotsLeft;
       $('rotate-btn').disabled = game.status !== 'aiming' || game.rotationUsed || !game.bumpers.length;
@@ -183,20 +184,20 @@
     canvas.dataset.gatePasses = game.gatePasses || 0;
     if (!isChapter()) $('combo-meter').removeAttribute('aria-valuetext');
     if (isKoi()) {
-      const rides = game.currentRides || 0, words = `${rides} ${rides === 1 ? 'CURRENT' : 'CURRENTS'} RIDDEN`;
+      const rides = game.currentRides || 0, words = `${rides} ${rides === 1 ? 'current' : 'currents'} ridden`;
       $('combo-label').textContent = words;
       $('combo-meter').style.setProperty('--charge', '0%'); $('combo-meter').classList.remove('fever');
       $('combo-meter').setAttribute('aria-label', 'Koi currents ridden'); $('combo-meter').setAttribute('aria-valuenow', '0');
       $('combo-meter').setAttribute('aria-valuetext', words.toLowerCase());
-      $('guide-label').textContent = game.status === 'flying' ? 'FOLLOW THE CURRENT' : `3 STARS · ${game.level.par} SHOTS`;
+      $('guide-label').textContent = game.status === 'flying' ? 'Ride it' : `★★★ in ${game.level.par}`;
       $('fever-banner').hidden = true; return;
     }
     if (isMoon()) {
-      $('combo-label').textContent = `${game.gatePasses || 0} GATE ${game.gatePasses === 1 ? 'CROSSING' : 'CROSSINGS'}`;
+      $('combo-label').textContent = `${game.gatePasses || 0} ${game.gatePasses === 1 ? 'gate' : 'gates'} crossed`;
       $('combo-meter').style.setProperty('--charge', '0%'); $('combo-meter').classList.remove('fever');
       $('combo-meter').setAttribute('aria-label', 'Moon gate crossings'); $('combo-meter').setAttribute('aria-valuenow', '0');
       $('combo-meter').setAttribute('aria-valuetext', `${game.gatePasses || 0} gate crossings`);
-      $('guide-label').textContent = game.status === 'flying' ? 'FOLLOW THE MOONLIGHT' : `3 STARS · ${game.level.par} SHOTS`;
+      $('guide-label').textContent = game.status === 'flying' ? 'Through the gate' : `★★★ in ${game.level.par}`;
       $('fever-banner').hidden = true; return;
     }
     if (rush) {
@@ -204,28 +205,28 @@
       canvas.dataset.elapsed = game.elapsed.toFixed(2); canvas.dataset.splitReady = game.splitReady;
       $('rotate-btn').disabled = game.status === 'lost' || game.rotateCooldown > 0;
       $('rotate-btn').textContent = game.rotateCooldown > 0 ? `Turn · ${Math.ceil(game.rotateCooldown)}s` : 'Turn petal';
-      $('combo-label').textContent = game.splitCharge >= 1 ? 'SPLIT CHARGED' : `SPLIT · ${Math.round(game.splitCharge * 6)}/6 HITS`;
+      $('combo-label').textContent = game.splitCharge >= 1 ? 'Split ready!' : `Split ${Math.round(game.splitCharge * 6)}/6`;
       $('combo-meter').style.setProperty('--charge', `${game.splitCharge * 100}%`);
       $('combo-meter').classList.toggle('fever', game.splitReady);
       $('combo-meter').setAttribute('aria-label', 'Manual split charge');
       $('combo-meter').setAttribute('aria-valuenow', String(Math.round(game.splitCharge * 100)));
-      $('guide-label').textContent = game.status === 'lost' ? 'RUN OVER' : game.fireCooldown > 0 ? 'RELOADING' : game.balls.length >= 5 ? '5 SEEDS IN PLAY' : 'SHOT READY';
+      $('guide-label').textContent = game.status === 'lost' ? 'Run over' : game.fireCooldown > 0 ? 'Reloading' : game.balls.length >= 5 ? 'Max seeds' : 'Fire!';
       $('split-btn').disabled = !game.splitReady;
       $('split-btn').style.setProperty('--split-charge', `${game.splitCharge * 100}%`);
-      $('split-btn').textContent = game.splitReady ? 'Split +2 ✦' : game.splitCharge >= 1 ? game.balls.length ? 'Split · need room' : 'Split · fire first' : `Split · ${Math.round(game.splitCharge * 6)}/6`;
+      $('split-btn').textContent = game.splitReady ? 'Split! +2' : game.splitCharge >= 1 ? game.balls.length ? 'No room' : 'Fire first' : `Split ${Math.round(game.splitCharge * 6)}/6`;
       $('fever-banner').hidden = game.feverTime <= 0;
-      $('fever-banner').textContent = 'SUPER BLOOM!';
+      $('fever-banner').textContent = 'Super Bloom!';
       return;
     }
-    if ($('combo-label')) $('combo-label').textContent = game.combo ? `${game.combo} BLOOMS · ×${Math.min(10, 1 + Math.floor((game.combo - 1) / 5))}` : 'BUILD YOUR SUPER BLOOM';
+    if ($('combo-label')) $('combo-label').textContent = game.combo ? `${game.combo} chain · ×${Math.min(10, 1 + Math.floor((game.combo - 1) / 5))}` : 'Chain blooms';
     if ($('combo-meter')) {
       $('combo-meter').style.setProperty('--charge', `${game.feverTime > 0 ? 100 : game.combo % 12 / 12 * 100}%`);
       $('combo-meter').classList.toggle('fever', game.feverTime > 0);
       $('combo-meter').setAttribute('aria-label', `${game.combo} consecutive blooms`);
       $('combo-meter').setAttribute('aria-valuenow', String(game.feverTime > 0 ? 100 : Math.round(game.combo % 12 / 12 * 100)));
     }
-    if ($('guide-label')) $('guide-label').textContent = game.status === 'flying' ? `GUIDE ${Math.ceil(game.guideCharge * 100)}%` : '3 BALLS / VOLLEY';
-    if ($('fever-banner')) { $('fever-banner').hidden = game.feverTime <= 0; $('fever-banner').textContent = 'SUPER BLOOM!'; }
+    if ($('guide-label')) $('guide-label').textContent = game.status === 'flying' ? `Steer ${Math.ceil(game.guideCharge * 100)}%` : '3 seeds a shot';
+    if ($('fever-banner')) { $('fever-banner').hidden = game.feverTime <= 0; $('fever-banner').textContent = 'Super Bloom!'; }
   }
   const flowerIcons = new Map();
   function flowerGraphic(flower, locked = false) {
@@ -242,16 +243,16 @@
   }
   // The daily garden: one new layout a day. It pays seeds once per new star, and any four clears in a
   // Monday-to-Sunday week gather a bouquet. A missed day takes nothing away, and nothing counts down.
-  const WEEKDAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
+  const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   let dailyDrawn = '';
   function renderDaily() {
     const level = BloomLevels.dailyLevel(localDate()), stars = save.daily[level.id]?.stars || 0;
     const week = BloomGarden.week(save.garden, level.id), { firstClear, perStar } = BloomGarden.daily;
     const source = levels.find(l => l.id === level.sourceLevelId);
-    $('daily-eyebrow').textContent = `DAILY GARDEN · ${WEEKDAYS[week.days.findIndex(d => d.today)]}`;
-    $('daily-status').innerHTML = !stars ? `A fresh angle on ${escape(source ? source.name : 'a favorite garden')}. Clear it for ${firstClear[0]} to ${firstClear[2]} seeds.` : `<span class="daily-stars" aria-hidden="true">${starText(stars)}</span> ${stars < 3 ? `Each new star adds ${perStar} seeds.` : 'A new garden grows tomorrow.'}`;
+    $('daily-eyebrow').textContent = WEEKDAYS[week.days.findIndex(d => d.today)];
+    $('daily-status').innerHTML = !stars ? `${escape(source ? source.name : 'A favorite garden')}, remixed. Clear it for ${firstClear[0]}–${firstClear[2]} seeds.` : `<span class="daily-stars" aria-hidden="true">${starHTML(stars)}</span> ${stars < 3 ? `+${perStar} seeds per new star.` : 'New garden tomorrow.'}`;
     $('daily-week').innerHTML = week.days.map((d, i) => `<span class="${[d.stars ? 'bloomed' : '', d.today ? 'today' : '', d.future ? 'later' : ''].join(' ').trim()}"><i></i>${'MTWTFSS'[i]}</span>`).join('');
-    $('daily-bouquet').textContent = week.claimed ? `Bouquet gathered this week: +${week.seeds} seeds.` : `${Math.min(week.cleared, week.goal)} of ${week.goal} for a ${week.seeds}\u2011seed bouquet this week.`;
+    $('daily-bouquet').textContent = week.claimed ? `Bouquet earned · +${week.seeds} seeds` : `Bouquet ${Math.min(week.cleared, week.goal)}/${week.goal} · +${week.seeds} seeds`;
     $('daily-btn').setAttribute('aria-label', `Play today's daily garden. ${stars ? `${stars} of 3 stars today.` : 'Not cleared yet.'} ${$('daily-bouquet').textContent}`);
     $('garden-btn').classList.toggle('has-daily', !stars);
     drawDailyBoard(level, stars > 0);
@@ -303,22 +304,22 @@
   }
   function renderGarden() {
     renderMeadow(); renderDaily();
-    $('rush-best').textContent = save.rush.runs ? `Best ${fmt(save.rush.best)} · Wave ${save.rush.bestWave} · ${fmt(save.rush.blooms)} total blooms` : 'One seed. Rising pressure. How far can you grow?';
+    $('rush-best').textContent = save.rush.runs ? `Best ${fmt(save.rush.best)} · Wave ${save.rush.bestWave}` : 'Endless waves. Set your first best!';
     const rushLabel = isRush() && game.started && game.status !== 'lost' ? 'Resume Meadow Rush' : 'Play Meadow Rush';
     $('garden-rush-btn').setAttribute('aria-label', rushLabel);
     $('garden-rush-btn').querySelector('strong').textContent = rushLabel;
     $('level-grid').innerHTML = levels.map(level => {
       const data = save.progress[level.id], open = unlocked(level.id);
-      return `<button class="level-card ${data?.stars ? 'completed' : ''} ${level.id === save.lastLevel ? 'current' : ''}" data-level="${level.id}" ${open ? '' : 'disabled'} aria-label="Garden ${level.id}, ${escape(level.name)}${open ? data?.stars ? `, ${data.stars} stars` : ', ready to play' : ', locked'}"><span class="level-number">${String(level.id).padStart(2, '0')}</span><span class="level-card-name">${escape(level.name)}</span><span class="level-stars" aria-hidden="true">${open ? starText(data?.stars || 0) : '◇'}</span></button>`;
+      return `<button class="level-card ${data?.stars ? 'completed' : ''} ${level.id === save.lastLevel ? 'current' : ''}" data-level="${level.id}" ${open ? '' : 'disabled'} aria-label="Garden ${level.id}, ${escape(level.name)}${open ? data?.stars ? `, ${data.stars} stars` : ', ready to play' : ', locked'}"><span class="level-number">${String(level.id).padStart(2, '0')}</span><span class="level-card-name">${escape(level.name)}</span><span class="level-stars" aria-hidden="true">${open ? starHTML(data?.stars || 0) : '<i class="level-lock"></i>'}</span></button>`;
     }).join('');
     const completed = Object.values(save.progress).filter(p => p.stars > 0).length;
     const total = Object.values(save.progress).reduce((n, p) => n + p.stars, 0);
-    const summary = $('garden-summary'); if (summary) summary.textContent = `${completed} of ${levels.length} gardens in bloom · ${total} stars`;
+    const summary = $('garden-summary'); if (summary) summary.textContent = `${completed}/${levels.length} · ${total} ★`;
   }
   function renderMeadow() {
     const data = BloomGarden.summary(save.garden), selected = data.plots.find(p => p.selected);
     $('garden-seeds').textContent = fmt(data.seeds);
-    $('meadow-summary').textContent = !data.totalStages ? data.seeds >= 4 ? 'Choose your first patch. Your seeds are ready to plant.' : 'Choose a patch. Your next run helps bring it to life.' : data.completedPlots === 6 ? 'Your meadow is in full bloom. Every flower grew from your play.' : `${data.totalStages} of 18 growth stages · ${data.completedPlots} of 6 patches in full bloom`;
+    $('meadow-summary').textContent = !data.totalStages ? data.seeds >= 4 ? 'Pick a patch and plant your first seeds.' : 'Pick a patch. Rush earns the seeds.' : data.completedPlots === 6 ? 'Full bloom! You grew every flower here.' : `${data.totalStages}/18 grown · ${data.completedPlots}/6 in full bloom`;
     $('garden-seeds').nextElementSibling.textContent = data.seeds === 1 ? 'seed' : 'seeds';
     if (!$('plot-markers').children.length) $('plot-markers').innerHTML = data.plots.map(plot => {
       const point = BloomMeadow.plots.find(p => p.id === plot.id);
@@ -330,11 +331,11 @@
       button.setAttribute('aria-label', `${plot.name}, ${plot.stageName}, stage ${plot.stage} of 3`);
     }
     $('plot-name').textContent = selected.name;
-    $('plot-stage').textContent = selected.stage ? `${selected.stageName} · ${selected.stage}/3` : 'READY TO PLANT';
+    $('plot-stage').textContent = selected.stage ? `${selected.stageName} · ${selected.stage}/3` : 'Ready to plant';
     $('plot-message').textContent = selected.description;
     $('plant-btn').disabled = !selected.canPlant;
     $('plant-btn').textContent = selected.stage === 3 ? 'In full bloom' : `${selected.stage ? 'Grow' : 'Plant'} · ${selected.nextCost} seeds`;
-    $('garden-earning-hint').textContent = selected.stage === 3 ? 'Choose another patch, or head back into Rush.' : !selected.canPlant ? `${selected.nextCost - data.seeds} more seeds to ${selected.stage ? 'grow' : 'plant'} this patch. Bloom flowers in Rush to earn them.` : 'Seeds come from Rush blooms, new stars in garden puzzles and the daily garden.';
+    $('garden-earning-hint').textContent = selected.stage === 3 ? 'Pick another patch to grow.' : !selected.canPlant ? `${selected.nextCost - data.seeds} more ${selected.nextCost - data.seeds === 1 ? 'seed' : 'seeds'} needed. Play Rush to earn them.` : 'Earn seeds in Rush, puzzles and the daily garden.';
     $('garden-btn').classList.toggle('has-seeds', data.plots.some(p => p.canPlant));
     meadowCanvas.dataset.seeds = data.seeds; meadowCanvas.dataset.stages = data.totalStages;
     meadowCanvas.dataset.selected = data.selectedId;
@@ -361,14 +362,16 @@
   function awardSeeds(reward) {
     const result = BloomGarden.grant(save.garden, { ...reward, runId, completed: true });
     save.garden = result.state; runAward = result.awarded; runBouquet = result.bouquet;
+    const seeds = BloomGarden.summary(save.garden).seeds;
+    $('garden-seeds').textContent = fmt(seeds); $('garden-seeds').nextElementSibling.textContent = seeds === 1 ? 'seed' : 'seeds';
     $('garden-btn').classList.toggle('has-seeds', BloomGarden.summary(save.garden).plots.some(p => p.canPlant));
   }
   function renderCollection() {
     $('collection-grid').innerHTML = flowers.map(flower => {
       const has = earned(flower);
-      return `<article class="flower-card ${has ? 'unlocked' : 'locked'}">${flowerGraphic(flower, !has)}<span class="flower-index">NO. ${String(flowers.indexOf(flower) + 1).padStart(2, '0')}</span><h3>${escape(flower.name)}</h3><p class="flower-latin">${escape(flower.latin || '')}</p><p>${has ? escape(flower.description) : `Complete garden ${flower.unlockLevel} to collect.`}</p><span class="flower-status">${has ? 'In your collection' : `Garden ${String(flower.unlockLevel).padStart(2, '0')}`}</span></article>`;
+      return `<article class="flower-card ${has ? 'unlocked' : 'locked'}">${flowerGraphic(flower, !has)}<span class="flower-index">#${flowers.indexOf(flower) + 1}</span><h3>${has ? escape(flower.name) : '???'}</h3><p>${has ? escape(flower.description) : `Clear garden ${flower.unlockLevel} to find it.`}</p><span class="flower-status">${has ? 'Found!' : `Garden ${flower.unlockLevel}`}</span></article>`;
     }).join('');
-    const summary = $('collection-summary'); if (summary) summary.textContent = `${flowers.filter(earned).length} of ${flowers.length} flowers discovered`;
+    const summary = $('collection-summary'); if (summary) summary.textContent = `${flowers.filter(earned).length} of ${flowers.length} flowers found`;
     renderKeepsakes();
   }
   // Garden Keepsakes shelf: every style can be previewed in motion before it is earned or bought.
@@ -387,19 +390,19 @@
     return `<img class="keepsake-swatch" src="${keepsakeIcons.get(style.id)}" alt="" width="60" height="60">`;
   }
   function keepsakeStatus(style, open, worn) {
-    if (worn) return 'Wearing now';
+    if (worn) return 'Wearing';
     if (open) return 'Tap to wear';
-    if (style.source === 'earned') return `${BloomMoon.levels.filter(level => save.moon[level.id]?.stars > 0).length} of ${BloomMoon.levels.length} Moon trials`;
-    return 'Keepsake Collection';
+    if (style.source === 'earned') return `Moon ${BloomMoon.levels.filter(level => save.moon[level.id]?.stars > 0).length}/${BloomMoon.levels.length}`;
+    return 'Collection';
   }
   function keepsakeOfferPanel() {
     if (collectionOwned()) return '';
     const offer = offerFor(Keepsakes.product);
     let action;
-    if (offer.live && offer.available) action = `<button class="button-primary unlock-btn" type="button" data-buy="${Keepsakes.product}">Get all three styles${offer.price ? ` · ${escape(offer.price)}` : ''}</button>${bundleOffer()}<p class="unlock-fine">${offer.mode === 'mock' ? 'TEST MODE: this purchase is simulated and nothing is charged.' : 'One payment through your app store. Restore it any time from Settings.'}</p>`;
-    else if (offer.live) action = '<p class="unlock-fine">The Keepsake Collection is not on sale yet. Every style can still be previewed here.</p>';
-    else action = '<p class="unlock-fine">The Keepsake Collection is available in the Bloomshot app for iPhone, iPad and Android.</p>';
-    return `<div class="unlock-panel keepsake-offer"><div class="unlock-copy"><span class="eyebrow">THE KEEPSAKE COLLECTION</span><strong>Three seed styles, one purchase</strong><p>Sakura Breeze, Firefly Night and Gilded Leaf. Each changes your seed, its trail and your bloom bursts. Looks only: no style changes how a shot flies.</p>${action}</div></div>`;
+    if (offer.live && offer.available) action = `<button class="button-primary unlock-btn" type="button" data-buy="${Keepsakes.product}">Get all three${offer.price ? ` · ${escape(offer.price)}` : ''}</button>${bundleOffer()}<p class="unlock-fine">${offer.mode === 'mock' ? 'Test mode: nothing is charged.' : 'One payment. Restore it any time in Settings.'}</p>`;
+    else if (offer.live) action = '<p class="unlock-fine">Not on sale yet. You can still preview every style.</p>';
+    else action = '<p class="unlock-fine">Available in the Bloomshot app for iPhone, iPad and Android.</p>';
+    return `<div class="unlock-panel keepsake-offer"><div class="unlock-copy"><span class="card-tag">Keepsake Collection</span><strong>Three seed styles</strong><p>Sakura Breeze, Firefly Night and Gilded Leaf. Each changes your seed, its trail and your blooms. Looks only: every shot flies the same.</p>${action}</div></div>`;
   }
   function renderKeepsakes() {
     if (!$('keepsake-grid')) return;
@@ -411,7 +414,7 @@
       return `<button class="keepsake-card${wearing ? ' worn' : ''}${open ? '' : ' locked'}" type="button" data-keepsake="${style.id}" aria-pressed="${style.id === shown.id}" aria-label="${escape(style.name)}, ${where}">${keepsakeGraphic(style)}<span class="keepsake-name">${escape(style.name)}</span><span class="keepsake-status">${keepsakeStatus(style, open, wearing)}</span></button>`;
     }).join('');
     const open = Keepsakes.unlocked(shown.id, context);
-    const note = shown.id === worn.id ? 'On your seed now.' : open ? 'Yours. Tap it again any time to switch.' : shown.source === 'earned' ? `Earned, never sold: ${shown.requirement}` : 'Previewing. Part of the Keepsake Collection.';
+    const note = shown.id === worn.id ? 'On your seed now.' : open ? 'Yours to wear.' : shown.source === 'earned' ? `Earned, never sold. ${shown.requirement}` : 'Preview. Part of the Keepsake Collection.';
     $('keepsake-caption').innerHTML = `<strong>${escape(shown.name)}</strong><p>${escape(shown.blurb)}</p><span class="keepsake-note">${escape(note)}</span>`;
     $('keepsake-offer').innerHTML = keepsakeOfferPanel();
     $('keepsake-canvas').setAttribute('aria-label', `Preview of the ${shown.name} seed style: a seed flies to a bud and blooms.`);
@@ -421,7 +424,7 @@
     BloomSound.wake(); keepsakePreview = id; showcase.t = 0; showcase.dirty = true;
     if (keepsakeOpen(id) && save.keepsake !== id) {
       save.keepsake = id; persist(); BloomSound.play('tap');
-      toast(`${style.name} is on your seed.`);
+      toast(`Wearing ${style.name}!`);
     }
     renderKeepsakes();
   }
@@ -516,15 +519,15 @@
   }
   function chapterEyebrow(world) {
     const cleared = Object.values(save[world.id]).filter(p => p.stars > 0).length, total = chapters[world.id].levels.length;
-    if (world.id === 'koi') return `${koiOwned() ? 'YOUR CONSERVATORY' : 'TWO FREE POOLS'} · ${cleared} / ${total} CLEARED`;
-    return `FREE CHAPTER · ${cleared} / ${total} CLEARED`;
+    if (world.id === 'koi') return `${koiOwned() ? 'Unlocked' : `${BloomKoi.freeBoards} free`} · ${cleared}/${total}`;
+    return `Free · ${cleared}/${total}`;
   }
   function renderWorlds() {
     $('worlds-grid').innerHTML = worlds.map(world => {
       const chapter = Boolean(chapters[world.id]);
-      const eyebrow = chapter ? chapterEyebrow(world) : world.available ? 'YOURS TO EXPLORE' : 'A FUTURE GARDEN';
-      const action = world.id === 'moon' ? 'Enter the moon garden' : world.id === 'koi' ? 'Enter the conservatory' : world.available ? 'Return to the meadow' : 'Take a look';
-      return `<button class="world-card ${world.id}" data-world="${world.id}"><span class="world-art">${worldArt(world)}</span><span class="world-card-body"><span class="eyebrow">${eyebrow}</span><span class="world-card-title">${escape(world.name)}</span><span class="world-card-desc">${escape(world.tagline)}</span><span class="world-card-action">${action}</span></span></button>`;
+      const tag = chapter ? chapterEyebrow(world) : world.available ? `Free · ${Object.values(save.progress).filter(p => p.stars > 0).length}/${levels.length}` : 'Coming soon';
+      const action = chapter ? 'Enter' : world.available ? 'Play' : 'Peek';
+      return `<button class="world-card ${world.id}" data-world="${world.id}"><span class="world-art">${worldArt(world)}</span><span class="world-card-body"><span class="card-tag ${world.id}">${tag}</span><span class="world-card-title">${escape(world.name)}</span><span class="world-card-desc">${escape(world.tagline)}</span><span class="world-card-action">${action}</span></span></button>`;
     }).join('');
   }
   // The unlock is described exactly: what it contains, the price the store reports, and that it is one purchase.
@@ -532,28 +535,27 @@
     if (koiOwned()) return '';
     const offer = offerFor(BloomKoi.product), paid = BloomKoi.levels.filter(level => !level.free).length;
     let action;
-    if (offer.live && offer.available) action = `<button class="button-primary unlock-btn" type="button" data-buy="${BloomKoi.product}">Unlock all ${BloomKoi.levels.length} pools${offer.price ? ` · ${escape(offer.price)}` : ''}</button>${bundleOffer()}<p class="unlock-fine">${offer.mode === 'mock' ? 'TEST MODE: this purchase is simulated and nothing is charged.' : 'One payment through your app store. Restore it any time from Settings.'}</p>`;
-    else if (offer.live) action = `<p class="unlock-fine">The full conservatory is not on sale yet. Your free pools are ready now.</p>`;
-    else action = `<p class="unlock-fine">Pools ${BloomKoi.freeBoards + 1} to ${BloomKoi.levels.length} unlock in the Bloomshot app for iPhone, iPad and Android.</p>`;
-    return `<div class="unlock-panel" id="koi-unlock"><div class="unlock-copy"><span class="eyebrow">THE FULL CONSERVATORY</span><strong>${paid} more pools of moving water</strong><p>Whirlpools, a waterfall, a reed maze and a moonlit finale. A one-time purchase with no ads, no timers and nothing random. Your stars and seeds carry over.</p>${action}</div></div>`;
+    if (offer.live && offer.available) action = `<button class="button-primary unlock-btn" type="button" data-buy="${BloomKoi.product}">Unlock all ${BloomKoi.levels.length} pools${offer.price ? ` · ${escape(offer.price)}` : ''}</button>${bundleOffer()}<p class="unlock-fine">${offer.mode === 'mock' ? 'Test mode: nothing is charged.' : 'One payment. Restore it any time in Settings.'}</p>`;
+    else if (offer.live) action = `<p class="unlock-fine">Not on sale yet. Your free pools are open now.</p>`;
+    else action = `<p class="unlock-fine">Pools ${BloomKoi.freeBoards + 1}–${BloomKoi.levels.length} unlock in the Bloomshot app for iPhone, iPad and Android.</p>`;
+    return `<div class="unlock-panel" id="koi-unlock"><div class="unlock-copy"><span class="card-tag koi">Full Conservatory</span><strong>${paid} more pools</strong><p>Whirlpools, a waterfall, a reed maze and a moonlit finale. One-time purchase, no ads.</p>${action}</div></div>`;
   }
   function renderChapter(world) {
     const id = world.id, chapter = chapters[id], koi = id === 'koi', records = save[id];
     const rows = chapter.levels.map((level, index) => {
       const paid = trialPaid(id, level), open = paid && trialCleared(id, index), stars = records[level.id]?.stars || 0;
       const state = !paid ? 'included with the full Koi Conservatory' : open ? `${stars} stars` : 'locked';
-      const tag = koi && level.free && !koiOwned() ? '<small class="free-tag">FREE</small>' : '';
-      return `<button class="moon-trial${paid ? '' : ' paid-lock'}" data-trial="${level.id}" data-chapter="${id}" ${open || !paid ? '' : 'disabled'} aria-label="${koi ? 'Koi pool' : 'Moon trial'} ${index + 1}, ${escape(level.name)}, ${state}"><span class="moon-trial-number">${String(index + 1).padStart(2, '0')}</span><span class="moon-trial-name">${escape(level.name)}${tag}</span><span class="moon-trial-stars" aria-hidden="true">${!paid ? '❀' : open ? starText(stars) : '◇'}</span></button>`;
+      const tag = koi && level.free && !koiOwned() ? '<small class="free-tag">Free</small>' : '';
+      return `<button class="moon-trial${paid ? '' : ' paid-lock'}" data-trial="${level.id}" data-chapter="${id}" ${open || !paid ? '' : 'disabled'} aria-label="${koi ? 'Koi pool' : 'Moon trial'} ${index + 1}, ${escape(level.name)}, ${state}"><span class="moon-trial-number">${String(index + 1).padStart(2, '0')}</span><span class="moon-trial-name">${escape(level.name)}${tag}</span><span class="moon-trial-stars" aria-hidden="true">${!paid ? '❀' : open ? starHTML(stars) : '<i class="level-lock"></i>'}</span></button>`;
     }).join('');
     const intro = koi
-      ? `<p class="eyebrow">${koiOwned() ? 'EIGHT CURRENT POOLS · YOURS' : 'FIVE-SEED POOLS · TWO FREE'}</p><h2>Koi Conservatory</h2><p>${escape(world.description)}</p><p class="moon-route-hint koi-hint">The dotted aim line follows the water, so you can see the bend before you shoot.</p>`
-      : `<p class="eyebrow">FREE CHAPTER · FIVE-SEED TRIALS</p><h2>Moon Garden</h2><p>${escape(world.description)}</p><p class="moon-route-hint">Matching gates carry your seed across the garden. The aim line shows the exit.</p><p class="keepsake-hint">${Keepsakes.moonCleared(save.moon, BloomMoon.levels) ? 'You earned the Moonlit seed. Wear it from your Collection.' : 'Clear all six trials to earn the Moonlit seed style.'}</p>`;
+      ? `<span class="card-tag koi">${koiOwned() ? `All ${chapter.levels.length} pools` : `${BloomKoi.freeBoards} free pools`}</span><h2>Koi Conservatory</h2><p>${escape(world.description)}</p><p class="moon-route-hint koi-hint">Your aim line bends with the water, so you see the curve before you shoot.</p>`
+      : `<span class="card-tag moon">Free · ${chapter.levels.length} trials</span><h2>Moon Garden</h2><p>${escape(world.description)}</p><p class="moon-route-hint">Gates come in pairs. Your aim line shows where you pop out.</p><p class="keepsake-hint">${Keepsakes.moonCleared(save.moon, BloomMoon.levels) ? 'Moonlit seed earned! Wear it from your Collection.' : `Clear all ${chapter.levels.length} to earn the Moonlit seed.`}</p>`;
     $('world-detail').innerHTML = `<div class="world-preview-art">${worldArt(world)}</div>${intro}<div class="moon-trail${koi ? ' koi-trail' : ''}" role="group" aria-label="${koi ? 'Koi Conservatory pools' : 'Moon Garden trials'}">${rows}</div>${koi ? koiUnlockPanel() : ''}`;
     const openIndexes = chapter.levels.map((_, index) => index).filter(index => trialOpen(id, index));
     const fresh = openIndexes.find(index => !records[chapter.levels[index].id]?.stars);
     const next = chapter.levels[fresh ?? openIndexes.at(-1) ?? 0];
-    const label = koi ? 'Koi Conservatory' : 'Moon Garden';
-    $('world-preview-btn').textContent = fresh === undefined ? `Replay ${next.name}` : records[chapter.levels[0].id]?.stars ? `Continue ${label}` : `Begin ${label}`;
+    $('world-preview-btn').textContent = `${fresh === undefined ? 'Replay' : 'Play'} ${next.name}`;
     $('world-preview-btn').dataset.trial = next.id;
   }
   function openWorld(id) {
@@ -562,14 +564,14 @@
     currentWorld = world;
     if (chapters[world.id]) { renderChapter(world); showDialog('world-dialog'); return; }
     delete $('world-preview-btn').dataset.trial;
-    $('world-detail').innerHTML = `<div class="world-preview-art">${worldArt(world)}</div><p class="eyebrow">IN DEVELOPMENT</p><h2>${escape(world.name)}</h2><p>${escape(world.description)}</p><div class="world-mechanic"><strong>A new way to play</strong><p>${escape(world.mechanic)}</p></div><p class="preview-note">Explore the art direction on a meadow board. This is a visual preview; this garden’s new mechanics and purchases aren’t available yet.</p>`;
-    $('world-preview-btn').textContent = 'Play the visual preview';
+    $('world-detail').innerHTML = `<div class="world-preview-art">${worldArt(world)}</div><span class="card-tag gold">Coming soon</span><h2>${escape(world.name)}</h2><p>${escape(world.description)}</p><div class="world-mechanic"><strong>How it plays</strong><p>${escape(world.mechanic)}</p></div><p class="preview-note">Still being built. The preview shows its colors on a meadow board.</p>`;
+    $('world-preview-btn').textContent = 'Play a preview';
     showDialog('world-dialog');
   }
   const PURCHASES = {
-    [BloomKoi.product]: { thanks: 'The Koi Conservatory is yours. Six new pools are open.' },
-    [Keepsakes.product]: { thanks: 'The Keepsake Collection is yours. Three new seed styles are ready.' },
-    [BUNDLE]: { thanks: 'Both are yours: the Koi Conservatory and the Keepsake Collection.' }
+    [BloomKoi.product]: { thanks: 'Koi Conservatory unlocked! Six new pools.' },
+    [Keepsakes.product]: { thanks: 'Keepsake Collection unlocked! Three new styles.' },
+    [BUNDLE]: { thanks: 'Bundle unlocked! Koi pools and seed styles are yours.' }
   };
   async function buyProduct(button) {
     const id = button.dataset.buy, item = PURCHASES[id];
@@ -582,7 +584,7 @@
       BloomSound.wake(); BloomSound.play('won'); toast(item.thanks);
       // Buying while previewing a style puts that style on the seed straight away.
       if ((id === Keepsakes.product || id === BUNDLE) && keepsakePreview && keepsakeOpen(keepsakePreview)) { save.keepsake = keepsakePreview; persist(); }
-    } else toast(result.cancelled ? 'Purchase cancelled. Nothing was charged.' : 'That purchase did not go through. Nothing was charged.');
+    } else toast(result.cancelled ? 'Purchase cancelled. Nothing was charged.' : "Purchase didn't go through. Nothing was charged.");
     refreshStoreViews();
   }
   function refreshStoreViews() {
@@ -656,48 +658,48 @@
         if (event.combo % 5 === 0) {
           BloomSound.play('shimmer', event);
           game.floaters = game.floaters.filter(item => item.kind !== 'combo');
-          game.floaters.push({ x: 210, y: 92, text: `${event.combo} BLOOM CHAIN`, life: .9, maxLife: .9, kind: 'combo' });
+          game.floaters.push({ x: 210, y: 92, text: `${event.combo} chain`, life: .9, maxLife: .9, kind: 'combo' });
         }
         if (event.combo % 3 === 1) haptic('tick');
-        $('game-hint').textContent = isKoi() ? 'The water carries it on.' : isMoon() ? 'Every opening creates a new path.' : isRush() ? game.splitReady ? 'Split is ready. Choose your moment.' : 'Gold-ring flowers bloom two neighbors. Aim for them.' : game.guideCharge > 0 ? 'Drag toward the flowers. Guide your swarm!' : 'Keep that chain reaction going!';
+        $('game-hint').textContent = isKoi() ? 'Ride it!' : isMoon() ? 'Nice path!' : isRush() ? game.splitReady ? 'Split is ready!' : 'Gold rings bloom their neighbors too.' : game.guideCharge > 0 ? 'Drag to steer!' : 'Keep the chain going!';
       } else if (event.type === 'gate') {
         burst({ x: event.entry.x, y: event.entry.y, type: 'lilac' }, 12);
         burst({ x: event.exit.x, y: event.exit.y, type: 'gold' }, 16);
-        $('game-hint').textContent = 'Through the gate. Follow the new angle.';
+        $('game-hint').textContent = 'Through the gate!';
       } else if (event.type === 'current') {
         ripple(event);
-        $('game-hint').textContent = 'Caught the current. Watch it turn.';
+        $('game-hint').textContent = 'Caught the current!';
       } else if (event.type === 'split') {
         burst(game.ball || game.launcher, 25);
         game.floaters = game.floaters.filter(item => item.kind !== 'bonus');
-        game.floaters.push({ x: 210, y: 418, text: '+2 BALLS!', life: 1.05, maxLife: 1.05, kind: 'bonus' });
-        $('game-hint').textContent = 'Your split is in play. Hit flowers to charge the next.';
+        game.floaters.push({ x: 210, y: 418, text: '+2', life: 1.05, maxLife: 1.05, kind: 'bonus' });
+        $('game-hint').textContent = 'Split! Hit flowers to charge the next one.';
       } else if (event.type === 'cleared') {
         // Clearing a wave is the big beat of a run: a golden shower, a banner with the next tempo, a rising chord.
         burst({ x: 210, y: 230, type: 'gold', r: 18 }, 46); burst({ x: 120, y: 170, type: 'coral' }, 20); burst({ x: 300, y: 170, type: 'lilac' }, 20);
         jolt(.32, .07, .85);
         game.floaters = game.floaters.filter(item => !['wave', 'combo', 'bonus'].includes(item.kind));
-        game.floaters.push({ x: 210, y: 290, text: 'WAVE CLEAR', label: `next tempo ×${event.next.toFixed(1)}`, life: 1, maxLife: 1, kind: 'wave' });
+        game.floaters.push({ x: 210, y: 290, text: 'Wave clear!', label: `next ×${event.next.toFixed(1)}`, life: 1, maxLife: 1, kind: 'wave' });
         haptic('surge');
       } else if (event.type === 'wave') {
-        $('game-hint').textContent = `Wave ${game.wave}. Faster flowers, faster reload, every bloom ×${game.tempo.toFixed(1)}.`;
+        $('game-hint').textContent = `Wave ${game.wave}! Faster flowers, ×${game.tempo.toFixed(1)} points.`;
         say(`Wave ${game.wave}. Tempo times ${game.tempo.toFixed(1)}. ${game.lives} lives left.`);
       } else if (event.type === 'life') {
         jolt(.6, .12, 0);
-        $('game-hint').textContent = game.lives ? `A cluster crossed the line. ${game.lives} ${game.lives === 1 ? 'life' : 'lives'} left.` : 'The garden reached the line.';
+        $('game-hint').textContent = game.lives ? `Flowers crossed the line! ${game.lives} ${game.lives === 1 ? 'life' : 'lives'} left.` : 'The flowers reached the line.';
         haptic('warn');
         say($('game-hint').textContent);
       } else if (event.type === 'burst') {
         burst(event.bud, 45); game.floaters = game.floaters.filter(item => item.kind !== 'bonus');
-        game.floaters.push({ x: 210, y: 418, text: '+2 BALLS!', life: 1.05, maxLife: 1.05, kind: 'bonus' });
+        game.floaters.push({ x: 210, y: 418, text: '+2', life: 1.05, maxLife: 1.05, kind: 'bonus' });
       } else if (event.type === 'fever') {
         jolt(.35, .08, 1);
         haptic('surge');
       } else if (event.type === 'crack') {
         burst(event.bud, 12); jolt(.05);
       } else if (event.type === 'ready') {
-        $('game-hint').textContent = isChapter() ? `${game.shotsLeft} seeds left. ${game.level.hint || (isKoi() ? 'Read where the water will carry you.' : 'Read the gate exit before your next shot.')}` : event.blooms ? 'Turn a petal, or line up your next volley.' : 'Try another angle. Turn a petal to redirect your shot.';
-        say(`${game.bloomedCount} of ${game.buds.length} bloomed. ${game.shotsLeft} ${isChapter() ? 'seeds' : 'volleys'} left.`);
+        $('game-hint').textContent = isChapter() ? `${game.shotsLeft} ${game.shotsLeft === 1 ? 'seed' : 'seeds'} left. ${game.level.hint || (isKoi() ? 'Watch where the water goes.' : 'Check the gate exit first.')}` : event.blooms ? 'Turn a petal or line up your next shot.' : 'Missed! Try turning a petal.';
+        say(`${game.bloomedCount} of ${game.buds.length} bloomed. ${game.shotsLeft} ${isChapter() ? 'seeds' : 'shots'} left.`);
       } else if (event.type === 'won' || event.type === 'lost') {
         if (event.type === 'won') { burst({ x: 110, y: 210, type: 'coral' }, 70); burst({ x: 310, y: 210, type: 'gold' }, 70); burst({ x: 210, y: 150, type: 'lilac' }, 60); jolt(.45, .14, 1); }
         resultAt = game.time + (save.settings.motion ? 1.45 : .4); resultShown = false;
@@ -708,7 +710,7 @@
           save.rush.blooms += game.bloomedCount; save.rush.runs++;
           awardSeeds({ mode: 'rush', blooms: game.bloomedCount, wave: game.wave });
           persist(); hudKey = '';
-          $('game-hint').textContent = 'Run complete. Your best score is saved.';
+          $('game-hint').textContent = 'Run over. Your best is saved.';
           say(`Run complete. Wave ${game.wave}, ${game.bloomedCount} blooms, ${game.score} points.`);
           continue;
         }
@@ -730,8 +732,8 @@
           if (isMoon() && !moonWasCleared && Keepsakes.moonCleared(save.moon, BloomMoon.levels)) newKeepsake = Keepsakes.byId.moonlit;
           persist();
         }
-        $('game-hint').textContent = event.type === 'won' ? 'Garden cleared.' : 'Try a different angle.';
-        say(event.type === 'won' ? `Garden complete. ${game.stars} stars. ${game.score} points.` : `${game.bloomedCount} of ${game.buds.length} bloomed. Try a fresh angle.`);
+        $('game-hint').textContent = event.type === 'won' ? 'Cleared!' : 'Try a new angle.';
+        say(event.type === 'won' ? `Cleared. ${game.stars} stars. ${game.score} points.` : `${game.bloomedCount} of ${game.buds.length} bloomed. Try a new angle.`);
       }
     }
   }
@@ -741,40 +743,42 @@
     $('reward-seeds').textContent = `+${runAward} ${runAward === 1 ? 'seed' : 'seeds'}`;
     $('reward-goal').textContent = nextGoal();
     $('result-stars').hidden = isRush();
+    $('result-dialog').classList.toggle('lost', isRush() ? !rushRecordBroken : !won);
     if (isRush()) {
-      $('result-eyebrow').textContent = `WAVE ${game.wave} · RUN COMPLETE`;
-      $('result-title').textContent = rushRecordBroken ? 'A new garden record.' : 'Room to grow.';
-      $('result-message').textContent = `${game.bloomedCount} blooms · best chain ${game.bestCombo} · tempo ×${game.tempo.toFixed(1)}. Clear waves fast to raise the tempo, and save your split for a crowded path.`;
+      $('result-eyebrow').textContent = rushRecordBroken ? 'New best!' : 'Run over';
+      $('result-title').textContent = `Wave ${game.wave}`;
+      $('result-message').textContent = `${game.bloomedCount} blooms · best chain ${game.bestCombo} · tempo ×${game.tempo.toFixed(1)}`;
       $('result-score').textContent = fmt(game.score);
       $('reward-flower').hidden = true; $('next-btn').hidden = true;
-      $('retry-btn').textContent = 'Start a new rush'; $('retry-btn').classList.add('primary');
+      $('retry-btn').textContent = 'Play again'; $('retry-btn').classList.add('primary');
       showDialog('result-dialog'); return;
     }
-    $('result-eyebrow').textContent = preview ? 'GARDEN PREVIEW' : isChapter() ? won ? isKoi() ? 'KOI POOL COMPLETE' : 'MOON TRIAL COMPLETE' : isKoi() ? 'READ THE WATER AGAIN' : 'FIND ANOTHER PATH' : won ? isDaily() ? "TODAY'S GARDEN COMPLETE" : 'GARDEN COMPLETE' : 'TRY AGAIN';
-    $('result-title').textContent = won ? game.stars === 3 ? 'Blooming brilliant!' : 'You grew all of this.' : 'So close. Go again?';
-    $('result-message').textContent = won ? game.shotsLeft === 2 ? `One volley. ${game.buds.length} flowers. Beautiful chaos.` : `${game.buds.length} blossoms. Your best chain: ${game.bestCombo}.` : `${game.bloomedCount} of ${game.buds.length} bloomed. Drag during flight to guide the swarm!`;
-    if (isMoon()) $('result-message').textContent = won ? `${game.shotNumber} ${game.shotNumber === 1 ? 'seed' : 'seeds'} · ${game.gatePasses} gate crossings · ${game.buds.length} flowers. ${game.stars === 3 ? 'A beautifully chosen route.' : `Try ${game.level.par} shots for three stars.`}` : `${game.bloomedCount} of ${game.buds.length} flowers. Trace the gate exit and try a different angle.`;
-    if (isKoi()) $('result-message').textContent = won ? `${game.shotNumber} ${game.shotNumber === 1 ? 'seed' : 'seeds'} · ${game.currentRides} ${game.currentRides === 1 ? 'current' : 'currents'} ridden · ${game.buds.length} flowers. ${game.stars === 3 ? 'The water went exactly where you meant it to.' : `Try ${game.level.par} shots for three stars.`}` : `${game.bloomedCount} of ${game.buds.length} flowers. Watch where the current turns, then try a new angle.`;
+    $('result-eyebrow').textContent = preview ? 'Preview' : !won ? 'Out of seeds' : isDaily() ? 'Daily clear!' : isKoi() ? 'Pool clear!' : isMoon() ? 'Trial clear!' : 'Garden clear!';
+    $('result-title').textContent = won ? ['Cleared!', 'Cleared!', 'Great!', 'Perfect!'][game.stars] : game.bloomedCount >= game.buds.length * .6 ? 'So close!' : 'Not this time!';
+    const three = isChapter() && game.stars < 3 ? ` ★★★ in ${game.level.par} shots.` : '';
+    $('result-message').textContent = won ? game.shotsLeft === 2 ? `All ${game.buds.length} flowers in one shot!` : `${game.buds.length} flowers · best chain ${game.bestCombo}` : `${game.bloomedCount} of ${game.buds.length} bloomed. Drag mid-flight to steer!`;
+    if (isMoon()) $('result-message').textContent = won ? `${game.shotNumber} ${game.shotNumber === 1 ? 'seed' : 'seeds'} · ${game.gatePasses} ${game.gatePasses === 1 ? 'gate' : 'gates'}.${three}` : `${game.bloomedCount} of ${game.buds.length} flowers. Check the gate exit and try again.`;
+    if (isKoi()) $('result-message').textContent = won ? `${game.shotNumber} ${game.shotNumber === 1 ? 'seed' : 'seeds'} · ${game.currentRides} ${game.currentRides === 1 ? 'current' : 'currents'}.${three}` : `${game.bloomedCount} of ${game.buds.length} flowers. Watch where the water turns.`;
     $('result-score').textContent = fmt(game.score);
-    $('result-stars').textContent = starText(game.stars); $('result-stars').setAttribute('aria-label', `${game.stars} of 3 stars`);
+    $('result-stars').innerHTML = starHTML(game.stars); $('result-stars').setAttribute('aria-label', `${game.stars} of 3 stars`);
     $('reward-flower').hidden = !newFlower && !newKeepsake && !runBouquet;
     $('reward-flower').setAttribute('aria-hidden', String(!newKeepsake));
-    if (newKeepsake) $('reward-flower').innerHTML = `${keepsakeGraphic(newKeepsake)}<div><span class="eyebrow">NEW KEEPSAKE EARNED</span><strong>${escape(newKeepsake.name)} seed</strong><button class="keepsake-wear" type="button" data-wear="${newKeepsake.id}"${save.keepsake === newKeepsake.id ? ' disabled' : ''}>${save.keepsake === newKeepsake.id ? 'Wearing it' : 'Wear it now'}</button></div>`;
-    else if (newFlower) $('reward-flower').innerHTML = `${flowerGraphic(newFlower)}<div><span class="eyebrow">NEW IN YOUR COLLECTION</span><strong>${escape(newFlower.name)}</strong></div>`;
-    else if (runBouquet) $('reward-flower').innerHTML = `${bouquetGraphic()}<div><span class="eyebrow">WEEKLY BOUQUET GATHERED</span><strong>+${runBouquet.seeds} bonus seeds</strong><span class="reward-note">${BloomGarden.daily.bouquetGoal} daily gardens cleared this week</span></div>`;
+    if (newKeepsake) $('reward-flower').innerHTML = `${keepsakeGraphic(newKeepsake)}<div><span class="card-tag moon">New seed style!</span><strong>${escape(newKeepsake.name)}</strong><button class="keepsake-wear" type="button" data-wear="${newKeepsake.id}"${save.keepsake === newKeepsake.id ? ' disabled' : ''}>${save.keepsake === newKeepsake.id ? 'Wearing' : 'Wear it'}</button></div>`;
+    else if (newFlower) $('reward-flower').innerHTML = `${flowerGraphic(newFlower)}<div><span class="card-tag green">New flower!</span><strong>${escape(newFlower.name)}</strong></div>`;
+    else if (runBouquet) $('reward-flower').innerHTML = `${bouquetGraphic()}<div><span class="card-tag gold">Weekly bouquet!</span><strong>+${runBouquet.seeds} bonus seeds</strong><span class="reward-note">${BloomGarden.daily.bouquetGoal} daily gardens this week</span></div>`;
     const next = isChapter() ? nextTrial(game.level) : typeof game.level.id === 'number' ? levels.find(l => l.id === game.level.id + 1) : null;
     $('next-btn').hidden = !won;
-    $('next-btn').textContent = preview ? 'Back to the worlds' : isKoi() ? !next ? 'Conservatory complete' : trialPaid('koi', next) ? 'Next koi pool' : 'See all eight pools' : isMoon() ? next ? 'Next moon trial' : 'Moon chapter complete' : next ? 'Next garden →' : 'Explore your garden';
-    $('retry-btn').textContent = won ? 'Play it again' : 'Try a fresh shot';
+    $('next-btn').textContent = preview ? 'Back to Worlds' : isKoi() ? !next ? 'All pools' : trialPaid('koi', next) ? 'Next pool' : 'See all pools' : isMoon() ? next ? 'Next trial' : 'All trials' : next ? 'Next garden' : 'My meadow';
+    $('retry-btn').textContent = won ? 'Replay' : 'Try again';
     $('retry-btn').classList.toggle('primary', !won);
     showDialog('result-dialog');
   }
   function rotateNearest(point) {
     const near = game.bumpers.find(b => Math.hypot(b.x - point.x, b.y - point.y) <= b.length / 2 + 14);
     if (!near) return false;
-    if (game.rotate(near.id)) { BloomSound.wake(); processEvents(); toast('Petal turned. Your next shot has a new path.'); }
-    else if (isRush()) toast('The petal needs two seconds between turns.');
-    else if (game.status === 'aiming') toast(isChapter() ? 'One petal turn per seed. Find your next angle.' : 'One petal turn per volley. Let it fly!');
+    if (game.rotate(near.id)) { BloomSound.wake(); processEvents(); toast('Petal turned!'); }
+    else if (isRush()) toast('Wait a moment to turn it again.');
+    else if (game.status === 'aiming') toast(isChapter() ? 'One turn per seed.' : 'One turn per shot.');
     return true;
   }
   function coordinates(event) {
@@ -789,8 +793,8 @@
   function launch() {
     const fired = game.fire(Math.cos(angle), Math.sin(angle));
     pointer = null; aiming = false; game.aim = [];
-    if (fired) { processEvents(); $('game-hint').textContent = isKoi() ? 'Let the water take it. Your next choice comes when the seed settles.' : isMoon() ? 'Let it travel. Your next choice comes when the seed returns.' : isRush() ? 'Keep aiming. Six direct hits charge your split.' : 'Now drag toward flowers to guide your swarm!'; }
-    else if (isRush()) $('game-hint').textContent = game.balls.length >= 5 ? 'Five seeds in play. Let one return before firing.' : 'Reloading. Line up your next shot.';
+    if (fired) { processEvents(); $('game-hint').textContent = isKoi() ? 'Let the water take it.' : isMoon() ? 'Let it fly.' : isRush() ? 'Six direct hits charge your split.' : 'Now drag to steer!'; }
+    else if (isRush()) $('game-hint').textContent = game.balls.length >= 5 ? 'Max 5 seeds. Wait for one to land.' : 'Reloading…';
   }
   function cancelInteraction() {
     const id = activePointer; activePointer = null;
@@ -805,9 +809,9 @@
     const point = coordinates(event);
     if (!isRush() && game.status === 'flying') { guiding = true; pointer = point; activePointer = event.pointerId; canvas.setPointerCapture(event.pointerId); game.guide(point); return; }
     if (rotateNearest(point)) return;
-    if (point.y > game.launcher.y + 24) { toast('Aim anywhere above the seed, then release.'); return; }
+    if (point.y > game.launcher.y + 24) { toast('Aim above the seed, then let go.'); return; }
     aiming = true; activePointer = event.pointerId; canvas.setPointerCapture(event.pointerId); aimAt(point);
-    $('game-hint').textContent = 'Find your angle. Release to let it fly.';
+    $('game-hint').textContent = 'Let go to fire.';
   });
   canvas.addEventListener('pointermove', event => { if (event.pointerId !== activePointer) return; if (guiding && game.status === 'flying') { pointer = coordinates(event); game.guide(pointer); } else if (aiming && (isRush() || game.status === 'aiming')) aimAt(coordinates(event)); });
   canvas.addEventListener('pointerup', event => {
@@ -882,13 +886,13 @@
     const button = event.target.closest('[data-trial]'); if (!button || !chapters[button.dataset.chapter]) return;
     const world = button.dataset.chapter, list = chapters[world].levels, index = list.findIndex(level => level.id === button.dataset.trial);
     if (index < 0) return;
-    if (!trialPaid(world, list[index])) { toast('This pool comes with the full Koi Conservatory.'); return; }
+    if (!trialPaid(world, list[index])) { toast('This pool is part of the full Koi Conservatory.'); return; }
     if (trialOpen(world, index)) startLevel(list[index]);
   });
   $('reward-flower').addEventListener('click', event => {
     const wear = event.target.closest('[data-wear]'); if (!wear || !keepsakeOpen(wear.dataset.wear)) return;
     save.keepsake = wear.dataset.wear; persist(); BloomSound.wake(); BloomSound.play('tap');
-    wear.disabled = true; wear.textContent = 'Wearing it'; toast(`${Keepsakes.byId[save.keepsake].name} is on your seed.`);
+    wear.disabled = true; wear.textContent = 'Wearing'; toast(`Wearing ${Keepsakes.byId[save.keepsake].name}!`);
   });
   $('daily-btn').addEventListener('click', () => startLevel(BloomLevels.dailyLevel(localDate())));
   $('retry-btn').addEventListener('click', () => startLevel(game.level, { preview, theme }));
@@ -928,7 +932,7 @@
     $('sound-btn').classList.toggle('muted', !save.settings.sound);
     document.body.classList.toggle('reduce-motion', !save.settings.motion);
     meadowDirty = true;
-    $('settings-storage').textContent = storageAvailable ? 'Your garden is saved on this browser. No account needed.' : 'Progress is saved for this visit only. Device storage is unavailable.';
+    $('settings-storage').textContent = storageAvailable ? 'Saved on this device. No account needed.' : "This browser won't save, so progress lasts for this visit only.";
   }
   $('settings-btn').addEventListener('click', () => { updateSettings(); showDialog('settings-dialog'); });
   $('help-btn').addEventListener('click', () => { $('rush-help').open = isRush(); $('campaign-help').open = !isRush() && !isChapter(); $('moon-help').open = isMoon(); $('koi-help').open = isKoi(); showDialog('help-dialog'); });

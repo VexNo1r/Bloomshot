@@ -25,32 +25,32 @@
 
   var flowers = [
     { id: 'sunbell', name: 'Sunbell', latin: 'The first light', color: '#F7C975', type: 'gold',
-      description: 'A small golden bell, grown from your first successful garden.', unlockLevel: 1 },
+      description: 'Always the first one up in the morning.', unlockLevel: 1 },
     { id: 'coral-cup', name: 'Coral Cup', latin: 'A little warmth', color: '#F38F8D', type: 'coral',
-      description: 'Soft coral petals gathered around a warm, luminous heart.', unlockLevel: 3 },
+      description: 'Holds sunshine like a cup of tea.', unlockLevel: 3 },
     { id: 'lilac-star', name: 'Lilac Star', latin: 'Quiet brilliance', color: '#B8A0DC', type: 'lilac',
-      description: 'A many-pointed lilac bloom, earned by finding your own angles.', unlockLevel: 6 },
+      description: 'All points, no sharp edges.', unlockLevel: 6 },
     { id: 'honeyburst', name: 'Honeyburst', latin: 'Golden hour', color: '#EAAF58', type: 'gold',
-      description: 'A generous crown of honey-colored petals and late-afternoon light.', unlockLevel: 9 },
+      description: 'The bees line up for this one.', unlockLevel: 9 },
     { id: 'moon-poppy', name: 'Moon Poppy', latin: 'After the sun', color: '#C5B6EB', type: 'lilac',
-      description: 'Pale violet petals with the soft glow of a garden after dusk.', unlockLevel: 12 },
+      description: 'Only opens after dark.', unlockLevel: 12 },
     { id: 'dawn-crown', name: 'Dawn Crown', latin: 'Room to flourish', color: '#F19B90', type: 'coral',
-      description: 'The meadow collection\'s final flower: a full, bright coral crown.', unlockLevel: 18 }
+      description: 'The meadow saves its best for last.', unlockLevel: 18 }
   ];
 
   var worlds = [
-    { id: 'meadow', name: 'The Meadow', tagline: 'A little room to bloom.',
-      description: 'Eighteen designed gardens, six earned flowers, and a daily garden.',
+    { id: 'meadow', name: 'The Meadow', tagline: 'Puzzles, Rush and a daily garden.',
+      description: '18 gardens to clear, 6 flowers to find and a new garden every day.',
       price: 0, theme: 'meadow', available: true,
-      mechanic: 'Aim seeds, awaken linked buds, and turn a petal to change your angle.' },
-    { id: 'moon', name: 'Moon Garden', tagline: 'Find a path through moonlight.',
-      description: 'Six moonlit trials. Five seeds each. Clear the flowers by finding a path through paired gates.',
+      mechanic: 'Fire three seeds, steer them, and turn a petal to change the angle.' },
+    { id: 'moon', name: 'Moon Garden', tagline: 'Shoot through the moon gates.',
+      description: '6 trials, 5 seeds each. Fly into one gate and out of its twin.',
       price: 0, theme: 'moon', available: true,
-      mechanic: 'Matching gates carry your seed across the garden. Read the exit, turn a leaf, and make each shot count.' },
-    { id: 'koi', name: 'Koi Conservatory', tagline: 'Follow the quiet current.',
-      description: 'Eight pools of moving water. Five seeds each. Currents turn your seed toward the way they flow, so the best shot is rarely a straight one.',
+      mechanic: 'Gates come in pairs. Read the exit, turn a leaf and make every seed count.' },
+    { id: 'koi', name: 'Koi Conservatory', tagline: 'Ride the currents.',
+      description: '8 pools, 5 seeds each. The water bends every shot.',
       price: 4.99, theme: 'koi', available: true,
-      mechanic: 'Currents turn a seed toward the way the water runs without changing its speed. Read the water, ride a lane, and land the shot a straight line never could.' }
+      mechanic: 'Currents bend your seed the way the water flows. Same speed, new angle.' }
   ];
 
   // Dense, deliberately arranged flowerbeds. Each mask is an authored garden silhouette.
@@ -178,7 +178,7 @@
     var source = levels[6 + (hash % 12)];
     return { id: 'daily-' + dateString, sourceLevelId: source.id, name: 'Daily Garden',
       subtitle: 'A fresh angle on ' + source.name + '.',
-      description: 'Three volleys, one shared garden. Come back whenever you feel like blooming.',
+      description: 'A new garden every day.',
       flowerId: null, par: source.par,
       buds: source.buds.map(function (b) {
         return { id: 'daily-' + b.id, x: 420 - b.x, y: b.y, r: b.r, type: b.type, group: b.group, hp: b.hp };

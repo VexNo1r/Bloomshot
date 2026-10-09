@@ -244,7 +244,7 @@ test('Koi pools 1 and 2 are free, keep their own records, and pools 3 to 8 never
   assert.equal(after.garden.seeds, 16);
   app.click('next-btn'); game = app.games.at(-1); assert.equal(game.level.id, 'koi-2');
   game.fire(0, -1); game.win(); for (let i = 0; i < 12; i++) app.frame(60);
-  assert.equal(app.$('result-dialog').open, true); assert.equal(app.$('next-btn').textContent, 'See all eight pools');
+  assert.equal(app.$('result-dialog').open, true); assert.equal(app.$('next-btn').textContent, 'See all pools');
   const started = app.games.length; app.click('next-btn');
   assert.equal(app.games.length, started); assert.equal(app.$('world-dialog').open, true);
   app.click('world-detail', { trial: 'koi-3', chapter: 'koi' }); assert.equal(app.games.length, started);
@@ -258,7 +258,7 @@ test('The Koi unlock names its contents and store price and buys only through th
   const save = legacySave(); save.koi = { 'koi-1': { best: 900, stars: 3, attempts: 1 }, 'koi-2': { best: 800, stars: 2, attempts: 2 } };
   const notForSale = boot(save, { store: fakeStore({ live: true, available: false }) });
   notForSale.click('worlds-btn'); notForSale.click('worlds-grid', { world: 'koi' });
-  assert.match(notForSale.$('world-detail').innerHTML, /not on sale yet/); assert(!notForSale.$('world-detail').innerHTML.includes('data-buy'));
+  assert.match(notForSale.$('world-detail').innerHTML, /Not on sale yet/); assert(!notForSale.$('world-detail').innerHTML.includes('data-buy'));
   const store = fakeStore({ live: true, available: true, price: '$4.99' }), app = boot(save, { store });
   app.click('worlds-btn'); app.click('worlds-grid', { world: 'koi' });
   const html = app.$('world-detail').innerHTML;
@@ -276,10 +276,10 @@ test('Clearing a Rush wave shows the next tempo, and the HUD and result carry th
   for (const bud of game.buds) while (!bud.bloomed) game.strike(bud, true);
   app.frame(20); app.frame(20);
   const banner = game.floaters.find(f => f.kind === 'wave');
-  assert(banner, 'a wave-clear banner is shown'); assert.equal(banner.text, 'WAVE CLEAR'); assert.equal(banner.label, 'next tempo ×1.1');
+  assert(banner, 'a wave-clear banner is shown'); assert.equal(banner.text, 'Wave clear!'); assert.equal(banner.label, 'next ×1.1');
   for (let i = 0; i < 50; i++) app.frame(20);
-  assert.equal(game.wave, 2); assert.match(app.$('level-label').textContent, /^WAVE 02 · TEMPO ×1\.1$/);
-  assert.match(app.$('game-hint').textContent, /every bloom ×1\.1/);
+  assert.equal(game.wave, 2); assert.match(app.$('level-label').textContent, /^Wave 2 · ×1\.1$/);
+  assert.match(app.$('game-hint').textContent, /×1\.1 points/);
   game._lose(); for (let i = 0; i < 40; i++) app.frame();
   assert.match(app.$('result-message').textContent, /tempo ×1\.1/);
 });
@@ -288,7 +288,7 @@ test('The Launch Bundle states its price and saving, buys both parts at once, an
   app.click('worlds-btn'); app.click('worlds-grid', { world: 'koi' });
   const koiPanel = app.$('world-detail').innerHTML;
   assert.match(koiPanel, /Unlock all 8 pools · \$4\.99/); assert.match(koiPanel, /Get both · \$5\.99/);
-  assert.match(koiPanel, /in one purchase: \$0\.99 less than the two on their own \(\$4\.99 and \$1\.99\)\./);
+  assert.match(koiPanel, /\$0\.99 less than buying both \(\$4\.99 \+ \$1\.99\)\./);
   app.click('collection-btn'); assert.match(app.$('keepsake-offer').innerHTML, /Get both · \$5\.99/);
   app.click('keepsake-shelf', { keepsake: 'firefly' });
   app.click('keepsake-shelf', { buy: BUNDLE }); assert.deepEqual(store.purchases, [BUNDLE]);
@@ -302,7 +302,7 @@ test('The Launch Bundle states its price and saving, buys both parts at once, an
 test('Owning either part offers only the other part, never the bundle', () => {
   const koiOwner = boot(legacySave(), { store: fakeStore({ live: true, available: true, owned: [Koi.entitlement] }) });
   koiOwner.click('collection-btn');
-  assert.match(koiOwner.$('keepsake-offer').innerHTML, /Get all three styles · \$1\.99/); assert(!koiOwner.$('keepsake-offer').innerHTML.includes(BUNDLE));
+  assert.match(koiOwner.$('keepsake-offer').innerHTML, /Get all three · \$1\.99/); assert(!koiOwner.$('keepsake-offer').innerHTML.includes(BUNDLE));
   koiOwner.click('keepsake-shelf', { buy: BUNDLE }); assert.equal(koiOwner.context.BloomStore.purchases.length, 0);
   const styleOwner = boot(legacySave(), { store: fakeStore({ live: true, available: true, owned: [Keepsakes.entitlement] }) });
   styleOwner.click('worlds-btn'); styleOwner.click('worlds-grid', { world: 'koi' });
@@ -311,7 +311,7 @@ test('Owning either part offers only the other part, never the bundle', () => {
 test('Without comparable amounts the bundle still says it costs less, but names no number; off sale or on the website it is not offered', () => {
   const mixed = boot(legacySave(), { store: fakeStore({ live: true, available: true, amounts: [4.99, NaN, 5.99] }) });
   mixed.click('collection-btn'); const html = mixed.$('keepsake-offer').innerHTML;
-  assert.match(html, /in one purchase, for less than the two on their own \(\$4\.99 and \$1\.99\)\./); assert(!/\$0\.99 less/.test(html));
+  assert.match(html, /Less than buying both \(\$4\.99 \+ \$1\.99\)\./); assert(!/\$0\.99 less/.test(html));
   const offSale = boot(legacySave(), { store: fakeStore({ live: true, available: false }) });
   offSale.click('collection-btn'); assert(!offSale.$('keepsake-offer').innerHTML.includes(BUNDLE));
   const web = boot(legacySave(), { store: fakeStore({ live: false, available: true, mode: 'web' }) });
@@ -324,8 +324,8 @@ test('Keepsakes: a fresh garden wears Meadow, every style previews, and locked s
   app.click('collection-btn'); app.frame();
   const grid = app.$('keepsake-grid').innerHTML;
   for (const style of Keepsakes.styles) assert(grid.includes(`data-keepsake="${style.id}"`), style.id);
-  assert.match(grid, /Wearing now/); assert.match(grid, /0 of 6 Moon trials/); assert.match(grid, /Keepsake Collection/);
-  assert.match(app.$('keepsake-offer').innerHTML, /available in the Bloomshot app/); assert(!app.$('keepsake-offer').innerHTML.includes('data-buy'));
+  assert.match(grid, />Wearing</); assert.match(grid, /Moon 0\/6/); assert.match(grid, /Keepsake Collection/);
+  assert.match(app.$('keepsake-offer').innerHTML, /Available in the Bloomshot app/); assert(!app.$('keepsake-offer').innerHTML.includes('data-buy'));
   for (const id of ['sakura', 'moonlit']) {
     app.click('keepsake-shelf', { keepsake: id }); app.frame();
     assert.equal(app.saved().keepsake, 'meadow'); assert.match(app.$('keepsake-grid').innerHTML, new RegExp(`data-keepsake="${id}" aria-pressed="true"`));
@@ -337,11 +337,11 @@ test('Clearing the last Moon trial earns Moonlit once, the result offers to wear
   const before = legacySave(); before.moon = moonThrough(5);
   const app = boot(before);
   app.click('worlds-btn'); app.click('worlds-grid', { world: 'moon' });
-  assert.match(app.$('world-detail').innerHTML, /Clear all six trials to earn the Moonlit seed/);
+  assert.match(app.$('world-detail').innerHTML, /Clear all 6 to earn the Moonlit seed/);
   app.click('world-preview-btn'); const game = app.games.at(-1); assert.equal(game.level.id, 'moon-6');
   game.fire(0, -1); game.win(); for (let i = 0; i < 12; i++) app.frame(60);
   assert.equal(app.$('result-dialog').open, true); assert.equal(app.$('reward-flower').hidden, false);
-  assert.match(app.$('reward-flower').innerHTML, /NEW KEEPSAKE EARNED/); assert.match(app.$('reward-flower').innerHTML, /data-wear="moonlit"/);
+  assert.match(app.$('reward-flower').innerHTML, /New seed style!/); assert.match(app.$('reward-flower').innerHTML, /data-wear="moonlit"/);
   assert.equal(app.saved().keepsake, 'meadow');
   app.click('reward-flower', { wear: 'moonlit' }); assert.equal(app.saved().keepsake, 'moonlit');
   app.click('retry-btn'); app.games.at(-1).fire(0, -1); app.games.at(-1).win(); for (let i = 0; i < 12; i++) app.frame(60);
@@ -349,18 +349,18 @@ test('Clearing the last Moon trial earns Moonlit once, the result offers to wear
   assert.equal(app.boardDraws.at(-1), 'moonlit');
   const reloaded = boot(app.saved()); reloaded.frame(); assert.equal(reloaded.boardDraws.at(-1), 'moonlit');
   reloaded.click('worlds-btn'); reloaded.click('worlds-grid', { world: 'moon' });
-  assert.match(reloaded.$('world-detail').innerHTML, /You earned the Moonlit seed/);
+  assert.match(reloaded.$('world-detail').innerHTML, /Moonlit seed earned!/);
 });
 test('The Keepsake Collection shows the store price, buys only through the store, and a refund falls back to Meadow without forgetting', () => {
   const save = legacySave(); save.settings.motion = true;
   const notForSale = boot(save, { store: fakeStore({ live: true, available: false }) });
-  notForSale.click('collection-btn'); assert.match(notForSale.$('keepsake-offer').innerHTML, /not on sale yet/);
+  notForSale.click('collection-btn'); assert.match(notForSale.$('keepsake-offer').innerHTML, /Not on sale yet/);
   assert(!notForSale.$('keepsake-offer').innerHTML.includes('data-buy'));
   const store = fakeStore({ live: true, available: true, stylePrice: '$1.99' }), app = boot(save, { store });
   app.click('collection-btn');
   const offer = app.$('keepsake-offer').innerHTML;
-  assert.match(offer, /Get all three styles · \$1\.99/); assert.match(offer, /Sakura Breeze, Firefly Night and Gilded Leaf/);
-  assert.match(offer, /no style changes how a shot flies/); assert.match(offer, /One payment/);
+  assert.match(offer, /Get all three · \$1\.99/); assert.match(offer, /Sakura Breeze, Firefly Night and Gilded Leaf/);
+  assert.match(offer, /Looks only: every shot flies the same/); assert.match(offer, /One payment/);
   app.click('keepsake-shelf', { keepsake: 'sakura' }); assert.equal(app.saved().keepsake, 'meadow'); assert.deepEqual(store.purchases, []);
   app.click('keepsake-shelf', { buy: Keepsakes.product }); assert.deepEqual(store.purchases, [Keepsakes.product]);
   assert.equal(app.$('keepsake-offer').innerHTML, ''); assert(!app.$('keepsake-grid').innerHTML.includes('Keepsake Collection'));
@@ -384,33 +384,33 @@ test('The daily garden card shows today, this week and the bouquet, and its firs
   const app = boot(save, { today: SATURDAY });
   assert(app.$('garden-btn').classList.contains('has-daily'), 'the Garden tab marks a daily garden not yet cleared');
   app.click('garden-btn');
-  assert.equal(app.$('daily-eyebrow').textContent, 'DAILY GARDEN · SATURDAY');
-  assert.match(app.$('daily-status').innerHTML, /^A fresh angle on .+\. Clear it for 6 to 10 seeds\.$/);
-  assert.equal(app.$('daily-bouquet').textContent, '3 of 4 for a 12\u2011seed bouquet this week.');
+  assert.equal(app.$('daily-eyebrow').textContent, 'Saturday');
+  assert.match(app.$('daily-status').innerHTML, /^.+, remixed\. Clear it for 6–10 seeds\.$/);
+  assert.equal(app.$('daily-bouquet').textContent, 'Bouquet 3/4 · +12 seeds');
   const days = app.$('daily-week').innerHTML.match(/<span class="[^"]*">/g);
   assert.deepEqual(days, ['<span class="bloomed">', '<span class="bloomed">', '<span class="">', '<span class="bloomed">', '<span class="">', '<span class="today">', '<span class="later">']);
   app.click('daily-btn'); finishDaily(app);
   const saved = app.saved();
   assert.equal(saved.daily['daily-2026-10-03'].stars, 3); assert.equal(saved.garden.dailyBest['daily-2026-10-03'], 3);
   assert.equal(saved.garden.seeds, 10 + 12); assert.deepEqual(saved.garden.bouquets, ['week-2026-09-28']);
-  assert.equal(app.$('result-eyebrow').textContent, "TODAY'S GARDEN COMPLETE");
+  assert.equal(app.$('result-eyebrow').textContent, 'Daily clear!');
   assert.equal(app.$('reward-seeds').textContent, '+22 seeds'); assert.equal(app.$('garden-reward').hidden, false);
-  assert.match(app.$('reward-flower').innerHTML, /WEEKLY BOUQUET GATHERED.*\+12 bonus seeds/); assert.equal(app.$('reward-flower').hidden, false);
+  assert.match(app.$('reward-flower').innerHTML, /Weekly bouquet!.*\+12 bonus seeds/); assert.equal(app.$('reward-flower').hidden, false);
   assert.equal(app.$('reward-goal').textContent, 'Enough to plant Sunbell now.');
   // Playing it again the same day pays nothing more and never repeats the bouquet.
   app.click('retry-btn'); finishDaily(app);
   assert.equal(app.saved().garden.seeds, 22); assert.equal(app.$('garden-reward').hidden, true); assert.equal(app.$('reward-flower').hidden, true);
   app.click('result-garden-btn');
   assert(!app.$('garden-btn').classList.contains('has-daily'));
-  assert.match(app.$('daily-status').innerHTML, /★★★<\/span> A new garden grows tomorrow\./);
-  assert.equal(app.$('daily-bouquet').textContent, 'Bouquet gathered this week: +12 seeds.');
+  assert.match(app.$('daily-status').innerHTML, /^<span class="daily-stars" aria-hidden="true">(<span>★<\/span>){3}<\/span> New garden tomorrow\.$/);
+  assert.equal(app.$('daily-bouquet').textContent, 'Bouquet earned · +12 seeds');
 });
 test('A daily garden cleared before this update pays only for new stars, and the seed reward names the next thing to grow', () => {
   const save = legacySave(); save.daily = { 'daily-2026-10-03': { best: 9000, stars: 2, attempts: 3 } };
   save.garden = { seeds: 0, levels: { sunbell: 1 }, selectedId: 'sunbell' };
   const app = boot(save, { today: SATURDAY });
   assert(!app.$('garden-btn').classList.contains('has-daily'), 'a day already cleared is not marked as new');
-  app.click('garden-btn'); assert.match(app.$('daily-status').innerHTML, /★★☆<\/span> Each new star adds 2 seeds\./);
+  app.click('garden-btn'); assert.match(app.$('daily-status').innerHTML, /<span>★<\/span><span>★<\/span><span class="off">★<\/span><\/span> \+2 seeds per new star\./);
   app.click('daily-btn'); finishDaily(app);
   assert.equal(app.saved().garden.seeds, 2); assert.equal(app.$('reward-seeds').textContent, '+2 seeds');
   assert.equal(app.$('reward-goal').textContent, '6 more seeds to grow Sunbell.');
