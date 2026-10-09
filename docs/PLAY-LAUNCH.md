@@ -53,7 +53,7 @@ Create app, then: name **Bloomshot** (check it is free), default language Englis
 - Ads: the app contains no ads. Advertising ID: **No**, the app does not use it (the release build checks that it never asks for it).
 - App access: no login needed. Content rating questionnaire. Target audience: 13 and over.
 - Data safety: an anonymous id and purchase history, sent to RevenueCat for purchases only, as in LISTING.md.
-- Store listing: the text from LISTING.md, the 512 px icon, the 1024 x 500 feature graphic and at least two phone screenshots. Claude supplies all of these; screenshots of the current game are fine for testing and can be replaced with final art before the public release.
+- Store listing: the text from LISTING.md, the 512 px icon, the 1024 x 500 feature graphic and the four phone screenshots, all in `docs/store/graphics/google-play/`; screenshots of the current game are fine for testing and can be replaced with final art before the public release.
 
 The closed test in step 7 cannot be sent for review until these tasks are complete.
 
