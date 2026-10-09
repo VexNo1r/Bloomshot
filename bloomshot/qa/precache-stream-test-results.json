@@ -1,11 +1,11 @@
 {
   "passed": true,
-  "testedAt": "2026-10-03T14:44:09.727Z",
+  "testedAt": "2026-10-04T00:44:31.173Z",
   "node": "v22.22.0",
-  "workerSha256": "5e9202668ad217e9fa821c076b3a25da41c22c7aa7e0e866d78e2953233740e5",
+  "workerSha256": "679855eae20f28b3b0090734b252d642b3c81cef9bdffe6f82a06d2935f35b93",
   "maxConnections": 3,
-  "workerVersion": "7a3f19c25be84d06",
-  "assetCount": 26,
+  "workerVersion": "1876c23da6609933",
+  "assetCount": 27,
   "imageCount": 7,
   "negativeControl": {
     "stalledAsExpected": true,
@@ -13,47 +13,47 @@
     "consumed": 0,
     "bytes": 0,
     "peakConnections": 3,
-    "elapsedMs": 276.28
+    "elapsedMs": 276.39
   },
   "actualInstall": {
-    "headers": 26,
-    "consumed": 26,
-    "bytes": 2028303,
+    "headers": 27,
+    "consumed": 27,
+    "bytes": 2080944,
     "peakConnections": 3,
-    "cached": 26,
-    "elapsedMs": 65.5,
+    "cached": 27,
+    "elapsedMs": 48.98,
     "deadlineMs": 15000,
     "allBodyHashesMatch": true
   },
   "assets": [
     {
       "path": "/",
-      "bytes": 22716,
-      "sha256": "48fbac78726b6f11e9345eeb12b5bd1a17dddd049d1537bc93740cc800818a5a",
+      "bytes": 23453,
+      "sha256": "9be38b7408d4b4b0e44c2a6798e72371401036d013eb3b092c19e766d5237b57",
       "type": "text/html; charset=utf-8"
     },
     {
       "path": "/index.html",
-      "bytes": 22716,
-      "sha256": "48fbac78726b6f11e9345eeb12b5bd1a17dddd049d1537bc93740cc800818a5a",
+      "bytes": 23453,
+      "sha256": "9be38b7408d4b4b0e44c2a6798e72371401036d013eb3b092c19e766d5237b57",
       "type": "text/html; charset=utf-8"
     },
     {
       "path": "/styles.css",
-      "bytes": 38438,
-      "sha256": "2e1a9f92d4617b0ac62d483e0aae42cddc74273d41a757ddde21734a27c38f13",
+      "bytes": 43660,
+      "sha256": "798abcf33e0daa296b3f8b03315f1ffd3711183e5fa3213a131f4b65df1e2480",
       "type": "text/css; charset=utf-8"
     },
     {
       "path": "/store-config.js",
-      "bytes": 1090,
-      "sha256": "5f4e32330866a63ccb955fcceabe4cca8fc498d6c11453a297045b1e65d33455",
+      "bytes": 1597,
+      "sha256": "aec3a324c68a195c7921607c2849b14227671c2fa4b2e388091961f661d8a511",
       "type": "text/javascript; charset=utf-8"
     },
     {
       "path": "/store.js",
-      "bytes": 9044,
-      "sha256": "4b699166f9fead0ccc6db743dcad368d411d38efb5c3df025bd12dc4cedc1685",
+      "bytes": 13716,
+      "sha256": "a46f0c0c52bbe62b59420febd7d2722f7663f32e9ec3aef9bc27f454f8cc1db9",
       "type": "text/javascript; charset=utf-8"
     },
     {
@@ -75,9 +75,15 @@
       "type": "text/javascript; charset=utf-8"
     },
     {
+      "path": "/keepsakes.js",
+      "bytes": 5145,
+      "sha256": "9865953050b03bfd147857d169fb6936ab60a198edb3eb4208794964ff6433cb",
+      "type": "text/javascript; charset=utf-8"
+    },
+    {
       "path": "/garden.js",
-      "bytes": 9290,
-      "sha256": "715864111b346115d729045667f9962b4bfdd189a7e2b5653db66142a7b9a43b",
+      "bytes": 13314,
+      "sha256": "ed4e8af5328fd5bcf489f11b125c96392adc30111c5d44b8fe705733db71779e",
       "type": "text/javascript; charset=utf-8"
     },
     {
@@ -88,14 +94,14 @@
     },
     {
       "path": "/rush.js",
-      "bytes": 11416,
-      "sha256": "9f71ec37118c15f8de18b197e70dca182999876591676bfd63b98ad69ef12912",
+      "bytes": 12418,
+      "sha256": "24931c1c1aab3e51708587923e9bc3bf801975ce538d559f3468db5136c4bf2b",
       "type": "text/javascript; charset=utf-8"
     },
     {
       "path": "/art.js",
-      "bytes": 72195,
-      "sha256": "82f17281387dc08dd661f663fff9bfadc43a1dee89b91fdd508a9fca24bd9f4a",
+      "bytes": 81418,
+      "sha256": "b7b8019068664b84960b52cde3f797fed47398bb18ebc6fa4f6fa443c6520134",
       "type": "text/javascript; charset=utf-8"
     },
     {
@@ -106,8 +112,8 @@
     },
     {
       "path": "/sound.js",
-      "bytes": 9486,
-      "sha256": "baedd4b2b1dd338536d486228c631dc61fad7a7a22e8d3903f51876c288e6b7b",
+      "bytes": 9961,
+      "sha256": "61aca4f88ee0294b1d435ea0f66aed36dc989a23aea26ee4f1dcd278a73828b1",
       "type": "text/javascript; charset=utf-8"
     },
     {
@@ -118,14 +124,14 @@
     },
     {
       "path": "/app.js",
-      "bytes": 63851,
-      "sha256": "c68f1d27805476793bc41b302f8c7e4407eed97b73b8cf000de023381158d9d1",
+      "bytes": 84469,
+      "sha256": "075d123a3a79577c5dfaa0e9d576871c31b962884c2afcc31bc0995f23bdcbbe",
       "type": "text/javascript; charset=utf-8"
     },
     {
       "path": "/store-ui.js",
-      "bytes": 3123,
-      "sha256": "a7f5e803acda34306755bc081270cf53bf556ae339c6f5287c92d2cd60d12814",
+      "bytes": 3402,
+      "sha256": "11577a244a368abc9cd369dd40ef75dd75ace955ee802487481897bba75a76f8",
       "type": "text/javascript; charset=utf-8"
     },
     {
@@ -187,184 +193,191 @@
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 1,
-      "total": 26,
+      "total": 27,
       "failed": false,
       "cached": 1
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 2,
-      "total": 26,
+      "total": 27,
       "failed": false,
       "cached": 2
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 3,
-      "total": 26,
+      "total": 27,
       "failed": false,
       "cached": 3
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 4,
-      "total": 26,
+      "total": 27,
       "failed": false,
       "cached": 4
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 5,
-      "total": 26,
+      "total": 27,
       "failed": false,
       "cached": 5
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 6,
-      "total": 26,
+      "total": 27,
       "failed": false,
       "cached": 6
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 7,
-      "total": 26,
+      "total": 27,
       "failed": false,
       "cached": 7
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 8,
-      "total": 26,
+      "total": 27,
       "failed": false,
       "cached": 8
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 9,
-      "total": 26,
+      "total": 27,
       "failed": false,
       "cached": 9
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 10,
-      "total": 26,
+      "total": 27,
       "failed": false,
       "cached": 10
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 11,
-      "total": 26,
+      "total": 27,
       "failed": false,
       "cached": 11
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 12,
-      "total": 26,
+      "total": 27,
       "failed": false,
       "cached": 12
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 13,
-      "total": 26,
+      "total": 27,
       "failed": false,
       "cached": 13
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 14,
-      "total": 26,
+      "total": 27,
       "failed": false,
       "cached": 14
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 15,
-      "total": 26,
+      "total": 27,
       "failed": false,
       "cached": 15
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 16,
-      "total": 26,
+      "total": 27,
       "failed": false,
       "cached": 16
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 17,
-      "total": 26,
+      "total": 27,
       "failed": false,
       "cached": 17
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 18,
-      "total": 26,
+      "total": 27,
       "failed": false,
       "cached": 18
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 19,
-      "total": 26,
+      "total": 27,
       "failed": false,
       "cached": 19
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 20,
-      "total": 26,
+      "total": 27,
       "failed": false,
       "cached": 20
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 21,
-      "total": 26,
+      "total": 27,
       "failed": false,
       "cached": 21
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 22,
-      "total": 26,
+      "total": 27,
       "failed": false,
       "cached": 22
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 23,
-      "total": 26,
+      "total": 27,
       "failed": false,
       "cached": 23
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 24,
-      "total": 26,
+      "total": 27,
       "failed": false,
       "cached": 24
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 25,
-      "total": 26,
+      "total": 27,
       "failed": false,
       "cached": 25
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 26,
-      "total": 26,
+      "total": 27,
       "failed": false,
       "cached": 26
+    },
+    {
+      "type": "BLOOMSHOT_DOWNLOAD",
+      "completed": 27,
+      "total": 27,
+      "failed": false,
+      "cached": 27
     }
   ]
 }

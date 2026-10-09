@@ -529,7 +529,7 @@
     ctx.restore();
   }
 
-  function drawLauncher(ctx, state, time, colors) {
+  function drawLauncher(ctx, state, time, colors, style) {
     const x = (state.launcher && Number(state.launcher.x)) || 210;
     const y = (state.launcher && Number(state.launcher.y)) || 498;
     const rush = state.mode === 'rush';
@@ -540,7 +540,7 @@
     circle(ctx, x, y, 19.5, '#50d7bb', '#ffffff', 1.5);
     circle(ctx, x, y, 14.7, '#d6ffee', '#9be9d8', 1);
     ctx.shadowColor = 'transparent';
-    if (state.status === 'aiming' || !state.status || (rush && state.status !== 'lost')) drawSeed(ctx, x, y, 8.4, time, false);
+    if (state.status === 'aiming' || !state.status || (rush && state.status !== 'lost')) drawSeed(ctx, x, y, 8.4, time, false, style);
     ctx.fillStyle = colors.ink; ctx.globalAlpha = .7;
     for (let i = 0; i < 3; i++) {
       const px = x + (i - 1) * (rush ? 11 : 9);
@@ -553,6 +553,31 @@
       } else if (i < left) {
         ctx.beginPath(); ctx.ellipse(px, y + 27, 1.9, 3, .45, 0, TAU); ctx.fill();
       } else circle(ctx, px, y + 27, 1.7, null, colors.fine, .7);
+    }
+    ctx.restore();
+  }
+
+  // Rush tempo: as the multiplier climbs, warm light streams up the glasshouse and its edges glow.
+  // Stateless (a function of time), so it costs nothing to keep and nothing to reset.
+  function drawTempo(ctx, state, time) {
+    const heat = clamp((Number(state.tempo) || 1) - 1, 0, 1);
+    if (!(heat > 0) || state.status === 'lost') return;
+    // Normal blending: additive light vanishes against the bright meadow sky.
+    ctx.save(); ctx.lineCap = 'round';
+    const count = 5 + Math.round(heat * 13), speed = 170 + heat * 280;
+    for (let i = 0; i < count; i++) {
+      const x = 34 + (i * 137.508) % 352, length = 16 + heat * 34 + (i % 3) * 9;
+      const y = 610 - ((time * speed * (.75 + (i % 4) * .12) + i * 211.7) % 720);
+      const streak = ctx.createLinearGradient(x, y, x, y + length);
+      streak.addColorStop(0, 'rgba(255,214,120,0)'); streak.addColorStop(.35, `rgba(255,206,104,${.22 + heat * .3})`); streak.addColorStop(1, 'rgba(255,240,190,0)');
+      ctx.strokeStyle = streak; ctx.lineWidth = 1.4 + (i % 2) * .9;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + length); ctx.stroke();
+    }
+    const glow = .10 + heat * .22 + Math.sin(time * 5.5) * .03 * heat;
+    for (const side of [0, 1]) {
+      const edge = ctx.createLinearGradient(side ? 420 : 0, 0, side ? 386 : 34, 0);
+      edge.addColorStop(0, `rgba(255,190,90,${glow})`); edge.addColorStop(1, 'rgba(255,190,90,0)');
+      ctx.fillStyle = edge; ctx.fillRect(side ? 386 : 0, 0, 34, 560);
     }
     ctx.restore();
   }
@@ -731,13 +756,14 @@
     });
   }
 
-  function drawSeed(ctx, x, y, r, time, flying) {
+  function drawSeed(ctx, x, y, r, time, flying, style) {
+    const look = style && style.seed;
     ctx.save(); ctx.translate(x, y); ctx.rotate(flying ? time * 2.5 : -.35);
-    ctx.shadowColor = 'rgba(132,106,43,.23)'; ctx.shadowBlur = 9; ctx.shadowOffsetY = 2;
+    ctx.shadowColor = look ? look.base + '88' : 'rgba(132,106,43,.23)'; ctx.shadowBlur = look ? 12 : 9; ctx.shadowOffsetY = 2;
     const seed = ctx.createRadialGradient(-r * .3, -r * .4, .2, 0, 0, r * 1.2);
-    seed.addColorStop(0, '#fffef1'); seed.addColorStop(.6, '#f2dda0'); seed.addColorStop(1, '#c8a465');
+    seed.addColorStop(0, look ? look.core : '#fffef1'); seed.addColorStop(.6, look ? look.light : '#f2dda0'); seed.addColorStop(1, look ? look.base : '#c8a465');
     ctx.beginPath(); ctx.ellipse(0, 0, r * .8, r, .4, 0, TAU); ctx.fillStyle = seed; ctx.fill();
-    ctx.shadowColor = 'transparent'; ctx.lineWidth = .8; ctx.strokeStyle = '#af925c'; ctx.stroke();
+    ctx.shadowColor = 'transparent'; ctx.lineWidth = .8; ctx.strokeStyle = look ? look.rim : '#af925c'; ctx.stroke();
     ctx.beginPath(); ctx.moveTo(-r * .21, -r * .65); ctx.quadraticCurveTo(-r * .3, -r * .02, r * .19, r * .59);
     ctx.lineWidth = .7; ctx.strokeStyle = 'rgba(158,118,48,.40)'; ctx.stroke();
     ctx.restore();
@@ -969,7 +995,64 @@
     ctx.restore();
   }
 
-  function drawProjectile(ctx, ball, index, time, reducedMotion, fever) {
+  // Keepsake shapes, shared by trails and bloom-burst particles.
+  function sakuraPetal(ctx, size) {
+    ctx.beginPath(); ctx.moveTo(0, size);
+    ctx.bezierCurveTo(-size * .95, size * .2, -size * .8, -size * .85, -size * .28, -size);
+    ctx.quadraticCurveTo(0, -size * .78, 0, -size * .66);
+    ctx.quadraticCurveTo(0, -size * .78, size * .28, -size);
+    ctx.bezierCurveTo(size * .8, -size * .85, size * .95, size * .2, 0, size);
+  }
+  function blossom(ctx, x, y, size, color, rotation) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rotation); ctx.fillStyle = color;
+    for (let k = 0; k < 5; k++) { ctx.save(); ctx.rotate(k * TAU / 5); ctx.translate(0, -size * .52); ctx.scale(.62, .62); sakuraPetal(ctx, size * .8); ctx.fill(); ctx.restore(); }
+    circle(ctx, 0, 0, size * .2, '#ffe9a8');
+    ctx.restore();
+  }
+  function goldFlake(ctx, x, y, size, color, rotation) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rotation);
+    const glint = Math.abs(Math.cos(rotation * 1.7));
+    ctx.scale(.45 + glint * .55, 1);
+    ctx.beginPath(); ctx.moveTo(-size * .7, -size * .5); ctx.lineTo(size * .2, -size * .85); ctx.lineTo(size * .75, size * .25); ctx.lineTo(-size * .3, size * .8); ctx.closePath();
+    ctx.fillStyle = color; ctx.fill();
+    if (glint > .8) { ctx.globalAlpha *= (glint - .8) * 5; ctx.fillStyle = '#fffdf2'; ctx.fill(); }
+    ctx.restore();
+  }
+  // A warm lit body inside a soft halo. Normal blending keeps it amber on the bright meadow
+  // instead of washing out to white, and it still glows on the dark Moon sky.
+  function fireflyGlow(ctx, x, y, size, color, blink) {
+    ctx.save(); ctx.globalAlpha *= blink;
+    const gr = size * 3.6, g = ctx.createRadialGradient(x, y, 0, x, y, gr);
+    g.addColorStop(0, color + 'bb'); g.addColorStop(.35, color + '4d'); g.addColorStop(1, color + '00');
+    ctx.fillStyle = g; ctx.fillRect(x - gr, y - gr, gr * 2, gr * 2);
+    circle(ctx, x, y, size * .8, color); circle(ctx, x - size * .15, y - size * .15, size * .38, '#fffbe6');
+    ctx.restore();
+  }
+  // Accents ride on real trail samples; a sample's own position picks its accent, so accents
+  // stay put as the trail ages instead of flickering from frame to frame.
+  function drawKeepsakeTrail(ctx, ball, style, r, time, hot) {
+    const trail = ball.trail, spec = style.trail, accents = spec.accents;
+    for (let i = 1; i < trail.length; i++) {
+      if (trail[i].move) continue;
+      const f = i / trail.length;
+      ctx.beginPath(); ctx.moveTo(trail[i - 1].x, trail[i - 1].y); ctx.lineTo(trail[i].x, trail[i].y);
+      ctx.strokeStyle = spec.ribbon; ctx.lineWidth = r * (hot ? 2 : 1.55) * f; ctx.globalAlpha = f * (hot ? .62 : .45); ctx.stroke();
+    }
+    for (let i = 0; i < trail.length; i++) {
+      const p = trail[i], key = Math.abs(Math.round(p.x * 7.3 + p.y * 13.1));
+      if (p.move || key % (hot ? 2 : 3)) continue;
+      const f = (i + 1) / trail.length, size = r * (.55 + f * .75), color = accents[key % accents.length], spin = key * .37;
+      ctx.save(); ctx.globalAlpha = Math.min(1, f * 1.15);
+      if (spec.kind === 'blossoms') { ctx.translate(p.x, p.y); ctx.rotate(spin + time * 1.6); ctx.scale(.75, .75); sakuraPetal(ctx, size); ctx.fillStyle = color; ctx.fill(); }
+      else if (spec.kind === 'fireflies') fireflyGlow(ctx, p.x + Math.sin(time * 3 + key) * 3, p.y + Math.cos(time * 2.4 + key) * 3, size * .45, color, .35 + .65 * Math.max(0, Math.sin(time * 9 + key)));
+      else if (spec.kind === 'flakes') goldFlake(ctx, p.x, p.y, size * .8, color, spin + time * 4);
+      else if (spec.kind === 'stars') { ctx.globalAlpha *= .45 + .55 * Math.abs(Math.sin(time * 6 + key)); sparkle(ctx, p.x, p.y, size * 1.1, color, spin); }
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+  }
+  function drawProjectile(ctx, ball, index, time, reducedMotion, fever, style) {
+    if (style && style.seed) { drawStyledProjectile(ctx, ball, time, reducedMotion, fever, style); return; }
     const c = FLOWERS[ball.type] || FLOWERS[['coral', 'gold', 'lilac'][index % 3]];
     const r = ball.r || 5.5, trail = ball.trail || [];
     ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
@@ -1007,6 +1090,33 @@
       ctx.globalAlpha = .85;
       sparkle(ctx, ball.x, ball.y, r * 1.95, '#fffce999', time + index);
     }
+    ctx.restore();
+  }
+
+  function drawStyledProjectile(ctx, ball, time, reducedMotion, fever, style) {
+    const s = style.seed, r = ball.r || 5.5, hot = fever || ball.hot;
+    ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    if (!reducedMotion && (ball.trail || []).length > 1) drawKeepsakeTrail(ctx, ball, style, r, time, hot);
+    if (!reducedMotion) {
+      const pulse = style.id === 'firefly' ? 1 + Math.sin(time * 8) * .22 : 1, gr = r * 4.4 * pulse * (hot ? 1.25 : 1);
+      ctx.globalCompositeOperation = 'lighter';
+      const glow = ctx.createRadialGradient(ball.x, ball.y, 0, ball.x, ball.y, gr);
+      glow.addColorStop(0, s.light + 'cc'); glow.addColorStop(1, s.light + '00');
+      ctx.fillStyle = glow; ctx.fillRect(ball.x - gr, ball.y - gr, gr * 2, gr * 2);
+      ctx.globalCompositeOperation = 'source-over';
+    }
+    ctx.shadowColor = s.base; ctx.shadowBlur = hot ? 19 : 12;
+    if (style.id === 'gilded') {
+      const metal = ctx.createLinearGradient(ball.x - r, ball.y - r, ball.x + r, ball.y + r);
+      metal.addColorStop(0, s.core); metal.addColorStop(.45, s.light); metal.addColorStop(.7, s.base); metal.addColorStop(1, s.rim);
+      circle(ctx, ball.x, ball.y, r + 1.3, metal);
+    } else circle(ctx, ball.x, ball.y, r + 1.3, s.base);
+    ctx.shadowBlur = 0;
+    if (style.id === 'sakura') blossom(ctx, ball.x, ball.y, r * 1.15, s.light, reducedMotion ? 0 : time * 3);
+    else if (style.id === 'moonlit') { circle(ctx, ball.x, ball.y, r * .8, s.core); circle(ctx, ball.x + r * .32, ball.y - r * .12, r * .62, s.light); }
+    else if (style.id !== 'gilded') circle(ctx, ball.x, ball.y, r * .74, s.core);
+    circle(ctx, ball.x - r * .25, ball.y - r * .28, r * .25, '#ffffff');
+    if (hot && !reducedMotion) { ctx.globalAlpha = .85; sparkle(ctx, ball.x, ball.y, r * 1.95, '#ffffffaa', time); }
     ctx.restore();
   }
 
@@ -1057,6 +1167,22 @@
       ctx.globalAlpha = f; ctx.fillStyle = g; ctx.fillRect(particle.x - gr, particle.y - gr, gr * 2, gr * 2);
       ctx.restore(); return;
     }
+    if (particle.kind === 'firefly') {
+      const blink = reducedMotion ? 1 : .3 + .7 * Math.max(0, Math.sin(time * 7 + (particle.phase || 0)));
+      fireflyGlow(ctx, particle.x, particle.y, size, color, blink); ctx.restore(); return;
+    }
+    if (particle.kind === 'star') {
+      if (!reducedMotion) ctx.globalAlpha *= .4 + .6 * Math.abs(Math.sin(time * 6 + (particle.phase || 0)));
+      sparkle(ctx, particle.x, particle.y, size * 1.4, color, particle.rotation || 0); ctx.restore(); return;
+    }
+    if (particle.kind === 'flake') { goldFlake(ctx, particle.x, particle.y, size, color, particle.rotation || 0); ctx.restore(); return; }
+    if (particle.kind === 'blossom') {
+      ctx.translate(particle.x, particle.y); ctx.rotate(particle.rotation || 0);
+      ctx.scale(reducedMotion ? .8 : .45 + Math.abs(Math.cos((particle.rotation || 0) * .8)) * .55, 1);
+      sakuraPetal(ctx, size); ctx.fillStyle = color; ctx.fill();
+      ctx.strokeStyle = 'rgba(214,82,128,.35)'; ctx.lineWidth = .6; ctx.stroke();
+      ctx.restore(); return;
+    }
     if (particle.kind === 'spark') {
       const vx = particle.vx || 0, vy = particle.vy || 0;
       ctx.beginPath(); ctx.moveTo(particle.x, particle.y); ctx.lineTo(particle.x - vx * .035, particle.y - vy * .035);
@@ -1085,14 +1211,15 @@
     const age = Math.max(0, duration - life), text = String(floater.text || '');
     const combo = floater.kind === 'combo' || /CHAIN|in bloom|BLOOM CHAIN/i.test(text);
     const bonus = floater.kind === 'bonus' || /BALLS/i.test(text);
+    const wave = floater.kind === 'wave';
     const number = text.match(/[+]?\d+/)?.[0] || '';
-    const value = number || text;
+    const value = wave ? text : number || text;
     const scale = reducedMotion ? 1 : .55 + .45 * (1 - Math.exp(-age * 12) * Math.cos(age * 22));
     const y = combo ? Math.max(118, floater.y) : floater.y;
     const fade = Math.min(1, life / .24) * (reducedMotion ? 1 : Math.min(1, age / .045));
     ctx.save(); ctx.translate(clamp(floater.x, 78, 342), y - (reducedMotion ? 0 : ease(age / duration) * 6));
     ctx.scale(scale, scale); ctx.globalAlpha = fade; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    const size = combo ? 43 : bonus ? 31 : 21;
+    const size = wave ? 36 : combo ? 43 : bonus ? 31 : 21;
     ctx.font = `900 ${size}px system-ui, sans-serif`;
     // A restrained metallic relief gives the number the finish of a small trophy.
     const face = ctx.createLinearGradient(0, -size * .5, 0, size * .5);
@@ -1101,13 +1228,13 @@
     ctx.shadowColor = 'rgba(53,53,89,.45)'; ctx.shadowBlur = 7; ctx.shadowOffsetY = 3;
     ctx.strokeText(value, 0, 0); ctx.fillStyle = '#be7e49'; ctx.fillText(value, 0, 1.7);
     ctx.shadowBlur = 0; ctx.shadowOffsetY = 0; ctx.fillStyle = face; ctx.fillText(value, 0, 0);
-    if (combo || bonus) {
+    if (combo || bonus || wave) {
       ctx.font = '800 9px system-ui, sans-serif';
-      const label = combo ? 'B L O O M   C H A I N' : 'E X T R A   B A L L S';
+      const label = wave ? String(floater.label || '').toUpperCase().split('').join(' ') : combo ? 'B L O O M   C H A I N' : 'E X T R A   B A L L S';
       ctx.shadowColor = 'rgba(255,255,255,.95)'; ctx.shadowBlur = 4;
       ctx.fillStyle = '#245866'; ctx.fillText(label, 0, size * .62);
       ctx.shadowBlur = 0;
-      const offset = combo ? 49 : 43;
+      const offset = wave ? 112 : combo ? 49 : 43;
       ctx.globalAlpha *= .86;
       for (const side of [-1, 1]) {
         ctx.beginPath(); ctx.moveTo(side * (offset - 2), 13); ctx.quadraticCurveTo(side * (offset + 7), 0, side * offset, -12);
@@ -1132,6 +1259,7 @@
     drawGarden(ctx, 420, 560, options.theme, { mode: state.mode });
     if (!options.reducedMotion) drawAmbient(ctx, time, options.theme);
     drawAtmosphere(ctx, state, time, options);
+    if (rush && !options.reducedMotion) drawTempo(ctx, state, time);
     const shake = options.shake;
     if (shake && !options.reducedMotion) { ctx.translate(210 + shake.x, 280 + shake.y); ctx.rotate(shake.r || 0); ctx.translate(-210, -280); }
 
@@ -1197,6 +1325,14 @@
       // A descending flower retains its drawn variation instead of changing
       // petal orientation whenever its position crosses a pixel boundary.
       if (!flowerVariants.has(bud)) flowerVariants.set(bud, ((Math.floor(bud.x) * 31 + Math.floor(bud.y) * 17) % 7 + 7) % 7);
+      if (!options.reducedMotion && typeof bud.spawnAt === 'number') {
+        // A new Rush wave pops in with a little overshoot; only the drawing scales, never the hitbox.
+        const k = (time - bud.spawnAt) / .42;
+        if (k >= 0 && k < 1) {
+          const back = 1 + 2.70158 * Math.pow(k - 1, 3) + 1.70158 * Math.pow(k - 1, 2);
+          ctx.translate(bud.x, bud.y); ctx.scale(back, back); ctx.translate(-bud.x, -bud.y); ctx.globalAlpha *= Math.min(1, k * 3);
+        }
+      }
       if (!options.reducedMotion) {
         // Visual-only life: buds sway on their stems, open flowers breathe.
         // Collision geometry is untouched.
@@ -1222,12 +1358,12 @@
     }
     for (const bumper of state.bumpers || []) drawBumper(ctx, bumper, options.selectedBumper === bumper.id, time, colors, options.reducedMotion);
     if (options.showAim !== false && state.aim && (state.status !== 'flying' || options.showAim === true)) drawAim(ctx, state.aim, colors);
-    drawLauncher(ctx, state, time, colors);
+    drawLauncher(ctx, state, time, colors, options.keepsake);
 
     const balls = Array.isArray(state.balls) ? state.balls : state.ball ? [state.ball] : [];
     for (const particle of state.particles || []) drawParticle(ctx, particle, time, options.reducedMotion);
     if (!rush) drawGuide(ctx, state, balls, time, options.reducedMotion);
-    balls.forEach((ball, index) => drawProjectile(ctx, ball, index, time, options.reducedMotion, state.feverTime > 0));
+    balls.forEach((ball, index) => drawProjectile(ctx, ball, index, time, options.reducedMotion, state.feverTime > 0, options.keepsake));
 
     for (const floater of state.floaters || []) {
       if (floater.kind === 'pop') drawPop(ctx, floater, options.reducedMotion);
@@ -1242,5 +1378,5 @@
     }
   }
 
-  root.BloomArt = { draw, drawFlower, drawGarden, drawMoon, koiFish };
+  root.BloomArt = { draw, drawFlower, drawGarden, drawMoon, koiFish, drawProjectile, drawParticle, drawSeed };
 })(typeof window !== 'undefined' ? window : globalThis);

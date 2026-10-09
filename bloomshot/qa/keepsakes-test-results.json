@@ -1,0 +1,42 @@
+{
+  "passed": 8,
+  "failed": 0,
+  "methodology": "Loads keepsakes.js, art.js and store-config.js in Node. Checks catalog rules, unlock logic, purchase ids against the store catalog, physics independence and that every style draws with finite canvas values.",
+  "limitations": [
+    "A recording canvas checks that drawing runs with valid numbers, not how it looks; screenshots cover appearance."
+  ],
+  "results": [
+    {
+      "name": "The catalog has one free, one earned and three collection styles, each fully described",
+      "passed": true
+    },
+    {
+      "name": "Styles are looks only: no style carries anything the physics engine reads",
+      "passed": true
+    },
+    {
+      "name": "The purchase uses the product and entitlement the store catalog lists, and it is not on sale yet",
+      "passed": true
+    },
+    {
+      "name": "Meadow is always open, Moonlit opens only when all six Moon trials have a star, the collection only with its entitlement",
+      "passed": true
+    },
+    {
+      "name": "A locked, unknown or refunded choice shows Meadow without being forgotten",
+      "passed": true
+    },
+    {
+      "name": "Bloom extras scale with the burst, cap at 24 and carry each style's own particle",
+      "passed": true
+    },
+    {
+      "name": "Every style draws its seed, flying seed with trail, and burst particles with finite values",
+      "passed": true
+    },
+    {
+      "name": "A full board draws with every style worn, in each theme",
+      "passed": true
+    }
+  ]
+}

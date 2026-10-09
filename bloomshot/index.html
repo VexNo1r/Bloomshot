@@ -18,6 +18,7 @@
   <script src="levels.js" defer></script>
   <script src="moon.js" defer></script>
   <script src="koi.js" defer></script>
+  <script src="keepsakes.js" defer></script>
   <script src="garden.js" defer></script>
   <script src="engine.js" defer></script>
   <script src="rush.js" defer></script>
@@ -117,17 +118,18 @@
           <button id="plant-btn" class="plant-button" type="button">Plant · 4 seeds</button>
         </section>
         <p id="garden-earning-hint" class="garden-earning-hint">Bloom flowers in Rush to earn seeds for your meadow.</p>
+        <button id="daily-btn" class="daily-card" type="button">
+          <canvas id="daily-canvas" class="daily-board" width="216" height="288" aria-hidden="true"></canvas>
+          <span class="daily-copy"><span id="daily-eyebrow" class="eyebrow">DAILY GARDEN</span><strong id="daily-title">Today's garden</strong><span id="daily-status">A new layout every day.</span>
+            <span id="daily-week" class="daily-week" aria-hidden="true"></span><span id="daily-bouquet" class="daily-bouquet"></span></span>
+          <svg class="card-arrow" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 10h12m-5-5 5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
         <button id="garden-rush-btn" class="rush-card" type="button">
           <span class="rush-card-copy"><span class="eyebrow">PLAY. BLOOM. GROW.</span><strong>Play Meadow Rush</strong><span id="rush-best">Keep the flowers above the line.</span></span>
           <span class="rush-card-arrow" aria-hidden="true">↗</span>
         </button>
         <details id="puzzle-section" class="puzzle-section">
         <summary><span>Garden puzzles</span><small id="garden-summary">18 gardens to discover</small></summary>
-        <button id="daily-btn" class="daily-card" type="button">
-          <span class="daily-icon" aria-hidden="true"><svg viewBox="0 0 40 40" fill="none"><circle cx="20" cy="20" r="7" stroke="currentColor" stroke-width="1.4"/><path d="M20 4v5m0 22v5M4 20h5m22 0h5M8.7 8.7l3.5 3.5m15.6 15.6 3.5 3.5M8.7 31.3l3.5-3.5m15.6-15.6 3.5-3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span>
-          <span class="daily-copy"><span class="eyebrow">DAILY CHALLENGE</span><strong>Today's garden</strong><span>A new layout every day.</span></span>
-          <svg class="card-arrow" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 10h12m-5-5 5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </button>
         <div class="section-rule"><span>CHOOSE A GARDEN</span><span>THE MEADOW</span></div>
         <div id="level-grid" class="level-grid" aria-label="Meadow levels"></div>
         <p class="page-footnote">Replay cleared gardens to improve your score.</p>
@@ -138,8 +140,16 @@
         <div class="page-heading">
           <span class="eyebrow">YOUR COLLECTION</span>
           <h1 id="collection-title">Your herbarium</h1>
-          <p>Clear gardens to collect new flowers.</p>
+          <p>Clear gardens to collect new flowers, and choose how your seed looks.</p>
           <p id="collection-summary" class="page-summary">Your first pressed flower is waiting.</p>
+        </div>
+        <div class="section-rule"><span>GARDEN KEEPSAKES</span><span>SEED STYLES</span></div>
+        <div id="keepsake-shelf" class="keepsake-shelf">
+          <div class="keepsake-stage"><canvas id="keepsake-canvas" width="420" height="190" role="img" aria-label="Seed style preview"></canvas></div>
+          <div id="keepsake-caption" class="keepsake-caption" aria-live="polite"></div>
+          <div id="keepsake-grid" class="keepsake-grid" role="group" aria-label="Seed styles"></div>
+          <div id="keepsake-offer"></div>
+          <p class="keepsake-fine">Styles change only how your seed, its trail and your blooms look. Every shot flies exactly the same.</p>
         </div>
         <div class="section-rule"><span>FLOWERS YOU'VE FOUND</span><span>THE MEADOW</span></div>
         <div id="collection-grid" class="collection-grid" aria-label="Collected flowers"></div>
@@ -192,7 +202,7 @@
     <p id="result-message" class="dialog-copy">Every flower in bloom.</p>
     <div id="result-stars" class="result-stars" aria-label="Stars earned"></div>
     <div class="result-score-box"><span class="eyebrow">BLOOM POINTS</span><strong id="result-score">0</strong></div>
-    <div id="garden-reward" class="garden-reward" hidden><span class="purse-leaf" aria-hidden="true"></span><p><strong id="reward-seeds"></strong><span>For your growing meadow</span></p><button id="grow-garden-btn" type="button">Garden <span aria-hidden="true">↗</span></button></div>
+    <div id="garden-reward" class="garden-reward" hidden><span class="purse-leaf" aria-hidden="true"></span><p><strong id="reward-seeds"></strong><span id="reward-goal">For your growing meadow</span></p><button id="grow-garden-btn" type="button">Garden <span aria-hidden="true">↗</span></button></div>
     <button id="next-btn" class="button-primary" type="button">Next garden <span aria-hidden="true">→</span></button>
     <button id="retry-btn" class="button-secondary" type="button">Play again</button>
     <button id="result-garden-btn" class="button-link" type="button">Back to the meadow</button>

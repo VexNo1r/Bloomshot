@@ -8,6 +8,13 @@
   const { Game, RADIUS, BOUNDS } = Engine;
   const TICK = 1 / 120, CAP = 5, FIRE_DELAY = 0.65, BALL_LIFE = 4;
   const PALETTES = ['gold', 'coral', 'lilac'];
+  // Tempo: each wave adds a tenth to every score (up to x2 at wave 11) and reloads a little faster
+  // (0.65 s down to 0.45 s by wave 9), so the run speeds up for the player as well as against them.
+  const tempoFor = wave => Math.min(2, 1 + (wave - 1) * 0.1);
+  const fireDelayFor = wave => Math.max(0.45, FIRE_DELAY - (wave - 1) * 0.025);
+  // The opening curve is unchanged through wave 9; after it the flowers keep falling faster, so a
+  // quick-firing player still meets rising pressure instead of a plateau.
+  const descentFor = wave => wave <= 9 ? Math.min(32, 10.2 + (wave - 1) * 2.8) : Math.min(46, 32 + (wave - 9) * 1.8);
 
   function waveBuds(wave) {
     let anchors;
@@ -47,6 +54,7 @@
     }
     get bloomedCount() { return this.totalBlooms || 0; }
     get stars() { return 0; }
+    get tempo() { return tempoFor(this.wave); }
     get splitReady() {
       return this.status === 'flying' && this.splitCharge >= 1 && this.balls.length > 0 && this.balls.length <= CAP - 2;
     }
@@ -55,7 +63,7 @@
       const length = Math.hypot(dx, dy);
       if (length < 1e-6 || dy / length > -0.12) return false;
       this.started = true; this.status = 'flying';
-      this.fireCooldown = FIRE_DELAY; this.shotNumber++; this.aim = [];
+      this.fireCooldown = fireDelayFor(this.wave); this.shotNumber++; this.aim = [];
       this.spawnBall({ x: this.launcher.x, y: this.launcher.y, angle: Math.atan2(dy, dx),
         speed: this.speed, type: PALETTES[(this.shotNumber - 1) % PALETTES.length] });
       this.event('launch', { wave: this.wave, count: 1 });
@@ -98,8 +106,9 @@
       if (this.time - this.lastHitAt > 1.1) this.combo = 0;
       this.lastHitAt = this.time;
       if (bud.hp > 1) {
-        bud.hp--; bud.hitAt = this.time; this.score += 50;
-        this.event('crack', { bud, chain, gain: 50 });
+        const gain = Math.round(50 * this.tempo);
+        bud.hp--; bud.hitAt = this.time; this.score += gain;
+        this.event('crack', { bud, chain, gain });
         return;
       }
       this.bloom(bud, chain);
@@ -111,7 +120,7 @@
       bud.bloomed = true; bud.bloomAt = this.time;
       this.totalBlooms++; this.lastShotBlooms++; this.combo++;
       this.bestCombo = Math.max(this.bestCombo, this.combo);
-      const gain = (chain ? 75 : 100) * Math.min(5, 1 + Math.floor((this.combo - 1) / 4));
+      const gain = Math.round((chain ? 75 : 100) * Math.min(5, 1 + Math.floor((this.combo - 1) / 4)) * this.tempo);
       this.score += gain;
       this.event('bloom', { bud, gain, combo: this.combo, chain });
       if (this.combo % 12 === 0) { this.feverTime = 1.6; this.event('fever', { combo: this.combo }); }
@@ -123,11 +132,12 @@
     _loadWave() {
       this.wave++; this.waveBreaches = 0; this.nextWaveAt = null; this.pending = [];
       this.buds = waveBuds(this.wave);
+      for (const bud of this.buds) bud.spawnAt = this.time;
       this.speed = Math.min(650, 460 + (this.wave - 1) * 18);
       // Pressure keeps increasing after the opening waves; fixed hitboxes and four-second balls stay responsive.
-      this.descentSpeed = Math.min(32, 10.2 + (this.wave - 1) * 2.8);
+      this.descentSpeed = descentFor(this.wave);
       this.level.subtitle = 'Wave ' + this.wave + '. Keep the flowers above the line.';
-      this.event('wave', { wave: this.wave, speed: this.speed, descentSpeed: this.descentSpeed, buds: this.buds.length });
+      this.event('wave', { wave: this.wave, speed: this.speed, descentSpeed: this.descentSpeed, buds: this.buds.length, tempo: this.tempo });
     }
     _lose() {
       if (this.status === 'lost') return;
@@ -193,11 +203,14 @@
       }
       this.balls = this.balls.filter(ball => ball.y <= BOUNDS.bottom + RADIUS && ball.age < BALL_LIFE);
       this.ball = this.balls[0] || null;
-      if (!this.buds.some(bud => !bud.bloomed) && this.pending.length === 0 && this.nextWaveAt === null) this.nextWaveAt = this.time + 0.7;
+      if (!this.buds.some(bud => !bud.bloomed) && this.pending.length === 0 && this.nextWaveAt === null) {
+        this.nextWaveAt = this.time + 0.7;
+        this.event('cleared', { wave: this.wave, tempo: this.tempo, next: tempoFor(this.wave + 1) });
+      }
     }
     snapshot() {
       return { mode: this.mode, level: 'rush', status: this.status, score: this.score,
-        wave: this.wave, lives: this.lives, elapsed: this.elapsed, started: this.started,
+        wave: this.wave, tempo: this.tempo, lives: this.lives, elapsed: this.elapsed, started: this.started,
         speed: this.speed, descentSpeed: this.descentSpeed, balls: this.balls.length,
         fireCooldown: this.fireCooldown, rotateCooldown: this.rotateCooldown, splitCharge: this.splitCharge, splitReady: this.splitReady,
         combo: this.combo, bestCombo: this.bestCombo, bloomedCount: this.bloomedCount,
@@ -205,5 +218,5 @@
         buds: this.buds.map(({ id, x, y, hp, relay, bloomed }) => ({ id, x, y, hp, relay, bloomed })) };
     }
   }
-  return { RushGame };
+  return { RushGame, tempoFor, fireDelayFor, descentFor };
 });
