@@ -271,15 +271,21 @@
     for (const bud of level.buds) BloomArt.drawFlower(brush, bud.x, bud.y, (bud.r || 16) * 1.3, bud.type, open ? 1 : 0, 0);
     brush.fillStyle = '#123d36'; brush.beginPath(); brush.arc(level.launcher.x, level.launcher.y, 16, 0, Math.PI * 2); brush.fill();
   }
-  // One plain next step for the seeds just earned.
+  const lower = name => name.charAt(0).toLowerCase() + name.slice(1);
+  const canSpend = data => data.plots.some(p => p.canPlant) || data.decor.some(d => d.canBuild);
+  // One plain next step for the seeds just earned: a patch to grow first, then something to build.
   function nextGoal() {
-    const data = BloomGarden.summary(save.garden), open = data.plots.filter(p => p.stage < 3);
-    if (!open.length) return 'Your meadow is in full bloom.';
+    const data = BloomGarden.summary(save.garden), open = data.plots.filter(p => p.stage < 3), unbuilt = data.decor.filter(d => !d.built);
+    if (data.complete) return 'Your meadow is complete!';
     const ready = [data.plots.find(p => p.selected), ...open].find(p => p && p.canPlant);
     if (ready) return `Enough to ${ready.stage ? 'grow' : 'plant'} ${ready.name} now.`;
-    const target = open.find(p => p.selected) || open.reduce((a, b) => b.nextCost < a.nextCost ? b : a);
-    const need = target.nextCost - data.seeds;
-    return `${need} more ${need === 1 ? 'seed' : 'seeds'} to ${target.stage ? 'grow' : 'plant'} ${target.name}.`;
+    const piece = unbuilt.find(d => d.canBuild);
+    if (piece) return `Enough to build the ${lower(piece.name)} now.`;
+    const targets = [...open.map(p => ({ cost: p.nextCost, text: `${p.stage ? 'grow' : 'plant'} ${p.name}`, selected: p.selected })),
+      ...unbuilt.map(d => ({ cost: d.cost, text: `build the ${lower(d.name)}` }))];
+    const target = targets.find(t => t.selected) || targets.reduce((a, b) => b.cost < a.cost ? b : a);
+    const need = target.cost - data.seeds;
+    return `${need} more ${need === 1 ? 'seed' : 'seeds'} to ${target.text}.`;
   }
   // Three stems from the daily gardens, tied with a ribbon, drawn with the same flower art as play.
   let bouquetIcon = '';
@@ -319,7 +325,7 @@
   function renderMeadow() {
     const data = BloomGarden.summary(save.garden), selected = data.plots.find(p => p.selected);
     $('garden-seeds').textContent = fmt(data.seeds);
-    $('meadow-summary').textContent = !data.totalStages ? data.seeds >= 4 ? 'Pick a patch and plant your first seeds.' : 'Pick a patch. Rush earns the seeds.' : data.completedPlots === 6 ? 'Full bloom! You grew every flower here.' : `${data.totalStages}/18 grown · ${data.completedPlots}/6 in full bloom`;
+    $('meadow-summary').textContent = data.complete ? 'Your meadow is complete!' : !data.totalStages && !data.builtDecor ? data.seeds >= 4 ? 'Pick a patch and plant your first seeds.' : 'Pick a patch. Rush earns the seeds.' : `${data.completedPlots === 6 ? 'Full bloom' : `${data.totalStages}/18 grown`} · ${data.builtDecor}/${data.totalDecor} built`;
     $('garden-seeds').nextElementSibling.textContent = data.seeds === 1 ? 'seed' : 'seeds';
     if (!$('plot-markers').children.length) $('plot-markers').innerHTML = data.plots.map(plot => {
       const point = BloomMeadow.plots.find(p => p.id === plot.id);
@@ -335,18 +341,42 @@
     $('plot-message').textContent = selected.description;
     $('plant-btn').disabled = !selected.canPlant;
     $('plant-btn').textContent = selected.stage === 3 ? 'In full bloom' : `${selected.stage ? 'Grow' : 'Plant'} · ${selected.nextCost} seeds`;
-    $('garden-earning-hint').textContent = selected.stage === 3 ? 'Pick another patch to grow.' : !selected.canPlant ? `${selected.nextCost - data.seeds} more ${selected.nextCost - data.seeds === 1 ? 'seed' : 'seeds'} needed. Play Rush to earn them.` : 'Earn seeds in Rush, puzzles and the daily garden.';
-    $('garden-btn').classList.toggle('has-seeds', data.plots.some(p => p.canPlant));
+    $('garden-earning-hint').textContent = selected.stage === 3 ? data.completedPlots === 6 ? 'Every patch is in full bloom.' : 'Pick another patch to grow.' : !selected.canPlant ? `${selected.nextCost - data.seeds} more ${selected.nextCost - data.seeds === 1 ? 'seed' : 'seeds'} needed. Play Rush to earn them.` : 'Earn seeds in Rush, puzzles and the daily garden.';
+    $('garden-btn').classList.toggle('has-seeds', canSpend(data));
+    renderDecor(data);
     meadowCanvas.dataset.seeds = data.seeds; meadowCanvas.dataset.stages = data.totalStages;
     meadowCanvas.dataset.selected = data.selectedId;
-    meadowCanvas.setAttribute('aria-label', `Your meadow, ${data.totalStages} of 18 growth stages. ${data.seeds} ${data.seeds === 1 ? 'seed' : 'seeds'} available. Choose a flower patch using the labeled buttons.`);
+    meadowCanvas.setAttribute('aria-label', `Your meadow, ${data.totalStages} of 18 growth stages and ${data.builtDecor} of ${data.totalDecor} decorations. ${data.seeds} ${data.seeds === 1 ? 'seed' : 'seeds'} available. Choose a flower patch using the labeled buttons.`);
     meadowDirty = true;
+  }
+  // Six things to build with seeds. Each card shows the same art the meadow draws once it is built.
+  const decorIcons = new Map();
+  function decorIcon(id) {
+    if (!decorIcons.has(id)) {
+      const icon = document.createElement('canvas'); icon.width = 192; icon.height = 192;
+      BloomMeadow.drawDecorIcon(icon.getContext('2d'), id, 192);
+      decorIcons.set(id, icon.toDataURL('image/png'));
+    }
+    return decorIcons.get(id);
+  }
+  function renderDecor(data) {
+    $('decor-count').textContent = `${data.builtDecor}/${data.totalDecor} built`;
+    const grid = $('decor-grid');
+    if (!grid.children.length) grid.innerHTML = data.decor.map(d => `<button class="decor-card" type="button" data-decor="${d.id}"><img class="decor-art" src="${decorIcon(d.id)}" alt="" width="64" height="64"><strong>${escape(d.name)}</strong><span class="decor-price"></span></button>`).join('');
+    for (const d of data.decor) {
+      const card = grid.querySelector(`[data-decor="${d.id}"]`);
+      card.classList.toggle('built', d.built); card.classList.toggle('ready', d.canBuild);
+      if (d.built) card.setAttribute('aria-disabled', 'true'); else card.removeAttribute('aria-disabled');
+      card.setAttribute('aria-label', `${d.name}. ${d.built ? 'Built.' : `${d.cost} seeds.`} ${d.description}`);
+      card.querySelector('.decor-price').innerHTML = d.built ? 'Built!' : `<span class="purse-leaf" aria-hidden="true"></span>${d.cost}`;
+    }
   }
   function drawMeadow(timestamp) {
     const progress = growth ? Math.min(1, (timestamp - growth.started) / 950) : 1;
     BloomMeadow.draw(meadowCtx, { width: 420, height: 330, state: save.garden, selectedId: save.garden.selectedId, time: timestamp / 1000, motion: save.settings.motion, growth: growth && { ...growth, progress } });
     if (growth && save.settings.motion && progress < 1) {
-      const point = BloomMeadow.plots.find(p => p.id === growth.plotId);
+      const spot = growth.decorId && BloomMeadow.decor.find(d => d.id === growth.decorId);
+      const point = spot ? { x: spot.icon[0], y: spot.icon[1], accent: spot.accent } : BloomMeadow.plots.find(p => p.id === growth.plotId);
       meadowCtx.save(); meadowCtx.globalAlpha = Math.sin(progress * Math.PI) * .8;
       for (let i = 0; i < 28; i++) {
         const a = i * 2.39996, radius = 8 + progress * (24 + i % 5 * 8);
@@ -364,7 +394,7 @@
     save.garden = result.state; runAward = result.awarded; runBouquet = result.bouquet;
     const seeds = BloomGarden.summary(save.garden).seeds;
     $('garden-seeds').textContent = fmt(seeds); $('garden-seeds').nextElementSibling.textContent = seeds === 1 ? 'seed' : 'seeds';
-    $('garden-btn').classList.toggle('has-seeds', BloomGarden.summary(save.garden).plots.some(p => p.canPlant));
+    $('garden-btn').classList.toggle('has-seeds', canSpend(BloomGarden.summary(save.garden)));
   }
   function renderCollection() {
     $('collection-grid').innerHTML = flowers.map(flower => {
@@ -872,6 +902,25 @@
     BloomSound.wake(); BloomSound.play('plant', { x: BloomMeadow.plots.find(p => p.id === id).x });
     haptic('tap');
     say(`${BloomGarden.plots.find(p => p.id === id).name} ${fromStage ? 'grew' : 'planted'}. ${save.garden.seeds} seeds left.`);
+  });
+  $('decor-grid').addEventListener('click', event => {
+    const card = event.target.closest('[data-decor]'); if (!card) return;
+    const id = card.dataset.decor, piece = BloomGarden.decor.find(d => d.id === id); if (!piece) return;
+    BloomSound.wake();
+    const built = BloomGarden.build(save.garden, id);
+    if (!built.success) {
+      BloomSound.play('tap');
+      if (built.reason === 'insufficient-seeds') { const need = built.cost - save.garden.seeds; toast(`${need} more ${need === 1 ? 'seed' : 'seeds'} for the ${lower(piece.name)}.`); }
+      return;
+    }
+    save.garden = built.state; persist(); renderMeadow();
+    growth = { decorId: id, started: performance.now() };
+    const spot = BloomMeadow.decor.find(d => d.id === id);
+    BloomSound.play('plant', { x: spot.x }); haptic('surge');
+    toast(`${piece.name} built!`);
+    say(`${piece.name} built. ${save.garden.seeds} seeds left.`);
+    const map = meadowCanvas.getBoundingClientRect();
+    if (map.top < 0 || map.bottom > window.innerHeight) meadowCanvas.scrollIntoView({ behavior: save.settings.motion ? 'smooth' : 'auto', block: 'center' });
   });
   $('collection-btn').addEventListener('click', () => { if (preview) exitPreview(); setRoute('collection'); });
   $('keepsake-shelf').addEventListener('click', event => {

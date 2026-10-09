@@ -1,6 +1,6 @@
 # BLOOMSHOT art and audio provenance
 
-Persistent meadow: meadow.js is AI-assisted procedural Canvas game art, with six organic beds, path, pond, foliage and butterflies, plus existing BloomArt flowers. No downloaded or commissioned art was added. Patch names and progression remain live HTML. Native icons and splash images are exports of the existing flower SVG.
+Persistent meadow: meadow.js is AI-assisted procedural Canvas game art, with six organic beds, path, pond, foliage and butterflies, plus existing BloomArt flowers. The six decorations bought with seeds (bench, birdhouse and bluebird, water lilies and frog, beehive and bees, lanterns, apple tree and swing) are drawn the same way, as Canvas paths in meadow.js; their card pictures are rendered from that same code. No downloaded or commissioned art was added. Patch names and progression remain live HTML. Native icons and splash images are exports of the existing flower SVG.
 
 Moon is a free playable chapter with six authored trials and real paired teleport gates. Each trial has five single seeds, no guidance and no automatic extra balls. Newly earned Moon stars reward seeds for the permanent meadow. Koi remains a visual preview with Meadow geometry.
 

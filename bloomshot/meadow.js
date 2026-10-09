@@ -12,6 +12,17 @@
     { id: 'dawn', x: 230, y: 265, rx: 62, ry: 33, angle: .08, type: 'coral', accent: '#ffc78e', seed: 1297 }
   ].map(p => Object.freeze(Object.assign(p, { labelX: p.x, labelY: p.y + p.ry + 12 }))));
   const byId = Object.fromEntries(PLOTS.map(p => [p.id, p]));
+  // Decorations stand on open grass, clear of the beds, their labels and the path. The icon box frames each
+  // one for its card: [center x, center y, size] in meadow units.
+  const DECOR = Object.freeze([
+    { id: 'bench', x: 96, y: 143, accent: '#e2b47a', icon: [96, 133, 46] },
+    { id: 'birdhouse', x: 388, y: 152, accent: '#7cc0ec', icon: [389, 129, 54] },
+    { id: 'lilies', x: 355, y: 285, accent: '#f59ac0', icon: [357, 284, 92] },
+    { id: 'beehive', x: 58, y: 304, accent: '#f6cf72', icon: [58, 287, 44] },
+    { id: 'lanterns', x: 222, y: 198, accent: '#ffe08a', icon: [222, 186, 34], posts: [[128, 296], [222, 198], [263, 126], [212, 62]] },
+    { id: 'tree', x: 172, y: 221, accent: '#ec6a5c', icon: [178, 194, 76] }
+  ].map(d => Object.freeze(d)));
+  const decorById = Object.fromEntries(DECOR.map(d => [d.id, d]));
   const plantData = new Map(), foliageCache = new Map();
   let background = null;
 
@@ -280,6 +291,188 @@
     ctx.beginPath(); ctx.moveTo(mx - 2, my); ctx.lineTo(mx -.2, my + 1.7); ctx.lineTo(mx + 2.5, my - 2);
     ctx.strokeStyle = '#846133'; ctx.lineWidth = 1; ctx.stroke(); ctx.restore();
   }
+  function slab(ctx, x, y, w, h, r, fill, stroke, lineWidth) {
+    r = Math.min(r, w / 2, h / 2);
+    ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+    if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+    if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lineWidth || .6; ctx.stroke(); }
+  }
+  const shade = 'rgba(28,106,77,.2)', ink = '#6b4a2b';
+  function paintBench(ctx) {
+    ellipse(ctx, 0, 1.5, 21, 4.2, 0, shade);
+    slab(ctx, -15.5, -19, 2.6, 19, 1, '#7a5432');
+    slab(ctx, 12.9, -19, 2.6, 19, 1, '#7a5432');
+    for (const y of [-20, -14.6]) {
+      slab(ctx, -18, y, 36, 3.8, 1.4, '#b97f48', ink, .55);
+      ctx.beginPath(); ctx.moveTo(-16.5, y + 1); ctx.lineTo(16.5, y + 1); ctx.strokeStyle = 'rgba(255,229,178,.65)'; ctx.lineWidth = .7; ctx.stroke();
+    }
+    slab(ctx, -19.5, -8.6, 39, 5.2, 1.6, '#c48a50', ink, .6);
+    slab(ctx, -19, -8.3, 38, 1.7, .8, '#e6b77c');
+    slab(ctx, -16.8, -3.6, 2.8, 5.2, .8, ink);
+    slab(ctx, 14, -3.6, 2.8, 5.2, .8, ink);
+  }
+  function bird(ctx, x, y, time, motion) {
+    const hop = motion ? Math.max(0, Math.sin(time * 1.7)) ** 12 * 2.4 : 0;
+    ctx.save(); ctx.translate(x, y - hop);
+    ctx.beginPath(); ctx.moveTo(-2.6, -.4); ctx.lineTo(-6.2, -2); ctx.lineTo(-5.6, .7); ctx.closePath(); ctx.fillStyle = '#4f93c8'; ctx.fill();
+    ellipse(ctx, 0, 0, 3.8, 2.9, -.15, '#6aaee0', '#3f7fb0', .45);
+    ellipse(ctx, .9, 1, 2.3, 1.6, -.1, '#f6c48f');
+    ellipse(ctx, 2.9, -1.9, 2.1, 2.1, 0, '#6aaee0', '#3f7fb0', .45);
+    ellipse(ctx, 3.5, -2.2, .48, .48, 0, '#23333a');
+    ctx.beginPath(); ctx.moveTo(4.8, -2); ctx.lineTo(6.3, -1.5); ctx.lineTo(4.7, -1.1); ctx.closePath(); ctx.fillStyle = '#f2b14e'; ctx.fill();
+    ctx.restore();
+  }
+  function paintBirdhouse(ctx, time, motion) {
+    ellipse(ctx, 0, 1, 8.5, 2.6, 0, shade);
+    slab(ctx, -1.7, -25, 3.4, 26, 1, '#8a6239', ink, .5);
+    ctx.beginPath(); ctx.moveTo(-8, -24.5); ctx.lineTo(8, -24.5); ctx.lineTo(8, -36.5); ctx.lineTo(0, -43.5); ctx.lineTo(-8, -36.5); ctx.closePath();
+    ctx.fillStyle = '#f3e3bd'; ctx.fill(); ctx.strokeStyle = '#9b7448'; ctx.lineWidth = .8; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-10.8, -35.4); ctx.lineTo(0, -46); ctx.lineTo(10.8, -35.4); ctx.lineTo(9.2, -33.8); ctx.lineTo(0, -42.6); ctx.lineTo(-9.2, -33.8); ctx.closePath();
+    ctx.fillStyle = '#e0816a'; ctx.fill(); ctx.strokeStyle = '#a8513f'; ctx.lineWidth = .6; ctx.stroke();
+    ellipse(ctx, 0, -31.5, 2.7, 2.9, 0, '#5a3b24');
+    ellipse(ctx, 0, -26.6, 1, 1, 0, '#8a6239');
+    bird(ctx, 5.4, -42.3, time, motion);
+  }
+  function lily(ctx, x, y, size, pink) {
+    ctx.save(); ctx.translate(x, y); ctx.scale(1, .62);
+    for (let i = 0; i < 8; i++) {
+      ctx.save(); ctx.rotate(i * TAU / 8 + .2);
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(size * .42, -size * .5, 0, -size); ctx.quadraticCurveTo(-size * .42, -size * .5, 0, 0);
+      ctx.fillStyle = i % 2 ? (pink ? '#f59ac0' : '#fbe6ef') : (pink ? '#ffc4dc' : '#ffffff'); ctx.fill();
+      ctx.strokeStyle = pink ? '#d96d9b' : '#e2b6c8'; ctx.lineWidth = .35; ctx.stroke(); ctx.restore();
+    }
+    ellipse(ctx, 0, 0, size * .3, size * .3, 0, '#ffd36b'); ctx.restore();
+  }
+  function paintLilies(ctx, time, motion) {
+    ctx.save(); ctx.rotate(-.22);
+    for (const [x, y, rx, ry, a] of [[4, 12, 7, 3.7, .3], [31, 5, 5.6, 3, -.2], [-26, -7, 5.2, 2.8, .5], [-1, -14, 4.6, 2.5, .1]]) {
+      ellipse(ctx, x, y, rx, ry, a, '#4ab684', '#168c7c', .6);
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + rx * .9, y - ry * .3); ctx.lineTo(x + rx * .9, y + ry * .2); ctx.closePath(); ctx.fillStyle = '#83d6cb'; ctx.fill();
+    }
+    lily(ctx, 4, 11, 5.4, true); lily(ctx, 31, 4.4, 4.4, false); lily(ctx, 19.5, -9.6, 4.2, true);
+    // The frog takes the big pad and blinks now and then.
+    ctx.save(); ctx.translate(-17, 3.6); ctx.rotate(.22);
+    ellipse(ctx, 0, 1.2, 4.6, 2.2, 0, 'rgba(10,80,70,.2)');
+    ellipse(ctx, 0, 0, 4.4, 3.3, 0, '#5fbf5b', '#2f8a3a', .5);
+    ellipse(ctx, 0, .9, 2.8, 1.7, 0, '#b9e68a');
+    const blink = motion && time % 4.3 < .14;
+    for (const side of [-1, 1]) {
+      ellipse(ctx, side * 2.2, -2.7, 1.55, 1.55, 0, '#6fcf6a', '#2f8a3a', .45);
+      if (blink) { ctx.beginPath(); ctx.moveTo(side * 2.2 - 1, -2.7); ctx.lineTo(side * 2.2 + 1, -2.7); ctx.strokeStyle = '#2f5a2a'; ctx.lineWidth = .5; ctx.stroke(); }
+      else ellipse(ctx, side * 2.2, -2.8, .62, .7, 0, '#1f2b22');
+    }
+    ctx.beginPath(); ctx.moveTo(-1.6, -.4); ctx.quadraticCurveTo(0, .6, 1.6, -.4); ctx.strokeStyle = '#2f6a32'; ctx.lineWidth = .45; ctx.stroke();
+    ctx.restore(); ctx.restore();
+  }
+  function bee(ctx, x, y, angle) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
+    ellipse(ctx, -.2, -1.4, 1.2, .85, -.3, 'rgba(255,255,255,.88)', 'rgba(120,140,150,.5)', .25);
+    ellipse(ctx, 0, 0, 2, 1.35, 0, '#f7c943', '#6b4a1f', .35);
+    for (const s of [-.5, .6]) { ctx.beginPath(); ctx.moveTo(s, -1.2); ctx.lineTo(s, 1.2); ctx.strokeStyle = '#3a2a1a'; ctx.lineWidth = .55; ctx.stroke(); }
+    ctx.restore();
+  }
+  function paintBeehive(ctx, time, motion) {
+    ellipse(ctx, 0, 1, 13, 3.2, 0, shade);
+    slab(ctx, -8, -3, 2.2, 4, .6, ink); slab(ctx, 5.8, -3, 2.2, 4, .6, ink);
+    slab(ctx, -11, -5.5, 22, 3.2, 1, '#9b7044', ink, .5);
+    const dome = () => { ctx.beginPath(); ctx.moveTo(-10.5, -5.2); ctx.bezierCurveTo(-11.5, -20, -6.4, -27, 0, -27); ctx.bezierCurveTo(6.4, -27, 11.5, -20, 10.5, -5.2); ctx.closePath(); };
+    const straw = ctx.createLinearGradient(-8, -26, 8, -5);
+    straw.addColorStop(0, '#f8d985'); straw.addColorStop(1, '#e1a64a');
+    dome(); ctx.fillStyle = straw; ctx.fill(); ctx.strokeStyle = '#b9823a'; ctx.lineWidth = .7; ctx.stroke();
+    ctx.save(); dome(); ctx.clip();
+    for (let i = 1; i <= 4; i++) {
+      const y = -5.2 - i * 4.6;
+      ctx.beginPath(); ctx.moveTo(-12, y); ctx.quadraticCurveTo(0, y + 2.6, 12, y);
+      ctx.strokeStyle = '#c38a3c'; ctx.lineWidth = .9; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-12, y - 1.1); ctx.quadraticCurveTo(0, y + 1.5, 12, y - 1.1);
+      ctx.strokeStyle = 'rgba(255,240,190,.55)'; ctx.lineWidth = .5; ctx.stroke();
+    }
+    ctx.restore();
+    ellipse(ctx, 0, -8, 2.7, 1.9, 0, '#5a3b24');
+    const t = motion ? time : 1.3;
+    for (let i = 0; i < 3; i++) {
+      const a = t * (1.2 + i * .35) + i * 2.1, r = 13 + i * 3;
+      bee(ctx, Math.cos(a) * r, -15 + Math.sin(a * 1.3) * r * .45, Math.cos(a) > 0 ? .25 : -.25);
+    }
+  }
+  function lanternGlow(ctx, x, y, time, motion) {
+    const flicker = motion ? .82 + Math.sin(time * 5.3 + x) * .1 + Math.sin(time * 8.1 + y) * .06 : .9;
+    const glow = ctx.createRadialGradient(x, y, 0, x, y, 13);
+    glow.addColorStop(0, `rgba(255,232,150,${.55 * flicker})`); glow.addColorStop(1, 'rgba(255,232,150,0)');
+    ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(x, y, 13, 0, TAU); ctx.fill();
+  }
+  function paintLantern(ctx, time, motion, x) {
+    ellipse(ctx, 0, 1, 4.5, 1.6, 0, shade);
+    slab(ctx, -1.1, -15, 2.2, 15.6, .8, '#6b5a45');
+    lanternGlow(ctx, 0, -18, time, motion);
+    slab(ctx, -3.2, -21.5, 6.4, 7.4, 1.3, '#ffe7a0', '#5c4a35', .7);
+    ctx.beginPath(); ctx.moveTo(0, -21.3); ctx.lineTo(0, -14.4); ctx.strokeStyle = 'rgba(92,74,53,.55)'; ctx.lineWidth = .45; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-4, -21.3); ctx.lineTo(0, -24.6); ctx.lineTo(4, -21.3); ctx.closePath(); ctx.fillStyle = '#5c4a35'; ctx.fill();
+    ellipse(ctx, 0, -25, .9, .9, 0, '#5c4a35');
+  }
+  function paintTree(ctx, time, motion) {
+    ellipse(ctx, 5, 0, 31, 7, 0, shade);
+    ctx.beginPath(); ctx.moveTo(-5, .5); ctx.bezierCurveTo(-3, -8, -4.5, -16, -3.4, -24); ctx.lineTo(3.2, -24);
+    ctx.bezierCurveTo(3.6, -15, 3, -7, 5.4, .5); ctx.closePath();
+    ctx.fillStyle = '#9a6a3f'; ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = .6; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(.2, -2); ctx.quadraticCurveTo(-1.2, -11, .4, -21); ctx.strokeStyle = 'rgba(255,220,170,.4)'; ctx.lineWidth = .8; ctx.stroke();
+    const clumps = [[-15, -30, 13], [14, -31, 13.5], [0, -42, 15], [-7, -25, 12], [8, -24, 12], [0, -32, 14]];
+    for (const [x, y, r] of clumps) ellipse(ctx, x + 1.5, y + 2.5, r, r * .92, 0, '#2f8a63');
+    for (const [x, y, r] of clumps) ellipse(ctx, x, y, r, r * .92, 0, '#52b37f');
+    for (const [x, y, r] of clumps) ellipse(ctx, x - r * .25, y - r * .28, r * .55, r * .45, -.4, 'rgba(160,226,150,.55)');
+    for (const [x, y] of [[-12, -34], [5, -45], [15, -27], [-3, -23], [-18, -23], [10, -38], [-6, -41]]) {
+      ellipse(ctx, x, y, 2.2, 2.1, 0, '#ec6a5c', '#b8473d', .4); ellipse(ctx, x - .6, y - .7, .7, .6, 0, '#ffc2b5');
+    }
+    // A rope swing hangs from under the leaves and drifts in the breeze.
+    const sway = motion ? Math.sin(time * 1.5) * .13 : .05;
+    ctx.save(); ctx.translate(22, -19); ctx.rotate(sway);
+    ctx.strokeStyle = '#a07c52'; ctx.lineWidth = .7;
+    ctx.beginPath(); ctx.moveTo(-3.2, 0); ctx.lineTo(-3.2, 15); ctx.moveTo(3.2, 0); ctx.lineTo(3.2, 15); ctx.stroke();
+    slab(ctx, -5, 14.4, 10, 2.3, .8, '#c48a50', ink, .5);
+    ctx.restore();
+  }
+  function paintDecor(ctx, d, time, motion) {
+    if (d.id === 'lanterns') {
+      d.posts.forEach(([x, y]) => { ctx.save(); ctx.translate(x, y); paintLantern(ctx, time, motion, x); ctx.restore(); });
+      return;
+    }
+    ctx.save(); ctx.translate(d.x, d.y);
+    if (d.id === 'bench') paintBench(ctx);
+    else if (d.id === 'birdhouse') paintBirdhouse(ctx, time, motion);
+    else if (d.id === 'lilies') paintLilies(ctx, time, motion);
+    else if (d.id === 'beehive') paintBeehive(ctx, time, motion);
+    else if (d.id === 'tree') paintTree(ctx, time, motion);
+    ctx.restore();
+  }
+  // Pops a new decoration up from the grass; for lanterns each post lights in turn.
+  function drawDecorPiece(ctx, d, time, motion, reveal) {
+    if (reveal === undefined || reveal >= 1) { paintDecor(ctx, d, time, motion); return; }
+    const pop = t => { t = clamp(t, 0, 1); const s = 1.9; return 1 + (s + 1) * Math.pow(t - 1, 3) + s * Math.pow(t - 1, 2); };
+    const parts = d.id === 'lanterns' ? d.posts.map((p, i) => [p, i * .14]) : [[[d.x, d.y], 0]];
+    for (const [[x, y], delay] of parts) {
+      const t = clamp((reveal - delay) / (1 - delay * 3), 0, 1), scale = Math.max(.001, pop(t));
+      ctx.save(); ctx.globalAlpha *= Math.min(1, t * 2.5);
+      ctx.translate(x, y); ctx.scale(scale, scale); ctx.translate(-x, -y);
+      if (d.id === 'lanterns') { ctx.translate(x, y); paintLantern(ctx, time, motion, x); }
+      else paintDecor(ctx, d, time, motion);
+      ctx.restore();
+    }
+  }
+  function builtDecor(state) {
+    const list = state && Array.isArray(state.decor) ? state.decor : [];
+    return DECOR.filter(d => list.includes(d.id));
+  }
+  // A card picture: the decoration on a round patch of grass (or water, for the lilies).
+  function drawDecorIcon(ctx, id, size) {
+    const d = decorById[id]; if (!ctx || !d) return;
+    const [cx, cy, box] = d.icon, scale = size / box;
+    ctx.save(); ctx.scale(scale, scale); ctx.translate(box / 2 - cx, box / 2 - cy);
+    ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, box / 2, 0, TAU); ctx.clip();
+    if (background) ctx.drawImage(background, 0, 0, W, H); else paintBackground(ctx);
+    paintDecor(ctx, d, 1.3, false);
+    ctx.restore(); ctx.restore();
+  }
   function butterfly(ctx, x, y, scale, phase, color) {
     ctx.save(); ctx.translate(x, y); ctx.rotate(Math.sin(phase * .6) * .23); ctx.scale(scale, scale);
     const span = .54 + .46 * Math.abs(Math.sin(phase * 3.2));
@@ -311,6 +504,8 @@
         drawBed(ctx, p, levels[index], time, motion, progress);
       } else drawBed(ctx, p, levels[index], time, motion);
     });
+    const built = builtDecor(options.state);
+    built.forEach(d => drawDecorPiece(ctx, d, time, motion, reveal && reveal.decorId === d.id && Number.isFinite(reveal.progress) ? reveal.progress : undefined));
     const selected = byId[options.selectedId];
     if (selected) selectedBed(ctx, selected, time, motion);
     // A few tiny moving accents make the whole place feel alive without busy UI.
@@ -341,5 +536,11 @@
     });
     return closest;
   }
-  root.BloomMeadow = Object.freeze({ draw, hitTest, plots: PLOTS, width: W, height: H });
+  function ensureBackground() {
+    if (!background) {
+      background = surface(W * 3, H * 3);
+      if (background) { const c = background.getContext('2d'); c.scale(3, 3); paintBackground(c); }
+    }
+  }
+  root.BloomMeadow = Object.freeze({ draw, hitTest, drawDecorIcon: (ctx, id, size) => { ensureBackground(); drawDecorIcon(ctx, id, size); }, plots: PLOTS, decor: DECOR, width: W, height: H });
 })(typeof window !== 'undefined' ? window : globalThis);

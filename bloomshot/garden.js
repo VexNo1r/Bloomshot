@@ -32,12 +32,26 @@
     plot('moon', 'Moon Poppy', 'moon-poppy', 'lilac', '#C5B6EB', 'Pale poppies bring a little moonlight to the meadow.'),
     plot('dawn', 'Dawn Crown', 'dawn-crown', 'coral', '#F19B90', 'Bright coral crowns greet a new day.')
   ]);
+  // Decorations give seeds somewhere to go once the beds are growing. Bought with earned seeds only, once each,
+  // in any order; costs rise so there is always a next thing to save for.
+  function piece(id, name, cost, description) {
+    return Object.freeze({ id: id, name: name, cost: cost, description: description });
+  }
+  var decor = Object.freeze([
+    piece('bench', 'Garden bench', 20, 'A spot to sit and admire your work.'),
+    piece('birdhouse', 'Birdhouse', 30, 'A bluebird moves in right away.'),
+    piece('lilies', 'Water lilies', 40, 'Lilies for the pond, and a frog to go with them.'),
+    piece('beehive', 'Beehive', 55, 'Busy bees for your Honeyburst.'),
+    piece('lanterns', 'Lantern path', 75, 'Warm little lights along the path.'),
+    piece('tree', 'Apple tree', 100, 'Shade, apples and a rope swing.')
+  ]);
   function own(object, key) { return Object.prototype.hasOwnProperty.call(object, key); }
   function record(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
   function integer(value, maximum) {
     return typeof value === 'number' && Number.isFinite(value) ? Math.min(maximum, Math.max(0, Math.floor(value))) : 0;
   }
   function validPlot(id) { return typeof id === 'string' && plots.some(function (p) { return p.id === id; }); }
+  function findDecor(id) { return typeof id === 'string' ? decor.filter(function (d) { return d.id === id; })[0] || null : null; }
   // 'daily-YYYY-MM-DD' to a UTC day number, or null for anything that is not a real calendar date.
   function dailyDay(id) {
     var match = typeof id === 'string' && /^daily-(\d{4})-(\d{2})-(\d{2})$/.exec(id);
@@ -102,11 +116,13 @@
       if (validWeek(id) && bouquets.indexOf(id) < 0) bouquets.push(id);
     });
     bouquets = bouquets.sort().slice(-BOUQUET_LIMIT);
+    var savedDecor = own(source, 'decor') && Array.isArray(source.decor) ? source.decor : [];
+    var built = decor.filter(function (d) { return savedDecor.indexOf(d.id) >= 0; }).map(function (d) { return d.id; });
     return { version: 1,
       seeds: isNew ? 4 : (own(source, 'seeds') ? integer(source.seeds, MAX_SEEDS) : 0),
       selectedId: own(source, 'selectedId') && validPlot(source.selectedId) ? source.selectedId : 'sunbell',
       levels: levels, receipts: receipts, campaignBest: campaignBest, moonBest: moonBest, koiBest: koiBest,
-      dailyBest: dailyBest, bouquets: bouquets,
+      dailyBest: dailyBest, bouquets: bouquets, decor: built,
       starterSeeds: isNew ? 4 : (own(source, 'starterSeeds') ? integer(source.starterSeeds, 4) : 0),
       totalSeedsEarned: own(source, 'totalSeedsEarned') ? integer(source.totalSeedsEarned, MAX_TOTAL) : 0,
       totalSeedsSpent: own(source, 'totalSeedsSpent') ? integer(source.totalSeedsSpent, MAX_TOTAL) : 0 };
@@ -192,6 +208,17 @@
     next.totalSeedsSpent = Math.min(MAX_TOTAL, next.totalSeedsSpent + cost);
     return result(true, 'planted', cost, current + 1);
   }
+  function build(state, decorId) {
+    var next = normalize(state), item = findDecor(decorId);
+    function result(success, reason, cost) { return { state: next, success: success, reason: reason, cost: cost }; }
+    if (!item) return result(false, 'unknown-decor', 0);
+    if (next.decor.indexOf(item.id) >= 0) return result(false, 'built', item.cost);
+    if (next.seeds < item.cost) return result(false, 'insufficient-seeds', item.cost);
+    next.seeds -= item.cost;
+    next.decor = decor.filter(function (d) { return d.id === item.id || next.decor.indexOf(d.id) >= 0; }).map(function (d) { return d.id; });
+    next.totalSeedsSpent = Math.min(MAX_TOTAL, next.totalSeedsSpent + item.cost);
+    return result(true, 'built', item.cost);
+  }
   function select(state, plotId) {
     var next = normalize(state);
     if (validPlot(plotId)) next.selectedId = plotId;
@@ -212,12 +239,19 @@
         nextCost: cost, canPlant: cost !== null && current.seeds >= cost,
         selected: current.selectedId === p.id };
     });
+    var pieces = decor.map(function (d) {
+      var done = current.decor.indexOf(d.id) >= 0;
+      return { id: d.id, name: d.name, cost: d.cost, description: d.description, built: done, canBuild: !done && current.seeds >= d.cost };
+    });
+    var builtDecor = current.decor.length;
     return { seeds: current.seeds, selectedId: current.selectedId,
       totalStages: totalStages, completedPlots: completedPlots, totalPlots: plots.length,
+      decor: pieces, builtDecor: builtDecor, totalDecor: decor.length,
+      complete: completedPlots === plots.length && builtDecor === decor.length,
       totalSeedsEarned: current.totalSeedsEarned, totalSeedsSpent: current.totalSeedsSpent,
       nextCost: current.levels[current.selectedId] < 3 ? COSTS[current.levels[current.selectedId]] : null,
       plots: beds };
   }
-  return Object.freeze({ plots: plots, normalize: normalize, grant: grant, plant: plant, select: select, summary: summary, week: week,
+  return Object.freeze({ plots: plots, decor: decor, normalize: normalize, grant: grant, plant: plant, build: build, select: select, summary: summary, week: week,
     daily: Object.freeze({ firstClear: [6, 8, 10], perStar: 2, bouquetGoal: BOUQUET_GOAL, bouquetSeeds: BOUQUET_SEEDS }) });
 });

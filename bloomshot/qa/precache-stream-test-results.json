@@ -1,10 +1,10 @@
 {
   "passed": true,
-  "testedAt": "2026-10-04T05:56:56.135Z",
+  "testedAt": "2026-10-09T09:18:04.031Z",
   "node": "v22.22.0",
-  "workerSha256": "3d5988b5867487359357750574687463052f61ba162332dd0e1b6302d37ceedf",
+  "workerSha256": "32349513d30f67acd392aaad4d0ec57bfa865870b2d85973b89994fe1b1cd463",
   "maxConnections": 3,
-  "workerVersion": "081b7e4bc5a9cb14",
+  "workerVersion": "1ba7ea1c5d4a7283",
   "assetCount": 28,
   "imageCount": 6,
   "negativeControl": {
@@ -13,35 +13,35 @@
     "consumed": 0,
     "bytes": 0,
     "peakConnections": 3,
-    "elapsedMs": 275.9
+    "elapsedMs": 276.64
   },
   "actualInstall": {
     "headers": 28,
     "consumed": 28,
-    "bytes": 534089,
+    "bytes": 554688,
     "peakConnections": 3,
     "cached": 28,
-    "elapsedMs": 42.69,
+    "elapsedMs": 43.25,
     "deadlineMs": 15000,
     "allBodyHashesMatch": true
   },
   "assets": [
     {
       "path": "/",
-      "bytes": 20992,
-      "sha256": "2a34c05f269b785fbbfa94f568903c9ecaaa8b1480b51c8ef26c3edcbc55e6f3",
+      "bytes": 21327,
+      "sha256": "b5ef48f7dad42521b0eb6a667071b0e219b875b1e323ddefcc3ad8eb6c806466",
       "type": "text/html; charset=utf-8"
     },
     {
       "path": "/index.html",
-      "bytes": 20992,
-      "sha256": "2a34c05f269b785fbbfa94f568903c9ecaaa8b1480b51c8ef26c3edcbc55e6f3",
+      "bytes": 21327,
+      "sha256": "b5ef48f7dad42521b0eb6a667071b0e219b875b1e323ddefcc3ad8eb6c806466",
       "type": "text/html; charset=utf-8"
     },
     {
       "path": "/styles.css",
-      "bytes": 41327,
-      "sha256": "4a8b7ad7c321aec6a56db48d7b19f1a1597c7ae02b6c35bc04e29959f9c59394",
+      "bytes": 42740,
+      "sha256": "5ec6092ede2b3f403f8d7a4b98895d6b8af0d582377ca0615b5d4b093ef570a0",
       "type": "text/css; charset=utf-8"
     },
     {
@@ -82,8 +82,8 @@
     },
     {
       "path": "/garden.js",
-      "bytes": 13314,
-      "sha256": "ed4e8af5328fd5bcf489f11b125c96392adc30111c5d44b8fe705733db71779e",
+      "bytes": 15715,
+      "sha256": "9632e7faf574b893adb555b155a7df9922710d23c17585d7376bcd197ef37796",
       "type": "text/javascript; charset=utf-8"
     },
     {
@@ -106,8 +106,8 @@
     },
     {
       "path": "/meadow.js",
-      "bytes": 19612,
-      "sha256": "06f8c3b8328de68fc32d8456b42c646c9090faf16023fd9ab496af70f6f0fcfd",
+      "bytes": 32356,
+      "sha256": "9c6f80ce68bcdb986507c4d335016f7b6d0078941f97ae78611115e44ec71031",
       "type": "text/javascript; charset=utf-8"
     },
     {
@@ -124,8 +124,8 @@
     },
     {
       "path": "/app.js",
-      "bytes": 82424,
-      "sha256": "d7072d3aaa948379e56e4f3444972c2dd22a6f19e002e9363c9a6fab0d38d82a",
+      "bytes": 85795,
+      "sha256": "9f92bb89cc42725944d425c05ff94bf48b31a8826406ff9175fd61d045079f71",
       "type": "text/javascript; charset=utf-8"
     },
     {

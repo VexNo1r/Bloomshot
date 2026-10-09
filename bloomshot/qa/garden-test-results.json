@@ -1,5 +1,5 @@
 {
-  "passed": 24,
+  "passed": 27,
   "failed": 0,
   "observations": {
     "starterSeeds": 4,
@@ -9,6 +9,15 @@
       14
     ],
     "completeMeadowCost": 156,
+    "decorCosts": [
+      20,
+      30,
+      40,
+      55,
+      75,
+      100
+    ],
+    "completeDecorCost": 320,
     "decentRush": {
       "blooms": 24,
       "wave": 3,
@@ -135,6 +144,18 @@
     },
     {
       "name": "Daily records keep the latest 21 days and 8 bouquets, reject malformed entries, and old days cannot be claimed again",
+      "passed": true
+    },
+    {
+      "name": "Six decorations cost 20 to 100 seeds, build once each in any order, and save as a list",
+      "passed": true
+    },
+    {
+      "name": "Saved decorations are cleaned: unknown, repeated or non-list values are dropped, catalog order kept",
+      "passed": true
+    },
+    {
+      "name": "Summary lists every decoration with its price, whether it is built or affordable, and when the meadow is complete",
       "passed": true
     }
   ]

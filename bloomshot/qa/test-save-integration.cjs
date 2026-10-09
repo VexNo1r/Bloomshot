@@ -100,7 +100,8 @@ function boot(raw, { storageFails = false, search = '', otherSave, store, native
     BloomArt: { draw: (ctx, state, time, options) => boardDraws.push(options.keepsake ? options.keepsake.id : 'meadow'), drawFlower: noop, drawMoon: noop, koiFish: noop,
       drawGarden: noop, drawProjectile: noop, drawParticle: noop, drawSeed: noop },
     BloomMeadow: { plots: Garden.plots.map((p, i) => ({ id: p.id, x: 65 + i * 50, y: 150, labelY: 180, accent: p.color })),
-      draw: (ctx, options) => meadowDraws.push(clone(options)) }
+      decor: Garden.decor.map((d, i) => ({ id: d.id, x: 40 + i * 60, y: 200, accent: '#ffffff', icon: [40 + i * 60, 190, 40] })),
+      drawDecorIcon: noop, draw: (ctx, options) => meadowDraws.push(clone(options)) }
   });
   context.window = context; context.addEventListener = noop;
   vm.runInContext(source, context, { filename: 'app.js' });
@@ -424,6 +425,41 @@ function fakeNative({ restored = false } = {}) {
     // Like the real bridge, a restore that wrote the backup back marks the page as about to reload.
     restore: key => { calls.restore.push(key); reloading = restored; return { then: fn => { fn(restored); } }; } };
 }
+test('Decorate: a card names what is missing, builds once with seeds, shows in the meadow and survives a reload', () => {
+  const save = legacySave(); save.garden = { seeds: 25, levels: { sunbell: 3, coral: 3, lilac: 3, honey: 3, moon: 3, dawn: 3 } };
+  let app = boot(save); app.click('garden-btn');
+  const bench = app.$('decor-grid').querySelector('[data-decor="bench"]'), tree = app.$('decor-grid').querySelector('[data-decor="tree"]');
+  assert.equal(app.$('decor-count').textContent, '0/6 built'); assert.equal(app.$('meadow-summary').textContent, 'Full bloom · 0/6 built');
+  assert(bench.classList.contains('ready')); assert(!tree.classList.contains('ready'));
+  assert.equal(tree.getAttribute('aria-label'), 'Apple tree. 100 seeds. Shade, apples and a rope swing.');
+  assert(app.$('garden-btn').classList.contains('has-seeds'), 'an affordable decoration marks the Garden tab');
+  app.click('decor-grid', { decor: 'tree' });
+  assert.equal(app.$('toast').textContent, '75 more seeds for the apple tree.'); assert.deepEqual(app.saved().garden.decor, []);
+  app.click('decor-grid', { decor: 'bench' });
+  assert.deepEqual(app.saved().garden.decor, ['bench']); assert.equal(app.saved().garden.seeds, 5);
+  assert.equal(app.$('toast').textContent, 'Garden bench built!');
+  assert(bench.classList.contains('built')); assert.equal(bench.getAttribute('aria-disabled'), 'true');
+  assert.equal(bench.querySelector('.decor-price').innerHTML, 'Built!');
+  assert(!app.$('garden-btn').classList.contains('has-seeds'));
+  assert.equal(app.$('decor-count').textContent, '1/6 built');
+  app.click('decor-grid', { decor: 'bench' }); assert.equal(app.saved().garden.seeds, 5, 'a built decoration never charges again');
+  app.frame(); const drawn = app.meadowDraws.at(-1);
+  assert.deepEqual(drawn.state.decor, ['bench']); assert.equal(drawn.growth.decorId, 'bench');
+  app = boot(app.saved()); app.click('garden-btn');
+  assert(app.$('decor-grid').querySelector('[data-decor="bench"]').classList.contains('built'));
+});
+test('After the beds, the seed reward points at the cheapest decoration, and a finished meadow says so', () => {
+  const full = { sunbell: 3, coral: 3, lilac: 3, honey: 3, moon: 3, dawn: 3 };
+  const save = legacySave(); save.garden = { seeds: 0, levels: full, decor: ['bench'] };
+  const settle = app => { for (let i = 0; i < 40; i++) app.frame(); };
+  let app = boot(save); app.finishRush(24, 3); settle(app);
+  assert.equal(app.$('reward-seeds').textContent, '+8 seeds'); assert.equal(app.$('reward-goal').textContent, '22 more seeds to build the birdhouse.');
+  save.garden = { seeds: 30, levels: full, decor: ['bench'] };
+  app = boot(save); app.finishRush(24, 3); settle(app); assert.equal(app.$('reward-goal').textContent, 'Enough to build the birdhouse now.');
+  save.garden = { seeds: 0, levels: full, decor: Garden.decor.map(d => d.id) };
+  app = boot(save); app.finishRush(24, 3); settle(app); assert.equal(app.$('reward-goal').textContent, 'Your meadow is complete!');
+  app.click('result-garden-btn'); assert.equal(app.$('meadow-summary').textContent, 'Your meadow is complete!');
+});
 test('Native bridge: planting buzzes through BloomNative only while the Vibration setting is on', () => {
   const on = legacySave(); on.settings.haptics = true;
   const loud = fakeNative(); const a = boot(on, { native: loud }); a.click('garden-btn'); a.click('plant-btn');

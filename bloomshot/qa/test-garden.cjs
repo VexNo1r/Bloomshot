@@ -274,9 +274,47 @@ test('Daily records keep the latest 21 days and 8 bouquets, reject malformed ent
   const weeks = Array.from({ length: 12 }, (_, i) => 'week-' + new Date(Date.UTC(2026, 5, 1 + i * 7)).toISOString().slice(0, 10));
   assert.deepEqual(Garden.normalize({ bouquets: weeks }).bouquets, weeks.slice(-8));
 });
+test('Six decorations cost 20 to 100 seeds, build once each in any order, and save as a list', () => {
+  assert.deepEqual(Garden.decor.map(d => d.id), ['bench', 'birdhouse', 'lilies', 'beehive', 'lanterns', 'tree']);
+  assert.deepEqual(Garden.decor.map(d => d.cost), [20, 30, 40, 55, 75, 100]);
+  Garden.decor.forEach(d => { assert(d.name && d.description); assert(Object.isFrozen(d)); });
+  let state = Garden.normalize({ seeds: 60 });
+  assert.deepEqual(state.decor, []);
+  const short = Garden.build(state, 'tree');
+  assert.equal(short.success, false); assert.equal(short.reason, 'insufficient-seeds'); assert.equal(short.cost, 100); assert.equal(short.state.seeds, 60);
+  let built = Garden.build(state, 'birdhouse');
+  assert.equal(built.success, true); assert.equal(built.cost, 30); assert.equal(built.state.seeds, 30); assert.equal(built.state.totalSeedsSpent, 30);
+  built = Garden.build(built.state, 'bench');
+  assert.equal(built.state.seeds, 10); assert.deepEqual(built.state.decor, ['bench', 'birdhouse']);
+  const again = Garden.build({ ...built.state, seeds: 500 }, 'bench');
+  assert.equal(again.success, false); assert.equal(again.reason, 'built'); assert.equal(again.state.seeds, 500);
+  assert.equal(Garden.build(built.state, '__proto__').reason, 'unknown-decor');
+  assert.equal(Garden.build(built.state, 'toString').reason, 'unknown-decor');
+  assert.deepEqual(Garden.normalize(JSON.parse(JSON.stringify(built.state))), built.state);
+});
+test('Saved decorations are cleaned: unknown, repeated or non-list values are dropped, catalog order kept', () => {
+  assert.deepEqual(Garden.normalize({ decor: ['tree', 'nope', 'bench', 'tree', 7, null, '__proto__'] }).decor, ['bench', 'tree']);
+  for (const raw of [{ decor: 'bench' }, { decor: { bench: true } }, { decor: null }, {}]) assert.deepEqual(Garden.normalize(raw).decor, []);
+  const old = { seeds: 12, levels: { sunbell: 2 }, receipts: ['a'] };
+  assert.deepEqual(Garden.normalize(old).decor, []); assert.equal(Garden.normalize(old).seeds, 12);
+  const source = freeze(Garden.normalize({ seeds: 40, decor: ['lilies'] }));
+  const before = JSON.stringify(source);
+  const result = Garden.build(source, 'bench'); result.state.decor.push('tree');
+  assert.equal(JSON.stringify(source), before);
+});
+test('Summary lists every decoration with its price, whether it is built or affordable, and when the meadow is complete', () => {
+  let summary = Garden.summary(Garden.normalize({ seeds: 30, decor: ['bench'] }));
+  assert.equal(summary.builtDecor, 1); assert.equal(summary.totalDecor, 6); assert.equal(summary.complete, false);
+  assert.deepEqual(summary.decor.map(d => [d.id, d.built, d.canBuild]), [['bench', true, false], ['birdhouse', false, true], ['lilies', false, false],
+    ['beehive', false, false], ['lanterns', false, false], ['tree', false, false]]);
+  const levels = {}; Garden.plots.forEach(p => { levels[p.id] = 3; });
+  summary = Garden.summary(Garden.normalize({ seeds: 0, levels, decor: Garden.decor.map(d => d.id) }));
+  assert.equal(summary.complete, true); assert.equal(summary.builtDecor, 6);
+  assert.equal(Garden.summary(Garden.normalize({ levels })).complete, false);
+});
 const report = {
   passed: results.filter(r => r.passed).length, failed: results.filter(r => !r.passed).length,
-  observations: { starterSeeds: 4, costsPerPlot: [4, 8, 14], completeMeadowCost: 156,
+  observations: { starterSeeds: 4, costsPerPlot: [4, 8, 14], completeMeadowCost: 156, decorCosts: [20, 30, 40, 55, 75, 100], completeDecorCost: 320,
     decentRush: { blooms: 24, wave: 3, awarded: 8 }, weakPositiveRushMinimum: 1, rushRewardCap: 40,
     firstCampaignClearByStars: { 1: 8, 2: 10, 3: 12 }, improvedCampaignStar: 2, receiptWindow: 64,
     firstDailyClearByStars: { 1: 6, 2: 8, 3: 10 }, weeklyBouquet: { dailyClears: 4, seeds: 12 }, dailyMemoryDays: 21,
