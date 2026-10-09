@@ -1,0 +1,96 @@
+{
+  "passed": 13,
+  "failed": 0,
+  "observations": {
+    "bossHp": [
+      6,
+      8,
+      9,
+      12
+    ],
+    "budsPerLevel": [
+      343,
+      370,
+      400,
+      463
+    ],
+    "fallSpeed": [
+      [
+        14,
+        18.6
+      ],
+      [
+        15.5,
+        20.2
+      ],
+      [
+        15,
+        18.4
+      ],
+      [
+        16.5,
+        19.8
+      ]
+    ],
+    "averagePlayerLivesLost": [
+      0,
+      0,
+      1,
+      1
+    ]
+  },
+  "results": [
+    {
+      "name": "Browser and CommonJS builds expose the same API",
+      "passed": true
+    },
+    {
+      "name": "Ten levels in all, the first four free, and each of these has ten waves",
+      "passed": true
+    },
+    {
+      "name": "Every bud starts on the board, never overlaps another, and sways inside the walls",
+      "passed": true
+    },
+    {
+      "name": "Rocks and the leaf sit between the flowers and the launcher, clear of every opening bud",
+      "passed": true
+    },
+    {
+      "name": "Each level brings its own twist and ends with a tougher boss",
+      "passed": true
+    },
+    {
+      "name": "Cups turn away shots from below, but a shot from above or a crown blooms them",
+      "passed": true
+    },
+    {
+      "name": "A puffcap blooms everything within reach and nothing past it",
+      "passed": true
+    },
+    {
+      "name": "A boss that reaches the line costs a life and climbs back; blooming it blooms its wave",
+      "passed": true
+    },
+    {
+      "name": "Drops wait for their time and for room at the top, and the wave only clears after the last one",
+      "passed": true
+    },
+    {
+      "name": "Crystals slide, the leaf keeps its turn between waves, and turning never moves a rock",
+      "passed": true
+    },
+    {
+      "name": "Swaying buds move side to side and fast ones fall faster",
+      "passed": true
+    },
+    {
+      "name": "Progress saves stars, best score and furthest wave; levels open in order",
+      "passed": true
+    },
+    {
+      "name": "A practice bot clears every free level, and the levels get harder in order",
+      "passed": true
+    }
+  ]
+}
