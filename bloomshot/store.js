@@ -12,7 +12,7 @@
   //   web:    the website sells nothing, so owns() is always false.
   //
   // Consumables (powerups) are bought again and again and are never "owned". A purchase becomes a grant
-  // ({ id, productId, item, count }) that waits in a small ledger until the game takes it with deliver(), so a
+  // ({ transaction, productId, power, count }) that waits in a small ledger until the game takes it, so a
   // paid powerup survives the app closing mid-purchase and is never handed over twice. The ledger lists every
   // consumable transaction this install has already dealt with. A transaction it has not seen is granted only
   // if this install had started buying that product and not yet settled it; anything else (bought before a
@@ -31,14 +31,14 @@
     // A product grants one or more entitlements: `entitlement: 'x'` for a single item, or
     // `entitlements: ['x', 'y']` for a bundle (one store product attached to several RevenueCat entitlements).
     // `entitlement` is always the first of them. A product that grants nothing can never be sold.
-    // A consumable grants `grants: { item: 'x', count: n }` instead, and no entitlements at all.
+    // A consumable (a powerup) grants `count` of `power` instead, and no entitlements at all.
     var catalog = (config.products || []).map(function (p) {
       var list = Array.isArray(p.entitlements) ? p.entitlements : p.entitlement != null ? [p.entitlement] : [];
       var granted = list.map(String).filter(function (id, i, all) { return id && all.indexOf(id) === i; });
       var consumable = p.consumable === true;
-      var grants = consumable && p.grants && typeof p.grants.item === 'string' && p.grants.item && Number.isInteger(p.grants.count) && p.grants.count > 0 ? { item: p.grants.item, count: p.grants.count } : null;
-      var sellable = consumable ? Boolean(grants) && granted.length === 0 : granted.length > 0;
-      return { id: String(p.id), entitlements: consumable ? [] : granted, entitlement: consumable ? '' : granted[0] || '', consumable: consumable, grants: grants, kind: p.kind || 'item', title: String(p.title || p.id), priceHint: p.priceHint || '', available: p.available === true && sellable };
+      var power = consumable && typeof p.power === 'string' && p.power && Number.isInteger(p.count) && p.count > 0 ? p.power : null;
+      var sellable = consumable ? Boolean(power) && granted.length === 0 : granted.length > 0;
+      return { id: String(p.id), entitlements: consumable ? [] : granted, entitlement: consumable ? '' : granted[0] || '', consumable: consumable, power: power, count: power ? p.count : null, kind: p.kind || 'item', title: String(p.title || p.id), priceHint: p.priceHint || '', available: p.available === true && sellable };
     });
     var byId = {};
     catalog.forEach(function (p) { byId[p.id] = p; });
@@ -58,6 +58,7 @@
     // with an old one. seen: consumable transaction ids already dealt with. inflight: consumable purchases this install
     // started and has not settled. owed: grants the game has not taken yet.
     var ledger = { baseline: false, seen: [], inflight: [], owed: [] };
+    var consumableHandler = null; // the game's onConsumable(fn): it takes every grant as soon as it exists
 
     // The native WebView injects plugins as Capacitor.Plugins.<Name>. Capacitor.registerPlugin only exists when the
     // @capacitor/core script is bundled into the page, which this app does not do, so look there second.
@@ -117,7 +118,7 @@
         baseline: saved.baseline === true,
         seen: Array.isArray(saved.seen) ? saved.seen.filter(function (id) { return typeof id === 'string'; }) : [],
         inflight: Array.isArray(saved.inflight) ? saved.inflight.filter(function (f) { return f && byId[f.product] && byId[f.product].consumable && f.at >= oldest; }) : [],
-        owed: Array.isArray(saved.owed) ? saved.owed.filter(function (g) { return g && typeof g.id === 'string' && typeof g.item === 'string' && Number.isInteger(g.count) && g.count > 0; }) : []
+        owed: Array.isArray(saved.owed) ? saved.owed.filter(function (g) { return g && typeof g.transaction === 'string' && typeof g.power === 'string' && Number.isInteger(g.count) && g.count > 0; }) : []
       };
     }
     function saveLedger() { write(grantsKey, { v: 1, baseline: ledger.baseline, seen: ledger.seen, inflight: ledger.inflight, owed: ledger.owed }); }
@@ -128,7 +129,7 @@
       if (at >= 0) ledger.inflight.splice(at, 1);
     }
     function owe(id, p) {
-      var grant = { id: id, productId: p.id, item: p.grants.item, count: p.grants.count };
+      var grant = { transaction: id, productId: p.id, power: p.power, count: p.count };
       ledger.seen.push(id); ledger.owed.push(grant);
       return grant;
     }
@@ -149,8 +150,13 @@
       });
       ledger.baseline = true;
       saveLedger();
-      if (added.length) emit('grants');
+      if (added.length) grantsArrived();
       return added;
+    }
+    // New grants: hand them to the game's handler first, then tell listeners (the shop can repaint its counts).
+    function grantsArrived() {
+      if (consumableHandler) deliver(consumableHandler);
+      emit('grants');
     }
 
     async function initNative() {
@@ -203,6 +209,7 @@
           if (mode === 'native') await initNative();
           else if (mode === 'mock') initMock();
           state.ready = true;
+          if (consumableHandler) deliver(consumableHandler); // grants left from an earlier session
           emit('ready');
           return { mode: mode, configured: state.configured };
         })();
@@ -218,7 +225,7 @@
         // owned: everything this product grants is already the player's. partial: some of it is, which means
         // buying it would charge for something they have (a bundle after one of its items), so it is refused.
         // A consumable is never owned or partial: it can always be bought again.
-        return { id: p.id, entitlement: p.entitlement, entitlements: p.entitlements.slice(), consumable: p.consumable, grants: p.grants ? { item: p.grants.item, count: p.grants.count } : null,
+        return { id: p.id, entitlement: p.entitlement, entitlements: p.entitlements.slice(), consumable: p.consumable, power: p.power, count: p.count,
           kind: p.kind, title: p.title, available: p.available,
           owned: p.entitlements.length > 0 && held === p.entitlements.length, partial: held > 0 && held < p.entitlements.length,
           price: state.prices[p.id] || p.priceHint,
@@ -268,9 +275,14 @@
       }
     }
 
-    function copyGrant(g) { return { id: g.id, productId: g.productId, item: g.item, count: g.count }; }
+    function copyGrant(g) { return { transaction: g.transaction, productId: g.productId, power: g.power, count: g.count }; }
+    // A successful buy answers { ok: true, consumable: true, power, count, transaction, delivered }. delivered: the
+    // game's handler has already taken it; otherwise it waits in the ledger for onConsumable or deliver.
+    function bought(grant) {
+      var waiting = ledger.owed.some(function (g) { return g.transaction === grant.transaction; });
+      return { ok: true, consumable: true, power: grant.power, count: grant.count, transaction: grant.transaction, delivered: !waiting };
+    }
 
-    // A successful buy answers { ok: true, grant }. The grant also waits in the ledger until deliver() hands it over.
     async function buyConsumable(p) {
       if (mode === 'mock') {
         await new Promise(function (resolve) { setTimeout(resolve, env.mockDelay == null ? 350 : env.mockDelay); });
@@ -286,8 +298,8 @@
         if (outcome === 'crash') return { ok: false, reason: 'error', message: 'Simulated app crash after payment' };
         endInflight(p);
         var mockGrant = owe(tx.transactionIdentifier, p);
-        saveLedger(); emit('grants');
-        return { ok: true, grant: copyGrant(mockGrant) };
+        saveLedger(); grantsArrived();
+        return bought(mockGrant);
       }
       var product = state.storeProducts[p.id];
       if (!product) return { ok: false, reason: 'product-not-found' }; // not live in the store yet
@@ -309,17 +321,18 @@
       var grant = null;
       if (id) {
         endInflight(p);
-        if (ledger.seen.indexOf(id) < 0) { grant = owe(id, p); emit('grants'); }
+        if (ledger.seen.indexOf(id) < 0) grant = owe(id, p);
         saveLedger();
+        if (grant) grantsArrived();
       }
       // Without a transaction in the answer, the account's list still shows the purchase: the inflight entry claims it.
       var added = reconcile(info);
       if (!grant) grant = added.filter(function (g) { return g.productId === p.id; })[0] || null;
-      return grant ? { ok: true, grant: copyGrant(grant) } : { ok: false, reason: 'not-granted' };
+      return grant ? bought(grant) : { ok: false, reason: 'not-granted' };
     }
 
     function pendingGrants() { return ledger.owed.map(copyGrant); }
-    // fn(grant) must add grant.count of grant.item to the player's save, write the save, and return true. Only then is
+    // fn(grant) must add grant.count of grant.power to the player's save, write the save, and return true. Only then is
     // the grant marked delivered; anything else (false, a throw) leaves it waiting for the next call.
     function deliver(fn) {
       if (typeof fn !== 'function' || mode === 'web') return 0;
@@ -328,7 +341,7 @@
         var taken = false;
         try { taken = fn(copyGrant(g)) === true; } catch (_) { taken = false; }
         if (!taken) return;
-        ledger.owed = ledger.owed.filter(function (x) { return x.id !== g.id; });
+        ledger.owed = ledger.owed.filter(function (x) { return x.transaction !== g.transaction; });
         saveLedger();
         done += 1;
       });
@@ -368,6 +381,14 @@
       restore: restore,
       pendingGrants: pendingGrants,
       deliver: deliver,
+      // The game's one handler for paid powerups: it gets every waiting grant now (once the store is ready) and every
+      // new one as it arrives. Returns a function that removes it.
+      onConsumable: function (fn) {
+        consumableHandler = typeof fn === 'function' ? fn : null;
+        if (consumableHandler && state.ready) deliver(consumableHandler);
+        var mine = consumableHandler;
+        return function () { if (consumableHandler === mine) consumableHandler = null; };
+      },
       subscribe: function (fn) { listeners.push(fn); return function () { listeners = listeners.filter(function (x) { return x !== fn; }); }; },
       create: create
     };

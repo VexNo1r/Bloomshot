@@ -67,8 +67,8 @@ const POWER = {
   revenueCatKeys: CONFIG.revenueCatKeys,
   products: [
     { id: 'p.live', entitlement: 'e_live', kind: 'world', title: 'Live World', priceHint: '$4.99', available: true },
-    { id: 'p.bomb', consumable: true, grants: { item: 'bomb', count: 1 }, kind: 'powerup', title: 'Seed Bomb', priceHint: '$0.25', available: true },
-    { id: 'p.rain', consumable: true, grants: { item: 'rain', count: 3 }, kind: 'powerup', title: 'Rain', priceHint: '$0.25', available: true }
+    { id: 'p.bomb', consumable: true, power: 'bomb', count: 1, kind: 'power', title: 'Seed Bomb', priceHint: '$0.25', available: true },
+    { id: 'p.rain', consumable: true, power: 'rain', count: 3, kind: 'power', title: 'Rain', priceHint: '$0.25', available: true }
   ]
 };
 function powerPlugin(options = {}) {
@@ -366,17 +366,18 @@ const ledgerOf = storage => JSON.parse(storage.data['bloomshot.grants.v1']);
 
   await test('powerups: a consumable is sold only with a valid grant and no entitlements, and is never owned', async () => {
     const config = { revenueCatKeys: CONFIG.revenueCatKeys, products: POWER.products.concat([
-      { id: 'p.nogrant', consumable: true, kind: 'powerup', title: 'No grant', available: true },
-      { id: 'p.zero', consumable: true, grants: { item: 'bomb', count: 0 }, title: 'Zero', available: true },
-      { id: 'p.both', consumable: true, entitlement: 'e_x', grants: { item: 'bomb', count: 1 }, title: 'Both', available: true }
+      { id: 'p.nogrant', consumable: true, kind: 'power', title: 'No grant', available: true },
+      { id: 'p.zero', consumable: true, power: 'bomb', count: 0, title: 'Zero', available: true },
+      { id: 'p.nocount', consumable: true, power: 'bomb', title: 'No count', available: true },
+      { id: 'p.both', consumable: true, entitlement: 'e_x', power: 'bomb', count: 1, title: 'Both', available: true }
     ]) };
     const store = Store.create(powerEnv(powerPlugin(), { config }));
     await store.init();
     const bomb = find(store, 'p.bomb');
-    assert.equal(bomb.consumable, true); assert.deepEqual(bomb.grants, { item: 'bomb', count: 1 }); assert.deepEqual(bomb.entitlements, []);
+    assert.equal(bomb.consumable, true); assert.equal(bomb.power, 'bomb'); assert.equal(bomb.count, 1); assert.deepEqual(bomb.entitlements, []);
     assert.equal(bomb.available, true); assert.equal(bomb.owned, false); assert.equal(bomb.partial, false);
-    assert.equal(find(store, 'p.live').consumable, false); assert.equal(find(store, 'p.live').grants, null);
-    for (const id of ['p.nogrant', 'p.zero', 'p.both']) { assert.equal(find(store, id).available, false, id); assert.equal((await store.purchase(id)).reason, 'unavailable-product'); }
+    assert.equal(find(store, 'p.live').consumable, false); assert.equal(find(store, 'p.live').power, null); assert.equal(find(store, 'p.live').count, null);
+    for (const id of ['p.nogrant', 'p.zero', 'p.nocount', 'p.both']) { assert.equal(find(store, id).available, false, id); assert.equal((await store.purchase(id)).reason, 'unavailable-product'); }
   });
 
   await test('powerups: each buy charges once and becomes its own grant, delivered once and never again after a relaunch', async () => {
@@ -384,13 +385,14 @@ const ledgerOf = storage => JSON.parse(storage.data['bloomshot.grants.v1']);
     const store = Store.create(env); await store.init();
     const seen = []; store.subscribe(e => seen.push(e.type));
     const first = await store.purchase('p.bomb');
-    assert.deepEqual(first, { ok: true, grant: { id: 'GPA.1', productId: 'p.bomb', item: 'bomb', count: 1 } });
+    assert.deepEqual(first, { ok: true, consumable: true, power: 'bomb', count: 1, transaction: 'GPA.1', delivered: false });
     assert.ok(seen.includes('grants'));
     const second = await store.purchase('p.rain');
-    assert.deepEqual(second.grant, { id: 'GPA.2', productId: 'p.rain', item: 'rain', count: 3 });
+    assert.deepEqual([second.power, second.count, second.transaction], ['rain', 3, 'GPA.2']);
+    assert.deepEqual(store.pendingGrants()[1], { transaction: 'GPA.2', productId: 'p.rain', power: 'rain', count: 3 });
     assert.equal(find(store, 'p.bomb').owned, false);
-    assert.deepEqual(store.pendingGrants().map(g => g.id), ['GPA.1', 'GPA.2']);
-    assert.deepEqual(take(store).map(g => [g.item, g.count]), [['bomb', 1], ['rain', 3]]);
+    assert.deepEqual(store.pendingGrants().map(g => g.transaction), ['GPA.1', 'GPA.2']);
+    assert.deepEqual(take(store).map(g => [g.power, g.count]), [['bomb', 1], ['rain', 3]]);
     assert.deepEqual(store.pendingGrants(), []); assert.deepEqual(take(store), []);
     const relaunch = Store.create(powerEnv(plugin, { storage: env.storage })); await relaunch.init();
     assert.deepEqual(relaunch.pendingGrants(), []);
@@ -406,7 +408,7 @@ const ledgerOf = storage => JSON.parse(storage.data['bloomshot.grants.v1']);
     assert.equal(store.deliver(() => { throw new Error('save failed'); }), 0);
     assert.equal(store.deliver(() => 'yes'), 0); // only a real true counts
     const relaunch = Store.create(powerEnv(plugin, { storage: env.storage })); await relaunch.init();
-    assert.deepEqual(relaunch.pendingGrants().map(g => g.id), ['GPA.1']);
+    assert.deepEqual(relaunch.pendingGrants().map(g => g.transaction), ['GPA.1']);
     assert.equal(relaunch.deliver(() => true), 1);
     assert.deepEqual(relaunch.pendingGrants(), []);
   });
@@ -419,7 +421,7 @@ const ledgerOf = storage => JSON.parse(storage.data['bloomshot.grants.v1']);
     assert.equal(ledgerOf(env.storage).inflight.length, 1);
     plugin.state.mode = 'ok';
     const relaunch = Store.create(powerEnv(plugin, { storage: env.storage })); await relaunch.init();
-    assert.deepEqual(take(relaunch).map(g => g.id), ['GPA.1']);
+    assert.deepEqual(take(relaunch).map(g => g.transaction), ['GPA.1']);
     assert.deepEqual(ledgerOf(env.storage).inflight, []);
     const third = Store.create(powerEnv(plugin, { storage: env.storage })); await third.init();
     assert.deepEqual(third.pendingGrants(), []);
@@ -431,10 +433,10 @@ const ledgerOf = storage => JSON.parse(storage.data['bloomshot.grants.v1']);
     plugin.state.mode = 'pending';
     assert.equal((await store.purchase('p.bomb')).reason, 'pending');
     assert.equal((await store.restore()).ok, true); // GPA.1 is on the account again; it was already granted
-    assert.deepEqual(store.pendingGrants().map(g => g.id), ['GPA.1']);
+    assert.deepEqual(store.pendingGrants().map(g => g.transaction), ['GPA.1']);
     plugin.charge('p.bomb');
     assert.equal((await store.restore()).ok, true);
-    assert.deepEqual(store.pendingGrants().map(g => g.id), ['GPA.1', 'GPA.2']);
+    assert.deepEqual(store.pendingGrants().map(g => g.transaction), ['GPA.1', 'GPA.2']);
   });
 
   await test('powerups: a pending payment grants nothing until it clears, then once, by relaunch or by Restore', async () => {
@@ -447,7 +449,7 @@ const ledgerOf = storage => JSON.parse(storage.data['bloomshot.grants.v1']);
       let after = store;
       if (via === 'relaunch') { after = Store.create(powerEnv(plugin, { storage: env.storage })); await after.init(); }
       else assert.equal((await store.restore()).ok, true);
-      assert.deepEqual(after.pendingGrants().map(g => g.item), ['bomb'], via);
+      assert.deepEqual(after.pendingGrants().map(g => g.power), ['bomb'], via);
       assert.equal(after.deliver(() => true), 1);
       assert.equal((await after.restore()).ok, true);
       assert.deepEqual(after.pendingGrants(), [], via);
@@ -462,8 +464,8 @@ const ledgerOf = storage => JSON.parse(storage.data['bloomshot.grants.v1']);
     assert.equal((await store.restore()).ok, true);
     assert.deepEqual(store.pendingGrants(), []);
     const bought = await store.purchase('p.bomb');
-    assert.equal(bought.grant.id, 'GPA.4');
-    assert.deepEqual(take(store).map(g => g.id), ['GPA.4']);
+    assert.equal(bought.transaction, 'GPA.4');
+    assert.deepEqual(take(store).map(g => g.transaction), ['GPA.4']);
   });
 
   await test('powerups: an install that could not reach the store at launch notes the old ones before its first buy', async () => {
@@ -471,8 +473,8 @@ const ledgerOf = storage => JSON.parse(storage.data['bloomshot.grants.v1']);
     const store = Store.create(powerEnv(plugin)); await store.init();
     plugin.state.offline = false; // back online, still no baseline; prices came from the store
     const bought = await store.purchase('p.bomb');
-    assert.equal(bought.ok, true); assert.equal(bought.grant.id, 'GPA.2');
-    assert.deepEqual(take(store).map(g => g.id), ['GPA.2']);
+    assert.equal(bought.ok, true); assert.equal(bought.transaction, 'GPA.2');
+    assert.deepEqual(take(store).map(g => g.transaction), ['GPA.2']);
     const offlineBuy = Store.create(powerEnv(powerPlugin({ offline: true }))); await offlineBuy.init();
     const failed = await offlineBuy.purchase('p.bomb');
     assert.equal(failed.ok, false); assert.equal(failed.reason, 'error');
@@ -481,10 +483,10 @@ const ledgerOf = storage => JSON.parse(storage.data['bloomshot.grants.v1']);
   await test('powerups: a store answer without a transaction is still matched to the purchase, and only to it', async () => {
     const plugin = powerPlugin({ mode: 'noTransaction' }); const store = Store.create(powerEnv(plugin)); await store.init();
     const bought = await store.purchase('p.rain');
-    assert.deepEqual(bought, { ok: true, grant: { id: 'GPA.1', productId: 'p.rain', item: 'rain', count: 3 } });
+    assert.deepEqual(bought, { ok: true, consumable: true, power: 'rain', count: 3, transaction: 'GPA.1', delivered: false });
     plugin.charge('p.bomb'); // a bomb bought on another device
     assert.equal((await store.restore()).ok, true);
-    assert.deepEqual(store.pendingGrants().map(g => g.id), ['GPA.1']);
+    assert.deepEqual(store.pendingGrants().map(g => g.transaction), ['GPA.1']);
   });
 
   await test('powerups: a store answer that repeats an already granted transaction grants nothing new', async () => {
@@ -492,7 +494,7 @@ const ledgerOf = storage => JSON.parse(storage.data['bloomshot.grants.v1']);
     assert.equal((await store.purchase('p.bomb')).ok, true);
     plugin.state.mode = 'replay';
     assert.deepEqual(await store.purchase('p.bomb'), { ok: false, reason: 'not-granted' });
-    assert.deepEqual(store.pendingGrants().map(g => g.id), ['GPA.1']);
+    assert.deepEqual(store.pendingGrants().map(g => g.transaction), ['GPA.1']);
     assert.deepEqual(ledgerOf(env.storage).inflight, []);
   });
 
@@ -530,8 +532,33 @@ const ledgerOf = storage => JSON.parse(storage.data['bloomshot.grants.v1']);
     assert.deepEqual(later.pendingGrants(), []);
   });
 
+  await test('powerups: onConsumable takes waiting grants once the store is ready and each new one before purchase() answers', async () => {
+    const plugin = powerPlugin({ mode: 'hang' }); const env = powerEnv(plugin);
+    const crashed = Store.create(env); await crashed.init();
+    crashed.purchase('p.rain'); await new Promise(r => setTimeout(r, 5)); // paid, then the app was killed
+    plugin.state.mode = 'ok';
+    const store = Store.create(powerEnv(plugin, { storage: env.storage }));
+    const got = []; let saving = true;
+    const stop = store.onConsumable(g => { got.push(g); return saving; });
+    assert.deepEqual(got, []); // not before the store has checked the account
+    await store.init();
+    assert.deepEqual(got, [{ transaction: 'GPA.1', productId: 'p.rain', power: 'rain', count: 3 }]);
+    const seen = []; store.subscribe(e => { if (e.type === 'grants') seen.push(store.pendingGrants().length); });
+    const bomb = await store.purchase('p.bomb');
+    assert.equal(bomb.delivered, true); assert.equal(got.length, 2); assert.equal(got[1].power, 'bomb');
+    assert.deepEqual(seen, [0]); // listeners hear about it after the handler took it
+    saving = false; // the save could not be written
+    assert.equal((await store.purchase('p.bomb')).delivered, false);
+    assert.equal(store.pendingGrants().length, 1);
+    saving = true; store.onConsumable(g => { got.push(g); return true; }); // registering again retries it
+    assert.deepEqual(store.pendingGrants(), []);
+    assert.deepEqual(got.map(g => g.transaction), ['GPA.1', 'GPA.2', 'GPA.3', 'GPA.3']); // offered twice, taken once
+    stop(); // an old handle cannot remove the newer handler
+    assert.equal((await store.purchase('p.bomb')).delivered, true);
+  });
+
   await test('powerups: the website grants nothing, even with a forged ledger', async () => {
-    const storage = memoryStorage({ 'bloomshot.grants.v1': JSON.stringify({ v: 1, baseline: true, seen: ['x'], inflight: [], owed: [{ id: 'x', productId: 'p.bomb', item: 'bomb', count: 99 }] }) });
+    const storage = memoryStorage({ 'bloomshot.grants.v1': JSON.stringify({ v: 1, baseline: true, seen: ['x'], inflight: [], owed: [{ transaction: 'x', productId: 'p.bomb', power: 'bomb', count: 99 }] }) });
     const store = Store.create({ config: POWER, storage }); await store.init();
     assert.deepEqual(store.pendingGrants(), []);
     assert.equal(store.deliver(() => true), 0);
@@ -543,13 +570,13 @@ const ledgerOf = storage => JSON.parse(storage.data['bloomshot.grants.v1']);
     const make = () => Store.create({ config: POWER, storage, allowMock: true, mockDelay: 0, now: () => 1000 });
     const store = make(); await store.init();
     const bought = await store.purchase('p.bomb');
-    assert.equal(bought.ok, true); assert.equal(bought.grant.item, 'bomb');
+    assert.equal(bought.ok, true); assert.equal(bought.power, 'bomb');
     store.dev.nextResult('crash'); assert.equal((await store.purchase('p.rain')).ok, false);
     store.dev.nextResult('pending'); assert.equal((await store.purchase('p.bomb')).reason, 'pending');
     store.dev.nextResult('cancel'); assert.equal((await store.purchase('p.bomb')).cancelled, true);
-    assert.deepEqual(take(store).map(g => g.item), ['bomb']);
+    assert.deepEqual(take(store).map(g => g.power), ['bomb']);
     const relaunch = make(); await relaunch.init(); // the crashed and pending ones arrive now
-    assert.deepEqual(take(relaunch).map(g => g.item).sort(), ['bomb', 'rain']);
+    assert.deepEqual(take(relaunch).map(g => g.power).sort(), ['bomb', 'rain']);
     relaunch.dev.forgetLocal();
     const reinstall = make(); await reinstall.init();
     assert.equal((await reinstall.restore()).ok, true);
@@ -576,7 +603,7 @@ const ledgerOf = storage => JSON.parse(storage.data['bloomshot.grants.v1']);
       assert.match(p.id, /^bloomshot\.[a-z0-9]+\.[a-z0-9]+$/, p.id);
       if (p.consumable) {
         // A powerup grants an item, never an entitlement, and is priced like the one Trevor asked for.
-        assert.equal(p.kind, 'powerup', p.id); assert.ok(p.grants && p.grants.item && p.grants.count > 0, p.id); assert.deepEqual(p.entitlements, [], p.id);
+        assert.equal(p.kind, 'power', p.id); assert.ok(p.power && p.count > 0, p.id); assert.deepEqual(p.entitlements, [], p.id);
         assert.ok(price(p) > 0 && price(p) < 1, `${p.id} is a small purchase`);
         continue;
       }

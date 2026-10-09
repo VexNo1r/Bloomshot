@@ -7,9 +7,9 @@ Added in the mobile-release pass, October 3 2026. Status: written and unit-teste
 | File | Job |
 |---|---|
 | `bloomshot/store-config.js` | The catalog (product ids, entitlement ids, test prices) and the RevenueCat public keys. Edit this file to change what is sold. |
-| `bloomshot/store.js` | `BloomStore`: init, `products()`, `owns(entitlement)`, `purchase(productId)`, `restore()`, `subscribe(fn)`, and for powerups `deliver(fn)` and `pendingGrants()`. |
+| `bloomshot/store.js` | `BloomStore`: init, `products()`, `owns(entitlement)`, `purchase(productId)`, `restore()`, `subscribe(fn)`, and for powerups `onConsumable(fn)`, `deliver(fn)` and `pendingGrants()`. |
 | `bloomshot/store-ui.js` | A "Purchases" section in Settings with **Restore purchases**. It stays hidden unless a store is live. |
-| `bloomshot/qa/test-store.cjs` | 39 checks with a fake store plugin, including the bundle, powerups (crash, pending payment, reinstall) and a consistency check of the shipped catalog. |
+| `bloomshot/qa/test-store.cjs` | 40 checks with a fake store plugin, including the bundle, powerups (crash, pending payment, reinstall, the game's handler) and a consistency check of the shipped catalog. |
 
 The Koi Conservatory is the first gated content: `app.js` opens pools 3 to 8 only when `BloomStore.owns('world_koi')` is true, and its unlock panel calls `BloomStore.purchase('bloomshot.world.koi')` only when the store is live and the product is `available`.
 
@@ -61,19 +61,19 @@ Pricing rule: the bundle must cost less than its items together, in every storef
 
 ## Powerups (consumables)
 
-A powerup is bought again and again and is never owned. In `store-config.js` it has `consumable: true`, `kind: 'powerup'` and `grants: { item, count }` instead of an entitlement. `products()` reports it with `consumable: true`, the same `grants`, and `owned` and `partial` always false.
+Four powerups are sold, one per purchase: Sunburst, Lullaby, Dandelion and Bee Line (`bloomshot.power.sunburst`, `.lullaby`, `.dandelion`, `.beeline`). The game designs them and drops them for free now and then; the store only sells them. A powerup is bought again and again and is never owned. In `store-config.js` it has `consumable: true`, `kind: 'power'`, `power` (the game's key) and `count` (how many one purchase gives) instead of an entitlement. `products()` reports the same `consumable`, `power` and `count`, with `owned` and `partial` always false.
 
-The store does not change the player's save. A purchase becomes a **grant** `{ id, productId, item, count }` (the id is the store's transaction id) that waits in a small ledger (`bloomshot.grants.v1` in local storage) until the game takes it:
+The store does not change the player's save. A purchase becomes a **grant** `{ transaction, productId, power, count }` (`transaction` is the store's transaction id) that waits in a small ledger (`bloomshot.grants.v1` in local storage) until the game takes it:
 
-- `purchase(id)` answers `{ ok: true, grant }`, `{ ok: false, cancelled: true, reason: 'cancelled' }`, `{ ok: false, pending: true, reason: 'pending' }` (Google Play: a slow payment method; nothing charged yet), or another `reason`. A second tap during a buy is refused as `busy`.
-- `deliver(fn)` calls `fn(grant)` for each waiting grant. `fn` adds `grant.count` of `grant.item` to the save, writes the save, and returns `true`; only then is the grant marked delivered. Anything else (false, a throw) leaves it waiting. The game calls `deliver` after `init()` and whenever `subscribe` reports `{ type: 'grants' }`.
-- `pendingGrants()` lists the waiting grants without taking them.
+- `onConsumable(fn)`: the game's one handler. It gets every waiting grant once the store is ready and every new one as it arrives, before `purchase()` answers. `fn` adds `count` of `power` to the save, writes the save, and returns `true`; only then is the grant marked delivered. Anything else (false, a throw) leaves it waiting, and it is offered again at the next launch or when `onConsumable` is called again. The game also keeps the last transaction ids it has applied in its save, so even a replayed grant cannot count twice.
+- `purchase(id)` answers `{ ok: true, consumable: true, power, count, transaction, delivered }`, `{ ok: false, cancelled: true, reason: 'cancelled' }`, `{ ok: false, pending: true, reason: 'pending' }` (Google Play: a slow payment method; nothing charged yet), or another `reason`. `delivered` is false only if the handler did not take it. A second tap during a buy is refused as `busy`.
+- `deliver(fn)` and `pendingGrants()` do the same by hand: take, or just list, the waiting grants.
 
-How it stays exactly-once. Before opening the store sheet the ledger records that this install started buying that product. The store's answer turns into a grant at once. If the app is killed before the answer arrives, or the payment was pending, the next launch (or Restore) finds the new transaction in RevenueCat's list of one-time purchases (`nonSubscriptionTransactions`) and claims it for that started purchase. Any transaction the ledger has not seen and did not start (bought before a reinstall, on another device, or brought back by Restore) is only noted, never granted, so old powerups are not paid out again. A started purchase that never shows up is dropped after 7 days. Both stores treat consumables as used once delivered: neither restores them, and nor does the game.
+How it stays exactly-once. RevenueCat finishes (Apple) or consumes (Google) a consumable as soon as it has verified it, before the game sees it, so the app cannot hold the transaction open; the ledger does that job instead. Before opening the store sheet the ledger records that this install started buying that product. The store's answer turns into a grant at once. If the app is killed before the answer arrives, or the payment was pending, the next launch (or Restore) finds the new transaction in RevenueCat's list of one-time purchases (`nonSubscriptionTransactions`) and claims it for that started purchase. Any transaction the ledger has not seen and did not start (bought before a reinstall, on another device, or brought back by Restore) is only noted, never granted, so old powerups are not paid out again. A started purchase that never shows up is dropped after 7 days. Neither store restores consumables, and nor does the game.
 
-The powerups a player holds live in the game's save like any other local progress, so they are only as safe as the save (which the native app also backs up to its preferences). Test mode: `BloomStore.dev.nextResult('crash')` simulates a charge whose answer never arrives, and `'pending'` a payment that clears by the next launch.
+The powerups a player holds live in the game's save like any other local progress, so they are only as safe as the save (which the native app also backs up to its preferences). Test mode runs the same path: `BloomStore.dev.nextResult('crash')` simulates a charge whose answer never arrives, and `'pending'` a payment that clears by the next launch.
 
-Prices: Trevor asked for $0.25 a powerup. Apple's lowest price point is $0.29, so the App Store price is $0.29. Set $0.25 in Play Console if it accepts it for the United States; Play Console shows the allowed range when the product is created. The game always shows the store's own price string, so the two stores can differ.
+Prices: Trevor asked for $0.25 a powerup. Apple's lowest price point is $0.29, so the App Store price is $0.29. Set $0.25 in Play Console if it accepts it for the United States; Play Console shows the allowed range when the product is created. The game always shows the store's own price string, so the two stores can differ. Selling is only ever on the shop's powerup shelf: never offered mid-run or after a loss.
 
 ## Not built yet (and why)
 
