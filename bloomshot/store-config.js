@@ -13,7 +13,7 @@
       { id: 'bloomshot.world.koi', entitlement: 'world_koi', kind: 'world', title: 'Koi Conservatory', priceHint: '$4.99', available: false },
       { id: 'bloomshot.style.collection1', entitlement: 'style_collection1', kind: 'style', title: 'Keepsake Collection', priceHint: '$1.99', available: false },
       // The campaign has ten levels; levels 1 to 4 are free and this one-time purchase opens levels 5 to 10.
-      { id: 'bloomshot.campaign.full', entitlement: 'campaign_full', kind: 'campaign', title: 'Levels 5 to 10', priceHint: '$2.99', available: false },
+      { id: 'bloomshot.levels.full', entitlement: 'levels_full', kind: 'levels', title: 'Levels 5 to 10', priceHint: '$2.99', available: false },
       // A bundle is its own store product that grants several entitlements: in RevenueCat, attach this one product
       // to every entitlement listed here. Keep its price below the sum of the items, or it is not a bundle.
       // Never offer it to a player who already owns one of its items (the store refuses it as 'partly-owned').
