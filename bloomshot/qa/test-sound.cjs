@@ -207,6 +207,26 @@ async function main() {
     assert.equal(h.context.nodes.length, nodes, 'Rapid lane changes share one response');
     h.tick(2); assert.equal(h.voices().length, 0);
   });
+  await test('Each meadow friend has its own short, quiet voice; taps are debounced and unknown friends stay silent', () => {
+    const counts = {};
+    for (const kind of ['cat', 'bluebird', 'frog', 'bee', 'firefly', 'squirrel']) {
+      const h = fixture(); h.sound.wake(); h.tick(1);
+      h.sound.play('friend', { kind, x: 200 });
+      const notes = h.voices(); counts[kind] = notes.length;
+      assert(notes.length >= 2 && notes.length <= 4, kind);
+      for (const note of notes) {
+        assert(note.connections[0].gain.events.every(e => e.value === undefined || (e.value >= 0 && e.value <= 0.09)), kind);
+        assert(note.stopAt - h.context.currentTime < 0.65, `${kind} finishes quickly`);
+      }
+      const nodes = h.context.nodes.length;
+      for (let i = 0; i < 20; i++) h.sound.play('friend', { kind });
+      assert.equal(h.context.nodes.length, nodes, `${kind}: rapid taps share one voice`);
+      h.tick(2); assert.equal(h.voices().length, 0);
+    }
+    const h = fixture(); h.sound.wake(); h.tick(1); h.sound.play('friend', { kind: 'dragon' }); h.sound.play('friend');
+    assert.equal(h.voices().length, 0);
+    assert.notEqual(counts.bluebird, counts.cat, 'friends sound different');
+  });
   await test('Rush waves climb a semitone per wave up to a fifth, and a cleared wave rings a bounded rising chord', () => {
     const lowest = wave => { const h = fixture(); h.sound.wake(); h.tick(1); h.sound.play('wave', { wave }); return Math.min(...h.voices().map(v => v.frequency.value)); };
     const base = lowest(2);

@@ -278,6 +278,9 @@ test('Six decorations cost 20 to 100 seeds, build once each in any order, and sa
   assert.deepEqual(Garden.decor.map(d => d.id), ['bench', 'birdhouse', 'lilies', 'beehive', 'lanterns', 'tree']);
   assert.deepEqual(Garden.decor.map(d => d.cost), [20, 30, 40, 55, 75, 100]);
   Garden.decor.forEach(d => { assert(d.name && d.description); assert(Object.isFrozen(d)); });
+  assert.deepEqual(Garden.decor.map(d => d.friend.id), ['biscuit', 'pip', 'hopper', 'buzz', 'glimmer', 'nutmeg']);
+  assert.deepEqual(Garden.decor.map(d => d.friend.kind), ['cat', 'bluebird', 'frog', 'bee', 'firefly', 'squirrel']);
+  Garden.decor.forEach(d => { assert(Object.isFrozen(d.friend)); assert(d.friend.name && d.friend.says && d.friend.about); });
   let state = Garden.normalize({ seeds: 60 });
   assert.deepEqual(state.decor, []);
   const short = Garden.build(state, 'tree');

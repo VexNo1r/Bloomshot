@@ -36,16 +36,23 @@
   ]);
   // Decorations give seeds somewhere to go once the beds are growing. Bought with earned seeds only, once each,
   // in any order; costs rise so there is always a next thing to save for.
-  function piece(id, name, cost, description) {
-    return Object.freeze({ id: id, name: name, cost: cost, description: description });
+  // Each one brings a meadow friend who moves in with it and says hello when tapped.
+  function piece(id, name, cost, description, friend) {
+    return Object.freeze({ id: id, name: name, cost: cost, description: description, friend: Object.freeze(friend) });
   }
   var decor = Object.freeze([
-    piece('bench', 'Garden bench', 20, 'A spot to sit and admire your work.'),
-    piece('birdhouse', 'Birdhouse', 30, 'A bluebird moves in right away.'),
-    piece('lilies', 'Water lilies', 40, 'Lilies for the pond, and a frog to go with them.'),
-    piece('beehive', 'Beehive', 55, 'Busy bees for your Honeyburst.'),
-    piece('lanterns', 'Lantern path', 75, 'Warm little lights along the path.'),
-    piece('tree', 'Apple tree', 100, 'Shade, apples and a rope swing.')
+    piece('bench', 'Garden bench', 20, 'A spot to sit and admire your work.',
+      { id: 'biscuit', name: 'Biscuit', kind: 'cat', says: 'Mrrp?', about: 'Naps on the bench all day.' }),
+    piece('birdhouse', 'Birdhouse', 30, 'A bluebird moves in right away.',
+      { id: 'pip', name: 'Pip', kind: 'bluebird', says: 'Tweet tweet!', about: 'Sings from the birdhouse roof.' }),
+    piece('lilies', 'Water lilies', 40, 'Lilies for the pond, and a frog to go with them.',
+      { id: 'hopper', name: 'Hopper', kind: 'frog', says: 'Ribbit!', about: 'The best jumper in the pond.' }),
+    piece('beehive', 'Beehive', 55, 'Busy bees for your Honeyburst.',
+      { id: 'buzz', name: 'Buzz', kind: 'bee', says: 'Bzzz!', about: 'Makes honey from your Honeyburst.' }),
+    piece('lanterns', 'Lantern path', 75, 'Warm little lights along the path.',
+      { id: 'glimmer', name: 'Glimmer', kind: 'firefly', says: 'Hi hi hi!', about: 'Keeps the lanterns company.' }),
+    piece('tree', 'Apple tree', 100, 'Shade, apples and a rope swing.',
+      { id: 'nutmeg', name: 'Nutmeg', kind: 'squirrel', says: 'Got any acorns?', about: 'Guards the apples. Mostly.' })
   ]);
   function own(object, key) { return Object.prototype.hasOwnProperty.call(object, key); }
   function record(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
@@ -246,7 +253,7 @@
     });
     var pieces = decor.map(function (d) {
       var done = current.decor.indexOf(d.id) >= 0;
-      return { id: d.id, name: d.name, cost: d.cost, description: d.description, built: done, canBuild: !done && current.seeds >= d.cost };
+      return { id: d.id, name: d.name, cost: d.cost, description: d.description, friend: d.friend, built: done, canBuild: !done && current.seeds >= d.cost };
     });
     var builtDecor = current.decor.length;
     return { seeds: current.seeds, selectedId: current.selectedId,

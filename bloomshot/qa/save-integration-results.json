@@ -1,5 +1,5 @@
 {
-  "passed": 36,
+  "passed": 37,
   "failed": 0,
   "methodology": "Executes the complete current app.js in an isolated Node VM using real garden/level/engine modules, fake localStorage, and DOM/canvas adapters. Completion fixtures exercise actual engine completion events and app handlers. No real browser or user saves are read or changed.",
   "limitations": [
@@ -109,6 +109,10 @@
     },
     {
       "name": "Decorate: a card names what is missing, builds once with seeds, shows in the meadow and survives a reload",
+      "passed": true
+    },
+    {
+      "name": "Meadow friends: each moves in with its decoration, says hello when tapped, and is met in the Collection",
       "passed": true
     },
     {

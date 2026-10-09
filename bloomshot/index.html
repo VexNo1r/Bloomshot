@@ -108,6 +108,8 @@
         <div class="meadow-map">
           <canvas id="meadow-canvas" width="840" height="660" role="img" aria-label="Your meadow. Choose one of the six flower patches below."></canvas>
           <div id="plot-markers" class="plot-markers" role="group" aria-label="Choose a flower patch"></div>
+          <div id="friend-spots" class="friend-spots" role="group" aria-label="Meadow friends"></div>
+          <p id="friend-bubble" class="friend-bubble" hidden></p>
         </div>
         <section class="plot-detail panel" aria-labelledby="plot-name">
           <div class="plot-copy"><span id="plot-stage" class="stage-chip">Ready to plant</span><h2 id="plot-name">Sunbell</h2><p id="plot-message">Golden bells catch the first light.</p></div>
@@ -150,6 +152,8 @@
           <div id="keepsake-grid" class="keepsake-grid" role="group" aria-label="Seed styles"></div>
           <div id="keepsake-offer"></div>
         </div>
+        <h2 class="section-title">Meadow friends <small id="friend-count" class="section-count">0/6</small></h2>
+        <div id="friend-grid" class="friend-grid" role="group" aria-label="Meadow friends"></div>
         <h2 class="section-title">Flowers</h2>
         <div id="collection-grid" class="collection-grid" aria-label="Collected flowers"></div>
       </section>

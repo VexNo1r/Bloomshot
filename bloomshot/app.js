@@ -54,7 +54,8 @@
   if (native) native.restore(STORAGE).then(restored => { if (restored) location.reload(); });
   const canvas = $('game-canvas'), ctx = canvas.getContext('2d');
   const meadowCanvas = $('meadow-canvas'), meadowCtx = meadowCanvas.getContext('2d');
-  let meadowDirty = true, meadowFrame = 0, growth = null;
+  let meadowDirty = true, meadowFrame = 0, growth = null, bubbleTimer = 0;
+  const friendPokes = {};
   let runId = '', runAward = 0, runBouquet = null, runGoals = null;
   let game, route = 'game', theme = 'meadow', preview = false, returnSession = null;
   let aiming = false, guiding = false, pointer = null, activePointer = null, angle = -Math.PI / 2, resultAt = Infinity, resultShown = false;
@@ -345,7 +346,7 @@
     $('plant-btn').textContent = selected.stage === 3 ? 'In full bloom' : `${selected.stage ? 'Grow' : 'Plant'} · ${selected.nextCost} seeds`;
     $('garden-earning-hint').textContent = selected.stage === 3 ? data.completedPlots === 6 ? 'Every patch is in full bloom.' : 'Pick another patch to grow.' : !selected.canPlant ? `${selected.nextCost - data.seeds} more ${selected.nextCost - data.seeds === 1 ? 'seed' : 'seeds'} needed. Play Rush to earn them.` : 'Earn seeds in Rush, puzzles and the daily garden.';
     $('garden-btn').classList.toggle('has-seeds', canSpend(data));
-    renderDecor(data);
+    renderDecor(data); renderFriendSpots(data);
     meadowCanvas.dataset.seeds = data.seeds; meadowCanvas.dataset.stages = data.totalStages;
     meadowCanvas.dataset.selected = data.selectedId;
     meadowCanvas.setAttribute('aria-label', `Your meadow, ${data.totalStages} of 18 growth stages and ${data.builtDecor} of ${data.totalDecor} decorations. ${data.seeds} ${data.seeds === 1 ? 'seed' : 'seeds'} available. Choose a flower patch using the labeled buttons.`);
@@ -361,6 +362,49 @@
     }
     return decorIcons.get(id);
   }
+  // Friends live on the map once their decoration is built; each has a tap target over it.
+  function renderFriendSpots(data) {
+    const spots = $('friend-spots');
+    if (!spots.children.length) spots.innerHTML = data.decor.map(d => {
+      const spot = BloomMeadow.friends.find(f => f.id === d.friend.id);
+      return `<button class="friend-spot" type="button" data-friend="${d.friend.id}" style="left:${spot.x / 420 * 100}%;top:${spot.y / 330 * 100}%" aria-label="${escape(d.friend.name)} the ${d.friend.kind}. Say hi." hidden></button>`;
+    }).join('');
+    for (const d of data.decor) spots.querySelector(`[data-friend="${d.friend.id}"]`).hidden = !d.built;
+  }
+  function greetFriend(id) {
+    const friend = BloomGarden.decor.map(d => d.friend).find(f => f.id === id), spot = BloomMeadow.friends.find(f => f.id === id);
+    if (!friend || !spot) return;
+    friendPokes[id] = performance.now(); meadowDirty = true;
+    BloomSound.wake(); BloomSound.play('friend', { kind: friend.kind, x: spot.x }); haptic('tick');
+    const bubble = $('friend-bubble');
+    bubble.textContent = friend.says; bubble.style.left = `${spot.x / 420 * 100}%`; bubble.style.top = `${spot.y / 330 * 100}%`;
+    bubble.hidden = false; bubble.classList.remove('pop');
+    // Keep the bubble inside the map for friends near its edge; the tail still points at the friend.
+    const mapWidth = bubble.parentElement.clientWidth, center = spot.x / 420 * mapWidth, half = bubble.offsetWidth / 2;
+    const overLeft = 6 - (center - half), overRight = center + half - (mapWidth - 6);
+    bubble.style.setProperty('--shift', `${Math.round(overLeft > 0 ? overLeft : overRight > 0 ? -overRight : 0)}px`);
+    void bubble.offsetWidth; bubble.classList.add('pop');
+    clearTimeout(bubbleTimer); bubbleTimer = setTimeout(() => { bubble.hidden = true; }, 1600);
+    say(`${friend.name} says ${friend.says}`);
+  }
+  // Meadow friends in the Collection: met ones in color with a line about them, the rest as silhouettes.
+  const friendIcons = new Map();
+  function friendIcon(id, met) {
+    const key = `${id}:${met}`;
+    if (!friendIcons.has(key)) {
+      const icon = document.createElement('canvas'); icon.width = 192; icon.height = 192;
+      BloomMeadow.drawFriendIcon(icon.getContext('2d'), id, 192, met);
+      friendIcons.set(key, icon.toDataURL('image/png'));
+    }
+    return friendIcons.get(key);
+  }
+  function renderFriends() {
+    const data = BloomGarden.summary(save.garden);
+    $('friend-count').textContent = `${data.builtDecor}/${data.totalDecor}`;
+    $('friend-grid').innerHTML = data.decor.map(d => d.built
+      ? `<button class="friend-card met" type="button" data-friend="${d.friend.id}" aria-label="${escape(d.friend.name)} the ${d.friend.kind}. ${escape(d.friend.about)} Say hi."><img class="friend-art" src="${friendIcon(d.friend.id, true)}" alt="" width="64" height="64"><strong>${escape(d.friend.name)}</strong><span class="friend-kind">${escape(d.friend.kind.charAt(0).toUpperCase() + d.friend.kind.slice(1))}</span><p>${escape(d.friend.about)}</p></button>`
+      : `<article class="friend-card"><img class="friend-art" src="${friendIcon(d.friend.id, false)}" alt="" width="64" height="64"><strong>???</strong><p>Build the ${escape(lower(d.name))} to meet them.</p></article>`).join('');
+  }
   function renderDecor(data) {
     $('decor-count').textContent = `${data.builtDecor}/${data.totalDecor} built`;
     const grid = $('decor-grid');
@@ -375,7 +419,9 @@
   }
   function drawMeadow(timestamp) {
     const progress = growth ? Math.min(1, (timestamp - growth.started) / 950) : 1;
-    BloomMeadow.draw(meadowCtx, { width: 420, height: 330, state: save.garden, selectedId: save.garden.selectedId, time: timestamp / 1000, motion: save.settings.motion, growth: growth && { ...growth, progress } });
+    const pokes = {};
+    for (const [id, at] of Object.entries(friendPokes)) { const seconds = (timestamp - at) / 1000; if (seconds >= 0 && seconds < BloomMeadow.reactSeconds) pokes[id] = seconds; }
+    BloomMeadow.draw(meadowCtx, { width: 420, height: 330, state: save.garden, selectedId: save.garden.selectedId, time: timestamp / 1000, motion: save.settings.motion, growth: growth && { ...growth, progress }, pokes });
     if (growth && save.settings.motion && progress < 1) {
       const spot = growth.decorId && BloomMeadow.decor.find(d => d.id === growth.decorId);
       const point = spot ? { x: spot.icon[0], y: spot.icon[1], accent: spot.accent } : BloomMeadow.plots.find(p => p.id === growth.plotId);
@@ -427,7 +473,7 @@
       return `<article class="flower-card ${has ? 'unlocked' : 'locked'}">${flowerGraphic(flower, !has)}<span class="flower-index">#${flowers.indexOf(flower) + 1}</span><h3>${has ? escape(flower.name) : '???'}</h3><p>${has ? escape(flower.description) : `Clear garden ${flower.unlockLevel} to find it.`}</p><span class="flower-status">${has ? 'Found!' : `Garden ${flower.unlockLevel}`}</span></article>`;
     }).join('');
     const summary = $('collection-summary'); if (summary) summary.textContent = `${flowers.filter(earned).length} of ${flowers.length} flowers found`;
-    renderKeepsakes();
+    renderKeepsakes(); renderFriends();
   }
   // Garden Keepsakes shelf: every style can be previewed in motion before it is earned or bought.
   let keepsakePreview = null;
@@ -934,6 +980,16 @@
     BloomSound.wake(); BloomSound.play('plant', { x: BloomMeadow.plots.find(p => p.id === id).x });
     haptic('tap');
     say(`${BloomGarden.plots.find(p => p.id === id).name} ${fromStage ? 'grew' : 'planted'}. ${save.garden.seeds} seeds left.`);
+  });
+  $('friend-spots').addEventListener('click', event => {
+    const spot = event.target.closest('[data-friend]'); if (spot) greetFriend(spot.dataset.friend);
+  });
+  $('friend-grid').addEventListener('click', event => {
+    const card = event.target.closest('[data-friend]'); if (!card) return;
+    const friend = BloomGarden.decor.map(d => d.friend).find(f => f.id === card.dataset.friend); if (!friend) return;
+    BloomSound.wake(); BloomSound.play('friend', { kind: friend.kind }); haptic('tick');
+    card.classList.remove('wiggle'); void card.offsetWidth; card.classList.add('wiggle');
+    toast(`${friend.name}: ${friend.says}`);
   });
   $('decor-grid').addEventListener('click', event => {
     const card = event.target.closest('[data-decor]'); if (!card) return;

@@ -104,7 +104,8 @@ function boot(raw, { storageFails = false, search = '', otherSave, store, native
       drawGarden: noop, drawProjectile: noop, drawParticle: noop, drawSeed: noop },
     BloomMeadow: { plots: Garden.plots.map((p, i) => ({ id: p.id, x: 65 + i * 50, y: 150, labelY: 180, accent: p.color })),
       decor: Garden.decor.map((d, i) => ({ id: d.id, x: 40 + i * 60, y: 200, accent: '#ffffff', icon: [40 + i * 60, 190, 40] })),
-      drawDecorIcon: noop, draw: (ctx, options) => meadowDraws.push(clone(options)) }
+      friends: Garden.decor.map((d, i) => ({ id: d.friend.id, decorId: d.id, x: 40 + i * 60, y: 180 })), reactSeconds: 1.1,
+      drawDecorIcon: noop, drawFriendIcon: noop, draw: (ctx, options) => meadowDraws.push(clone(options)) }
   });
   context.window = context; context.addEventListener = noop;
   vm.runInContext(source, context, { filename: 'app.js' });
@@ -450,6 +451,24 @@ test('Decorate: a card names what is missing, builds once with seeds, shows in t
   assert.deepEqual(drawn.state.decor, ['bench']); assert.equal(drawn.growth.decorId, 'bench');
   app = boot(app.saved()); app.click('garden-btn');
   assert(app.$('decor-grid').querySelector('[data-decor="bench"]').classList.contains('built'));
+});
+test('Meadow friends: each moves in with its decoration, says hello when tapped, and is met in the Collection', () => {
+  const save = legacySave(); save.garden = { seeds: 0, levels: {}, decor: ['bench', 'lilies'] };
+  const app = boot(save); app.click('garden-btn');
+  const spots = app.$('friend-spots');
+  assert.equal(spots.querySelector('[data-friend="biscuit"]').hidden, false); assert.equal(spots.querySelector('[data-friend="hopper"]').hidden, false);
+  assert.equal(spots.querySelector('[data-friend="pip"]').hidden, true, 'Pip waits for the birdhouse');
+  assert.match(spots.innerHTML, /aria-label="Biscuit the cat\. Say hi\."/);
+  app.click('friend-spots', { friend: 'hopper' });
+  assert.equal(app.$('friend-bubble').textContent, 'Ribbit!'); assert.equal(app.$('friend-bubble').hidden, false);
+  app.frame(); assert(Number.isFinite(app.meadowDraws.at(-1).pokes.hopper), 'the meadow is told Hopper was just tapped');
+  app.click('collection-btn');
+  assert.equal(app.$('friend-count').textContent, '2/6');
+  const grid = app.$('friend-grid').innerHTML;
+  assert.match(grid, /<strong>Biscuit<\/strong><span class="friend-kind">Cat<\/span><p>Naps on the bench all day\.<\/p>/);
+  assert.match(grid, /<strong>Hopper<\/strong>/); assert.match(grid, /Build the birdhouse to meet them\./); assert.match(grid, /Build the apple tree to meet them\./);
+  assert.equal((grid.match(/<strong>\?\?\?<\/strong>/g) || []).length, 4);
+  app.click('friend-grid', { friend: 'biscuit' }); assert.equal(app.$('toast').textContent, 'Biscuit: Mrrp?');
 });
 test('After the beds, the seed reward points at the cheapest decoration, and a finished meadow says so', () => {
   const full = { sunbell: 3, coral: 3, lilac: 3, honey: 3, moon: 3, dawn: 3 };
