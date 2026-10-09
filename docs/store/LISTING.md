@@ -47,10 +47,10 @@ Every star you earn becomes seeds. Plant them in six permanent flower patches an
 |---|---|---|---|---|
 | Koi Conservatory | `bloomshot.world.koi` | Non-consumable (Apple) / one-time in-app product (Google) | test value $4.99; final price is the owner's call | Create only after the Koi content is final |
 | Keepsake Collection | `bloomshot.style.collection1` | Non-consumable (Apple) / one-time in-app product (Google) | test value $1.99; final price is the owner's call | Three seed styles (Sakura Breeze, Firefly Night, Gilded Leaf) that change how a seed looks, never how it plays. Create only after the content is final |
-
+| Levels 5 to 10 | `bloomshot.levels.full` | Non-consumable (Apple) / one-time in-app product (Google) | $2.99 (set by the owner) | The campaign has ten levels of ten waves each. Levels 1 to 4 are free; this opens levels 5 to 10, forever. Create only after those levels are playable |
 | Launch Bundle | `bloomshot.bundle.launch1` | Non-consumable (Apple) / one-time in-app product (Google) | test value $5.99; must be cheaper than the two items together in every storefront | Koi Conservatory and Keepsake Collection in one purchase. In RevenueCat attach this one product to both entitlements. Create only after both items are final |
 
-Each product needs a display name, a description and a review screenshot of the unlock screen in Apple's console. Write the description as what the player gets: "Opens pools 3 to 8 of the Koi Conservatory, forever."
+Each product needs a display name, a description and a review screenshot of the unlock screen in Apple's console. Write the description as what the player gets: "Opens pools 3 to 8 of the Koi Conservatory, forever." or "Opens levels 5 to 10 of the campaign, forever."
 
 ## Age rating and content questions
 
