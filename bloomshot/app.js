@@ -12,7 +12,8 @@
   const STORAGE = new URLSearchParams(location.search).has('qa') ? 'bloomshot.qa.v1' : 'bloomshot.save.v1';
   const Goals = window.BloomGoals;
   const Depths = window.BloomDepths;
-  const defaults = { version: 1, garden: BloomGarden.normalize(), goals: Goals.normalize(null, localDate()), progress: {}, moon: {}, koi: {}, daily: {}, rush: { best: 0, bestWave: 1, runs: 0, blooms: 0 }, depths: {}, lastLevel: 1, keepsake: 'meadow', settings: { sound: true, haptics: true, motion: !matchMedia('(prefers-reduced-motion: reduce)').matches } };
+  const Powers = window.BloomPowers;
+  const defaults = { version: 1, garden: BloomGarden.normalize(), goals: Goals.normalize(null, localDate()), progress: {}, moon: {}, koi: {}, daily: {}, rush: { best: 0, bestWave: 1, runs: 0, blooms: 0 }, depths: {}, powers: Powers.normalize(), powerReceipts: [], powersMet: false, lastLevel: 1, keepsake: 'meadow', settings: { sound: true, haptics: true, motion: !matchMedia('(prefers-reduced-motion: reduce)').matches } };
   let storageAvailable = true;
   function readSave() {
     try {
@@ -22,6 +23,8 @@
       valid.garden = BloomGarden.normalize(raw.garden);
       valid.goals = Goals.normalize(raw.goals, localDate());
       valid.depths = Depths.normalize(raw.depths);
+      // Powerups are counted, never reset; a save from before them starts with one of each.
+      valid.powers = Powers.normalize(raw.powers); valid.powerReceipts = Powers.receipts(raw.powerReceipts); valid.powersMet = raw.powersMet === true;
       for (const world of Object.keys(chapters)) for (const level of chapters[world].levels) {
         const record = raw[world]?.[level.id];
         if (record && Number.isFinite(record.best) && Number.isInteger(record.stars) && record.stars >= 0 && record.stars <= 3) valid[world][level.id] = { best: Math.max(0, record.best), stars: record.stars, attempts: Math.max(0, Number(record.attempts) || 0) };
@@ -152,7 +155,7 @@
   }
   function startLevel(level, options = {}) {
     closeDialogs();
-    game = level.depth ? new BloomRush.RushGame({ plan: depthPlan(level.depth) }) : level.id === 'rush' ? new BloomRush.RushGame() : new Game(level); game.particles = []; game.floaters = [];
+    game = level.depth ? new BloomRush.RushGame({ plan: depthPlan(level.depth), random: Math.random }) : level.id === 'rush' ? new BloomRush.RushGame({ random: Math.random }) : new Game(level); game.particles = []; game.floaters = [];
     preview = Boolean(options.preview); theme = options.theme || (isChapter() ? game.level.worldId : 'meadow');
     document.body.dataset.theme = theme;
     document.body.dataset.mode = isRush() ? 'rush' : 'campaign';
@@ -185,7 +188,8 @@
       $('game-hint').textContent = level.hint || level.description;
       canvas.setAttribute('aria-label', `${level.name}. Five single-seed shots. ${isKoi() ? 'Flowing currents turn your seed toward the way the water runs.' : 'Paired moon gates transport your seed.'} Aim with arrows, Space fires, R turns a leaf between shots. No in-flight steering.`);
     }
-    setRoute('game'); updateHud();
+    setRoute('game'); trayKey = ''; updateHud();
+    if (isRush() && !preview && !save.powersMet) { save.powersMet = true; persist(); toast('New: powerups! Tap one above the board, then fire.'); }
   }
   function updateHud() {
     const rush = isRush();
@@ -241,6 +245,7 @@
       $('split-btn').textContent = game.splitReady ? 'Split! +2' : game.splitCharge >= 1 ? game.balls.length ? 'No room' : 'Fire first' : `Split ${Math.round(game.splitCharge * 6)}/6`;
       $('fever-banner').hidden = game.feverTime <= 0;
       $('fever-banner').textContent = 'Super Bloom!';
+      renderTray();
       return;
     }
     if ($('combo-label')) $('combo-label').textContent = game.combo ? `${game.combo} chain · ×${Math.min(10, 1 + Math.floor((game.combo - 1) / 5))}` : 'Chain blooms';
@@ -385,6 +390,85 @@
         + (level.id === Depths.free && !owned ? depthUnlockCard() : '');
     }).join('');
     $('levels-rush-best').textContent = save.rush.runs ? `Best ${fmt(save.rush.best)} · wave ${save.rush.bestWave}` : 'Endless waves. How far can you go?';
+    renderPowerShelf();
+  }
+  // Powerups: four in a tray beside the Fire! sign in the levels and Meadow Rush, and a shelf on the Levels page.
+  // Each one is drawn once by the board art and reused as a picture.
+  const powerIcons = new Map();
+  function powerIcon(id) {
+    if (!powerIcons.has(id)) {
+      let url = '';
+      try {
+        const icon = document.createElement('canvas'); icon.width = 132; icon.height = 132;
+        BloomArt.drawPowerIcon(icon.getContext('2d'), id, 66, 68, 50, 0); url = icon.toDataURL('image/png');
+      } catch (_) { /* the button keeps its label */ }
+      powerIcons.set(id, url);
+    }
+    return powerIcons.get(id);
+  }
+  const TRAY = { 'power-left': ['sunburst', 'dandelion'], 'power-right': ['beeline', 'lullaby'] };
+  let trayKey = '';
+  function powerChip(id) {
+    const def = Powers.byId[id], n = save.powers[id], armed = game.armed === id, playing = id === 'lullaby' && game.lullaby > 0;
+    const label = `${def.name}, ${n} left. ${def.text}${armed ? ' Ready on your next shot.' : playing ? ' Playing now.' : ''}`;
+    return `<button class="power-chip${armed ? ' armed' : playing ? ' active' : n ? '' : ' empty'}" type="button" data-power="${id}" aria-label="${escape(label)}" aria-pressed="${armed || playing}">`
+      + `<img src="${powerIcon(id)}" alt=""><span class="power-count" aria-hidden="true">${n}</span></button>`;
+  }
+  function renderTray() {
+    if (!isRush() || preview) return;
+    const key = `${Powers.ids.map(id => save.powers[id]).join()}|${game.armed}|${game.lullaby > 0}`;
+    if (key === trayKey) return;
+    trayKey = key;
+    for (const [group, ids] of Object.entries(TRAY)) $(group).innerHTML = ids.map(powerChip).join('');
+  }
+  // A shot powerup is only spent when the shot is fired; picking it again puts it back for free.
+  function usePower(id) {
+    const def = Powers.byId[id];
+    if (!def || !isRush() || preview || game.over) return;
+    BloomSound.wake();
+    if (def.shot && (game.armed === id || save.powers[id])) { if (game.arm(id)) { processEvents(); renderTray(); } return; }
+    if (!save.powers[id]) { BloomSound.play('tap'); toast(`No ${def.name} left. Gift bubbles in the waves hold more.`); return; }
+    if (!game.started) { BloomSound.play('tap'); toast('Fire your first seed, then use Lullaby.'); return; }
+    if (game.lull()) { processEvents(); renderTray(); }
+  }
+  // The shelf says what each powerup does and how many you have. Once one is on sale in the app, a tap buys
+  // exactly one of the one you picked, at the price the store shows. Nothing here appears during play.
+  function renderPowerShelf() {
+    const total = Powers.ids.reduce((n, id) => n + save.powers[id], 0);
+    $('power-total').textContent = `${total} in your bag`;
+    let selling = false;
+    const tiles = Powers.list.map(def => {
+      const offer = offerFor(def.product), buy = offer.live && offer.available;
+      if (buy) selling = true;
+      return `<div class="power-tile panel"><img src="${powerIcon(def.id)}" alt=""><strong>${escape(def.name)}</strong><p>${escape(def.text)}</p><span class="power-have">You have ${save.powers[def.id]}</span>`
+        + (buy ? `<button class="unlock-btn power-buy" type="button" data-buy="${def.product}" aria-label="Buy one ${escape(def.name)}${offer.price ? ` for ${escape(offer.price)}` : ''}">Get 1${offer.price ? ` · ${escape(offer.price)}` : ''}</button>` : '') + '</div>';
+    }).join('');
+    const live = Boolean(store && store.isLive()), mode = store?.mode || 'web';
+    const note = selling ? mode === 'mock' ? 'Test mode: nothing is charged.' : 'Each tap buys one powerup, the one you picked.' : live ? 'Not on sale yet.' : 'You can buy more in the Bloomshot app.';
+    $('power-shelf').innerHTML = `${tiles}<p class="power-note">${escape(note)} Gift bubbles in the waves hold more, free.</p>`;
+  }
+  // The store hands every powerup purchase here and finishes the purchase only once this has saved it.
+  // A purchase that comes back again (after a crash or a restart) is recognized and adds nothing.
+  function grantPower(info) {
+    const power = info && (info.power || Powers.byProduct[info.productId]?.id);
+    const result = Powers.grant(save.powers, save.powerReceipts, { power, count: info && info.count, transaction: info && info.transaction });
+    if (!result.ok) return false;
+    if (!result.repeat) { save.powers = result.counts; save.powerReceipts = result.receipts; persist(); trayKey = ''; if (route === 'levels') renderPowerShelf(); }
+    return storageAvailable;
+  }
+  if (store && typeof store.onConsumable === 'function') store.onConsumable(grantPower);
+  async function buyPower(button) {
+    const def = Powers.byProduct[button.dataset.buy], product = def && productInfo(def.product);
+    if (!def || !store || store.busy || !product || !product.available) return;
+    button.disabled = true; button.textContent = 'Opening the store…';
+    const before = save.powers[def.id];
+    let result;
+    try { result = await store.purchase(def.product); } catch (_) { result = { ok: false }; }
+    // A store that only reports the purchase (without handing it over first) still gets it counted, once.
+    if (result.ok && save.powers[def.id] === before) grantPower({ power: def.id, count: result.count || 1, transaction: result.transaction });
+    if (result.ok) { BloomSound.wake(); BloomSound.play('gift'); toast(`+1 ${def.name}! You have ${save.powers[def.id]}.`); }
+    else toast(result.cancelled ? 'Purchase cancelled. Nothing was charged.' : "Purchase didn't go through. Nothing was charged.");
+    renderPowerShelf();
   }
   // The unlock is described exactly: what it contains, the price the store reports, and that it is one payment.
   // It sits on the map between the free levels and the deeper ones, and nowhere interrupts play.
@@ -757,6 +841,7 @@
     [Depths.product]: { thanks: () => `Levels ${Depths.free + 1} to ${Depths.total} unlocked! ${depthOpen(Depths.free + 1) ? `${Depths.level(Depths.free + 1).name} is open.` : `Clear level ${Depths.free} to head down.`}` }
   };
   async function buyProduct(button) {
+    if (Powers.byProduct[button.dataset.buy]) { buyPower(button); return; }
     const id = button.dataset.buy, item = PURCHASES[id];
     const product = productInfo(id);
     if (!item || !store || store.busy || !product || product.owned || product.partial) return;
@@ -895,6 +980,38 @@
         game.floaters.push({ x: 210, y: 250, text: 'Big bloom!', label: 'everything blooms', life: 1.2, maxLife: 1.2, kind: 'wave' });
         $('game-hint').textContent = 'Big bloom! The whole garden opens.';
         say('Big bloom. The whole wave blooms.');
+      } else if (event.type === 'arm') {
+        $('game-hint').textContent = event.power ? Powers.byId[event.power].tip : isDepth() ? depthHint() : 'Keep the flowers above the line.';
+        haptic('tick'); trayKey = '';
+      } else if (event.type === 'power') {
+        const def = Powers.byId[event.power];
+        save.powers = Powers.spend(save.powers, event.power).counts; persist(); trayKey = '';
+        if (event.power === 'lullaby') {
+          game.floaters = game.floaters.filter(item => !['wave', 'combo', 'bonus'].includes(item.kind));
+          game.floaters.push({ x: 210, y: 250, text: 'Lullaby', label: 'the flowers doze for 6 seconds', life: 1.3, maxLife: 1.3, kind: 'wave' });
+          $('game-hint').textContent = def.tip; haptic('surge');
+        } else { burst({ x: event.x, y: event.y - 10, type: 'gold', r: 8 }, 14); haptic('tick'); }
+        say(`${def.name} used. ${save.powers[event.power]} left.`);
+      } else if (event.type === 'sunburst') {
+        burst({ x: event.x, y: event.y, type: 'gold', r: 22 }, 70); burst({ x: event.x, y: event.y, type: 'coral', r: 14 }, 24);
+        if (save.settings.motion) game.particles.push({ x: event.x, y: event.y, vx: 0, vy: 0, life: .6, maxLife: .6, kind: 'ring', color: '#ffc94a', size: 10, grow: 90, gravity: 0, drag: 0 });
+        jolt(.4, .1, .8); haptic('surge');
+        $('game-hint').textContent = event.count > 1 ? `Sunburst! ${event.count} flowers caught the light.` : 'Sunburst!';
+      } else if (event.type === 'bee') {
+        burst({ x: event.x, y: event.y, type: 'gold', r: 6 }, 8);
+      } else if (event.type === 'giftAppear') {
+        $('game-hint').textContent = `A gift bubble! Shoot it to keep the ${Powers.byId[event.power].name}.`;
+        say($('game-hint').textContent);
+      } else if (event.type === 'gift') {
+        const def = Powers.byId[event.power];
+        save.powers = Powers.add(save.powers, event.power, 1); persist(); trayKey = '';
+        burst({ x: event.x, y: event.y, type: 'gold', r: 12 }, 30); burst({ x: event.x, y: event.y, type: 'lilac', r: 8 }, 14); jolt(.18, .04, .4); haptic('surge');
+        game.floaters = game.floaters.filter(item => !['wave', 'bonus'].includes(item.kind));
+        game.floaters.push({ x: 210, y: 250, text: `+1 ${def.name}`, label: 'a free gift!', life: 1.2, maxLife: 1.2, kind: 'wave' });
+        $('game-hint').textContent = `You caught a ${def.name}! You have ${save.powers[event.power]}.`;
+        say($('game-hint').textContent);
+      } else if (event.type === 'giftGone') {
+        $('game-hint').textContent = 'The gift bubble floated away.';
       } else if (event.type === 'drop') {
         $('game-hint').textContent = 'More flowers dropping in!';
       } else if (event.type === 'life') {
@@ -1091,6 +1208,7 @@
     if (event.key === ' ' || event.key === 'Enter') { if (!event.repeat) launch(); }
     else if (isRush() && event.key.toLowerCase() === 's') { if (game.split()) processEvents(); }
     else if (event.key.toLowerCase() === 'r') { if (game.bumpers[0]) rotateNearest(game.bumpers[0]); }
+    else if (isRush() && /^[1-4]$/.test(event.key)) usePower(Powers.ids[Number(event.key) - 1]);
     else game.aim = game.trace(Math.cos(angle) * 400, Math.sin(angle) * 400);
   });
   canvas.addEventListener('keyup', event => { if (event.key.startsWith('Arrow') && game.status === 'flying') game.guide(null); });
@@ -1118,6 +1236,8 @@
     if (inProgress() && isDepth() && game.plan.id === id) setRoute('game'); else startDepth(id);
   });
   $('garden-rush-btn').addEventListener('click', openRush);
+  for (const group of Object.keys(TRAY)) $(group).addEventListener('click', event => { const chip = event.target.closest('[data-power]'); if (chip) usePower(chip.dataset.power); });
+  $('power-shelf').addEventListener('click', event => { const button = event.target.closest('[data-buy]'); if (button) buyPower(button); });
   $('split-btn').addEventListener('click', () => { BloomSound.wake(); if (game.split()) processEvents(); });
   $('restart-btn').addEventListener('click', replay);
   $('back-btn').addEventListener('click', () => { if (preview) exitPreview(); else setRoute(isRush() ? 'levels' : 'garden'); });

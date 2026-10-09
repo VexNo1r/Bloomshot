@@ -19,7 +19,7 @@ Keep purchases honest: exact contents and price shown, no fake scarcity, no misl
 
 ## Saves (never reset)
 
-Normal save `bloomshot.save.v1`; `?qa` uses `bloomshot.qa.v1`. Trevor plays in both. New fields are always additive and old saves load unchanged. Fields added since the last handoff: `garden.decor` (decorations built), `goals` (today's goals and progress, today only), `depths` (level campaign: `{ [levelId]: { stars, best, wave } }`, levels 1 to 10, cleaned on load) and `garden.depthBest` (stars per level, for seed rewards). In the native app `native.js` mirrors every save to Capacitor Preferences and restores it if the OS wipes web storage.
+Normal save `bloomshot.save.v1`; `?qa` uses `bloomshot.qa.v1`. Trevor plays in both. New fields are always additive and old saves load unchanged. Fields added since the last handoff: `garden.decor` (decorations built), `goals` (today's goals and progress, today only), `depths` (level campaign: `{ [levelId]: { stars, best, wave } }`, levels 1 to 10, cleaned on load), `garden.depthBest` (stars per level, for seed rewards), `powers` (powerup counts; a save without it starts with one of each), `powerReceipts` (the last 50 store transaction ids, so a purchase never counts twice) and `powersMet` (the one-time powerups tip was shown). In the native app `native.js` mirrors every save to Capacitor Preferences and restores it if the OS wipes web storage.
 
 ## What changed since October 4
 
@@ -39,6 +39,8 @@ Normal save `bloomshot.save.v1`; `?qa` uses `bloomshot.qa.v1`. Trevor plays in b
 - Rewards: `garden.js` mode `depths` pays seeds for blooms and waves (capped per run) and a first-clear bonus by stars.
 - The unlock: levels 5 to 10 need entitlement `levels_full` from product `bloomshot.levels.full` ($2.99, `available: false` until a sandbox purchase works). The map shows the paid levels with their art and a lock, and one card between level 4 and level 5 says exactly what the unlock holds and its store price (or "not on sale yet", or "in the app" on the web). Clearing level 4 without it shows one quiet cream "See levels 5 to 10" button, with Replay staying the main green button. Nothing interrupts play to sell.
 
+**Powerups (October 9).** Trevor asked for powerups that turn up free on rare occasions and can be bought one at a time for 25 cents. Four, in a tray beside the Fire! sign in the levels and Meadow Rush (keys 1 to 4 on a keyboard): Sunburst (the next shot blooms everything within reach of its first touch; a big bloom loses four rings), Dandelion (the next shot fans into three seeds), Bee Line (the next shot flies through flowers, cups and shells, blooming each; a big bloom loses three rings) and Lullaby (nothing falls for six seconds). A shot powerup is only spent when the shot is fired, and picking it again puts it back. Players start with one of each. A gift bubble holding a random one floats down in about one wave in seventeen, at most once a run and never in a big bloom wave; shooting it keeps the powerup, missing it costs nothing. `powers.js` (`BloomPowers`) holds the catalog, counts and the once-only grant; `rush.js` runs the effects and gifts (only when the app passes a chance source, so tests and the practice bot are unchanged); `qa/test-powers.cjs` covers both. The Powerups shelf on the Levels page shows counts and, once a product is on sale in the app, a "Get 1" button per powerup at the store's price. Nothing offers a purchase during a run or after a loss; an empty powerup's message points only to gift bubbles. Levels are still tuned without powerups, so they stay optional help.
+
 ## Storybook rules
 
 - **Type.** Two self-hosted open-source fonts in `assets/fonts/` (SIL Open Font License): Fredoka for titles, buttons, tags and canvas text, Nunito for body text. No system-ui on canvas, no other fonts.
@@ -55,7 +57,8 @@ Screenshots: `docs/screenshots/storybook/` (interface), `docs/screenshots/levels
 | File | Responsibility |
 |---|---|
 | depths.js | The ten levels and their waves, progress records, unlock rule, product ids |
-| rush.js | Endless Rush with tempo, and the level runner: waves, drops, bosses, shells, geodes, briars |
+| powers.js | The four powerups, their product ids, counts and the once-only purchase grant |
+| rush.js | Endless Rush with tempo, and the level runner: waves, drops, bosses, shells, geodes, briars, powerups and gift bubbles |
 | engine.js | Puzzle physics, currents and gates (shared with the levels) |
 | scenery.js | The ten painted level scenes and their rocks |
 | art.js | All other canvas art: flowers, board pieces, seeds and styles, particles, callouts |
@@ -67,17 +70,17 @@ Screenshots: `docs/screenshots/storybook/` (interface), `docs/screenshots/levels
 | native.js | Haptics and the native save mirror (shipping thread) |
 | store*.js | Purchases (shipping thread; send requests instead of editing) |
 
-Script order: store-config → store → levels → moon → koi → keepsakes → garden → goals → depths → engine → rush → scenery → art → meadow → sound → native → app → store-ui → pwa. `sw.js` ASSETS lists every shipped file; bump `VERSION` whenever an asset changes (the Pages build replaces it with a content hash). The native copy step derives its file list from ASSETS.
+Script order: store-config → store → levels → moon → koi → keepsakes → garden → goals → depths → powers → engine → rush → scenery → art → meadow → sound → native → app → store-ui → pwa. `sw.js` ASSETS lists every shipped file; bump `VERSION` whenever an asset changes (the Pages build replaces it with a content hash). The native copy step derives its file list from ASSETS.
 
 Every new buzz goes through `haptic(kind)` in `app.js`, never `navigator.vibrate`, or iPhone stays silent.
 
 ## Verification
 
-From `bloomshot/`, every suite must exit 0 (CI runs the same list in `.github/workflows/web-tests.yml`): every `node qa/test-*.cjs` (15 suites, including `test-depths`, `test-goals` and `test-keepsakes`) and `node qa/check-moon-pointer.cjs`. Then in `native/`: `npm ci && npm run sync && npm run check`. Running the suites rewrites several `qa/*-results.json` files with new timestamps; commit only the ones your change actually affects. None of this is physical-device proof.
+From `bloomshot/`, every suite must exit 0 (CI runs the same list in `.github/workflows/web-tests.yml`): every `node qa/test-*.cjs` (16 suites, including `test-depths`, `test-powers`, `test-goals` and `test-keepsakes`) and `node qa/check-moon-pointer.cjs`. Then in `native/`: `npm ci && npm run sync && npm run check`. Running the suites rewrites several `qa/*-results.json` files with new timestamps; commit only the ones your change actually affects. None of this is physical-device proof.
 
 ## Store state
 
-Koi (`bloomshot.world.koi`, $4.99), Keepsake Collection (`bloomshot.style.collection1`, $1.99), Launch Bundle (`bloomshot.bundle.launch1`, $5.99) and Levels 5 to 10 (`bloomshot.levels.full`, $2.99) are all `available: false` in `store-config.js`. Flip one only after a sandbox purchase and restore work for it. Trevor is setting up Google Play first (the Android release bundle workflow and `docs/PLAY-LAUNCH.md` are on `main`); Apple waits. Read `docs/STORES.md` and `docs/MOBILE-RELEASE.md`.
+Koi (`bloomshot.world.koi`, $4.99), Keepsake Collection (`bloomshot.style.collection1`, $1.99), Launch Bundle (`bloomshot.bundle.launch1`, $5.99) and Levels 5 to 10 (`bloomshot.levels.full`, $2.99) are all `available: false` in `store-config.js`. The four powerups are consumables, one product each: `bloomshot.power.sunburst`, `bloomshot.power.dandelion`, `bloomshot.power.beeline` and `bloomshot.power.lullaby` ($0.25 on Google Play; Apple's lowest price applies on iOS). The shipping thread adds them to `store-config.js` and the store's buy-and-grant path; the game registers `store.onConsumable(grant)` and saves before the store finishes the purchase. Flip one only after a sandbox purchase and restore work for it. Trevor is setting up Google Play first (the Android release bundle workflow and `docs/PLAY-LAUNCH.md` are on `main`); Apple waits. Read `docs/STORES.md` and `docs/MOBILE-RELEASE.md`.
 
 ## What to do next
 
