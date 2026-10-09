@@ -120,6 +120,15 @@
   function phrase(frequencies, spacing, duration, volume, pan = 0) {
     frequencies.forEach((frequency, index) => note(frequency, index * spacing, duration, volume, pan * 0.5, 'bell', 2));
   }
+  // [frequency, delay, duration, style] per note: a meow falls, a chirp and a squeak rise, a ribbit is two low knocks.
+  const FRIENDS = {
+    cat: [[783.99, 0, 0.14, 'bell'], [622.25, 0.11, 0.3, 'bell']],
+    bluebird: [[2349.32, 0, 0.07, 'drop'], [2793.83, 0.09, 0.07, 'drop'], [2349.32, 0.2, 0.07, 'drop'], [2793.83, 0.29, 0.08, 'drop']],
+    frog: [[146.83, 0, 0.09, 'wood'], [130.81, 0.12, 0.12, 'wood']],
+    bee: [[233.08, 0, 0.05, 'wood'], [246.94, 0.045, 0.05, 'wood'], [233.08, 0.09, 0.05, 'wood'], [246.94, 0.135, 0.07, 'wood']],
+    firefly: [[1567.98, 0, 0.18, 'bell'], [2093, 0.06, 0.2, 'bell'], [2637.02, 0.12, 0.26, 'bell']],
+    squirrel: [[1567.98, 0, 0.06, 'drop'], [1760, 0.07, 0.06, 'drop'], [2093, 0.14, 0.08, 'drop']]
+  };
   function play(type, data = {}) {
     if (!enabled || !context) return;
     if (context.state !== 'running') {
@@ -167,6 +176,11 @@
     }
     // Chain milestones: a quick rising shimmer above the bloom notes.
     else if (type === 'shimmer' && allowed('shimmer', 0.3)) phrase([783.99, 987.77, 1174.66, 1567.98], 0.045, 0.32, 0.05, pan * 0.5);
+    // Meadow friends: a short, quiet voice for each one when tapped.
+    else if (type === 'friend' && allowed('friend', 0.22)) {
+      const voice = FRIENDS[data.kind];
+      if (voice) voice.forEach(([frequency, delay, duration, style]) => note(frequency, delay, duration, style === 'wood' ? 0.085 : 0.06, pan * 0.5, style));
+    }
     else if (type === 'life' && allowed('life', 0.15)) phrase([220, 174.61], 0.105, 0.25, 0.12, pan);
     else if (type === 'fever' && allowed('fever', 1.0)) phrase([261.63, 329.63, 392], 0.04, 0.52, 0.085);
     else if (type === 'lost' && allowed('lost', 0.6)) phrase([329.63, 261.63, 220], 0.115, 0.40, 0.105);

@@ -22,6 +22,7 @@
   <script src="koi.js" defer></script>
   <script src="keepsakes.js" defer></script>
   <script src="garden.js" defer></script>
+  <script src="goals.js" defer></script>
   <script src="engine.js" defer></script>
   <script src="rush.js" defer></script>
   <script src="art.js" defer></script>
@@ -107,12 +108,23 @@
         <div class="meadow-map">
           <canvas id="meadow-canvas" width="840" height="660" role="img" aria-label="Your meadow. Choose one of the six flower patches below."></canvas>
           <div id="plot-markers" class="plot-markers" role="group" aria-label="Choose a flower patch"></div>
+          <div id="friend-spots" class="friend-spots" role="group" aria-label="Meadow friends"></div>
+          <p id="friend-bubble" class="friend-bubble" hidden></p>
         </div>
         <section class="plot-detail panel" aria-labelledby="plot-name">
           <div class="plot-copy"><span id="plot-stage" class="stage-chip">Ready to plant</span><h2 id="plot-name">Sunbell</h2><p id="plot-message">Golden bells catch the first light.</p></div>
           <button id="plant-btn" class="plant-button" type="button">Plant · 4 seeds</button>
         </section>
         <p id="garden-earning-hint" class="garden-earning-hint">Bloom flowers in Rush to earn seeds.</p>
+        <section class="decor-panel panel" aria-labelledby="decor-title">
+          <div class="decor-head"><h2 id="decor-title">Decorate</h2><span id="decor-count" class="card-meta">0/6 built</span></div>
+          <div id="decor-grid" class="decor-grid" role="group" aria-label="Things to build with seeds"></div>
+        </section>
+        <section class="goals-card panel" aria-labelledby="goals-title">
+          <div class="decor-head"><h2 id="goals-title">Today's goals</h2><span id="goals-count" class="card-meta">0/3 done</span></div>
+          <ol id="goals-list" class="goals-list"></ol>
+          <p id="goals-bonus" class="goals-bonus">Finish all 3 for +6 bonus seeds.</p>
+        </section>
         <button id="daily-btn" class="daily-card panel" type="button">
           <canvas id="daily-canvas" class="daily-board" width="216" height="288" aria-hidden="true"></canvas>
           <span class="daily-copy"><span class="card-head"><span class="card-tag">Daily</span><span id="daily-eyebrow" class="card-meta">Today</span></span><strong id="daily-title">Today's garden</strong><span id="daily-status">A new layout every day.</span>
@@ -140,6 +152,8 @@
           <div id="keepsake-grid" class="keepsake-grid" role="group" aria-label="Seed styles"></div>
           <div id="keepsake-offer"></div>
         </div>
+        <h2 class="section-title">Meadow friends <small id="friend-count" class="section-count">0/6</small></h2>
+        <div id="friend-grid" class="friend-grid" role="group" aria-label="Meadow friends"></div>
         <h2 class="section-title">Flowers</h2>
         <div id="collection-grid" class="collection-grid" aria-label="Collected flowers"></div>
       </section>
@@ -183,6 +197,7 @@
     <div id="result-stars" class="result-stars" aria-label="Stars earned"></div>
     <p id="result-message" class="dialog-copy">Every flower in bloom.</p>
     <div class="result-score-box"><span class="score-label">Score</span><strong id="result-score">0</strong></div>
+    <p id="result-goals" class="result-goals" hidden></p>
     <div id="garden-reward" class="garden-reward" hidden><span class="purse-leaf" aria-hidden="true"></span><p><strong id="reward-seeds"></strong><span id="reward-goal">For your meadow</span></p><button id="grow-garden-btn" type="button">Garden <span aria-hidden="true">›</span></button></div>
     <button id="next-btn" class="button-primary" type="button">Next garden</button>
     <button id="retry-btn" class="button-secondary" type="button">Play again</button>

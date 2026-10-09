@@ -1,5 +1,5 @@
 {
-  "passed": 31,
+  "passed": 37,
   "failed": 0,
   "methodology": "Executes the complete current app.js in an isolated Node VM using real garden/level/engine modules, fake localStorage, and DOM/canvas adapters. Completion fixtures exercise actual engine completion events and app handlers. No real browser or user saves are read or changed.",
   "limitations": [
@@ -105,6 +105,30 @@
     },
     {
       "name": "A daily garden cleared before this update pays only for new stars, and the seed reward names the next thing to grow",
+      "passed": true
+    },
+    {
+      "name": "Decorate: a card names what is missing, builds once with seeds, shows in the meadow and survives a reload",
+      "passed": true
+    },
+    {
+      "name": "Meadow friends: each moves in with its decoration, says hello when tapped, and is met in the Collection",
+      "passed": true
+    },
+    {
+      "name": "After the beds, the seed reward points at the cheapest decoration, and a finished meadow says so",
+      "passed": true
+    },
+    {
+      "name": "Today's goals: the Garden card lists all three with progress, and each one opens a place to play it",
+      "passed": true
+    },
+    {
+      "name": "A Rush run that reaches the wave goal pays 4 more seeds once, says so on the result, and remembers it today only",
+      "passed": true
+    },
+    {
+      "name": "Growing in the meadow and clearing two puzzles finish the day, paying each goal and the 6-seed bonus",
       "passed": true
     },
     {

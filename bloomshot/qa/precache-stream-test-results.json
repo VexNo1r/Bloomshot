@@ -1,11 +1,11 @@
 {
   "passed": true,
-  "testedAt": "2026-10-04T05:56:56.135Z",
+  "testedAt": "2026-10-09T09:39:20.828Z",
   "node": "v22.22.0",
-  "workerSha256": "3d5988b5867487359357750574687463052f61ba162332dd0e1b6302d37ceedf",
+  "workerSha256": "211a706d5605edd63cdf5ecb7dfcd6816ff7a5e22d1c3679d10f356f984eb2d2",
   "maxConnections": 3,
-  "workerVersion": "081b7e4bc5a9cb14",
-  "assetCount": 28,
+  "workerVersion": "f727be93c526fc1f",
+  "assetCount": 29,
   "imageCount": 6,
   "negativeControl": {
     "stalledAsExpected": true,
@@ -13,35 +13,35 @@
     "consumed": 0,
     "bytes": 0,
     "peakConnections": 3,
-    "elapsedMs": 275.9
+    "elapsedMs": 275.7
   },
   "actualInstall": {
-    "headers": 28,
-    "consumed": 28,
-    "bytes": 534089,
+    "headers": 29,
+    "consumed": 29,
+    "bytes": 585793,
     "peakConnections": 3,
-    "cached": 28,
-    "elapsedMs": 42.69,
+    "cached": 29,
+    "elapsedMs": 45.58,
     "deadlineMs": 15000,
     "allBodyHashesMatch": true
   },
   "assets": [
     {
       "path": "/",
-      "bytes": 20992,
-      "sha256": "2a34c05f269b785fbbfa94f568903c9ecaaa8b1480b51c8ef26c3edcbc55e6f3",
+      "bytes": 22175,
+      "sha256": "0c54592209d5e83135c0006e2391229e707932e603829c9c727bb1548d3c61cc",
       "type": "text/html; charset=utf-8"
     },
     {
       "path": "/index.html",
-      "bytes": 20992,
-      "sha256": "2a34c05f269b785fbbfa94f568903c9ecaaa8b1480b51c8ef26c3edcbc55e6f3",
+      "bytes": 22175,
+      "sha256": "0c54592209d5e83135c0006e2391229e707932e603829c9c727bb1548d3c61cc",
       "type": "text/html; charset=utf-8"
     },
     {
       "path": "/styles.css",
-      "bytes": 41327,
-      "sha256": "4a8b7ad7c321aec6a56db48d7b19f1a1597c7ae02b6c35bc04e29959f9c59394",
+      "bytes": 47384,
+      "sha256": "f74ee2c3c1e887df6719f9b24d127fe4df30694f73c41403d9c4f026c371956b",
       "type": "text/css; charset=utf-8"
     },
     {
@@ -82,8 +82,14 @@
     },
     {
       "path": "/garden.js",
-      "bytes": 13314,
-      "sha256": "ed4e8af5328fd5bcf489f11b125c96392adc30111c5d44b8fe705733db71779e",
+      "bytes": 16955,
+      "sha256": "b23632e701e17ec802e810ac6ebac3f1e8af4f62fc5b9e70185d766b9549112d",
+      "type": "text/javascript; charset=utf-8"
+    },
+    {
+      "path": "/goals.js",
+      "bytes": 5413,
+      "sha256": "7b8afd96462b76faf5e99e22e7a8056d00345d23655935c35396c724d54806e5",
       "type": "text/javascript; charset=utf-8"
     },
     {
@@ -106,14 +112,14 @@
     },
     {
       "path": "/meadow.js",
-      "bytes": 19612,
-      "sha256": "06f8c3b8328de68fc32d8456b42c646c9090faf16023fd9ab496af70f6f0fcfd",
+      "bytes": 41115,
+      "sha256": "070aeaab0efd43aa60c637c23cd0ee933f328a71e6ba0a1f65122526fecfac8a",
       "type": "text/javascript; charset=utf-8"
     },
     {
       "path": "/sound.js",
-      "bytes": 9961,
-      "sha256": "61aca4f88ee0294b1d435ea0f66aed36dc989a23aea26ee4f1dcd278a73828b1",
+      "bytes": 11043,
+      "sha256": "b355d0c4fdb9376498f7b5b9c9788fe770d43beabe96fc1d651d3a3a33eba17e",
       "type": "text/javascript; charset=utf-8"
     },
     {
@@ -124,8 +130,8 @@
     },
     {
       "path": "/app.js",
-      "bytes": 82424,
-      "sha256": "d7072d3aaa948379e56e4f3444972c2dd22a6f19e002e9363c9a6fab0d38d82a",
+      "bytes": 94066,
+      "sha256": "0e03d2a9aaac40daa16b25f8eeacc07880b905ef57dec052280b1e2b2b56b073",
       "type": "text/javascript; charset=utf-8"
     },
     {
@@ -199,198 +205,205 @@
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 1,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 1
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 2,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 2
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 3,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 3
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 4,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 4
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 5,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 5
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 6,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 6
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 7,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 7
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 8,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 8
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 9,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 9
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 10,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 10
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 11,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 11
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 12,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 12
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 13,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 13
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 14,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 14
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 15,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 15
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 16,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 16
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 17,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 17
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 18,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 18
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 19,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 19
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 20,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 20
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 21,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 21
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 22,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 22
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 23,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 23
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 24,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 24
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 25,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 25
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 26,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 26
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 27,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 27
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 28,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 28
+    },
+    {
+      "type": "BLOOMSHOT_DOWNLOAD",
+      "completed": 29,
+      "total": 29,
+      "failed": false,
+      "cached": 29
     }
   ]
 }

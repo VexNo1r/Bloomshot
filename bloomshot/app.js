@@ -10,7 +10,8 @@
   const Keepsakes = window.BloomKeepsakes;
   const native = window.BloomNative || null;
   const STORAGE = new URLSearchParams(location.search).has('qa') ? 'bloomshot.qa.v1' : 'bloomshot.save.v1';
-  const defaults = { version: 1, garden: BloomGarden.normalize(), progress: {}, moon: {}, koi: {}, daily: {}, rush: { best: 0, bestWave: 1, runs: 0, blooms: 0 }, lastLevel: 1, keepsake: 'meadow', settings: { sound: true, haptics: true, motion: !matchMedia('(prefers-reduced-motion: reduce)').matches } };
+  const Goals = window.BloomGoals;
+  const defaults = { version: 1, garden: BloomGarden.normalize(), goals: Goals.normalize(null, localDate()), progress: {}, moon: {}, koi: {}, daily: {}, rush: { best: 0, bestWave: 1, runs: 0, blooms: 0 }, lastLevel: 1, keepsake: 'meadow', settings: { sound: true, haptics: true, motion: !matchMedia('(prefers-reduced-motion: reduce)').matches } };
   let storageAvailable = true;
   function readSave() {
     try {
@@ -18,6 +19,7 @@
       if (!raw || raw.version !== 1) return structuredClone(defaults);
       const valid = structuredClone(defaults);
       valid.garden = BloomGarden.normalize(raw.garden);
+      valid.goals = Goals.normalize(raw.goals, localDate());
       for (const world of Object.keys(chapters)) for (const level of chapters[world].levels) {
         const record = raw[world]?.[level.id];
         if (record && Number.isFinite(record.best) && Number.isInteger(record.stars) && record.stars >= 0 && record.stars <= 3) valid[world][level.id] = { best: Math.max(0, record.best), stars: record.stars, attempts: Math.max(0, Number(record.attempts) || 0) };
@@ -52,8 +54,9 @@
   if (native) native.restore(STORAGE).then(restored => { if (restored) location.reload(); });
   const canvas = $('game-canvas'), ctx = canvas.getContext('2d');
   const meadowCanvas = $('meadow-canvas'), meadowCtx = meadowCanvas.getContext('2d');
-  let meadowDirty = true, meadowFrame = 0, growth = null;
-  let runId = '', runAward = 0, runBouquet = null;
+  let meadowDirty = true, meadowFrame = 0, growth = null, bubbleTimer = 0;
+  const friendPokes = {};
+  let runId = '', runAward = 0, runBouquet = null, runGoals = null;
   let game, route = 'game', theme = 'meadow', preview = false, returnSession = null;
   let aiming = false, guiding = false, pointer = null, activePointer = null, angle = -Math.PI / 2, resultAt = Infinity, resultShown = false;
   const narrowLandscape = matchMedia('(orientation: landscape) and (max-height: 500px)');
@@ -143,7 +146,7 @@
     $('split-btn').hidden = !isRush();
     angle = -Math.PI / 2; pointer = null; aiming = false; guiding = false; resultAt = Infinity; resultShown = false;
     displayScore = 0; hudKey = ''; newFlower = null; newKeepsake = null; accumulator = 0; rushRecordBroken = false;
-    runId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`; runAward = 0; runBouquet = null;
+    runId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`; runAward = 0; runBouquet = null; runGoals = null;
     if (!preview && typeof level.id === 'number') { save.lastLevel = level.id; persist(); }
     $('level-name').textContent = level.name;
     $('level-label').textContent = preview ? 'Preview' : typeof level.id === 'number' ? `Garden ${level.id}/${levels.length}` : 'Daily garden';
@@ -271,15 +274,21 @@
     for (const bud of level.buds) BloomArt.drawFlower(brush, bud.x, bud.y, (bud.r || 16) * 1.3, bud.type, open ? 1 : 0, 0);
     brush.fillStyle = '#123d36'; brush.beginPath(); brush.arc(level.launcher.x, level.launcher.y, 16, 0, Math.PI * 2); brush.fill();
   }
-  // One plain next step for the seeds just earned.
+  const lower = name => name.charAt(0).toLowerCase() + name.slice(1);
+  const canSpend = data => data.plots.some(p => p.canPlant) || data.decor.some(d => d.canBuild);
+  // One plain next step for the seeds just earned: a patch to grow first, then something to build.
   function nextGoal() {
-    const data = BloomGarden.summary(save.garden), open = data.plots.filter(p => p.stage < 3);
-    if (!open.length) return 'Your meadow is in full bloom.';
+    const data = BloomGarden.summary(save.garden), open = data.plots.filter(p => p.stage < 3), unbuilt = data.decor.filter(d => !d.built);
+    if (data.complete) return 'Your meadow is complete!';
     const ready = [data.plots.find(p => p.selected), ...open].find(p => p && p.canPlant);
     if (ready) return `Enough to ${ready.stage ? 'grow' : 'plant'} ${ready.name} now.`;
-    const target = open.find(p => p.selected) || open.reduce((a, b) => b.nextCost < a.nextCost ? b : a);
-    const need = target.nextCost - data.seeds;
-    return `${need} more ${need === 1 ? 'seed' : 'seeds'} to ${target.stage ? 'grow' : 'plant'} ${target.name}.`;
+    const piece = unbuilt.find(d => d.canBuild);
+    if (piece) return `Enough to build the ${lower(piece.name)} now.`;
+    const targets = [...open.map(p => ({ cost: p.nextCost, text: `${p.stage ? 'grow' : 'plant'} ${p.name}`, selected: p.selected })),
+      ...unbuilt.map(d => ({ cost: d.cost, text: `build the ${lower(d.name)}` }))];
+    const target = targets.find(t => t.selected) || targets.reduce((a, b) => b.cost < a.cost ? b : a);
+    const need = target.cost - data.seeds;
+    return `${need} more ${need === 1 ? 'seed' : 'seeds'} to ${target.text}.`;
   }
   // Three stems from the daily gardens, tied with a ribbon, drawn with the same flower art as play.
   let bouquetIcon = '';
@@ -303,7 +312,7 @@
     return `<svg viewBox="0 0 100 112" aria-hidden="true" class="collection-flower"><image href="${bouquetIcon}" width="100" height="112"/></svg>`;
   }
   function renderGarden() {
-    renderMeadow(); renderDaily();
+    renderMeadow(); renderDaily(); renderGoals();
     $('rush-best').textContent = save.rush.runs ? `Best ${fmt(save.rush.best)} · Wave ${save.rush.bestWave}` : 'Endless waves. Set your first best!';
     const rushLabel = isRush() && game.started && game.status !== 'lost' ? 'Resume Meadow Rush' : 'Play Meadow Rush';
     $('garden-rush-btn').setAttribute('aria-label', rushLabel);
@@ -319,7 +328,7 @@
   function renderMeadow() {
     const data = BloomGarden.summary(save.garden), selected = data.plots.find(p => p.selected);
     $('garden-seeds').textContent = fmt(data.seeds);
-    $('meadow-summary').textContent = !data.totalStages ? data.seeds >= 4 ? 'Pick a patch and plant your first seeds.' : 'Pick a patch. Rush earns the seeds.' : data.completedPlots === 6 ? 'Full bloom! You grew every flower here.' : `${data.totalStages}/18 grown · ${data.completedPlots}/6 in full bloom`;
+    $('meadow-summary').textContent = data.complete ? 'Your meadow is complete!' : !data.totalStages && !data.builtDecor ? data.seeds >= 4 ? 'Pick a patch and plant your first seeds.' : 'Pick a patch. Rush earns the seeds.' : `${data.completedPlots === 6 ? 'Full bloom' : `${data.totalStages}/18 grown`} · ${data.builtDecor}/${data.totalDecor} built`;
     $('garden-seeds').nextElementSibling.textContent = data.seeds === 1 ? 'seed' : 'seeds';
     if (!$('plot-markers').children.length) $('plot-markers').innerHTML = data.plots.map(plot => {
       const point = BloomMeadow.plots.find(p => p.id === plot.id);
@@ -335,18 +344,87 @@
     $('plot-message').textContent = selected.description;
     $('plant-btn').disabled = !selected.canPlant;
     $('plant-btn').textContent = selected.stage === 3 ? 'In full bloom' : `${selected.stage ? 'Grow' : 'Plant'} · ${selected.nextCost} seeds`;
-    $('garden-earning-hint').textContent = selected.stage === 3 ? 'Pick another patch to grow.' : !selected.canPlant ? `${selected.nextCost - data.seeds} more ${selected.nextCost - data.seeds === 1 ? 'seed' : 'seeds'} needed. Play Rush to earn them.` : 'Earn seeds in Rush, puzzles and the daily garden.';
-    $('garden-btn').classList.toggle('has-seeds', data.plots.some(p => p.canPlant));
+    $('garden-earning-hint').textContent = selected.stage === 3 ? data.completedPlots === 6 ? 'Every patch is in full bloom.' : 'Pick another patch to grow.' : !selected.canPlant ? `${selected.nextCost - data.seeds} more ${selected.nextCost - data.seeds === 1 ? 'seed' : 'seeds'} needed. Play Rush to earn them.` : 'Earn seeds in Rush, puzzles and the daily garden.';
+    $('garden-btn').classList.toggle('has-seeds', canSpend(data));
+    renderDecor(data); renderFriendSpots(data);
     meadowCanvas.dataset.seeds = data.seeds; meadowCanvas.dataset.stages = data.totalStages;
     meadowCanvas.dataset.selected = data.selectedId;
-    meadowCanvas.setAttribute('aria-label', `Your meadow, ${data.totalStages} of 18 growth stages. ${data.seeds} ${data.seeds === 1 ? 'seed' : 'seeds'} available. Choose a flower patch using the labeled buttons.`);
+    meadowCanvas.setAttribute('aria-label', `Your meadow, ${data.totalStages} of 18 growth stages and ${data.builtDecor} of ${data.totalDecor} decorations. ${data.seeds} ${data.seeds === 1 ? 'seed' : 'seeds'} available. Choose a flower patch using the labeled buttons.`);
     meadowDirty = true;
+  }
+  // Six things to build with seeds. Each card shows the same art the meadow draws once it is built.
+  const decorIcons = new Map();
+  function decorIcon(id) {
+    if (!decorIcons.has(id)) {
+      const icon = document.createElement('canvas'); icon.width = 192; icon.height = 192;
+      BloomMeadow.drawDecorIcon(icon.getContext('2d'), id, 192);
+      decorIcons.set(id, icon.toDataURL('image/png'));
+    }
+    return decorIcons.get(id);
+  }
+  // Friends live on the map once their decoration is built; each has a tap target over it.
+  function renderFriendSpots(data) {
+    const spots = $('friend-spots');
+    if (!spots.children.length) spots.innerHTML = data.decor.map(d => {
+      const spot = BloomMeadow.friends.find(f => f.id === d.friend.id);
+      return `<button class="friend-spot" type="button" data-friend="${d.friend.id}" style="left:${spot.x / 420 * 100}%;top:${spot.y / 330 * 100}%" aria-label="${escape(d.friend.name)} the ${d.friend.kind}. Say hi." hidden></button>`;
+    }).join('');
+    for (const d of data.decor) spots.querySelector(`[data-friend="${d.friend.id}"]`).hidden = !d.built;
+  }
+  function greetFriend(id) {
+    const friend = BloomGarden.decor.map(d => d.friend).find(f => f.id === id), spot = BloomMeadow.friends.find(f => f.id === id);
+    if (!friend || !spot) return;
+    friendPokes[id] = performance.now(); meadowDirty = true;
+    BloomSound.wake(); BloomSound.play('friend', { kind: friend.kind, x: spot.x }); haptic('tick');
+    const bubble = $('friend-bubble');
+    bubble.textContent = friend.says; bubble.style.left = `${spot.x / 420 * 100}%`; bubble.style.top = `${spot.y / 330 * 100}%`;
+    bubble.hidden = false; bubble.classList.remove('pop');
+    // Keep the bubble inside the map for friends near its edge; the tail still points at the friend.
+    const mapWidth = bubble.parentElement.clientWidth, center = spot.x / 420 * mapWidth, half = bubble.offsetWidth / 2;
+    const overLeft = 6 - (center - half), overRight = center + half - (mapWidth - 6);
+    bubble.style.setProperty('--shift', `${Math.round(overLeft > 0 ? overLeft : overRight > 0 ? -overRight : 0)}px`);
+    void bubble.offsetWidth; bubble.classList.add('pop');
+    clearTimeout(bubbleTimer); bubbleTimer = setTimeout(() => { bubble.hidden = true; }, 1600);
+    say(`${friend.name} says ${friend.says}`);
+  }
+  // Meadow friends in the Collection: met ones in color with a line about them, the rest as silhouettes.
+  const friendIcons = new Map();
+  function friendIcon(id, met) {
+    const key = `${id}:${met}`;
+    if (!friendIcons.has(key)) {
+      const icon = document.createElement('canvas'); icon.width = 192; icon.height = 192;
+      BloomMeadow.drawFriendIcon(icon.getContext('2d'), id, 192, met);
+      friendIcons.set(key, icon.toDataURL('image/png'));
+    }
+    return friendIcons.get(key);
+  }
+  function renderFriends() {
+    const data = BloomGarden.summary(save.garden);
+    $('friend-count').textContent = `${data.builtDecor}/${data.totalDecor}`;
+    $('friend-grid').innerHTML = data.decor.map(d => d.built
+      ? `<button class="friend-card met" type="button" data-friend="${d.friend.id}" aria-label="${escape(d.friend.name)} the ${d.friend.kind}. ${escape(d.friend.about)} Say hi."><img class="friend-art" src="${friendIcon(d.friend.id, true)}" alt="" width="64" height="64"><strong>${escape(d.friend.name)}</strong><span class="friend-kind">${escape(d.friend.kind.charAt(0).toUpperCase() + d.friend.kind.slice(1))}</span><p>${escape(d.friend.about)}</p></button>`
+      : `<article class="friend-card"><img class="friend-art" src="${friendIcon(d.friend.id, false)}" alt="" width="64" height="64"><strong>???</strong><p>Build the ${escape(lower(d.name))} to meet them.</p></article>`).join('');
+  }
+  function renderDecor(data) {
+    $('decor-count').textContent = `${data.builtDecor}/${data.totalDecor} built`;
+    const grid = $('decor-grid');
+    if (!grid.children.length) grid.innerHTML = data.decor.map(d => `<button class="decor-card" type="button" data-decor="${d.id}"><img class="decor-art" src="${decorIcon(d.id)}" alt="" width="64" height="64"><strong>${escape(d.name)}</strong><span class="decor-price"></span></button>`).join('');
+    for (const d of data.decor) {
+      const card = grid.querySelector(`[data-decor="${d.id}"]`);
+      card.classList.toggle('built', d.built); card.classList.toggle('ready', d.canBuild);
+      if (d.built) card.setAttribute('aria-disabled', 'true'); else card.removeAttribute('aria-disabled');
+      card.setAttribute('aria-label', `${d.name}. ${d.built ? 'Built.' : `${d.cost} seeds.`} ${d.description}`);
+      card.querySelector('.decor-price').innerHTML = d.built ? 'Built!' : `<span class="purse-leaf" aria-hidden="true"></span>${d.cost}`;
+    }
   }
   function drawMeadow(timestamp) {
     const progress = growth ? Math.min(1, (timestamp - growth.started) / 950) : 1;
-    BloomMeadow.draw(meadowCtx, { width: 420, height: 330, state: save.garden, selectedId: save.garden.selectedId, time: timestamp / 1000, motion: save.settings.motion, growth: growth && { ...growth, progress } });
+    const pokes = {};
+    for (const [id, at] of Object.entries(friendPokes)) { const seconds = (timestamp - at) / 1000; if (seconds >= 0 && seconds < BloomMeadow.reactSeconds) pokes[id] = seconds; }
+    BloomMeadow.draw(meadowCtx, { width: 420, height: 330, state: save.garden, selectedId: save.garden.selectedId, time: timestamp / 1000, motion: save.settings.motion, growth: growth && { ...growth, progress }, pokes });
     if (growth && save.settings.motion && progress < 1) {
-      const point = BloomMeadow.plots.find(p => p.id === growth.plotId);
+      const spot = growth.decorId && BloomMeadow.decor.find(d => d.id === growth.decorId);
+      const point = spot ? { x: spot.icon[0], y: spot.icon[1], accent: spot.accent } : BloomMeadow.plots.find(p => p.id === growth.plotId);
       meadowCtx.save(); meadowCtx.globalAlpha = Math.sin(progress * Math.PI) * .8;
       for (let i = 0; i < 28; i++) {
         const a = i * 2.39996, radius = 8 + progress * (24 + i % 5 * 8);
@@ -359,12 +437,35 @@
     if (progress >= 1 || !save.settings.motion) growth = null;
     meadowDirty = false; meadowFrame = timestamp;
   }
+  function showSeeds() {
+    const data = BloomGarden.summary(save.garden);
+    $('garden-seeds').textContent = fmt(data.seeds); $('garden-seeds').nextElementSibling.textContent = data.seeds === 1 ? 'seed' : 'seeds';
+    $('garden-btn').classList.toggle('has-seeds', canSpend(data));
+  }
   function awardSeeds(reward) {
     const result = BloomGarden.grant(save.garden, { ...reward, runId, completed: true });
     save.garden = result.state; runAward = result.awarded; runBouquet = result.bouquet;
-    const seeds = BloomGarden.summary(save.garden).seeds;
-    $('garden-seeds').textContent = fmt(seeds); $('garden-seeds').nextElementSibling.textContent = seeds === 1 ? 'seed' : 'seeds';
-    $('garden-btn').classList.toggle('has-seeds', BloomGarden.summary(save.garden).plots.some(p => p.canPlant));
+    showSeeds();
+  }
+  // Today's three goals pay through the garden like any reward, each with its own receipt for the day.
+  function trackGoals(event) {
+    const today = localDate(), result = Goals.record(save.goals, today, event), list = Goals.forDay(today);
+    save.goals = result.state;
+    let paid = 0;
+    for (const slot of [...result.done, ...(result.bonus ? ['bonus'] : [])]) {
+      const grant = BloomGarden.grant(save.garden, { mode: 'goal', completed: true, runId: `goal-${today}-${slot}`, day: today, slot });
+      save.garden = grant.state; paid += grant.awarded;
+    }
+    if (paid) showSeeds();
+    return { paid, finished: result.done.map(slot => list[slot]), bonus: result.bonus, done: result.state.done.filter(Boolean).length };
+  }
+  const goalNews = goals => goals.bonus ? `All 3 goals done! +${BloomGarden.daily.goalBonus} bonus seeds.` : goals.finished.length > 1 ? `${goals.finished.length} goals done!` : `Goal done! ${goals.finished[0].text}.`;
+  const starry = text => escape(text).replace(/★+/g, stars => `<span class="goal-stars">${stars}</span>`);
+  function renderGoals() {
+    const today = localDate(), data = Goals.summary(save.goals, today), seeds = BloomGarden.daily.goalSeeds;
+    $('goals-count').textContent = `${data.done}/3 done`;
+    $('goals-list').innerHTML = data.goals.map(g => `<li><button class="goal${g.done ? ' done' : ''}" type="button" data-goal="${g.play}"${g.done ? ' aria-disabled="true"' : ''} aria-label="${escape(g.text)}. ${g.done ? 'Done.' : `${g.progress} of ${g.target}. Earns ${seeds} seeds.`}"><span class="goal-check" aria-hidden="true"></span><span class="goal-copy"><span class="goal-line"><span class="goal-text">${starry(g.text)}</span>${g.target > 1 && !g.done ? `<span class="goal-count">${g.progress}/${g.target}</span>` : ''}</span><span class="goal-bar" aria-hidden="true"><i style="width:${Math.round(g.progress / g.target * 100)}%"></i></span></span><span class="goal-reward" aria-hidden="true">${g.done ? 'Done!' : `<span class="purse-leaf"></span>+${seeds}`}</span></button></li>`).join('');
+    $('goals-bonus').textContent = data.bonus ? 'All done! New goals tomorrow.' : `Finish all 3 for +${BloomGarden.daily.goalBonus} bonus seeds.`;
   }
   function renderCollection() {
     $('collection-grid').innerHTML = flowers.map(flower => {
@@ -372,7 +473,7 @@
       return `<article class="flower-card ${has ? 'unlocked' : 'locked'}">${flowerGraphic(flower, !has)}<span class="flower-index">#${flowers.indexOf(flower) + 1}</span><h3>${has ? escape(flower.name) : '???'}</h3><p>${has ? escape(flower.description) : `Clear garden ${flower.unlockLevel} to find it.`}</p><span class="flower-status">${has ? 'Found!' : `Garden ${flower.unlockLevel}`}</span></article>`;
     }).join('');
     const summary = $('collection-summary'); if (summary) summary.textContent = `${flowers.filter(earned).length} of ${flowers.length} flowers found`;
-    renderKeepsakes();
+    renderKeepsakes(); renderFriends();
   }
   // Garden Keepsakes shelf: every style can be previewed in motion before it is earned or bought.
   let keepsakePreview = null;
@@ -709,6 +810,7 @@
           save.rush.bestWave = Math.max(save.rush.bestWave, game.wave);
           save.rush.blooms += game.bloomedCount; save.rush.runs++;
           awardSeeds({ mode: 'rush', blooms: game.bloomedCount, wave: game.wave });
+          runGoals = trackGoals({ type: 'rush', blooms: game.bloomedCount, wave: game.wave, chain: game.bestCombo }); runAward += runGoals.paid;
           persist(); hudKey = '';
           $('game-hint').textContent = 'Run over. Your best is saved.';
           say(`Run complete. Wave ${game.wave}, ${game.bloomedCount} blooms, ${game.score} points.`);
@@ -730,6 +832,7 @@
           if (event.type === 'won' && isDaily()) awardSeeds({ mode: 'daily', levelId: game.level.id, stars: game.stars, previousStars });
           // Clearing the last Moon trial earns the Moonlit seed style, once, and the result says so.
           if (isMoon() && !moonWasCleared && Keepsakes.moonCleared(save.moon, BloomMoon.levels)) newKeepsake = Keepsakes.byId.moonlit;
+          if (event.type === 'won') { runGoals = trackGoals({ type: 'clear', mode: isDaily() ? 'daily' : isChapter() ? game.level.worldId : 'campaign', stars: game.stars }); runAward += runGoals.paid; }
           persist();
         }
         $('game-hint').textContent = event.type === 'won' ? 'Cleared!' : 'Try a new angle.';
@@ -742,6 +845,9 @@
     $('garden-reward').hidden = preview || runAward <= 0;
     $('reward-seeds').textContent = `+${runAward} ${runAward === 1 ? 'seed' : 'seeds'}`;
     $('reward-goal').textContent = nextGoal();
+    const news = !preview && runGoals && (runGoals.finished.length || runGoals.bonus);
+    $('result-goals').hidden = !news;
+    if (news) $('result-goals').innerHTML = `<span class="goal-check" aria-hidden="true"></span><span>${starry(goalNews(runGoals))}</span>${runGoals.done < 3 ? `<span class="goal-today">${runGoals.done}/3 today</span>` : ''}`;
     $('result-stars').hidden = isRush();
     $('result-dialog').classList.toggle('lost', isRush() ? !rushRecordBroken : !won);
     if (isRush()) {
@@ -867,11 +973,53 @@
   $('plant-btn').addEventListener('click', () => {
     const id = save.garden.selectedId, fromStage = save.garden.levels[id];
     const planted = BloomGarden.plant(save.garden, id); if (!planted.success) return;
-    save.garden = planted.state; persist(); renderMeadow();
+    save.garden = planted.state;
+    const goals = trackGoals({ type: 'meadow' }); persist(); renderMeadow();
+    if (goals.paid) toast(`${goalNews(goals)} +${goals.paid} seeds`);
     growth = { plotId: id, fromStage, started: performance.now() };
     BloomSound.wake(); BloomSound.play('plant', { x: BloomMeadow.plots.find(p => p.id === id).x });
     haptic('tap');
     say(`${BloomGarden.plots.find(p => p.id === id).name} ${fromStage ? 'grew' : 'planted'}. ${save.garden.seeds} seeds left.`);
+  });
+  $('friend-spots').addEventListener('click', event => {
+    const spot = event.target.closest('[data-friend]'); if (spot) greetFriend(spot.dataset.friend);
+  });
+  $('friend-grid').addEventListener('click', event => {
+    const card = event.target.closest('[data-friend]'); if (!card) return;
+    const friend = BloomGarden.decor.map(d => d.friend).find(f => f.id === card.dataset.friend); if (!friend) return;
+    BloomSound.wake(); BloomSound.play('friend', { kind: friend.kind }); haptic('tick');
+    card.classList.remove('wiggle'); void card.offsetWidth; card.classList.add('wiggle');
+    toast(`${friend.name}: ${friend.says}`);
+  });
+  $('decor-grid').addEventListener('click', event => {
+    const card = event.target.closest('[data-decor]'); if (!card) return;
+    const id = card.dataset.decor, piece = BloomGarden.decor.find(d => d.id === id); if (!piece) return;
+    BloomSound.wake();
+    const built = BloomGarden.build(save.garden, id);
+    if (!built.success) {
+      BloomSound.play('tap');
+      if (built.reason === 'insufficient-seeds') { const need = built.cost - save.garden.seeds; toast(`${need} more ${need === 1 ? 'seed' : 'seeds'} for the ${lower(piece.name)}.`); }
+      return;
+    }
+    save.garden = built.state;
+    const goals = trackGoals({ type: 'meadow' }); persist(); renderMeadow();
+    growth = { decorId: id, started: performance.now() };
+    const spot = BloomMeadow.decor.find(d => d.id === id);
+    BloomSound.play('plant', { x: spot.x }); haptic('surge');
+    toast(goals.paid ? `${piece.name} built! Goal done, +${goals.paid} seeds.` : `${piece.name} built!`);
+    say(`${piece.name} built. ${save.garden.seeds} seeds left.`);
+    const map = meadowCanvas.getBoundingClientRect();
+    if (map.top < 0 || map.bottom > window.innerHeight) meadowCanvas.scrollIntoView({ behavior: save.settings.motion ? 'smooth' : 'auto', block: 'center' });
+  });
+  $('goals-list').addEventListener('click', event => {
+    const button = event.target.closest('[data-goal]'); if (!button || button.getAttribute('aria-disabled') === 'true') return;
+    BloomSound.wake(); BloomSound.play('tap');
+    const play = button.dataset.goal;
+    if (play === 'rush') openRush();
+    else if (play === 'daily') startLevel(BloomLevels.dailyLevel(localDate()));
+    else if (play === 'puzzles') openWorld('meadow');
+    else if (play === 'moon' || play === 'koi') openWorld(play);
+    else if (play === 'meadow') meadowCanvas.scrollIntoView({ behavior: save.settings.motion ? 'smooth' : 'auto', block: 'center' });
   });
   $('collection-btn').addEventListener('click', () => { if (preview) exitPreview(); setRoute('collection'); });
   $('keepsake-shelf').addEventListener('click', event => {
@@ -909,7 +1057,7 @@
       const session = returnSession; returnSession = null;
       game = session.game; theme = session.theme; preview = false; angle = session.angle;
       displayScore = session.displayScore; resultAt = session.resultAt; resultShown = session.resultShown; newFlower = session.newFlower; newKeepsake = session.newKeepsake; rushRecordBroken = session.rushRecordBroken;
-      runId = session.runId; runAward = session.runAward; runBouquet = session.runBouquet;
+      runId = session.runId; runAward = session.runAward; runBouquet = session.runBouquet; runGoals = session.runGoals;
       aiming = false; guiding = false; pointer = null; game.aim = []; accumulator = 0; lastFrame = 0; hudKey = '';
       document.body.dataset.theme = theme; document.body.dataset.mode = isRush() ? 'rush' : 'campaign';
       document.body.dataset.world = isChapter() ? game.level.worldId : 'meadow';
@@ -922,7 +1070,7 @@
   $('world-preview-btn').addEventListener('click', () => {
     if (!currentWorld) return;
     if (chapters[currentWorld.id]) { const level = chapters[currentWorld.id].levels.find(item => item.id === $('world-preview-btn').dataset.trial); if (level) startLevel(level); return; }
-    if (!preview) returnSession = { game, theme, angle, displayScore, resultAt, resultShown, newFlower, newKeepsake, rushRecordBroken, runId, runAward, runBouquet, label: $('level-label').textContent, name: $('level-name').textContent, hint: $('game-hint').textContent, aria: canvas.getAttribute('aria-label') };
+    if (!preview) returnSession = { game, theme, angle, displayScore, resultAt, resultShown, newFlower, newKeepsake, rushRecordBroken, runId, runAward, runBouquet, runGoals, label: $('level-label').textContent, name: $('level-name').textContent, hint: $('game-hint').textContent, aria: canvas.getAttribute('aria-label') };
     startLevel(levels[0], { preview: true, theme: currentWorld.theme || currentWorld.id });
   });
   function updateSettings() {

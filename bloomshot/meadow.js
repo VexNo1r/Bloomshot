@@ -12,6 +12,32 @@
     { id: 'dawn', x: 230, y: 265, rx: 62, ry: 33, angle: .08, type: 'coral', accent: '#ffc78e', seed: 1297 }
   ].map(p => Object.freeze(Object.assign(p, { labelX: p.x, labelY: p.y + p.ry + 12 }))));
   const byId = Object.fromEntries(PLOTS.map(p => [p.id, p]));
+  // Decorations stand on open grass, clear of the beds, their labels and the path. The icon box frames each
+  // one for its card: [center x, center y, size] in meadow units.
+  const DECOR = Object.freeze([
+    { id: 'bench', x: 96, y: 143, accent: '#e2b47a', icon: [96, 133, 46] },
+    { id: 'birdhouse', x: 388, y: 152, accent: '#7cc0ec', icon: [389, 129, 54] },
+    { id: 'lilies', x: 355, y: 285, accent: '#f59ac0', icon: [357, 284, 92] },
+    { id: 'beehive', x: 58, y: 304, accent: '#f6cf72', icon: [58, 287, 44] },
+    { id: 'lanterns', x: 222, y: 198, accent: '#ffe08a', icon: [222, 186, 34], posts: [[128, 296], [222, 198], [263, 146], [212, 62]] },
+    { id: 'tree', x: 172, y: 221, accent: '#ec6a5c', icon: [178, 194, 76] }
+  ].map(d => Object.freeze(d)));
+  const decorById = Object.fromEntries(DECOR.map(d => [d.id, d]));
+  // A friend moves in with each decoration. x, y is where to tap it; icon frames its portrait as
+  // [center x, center y, size] in the friend's own drawing units.
+  const FRIENDS = Object.freeze([
+    { id: 'biscuit', decorId: 'bench', x: 92, y: 128, icon: [1, -3, 30] },
+    { id: 'pip', decorId: 'birdhouse', x: 393, y: 108, icon: [0, -.5, 16] },
+    { id: 'hopper', decorId: 'lilies', x: 339, y: 290, icon: [0, -1, 13] },
+    { id: 'buzz', decorId: 'beehive', x: 58, y: 287, icon: [0, -.4, 6.6] },
+    { id: 'glimmer', decorId: 'lanterns', x: 142, y: 280, icon: [.5, -.3, 10.5] },
+    { id: 'nutmeg', decorId: 'tree', x: 152, y: 213, icon: [-1, -7, 21] }
+  ].map(f => Object.freeze(f)));
+  const friendById = Object.fromEntries(FRIENDS.map(f => [f.id, f]));
+  // Seconds since each friend was tapped, for this frame. A tap plays a short reaction.
+  let pokes = {};
+  const REACT = 1.1;
+  function reaction(id) { const t = pokes[id]; return Number.isFinite(t) && t > 0 && t < REACT ? t / REACT : 0; }
   const plantData = new Map(), foliageCache = new Map();
   let background = null;
 
@@ -280,6 +306,300 @@
     ctx.beginPath(); ctx.moveTo(mx - 2, my); ctx.lineTo(mx -.2, my + 1.7); ctx.lineTo(mx + 2.5, my - 2);
     ctx.strokeStyle = '#846133'; ctx.lineWidth = 1; ctx.stroke(); ctx.restore();
   }
+  function slab(ctx, x, y, w, h, r, fill, stroke, lineWidth) {
+    r = Math.min(r, w / 2, h / 2);
+    ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+    if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+    if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lineWidth || .6; ctx.stroke(); }
+  }
+  const shade = 'rgba(28,106,77,.2)', ink = '#6b4a2b';
+  function paintBench(ctx) {
+    ellipse(ctx, 0, 1.5, 21, 4.2, 0, shade);
+    slab(ctx, -15.5, -19, 2.6, 19, 1, '#7a5432');
+    slab(ctx, 12.9, -19, 2.6, 19, 1, '#7a5432');
+    for (const y of [-20, -14.6]) {
+      slab(ctx, -18, y, 36, 3.8, 1.4, '#b97f48', ink, .55);
+      ctx.beginPath(); ctx.moveTo(-16.5, y + 1); ctx.lineTo(16.5, y + 1); ctx.strokeStyle = 'rgba(255,229,178,.65)'; ctx.lineWidth = .7; ctx.stroke();
+    }
+    slab(ctx, -19.5, -8.6, 39, 5.2, 1.6, '#c48a50', ink, .6);
+    slab(ctx, -19, -8.3, 38, 1.7, .8, '#e6b77c');
+    slab(ctx, -16.8, -3.6, 2.8, 5.2, .8, ink);
+    slab(ctx, 14, -3.6, 2.8, 5.2, .8, ink);
+  }
+  // Biscuit naps on the bench; a tap lifts her head and swishes the tail.
+  function cat(ctx, time, motion) {
+    const r = reaction('biscuit'), awake = r > 0;
+    const lift = awake ? Math.min(1, r * 4, (1 - r) * 5) * 2.4 : 0;
+    const breathe = motion && !awake ? Math.sin(time * 1.6) * .25 : 0;
+    const swish = awake ? Math.sin(r * 18) * .55 : motion ? Math.sin(time * .8) * .08 : 0;
+    ctx.save(); ctx.translate(7, 1); ctx.rotate(swish); ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.bezierCurveTo(5, 0, 7, -3, 5, -6.5);
+    ctx.strokeStyle = '#a8622c'; ctx.lineWidth = 3.2; ctx.stroke(); ctx.strokeStyle = '#f0a35e'; ctx.lineWidth = 2.1; ctx.stroke();
+    ctx.restore();
+    ellipse(ctx, 1, -.5 - breathe, 8.6, 4.2 + breathe, 0, '#f0a35e', '#a8622c', .6);
+    for (const sx of [-1, 2.5, 6]) {
+      ctx.beginPath(); ctx.moveTo(sx, -4.4 - breathe); ctx.quadraticCurveTo(sx + .9, -2.6, sx + .2, -1.1);
+      ctx.strokeStyle = '#d17c3a'; ctx.lineWidth = .8; ctx.stroke();
+    }
+    ellipse(ctx, -5.6, 3, 1.9, 1.1, 0, '#fbe3c4', '#a8622c', .45);
+    ctx.save(); ctx.translate(-7, -3.2 - lift); ctx.rotate(awake ? -.12 : .08);
+    for (const [a, b, c] of [[[-3.3, -1.6], [-3.4, -5.6], [-.7, -2.9]], [[.9, -2.9], [2.9, -5.7], [3.2, -1.5]]]) {
+      ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.lineTo(...c); ctx.closePath();
+      ctx.fillStyle = '#f0a35e'; ctx.fill(); ctx.strokeStyle = '#a8622c'; ctx.lineWidth = .5; ctx.stroke();
+    }
+    ellipse(ctx, 0, 0, 3.9, 3.3, 0, '#f0a35e', '#a8622c', .6);
+    ellipse(ctx, -.4, 1.3, 2, 1.3, 0, '#fbe3c4');
+    ellipse(ctx, -.5, .6, .5, .38, 0, '#e47a7a');
+    for (const ex of [-1.9, 1]) {
+      if (awake) { ellipse(ctx, ex, -.6, .62, .8, 0, '#2b2b22'); ellipse(ctx, ex + .2, -.9, .2, .2, 0, '#fff'); }
+      else { ctx.beginPath(); ctx.moveTo(ex - .8, -.6); ctx.quadraticCurveTo(ex, .1, ex + .8, -.6); ctx.strokeStyle = '#7a4520'; ctx.lineWidth = .5; ctx.stroke(); }
+    }
+    ctx.restore();
+    if (!awake && motion) {
+      const z = (time * .45) % 1;
+      ctx.save(); ctx.globalAlpha *= Math.sin(z * Math.PI) * .7; ctx.fillStyle = '#2c4a3e';
+      ctx.font = '600 5px Fredoka, system-ui, sans-serif'; ctx.fillText('z', -11 - z * 3, -8 - z * 7); ctx.restore();
+    }
+  }
+  function bird(ctx, x, y, time, motion) {
+    const r = reaction('pip');
+    const hop = r ? Math.sin(r * Math.PI) * 12 : motion ? Math.max(0, Math.sin(time * 1.7)) ** 12 * 2.4 : 0;
+    ctx.save(); ctx.translate(x, y - hop); birdBody(ctx, r); ctx.restore();
+  }
+  function birdBody(ctx, r) {
+    ctx.beginPath(); ctx.moveTo(-2.6, -.4); ctx.lineTo(-6.2, -2); ctx.lineTo(-5.6, .7); ctx.closePath(); ctx.fillStyle = '#4f93c8'; ctx.fill();
+    ellipse(ctx, 0, 0, 3.8, 2.9, -.15, '#6aaee0', '#3f7fb0', .45);
+    ellipse(ctx, .9, 1, 2.3, 1.6, -.1, '#f6c48f');
+    ellipse(ctx, 2.9, -1.9, 2.1, 2.1, 0, '#6aaee0', '#3f7fb0', .45);
+    ellipse(ctx, 3.5, -2.2, .48, .48, 0, '#23333a');
+    ctx.beginPath(); ctx.moveTo(4.8, -2); ctx.lineTo(6.3, -1.5); ctx.lineTo(4.7, -1.1); ctx.closePath(); ctx.fillStyle = '#f2b14e'; ctx.fill();
+    // Wings beat while Pip flutters up after a tap.
+    if (r) { const flap = Math.sin(r * 70); ellipse(ctx, -.8, -1.4 - flap * 1.6, 3.6, 1.3, -.45 - flap * .55, '#4f93c8', '#3f7fb0', .4); }
+  }
+  function paintBirdhouse(ctx, time, motion) {
+    ellipse(ctx, 0, 1, 8.5, 2.6, 0, shade);
+    slab(ctx, -1.7, -25, 3.4, 26, 1, '#8a6239', ink, .5);
+    ctx.beginPath(); ctx.moveTo(-8, -24.5); ctx.lineTo(8, -24.5); ctx.lineTo(8, -36.5); ctx.lineTo(0, -43.5); ctx.lineTo(-8, -36.5); ctx.closePath();
+    ctx.fillStyle = '#f3e3bd'; ctx.fill(); ctx.strokeStyle = '#9b7448'; ctx.lineWidth = .8; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-10.8, -35.4); ctx.lineTo(0, -46); ctx.lineTo(10.8, -35.4); ctx.lineTo(9.2, -33.8); ctx.lineTo(0, -42.6); ctx.lineTo(-9.2, -33.8); ctx.closePath();
+    ctx.fillStyle = '#e0816a'; ctx.fill(); ctx.strokeStyle = '#a8513f'; ctx.lineWidth = .6; ctx.stroke();
+    ellipse(ctx, 0, -31.5, 2.7, 2.9, 0, '#5a3b24');
+    ellipse(ctx, 0, -26.6, 1, 1, 0, '#8a6239');
+    bird(ctx, 5.4, -42.3, time, motion);
+  }
+  function lily(ctx, x, y, size, pink) {
+    ctx.save(); ctx.translate(x, y); ctx.scale(1, .62);
+    for (let i = 0; i < 8; i++) {
+      ctx.save(); ctx.rotate(i * TAU / 8 + .2);
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(size * .42, -size * .5, 0, -size); ctx.quadraticCurveTo(-size * .42, -size * .5, 0, 0);
+      ctx.fillStyle = i % 2 ? (pink ? '#f59ac0' : '#fbe6ef') : (pink ? '#ffc4dc' : '#ffffff'); ctx.fill();
+      ctx.strokeStyle = pink ? '#d96d9b' : '#e2b6c8'; ctx.lineWidth = .35; ctx.stroke(); ctx.restore();
+    }
+    ellipse(ctx, 0, 0, size * .3, size * .3, 0, '#ffd36b'); ctx.restore();
+  }
+  function paintLilies(ctx, time, motion) {
+    ctx.save(); ctx.rotate(-.22);
+    for (const [x, y, rx, ry, a] of [[4, 12, 7, 3.7, .3], [31, 5, 5.6, 3, -.2], [-26, -7, 5.2, 2.8, .5], [-1, -14, 4.6, 2.5, .1]]) {
+      ellipse(ctx, x, y, rx, ry, a, '#4ab684', '#168c7c', .6);
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + rx * .9, y - ry * .3); ctx.lineTo(x + rx * .9, y + ry * .2); ctx.closePath(); ctx.fillStyle = '#83d6cb'; ctx.fill();
+    }
+    lily(ctx, 4, 11, 5.4, true); lily(ctx, 31, 4.4, 4.4, false); lily(ctx, 19.5, -9.6, 4.2, true);
+    // Hopper takes the big pad, blinks now and then, and jumps when tapped.
+    const r = reaction('hopper'), jump = r ? Math.sin(r * Math.PI) * 10 : 0;
+    ctx.save(); ctx.translate(-17, 3.6); ctx.rotate(.22);
+    ellipse(ctx, 0, 1.2, 4.6 - jump * .15, 2.2 - jump * .07, 0, 'rgba(10,80,70,.2)');
+    ctx.translate(0, -jump); if (r) ctx.scale(1 - jump * .012, 1 + jump * .025);
+    frogBody(ctx, time, motion);
+    ctx.restore(); ctx.restore();
+  }
+  function frogBody(ctx, time, motion) {
+    ellipse(ctx, 0, 0, 4.4, 3.3, 0, '#5fbf5b', '#2f8a3a', .5);
+    ellipse(ctx, 0, .9, 2.8, 1.7, 0, '#b9e68a');
+    const blink = motion && time % 4.3 < .14;
+    for (const side of [-1, 1]) {
+      ellipse(ctx, side * 2.2, -2.7, 1.55, 1.55, 0, '#6fcf6a', '#2f8a3a', .45);
+      if (blink) { ctx.beginPath(); ctx.moveTo(side * 2.2 - 1, -2.7); ctx.lineTo(side * 2.2 + 1, -2.7); ctx.strokeStyle = '#2f5a2a'; ctx.lineWidth = .5; ctx.stroke(); }
+      else ellipse(ctx, side * 2.2, -2.8, .62, .7, 0, '#1f2b22');
+    }
+    ctx.beginPath(); ctx.moveTo(-1.6, -.4); ctx.quadraticCurveTo(0, .6, 1.6, -.4); ctx.strokeStyle = '#2f6a32'; ctx.lineWidth = .45; ctx.stroke();
+  }
+  function bee(ctx, x, y, angle) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
+    ellipse(ctx, -.2, -1.4, 1.2, .85, -.3, 'rgba(255,255,255,.88)', 'rgba(120,140,150,.5)', .25);
+    ellipse(ctx, 0, 0, 2, 1.35, 0, '#f7c943', '#6b4a1f', .35);
+    for (const s of [-.5, .6]) { ctx.beginPath(); ctx.moveTo(s, -1.2); ctx.lineTo(s, 1.2); ctx.strokeStyle = '#3a2a1a'; ctx.lineWidth = .55; ctx.stroke(); }
+    ctx.restore();
+  }
+  function paintBeehive(ctx, time, motion) {
+    ellipse(ctx, 0, 1, 13, 3.2, 0, shade);
+    slab(ctx, -8, -3, 2.2, 4, .6, ink); slab(ctx, 5.8, -3, 2.2, 4, .6, ink);
+    slab(ctx, -11, -5.5, 22, 3.2, 1, '#9b7044', ink, .5);
+    const dome = () => { ctx.beginPath(); ctx.moveTo(-10.5, -5.2); ctx.bezierCurveTo(-11.5, -20, -6.4, -27, 0, -27); ctx.bezierCurveTo(6.4, -27, 11.5, -20, 10.5, -5.2); ctx.closePath(); };
+    const straw = ctx.createLinearGradient(-8, -26, 8, -5);
+    straw.addColorStop(0, '#f8d985'); straw.addColorStop(1, '#e1a64a');
+    dome(); ctx.fillStyle = straw; ctx.fill(); ctx.strokeStyle = '#b9823a'; ctx.lineWidth = .7; ctx.stroke();
+    ctx.save(); dome(); ctx.clip();
+    for (let i = 1; i <= 4; i++) {
+      const y = -5.2 - i * 4.6;
+      ctx.beginPath(); ctx.moveTo(-12, y); ctx.quadraticCurveTo(0, y + 2.6, 12, y);
+      ctx.strokeStyle = '#c38a3c'; ctx.lineWidth = .9; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-12, y - 1.1); ctx.quadraticCurveTo(0, y + 1.5, 12, y - 1.1);
+      ctx.strokeStyle = 'rgba(255,240,190,.55)'; ctx.lineWidth = .5; ctx.stroke();
+    }
+    ctx.restore();
+    ellipse(ctx, 0, -8, 2.7, 1.9, 0, '#5a3b24');
+    const t = motion ? time : 1.3, buzz = reaction('buzz'), swirl = buzz ? Math.sin(buzz * Math.PI) : 0;
+    for (let i = 0; i < 3; i++) {
+      const a = t * (1.2 + i * .35) + i * 2.1 + buzz * (9 + i * 2), r = (13 + i * 3) * (1 + swirl * .7);
+      bee(ctx, Math.cos(a) * r, -15 + Math.sin(a * 1.3) * r * .45, Math.cos(a) > 0 ? .25 : -.25);
+    }
+  }
+  function lanternGlow(ctx, x, y, time, motion) {
+    const flicker = motion ? .82 + Math.sin(time * 5.3 + x) * .1 + Math.sin(time * 8.1 + y) * .06 : .9;
+    const glow = ctx.createRadialGradient(x, y, 0, x, y, 13);
+    glow.addColorStop(0, `rgba(255,232,150,${.55 * flicker})`); glow.addColorStop(1, 'rgba(255,232,150,0)');
+    ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(x, y, 13, 0, TAU); ctx.fill();
+  }
+  function paintLantern(ctx, time, motion, x) {
+    ellipse(ctx, 0, 1, 4.5, 1.6, 0, shade);
+    slab(ctx, -1.1, -15, 2.2, 15.6, .8, '#6b5a45');
+    lanternGlow(ctx, 0, -18, time, motion);
+    slab(ctx, -3.2, -21.5, 6.4, 7.4, 1.3, '#ffe7a0', '#5c4a35', .7);
+    ctx.beginPath(); ctx.moveTo(0, -21.3); ctx.lineTo(0, -14.4); ctx.strokeStyle = 'rgba(92,74,53,.55)'; ctx.lineWidth = .45; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-4, -21.3); ctx.lineTo(0, -24.6); ctx.lineTo(4, -21.3); ctx.closePath(); ctx.fillStyle = '#5c4a35'; ctx.fill();
+    ellipse(ctx, 0, -25, .9, .9, 0, '#5c4a35');
+  }
+  function paintTree(ctx, time, motion) {
+    ellipse(ctx, 5, 0, 31, 7, 0, shade);
+    ctx.beginPath(); ctx.moveTo(-5, .5); ctx.bezierCurveTo(-3, -8, -4.5, -16, -3.4, -24); ctx.lineTo(3.2, -24);
+    ctx.bezierCurveTo(3.6, -15, 3, -7, 5.4, .5); ctx.closePath();
+    ctx.fillStyle = '#9a6a3f'; ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = .6; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(.2, -2); ctx.quadraticCurveTo(-1.2, -11, .4, -21); ctx.strokeStyle = 'rgba(255,220,170,.4)'; ctx.lineWidth = .8; ctx.stroke();
+    const clumps = [[-15, -30, 13], [14, -31, 13.5], [0, -42, 15], [-7, -25, 12], [8, -24, 12], [0, -32, 14]];
+    for (const [x, y, r] of clumps) ellipse(ctx, x + 1.5, y + 2.5, r, r * .92, 0, '#2f8a63');
+    for (const [x, y, r] of clumps) ellipse(ctx, x, y, r, r * .92, 0, '#52b37f');
+    for (const [x, y, r] of clumps) ellipse(ctx, x - r * .25, y - r * .28, r * .55, r * .45, -.4, 'rgba(160,226,150,.55)');
+    for (const [x, y] of [[-12, -34], [5, -45], [15, -27], [-3, -23], [-18, -23], [10, -38], [-6, -41]]) {
+      ellipse(ctx, x, y, 2.2, 2.1, 0, '#ec6a5c', '#b8473d', .4); ellipse(ctx, x - .6, y - .7, .7, .6, 0, '#ffc2b5');
+    }
+    ctx.save(); ctx.translate(-19, 0); squirrel(ctx, time, motion); ctx.restore();
+    // A rope swing hangs from under the leaves and drifts in the breeze.
+    const sway = motion ? Math.sin(time * 1.5) * .13 : .05;
+    ctx.save(); ctx.translate(22, -19); ctx.rotate(sway);
+    ctx.strokeStyle = '#a07c52'; ctx.lineWidth = .7;
+    ctx.beginPath(); ctx.moveTo(-3.2, 0); ctx.lineTo(-3.2, 15); ctx.moveTo(3.2, 0); ctx.lineTo(3.2, 15); ctx.stroke();
+    slab(ctx, -5, 14.4, 10, 2.3, .8, '#c48a50', ink, .5);
+    ctx.restore();
+  }
+  // Nutmeg sits under the apple tree with an acorn, and hops with a flick of the tail when tapped.
+  function squirrel(ctx, time, motion) {
+    const r = reaction('nutmeg'), hop = r ? Math.abs(Math.sin(r * Math.PI * 2)) * 6 * (1 - r * .4) : 0;
+    const flick = r ? Math.sin(r * 22) * .35 : motion ? Math.sin(time * 2.2) * .06 : 0;
+    ellipse(ctx, 0, .6, 5.5 - hop * .25, 1.6, 0, shade);
+    ctx.save(); ctx.translate(0, -hop); squirrelBody(ctx, flick); ctx.restore();
+  }
+  function squirrelBody(ctx, flick) {
+    ctx.save(); ctx.translate(-2.5, -3); ctx.rotate(flick);
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.bezierCurveTo(-7, -1, -7.5, -10, -2.5, -12.5); ctx.bezierCurveTo(1, -14, 2.2, -10, -.4, -9);
+    ctx.bezierCurveTo(-3, -8, -2.6, -3, 1, -1.5); ctx.closePath();
+    ctx.fillStyle = '#d48b52'; ctx.fill(); ctx.strokeStyle = '#8f5228'; ctx.lineWidth = .5; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-1.5, -1.8); ctx.bezierCurveTo(-5.4, -3, -5.6, -9, -2.4, -11); ctx.strokeStyle = 'rgba(255,225,180,.55)'; ctx.lineWidth = .8; ctx.stroke();
+    ctx.restore();
+    ellipse(ctx, 1, -4.3, 3.4, 4.4, -.12, '#c47a45', '#8f5228', .5);
+    ellipse(ctx, 1.9, -3.4, 1.8, 2.8, -.1, '#f3d7b0');
+    ellipse(ctx, 1, -12.2, .8, 1.3, -.3, '#c47a45', '#8f5228', .4);
+    ellipse(ctx, 2.2, -9.6, 2.9, 2.6, 0, '#c47a45', '#8f5228', .5);
+    ellipse(ctx, 3.4, -10, .52, .62, 0, '#2b2b22'); ellipse(ctx, 3.55, -10.25, .18, .18, 0, '#fff');
+    ellipse(ctx, 5, -9.2, .45, .38, 0, '#5a3b24');
+    ellipse(ctx, 4.1, -5.2, 1.25, 1.45, 0, '#b07a3c', '#7a5432', .35); ellipse(ctx, 4.1, -6.4, 1.45, .7, 0, '#7a5432');
+    ellipse(ctx, 0, -.2, 1.6, .8, 0, '#a8622c'); ellipse(ctx, 2.8, -.2, 1.6, .8, 0, '#a8622c');
+  }
+  // Glimmer drifts by the first lantern and loops the loop when tapped.
+  function firefly(ctx, time, motion) {
+    const r = reaction('glimmer'), t = motion ? time : 0, home = friendById.glimmer;
+    let x = home.x + Math.sin(t * .9) * 6, y = home.y + Math.sin(t * 1.8) * 3;
+    if (r) { const a = r * TAU; x += Math.sin(a) * 13; y -= (1 - Math.cos(a)) * 8; }
+    const glow = .5 + (motion ? Math.sin(time * 3) * .18 : 0) + (r ? Math.sin(r * Math.PI) * .5 : 0);
+    const reach = 11 + glow * 6, halo = ctx.createRadialGradient(x + 2.2, y + 1, 0, x + 2.2, y + 1, reach);
+    halo.addColorStop(0, `rgba(255,246,120,${Math.min(.95, glow + .2)})`); halo.addColorStop(.45, `rgba(240,255,150,${Math.min(.5, glow * .5)})`); halo.addColorStop(1, 'rgba(240,255,150,0)');
+    ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(x + 2.2, y + 1, reach, 0, TAU); ctx.fill();
+    ctx.save(); ctx.translate(x, y); fireflyBody(ctx); ctx.restore();
+  }
+  function fireflyBody(ctx) {
+    ctx.save(); ctx.scale(2, 2);
+    ellipse(ctx, -.3, -1.3, 1.4, .75, -.35, 'rgba(255,255,255,.85)', 'rgba(120,140,150,.5)', .2);
+    ellipse(ctx, 1.4, .6, 1.4, 1.1, .2, '#f4ff9c', '#c8d65a', .25);
+    ellipse(ctx, -.2, 0, 1.7, 1.15, .2, '#4a4636');
+    ellipse(ctx, -1.8, -.3, .9, .9, 0, '#4a4636'); ellipse(ctx, -2, -.5, .25, .25, 0, '#fff');
+    ctx.restore();
+  }
+  function paintDecor(ctx, d, time, motion) {
+    if (d.id === 'lanterns') {
+      d.posts.forEach(([x, y]) => { ctx.save(); ctx.translate(x, y); paintLantern(ctx, time, motion, x); ctx.restore(); });
+      firefly(ctx, time, motion);
+      return;
+    }
+    ctx.save(); ctx.translate(d.x, d.y);
+    if (d.id === 'bench') { paintBench(ctx); ctx.save(); ctx.translate(-3, -12); cat(ctx, time, motion); ctx.restore(); }
+    else if (d.id === 'birdhouse') paintBirdhouse(ctx, time, motion);
+    else if (d.id === 'lilies') paintLilies(ctx, time, motion);
+    else if (d.id === 'beehive') paintBeehive(ctx, time, motion);
+    else if (d.id === 'tree') paintTree(ctx, time, motion);
+    ctx.restore();
+  }
+  // Pops a new decoration up from the grass; for lanterns each post lights in turn.
+  function drawDecorPiece(ctx, d, time, motion, reveal) {
+    if (reveal === undefined || reveal >= 1) { paintDecor(ctx, d, time, motion); return; }
+    const pop = t => { t = clamp(t, 0, 1); const s = 1.9; return 1 + (s + 1) * Math.pow(t - 1, 3) + s * Math.pow(t - 1, 2); };
+    const parts = d.id === 'lanterns' ? d.posts.map((p, i) => [p, i * .14]) : [[[d.x, d.y], 0]];
+    for (const [[x, y], delay] of parts) {
+      const t = clamp((reveal - delay) / (1 - delay * 3), 0, 1), scale = Math.max(.001, pop(t));
+      ctx.save(); ctx.globalAlpha *= Math.min(1, t * 2.5);
+      ctx.translate(x, y); ctx.scale(scale, scale); ctx.translate(-x, -y);
+      if (d.id === 'lanterns') { ctx.translate(x, y); paintLantern(ctx, time, motion, x); }
+      else paintDecor(ctx, d, time, motion);
+      ctx.restore();
+    }
+  }
+  function builtDecor(state) {
+    const list = state && Array.isArray(state.decor) ? state.decor : [];
+    return DECOR.filter(d => list.includes(d.id));
+  }
+  // A card picture: the decoration on a round patch of grass (or water, for the lilies).
+  function drawDecorIcon(ctx, id, size) {
+    const d = decorById[id]; if (!ctx || !d) return;
+    const [cx, cy, box] = d.icon, scale = size / box;
+    ctx.save(); ctx.scale(scale, scale); ctx.translate(box / 2 - cx, box / 2 - cy);
+    ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, box / 2, 0, TAU); ctx.clip();
+    if (background) ctx.drawImage(background, 0, 0, W, H); else paintBackground(ctx);
+    pokes = {}; paintDecor(ctx, d, 1.3, false);
+    ctx.restore(); ctx.restore();
+  }
+  // A friend's portrait on a round patch of grass (water for Hopper). Not yet met: a silhouette.
+  const friendBodies = { biscuit: ctx => cat(ctx, 1.3, false), pip: ctx => birdBody(ctx, 0), hopper: ctx => frogBody(ctx, 1, false),
+    buzz: ctx => bee(ctx, 0, 0, 0), glimmer: fireflyBody, nutmeg: ctx => squirrelBody(ctx, 0) };
+  function drawFriendIcon(ctx, id, size, met) {
+    const f = friendById[id]; if (!ctx || !f) return;
+    pokes = {};
+    ctx.save();
+    const back = ctx.createLinearGradient(0, 0, 0, size);
+    if (id === 'hopper') { back.addColorStop(0, '#8ad9d4'); back.addColorStop(1, '#3fa8b0'); }
+    else { back.addColorStop(0, '#dff5cf'); back.addColorStop(1, '#a4dcb2'); }
+    ctx.beginPath(); ctx.arc(size / 2, size / 2, size / 2, 0, TAU); ctx.fillStyle = back; ctx.fill();
+    const [cx, cy, box] = f.icon, scale = size * .78 / box;
+    const paint = target => { target.save(); target.translate(size / 2, size / 2); target.scale(scale, scale); target.translate(-cx, -cy); friendBodies[id](target); target.restore(); };
+    if (met) paint(ctx);
+    else {
+      const layer = surface(Math.ceil(size), Math.ceil(size));
+      if (layer) {
+        const c = layer.getContext('2d'); paint(c);
+        c.globalCompositeOperation = 'source-in'; c.fillStyle = 'rgba(44,74,62,.42)'; c.fillRect(0, 0, size, size);
+        ctx.drawImage(layer, 0, 0);
+      }
+    }
+    ctx.restore();
+  }
   function butterfly(ctx, x, y, scale, phase, color) {
     ctx.save(); ctx.translate(x, y); ctx.rotate(Math.sin(phase * .6) * .23); ctx.scale(scale, scale);
     const span = .54 + .46 * Math.abs(Math.sin(phase * 3.2));
@@ -311,6 +631,9 @@
         drawBed(ctx, p, levels[index], time, motion, progress);
       } else drawBed(ctx, p, levels[index], time, motion);
     });
+    pokes = motion && options.pokes && typeof options.pokes === 'object' ? options.pokes : {};
+    const built = builtDecor(options.state);
+    built.forEach(d => drawDecorPiece(ctx, d, time, motion, reveal && reveal.decorId === d.id && Number.isFinite(reveal.progress) ? reveal.progress : undefined));
     const selected = byId[options.selectedId];
     if (selected) selectedBed(ctx, selected, time, motion);
     // A few tiny moving accents make the whole place feel alive without busy UI.
@@ -341,5 +664,12 @@
     });
     return closest;
   }
-  root.BloomMeadow = Object.freeze({ draw, hitTest, plots: PLOTS, width: W, height: H });
+  function ensureBackground() {
+    if (!background) {
+      background = surface(W * 3, H * 3);
+      if (background) { const c = background.getContext('2d'); c.scale(3, 3); paintBackground(c); }
+    }
+  }
+  root.BloomMeadow = Object.freeze({ draw, hitTest, drawDecorIcon: (ctx, id, size) => { ensureBackground(); drawDecorIcon(ctx, id, size); }, drawFriendIcon,
+    plots: PLOTS, decor: DECOR, friends: FRIENDS, reactSeconds: REACT, width: W, height: H });
 })(typeof window !== 'undefined' ? window : globalThis);

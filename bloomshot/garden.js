@@ -14,6 +14,8 @@
   // The daily garden pays once per new star, like any garden. Clearing any four daily gardens in one
   // Monday-to-Sunday week also gathers that week's bouquet. Missed days never take anything away.
   var DAILY_LIMIT = 21, BOUQUET_GOAL = 4, BOUQUET_SEEDS = 12, BOUQUET_LIMIT = 8;
+  // Each of the day's three goals (goals.js) pays once, and finishing all three pays a bonus.
+  var GOAL_SEEDS = 4, GOAL_BONUS = 6;
   var DAY = 86400000;
   var STAGES = Object.freeze([
     Object.freeze({ stage: 1, name: 'First shoots', cost: COSTS[0] }),
@@ -32,12 +34,33 @@
     plot('moon', 'Moon Poppy', 'moon-poppy', 'lilac', '#C5B6EB', 'Pale poppies bring a little moonlight to the meadow.'),
     plot('dawn', 'Dawn Crown', 'dawn-crown', 'coral', '#F19B90', 'Bright coral crowns greet a new day.')
   ]);
+  // Decorations give seeds somewhere to go once the beds are growing. Bought with earned seeds only, once each,
+  // in any order; costs rise so there is always a next thing to save for.
+  // Each one brings a meadow friend who moves in with it and says hello when tapped.
+  function piece(id, name, cost, description, friend) {
+    return Object.freeze({ id: id, name: name, cost: cost, description: description, friend: Object.freeze(friend) });
+  }
+  var decor = Object.freeze([
+    piece('bench', 'Garden bench', 20, 'A spot to sit and admire your work.',
+      { id: 'biscuit', name: 'Biscuit', kind: 'cat', says: 'Mrrp?', about: 'Naps on the bench all day.' }),
+    piece('birdhouse', 'Birdhouse', 30, 'A bluebird moves in right away.',
+      { id: 'pip', name: 'Pip', kind: 'bluebird', says: 'Tweet tweet!', about: 'Sings from the birdhouse roof.' }),
+    piece('lilies', 'Water lilies', 40, 'Lilies for the pond, and a frog to go with them.',
+      { id: 'hopper', name: 'Hopper', kind: 'frog', says: 'Ribbit!', about: 'The best jumper in the pond.' }),
+    piece('beehive', 'Beehive', 55, 'Busy bees for your Honeyburst.',
+      { id: 'buzz', name: 'Buzz', kind: 'bee', says: 'Bzzz!', about: 'Makes honey from your Honeyburst.' }),
+    piece('lanterns', 'Lantern path', 75, 'Warm little lights along the path.',
+      { id: 'glimmer', name: 'Glimmer', kind: 'firefly', says: 'Hi hi hi!', about: 'Keeps the lanterns company.' }),
+    piece('tree', 'Apple tree', 100, 'Shade, apples and a rope swing.',
+      { id: 'nutmeg', name: 'Nutmeg', kind: 'squirrel', says: 'Got any acorns?', about: 'Guards the apples. Mostly.' })
+  ]);
   function own(object, key) { return Object.prototype.hasOwnProperty.call(object, key); }
   function record(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
   function integer(value, maximum) {
     return typeof value === 'number' && Number.isFinite(value) ? Math.min(maximum, Math.max(0, Math.floor(value))) : 0;
   }
   function validPlot(id) { return typeof id === 'string' && plots.some(function (p) { return p.id === id; }); }
+  function findDecor(id) { return typeof id === 'string' ? decor.filter(function (d) { return d.id === id; })[0] || null : null; }
   // 'daily-YYYY-MM-DD' to a UTC day number, or null for anything that is not a real calendar date.
   function dailyDay(id) {
     var match = typeof id === 'string' && /^daily-(\d{4})-(\d{2})-(\d{2})$/.exec(id);
@@ -102,11 +125,13 @@
       if (validWeek(id) && bouquets.indexOf(id) < 0) bouquets.push(id);
     });
     bouquets = bouquets.sort().slice(-BOUQUET_LIMIT);
+    var savedDecor = own(source, 'decor') && Array.isArray(source.decor) ? source.decor : [];
+    var built = decor.filter(function (d) { return savedDecor.indexOf(d.id) >= 0; }).map(function (d) { return d.id; });
     return { version: 1,
       seeds: isNew ? 4 : (own(source, 'seeds') ? integer(source.seeds, MAX_SEEDS) : 0),
       selectedId: own(source, 'selectedId') && validPlot(source.selectedId) ? source.selectedId : 'sunbell',
       levels: levels, receipts: receipts, campaignBest: campaignBest, moonBest: moonBest, koiBest: koiBest,
-      dailyBest: dailyBest, bouquets: bouquets,
+      dailyBest: dailyBest, bouquets: bouquets, decor: built,
       starterSeeds: isNew ? 4 : (own(source, 'starterSeeds') ? integer(source.starterSeeds, 4) : 0),
       totalSeedsEarned: own(source, 'totalSeedsEarned') ? integer(source.totalSeedsEarned, MAX_TOTAL) : 0,
       totalSeedsSpent: own(source, 'totalSeedsSpent') ? integer(source.totalSeedsSpent, MAX_TOTAL) : 0 };
@@ -154,6 +179,9 @@
         bouquet = { week: thisWeek.id, seeds: BOUQUET_SEEDS };
         earned += BOUQUET_SEEDS;
       }
+    } else if (reward.mode === 'goal') {
+      if (dailyDay('daily-' + reward.day) === null || [0, 1, 2, 'bonus'].indexOf(reward.slot) < 0) return result(0, 'invalid-reward');
+      earned = reward.slot === 'bonus' ? GOAL_BONUS : GOAL_SEEDS;
     } else return result(0, 'invalid-mode');
     // Record even valid zero-seed results: the same completion cannot later be edited and claimed.
     next.receipts.push(runId);
@@ -192,6 +220,17 @@
     next.totalSeedsSpent = Math.min(MAX_TOTAL, next.totalSeedsSpent + cost);
     return result(true, 'planted', cost, current + 1);
   }
+  function build(state, decorId) {
+    var next = normalize(state), item = findDecor(decorId);
+    function result(success, reason, cost) { return { state: next, success: success, reason: reason, cost: cost }; }
+    if (!item) return result(false, 'unknown-decor', 0);
+    if (next.decor.indexOf(item.id) >= 0) return result(false, 'built', item.cost);
+    if (next.seeds < item.cost) return result(false, 'insufficient-seeds', item.cost);
+    next.seeds -= item.cost;
+    next.decor = decor.filter(function (d) { return d.id === item.id || next.decor.indexOf(d.id) >= 0; }).map(function (d) { return d.id; });
+    next.totalSeedsSpent = Math.min(MAX_TOTAL, next.totalSeedsSpent + item.cost);
+    return result(true, 'built', item.cost);
+  }
   function select(state, plotId) {
     var next = normalize(state);
     if (validPlot(plotId)) next.selectedId = plotId;
@@ -212,12 +251,19 @@
         nextCost: cost, canPlant: cost !== null && current.seeds >= cost,
         selected: current.selectedId === p.id };
     });
+    var pieces = decor.map(function (d) {
+      var done = current.decor.indexOf(d.id) >= 0;
+      return { id: d.id, name: d.name, cost: d.cost, description: d.description, friend: d.friend, built: done, canBuild: !done && current.seeds >= d.cost };
+    });
+    var builtDecor = current.decor.length;
     return { seeds: current.seeds, selectedId: current.selectedId,
       totalStages: totalStages, completedPlots: completedPlots, totalPlots: plots.length,
+      decor: pieces, builtDecor: builtDecor, totalDecor: decor.length,
+      complete: completedPlots === plots.length && builtDecor === decor.length,
       totalSeedsEarned: current.totalSeedsEarned, totalSeedsSpent: current.totalSeedsSpent,
       nextCost: current.levels[current.selectedId] < 3 ? COSTS[current.levels[current.selectedId]] : null,
       plots: beds };
   }
-  return Object.freeze({ plots: plots, normalize: normalize, grant: grant, plant: plant, select: select, summary: summary, week: week,
-    daily: Object.freeze({ firstClear: [6, 8, 10], perStar: 2, bouquetGoal: BOUQUET_GOAL, bouquetSeeds: BOUQUET_SEEDS }) });
+  return Object.freeze({ plots: plots, decor: decor, normalize: normalize, grant: grant, plant: plant, build: build, select: select, summary: summary, week: week,
+    daily: Object.freeze({ firstClear: [6, 8, 10], perStar: 2, bouquetGoal: BOUQUET_GOAL, bouquetSeeds: BOUQUET_SEEDS, goalSeeds: GOAL_SEEDS, goalBonus: GOAL_BONUS }) });
 });

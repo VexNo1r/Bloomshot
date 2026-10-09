@@ -4,6 +4,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const Garden = require('../garden.js');
+const Goals = require('../goals.js');
+// Daily goals change with the date and pay their own seeds, so most tests keep them quiet; goal tests opt in.
+const QuietGoals = { ...Goals, record: (state, date) => ({ state: Goals.normalize(state, date), done: [], bonus: false }) };
 const Levels = require('../levels.js');
 const Moon = require('../moon.js');
 const Koi = require('../koi.js');
@@ -46,7 +49,7 @@ function fakeStore({ owned = [], live = false, available = false, price = '$4.99
 function fixedDate(moment) {
   return class extends Date { constructor(...args) { if (args.length) super(...args); else super(moment); } static now() { return new Date(moment).getTime(); } };
 }
-function boot(raw, { storageFails = false, search = '', otherSave, store, native, today } = {}) {
+function boot(raw, { storageFails = false, search = '', otherSave, store, native, today, goals = false } = {}) {
   const key = search.includes('qa') ? 'bloomshot.qa.v1' : 'bloomshot.save.v1';
   const storage = new Map();
   if (raw !== undefined) storage.set(key, JSON.stringify(raw));
@@ -95,12 +98,14 @@ function boot(raw, { storageFails = false, search = '', otherSave, store, native
     performance: { now: () => now }, devicePixelRatio: 1,
     matchMedia: () => ({ matches: false, addEventListener: noop }),
     requestAnimationFrame: fn => { nextFrame = fn; }, setTimeout: () => 1, clearTimeout: noop,
-    BloomLevels: { ...Levels, worlds: [...Levels.worlds, FUTURE] }, BloomMoon: Moon, BloomKoi: Koi, BloomGarden: Garden, ...(store ? { BloomStore: store } : {}), ...(native ? { BloomNative: native } : {}), BloomEngine: { ...Engine, Game: ObservedGame }, BloomRush: { RushGame: ObservedRush },
+    BloomLevels: { ...Levels, worlds: [...Levels.worlds, FUTURE] }, BloomMoon: Moon, BloomKoi: Koi, BloomGarden: Garden, BloomGoals: goals ? Goals : QuietGoals, ...(store ? { BloomStore: store } : {}), ...(native ? { BloomNative: native } : {}), BloomEngine: { ...Engine, Game: ObservedGame }, BloomRush: { RushGame: ObservedRush },
     BloomSound: { wake: noop, play: noop, setEnabled: noop }, BloomKeepsakes: Keepsakes,
     BloomArt: { draw: (ctx, state, time, options) => boardDraws.push(options.keepsake ? options.keepsake.id : 'meadow'), drawFlower: noop, drawMoon: noop, koiFish: noop,
       drawGarden: noop, drawProjectile: noop, drawParticle: noop, drawSeed: noop },
     BloomMeadow: { plots: Garden.plots.map((p, i) => ({ id: p.id, x: 65 + i * 50, y: 150, labelY: 180, accent: p.color })),
-      draw: (ctx, options) => meadowDraws.push(clone(options)) }
+      decor: Garden.decor.map((d, i) => ({ id: d.id, x: 40 + i * 60, y: 200, accent: '#ffffff', icon: [40 + i * 60, 190, 40] })),
+      friends: Garden.decor.map((d, i) => ({ id: d.friend.id, decorId: d.id, x: 40 + i * 60, y: 180 })), reactSeconds: 1.1,
+      drawDecorIcon: noop, drawFriendIcon: noop, draw: (ctx, options) => meadowDraws.push(clone(options)) }
   });
   context.window = context; context.addEventListener = noop;
   vm.runInContext(source, context, { filename: 'app.js' });
@@ -424,6 +429,95 @@ function fakeNative({ restored = false } = {}) {
     // Like the real bridge, a restore that wrote the backup back marks the page as about to reload.
     restore: key => { calls.restore.push(key); reloading = restored; return { then: fn => { fn(restored); } }; } };
 }
+test('Decorate: a card names what is missing, builds once with seeds, shows in the meadow and survives a reload', () => {
+  const save = legacySave(); save.garden = { seeds: 25, levels: { sunbell: 3, coral: 3, lilac: 3, honey: 3, moon: 3, dawn: 3 } };
+  let app = boot(save); app.click('garden-btn');
+  const bench = app.$('decor-grid').querySelector('[data-decor="bench"]'), tree = app.$('decor-grid').querySelector('[data-decor="tree"]');
+  assert.equal(app.$('decor-count').textContent, '0/6 built'); assert.equal(app.$('meadow-summary').textContent, 'Full bloom · 0/6 built');
+  assert(bench.classList.contains('ready')); assert(!tree.classList.contains('ready'));
+  assert.equal(tree.getAttribute('aria-label'), 'Apple tree. 100 seeds. Shade, apples and a rope swing.');
+  assert(app.$('garden-btn').classList.contains('has-seeds'), 'an affordable decoration marks the Garden tab');
+  app.click('decor-grid', { decor: 'tree' });
+  assert.equal(app.$('toast').textContent, '75 more seeds for the apple tree.'); assert.deepEqual(app.saved().garden.decor, []);
+  app.click('decor-grid', { decor: 'bench' });
+  assert.deepEqual(app.saved().garden.decor, ['bench']); assert.equal(app.saved().garden.seeds, 5);
+  assert.equal(app.$('toast').textContent, 'Garden bench built!');
+  assert(bench.classList.contains('built')); assert.equal(bench.getAttribute('aria-disabled'), 'true');
+  assert.equal(bench.querySelector('.decor-price').innerHTML, 'Built!');
+  assert(!app.$('garden-btn').classList.contains('has-seeds'));
+  assert.equal(app.$('decor-count').textContent, '1/6 built');
+  app.click('decor-grid', { decor: 'bench' }); assert.equal(app.saved().garden.seeds, 5, 'a built decoration never charges again');
+  app.frame(); const drawn = app.meadowDraws.at(-1);
+  assert.deepEqual(drawn.state.decor, ['bench']); assert.equal(drawn.growth.decorId, 'bench');
+  app = boot(app.saved()); app.click('garden-btn');
+  assert(app.$('decor-grid').querySelector('[data-decor="bench"]').classList.contains('built'));
+});
+test('Meadow friends: each moves in with its decoration, says hello when tapped, and is met in the Collection', () => {
+  const save = legacySave(); save.garden = { seeds: 0, levels: {}, decor: ['bench', 'lilies'] };
+  const app = boot(save); app.click('garden-btn');
+  const spots = app.$('friend-spots');
+  assert.equal(spots.querySelector('[data-friend="biscuit"]').hidden, false); assert.equal(spots.querySelector('[data-friend="hopper"]').hidden, false);
+  assert.equal(spots.querySelector('[data-friend="pip"]').hidden, true, 'Pip waits for the birdhouse');
+  assert.match(spots.innerHTML, /aria-label="Biscuit the cat\. Say hi\."/);
+  app.click('friend-spots', { friend: 'hopper' });
+  assert.equal(app.$('friend-bubble').textContent, 'Ribbit!'); assert.equal(app.$('friend-bubble').hidden, false);
+  app.frame(); assert(Number.isFinite(app.meadowDraws.at(-1).pokes.hopper), 'the meadow is told Hopper was just tapped');
+  app.click('collection-btn');
+  assert.equal(app.$('friend-count').textContent, '2/6');
+  const grid = app.$('friend-grid').innerHTML;
+  assert.match(grid, /<strong>Biscuit<\/strong><span class="friend-kind">Cat<\/span><p>Naps on the bench all day\.<\/p>/);
+  assert.match(grid, /<strong>Hopper<\/strong>/); assert.match(grid, /Build the birdhouse to meet them\./); assert.match(grid, /Build the apple tree to meet them\./);
+  assert.equal((grid.match(/<strong>\?\?\?<\/strong>/g) || []).length, 4);
+  app.click('friend-grid', { friend: 'biscuit' }); assert.equal(app.$('toast').textContent, 'Biscuit: Mrrp?');
+});
+test('After the beds, the seed reward points at the cheapest decoration, and a finished meadow says so', () => {
+  const full = { sunbell: 3, coral: 3, lilac: 3, honey: 3, moon: 3, dawn: 3 };
+  const save = legacySave(); save.garden = { seeds: 0, levels: full, decor: ['bench'] };
+  const settle = app => { for (let i = 0; i < 40; i++) app.frame(); };
+  let app = boot(save); app.finishRush(24, 3); settle(app);
+  assert.equal(app.$('reward-seeds').textContent, '+8 seeds'); assert.equal(app.$('reward-goal').textContent, '22 more seeds to build the birdhouse.');
+  save.garden = { seeds: 30, levels: full, decor: ['bench'] };
+  app = boot(save); app.finishRush(24, 3); settle(app); assert.equal(app.$('reward-goal').textContent, 'Enough to build the birdhouse now.');
+  save.garden = { seeds: 0, levels: full, decor: Garden.decor.map(d => d.id) };
+  app = boot(save); app.finishRush(24, 3); settle(app); assert.equal(app.$('reward-goal').textContent, 'Your meadow is complete!');
+  app.click('result-garden-btn'); assert.equal(app.$('meadow-summary').textContent, 'Your meadow is complete!');
+});
+// Sunday 4 October 2026 offers: reach wave 4 in Rush, clear 2 puzzles, grow or build in the meadow.
+const GOAL_DAY = '2026-10-04T10:00:00';
+const settle = app => { for (let i = 0; i < 60 && !app.$('result-dialog').open; i++) app.frame(); };
+test("Today's goals: the Garden card lists all three with progress, and each one opens a place to play it", () => {
+  assert.deepEqual(Goals.forDay('2026-10-04').map(g => g.id), ['rush-wave', 'puzzles', 'meadow']);
+  const app = boot(legacySave(), { today: GOAL_DAY, goals: true }); app.click('garden-btn');
+  assert.equal(app.$('goals-count').textContent, '0/3 done');
+  const html = app.$('goals-list').innerHTML;
+  assert.match(html, /Reach wave 4 in Rush<\/span><span class="goal-count">0\/4<\/span>/); assert.match(html, /Clear 2 puzzles/); assert.match(html, /Grow or build in your meadow/);
+  assert.equal((html.match(/\+4<\/span>/g) || []).length, 3); assert.equal(app.$('goals-bonus').textContent, 'Finish all 3 for +6 bonus seeds.');
+  app.click('goals-list', { goal: 'rush' }); assert.equal(app.games.at(-1).mode, 'rush');
+  app.click('garden-btn'); app.click('goals-list', { goal: 'moon' }); assert.equal(app.$('world-dialog').open, true);
+});
+test('A Rush run that reaches the wave goal pays 4 more seeds once, says so on the result, and remembers it today only', () => {
+  let app = boot(legacySave(), { today: GOAL_DAY, goals: true }); app.finishRush(24, 5); settle(app);
+  assert.equal(app.saved().garden.seeds, 4 + 10 + 4); assert.equal(app.$('reward-seeds').textContent, '+14 seeds');
+  assert.equal(app.$('result-goals').hidden, false); assert.match(app.$('result-goals').innerHTML, /Goal done! Reach wave 4 in Rush\.<\/span><span class="goal-today">1\/3 today/);
+  assert.deepEqual(app.saved().goals, { day: '2026-10-04', progress: [4, 0, 0], done: [true, false, false], bonus: false });
+  app.click('retry-btn'); app.finishRush(24, 6); settle(app);
+  assert.equal(app.saved().garden.seeds, 18 + 11, 'the goal never pays twice'); assert.equal(app.$('result-goals').hidden, true);
+  app = boot(app.saved(), { today: '2026-10-05T09:00:00', goals: true });
+  assert.deepEqual(app.saved().goals.done, [false, false, false], 'a new day brings new goals');
+});
+test('Growing in the meadow and clearing two puzzles finish the day, paying each goal and the 6-seed bonus', () => {
+  const save = legacySave(); save.garden = { seeds: 4, levels: {}, selectedId: 'sunbell' };
+  const app = boot(save, { today: GOAL_DAY, goals: true }); app.click('garden-btn');
+  app.click('plant-btn'); assert.equal(app.saved().garden.seeds, 4); assert.equal(app.$('toast').textContent, 'Goal done! Grow or build in your meadow. +4 seeds');
+  app.click('rush-btn'); app.finishRush(24, 4); settle(app); assert.match(app.$('result-goals').innerHTML, /1\/3 today|2\/3 today/); app.click('result-garden-btn');
+  app.click('level-grid', { level: '1' }); app.games.at(-1).win(); settle(app);
+  assert.equal(app.$('result-goals').hidden, true);
+  app.click('retry-btn'); app.games.at(-1).win(); settle(app);
+  assert.match(app.$('result-goals').innerHTML, /All 3 goals done! \+6 bonus seeds\./); assert.doesNotMatch(app.$('result-goals').innerHTML, /today/);
+  assert.equal(app.$('reward-seeds').textContent, '+10 seeds');
+  assert.deepEqual(app.saved().goals, { day: '2026-10-04', progress: [4, 2, 1], done: [true, true, true], bonus: true });
+  app.click('result-garden-btn'); assert.equal(app.$('goals-count').textContent, '3/3 done'); assert.equal(app.$('goals-bonus').textContent, 'All done! New goals tomorrow.');
+});
 test('Native bridge: planting buzzes through BloomNative only while the Vibration setting is on', () => {
   const on = legacySave(); on.settings.haptics = true;
   const loud = fakeNative(); const a = boot(on, { native: loud }); a.click('garden-btn'); a.click('plant-btn');
