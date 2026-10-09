@@ -1,0 +1,41 @@
+# One-time setup: makes the key that signs Android builds for Google Play and stores it as GitHub secrets,
+# so the key is never in the repo, in a log or in chat. Steps for the one setup secret are in docs/PLAY-LAUNCH.md.
+# It refuses to run if a key already exists, so a good key can never be replaced by accident.
+name: Create Android upload key
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  create:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Make the key and store it as secrets
+        env:
+          GH_TOKEN: ${{ secrets.SETUP_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::The SETUP_TOKEN secret is missing. Follow the steps in docs/PLAY-LAUNCH.md first."
+            exit 1
+          fi
+          if gh secret list --repo "$GITHUB_REPOSITORY" --json name --jq '.[].name' | grep -qx 'ANDROID_KEYSTORE_BASE64'; then
+            echo "::error::An Android upload key already exists. Delete the four ANDROID_ secrets only if Google has agreed to reset your upload key."
+            exit 1
+          fi
+          password="$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 32)"
+          echo "::add-mask::$password"
+          keytool -genkeypair -storetype PKCS12 -keystore upload.keystore -alias upload -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass "$password" -keypass "$password" -dname "CN=Bloomshot upload key"
+          base64 -w0 upload.keystore | gh secret set ANDROID_KEYSTORE_BASE64 --repo "$GITHUB_REPOSITORY"
+          gh secret set ANDROID_KEYSTORE_PASSWORD --repo "$GITHUB_REPOSITORY" --body "$password"
+          gh secret set ANDROID_KEY_ALIAS --repo "$GITHUB_REPOSITORY" --body "upload"
+          gh secret set ANDROID_KEY_PASSWORD --repo "$GITHUB_REPOSITORY" --body "$password"
+          rm -f upload.keystore
+          echo "Upload key stored as four ANDROID_ secrets. Now delete the SETUP_TOKEN secret and the token it holds."
