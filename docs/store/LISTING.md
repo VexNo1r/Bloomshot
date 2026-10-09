@@ -60,7 +60,7 @@ The README states that code and art are AI-assisted (`bloomshot/ART-PROVENANCE.m
 
 ## Privacy and data forms
 
-Both stores ask what data the app collects. The app itself collects none. Once purchases are live, the RevenueCat SDK sends an anonymous installation id, purchase receipts and basic device details. Declare that as purchase history and device or other identifiers, used for app functionality only, not for advertising or tracking. RevenueCat publishes guidance for filling these forms in; follow it and check the console's current wording. A privacy policy link is required by both stores: see `PRIVACY-POLICY.md`.
+Both stores ask what data the app collects. The app itself collects none. Once purchases are live, the RevenueCat SDK sends an anonymous installation id, purchase receipts and basic device details. Declare that as purchase history and device or other identifiers, used for app functionality only, not for advertising or tracking. Google Play also asks separately whether the app uses the advertising ID: answer **No**. The Android build removes that permission (a purchases library would otherwise add it), and the release workflow fails if it ever comes back. RevenueCat publishes guidance for filling these forms in; follow it and check the console's current wording. A privacy policy link is required by both stores: see `PRIVACY-POLICY.md`.
 
 ## Graphics checklist
 
@@ -69,8 +69,8 @@ Both stores ask what data the app collects. The app itself collects none. Once p
 | App icon | Already generated from `bloomshot/icons/icon.svg`: 1024 px opaque for Apple, adaptive icon for Android. Google also wants a 512 x 512 store icon. |
 | iPhone screenshots | Apple asks for the largest iPhone size class. Confirm the exact pixel size in App Store Connect. |
 | iPad screenshots | Required if the app supports iPad, which it currently does. Confirm the pixel size in App Store Connect. |
-| Android screenshots | At least two phone screenshots; a 1024 x 500 feature graphic. |
-| Screenshot content | Use the final art. Show Meadow Rush mid-shot, a Garden puzzle, a Moon gate, the meadow, the Koi pool and its honest unlock panel. Take them after the visual polish passes settle, not before. |
+| Google Play graphics | Ready in `docs/store/graphics/google-play/`: `icon-512.png` (512 x 512 store icon), `feature-graphic.png` (1024 x 500), and four 1080 x 1920 phone screenshots (`phone-1-rush.png` to `phone-4-moon.png`). `feature-graphic-for-video.png` is the same banner with the logo raised, for use only if a promo video is added later. All are drawn from the game's own art code or captured from real play, with no text or prices added. |
+| Screenshot content | Show Meadow Rush mid-shot, a Garden puzzle, a Moon gate, the meadow, the Koi pool and its honest unlock panel. Screenshots of the current game are fine for the testing tracks; replace them with the final art before the public release. |
 
 ## Review notes to paste for the reviewer
 
