@@ -9,7 +9,7 @@ Added in the mobile-release pass, October 3 2026. Status: written and unit-teste
 | `bloomshot/store-config.js` | The catalog (product ids, entitlement ids, test prices) and the RevenueCat public keys. Edit this file to change what is sold. |
 | `bloomshot/store.js` | `BloomStore`: init, `products()`, `owns(entitlement)`, `purchase(productId)`, `restore()`, `subscribe(fn)`, and for powerups `onConsumable(fn)`, `deliver(fn)` and `pendingGrants()`. |
 | `bloomshot/store-ui.js` | A "Purchases" section in Settings with **Restore purchases**. It stays hidden unless a store is live. |
-| `bloomshot/qa/test-store.cjs` | 40 checks with a fake store plugin, including the bundle, powerups (crash, pending payment, reinstall, the game's handler) and a consistency check of the shipped catalog. |
+| `bloomshot/qa/test-store.cjs` | 41 checks with a fake store plugin, including the bundle, powerups (crash, pending payment, reinstall, the game's handler) and a consistency check of the shipped catalog. |
 
 The Koi Conservatory is the first gated content: `app.js` opens pools 3 to 8 only when `BloomStore.owns('world_koi')` is true, and its unlock panel calls `BloomStore.purchase('bloomshot.world.koi')` only when the store is live and the product is `available`.
 

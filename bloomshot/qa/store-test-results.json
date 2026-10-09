@@ -1,5 +1,5 @@
 {
-  "passed": 40,
+  "passed": 41,
   "failed": 0,
   "results": [
     {
@@ -148,6 +148,10 @@
     },
     {
       "name": "powerups: onConsumable takes waiting grants once the store is ready and each new one before purchase() answers",
+      "passed": true
+    },
+    {
+      "name": "powerups: a grant left waiting by an earlier session goes to a handler registered before launch",
       "passed": true
     },
     {

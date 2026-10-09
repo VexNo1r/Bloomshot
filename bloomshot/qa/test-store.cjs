@@ -557,6 +557,16 @@ const ledgerOf = storage => JSON.parse(storage.data['bloomshot.grants.v1']);
     assert.equal((await store.purchase('p.bomb')).delivered, true);
   });
 
+  await test('powerups: a grant left waiting by an earlier session goes to a handler registered before launch', async () => {
+    const plugin = powerPlugin(); const env = powerEnv(plugin);
+    const first = Store.create(env); await first.init();
+    assert.equal((await first.purchase('p.bomb')).delivered, false); // no handler yet
+    const relaunch = Store.create(powerEnv(plugin, { storage: env.storage }));
+    const got = []; relaunch.onConsumable(g => { got.push(g.transaction); return true; });
+    await relaunch.init();
+    assert.deepEqual(got, ['GPA.1']); assert.deepEqual(relaunch.pendingGrants(), []);
+  });
+
   await test('powerups: the website grants nothing, even with a forged ledger', async () => {
     const storage = memoryStorage({ 'bloomshot.grants.v1': JSON.stringify({ v: 1, baseline: true, seen: ['x'], inflight: [], owed: [{ transaction: 'x', productId: 'p.bomb', power: 'bomb', count: 99 }] }) });
     const store = Store.create({ config: POWER, storage }); await store.init();
