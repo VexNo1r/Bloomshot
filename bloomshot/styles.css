@@ -204,6 +204,29 @@ button.panel:active{transform:translateY(3px);box-shadow:inset 0 0 0 2px var(--e
 .decor-card.ready .decor-art{box-shadow:0 0 0 2px var(--cream),0 0 0 4px var(--gold)}
 .decor-card.built{background:var(--cream);box-shadow:inset 0 0 0 2px var(--edge)}
 .decor-card.built .decor-price{background:var(--green-soft);color:var(--green-deep);box-shadow:none}
+.goals-card{margin-bottom:14px}
+.goals-list{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.goal{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border-radius:14px;background:#fff;box-shadow:inset 0 0 0 2px var(--edge),0 3px 0 var(--edge-dark);text-align:left;transition:transform .12s var(--press),box-shadow .12s}
+.goal:not(.done):active{transform:translateY(2px);box-shadow:inset 0 0 0 2px var(--edge),0 1px 0 var(--edge-dark)}
+.goal-check{flex:0 0 22px;height:22px;border-radius:50%;background:var(--cream-2);box-shadow:inset 0 0 0 2px var(--edge-dark)}
+.goal.done .goal-check,.result-goals .goal-check{background:var(--green) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'%3E%3Cpath d='m6.5 11.2 3 3 6-6.4' fill='none' stroke='%23fff' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/100% no-repeat;box-shadow:0 2px 0 var(--green-edge)}
+.goal-copy{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+.goal-line{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.goal-text{font:600 14px/1.2 var(--display);color:var(--ink)}
+.goal-stars{color:#e8a614}
+.goal-count{flex:0 0 auto;font:600 12px/1 var(--display);color:var(--ink-soft)}
+.goal-bar{display:block;height:7px;border-radius:999px;background:var(--cream-2);box-shadow:inset 0 0 0 1.5px var(--edge);overflow:hidden}
+.goal-bar i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--green-top),var(--green))}
+.goal-reward{flex:0 0 auto;display:inline-flex;align-items:center;gap:5px;padding:4px 10px 5px;border-radius:999px;background:var(--gold);color:var(--gold-ink);box-shadow:0 2px 0 var(--gold-edge);font:600 13px/1 var(--display)}
+.goal-reward .purse-leaf{width:7px;height:11px}
+.goal.done{background:var(--cream);box-shadow:inset 0 0 0 2px var(--edge)}
+.goal.done .goal-text{color:var(--ink-soft)}
+.goal.done .goal-bar i{background:var(--green-soft)}
+.goal.done .goal-reward{background:var(--green-soft);color:var(--green-deep);box-shadow:none}
+.goals-bonus{margin:10px 2px 0;font-size:12.5px;line-height:1.35;color:var(--ink-soft)}
+.result-goals{display:flex;align-items:center;gap:8px;margin:10px 0 0;padding:8px 12px;border-radius:14px;background:var(--green-soft);font:600 14px/1.25 var(--display);color:var(--green-deep);text-align:left}
+.result-goals .goal-check{flex:0 0 20px;height:20px}
+.goal-today{margin-left:auto;flex:0 0 auto;font:600 12px/1 var(--display);color:var(--ink-soft)}
 .daily-card{display:flex;align-items:center;gap:13px;margin-bottom:14px}
 .daily-board{flex:0 0 70px;width:70px;height:94px;border-radius:12px;box-shadow:0 0 0 3px #fff,0 0 0 5px var(--edge)}
 .daily-copy{display:flex;flex-direction:column;gap:3px;flex:1;min-width:0}

@@ -4,6 +4,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const Garden = require('../garden.js');
+const Goals = require('../goals.js');
+// Daily goals change with the date and pay their own seeds, so most tests keep them quiet; goal tests opt in.
+const QuietGoals = { ...Goals, record: (state, date) => ({ state: Goals.normalize(state, date), done: [], bonus: false }) };
 const Levels = require('../levels.js');
 const Moon = require('../moon.js');
 const Koi = require('../koi.js');
@@ -46,7 +49,7 @@ function fakeStore({ owned = [], live = false, available = false, price = '$4.99
 function fixedDate(moment) {
   return class extends Date { constructor(...args) { if (args.length) super(...args); else super(moment); } static now() { return new Date(moment).getTime(); } };
 }
-function boot(raw, { storageFails = false, search = '', otherSave, store, native, today } = {}) {
+function boot(raw, { storageFails = false, search = '', otherSave, store, native, today, goals = false } = {}) {
   const key = search.includes('qa') ? 'bloomshot.qa.v1' : 'bloomshot.save.v1';
   const storage = new Map();
   if (raw !== undefined) storage.set(key, JSON.stringify(raw));
@@ -95,7 +98,7 @@ function boot(raw, { storageFails = false, search = '', otherSave, store, native
     performance: { now: () => now }, devicePixelRatio: 1,
     matchMedia: () => ({ matches: false, addEventListener: noop }),
     requestAnimationFrame: fn => { nextFrame = fn; }, setTimeout: () => 1, clearTimeout: noop,
-    BloomLevels: { ...Levels, worlds: [...Levels.worlds, FUTURE] }, BloomMoon: Moon, BloomKoi: Koi, BloomGarden: Garden, ...(store ? { BloomStore: store } : {}), ...(native ? { BloomNative: native } : {}), BloomEngine: { ...Engine, Game: ObservedGame }, BloomRush: { RushGame: ObservedRush },
+    BloomLevels: { ...Levels, worlds: [...Levels.worlds, FUTURE] }, BloomMoon: Moon, BloomKoi: Koi, BloomGarden: Garden, BloomGoals: goals ? Goals : QuietGoals, ...(store ? { BloomStore: store } : {}), ...(native ? { BloomNative: native } : {}), BloomEngine: { ...Engine, Game: ObservedGame }, BloomRush: { RushGame: ObservedRush },
     BloomSound: { wake: noop, play: noop, setEnabled: noop }, BloomKeepsakes: Keepsakes,
     BloomArt: { draw: (ctx, state, time, options) => boardDraws.push(options.keepsake ? options.keepsake.id : 'meadow'), drawFlower: noop, drawMoon: noop, koiFish: noop,
       drawGarden: noop, drawProjectile: noop, drawParticle: noop, drawSeed: noop },
@@ -459,6 +462,42 @@ test('After the beds, the seed reward points at the cheapest decoration, and a f
   save.garden = { seeds: 0, levels: full, decor: Garden.decor.map(d => d.id) };
   app = boot(save); app.finishRush(24, 3); settle(app); assert.equal(app.$('reward-goal').textContent, 'Your meadow is complete!');
   app.click('result-garden-btn'); assert.equal(app.$('meadow-summary').textContent, 'Your meadow is complete!');
+});
+// Sunday 4 October 2026 offers: reach wave 4 in Rush, clear 2 puzzles, grow or build in the meadow.
+const GOAL_DAY = '2026-10-04T10:00:00';
+const settle = app => { for (let i = 0; i < 60 && !app.$('result-dialog').open; i++) app.frame(); };
+test("Today's goals: the Garden card lists all three with progress, and each one opens a place to play it", () => {
+  assert.deepEqual(Goals.forDay('2026-10-04').map(g => g.id), ['rush-wave', 'puzzles', 'meadow']);
+  const app = boot(legacySave(), { today: GOAL_DAY, goals: true }); app.click('garden-btn');
+  assert.equal(app.$('goals-count').textContent, '0/3 done');
+  const html = app.$('goals-list').innerHTML;
+  assert.match(html, /Reach wave 4 in Rush<\/span><span class="goal-count">0\/4<\/span>/); assert.match(html, /Clear 2 puzzles/); assert.match(html, /Grow or build in your meadow/);
+  assert.equal((html.match(/\+4<\/span>/g) || []).length, 3); assert.equal(app.$('goals-bonus').textContent, 'Finish all 3 for +6 bonus seeds.');
+  app.click('goals-list', { goal: 'rush' }); assert.equal(app.games.at(-1).mode, 'rush');
+  app.click('garden-btn'); app.click('goals-list', { goal: 'moon' }); assert.equal(app.$('world-dialog').open, true);
+});
+test('A Rush run that reaches the wave goal pays 4 more seeds once, says so on the result, and remembers it today only', () => {
+  let app = boot(legacySave(), { today: GOAL_DAY, goals: true }); app.finishRush(24, 5); settle(app);
+  assert.equal(app.saved().garden.seeds, 4 + 10 + 4); assert.equal(app.$('reward-seeds').textContent, '+14 seeds');
+  assert.equal(app.$('result-goals').hidden, false); assert.match(app.$('result-goals').innerHTML, /Goal done! Reach wave 4 in Rush\.<\/span><span class="goal-today">1\/3 today/);
+  assert.deepEqual(app.saved().goals, { day: '2026-10-04', progress: [4, 0, 0], done: [true, false, false], bonus: false });
+  app.click('retry-btn'); app.finishRush(24, 6); settle(app);
+  assert.equal(app.saved().garden.seeds, 18 + 11, 'the goal never pays twice'); assert.equal(app.$('result-goals').hidden, true);
+  app = boot(app.saved(), { today: '2026-10-05T09:00:00', goals: true });
+  assert.deepEqual(app.saved().goals.done, [false, false, false], 'a new day brings new goals');
+});
+test('Growing in the meadow and clearing two puzzles finish the day, paying each goal and the 6-seed bonus', () => {
+  const save = legacySave(); save.garden = { seeds: 4, levels: {}, selectedId: 'sunbell' };
+  const app = boot(save, { today: GOAL_DAY, goals: true }); app.click('garden-btn');
+  app.click('plant-btn'); assert.equal(app.saved().garden.seeds, 4); assert.equal(app.$('toast').textContent, 'Goal done! Grow or build in your meadow. +4 seeds');
+  app.click('rush-btn'); app.finishRush(24, 4); settle(app); assert.match(app.$('result-goals').innerHTML, /1\/3 today|2\/3 today/); app.click('result-garden-btn');
+  app.click('level-grid', { level: '1' }); app.games.at(-1).win(); settle(app);
+  assert.equal(app.$('result-goals').hidden, true);
+  app.click('retry-btn'); app.games.at(-1).win(); settle(app);
+  assert.match(app.$('result-goals').innerHTML, /All 3 goals done! \+6 bonus seeds\./); assert.doesNotMatch(app.$('result-goals').innerHTML, /today/);
+  assert.equal(app.$('reward-seeds').textContent, '+10 seeds');
+  assert.deepEqual(app.saved().goals, { day: '2026-10-04', progress: [4, 2, 1], done: [true, true, true], bonus: true });
+  app.click('result-garden-btn'); assert.equal(app.$('goals-count').textContent, '3/3 done'); assert.equal(app.$('goals-bonus').textContent, 'All done! New goals tomorrow.');
 });
 test('Native bridge: planting buzzes through BloomNative only while the Vibration setting is on', () => {
   const on = legacySave(); on.settings.haptics = true;

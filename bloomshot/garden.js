@@ -14,6 +14,8 @@
   // The daily garden pays once per new star, like any garden. Clearing any four daily gardens in one
   // Monday-to-Sunday week also gathers that week's bouquet. Missed days never take anything away.
   var DAILY_LIMIT = 21, BOUQUET_GOAL = 4, BOUQUET_SEEDS = 12, BOUQUET_LIMIT = 8;
+  // Each of the day's three goals (goals.js) pays once, and finishing all three pays a bonus.
+  var GOAL_SEEDS = 4, GOAL_BONUS = 6;
   var DAY = 86400000;
   var STAGES = Object.freeze([
     Object.freeze({ stage: 1, name: 'First shoots', cost: COSTS[0] }),
@@ -170,6 +172,9 @@
         bouquet = { week: thisWeek.id, seeds: BOUQUET_SEEDS };
         earned += BOUQUET_SEEDS;
       }
+    } else if (reward.mode === 'goal') {
+      if (dailyDay('daily-' + reward.day) === null || [0, 1, 2, 'bonus'].indexOf(reward.slot) < 0) return result(0, 'invalid-reward');
+      earned = reward.slot === 'bonus' ? GOAL_BONUS : GOAL_SEEDS;
     } else return result(0, 'invalid-mode');
     // Record even valid zero-seed results: the same completion cannot later be edited and claimed.
     next.receipts.push(runId);
@@ -253,5 +258,5 @@
       plots: beds };
   }
   return Object.freeze({ plots: plots, decor: decor, normalize: normalize, grant: grant, plant: plant, build: build, select: select, summary: summary, week: week,
-    daily: Object.freeze({ firstClear: [6, 8, 10], perStar: 2, bouquetGoal: BOUQUET_GOAL, bouquetSeeds: BOUQUET_SEEDS }) });
+    daily: Object.freeze({ firstClear: [6, 8, 10], perStar: 2, bouquetGoal: BOUQUET_GOAL, bouquetSeeds: BOUQUET_SEEDS, goalSeeds: GOAL_SEEDS, goalBonus: GOAL_BONUS }) });
 });

@@ -1,11 +1,11 @@
 {
   "passed": true,
-  "testedAt": "2026-10-09T09:18:04.031Z",
+  "testedAt": "2026-10-09T09:26:33.690Z",
   "node": "v22.22.0",
-  "workerSha256": "32349513d30f67acd392aaad4d0ec57bfa865870b2d85973b89994fe1b1cd463",
+  "workerSha256": "523bfe642479ca1307d0fa418cbd6ab5762c891e1da6ad64d4970d7cd94e837d",
   "maxConnections": 3,
-  "workerVersion": "1ba7ea1c5d4a7283",
-  "assetCount": 28,
+  "workerVersion": "2236a2381c59419f",
+  "assetCount": 29,
   "imageCount": 6,
   "negativeControl": {
     "stalledAsExpected": true,
@@ -13,35 +13,35 @@
     "consumed": 0,
     "bytes": 0,
     "peakConnections": 3,
-    "elapsedMs": 276.64
+    "elapsedMs": 277.02
   },
   "actualInstall": {
-    "headers": 28,
-    "consumed": 28,
-    "bytes": 554688,
+    "headers": 29,
+    "consumed": 29,
+    "bytes": 568034,
     "peakConnections": 3,
-    "cached": 28,
-    "elapsedMs": 43.25,
+    "cached": 29,
+    "elapsedMs": 47.85,
     "deadlineMs": 15000,
     "allBodyHashesMatch": true
   },
   "assets": [
     {
       "path": "/",
-      "bytes": 21327,
-      "sha256": "b5ef48f7dad42521b0eb6a667071b0e219b875b1e323ddefcc3ad8eb6c806466",
+      "bytes": 21796,
+      "sha256": "d14f2ed05a3c429200e4f93507835caf0c59735dfdbfbb07e70b2f5433a4cfb3",
       "type": "text/html; charset=utf-8"
     },
     {
       "path": "/index.html",
-      "bytes": 21327,
-      "sha256": "b5ef48f7dad42521b0eb6a667071b0e219b875b1e323ddefcc3ad8eb6c806466",
+      "bytes": 21796,
+      "sha256": "d14f2ed05a3c429200e4f93507835caf0c59735dfdbfbb07e70b2f5433a4cfb3",
       "type": "text/html; charset=utf-8"
     },
     {
       "path": "/styles.css",
-      "bytes": 42740,
-      "sha256": "5ec6092ede2b3f403f8d7a4b98895d6b8af0d582377ca0615b5d4b093ef570a0",
+      "bytes": 45272,
+      "sha256": "1aea3d010b9e4c9d9fdff3f7380f54da083481407c311c8027f559c86150b22b",
       "type": "text/css; charset=utf-8"
     },
     {
@@ -82,8 +82,14 @@
     },
     {
       "path": "/garden.js",
-      "bytes": 15715,
-      "sha256": "9632e7faf574b893adb555b155a7df9922710d23c17585d7376bcd197ef37796",
+      "bytes": 16136,
+      "sha256": "edc160a4796edae552a14aa6d2e566eb510bb2af9118d59af78c2bfb87a718c8",
+      "type": "text/javascript; charset=utf-8"
+    },
+    {
+      "path": "/goals.js",
+      "bytes": 5413,
+      "sha256": "7b8afd96462b76faf5e99e22e7a8056d00345d23655935c35396c724d54806e5",
       "type": "text/javascript; charset=utf-8"
     },
     {
@@ -124,8 +130,8 @@
     },
     {
       "path": "/app.js",
-      "bytes": 85795,
-      "sha256": "9f92bb89cc42725944d425c05ff94bf48b31a8826406ff9175fd61d045079f71",
+      "bytes": 89837,
+      "sha256": "ace5887563a6a174ef9c7b57c577a10f82122bc9820f5fc3cfb3e88ab0c411fa",
       "type": "text/javascript; charset=utf-8"
     },
     {
@@ -199,198 +205,205 @@
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 1,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 1
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 2,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 2
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 3,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 3
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 4,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 4
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 5,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 5
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 6,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 6
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 7,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 7
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 8,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 8
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 9,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 9
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 10,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 10
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 11,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 11
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 12,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 12
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 13,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 13
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 14,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 14
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 15,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 15
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 16,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 16
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 17,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 17
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 18,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 18
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 19,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 19
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 20,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 20
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 21,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 21
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 22,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 22
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 23,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 23
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 24,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 24
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 25,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 25
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 26,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 26
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 27,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 27
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 28,
-      "total": 28,
+      "total": 29,
       "failed": false,
       "cached": 28
+    },
+    {
+      "type": "BLOOMSHOT_DOWNLOAD",
+      "completed": 29,
+      "total": 29,
+      "failed": false,
+      "cached": 29
     }
   ]
 }
