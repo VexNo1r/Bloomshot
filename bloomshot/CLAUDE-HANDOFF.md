@@ -37,7 +37,7 @@ Normal save `bloomshot.save.v1`; `?qa` uses `bloomshot.qa.v1`. Trevor plays in b
 - `scenery.js` (`BloomScenery`) paints the ten level scenes and their rock styles as procedural Canvas illustration. `art.js` draws the board pieces (cups, puffcaps, the big bloom, shells, geodes, gems, briar vines with a regrow ring, tunnel holes, themed water).
 - Difficulty is tuned with `qa/depths-bot.cjs`, a practice player that traces shots through the board with aim error. A good bot clears every level; an average bot loses more lives as levels go deeper. `qa/test-depths.cjs` checks layout safety, every mechanic and the difficulty order.
 - Rewards: `garden.js` mode `depths` pays seeds for blooms and waves (capped per run) and a first-clear bonus by stars.
-- The unlock: levels 5 to 10 need entitlement `levels_full` from product `bloomshot.levels.full` ($2.99, `available: false` until a sandbox purchase works). The map shows the paid levels with their art and a lock, and one card between level 4 and level 5 says exactly what the unlock holds and its store price (or "not on sale yet", or "in the app" on the web). Clearing level 4 without it shows one quiet "See levels 5 to 10" button under Replay. Nothing interrupts play to sell.
+- The unlock: levels 5 to 10 need entitlement `levels_full` from product `bloomshot.levels.full` ($2.99, `available: false` until a sandbox purchase works). The map shows the paid levels with their art and a lock, and one card between level 4 and level 5 says exactly what the unlock holds and its store price (or "not on sale yet", or "in the app" on the web). Clearing level 4 without it shows one quiet cream "See levels 5 to 10" button, with Replay staying the main green button. Nothing interrupts play to sell.
 
 ## Storybook rules
 

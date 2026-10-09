@@ -1105,7 +1105,13 @@
     'depth-meadow': { petals: ['#ff8fb1', '#ffd45c', '#ffffff', '#c2a2ff'], mote: '255,246,190', motes: false },
     'depth-roots': { petals: ['#e6c492', '#f3dcb0', '#c99460'], mote: '255,232,190', butterfly: false, motes: false },
     'depth-grotto': { petals: ['#9ff7e6', '#c8fff4', '#f2b75a'], mote: '160,255,230', butterfly: false, motes: false },
-    'depth-crystal': { petals: ['#b9f6ff', '#e3d5ff', '#ffffff'], mote: '190,240,255', butterfly: false, motes: false }
+    'depth-crystal': { petals: ['#b9f6ff', '#e3d5ff', '#ffffff'], mote: '190,240,255', butterfly: false, motes: false },
+    'depth-lake': { petals: ['#a8f5e0', '#d2f6ee', '#7fd6c8'], mote: '170,255,225', butterfly: false },
+    'depth-fossil': { petals: ['#e9cf9f', '#f6e4c0', '#c9a173'], mote: '255,240,200', butterfly: false, motes: false },
+    'depth-ember': { petals: ['#5e4a46', '#7d625a', '#3f302e'], mote: '255,150,80', butterfly: false },
+    'depth-geode': { petals: ['#c9a8ff', '#efdcff', '#9be8ff'], mote: '220,190,255', butterfly: false, motes: false },
+    'depth-briar': { petals: ['#c8506a', '#e88aa0', '#d9e9a8'], mote: '230,255,170', butterfly: false },
+    'depth-core': { petals: ['#ffe3a8', '#ffc46b', '#f7b0d0'], mote: '255,220,150', butterfly: false }
   };
   function drawAmbient(ctx, time, theme) {
     const a = AMBIENT[theme] || AMBIENT.meadow;

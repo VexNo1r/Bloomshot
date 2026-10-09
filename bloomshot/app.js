@@ -348,7 +348,7 @@
     const summary = $('garden-summary'); if (summary) summary.textContent = `${completed}/${levels.length} · ${total} ★`;
   }
   // The level map on Play: a card per level showing a slice of its own scene, stacked the way the levels go down.
-  const SCENE_SLICE = { meadow: 240, roots: 0, grotto: 46, crystal: 40 };
+  const SCENE_SLICE = { meadow: 240, roots: 0, grotto: 46, crystal: 40, lake: 390, fossil: 390, ember: 390, geode: 14, briar: 10, core: 390 };
   const sceneSlices = new Map();
   function sceneSlice(level) {
     if (!sceneSlices.has(level.key)) {
