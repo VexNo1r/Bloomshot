@@ -1,5 +1,5 @@
 {
-  "passed": 24,
+  "passed": 39,
   "failed": 0,
   "results": [
     {
@@ -92,6 +92,66 @@
     },
     {
       "name": "bundle: mock mode refuses the bundle after one of its items, and loads a mock account saved before bundles existed",
+      "passed": true
+    },
+    {
+      "name": "powerups: a consumable is sold only with a valid grant and no entitlements, and is never owned",
+      "passed": true
+    },
+    {
+      "name": "powerups: each buy charges once and becomes its own grant, delivered once and never again after a relaunch",
+      "passed": true
+    },
+    {
+      "name": "powerups: a grant the game did not save stays owed, across a relaunch, until deliver gets true",
+      "passed": true
+    },
+    {
+      "name": "powerups: paid but the app was killed before it heard back, the next launch grants it once",
+      "passed": true
+    },
+    {
+      "name": "powerups: a pending payment never claims an earlier purchase of the same powerup",
+      "passed": true
+    },
+    {
+      "name": "powerups: a pending payment grants nothing until it clears, then once, by relaunch or by Restore",
+      "passed": true
+    },
+    {
+      "name": "powerups: after a reinstall, old powerups are never paid out again, by launch or by Restore",
+      "passed": true
+    },
+    {
+      "name": "powerups: an install that could not reach the store at launch notes the old ones before its first buy",
+      "passed": true
+    },
+    {
+      "name": "powerups: a store answer without a transaction is still matched to the purchase, and only to it",
+      "passed": true
+    },
+    {
+      "name": "powerups: a store answer that repeats an already granted transaction grants nothing new",
+      "passed": true
+    },
+    {
+      "name": "powerups: cancel and errors grant nothing and leave nothing waiting",
+      "passed": true
+    },
+    {
+      "name": "powerups: a second tap during a buy is rejected, not double-charged",
+      "passed": true
+    },
+    {
+      "name": "powerups: an unsettled purchase older than a week no longer claims a transaction",
+      "passed": true
+    },
+    {
+      "name": "powerups: the website grants nothing, even with a forged ledger",
+      "passed": true
+    },
+    {
+      "name": "powerups: mock mode buys, survives a crash and a pending payment, and never re-grants after a reinstall",
       "passed": true
     },
     {

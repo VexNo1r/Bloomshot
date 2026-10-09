@@ -75,7 +75,7 @@ Testing, **Closed testing**, create a track, add the 12 testers' Gmail addresses
 The bundle from step 6 has no store in it: no store key is set and every product is switched off, so it shows no buy button and no Restore button. The purchase test needs a second bundle:
 
 1. Create only the product being tested, one whose content is playable now, with its id and price from `docs/store/LISTING.md`, and tap **Activate**. Create the others when LISTING.md says so; a product id can never be reused. This needs the payments profile from step 2.
-2. Connect RevenueCat to Play. It needs Play service credentials, and Claude will walk you through that; allow up to a day after adding them before testing.
+2. Connect RevenueCat to Play. It needs Play service credentials, and Claude will walk you through that; allow up to a day after adding them before testing. When you add the product in RevenueCat, set its type: **Non-consumable** for an unlock (levels, worlds, keepsakes, bundles) and **Consumable** for a powerup. Left unset, RevenueCat uses up the purchase, and an unlock that has been used up cannot be restored on a new phone.
 3. Claude puts the Android public SDK key in `store-config.js` and switches on only that product. Run **Android release bundle** again (the new bundle gets a higher version code) and upload it to **Internal testing** only.
 4. Add your Gmail under Settings, License testing. On that build, follow `docs/STORES.md` for the buy, cancel, buy again, restore and refund checks.
 

@@ -62,6 +62,44 @@ const GRANTS = { 'p.a': ['e_a'], 'p.b': ['e_b'], 'p.both': ['e_a', 'e_b'] };
 const bundleEnv = (plugin, extra = {}) => nativeEnv(plugin, { config: BUNDLE, ...extra });
 const find = (store, id) => store.products().find(p => p.id === id);
 
+// Powerups: consumable products. The fake account keeps RevenueCat's nonSubscriptionTransactions list.
+const POWER = {
+  revenueCatKeys: CONFIG.revenueCatKeys,
+  products: [
+    { id: 'p.live', entitlement: 'e_live', kind: 'world', title: 'Live World', priceHint: '$4.99', available: true },
+    { id: 'p.bomb', consumable: true, grants: { item: 'bomb', count: 1 }, kind: 'powerup', title: 'Seed Bomb', priceHint: '$0.25', available: true },
+    { id: 'p.rain', consumable: true, grants: { item: 'rain', count: 3 }, kind: 'powerup', title: 'Rain', priceHint: '$0.25', available: true }
+  ]
+};
+function powerPlugin(options = {}) {
+  const calls = [];
+  const state = { txs: (options.txs || []).slice(), configured: false, offline: Boolean(options.offline), next: 1, mode: options.mode || 'ok' };
+  const info = () => ({ entitlements: { active: {} }, nonSubscriptionTransactions: state.txs.slice() });
+  const charge = id => { const tx = { transactionIdentifier: 'GPA.' + (state.next++), productIdentifier: id, purchaseDate: '2026-10-09T23:00:00Z' }; state.txs.push(tx); return tx; };
+  return {
+    calls, state, charge,
+    isConfigured: async () => ({ isConfigured: state.configured }),
+    configure: async () => { state.configured = true; },
+    getCustomerInfo: async () => { calls.push(['getCustomerInfo']); if (state.offline) throw new Error('offline'); return { customerInfo: info() }; },
+    getProducts: async opts => ({ products: opts.productIdentifiers.map(id => ({ identifier: id, priceString: '$0.25', price: 0.25, currencyCode: 'USD' })) }),
+    purchaseStoreProduct: async ({ product }) => {
+      calls.push(['purchase', product.identifier]);
+      const mode = state.mode;
+      if (mode === 'cancel') { const e = new Error('cancelled'); e.userCancelled = true; throw e; }
+      if (mode === 'pending') { const e = new Error('The payment is pending.'); e.code = '20'; throw e; }
+      if (mode === 'hang') { charge(product.identifier); return new Promise(() => {}); } // charged, then the app is killed
+      if (mode === 'replay') return { customerInfo: info(), transaction: state.txs[state.txs.length - 1] }; // the store hands back an old transaction
+      const tx = charge(product.identifier);
+      if (mode === 'slow') await new Promise(r => setTimeout(r, 30));
+      return mode === 'noTransaction' ? { customerInfo: info() } : { customerInfo: info(), transaction: tx };
+    },
+    restorePurchases: async () => { calls.push(['restore']); return { customerInfo: info() }; }
+  };
+}
+const powerEnv = (plugin, extra = {}) => nativeEnv(plugin, { config: POWER, ...extra });
+const take = store => { const got = []; store.deliver(g => { got.push(g); return true; }); return got; };
+const ledgerOf = storage => JSON.parse(storage.data['bloomshot.grants.v1']);
+
 (async () => {
   await test('browser and CommonJS expose the same API', () => {
     const context = vm.createContext({});
@@ -325,6 +363,204 @@ const find = (store, id) => store.products().find(p => p.id === id);
     assert.equal(find(store, 'p.both').owned, true);
   });
 
+
+  await test('powerups: a consumable is sold only with a valid grant and no entitlements, and is never owned', async () => {
+    const config = { revenueCatKeys: CONFIG.revenueCatKeys, products: POWER.products.concat([
+      { id: 'p.nogrant', consumable: true, kind: 'powerup', title: 'No grant', available: true },
+      { id: 'p.zero', consumable: true, grants: { item: 'bomb', count: 0 }, title: 'Zero', available: true },
+      { id: 'p.both', consumable: true, entitlement: 'e_x', grants: { item: 'bomb', count: 1 }, title: 'Both', available: true }
+    ]) };
+    const store = Store.create(powerEnv(powerPlugin(), { config }));
+    await store.init();
+    const bomb = find(store, 'p.bomb');
+    assert.equal(bomb.consumable, true); assert.deepEqual(bomb.grants, { item: 'bomb', count: 1 }); assert.deepEqual(bomb.entitlements, []);
+    assert.equal(bomb.available, true); assert.equal(bomb.owned, false); assert.equal(bomb.partial, false);
+    assert.equal(find(store, 'p.live').consumable, false); assert.equal(find(store, 'p.live').grants, null);
+    for (const id of ['p.nogrant', 'p.zero', 'p.both']) { assert.equal(find(store, id).available, false, id); assert.equal((await store.purchase(id)).reason, 'unavailable-product'); }
+  });
+
+  await test('powerups: each buy charges once and becomes its own grant, delivered once and never again after a relaunch', async () => {
+    const plugin = powerPlugin(); const env = powerEnv(plugin);
+    const store = Store.create(env); await store.init();
+    const seen = []; store.subscribe(e => seen.push(e.type));
+    const first = await store.purchase('p.bomb');
+    assert.deepEqual(first, { ok: true, grant: { id: 'GPA.1', productId: 'p.bomb', item: 'bomb', count: 1 } });
+    assert.ok(seen.includes('grants'));
+    const second = await store.purchase('p.rain');
+    assert.deepEqual(second.grant, { id: 'GPA.2', productId: 'p.rain', item: 'rain', count: 3 });
+    assert.equal(find(store, 'p.bomb').owned, false);
+    assert.deepEqual(store.pendingGrants().map(g => g.id), ['GPA.1', 'GPA.2']);
+    assert.deepEqual(take(store).map(g => [g.item, g.count]), [['bomb', 1], ['rain', 3]]);
+    assert.deepEqual(store.pendingGrants(), []); assert.deepEqual(take(store), []);
+    const relaunch = Store.create(powerEnv(plugin, { storage: env.storage })); await relaunch.init();
+    assert.deepEqual(relaunch.pendingGrants(), []);
+    assert.deepEqual(ledgerOf(env.storage).inflight, []);
+    assert.equal(plugin.calls.filter(c => c[0] === 'purchase').length, 2);
+  });
+
+  await test('powerups: a grant the game did not save stays owed, across a relaunch, until deliver gets true', async () => {
+    const plugin = powerPlugin(); const env = powerEnv(plugin);
+    const store = Store.create(env); await store.init();
+    await store.purchase('p.bomb');
+    assert.equal(store.deliver(() => false), 0);
+    assert.equal(store.deliver(() => { throw new Error('save failed'); }), 0);
+    assert.equal(store.deliver(() => 'yes'), 0); // only a real true counts
+    const relaunch = Store.create(powerEnv(plugin, { storage: env.storage })); await relaunch.init();
+    assert.deepEqual(relaunch.pendingGrants().map(g => g.id), ['GPA.1']);
+    assert.equal(relaunch.deliver(() => true), 1);
+    assert.deepEqual(relaunch.pendingGrants(), []);
+  });
+
+  await test('powerups: paid but the app was killed before it heard back, the next launch grants it once', async () => {
+    const plugin = powerPlugin({ mode: 'hang' }); const env = powerEnv(plugin);
+    const store = Store.create(env); await store.init();
+    store.purchase('p.bomb'); // never settles: the app is gone
+    await new Promise(r => setTimeout(r, 5));
+    assert.equal(ledgerOf(env.storage).inflight.length, 1);
+    plugin.state.mode = 'ok';
+    const relaunch = Store.create(powerEnv(plugin, { storage: env.storage })); await relaunch.init();
+    assert.deepEqual(take(relaunch).map(g => g.id), ['GPA.1']);
+    assert.deepEqual(ledgerOf(env.storage).inflight, []);
+    const third = Store.create(powerEnv(plugin, { storage: env.storage })); await third.init();
+    assert.deepEqual(third.pendingGrants(), []);
+  });
+
+  await test('powerups: a pending payment never claims an earlier purchase of the same powerup', async () => {
+    const plugin = powerPlugin(); const store = Store.create(powerEnv(plugin)); await store.init();
+    assert.equal((await store.purchase('p.bomb')).ok, true);
+    plugin.state.mode = 'pending';
+    assert.equal((await store.purchase('p.bomb')).reason, 'pending');
+    assert.equal((await store.restore()).ok, true); // GPA.1 is on the account again; it was already granted
+    assert.deepEqual(store.pendingGrants().map(g => g.id), ['GPA.1']);
+    plugin.charge('p.bomb');
+    assert.equal((await store.restore()).ok, true);
+    assert.deepEqual(store.pendingGrants().map(g => g.id), ['GPA.1', 'GPA.2']);
+  });
+
+  await test('powerups: a pending payment grants nothing until it clears, then once, by relaunch or by Restore', async () => {
+    for (const via of ['relaunch', 'restore']) {
+      const plugin = powerPlugin({ mode: 'pending' }); const env = powerEnv(plugin);
+      const store = Store.create(env); await store.init();
+      assert.deepEqual(await store.purchase('p.bomb'), { ok: false, pending: true, reason: 'pending' });
+      assert.deepEqual(store.pendingGrants(), []);
+      plugin.charge('p.bomb'); // the payment cleared later
+      let after = store;
+      if (via === 'relaunch') { after = Store.create(powerEnv(plugin, { storage: env.storage })); await after.init(); }
+      else assert.equal((await store.restore()).ok, true);
+      assert.deepEqual(after.pendingGrants().map(g => g.item), ['bomb'], via);
+      assert.equal(after.deliver(() => true), 1);
+      assert.equal((await after.restore()).ok, true);
+      assert.deepEqual(after.pendingGrants(), [], via);
+    }
+  });
+
+  await test('powerups: after a reinstall, old powerups are never paid out again, by launch or by Restore', async () => {
+    const plugin = powerPlugin(); plugin.charge('p.bomb'); plugin.charge('p.rain'); plugin.charge('p.bomb');
+    const env = powerEnv(plugin); // fresh storage: a new install on the same store account
+    const store = Store.create(env); await store.init();
+    assert.deepEqual(store.pendingGrants(), []);
+    assert.equal((await store.restore()).ok, true);
+    assert.deepEqual(store.pendingGrants(), []);
+    const bought = await store.purchase('p.bomb');
+    assert.equal(bought.grant.id, 'GPA.4');
+    assert.deepEqual(take(store).map(g => g.id), ['GPA.4']);
+  });
+
+  await test('powerups: an install that could not reach the store at launch notes the old ones before its first buy', async () => {
+    const plugin = powerPlugin({ offline: true }); plugin.charge('p.bomb');
+    const store = Store.create(powerEnv(plugin)); await store.init();
+    plugin.state.offline = false; // back online, still no baseline; prices came from the store
+    const bought = await store.purchase('p.bomb');
+    assert.equal(bought.ok, true); assert.equal(bought.grant.id, 'GPA.2');
+    assert.deepEqual(take(store).map(g => g.id), ['GPA.2']);
+    const offlineBuy = Store.create(powerEnv(powerPlugin({ offline: true }))); await offlineBuy.init();
+    const failed = await offlineBuy.purchase('p.bomb');
+    assert.equal(failed.ok, false); assert.equal(failed.reason, 'error');
+  });
+
+  await test('powerups: a store answer without a transaction is still matched to the purchase, and only to it', async () => {
+    const plugin = powerPlugin({ mode: 'noTransaction' }); const store = Store.create(powerEnv(plugin)); await store.init();
+    const bought = await store.purchase('p.rain');
+    assert.deepEqual(bought, { ok: true, grant: { id: 'GPA.1', productId: 'p.rain', item: 'rain', count: 3 } });
+    plugin.charge('p.bomb'); // a bomb bought on another device
+    assert.equal((await store.restore()).ok, true);
+    assert.deepEqual(store.pendingGrants().map(g => g.id), ['GPA.1']);
+  });
+
+  await test('powerups: a store answer that repeats an already granted transaction grants nothing new', async () => {
+    const plugin = powerPlugin(); const env = powerEnv(plugin); const store = Store.create(env); await store.init();
+    assert.equal((await store.purchase('p.bomb')).ok, true);
+    plugin.state.mode = 'replay';
+    assert.deepEqual(await store.purchase('p.bomb'), { ok: false, reason: 'not-granted' });
+    assert.deepEqual(store.pendingGrants().map(g => g.id), ['GPA.1']);
+    assert.deepEqual(ledgerOf(env.storage).inflight, []);
+  });
+
+  await test('powerups: cancel and errors grant nothing and leave nothing waiting', async () => {
+    const plugin = powerPlugin({ mode: 'cancel' }); const env = powerEnv(plugin);
+    const store = Store.create(env); await store.init();
+    assert.deepEqual(await store.purchase('p.bomb'), { ok: false, cancelled: true, reason: 'cancelled' });
+    assert.deepEqual(ledgerOf(env.storage).inflight, []);
+    plugin.charge('p.bomb'); // something else on the account later
+    assert.equal((await store.restore()).ok, true);
+    assert.deepEqual(store.pendingGrants(), []);
+  });
+
+  await test('powerups: a second tap during a buy is rejected, not double-charged', async () => {
+    const plugin = powerPlugin({ mode: 'slow' }); const store = Store.create(powerEnv(plugin)); await store.init();
+    const first = store.purchase('p.bomb');
+    await new Promise(r => setTimeout(r, 5));
+    assert.equal((await store.purchase('p.bomb')).reason, 'busy');
+    assert.equal((await first).ok, true);
+    assert.equal(plugin.calls.filter(c => c[0] === 'purchase').length, 1);
+    assert.equal(store.pendingGrants().length, 1);
+  });
+
+  await test('powerups: an unsettled purchase older than a week no longer claims a transaction', async () => {
+    let clock = Date.parse('2026-10-01T00:00:00Z');
+    const plugin = powerPlugin({ mode: 'hang' }); const env = powerEnv(plugin, { now: () => clock });
+    const store = Store.create(env); await store.init();
+    store.purchase('p.bomb');
+    await new Promise(r => setTimeout(r, 5));
+    plugin.state.txs = []; // that payment never went through
+    clock += 8 * 24 * 60 * 60 * 1000;
+    const later = Store.create(powerEnv(plugin, { storage: env.storage, now: () => clock })); await later.init();
+    plugin.charge('p.bomb'); // an old bomb restored from another device
+    assert.equal((await later.restore()).ok, true);
+    assert.deepEqual(later.pendingGrants(), []);
+  });
+
+  await test('powerups: the website grants nothing, even with a forged ledger', async () => {
+    const storage = memoryStorage({ 'bloomshot.grants.v1': JSON.stringify({ v: 1, baseline: true, seen: ['x'], inflight: [], owed: [{ id: 'x', productId: 'p.bomb', item: 'bomb', count: 99 }] }) });
+    const store = Store.create({ config: POWER, storage }); await store.init();
+    assert.deepEqual(store.pendingGrants(), []);
+    assert.equal(store.deliver(() => true), 0);
+    assert.equal((await store.purchase('p.bomb')).reason, 'unavailable');
+  });
+
+  await test('powerups: mock mode buys, survives a crash and a pending payment, and never re-grants after a reinstall', async () => {
+    const storage = memoryStorage();
+    const make = () => Store.create({ config: POWER, storage, allowMock: true, mockDelay: 0, now: () => 1000 });
+    const store = make(); await store.init();
+    const bought = await store.purchase('p.bomb');
+    assert.equal(bought.ok, true); assert.equal(bought.grant.item, 'bomb');
+    store.dev.nextResult('crash'); assert.equal((await store.purchase('p.rain')).ok, false);
+    store.dev.nextResult('pending'); assert.equal((await store.purchase('p.bomb')).reason, 'pending');
+    store.dev.nextResult('cancel'); assert.equal((await store.purchase('p.bomb')).cancelled, true);
+    assert.deepEqual(take(store).map(g => g.item), ['bomb']);
+    const relaunch = make(); await relaunch.init(); // the crashed and pending ones arrive now
+    assert.deepEqual(take(relaunch).map(g => g.item).sort(), ['bomb', 'rain']);
+    relaunch.dev.forgetLocal();
+    const reinstall = make(); await reinstall.init();
+    assert.equal((await reinstall.restore()).ok, true);
+    assert.deepEqual(reinstall.pendingGrants(), []);
+    reinstall.dev.reset();
+    assert.equal((await reinstall.purchase('p.bomb')).ok, true);
+    assert.equal(reinstall.pendingGrants().length, 1);
+    assert.equal(JSON.parse(storage.data['bloomshot.mockstore.v1']).txs.length, 1);
+    assert.equal(storage.data['bloomshot.grants.v1'], undefined); // the simulated store never touches the real ledger
+  });
+
   await test('the shipped catalog is consistent: unique ids, bundles only grant entitlements that single products sell, and a bundle is cheaper than its parts', () => {
     const context = vm.createContext({});
     vm.runInContext(fs.readFileSync(path.join(__dirname, '../store-config.js'), 'utf8'), context);
@@ -337,8 +573,14 @@ const find = (store, id) => store.products().find(p => p.id === id);
     const sold = new Set(singles.map(p => p.entitlement));
     assert.equal(sold.size, singles.length, 'each single product has its own entitlement');
     for (const p of products) {
-      assert.ok(p.entitlements.length > 0, p.id);
       assert.match(p.id, /^bloomshot\.[a-z0-9]+\.[a-z0-9]+$/, p.id);
+      if (p.consumable) {
+        // A powerup grants an item, never an entitlement, and is priced like the one Trevor asked for.
+        assert.equal(p.kind, 'powerup', p.id); assert.ok(p.grants && p.grants.item && p.grants.count > 0, p.id); assert.deepEqual(p.entitlements, [], p.id);
+        assert.ok(price(p) > 0 && price(p) < 1, `${p.id} is a small purchase`);
+        continue;
+      }
+      assert.ok(p.entitlements.length > 0, p.id);
       if (p.entitlements.length < 2) continue;
       assert.equal(p.kind, 'bundle', p.id);
       const parts = p.entitlements.map(e => singles.find(s => s.entitlement === e));
