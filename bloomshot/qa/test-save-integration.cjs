@@ -176,7 +176,8 @@ test('Restarting an unfinished run does not grant rewards', () => {
   const app = boot(legacySave()); const before = app.saved();
   const game = app.games.at(-1); game.totalBlooms = 24; game.wave = 3;
   app.click('restart-btn');
-  assert.equal(app.games.length, 2); assert.deepEqual(app.saved(), before);
+  // The restarted board is the first one played, so it shows the powerups tip once; nothing else changes.
+  assert.equal(app.games.length, 2); assert.deepEqual({ ...app.saved(), powersMet: false }, before);
 });
 test('Visual previews grant no progress and restore the original in-progress run ID for its reward', () => {
   const app = boot(legacySave()); const original = app.games.at(-1); const before = app.saved();
@@ -674,6 +675,12 @@ test('A save from before powerups starts with one of each, and counts survive a 
   assert.deepEqual(saved.powers, { sunburst: 1, dandelion: 1, beeline: 1, lullaby: 1 }); assert.deepEqual(saved.powerReceipts, []);
   const later = { ...saved, powers: { sunburst: 0, dandelion: 5, beeline: 2, lullaby: 0 } };
   assert.deepEqual(boot(later).saved().powers, later.powers, 'an emptied powerup stays empty after a reload');
+});
+test('The powerups tip waits for the first level, not the level map', () => {
+  const app = boot(legacySave());
+  assert.equal(app.saved().powersMet, false); assert.notEqual(app.$('toast').textContent, 'New: powerups! Tap one above the board, then fire.');
+  app.click('depth-map', { depth: '1' });
+  assert.equal(app.$('toast').textContent, 'New: powerups! Tap one above the board, then fire.'); assert.equal(app.saved().powersMet, true);
 });
 test('Picking a powerup and firing spends exactly one; picking it again first puts it back', () => {
   const app = boot(cleared(1)); app.click('depth-map', { depth: '1' });

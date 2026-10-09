@@ -189,7 +189,7 @@
       canvas.setAttribute('aria-label', `${level.name}. Five single-seed shots. ${isKoi() ? 'Flowing currents turn your seed toward the way the water runs.' : 'Paired moon gates transport your seed.'} Aim with arrows, Space fires, R turns a leaf between shots. No in-flight steering.`);
     }
     setRoute('game'); trayKey = ''; updateHud();
-    if (isRush() && !preview && !save.powersMet) { save.powersMet = true; persist(); toast('New: powerups! Tap one above the board, then fire.'); }
+    if (isRush() && !preview && !options.behind && !save.powersMet) { save.powersMet = true; persist(); toast('New: powerups! Tap one above the board, then fire.'); }
   }
   function updateHud() {
     const rush = isRush();
@@ -1414,7 +1414,7 @@
   updateSettings(); persist(); renderMeadow(); renderDaily();
   // The game opens on the level map; an endless Rush board waits behind it until a level is picked.
   const initial = { id: 'rush', name: 'Meadow Rush' };
-  startLevel(initial); setRoute('levels'); resize(); requestAnimationFrame(frame);
+  startLevel(initial, { behind: true }); setRoute('levels'); resize(); requestAnimationFrame(frame);
   // A read-only snapshot aids local QA without adding a way to grant progress.
   Object.defineProperty(window, 'bloomshotState', { get: () => ({ ...game.snapshot(), route, theme, preview, earnedFlowers: flowers.filter(earned).map(f => f.id), storageAvailable }), configurable: false });
 })();

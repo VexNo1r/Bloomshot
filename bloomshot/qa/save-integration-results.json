@@ -1,5 +1,5 @@
 {
-  "passed": 49,
+  "passed": 50,
   "failed": 0,
   "methodology": "Executes the complete current app.js in an isolated Node VM using real garden/level/engine modules, fake localStorage, and DOM/canvas adapters. Completion fixtures exercise actual engine completion events and app handlers. No real browser or user saves are read or changed.",
   "limitations": [
@@ -181,6 +181,10 @@
     },
     {
       "name": "A save from before powerups starts with one of each, and counts survive a reload",
+      "passed": true
+    },
+    {
+      "name": "The powerups tip waits for the first level, not the level map",
       "passed": true
     },
     {
