@@ -183,7 +183,7 @@
     dot(ctx, -6.5, -3.5, 1.8, 'rgba(246,160,176,.6)'); dot(ctx, 6.5, -3.5, 1.8, 'rgba(246,160,176,.6)');
     ctx.restore();
   }
-  function paintMeadow(ctx) {
+  function paintMeadow(ctx, framed) {
     const sky = ctx.createLinearGradient(0, 0, 0, 320);
     sky.addColorStop(0, '#7fc6ee'); sky.addColorStop(.75, '#c4ebfa'); sky.addColorStop(1, '#e2f6fb');
     ctx.fillStyle = sky; ctx.fillRect(0, 0, 420, 560);
@@ -266,7 +266,7 @@
     for (const [x, h, s] of [[386, 34, 1], [400, 26, 2], [372, 20, 3]]) grassTuft(ctx, x, 452, h, '#76c977', '#3f8f4c', s, -.3);
     bunny(ctx, 360, 446, .9);
     daisy(ctx, 394, 418, 5.5, '#ffffff', '#ffc93f', '#b7cbbd'); stroke(ctx, [[394, 424], [396, 440], [395, 452]], '#4c9a55', 1.4);
-    frame(ctx, '#5aa9c9', '#ffffff');
+    if (framed) frame(ctx, '#5aa9c9', '#ffffff');
   }
 
   // ---------- Level 2: Root Tunnels ----------
@@ -328,7 +328,7 @@
     ctx.beginPath(); ctx.arc(0, 0, 10.6, 0, TAU); ctx.strokeStyle = '#8a6a4c'; ctx.lineWidth = 1.2; ctx.stroke();
     ctx.restore();
   }
-  function paintRoots(ctx) {
+  function paintRoots(ctx, framed) {
     ctx.fillStyle = '#d4a06a'; ctx.fillRect(0, 0, 420, 560);
     const layers = [[70, '#cf9a63', '#bd8752'], [150, '#c99460', '#b47e4b'], [238, '#c28c58', '#ab7645'], [330, '#ba8452', '#a26e40'], [420, '#ad784a', '#93623a'], [470, '#9a6942', '#7f5433']];
     layers.forEach(([y, fill, line], i) => band(ctx, ridge(y, 7 + i, 20 + i, 54), 560, fill, line, 1.3));
@@ -377,7 +377,7 @@
     for (const [x, y, w, h, s] of [[36, 482, 10, 7, 61], [74, 530, 8, 5, 62], [150, 520, 6, 4, 63], [280, 530, 7, 5, 64], [392, 492, 9, 6, 65]]) pebble(ctx, x, y, w, h, s, '#d6c4aa', '#b49e80', '#6d4c30');
     tunnel(ctx, [[300, 482], [352, 470], [398, 480], [396, 528], [340, 534], [296, 520]], 9);
     mole(ctx, 350, 508, .9);
-    frame(ctx, '#7a4f2a', '#f3d7a8');
+    if (framed) frame(ctx, '#7a4f2a', '#f3d7a8');
   }
 
   // ---------- Level 3: Mushroom Grotto ----------
@@ -424,7 +424,7 @@
       if (i > 1 && r() < .8) { dot(ctx, p[0], p[1] + 3, 7, 'rgba(143,245,227,.16)'); dot(ctx, p[0], p[1] + 3, 3, '#a8fbe9'); dot(ctx, p[0] - .8, p[1] + 2.2, 1, '#ffffff'); }
     }
   }
-  function paintGrotto(ctx) {
+  function paintGrotto(ctx, framed) {
     const back = ctx.createLinearGradient(0, 0, 0, 560);
     back.addColorStop(0, '#4f3f6e'); back.addColorStop(.6, '#41335d'); back.addColorStop(1, '#2f2445');
     ctx.fillStyle = back; ctx.fillRect(0, 0, 420, 560);
@@ -481,7 +481,7 @@
     mushroom(ctx, 380, 552, 40, 50, '#6fe0cf', '#4fbfb0', [[-.2, -.2, .08], [.15, -.15, .07], [.3, 0, .05]], '#8ff5e3', .1);
     mushroom(ctx, 340, 554, 22, 26, '#e66a7e', '#c24c63', [[0, -.2, .1], [.25, -.05, .06]], null, -.12);
     mushroom(ctx, 402, 500, 13, 15, '#f2b75a', '#d39540', [[0, -.2, .1]], null, .25);
-    frame(ctx, '#7c64a8', '#b9a6e6');
+    if (framed) frame(ctx, '#7c64a8', '#b9a6e6');
   }
 
   // ---------- Level 4: Crystal Caves ----------
@@ -524,7 +524,7 @@
     dot(ctx, 4, -1.4, .9, '#123a5c');
     ctx.restore();
   }
-  function paintCrystal(ctx) {
+  function paintCrystal(ctx, framed) {
     const back = ctx.createLinearGradient(0, 0, 0, 560);
     back.addColorStop(0, '#233f69'); back.addColorStop(.6, '#1b3357'); back.addColorStop(1, '#13243d');
     ctx.fillStyle = back; ctx.fillRect(0, 0, 420, 560);
@@ -578,7 +578,7 @@
       sparkle(ctx, x, y, 2 + rs() * 2.5, i % 3 ? 'rgba(210,248,255,.85)' : 'rgba(225,210,255,.85)');
     }
     for (const [x, y, s] of [[44, 150, 4], [380, 120, 3.4], [70, 500, 5], [362, 494, 4.4]]) sparkle(ctx, x, y, s, '#ffffff');
-    frame(ctx, '#4b84b8', '#a8dcff');
+    if (framed) frame(ctx, '#4b84b8', '#a8dcff');
   }
 
   // ---------- Obstacles in the play area ----------
@@ -649,6 +649,7 @@
     'depth-crystal': { paint: paintCrystal, dark: true, ink: '#d8f3ff' }
   };
   function has(theme) { return Object.prototype.hasOwnProperty.call(SCENES, theme); }
-  function paint(ctx, theme) { if (has(theme)) SCENES[theme].paint(ctx); }
+  // The board keeps its painted frame; a level card shows the same scene without it.
+  function paint(ctx, theme, options) { if (has(theme)) SCENES[theme].paint(ctx, !(options && options.frame === false)); }
   root.BloomScenery = Object.freeze({ has, paint, drawRock, dark: theme => has(theme) && SCENES[theme].dark, ink: theme => has(theme) ? SCENES[theme].ink : null, themes: Object.keys(SCENES) });
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -1,5 +1,5 @@
 {
-  "passed": 37,
+  "passed": 42,
   "failed": 0,
   "methodology": "Executes the complete current app.js in an isolated Node VM using real garden/level/engine modules, fake localStorage, and DOM/canvas adapters. Completion fixtures exercise actual engine completion events and app handlers. No real browser or user saves are read or changed.",
   "limitations": [
@@ -32,7 +32,7 @@
       "passed": true
     },
     {
-      "name": "Visual preview restoration retains an already-earned result amount without regranting",
+      "name": "Visual preview restoration never regrants an already-earned result",
       "passed": true
     },
     {
@@ -153,6 +153,26 @@
     },
     {
       "name": "Native bridge: once a backup has been restored and a reload is pending, the page saves nothing, so it cannot overwrite the restore",
+      "passed": true
+    },
+    {
+      "name": "The game opens on the level map: level 1 is open, the rest wait their turn, and a locked card never starts",
+      "passed": true
+    },
+    {
+      "name": "Clearing a level saves its stars, pays run and first-clear seeds once, opens the next level and Next starts it",
+      "passed": true
+    },
+    {
+      "name": "Running out of lives keeps the best wave, pays for the blooms, and Try again restarts the same level",
+      "passed": true
+    },
+    {
+      "name": "Back goes to the level map, and an unfinished level resumes from its card or the resume card without restarting",
+      "passed": true
+    },
+    {
+      "name": "Level records are cleaned on load and a cleared level opens the next one",
       "passed": true
     }
   ]

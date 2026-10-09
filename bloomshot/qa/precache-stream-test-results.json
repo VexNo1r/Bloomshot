@@ -1,11 +1,11 @@
 {
   "passed": true,
-  "testedAt": "2026-10-09T09:39:20.828Z",
+  "testedAt": "2026-10-09T10:31:53.028Z",
   "node": "v22.22.0",
-  "workerSha256": "211a706d5605edd63cdf5ecb7dfcd6816ff7a5e22d1c3679d10f356f984eb2d2",
+  "workerSha256": "a9a33410227f4532f0e5b9dee56927ad2bd68625074ce9cb59d0055f86b8c23f",
   "maxConnections": 3,
-  "workerVersion": "f727be93c526fc1f",
-  "assetCount": 29,
+  "workerVersion": "93b634d8bb0b804a",
+  "assetCount": 31,
   "imageCount": 6,
   "negativeControl": {
     "stalledAsExpected": true,
@@ -13,35 +13,35 @@
     "consumed": 0,
     "bytes": 0,
     "peakConnections": 3,
-    "elapsedMs": 275.7
+    "elapsedMs": 275.97
   },
   "actualInstall": {
-    "headers": 29,
-    "consumed": 29,
-    "bytes": 585793,
+    "headers": 31,
+    "consumed": 31,
+    "bytes": 691097,
     "peakConnections": 3,
-    "cached": 29,
-    "elapsedMs": 45.58,
+    "cached": 31,
+    "elapsedMs": 42.54,
     "deadlineMs": 15000,
     "allBodyHashesMatch": true
   },
   "assets": [
     {
       "path": "/",
-      "bytes": 22175,
-      "sha256": "0c54592209d5e83135c0006e2391229e707932e603829c9c727bb1548d3c61cc",
+      "bytes": 24348,
+      "sha256": "179db671072e23e55fddf8d68c95b43f7d9f6fe8bd95f0e9c31ed4d5956ee27f",
       "type": "text/html; charset=utf-8"
     },
     {
       "path": "/index.html",
-      "bytes": 22175,
-      "sha256": "0c54592209d5e83135c0006e2391229e707932e603829c9c727bb1548d3c61cc",
+      "bytes": 24348,
+      "sha256": "179db671072e23e55fddf8d68c95b43f7d9f6fe8bd95f0e9c31ed4d5956ee27f",
       "type": "text/html; charset=utf-8"
     },
     {
       "path": "/styles.css",
-      "bytes": 47384,
-      "sha256": "f74ee2c3c1e887df6719f9b24d127fe4df30694f73c41403d9c4f026c371956b",
+      "bytes": 52363,
+      "sha256": "eebe72d86168898ecd9f0c8b73773185935c436bdf5bc1ca8daadb90f7491461",
       "type": "text/css; charset=utf-8"
     },
     {
@@ -82,14 +82,20 @@
     },
     {
       "path": "/garden.js",
-      "bytes": 16955,
-      "sha256": "b23632e701e17ec802e810ac6ebac3f1e8af4f62fc5b9e70185d766b9549112d",
+      "bytes": 18486,
+      "sha256": "5f5eaa708095c9f7801a7a43a8b7bf0f411e80f5d4e64e5eb852246e614028e2",
       "type": "text/javascript; charset=utf-8"
     },
     {
       "path": "/goals.js",
-      "bytes": 5413,
-      "sha256": "7b8afd96462b76faf5e99e22e7a8056d00345d23655935c35396c724d54806e5",
+      "bytes": 5403,
+      "sha256": "893c6fd799d187cc8e427a7ba85fc958c138fa770b2e08a065ee4ff187876bbb",
+      "type": "text/javascript; charset=utf-8"
+    },
+    {
+      "path": "/depths.js",
+      "bytes": 18433,
+      "sha256": "6f0f290254e7d9bd9e29d72a6b557b7d97fb2bf519070cd707e5ceb42a6c37d5",
       "type": "text/javascript; charset=utf-8"
     },
     {
@@ -100,14 +106,20 @@
     },
     {
       "path": "/rush.js",
-      "bytes": 12418,
-      "sha256": "24931c1c1aab3e51708587923e9bc3bf801975ce538d559f3468db5136c4bf2b",
+      "bytes": 17943,
+      "sha256": "b18d61107b9239ad1181e1e37e5e9c7512d79c804d133fb036a948f36cda4d91",
+      "type": "text/javascript; charset=utf-8"
+    },
+    {
+      "path": "/scenery.js",
+      "bytes": 48776,
+      "sha256": "089db45f33b9e72d4084eb9e053c68a467f6e95a4557bf915f9becd3a56d5694",
       "type": "text/javascript; charset=utf-8"
     },
     {
       "path": "/art.js",
-      "bytes": 81387,
-      "sha256": "a208b448c638c8e8a87597136e6da2a12a54b05498530737681e7b33f5417efb",
+      "bytes": 89619,
+      "sha256": "e6f67b62de7e570c7ca91728a4b91f1aaa6b86bf06ca94349ee19f45796cc58c",
       "type": "text/javascript; charset=utf-8"
     },
     {
@@ -118,8 +130,8 @@
     },
     {
       "path": "/sound.js",
-      "bytes": 11043,
-      "sha256": "b355d0c4fdb9376498f7b5b9c9788fe770d43beabe96fc1d651d3a3a33eba17e",
+      "bytes": 11987,
+      "sha256": "812854e3a1df3cdb16605857d50fa8293244cb2d01359779cf62a3429f36af89",
       "type": "text/javascript; charset=utf-8"
     },
     {
@@ -130,8 +142,8 @@
     },
     {
       "path": "/app.js",
-      "bytes": 94066,
-      "sha256": "0e03d2a9aaac40daa16b25f8eeacc07880b905ef57dec052280b1e2b2b56b073",
+      "bytes": 106614,
+      "sha256": "9d0bf2881fcc539a9f5928c904bcd95068c5f09989376a11b9c3479d102d9843",
       "type": "text/javascript; charset=utf-8"
     },
     {
@@ -205,205 +217,219 @@
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 1,
-      "total": 29,
+      "total": 31,
       "failed": false,
       "cached": 1
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 2,
-      "total": 29,
+      "total": 31,
       "failed": false,
       "cached": 2
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 3,
-      "total": 29,
+      "total": 31,
       "failed": false,
       "cached": 3
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 4,
-      "total": 29,
+      "total": 31,
       "failed": false,
       "cached": 4
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 5,
-      "total": 29,
+      "total": 31,
       "failed": false,
       "cached": 5
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 6,
-      "total": 29,
+      "total": 31,
       "failed": false,
       "cached": 6
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 7,
-      "total": 29,
+      "total": 31,
       "failed": false,
       "cached": 7
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 8,
-      "total": 29,
+      "total": 31,
       "failed": false,
       "cached": 8
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 9,
-      "total": 29,
+      "total": 31,
       "failed": false,
       "cached": 9
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 10,
-      "total": 29,
+      "total": 31,
       "failed": false,
       "cached": 10
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 11,
-      "total": 29,
+      "total": 31,
       "failed": false,
       "cached": 11
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 12,
-      "total": 29,
+      "total": 31,
       "failed": false,
       "cached": 12
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 13,
-      "total": 29,
+      "total": 31,
       "failed": false,
       "cached": 13
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 14,
-      "total": 29,
+      "total": 31,
       "failed": false,
       "cached": 14
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 15,
-      "total": 29,
+      "total": 31,
       "failed": false,
       "cached": 15
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 16,
-      "total": 29,
+      "total": 31,
       "failed": false,
       "cached": 16
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 17,
-      "total": 29,
+      "total": 31,
       "failed": false,
       "cached": 17
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 18,
-      "total": 29,
+      "total": 31,
       "failed": false,
       "cached": 18
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 19,
-      "total": 29,
+      "total": 31,
       "failed": false,
       "cached": 19
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 20,
-      "total": 29,
+      "total": 31,
       "failed": false,
       "cached": 20
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 21,
-      "total": 29,
+      "total": 31,
       "failed": false,
       "cached": 21
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 22,
-      "total": 29,
+      "total": 31,
       "failed": false,
       "cached": 22
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 23,
-      "total": 29,
+      "total": 31,
       "failed": false,
       "cached": 23
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 24,
-      "total": 29,
+      "total": 31,
       "failed": false,
       "cached": 24
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 25,
-      "total": 29,
+      "total": 31,
       "failed": false,
       "cached": 25
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 26,
-      "total": 29,
+      "total": 31,
       "failed": false,
       "cached": 26
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 27,
-      "total": 29,
+      "total": 31,
       "failed": false,
       "cached": 27
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 28,
-      "total": 29,
+      "total": 31,
       "failed": false,
       "cached": 28
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 29,
-      "total": 29,
+      "total": 31,
       "failed": false,
       "cached": 29
+    },
+    {
+      "type": "BLOOMSHOT_DOWNLOAD",
+      "completed": 30,
+      "total": 31,
+      "failed": false,
+      "cached": 30
+    },
+    {
+      "type": "BLOOMSHOT_DOWNLOAD",
+      "completed": 31,
+      "total": 31,
+      "failed": false,
+      "cached": 31
     }
   ]
 }

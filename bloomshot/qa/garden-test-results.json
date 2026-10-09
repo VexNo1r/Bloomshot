@@ -1,5 +1,5 @@
 {
-  "passed": 27,
+  "passed": 28,
   "failed": 0,
   "observations": {
     "starterSeeds": 4,
@@ -42,6 +42,17 @@
       "seeds": 12
     },
     "dailyMemoryDays": 21,
+    "levelRun": {
+      "bloomsPerSeed": 10,
+      "plusWavesReached": true,
+      "cap": 24,
+      "firstClearByStars": {
+        "1": 8,
+        "2": 10,
+        "3": 12
+      },
+      "improvedStar": 2
+    },
     "limitations": [
       "Local save logic is not a server-authoritative payment or anti-tampering system.",
       "Rush receipt deduplication covers the most recent 64 completions; the UI must issue one unique ID per run.",
@@ -156,6 +167,10 @@
     },
     {
       "name": "Summary lists every decoration with its price, whether it is built or affordable, and when the meadow is complete",
+      "passed": true
+    },
+    {
+      "name": "Level runs pay for their blooms, won or lost, and new stars on a level pay once like a garden",
       "passed": true
     }
   ]

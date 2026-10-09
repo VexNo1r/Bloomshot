@@ -601,6 +601,13 @@
       ctx.fillStyle = night ? '#ffd8e5' : '#e86189'; ctx.fill();
     }
     ctx.font = '600 11px Fredoka, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    // Painted level scenes are busy behind the label, so it sits on its own little tag there.
+    if (root.BloomScenery && root.BloomScenery.has(theme)) {
+      const w = ctx.measureText('Danger line').width + 16;
+      ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(210 - w / 2, y + 6.5, w, 17, 8.5); else ctx.rect(210 - w / 2, y + 6.5, w, 17);
+      ctx.fillStyle = night ? 'rgba(38,24,58,.82)' : 'rgba(255,250,240,.94)'; ctx.fill();
+      ctx.strokeStyle = night ? 'rgba(255,145,177,.65)' : 'rgba(232,97,137,.6)'; ctx.lineWidth = 1.2; ctx.stroke();
+    }
     ctx.fillStyle = night ? '#ffcedd' : '#a54164'; ctx.fillText('Danger line', 210, y + 15);
     ctx.restore();
   }
