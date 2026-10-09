@@ -447,8 +447,9 @@
     const note = selling ? mode === 'mock' ? 'Test mode: nothing is charged.' : 'Each tap buys one powerup, the one you picked.' : live ? 'Not on sale yet.' : 'You can buy more in the Bloomshot app.';
     $('power-shelf').innerHTML = `${tiles}<p class="power-note">${escape(note)} Gift bubbles in the waves hold more, free.</p>`;
   }
-  // The store hands every powerup purchase here and finishes the purchase only once this has saved it.
-  // A purchase that comes back again (after a crash or a restart) is recognized and adds nothing.
+  // The store hands every powerup purchase here. It keeps the grant waiting in its own ledger until this returns
+  // true (the store itself finishes the payment straight away), so a crash before saving is offered again next
+  // launch. A purchase that comes back again is recognized by its transaction id and adds nothing.
   function grantPower(info) {
     const power = info && (info.power || Powers.byProduct[info.productId]?.id);
     const result = Powers.grant(save.powers, save.powerReceipts, { power, count: info && info.count, transaction: info && info.transaction });
@@ -457,7 +458,8 @@
     return storageAvailable;
   }
   if (store && typeof store.onConsumable === 'function') store.onConsumable(grantPower);
-  const notBought = result => result.cancelled ? 'Purchase cancelled. Nothing was charged.' : "Purchase didn't go through. Nothing was charged.";
+  // not-granted: the store saw a payment it could not match yet. It keeps it waiting and grants it on the next launch.
+  const notBought = result => result.cancelled ? 'Purchase cancelled. Nothing was charged.' : result.reason === 'not-granted' ? 'Your purchase is being confirmed. It arrives the next time you open Bloomshot.' : "Purchase didn't go through. Nothing was charged.";
   async function buyPower(button) {
     const def = Powers.byProduct[button.dataset.buy], product = def && productInfo(def.product);
     if (!def || !store || store.busy || !product || !product.available) return;
