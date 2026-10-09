@@ -43,11 +43,11 @@ Not verified by anyone yet: any real device or simulator run, WebView performanc
 
 Costs and rules are as of my last information. Confirm each on the official page when enrolling.
 
-- **Google Play Console**: one-time fee (about $25) and identity verification. New personal accounts must run a **closed test with at least 12 testers for 14 consecutive days** before they can publish to production. That 14-day clock is the longest lead time on Android, so if only one account can be paid for first, make it this one.
+- **Google Play Console**: one-time fee (about $25) and identity verification. New personal accounts must run a **closed test with at least 12 testers for 14 consecutive days** before they can publish to production. That 14-day clock is the longest lead time on Android, so if only one account can be paid for first, make it this one. The step-by-step order, including how the Android upload key and signed bundle are made, is in `docs/PLAY-LAUNCH.md`.
 - **Apple Developer Program**: about $99 a year. Enrolling as an **Individual** shows the legal name as the seller; an Organization needs a legal entity and a D-U-N-S number. Needed for TestFlight, sandbox purchases, signing and submission.
 - **Banking and tax** in both consoles (Paid Apps agreement in App Store Connect, payments profile in Play Console). No purchase can go live until these are complete.
 - **Apple Small Business Program** (15% commission instead of 30%): apply after enrolling.
-- **Signing**: an App Store Connect API key for automated uploads, and Google Play App Signing. Trevor stores these as GitHub Actions secrets himself; never paste them into chat.
+- **Signing**: an App Store Connect API key for automated uploads, and Google Play App Signing. Trevor stores these as GitHub Actions secrets himself; never paste them into chat. For Android, the `Create Android upload key` workflow makes the upload key and stores it as secrets itself (`docs/PLAY-LAUNCH.md`), and `Android release bundle` builds the signed `.aab`.
 - **Pressing Submit** and answering any reviewer questions.
 
 ## Suggested order
