@@ -10,6 +10,7 @@ on:
   pull_request:
     paths:
       - .github/workflows/android-release.yml
+      - .github/scripts/check-16k-pages.sh
       - native/android/app/build.gradle
 
 jobs:
@@ -73,10 +74,13 @@ jobs:
         run: |
           aab=android/app/build/outputs/bundle/release/app-release.aab
           test -s "$aab"
-          jarsigner -verify "$aab" | tee "$RUNNER_TEMP/verify.txt"
-          grep -q "jar verified" "$RUNNER_TEMP/verify.txt"
+          # jarsigner lists one harmless "signed in JarFile" warning per entry for bundles; only its verdict matters.
+          jarsigner -verify "$aab" > "$RUNNER_TEMP/verify.txt" 2>&1 || true
+          if ! grep -q "jar verified" "$RUNNER_TEMP/verify.txt"; then cat "$RUNNER_TEMP/verify.txt"; echo "::error::The bundle's signature does not verify."; exit 1; fi
+          echo "Signature verified."
           echo "Signing certificate (this fingerprint is public):"
           keytool -printcert -jarfile "$aab" | grep -E "Owner:|SHA256:|Valid from"
+          bash ../.github/scripts/check-16k-pages.sh "$aab"
           # Play only lets you create in-app products once an uploaded build declares the billing permission.
           manifests="$(find android/app/build/intermediates -path '*merged_manifest*' -name AndroidManifest.xml | grep -i release || true)"
           if [ -z "$manifests" ]; then
