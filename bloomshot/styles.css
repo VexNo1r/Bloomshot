@@ -26,6 +26,12 @@ body[data-theme="koi"]{--bg:#d3f0ec;--bg-dot:#bde5df;--accent:#22a99b;--accent-e
 body[data-theme="depth-roots"]{--bg:#f1e3c8;--bg-dot:#e7d4b1;--accent:#b0773f;--accent-edge:#7a4f2a;--accent-deep:#6a4223}
 body[data-theme="depth-grotto"]{--bg:#e6def5;--bg-dot:#d6cbec;--accent:#8063cf;--accent-edge:#5c44a3;--accent-deep:#4b3590}
 body[data-theme="depth-crystal"]{--bg:#d8ebf8;--bg-dot:#c3dff2;--accent:#3a92c8;--accent-edge:#286c99;--accent-deep:#1f587e}
+body[data-theme="depth-lake"]{--bg:#d4ecf0;--bg-dot:#bfe0e6;--accent:#2b8ea6;--accent-edge:#1f6a7d;--accent-deep:#185668}
+body[data-theme="depth-fossil"]{--bg:#f4e6c9;--bg-dot:#ead6ad;--accent:#c0853f;--accent-edge:#8a5a2b;--accent-deep:#73491f}
+body[data-theme="depth-ember"]{--bg:#f6dfd3;--bg-dot:#efcdbd;--accent:#d0603b;--accent-edge:#9a3f25;--accent-deep:#80321c}
+body[data-theme="depth-geode"]{--bg:#e8def4;--bg-dot:#d9cbec;--accent:#7a5fb0;--accent-edge:#56408a;--accent-deep:#463373}
+body[data-theme="depth-briar"]{--bg:#e0ecd4;--bg-dot:#cfe0bf;--accent:#5f8a47;--accent-edge:#416630;--accent-deep:#34532a}
+body[data-theme="depth-core"]{--bg:#f6e7c8;--bg-dot:#eed8a8;--accent:#c9902a;--accent-edge:#8f6118;--accent-deep:#774f12}
 
 *{box-sizing:border-box}
 html{min-height:100%;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%}
@@ -308,6 +314,12 @@ button.resume-card:active{box-shadow:inset 0 0 0 2px var(--gold-edge),0 1px 0 va
 .depth-card[data-depth="2"]{--depth-edge:#5e3c1f;--depth-line:#7a4f2a}
 .depth-card[data-depth="3"]{--depth-edge:#56428a;--depth-line:#7c64a8}
 .depth-card[data-depth="4"]{--depth-edge:#32628f;--depth-line:#4b84b8}
+.depth-card[data-depth="5"]{--depth-edge:#1f5e73;--depth-line:#3c8aa3}
+.depth-card[data-depth="6"]{--depth-edge:#8a5a2b;--depth-line:#b07c45}
+.depth-card[data-depth="7"]{--depth-edge:#7a2f22;--depth-line:#b5523a}
+.depth-card[data-depth="8"]{--depth-edge:#4f3a78;--depth-line:#7a5fb0}
+.depth-card[data-depth="9"]{--depth-edge:#3d5a2e;--depth-line:#5f8a47}
+.depth-card[data-depth="10"]{--depth-edge:#8a5a1a;--depth-line:#c99a3a}
 .depth-window{position:relative;display:block;aspect-ratio:420/170;border-radius:18px;overflow:hidden;background:var(--cream-2)}
 .depth-window::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;box-shadow:inset 0 0 0 3px var(--depth-line)}
 .depth-scene{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
@@ -330,12 +342,21 @@ button.resume-card:active{box-shadow:inset 0 0 0 2px var(--gold-edge),0 1px 0 va
 .depth-card.locked .depth-badge{color:#8f8574;box-shadow:inset 0 0 0 2.5px #b7ac97,0 3px 0 #8f8574}
 .depth-card.locked .depth-window::after{box-shadow:inset 0 0 0 3px #b7ac97}
 .depth-card.locked .depth-copy strong{color:var(--ink-soft)}
+/* Levels past the free ones keep more of their color while locked: they show what the unlock contains. */
+.depth-card.paid .depth-scene{filter:saturate(.75) brightness(.9)}
 .depth-more{display:flex;align-items:center;gap:12px;padding:10px;border-radius:22px;background:#3a2b3d;box-shadow:0 5px 0 #231a26;color:#f3e6ff}
 .depth-more-art{flex:0 0 120px;height:76px;border-radius:14px;overflow:hidden}
 .depth-more-art svg{display:block;width:100%;height:100%}
 .depth-more-copy{display:flex;flex-direction:column;gap:2px}
 .depth-more-copy strong{font:600 18px/1.15 var(--display)}
 .depth-more-copy span{font:700 13px/1.3 var(--body);color:#d5c5e3}
+.depth-unlock{flex-direction:column;align-items:stretch;gap:10px;padding:10px 10px 14px}
+.depth-unlock .depth-more-art{flex:none;width:100%;height:96px}
+.depth-unlock .depth-more-copy{gap:6px;padding:0 6px}
+.depth-unlock .card-tag{align-self:flex-start}
+.depth-unlock p{margin:0;font:700 13px/1.35 var(--body);color:#dccdea}
+.depth-unlock .unlock-btn{margin-top:4px;width:100%}
+.depth-unlock .unlock-fine{color:#c2b0d4;font-size:12px}
 #levels-view .section-title{margin-top:28px}
 
 /* Collection */

@@ -673,7 +673,7 @@
     ctx.restore();
   }
   function drawBossRing(ctx, bud) {
-    const r = (Number(bud.r) || 24) + 7, hp = Math.max(0, Number(bud.hp) || 0), max = Math.max(1, Number(bud.maxHp) || 1), gap = .09;
+    const r = (Number(bud.r) || 24) + (bud.shell ? 11 : 7), hp = Math.max(0, Number(bud.hp) || 0), max = Math.max(1, Number(bud.maxHp) || 1), gap = .09;
     ctx.save(); ctx.lineCap = 'round';
     for (let i = 0; i < max; i++) {
       const a0 = -Math.PI / 2 + i * TAU / max + gap / 2, a1 = a0 + TAU / max - gap;
@@ -686,6 +686,187 @@
     ctx.fillStyle = '#ffd64f'; ctx.fill(); ctx.strokeStyle = '#a8701f'; ctx.lineWidth = 1.4; ctx.lineJoin = 'round'; ctx.stroke();
     circle(ctx, bud.x, crownY + 1.5, 1.8, '#ef5a7d');
     ctx.restore();
+  }
+
+  // A fossil shell turns around its bud. Shots only get in through the open side, so the gap is drawn wide and
+  // clean; the coiled whorl at one lip makes it read as a shell rather than a ring.
+  const SHELL_OPEN = Math.acos(.34);
+  function shellPath(ctx, r, open) {
+    ctx.beginPath(); ctx.arc(0, 0, r + 2.7, open, TAU - open); ctx.arc(0, 0, r - 2.7, TAU - open, open, true); ctx.closePath();
+  }
+  function drawShell(ctx, bud) {
+    const r = (Number(bud.r) || 11) + 4.6, a = Number(bud.shellAngle) || 0, open = SHELL_OPEN;
+    ctx.save(); ctx.translate(bud.x, bud.y); ctx.rotate(a);
+    shellPath(ctx, r, open); ctx.fillStyle = '#ecd8ab'; ctx.fill();
+    ctx.save(); ctx.clip();
+    // Light comes from the upper left whichever way the shell has turned.
+    ctx.rotate(-a);
+    ctx.fillStyle = 'rgba(150,108,58,.32)'; ctx.beginPath(); ctx.arc(2.2, 2.6, r + 4, 0, TAU); ctx.arc(0, 0, r - 1, 0, TAU, true); ctx.fill('evenodd');
+    ctx.beginPath(); ctx.arc(0, 0, r + 1.4, -2.7, -1.5); ctx.strokeStyle = 'rgba(255,250,232,.9)'; ctx.lineWidth = 1.3; ctx.lineCap = 'round'; ctx.stroke();
+    ctx.rotate(a);
+    ctx.strokeStyle = 'rgba(122,86,46,.6)'; ctx.lineWidth = .9;
+    for (let k = open + .22; k < TAU - open - .08; k += .34) {
+      ctx.beginPath(); ctx.moveTo(Math.cos(k) * (r - 2.7), Math.sin(k) * (r - 2.7));
+      ctx.quadraticCurveTo(Math.cos(k + .07) * r, Math.sin(k + .07) * r, Math.cos(k) * (r + 2.7), Math.sin(k) * (r + 2.7)); ctx.stroke();
+    }
+    ctx.restore();
+    shellPath(ctx, r, open); ctx.strokeStyle = '#7a5530'; ctx.lineWidth = 1.4; ctx.lineJoin = 'round'; ctx.stroke();
+    // The whorl at the leading lip and a rounded cap at the other.
+    const wx = Math.cos(open) * r, wy = Math.sin(open) * r;
+    circle(ctx, wx, wy, 4.3, '#f6e8c4', '#7a5530', 1.3);
+    ctx.beginPath(); ctx.arc(wx + .4, wy, 2.4, 0, 4.6); ctx.arc(wx + .2, wy - .6, 1, 4.6, 1.2); ctx.strokeStyle = '#8c6338'; ctx.lineWidth = .9; ctx.stroke();
+    const cx = Math.cos(-open) * r, cy = Math.sin(-open) * r;
+    circle(ctx, cx, cy, 2.8, '#e3c995', '#7a5530', 1.2);
+    ctx.restore();
+  }
+  // A geode: a lumpy stone with amethyst showing through its cracks. Each hit opens the cracks wider.
+  function idSeed(id) { let h = 7; for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) | 0; return h; }
+  function drawGeode(ctx, bud, time) {
+    const r = Number(bud.r) || 14, max = Math.max(1, Number(bud.maxHp) || 1), crack = max > 1 ? clamp((max - (Number(bud.hp) || 1)) / (max - 1), 0, 1) : 0;
+    const random = rng(idSeed(bud.id)), lumps = [];
+    for (let i = 0; i < 9; i++) lumps.push(r * (.9 + random() * .16));
+    ctx.save(); ctx.translate(bud.x, bud.y);
+    const outline = () => {
+      ctx.beginPath();
+      for (let i = 0; i <= 9; i++) {
+        const a0 = (i - .5) * TAU / 9, a1 = i * TAU / 9, k = lumps[i % 9];
+        if (i === 0) ctx.moveTo(Math.cos(a0) * k, Math.sin(a0) * k);
+        ctx.quadraticCurveTo(Math.cos(a1 - TAU / 18) * k * 1.06, Math.sin(a1 - TAU / 18) * k * 1.06, Math.cos(a1 + TAU / 36) * lumps[(i + 1) % 9], Math.sin(a1 + TAU / 36) * lumps[(i + 1) % 9]);
+      }
+      ctx.closePath();
+    };
+    outline(); ctx.fillStyle = '#a49ab3'; ctx.fill();
+    ctx.save(); ctx.clip();
+    ctx.fillStyle = '#7f7393'; ctx.beginPath(); ctx.arc(r * .55, r * .6, r * 1.15, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#a49ab3'; ctx.beginPath(); ctx.arc(-r * .12, -r * .16, r * .98, 0, TAU); ctx.fill();
+    for (let i = 0; i < 6; i++) circle(ctx, (random() - .5) * r * 1.5, (random() - .5) * r * 1.5, .9 + random() * .9, 'rgba(70,58,92,.35)');
+    // The geode's crystal heart shows first at a chip in the upper left, then through spreading cracks.
+    const glow = .55 + Math.sin(time * 3 + bud.x * .05) * .12;
+    const crystals = [[-.35, -.42, .34], [.18, -.1, .26 + crack * .2], [-.1, .32, .22 + crack * .24], [.42, .36, crack * .3]];
+    crystals.forEach(([cx, cy, size], i) => {
+      if (size <= .02 || (i > 0 && crack <= 0 && i !== 1)) return;
+      const s = size * r, x = cx * r, y = cy * r;
+      ctx.beginPath(); ctx.moveTo(x, y - s); ctx.lineTo(x + s * .62, y - s * .1); ctx.lineTo(x + s * .32, y + s * .7); ctx.lineTo(x - s * .4, y + s * .62); ctx.lineTo(x - s * .64, y - s * .14); ctx.closePath();
+      ctx.fillStyle = i === 1 && crack <= 0 ? '#8a6bc9' : '#b48cff'; ctx.fill(); ctx.strokeStyle = '#4b2f86'; ctx.lineWidth = .9; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x, y - s); ctx.lineTo(x - s * .1, y + s * .1); ctx.lineTo(x + s * .62, y - s * .1); ctx.fillStyle = `rgba(240,226,255,${glow})`; ctx.fill();
+    });
+    if (crack > 0) {
+      ctx.strokeStyle = '#3d2c58'; ctx.lineWidth = 1.2; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      for (const [sx, sy, ex, ey] of [[-r, -.1 * r, .1 * r, .05 * r], [.2 * r, -r, .05 * r, .2 * r], [.9 * r, .5 * r, .2 * r, .25 * r]].slice(0, crack >= 1 ? 3 : 2)) {
+        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo((sx * 2 + ex) / 3 + 2, (sy * 2 + ey) / 3 - 2); ctx.lineTo((sx + ex * 2) / 3 - 1.5, (sy + ey * 2) / 3 + 1.5); ctx.lineTo(ex, ey); ctx.stroke();
+      }
+    }
+    ctx.restore();
+    outline(); ctx.strokeStyle = '#4a3d5e'; ctx.lineWidth = 1.7; ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, 0, r * .78, 3.5, 4.4); ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 1.4; ctx.lineCap = 'round'; ctx.stroke();
+    ctx.restore();
+  }
+  // Gems tumble out of a cracked geode: a cut stone in the flower's color, with a glint.
+  const GEMS = { coral: ['#ff7aa2', '#ffc6d6', '#a5305a'], gold: ['#ffc94a', '#fff2b0', '#9a6516'], lilac: ['#a77cff', '#e0ceff', '#57359f'] };
+  function drawGem(ctx, bud, time, still) {
+    const r = Number(bud.r) || 9, [base, light, ink] = GEMS[bud.type] || GEMS.coral, bob = still ? 0 : Math.sin(time * 4 + bud.x) * .8;
+    ctx.save(); ctx.translate(bud.x, bud.y + bob);
+    const pts = [[0, -r * 1.05], [r * .9, -r * .38], [r * .62, r * .62], [0, r * 1.05], [-r * .62, r * .62], [-r * .9, -r * .38]];
+    ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); ctx.fillStyle = base; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-r * .9, -r * .38); ctx.lineTo(0, -r * 1.05); ctx.lineTo(r * .9, -r * .38); ctx.lineTo(r * .36, -r * .1); ctx.lineTo(-r * .36, -r * .1); ctx.closePath(); ctx.fillStyle = light; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(r * .36, -r * .1); ctx.lineTo(r * .9, -r * .38); ctx.lineTo(r * .62, r * .62); ctx.lineTo(0, r * 1.05); ctx.closePath(); ctx.fillStyle = 'rgba(40,20,60,.2)'; ctx.fill();
+    ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); ctx.strokeStyle = ink; ctx.lineWidth = 1.4; ctx.lineJoin = 'round'; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-r * .36, -r * .1); ctx.lineTo(r * .36, -r * .1); ctx.lineTo(0, r * 1.05); ctx.closePath(); ctx.strokeStyle = ink; ctx.globalAlpha *= .45; ctx.lineWidth = .8; ctx.stroke(); ctx.globalAlpha /= .45;
+    sparkle(ctx, -r * .34, -r * .52, 2.6, '#ffffff', .3);
+    ctx.restore();
+  }
+  // Briar patches: a thorny vine ties each patch together, so the player can see which three must bloom together.
+  function drawBriars(ctx, buds) {
+    const patches = new Map();
+    for (const bud of buds) if (bud.briar) { if (!patches.has(bud.group)) patches.set(bud.group, []); patches.get(bud.group).push(bud); }
+    ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    for (const patch of patches.values()) {
+      if (patch.length < 2) continue;
+      const pts = patch.slice().sort((a, b) => a.x - b.x || a.y - b.y);
+      // A pale halo first, so the bramble reads on dark stone as well as on light sand.
+      for (const [width, color] of [[7, 'rgba(255,241,214,.55)'], [4.4, '#5e3324'], [2, '#a4643c']]) {
+        ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+        for (let i = 1; i < pts.length; i++) { const a = pts[i - 1], b = pts[i]; ctx.quadraticCurveTo((a.x + b.x) / 2, (a.y + b.y) / 2 + 9, b.x, b.y); }
+        ctx.strokeStyle = color; ctx.lineWidth = width; ctx.stroke();
+      }
+      for (let i = 1; i < pts.length; i++) {
+        const a = pts[i - 1], b = pts[i];
+        for (let k = 1; k < 4; k++) {
+          const t = k / 4, mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2 + 9;
+          const x = (1 - t) * (1 - t) * a.x + 2 * t * (1 - t) * mx + t * t * b.x, y = (1 - t) * (1 - t) * a.y + 2 * t * (1 - t) * my + t * t * b.y;
+          const dx = 2 * (1 - t) * (mx - a.x) + 2 * t * (b.x - mx), dy = 2 * (1 - t) * (my - a.y) + 2 * t * (b.y - my), len = Math.hypot(dx, dy) || 1;
+          const side = k % 2 ? 1 : -1, nx = -dy / len * side, ny = dx / len * side;
+          ctx.beginPath(); ctx.moveTo(x + dx / len * 2.6, y + dy / len * 2.6); ctx.lineTo(x + nx * 6, y + ny * 6); ctx.lineTo(x - dx / len * 2.6, y - dy / len * 2.6); ctx.closePath();
+          ctx.fillStyle = '#4a261b'; ctx.fill(); ctx.strokeStyle = 'rgba(255,241,214,.75)'; ctx.lineWidth = .9; ctx.stroke();
+        }
+      }
+    }
+    ctx.restore();
+  }
+  function drawThorns(ctx, bud) {
+    const r = (Number(bud.r) || 11) + 1.5;
+    ctx.save(); ctx.translate(bud.x, bud.y);
+    for (let i = 0; i < 7; i++) {
+      const a = i * TAU / 7 + .3, ux = Math.cos(a), uy = Math.sin(a);
+      ctx.beginPath(); ctx.moveTo(ux * r - uy * 2.6, uy * r + ux * 2.6); ctx.lineTo(ux * (r + 5), uy * (r + 5)); ctx.lineTo(ux * r + uy * 2.6, uy * r - ux * 2.6); ctx.closePath();
+      ctx.fillStyle = '#6b3726'; ctx.fill(); ctx.strokeStyle = '#fff1d6'; ctx.lineWidth = 1; ctx.stroke();
+    }
+    ctx.restore();
+  }
+  // A bloomed briar shows how long the patch has before it grows back: a ring that empties, turning red at the end.
+  function drawRegrow(ctx, bud, time) {
+    const span = Number(bud.regrowSpan) || 4, left = clamp((bud.regrowAt - time) / span, 0, 1), r = (Number(bud.r) || 11) + 7;
+    if (left <= 0) return;
+    ctx.save(); ctx.lineCap = 'round';
+    circle(ctx, bud.x, bud.y, r, null, 'rgba(255,255,255,.75)', 4.2);
+    ctx.beginPath(); ctx.arc(bud.x, bud.y, r, -Math.PI / 2, -Math.PI / 2 + left * TAU);
+    ctx.strokeStyle = left < .3 ? '#e2445f' : '#4c8a3c'; ctx.lineWidth = 2.6; ctx.stroke();
+    ctx.restore();
+  }
+  // Tunnel holes for the painted levels: a dark burrow in a ring of stones. The exit carries an arrow for the way
+  // shots come out, and matching dots pair each entrance with its exit.
+  const BURROWS = {
+    'depth-ember': { rim: '#5b3b35', stone: '#7a4f44', lip: '#ff9b4f', hole: '#1b0d10', ink: '#2a1412', arrow: '#ffc27a' },
+    'depth-geode': { rim: '#6d5238', stone: '#8c6a47', lip: '#e5b979', hole: '#170f1c', ink: '#3a2716', arrow: '#ffe2a6' },
+    'depth-briar': { rim: '#56604c', stone: '#788670', lip: '#b8d48c', hole: '#111a12', ink: '#26301f', arrow: '#e6f5b8' },
+    'depth-core': { rim: '#6a4a6e', stone: '#8d6b8c', lip: '#ffd36e', hole: '#1e0f24', ink: '#33183a', arrow: '#fff0b0' },
+    default: { rim: '#5e5466', stone: '#7d7186', lip: '#c9b8e8', hole: '#151020', ink: '#2c2236', arrow: '#f2e8ff' }
+  };
+  const PAIR_DOTS = ['#ffcf4a', '#6fe0d2', '#ff8fb1'];
+  function drawBurrows(ctx, gates, time, reducedMotion, theme) {
+    if (!Array.isArray(gates) || !gates.length) return;
+    const look = BURROWS[theme] || BURROWS.default;
+    const pairKey = gate => [String(gate.id), String(gate.pair)].sort().join('|');
+    const pairs = Array.from(new Set(gates.filter(Boolean).map(pairKey))).sort();
+    gates.forEach(gate => {
+      if (!gate || !Number.isFinite(gate.x) || !Number.isFinite(gate.y)) return;
+      const r = clamp(Number(gate.r) || 17, 8, 40), index = Math.max(0, pairs.indexOf(pairKey(gate))), exit = /-out$/.test(String(gate.id));
+      ctx.save(); ctx.translate(gate.x, gate.y);
+      circle(ctx, 1.5, 2.5, r + 5.5, 'rgba(20,10,20,.28)');
+      circle(ctx, 0, 0, r + 5, look.rim, look.ink, 1.5);
+      for (let i = 0; i < 9; i++) {
+        const a = i * TAU / 9 + index, x = Math.cos(a) * (r + 2.4), y = Math.sin(a) * (r + 2.4);
+        ctx.beginPath(); ctx.ellipse(x, y, 4.4, 3.2, a, 0, TAU); ctx.fillStyle = look.stone; ctx.fill(); ctx.strokeStyle = look.ink; ctx.lineWidth = .9; ctx.stroke();
+      }
+      const hole = ctx.createRadialGradient(-r * .2, -r * .25, 1, 0, 0, r);
+      hole.addColorStop(0, look.hole); hole.addColorStop(.75, look.hole); hole.addColorStop(1, look.rim);
+      circle(ctx, 0, 0, r - .5, hole);
+      ctx.beginPath(); ctx.arc(0, 0, r - 1.6, .2, Math.PI - .2); ctx.strokeStyle = look.lip; ctx.globalAlpha = .75; ctx.lineWidth = 1.6; ctx.stroke(); ctx.globalAlpha = 1;
+      const dots = Math.min(3, index + 1);
+      for (let i = 0; i < dots; i++) circle(ctx, (i - (dots - 1) / 2) * 6, -r - 9, 2.6, PAIR_DOTS[index % PAIR_DOTS.length], look.ink, 1);
+      if (exit) {
+        ctx.save(); ctx.rotate(Number(gate.angle) || 0);
+        ctx.beginPath(); ctx.moveTo(r + 4, -5); ctx.lineTo(r + 12, 0); ctx.lineTo(r + 4, 5); ctx.closePath();
+        ctx.fillStyle = look.arrow; ctx.fill(); ctx.strokeStyle = look.ink; ctx.lineWidth = 1.2; ctx.lineJoin = 'round'; ctx.stroke();
+        ctx.restore();
+      }
+      const age = Number.isFinite(gate.lastUsed) ? time - gate.lastUsed : Infinity;
+      if (!reducedMotion && age >= 0 && age < .5) {
+        const q = age / .5;
+        ctx.globalAlpha = (1 - q) * .8; circle(ctx, 0, 0, r + 4 + ease(q) * 12, null, look.lip, 2 - q);
+      }
+      ctx.restore();
+    });
   }
 
   function drawRelayCrown(ctx, bud) {
@@ -1002,17 +1183,23 @@
     circle(ctx, size * .72, -size * .14, size * .07, '#1b2a33');
     ctx.restore();
   }
-  function drawCurrents(ctx, currents, time, reducedMotion) {
+  // Underground the water runs darker and pale cave fish swim it; in the Starseed Core the streams are light.
+  const WATERS = {
+    pond: { edge: '120,236,255', mid: '92,214,240', core: '160,246,255', fishes: [['#f0552f', '#ffb48a'], ['#f7a21b', '#ffe3a1'], ['#e8364f', '#ffd0d6'], ['#ffffff', '#ffe7c7']] },
+    cave: { edge: '70,170,215', mid: '64,156,210', core: '130,214,240', fishes: [['#dfe9f3', '#f5f8fb'], ['#d6cfe6', '#f1ecf9']] },
+    light: { edge: '255,214,130', mid: '255,196,110', core: '255,236,180', fishes: null }
+  };
+  function drawCurrents(ctx, currents, time, reducedMotion, theme) {
     if (!Array.isArray(currents) || !currents.length) return;
-    const fishes = [['#f0552f', '#ffb48a'], ['#f7a21b', '#ffe3a1'], ['#e8364f', '#ffd0d6'], ['#ffffff', '#ffe7c7']];
+    const water = theme === 'depth-core' ? WATERS.light : scenery(theme) ? WATERS.cave : WATERS.pond, fishes = water.fishes;
     currents.forEach((lane, index) => {
       const L = lane.length, W = lane.width, ux = Math.cos(lane.angle), uy = Math.sin(lane.angle);
       const used = Number.isFinite(lane.lastUsed) ? clamp(1 - (time - lane.lastUsed) / .5, 0, 1) : 0;
       ctx.save(); ctx.translate(lane.x, lane.y); ctx.rotate(lane.angle);
-      const water = ctx.createLinearGradient(0, -W / 2, 0, W / 2);
-      water.addColorStop(0, 'rgba(120,236,255,0)'); water.addColorStop(.2, `rgba(92,214,240,${.30 + used * .2})`);
-      water.addColorStop(.5, `rgba(160,246,255,${.38 + used * .25})`); water.addColorStop(.8, `rgba(92,214,240,${.30 + used * .2})`); water.addColorStop(1, 'rgba(120,236,255,0)');
-      ctx.fillStyle = water; roundRect(ctx, -L / 2, -W / 2, L, W, W / 2); ctx.fill();
+      const ribbon = ctx.createLinearGradient(0, -W / 2, 0, W / 2);
+      ribbon.addColorStop(0, `rgba(${water.edge},0)`); ribbon.addColorStop(.2, `rgba(${water.mid},${.30 + used * .2})`);
+      ribbon.addColorStop(.5, `rgba(${water.core},${.38 + used * .25})`); ribbon.addColorStop(.8, `rgba(${water.mid},${.30 + used * .2})`); ribbon.addColorStop(1, `rgba(${water.edge},0)`);
+      ctx.fillStyle = ribbon; roundRect(ctx, -L / 2, -W / 2, L, W, W / 2); ctx.fill();
       ctx.beginPath(); roundRect(ctx, -L / 2, -W / 2, L, W, W / 2); ctx.clip();
       const shift = reducedMotion ? 0 : (time * 70) % 36;
       ctx.lineCap = 'round';
@@ -1030,9 +1217,14 @@
         ctx.beginPath(); ctx.moveTo(x - 5, -6); ctx.lineTo(x + 2, 0); ctx.lineTo(x - 5, 6); ctx.stroke();
       }
       ctx.globalAlpha = 1;
-      if (!reducedMotion) {
+      if (!reducedMotion && fishes) {
         const along = ((time * 34 + index * 97) % (L + 60)) - L / 2 - 30;
         koiFish(ctx, along, Math.sin(time * 1.3 + index) * W * .18, Math.cos(time * 1.3 + index) * .12, time + index, Math.min(13, W * .24), fishes[index % fishes.length]);
+      } else if (!reducedMotion) {
+        for (let k = 0; k < 4; k++) {
+          const along = ((time * 46 + k * L / 4 + index * 53) % L) - L / 2;
+          sparkle(ctx, along, Math.sin(time * 2 + k * 1.7) * W * .22, 2.2 + Math.sin(time * 5 + k) * .6, '#fff6d8', time + k);
+        }
       }
       ctx.restore();
       ctx.save(); ctx.globalAlpha = .5 + used * .5; ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 1;
@@ -1359,8 +1551,10 @@
       drawLivingFoliage(ctx, time, colors, options.reducedMotion);
       drawVines(ctx, buds, time, colors, options.reducedMotion);
     }
-    drawCurrents(ctx, state.currents, time, options.reducedMotion);
-    drawGates(ctx, state.gates, time, options.reducedMotion);
+    drawCurrents(ctx, state.currents, time, options.reducedMotion, options.theme);
+    if (scenery(options.theme)) drawBurrows(ctx, state.gates, time, options.reducedMotion, options.theme);
+    else drawGates(ctx, state.gates, time, options.reducedMotion);
+    drawBriars(ctx, buds);
     // Bloom rings are drawn under the flowers, never on top of aiming feedback.
     for (const bud of buds) {
       if (bud.bloomed && !options.reducedMotion && typeof bud.bloomAt === 'number') {
@@ -1399,7 +1593,7 @@
           ctx.translate(bud.x, bud.y); ctx.scale(1 + squash * .18, 1 - squash * .20); ctx.translate(-bud.x, -bud.y);
         }
       }
-      if (!bud.bloomed && hp > 1 && !bud.boss) {
+      if (!bud.bloomed && hp > 1 && !bud.boss && !bud.geode) {
         for (let layer = 1; layer < hp; layer++) {
           const rr = radius + 2.5 + layer * 3;
           ctx.beginPath();
@@ -1432,9 +1626,14 @@
         ctx.translate(bud.x, bud.y); ctx.rotate(sway); ctx.scale(breathe, breathe); ctx.translate(-bud.x, -bud.y);
       }
       if (bud.boss && !bud.bloomed) drawBossLeaves(ctx, bud, time, options.reducedMotion);
+      if (bud.briar && !bud.bloomed) drawThorns(ctx, bud);
       if (bud.puff) { if (!bud.bloomed) drawPuffcap(ctx, bud, time, options.reducedMotion); }
+      else if (bud.geode && !bud.bloomed) drawGeode(ctx, bud, time);
+      else if (bud.gem && !bud.bloomed) drawGem(ctx, bud, time, options.reducedMotion);
       else drawFlower(ctx, bud.x, bud.y, bud.r || 16, bud.type, openness, time, flowerVariants.get(bud));
+      if (bud.briar && bud.bloomed && bud.regrowAt) drawRegrow(ctx, bud, time);
       if (bud.shield && !bud.bloomed) drawCup(ctx, bud);
+      if (bud.shell && !bud.bloomed) drawShell(ctx, bud);
       if (bud.boss && !bud.bloomed) { drawBossFace(ctx, bud, time, options.reducedMotion); drawBossRing(ctx, bud); }
       if (bud.relay && !bud.bloomed) drawRelayCrown(ctx, bud);
       if (!bud.bloomed && (bud.power || bud.burst || bud.kind === 'burst')) {
