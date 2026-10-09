@@ -108,7 +108,7 @@ function boot(raw, { storageFails = false, search = '', otherSave, store, native
     performance: { now: () => now }, devicePixelRatio: 1,
     matchMedia: () => ({ matches: false, addEventListener: noop }),
     requestAnimationFrame: fn => { nextFrame = fn; }, setTimeout: () => 1, clearTimeout: noop,
-    BloomLevels: { ...Levels, worlds: [...Levels.worlds, FUTURE] }, BloomMoon: Moon, BloomKoi: Koi, BloomGarden: Garden, BloomGoals: goals ? Goals : QuietGoals, ...(store ? { BloomStore: store } : {}), ...(native ? { BloomNative: native } : {}), BloomEngine: { ...Engine, Game: ObservedGame }, BloomRush: { RushGame: ObservedRush }, BloomDepths: Depths, BloomPowers: Powers, BloomScenery: { paint: noop, has: () => true },
+    BloomLevels: { ...Levels, worlds: [...Levels.worlds, FUTURE] }, BloomMoon: Moon, BloomKoi: Koi, BloomGarden: Garden, BloomGoals: goals ? Goals : QuietGoals, ...(store ? { BloomStore: store } : {}), ...(native ? { BloomNative: native } : {}), BloomEngine: { ...Engine, Game: ObservedGame }, BloomRush: { RushGame: ObservedRush }, BloomDepths: Depths, BloomPowers: Powers, BloomPetals: require('../petals.js'), BloomScenery: { paint: noop, has: () => true },
     BloomSound: { wake: noop, play: noop, setEnabled: noop }, BloomKeepsakes: Keepsakes,
     BloomArt: { draw: (ctx, state, time, options) => boardDraws.push(options.keepsake ? options.keepsake.id : 'meadow'), drawFlower: noop, drawMoon: noop, koiFish: noop,
       drawGarden: noop, drawProjectile: noop, drawParticle: noop, drawSeed: noop, drawPowerIcon: noop },
@@ -613,6 +613,18 @@ test('Clearing a level saves its stars, pays run and first-clear seeds once, ope
   const reloaded = boot(app.saved()); assert.match(reloaded.$('depth-map').innerHTML, /class="depth-card next" type="button" data-depth="2"/);
   assert.match(reloaded.$('levels-summary').textContent, /1 of 10 cleared · 2 ★/);
 });
+test('A level opened by a first clear greets the player on the map until they play it', () => {
+  const app = boot(legacySave()); app.click('depth-map', { depth: '1' });
+  let game = depthGame(app); game.started = true; game.wave = 10; game.lives = 3; game._clearLevel(); settleLevel(app);
+  app.click('result-garden-btn');
+  assert.match(app.$('depth-map').innerHTML, /class="depth-card next fresh" type="button" data-depth="2"/); assert.match(app.$('depth-map').innerHTML, /<span class="depth-new">New!<\/span>/);
+  assert.equal((app.$('depth-map').innerHTML.match(/ fresh"/g) || []).length, 1, 'only the new level');
+  app.click('depth-map', { depth: '2' }); app.click('rush-btn');
+  assert(!app.$('depth-map').innerHTML.includes('fresh'), 'played once, it is just the next level');
+  game = depthGame(app); assert.equal(game.plan.id, 2);
+  app.click('depth-map', { depth: '1' }); game = depthGame(app); game.started = true; game.wave = 10; game.lives = 3; game._clearLevel(); settleLevel(app);
+  app.click('result-garden-btn'); assert(!app.$('depth-map').innerHTML.includes('fresh'), 'a replayed level opens nothing new');
+});
 test('Running out of lives keeps the best wave, pays for the blooms, and Try again restarts the same level', () => {
   const app = boot(legacySave()); app.click('depth-map', { depth: '1' });
   let game = depthGame(app); game.started = true; game.wave = 6; game.totalBlooms = 90; game.score = 2100; game._lose(); settleLevel(app);
@@ -669,6 +681,26 @@ test('Clearing level 4 points to the unlock once, gently; with it owned, Next go
   assert.match(owner.$('result-message').textContent, /Level 5, Glowworm Lake, is open!/); assert.equal(owner.$('next-btn').textContent, 'Level 5');
   assert(owner.$('next-btn').classList.contains('button-primary'));
   owner.click('next-btn'); assert.equal(depthGame(owner).plan.id, 5);
+});
+test('A won level counts its score up and chimes each star; with Animations off the score shows at once', () => {
+  const win = save => {
+    const app = boot(save), sounds = []; app.context.BloomSound.play = (type, data) => sounds.push(type === 'star' ? `star${data.index}` : type);
+    app.click('depth-map', { depth: '2' }); const game = depthGame(app);
+    game.started = true; game.wave = 10; game.lives = 3; game.score = 2400; game._clearLevel();
+    for (let i = 0; i < 200 && !app.$('result-dialog').open; i++) app.frame();
+    assert.equal(app.$('result-dialog').open, true);
+    return { app, sounds, final: app.$('result-score').textContent };
+  };
+  const { app, sounds, final } = win({ ...cleared(1), settings: { sound: true, haptics: true, motion: true } }), score = () => Number(app.$('result-score').textContent.replace(/\D/g, ''));
+  assert(Number(final.replace(/\D/g, '')) >= 2400, 'the dialog opens with the real score in place');
+  assert.match(app.$('result-stars').innerHTML, /^<span class="on" style="--i:0">★<\/span><span class="on" style="--i:1">★<\/span><span class="on" style="--i:2">★<\/span>$/);
+  app.frame(); assert.equal(score(), 0, 'then counts up from zero');
+  app.frame(400); assert(score() > 0 && score() < Number(final.replace(/\D/g, '')));
+  for (let i = 0; i < 12; i++) app.frame(100);
+  assert.equal(app.$('result-score').textContent, final); assert.deepEqual(sounds.filter(s => s.startsWith('star')), ['star0', 'star1', 'star2']);
+  const still = win({ ...cleared(1), settings: { sound: true, haptics: true, motion: false } });
+  for (let i = 0; i < 12; i++) still.app.frame(100);
+  assert.equal(still.app.$('result-score').textContent, still.final); assert.deepEqual(still.sounds.filter(s => s.startsWith('star')), []);
 });
 test('A save from before powerups starts with one of each, and counts survive a reload', () => {
   const app = boot(legacySave()), saved = app.saved();

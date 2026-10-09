@@ -14,6 +14,8 @@ The ten level scenes (Sunny Meadow, Root Tunnels, Mushroom Grotto, Crystal Caves
 
 The four powerups (Sunburst's smiling sun, Dandelion's seed clock, Bee Line's bee and Lullaby's sleepy moon) and the gift bubble with its ribbon bow are AI-assisted Canvas paths in art.js, drawn in the same flat, ink-edged style. The tray buttons and the Powerups shelf show pictures rendered on the device from that same code. Their sounds (arming, each powerup, the sunburst, the bee, the gift arriving and being caught) are synthesized in sound.js. No raster images were generated, downloaded or commissioned for them.
 
+The petal shower over a won result (petals, leaves and small blossoms with an inked edge and a center crease) is drawn with AI-assisted Canvas paths in petals.js, and the star pops, banner and new-level greeting are CSS animations. No raster images were used for them.
+
 ## Interface
 
 The interface is AI-assisted HTML, CSS and inline SVG. The buttons, panels, ribbon titles, tab icons and the padlock (assets/ui/lock.svg) are vector shapes written in code, not generated images. The game no longer uses any AI-generated raster art: the two image-generator ornaments it used to carry (botanical-header.png behind the score and split-leaf.png behind the Split button) were removed in the October 2026 redesign.

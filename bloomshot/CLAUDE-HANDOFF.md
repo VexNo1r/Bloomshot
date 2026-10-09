@@ -41,6 +41,8 @@ Normal save `bloomshot.save.v1`; `?qa` uses `bloomshot.qa.v1`. Trevor plays in b
 
 **Powerups (October 9).** Trevor asked for powerups that turn up free on rare occasions and can be bought one at a time for 25 cents. Four, in a tray beside the Fire! sign in the levels and Meadow Rush (keys 1 to 4 on a keyboard): Sunburst (the next shot blooms everything within reach of its first touch; a big bloom loses four rings), Dandelion (the next shot fans into three seeds), Bee Line (the next shot flies through flowers, cups and shells, blooming each; a big bloom loses three rings) and Lullaby (nothing falls for six seconds). A shot powerup is only spent when the shot is fired, and picking it again puts it back. Players start with one of each. A gift bubble holding a random one floats down in about one wave in seventeen, at most once a run and never in a big bloom wave; shooting it keeps the powerup, missing it costs nothing. `powers.js` (`BloomPowers`) holds the catalog, counts and the once-only grant; `rush.js` runs the effects and gifts (only when the app passes a chance source, so tests and the practice bot are unchanged); `qa/test-powers.cjs` covers both. The Powerups shelf on the Levels page shows counts and, once a product is on sale in the app, a "Get 1" button per powerup at the store's price. Nothing offers a purchase during a run or after a loss; an empty powerup's message points only to gift bubbles. Levels are still tuned without powerups, so they stay optional help.
 
+**Look and sound pass (October 9).** Trevor asked for the game to be as visually appealing and its sound effects as pleasing as possible. A won result now unfurls its banner, pops its stars in one at a time (each with a rising chime, the `star` cue) and counts the score up; a win also sends a short shower of inked petals, leaves and blossoms over the card (`petals.js`, `BloomPetals`, drawn on `#petal-layer`, a manual popover so it can sit above the modal dialog; browsers without popovers skip the petals). All of it runs off the main frame loop and is skipped when Animations is off. Each screen settles in when it opens. A level opened by a first clear greets the player on the map (the card pops, its scene brightens out of the locked look, a pink "New!" tag) until it is played. The sound effects were rebuilt in `sound.js`: see that file's header for the instruments and the shared room echo.
+
 ## Storybook rules
 
 - **Type.** Two self-hosted open-source fonts in `assets/fonts/` (SIL Open Font License): Fredoka for titles, buttons, tags and canvas text, Nunito for body text. No system-ui on canvas, no other fonts.
@@ -58,6 +60,7 @@ Screenshots: `docs/screenshots/storybook/` (interface), `docs/screenshots/levels
 |---|---|
 | depths.js | The ten levels and their waves, progress records, unlock rule, product ids |
 | powers.js | The four powerups, their product ids, counts and the once-only purchase grant |
+| petals.js | The petal shower over a won result (create, step, draw) |
 | rush.js | Endless Rush with tempo, and the level runner: waves, drops, bosses, shells, geodes, briars, powerups and gift bubbles |
 | engine.js | Puzzle physics, currents and gates (shared with the levels) |
 | scenery.js | The ten painted level scenes and their rocks |
@@ -70,13 +73,13 @@ Screenshots: `docs/screenshots/storybook/` (interface), `docs/screenshots/levels
 | native.js | Haptics and the native save mirror (shipping thread) |
 | store*.js | Purchases (shipping thread; send requests instead of editing) |
 
-Script order: store-config → store → levels → moon → koi → keepsakes → garden → goals → depths → powers → engine → rush → scenery → art → meadow → sound → native → app → store-ui → pwa. `sw.js` ASSETS lists every shipped file; bump `VERSION` whenever an asset changes (the Pages build replaces it with a content hash). The native copy step derives its file list from ASSETS.
+Script order: store-config → store → levels → moon → koi → keepsakes → garden → goals → depths → powers → engine → rush → scenery → art → meadow → petals → sound → native → app → store-ui → pwa. `sw.js` ASSETS lists every shipped file; bump `VERSION` whenever an asset changes (the Pages build replaces it with a content hash). The native copy step derives its file list from ASSETS.
 
 Every new buzz goes through `haptic(kind)` in `app.js`, never `navigator.vibrate`, or iPhone stays silent.
 
 ## Verification
 
-From `bloomshot/`, every suite must exit 0 (CI runs the same list in `.github/workflows/web-tests.yml`): every `node qa/test-*.cjs` (16 suites, including `test-depths`, `test-powers`, `test-goals` and `test-keepsakes`) and `node qa/check-moon-pointer.cjs`. Then in `native/`: `npm ci && npm run sync && npm run check`. Running the suites rewrites several `qa/*-results.json` files with new timestamps; commit only the ones your change actually affects. None of this is physical-device proof.
+From `bloomshot/`, every suite must exit 0 (CI runs the same list in `.github/workflows/web-tests.yml`): every `node qa/test-*.cjs` (17 suites, including `test-depths`, `test-powers`, `test-petals`, `test-goals` and `test-keepsakes`) and `node qa/check-moon-pointer.cjs`. Then in `native/`: `npm ci && npm run sync && npm run check`. Running the suites rewrites several `qa/*-results.json` files with new timestamps; commit only the ones your change actually affects. None of this is physical-device proof.
 
 ## Store state
 

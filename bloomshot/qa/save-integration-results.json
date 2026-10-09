@@ -1,5 +1,5 @@
 {
-  "passed": 50,
+  "passed": 52,
   "failed": 0,
   "methodology": "Executes the complete current app.js in an isolated Node VM using real garden/level/engine modules, fake localStorage, and DOM/canvas adapters. Completion fixtures exercise actual engine completion events and app handlers. No real browser or user saves are read or changed.",
   "limitations": [
@@ -164,6 +164,10 @@
       "passed": true
     },
     {
+      "name": "A level opened by a first clear greets the player on the map until they play it",
+      "passed": true
+    },
+    {
       "name": "Running out of lives keeps the best wave, pays for the blooms, and Try again restarts the same level",
       "passed": true
     },
@@ -177,6 +181,10 @@
     },
     {
       "name": "Clearing level 4 points to the unlock once, gently; with it owned, Next goes straight to level 5",
+      "passed": true
+    },
+    {
+      "name": "A won level counts its score up and chimes each star; with Animations off the score shows at once",
       "passed": true
     },
     {

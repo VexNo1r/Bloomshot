@@ -62,6 +62,8 @@
   let meadowDirty = true, meadowFrame = 0, growth = null, bubbleTimer = 0;
   const friendPokes = {};
   let runId = '', runAward = 0, runBouquet = null, runGoals = null, depthNews = null;
+  // A level just opened by a first clear: its card greets the player on the map until they play it.
+  let freshDepth = 0, freshShown = false;
   let game, route = 'game', theme = 'meadow', preview = false, returnSession = null;
   let aiming = false, guiding = false, pointer = null, activePointer = null, angle = -Math.PI / 2, resultAt = Infinity, resultShown = false;
   const narrowLandscape = matchMedia('(orientation: landscape) and (max-height: 500px)');
@@ -380,15 +382,18 @@
     }
     const owned = depthsOwned();
     $('depth-map').innerHTML = list.map(level => {
-      const data = save.depths[level.id], open = depthOpen(level.id), paid = depthPaid(level.id), done = data?.stars || 0, next = open && !done && level.id === suggested;
+      const data = save.depths[level.id], open = depthOpen(level.id), paid = depthPaid(level.id), done = data?.stars || 0, next = open && !done && level.id === suggested, fresh = open && !done && level.id === freshDepth;
       const state = !paid ? `Part of levels ${Depths.free + 1} to ${Depths.total}` : !open ? `Clear level ${level.id - 1} to open` : done ? `${done} of 3 stars` : data?.wave ? `Best: wave ${data.wave} of ${Depths.waveCount}` : 'Ready to play';
       const art = sceneSlice(level);
-      return `<li class="depth-stop"><button class="depth-card${open ? '' : ' locked'}${paid ? '' : ' paid'}${done ? ' cleared' : ''}${next ? ' next' : ''}" type="button" data-depth="${level.id}" aria-label="Level ${level.id}, ${escape(level.name)}. ${escape(level.twist)}. ${state}.">`
-        + `<span class="depth-window" aria-hidden="true">${art ? `<img class="depth-scene" src="${art}" alt="">` : ''}<span class="depth-badge">${level.id}</span>${open ? '' : '<span class="depth-lock"><i class="level-lock"></i></span>'}</span>`
+      return `<li class="depth-stop"><button class="depth-card${open ? '' : ' locked'}${paid ? '' : ' paid'}${done ? ' cleared' : ''}${next ? ' next' : ''}${fresh ? ' fresh' : ''}" type="button" data-depth="${level.id}" aria-label="Level ${level.id}, ${escape(level.name)}. ${escape(level.twist)}. ${state}.">`
+        + `<span class="depth-window" aria-hidden="true">${art ? `<img class="depth-scene" src="${art}" alt="">` : ''}<span class="depth-badge">${level.id}</span>${fresh ? '<span class="depth-new">New!</span>' : ''}${open ? '' : '<span class="depth-lock"><i class="level-lock"></i></span>'}</span>`
         + `<span class="depth-foot" aria-hidden="true"><span class="depth-copy"><strong>${escape(level.name)}</strong><span>${escape(open || !paid ? data?.wave && !done ? state : level.twist : state)}</span></span>`
         + (next ? '<span class="depth-go">Play</span>' : open ? `<span class="depth-stars">${starHTML(done)}</span>` : '') + '</span></button></li>'
         + (level.id === Depths.free && !owned ? depthUnlockCard() : '');
     }).join('');
+    // The first time the map shows a newly opened level, it brings that card into view.
+    const freshCard = freshDepth && !freshShown && route === 'levels' ? $('depth-map').querySelector?.('.depth-card.fresh') : null;
+    if (freshCard) { freshShown = true; freshCard.scrollIntoView({ behavior: 'auto', block: 'center' }); }
     $('levels-rush-best').textContent = save.rush.runs ? `Best ${fmt(save.rush.best)} · wave ${save.rush.bestWave}` : 'Endless waves. How far can you go?';
     renderPowerShelf();
   }
@@ -1039,6 +1044,7 @@
           const recorded = Depths.record(save.depths, id, { won, lives: game.lives, score: game.score, wave: game.wave });
           save.depths = recorded.progress;
           depthNews = { firstClear: recorded.firstClear, newStars: recorded.newStars, opened: recorded.firstClear && Depths.level(id + 1) && depthOpen(id + 1) ? id + 1 : null };
+          if (depthNews.opened) { freshDepth = depthNews.opened; freshShown = false; }
           awardSeeds({ mode: 'depths', levelId: id, stars: won ? game.stars : 0, previousStars, blooms: game.bloomedCount, wave: game.wave });
           runGoals = trackGoals({ type: 'rush', blooms: game.bloomedCount, wave: game.wave, chain: game.bestCombo }); runAward += runGoals.paid;
           persist(); hudKey = '';
@@ -1082,6 +1088,47 @@
       }
     }
   }
+  // A chain of one is not worth a mention.
+  const chainNote = () => game.bestCombo > 1 ? ` · best chain ${game.bestCombo}` : '';
+  // The result card's stars pop in one at a time (styles.css), each with a chime.
+  const resultStars = n => [0, 1, 2].map(i => `<span class="${i < n ? 'on' : 'off'}" style="--i:${i}">★</span>`).join('');
+  // A win ends with a shower of petals over the result card, and every result counts its score up. It all runs
+  // off the main frame loop and is skipped when Animations is off. The petals sit in a popover so they can fall
+  // over the card; a browser without popovers just skips them.
+  const Petals = window.BloomPetals || null, petalLayer = $('petal-layer');
+  let party = null;
+  function celebrate(won) {
+    endParty();
+    if (!save.settings.motion) return;
+    party = { at: null, last: null, score: game.score, stars: $('result-stars').hidden ? 0 : game.stars, chimed: 0, shower: null, dpr: 1 };
+    if (!won || !Petals || !petalLayer || typeof petalLayer.showPopover !== 'function') return;
+    try {
+      const dpr = Math.min(2, window.devicePixelRatio || 1), width = innerWidth, height = innerHeight, banner = $('result-eyebrow').getBoundingClientRect();
+      petalLayer.width = Math.round(width * dpr); petalLayer.height = Math.round(height * dpr);
+      petalLayer.showPopover();
+      party.shower = Petals.create(width, height, { x: banner.left + banner.width / 2, y: banner.top + banner.height / 2 }); party.dpr = dpr;
+    } catch (_) { party.shower = null; }
+  }
+  function endParty() {
+    if (party?.shower) { try { petalLayer.hidePopover(); } catch (_) {} }
+    party = null;
+  }
+  function partyFrame(timestamp) {
+    if (!party) return;
+    if (!$('result-dialog').open) { endParty(); return; }
+    if (party.at === null) party.at = party.last = timestamp;
+    const t = (timestamp - party.at) / 1000, k = clamp((t - .2) / .9, 0, 1);
+    $('result-score').textContent = fmt(party.score * (1 - Math.pow(1 - k, 3)));
+    while (party.chimed < party.stars && t >= .4 + party.chimed * .17) BloomSound.play('star', { index: party.chimed++ });
+    if (party.shower) {
+      const dt = Math.min(.05, (timestamp - party.last) / 1000), alive = Petals.step(party.shower, dt), layer = petalLayer.getContext('2d');
+      party.last = timestamp;
+      layer.setTransform(party.dpr, 0, 0, party.dpr, 0, 0); layer.clearRect(0, 0, party.shower.width, party.shower.height);
+      Petals.draw(layer, party.shower);
+      if (!alive) { try { petalLayer.hidePopover(); } catch (_) {} party.shower = null; }
+    }
+    if (k >= 1 && !party.shower && party.chimed >= party.stars) party = null;
+  }
   function showResult() {
     resultShown = true; const won = game.status === 'won';
     $('next-btn').classList.add('button-primary'); $('next-btn').classList.remove('button-secondary');
@@ -1099,34 +1146,34 @@
       $('result-eyebrow').textContent = won ? `Level ${id} clear!` : 'Out of lives';
       $('result-title').textContent = won ? ['Cleared!', 'Cleared!', 'Great!', 'Perfect!'][game.stars] : `Wave ${game.wave} of ${game.finalWave}`;
       $('result-message').textContent = won
-        ? depthNews?.opened ? `Level ${id + 1}, ${next.name}, is open!` : !next ? `${game.bloomedCount} blooms. You reached the Starseed Core!` : !nextPaid ? `${next.name} and the levels below it come with a one-time unlock.` : game.stars < 3 ? `${game.bloomedCount} blooms. Keep all 3 lives for ★★★.` : `${game.bloomedCount} blooms · best chain ${game.bestCombo}`
+        ? depthNews?.opened ? `Level ${id + 1}, ${next.name}, is open!` : !next ? `${game.bloomedCount} blooms. You reached the Starseed Core!` : !nextPaid ? `${next.name} and the levels below it come with a one-time unlock.` : game.stars < 3 ? `${game.bloomedCount} blooms. Keep all 3 lives for ★★★.` : `${game.bloomedCount} blooms${chainNote()}`
         : `${game.bloomedCount} blooms. ${game.wave >= game.finalWave - 2 ? 'So close!' : 'Try a new angle.'}`;
-      $('result-stars').innerHTML = starHTML(game.stars); $('result-stars').setAttribute('aria-label', `${game.stars} of 3 stars`);
+      $('result-stars').innerHTML = resultStars(game.stars); $('result-stars').setAttribute('aria-label', `${game.stars} of 3 stars`);
       $('result-score').textContent = fmt(game.score);
       $('reward-flower').hidden = true;
       $('next-btn').hidden = !won || !(nextOpen || next && !nextPaid); $('next-btn').textContent = nextPaid ? `Level ${id + 1}` : `See levels ${Depths.free + 1} to ${Depths.total}`;
       // Pointing at the unlock is a quiet button under Replay, never the big one.
       $('next-btn').classList.toggle('button-primary', nextPaid); $('next-btn').classList.toggle('button-secondary', !nextPaid);
       $('retry-btn').textContent = won ? 'Replay' : 'Try again'; $('retry-btn').classList.toggle('primary', !won || !nextOpen);
-      showDialog('result-dialog'); return;
+      showDialog('result-dialog'); celebrate(won); return;
     }
     if (isRush()) {
       $('result-eyebrow').textContent = rushRecordBroken ? 'New best!' : 'Run over';
       $('result-title').textContent = `Wave ${game.wave}`;
-      $('result-message').textContent = `${game.bloomedCount} blooms · best chain ${game.bestCombo} · tempo ×${game.tempo.toFixed(1)}`;
+      $('result-message').textContent = `${game.bloomedCount} blooms${chainNote()} · tempo ×${game.tempo.toFixed(1)}`;
       $('result-score').textContent = fmt(game.score);
       $('reward-flower').hidden = true; $('next-btn').hidden = true;
       $('retry-btn').textContent = 'Play again'; $('retry-btn').classList.add('primary');
-      showDialog('result-dialog'); return;
+      showDialog('result-dialog'); celebrate(rushRecordBroken); return;
     }
     $('result-eyebrow').textContent = preview ? 'Preview' : !won ? 'Out of seeds' : isDaily() ? 'Daily clear!' : isKoi() ? 'Pool clear!' : isMoon() ? 'Trial clear!' : 'Garden clear!';
     $('result-title').textContent = won ? ['Cleared!', 'Cleared!', 'Great!', 'Perfect!'][game.stars] : game.bloomedCount >= game.buds.length * .6 ? 'So close!' : 'Not this time!';
     const three = isChapter() && game.stars < 3 ? ` ★★★ in ${game.level.par} shots.` : '';
-    $('result-message').textContent = won ? game.shotsLeft === 2 ? `All ${game.buds.length} flowers in one shot!` : `${game.buds.length} flowers · best chain ${game.bestCombo}` : `${game.bloomedCount} of ${game.buds.length} bloomed. Drag mid-flight to steer!`;
+    $('result-message').textContent = won ? game.shotsLeft === 2 ? `All ${game.buds.length} flowers in one shot!` : `${game.buds.length} flowers${chainNote()}` : `${game.bloomedCount} of ${game.buds.length} bloomed. Drag mid-flight to steer!`;
     if (isMoon()) $('result-message').textContent = won ? `${game.shotNumber} ${game.shotNumber === 1 ? 'seed' : 'seeds'} · ${game.gatePasses} ${game.gatePasses === 1 ? 'gate' : 'gates'}.${three}` : `${game.bloomedCount} of ${game.buds.length} flowers. Check the gate exit and try again.`;
     if (isKoi()) $('result-message').textContent = won ? `${game.shotNumber} ${game.shotNumber === 1 ? 'seed' : 'seeds'} · ${game.currentRides} ${game.currentRides === 1 ? 'current' : 'currents'}.${three}` : `${game.bloomedCount} of ${game.buds.length} flowers. Watch where the water turns.`;
     $('result-score').textContent = fmt(game.score);
-    $('result-stars').innerHTML = starHTML(game.stars); $('result-stars').setAttribute('aria-label', `${game.stars} of 3 stars`);
+    $('result-stars').innerHTML = resultStars(game.stars); $('result-stars').setAttribute('aria-label', `${game.stars} of 3 stars`);
     $('reward-flower').hidden = !newFlower && !newKeepsake && !runBouquet;
     $('reward-flower').setAttribute('aria-hidden', String(!newKeepsake));
     if (newKeepsake) $('reward-flower').innerHTML = `${keepsakeGraphic(newKeepsake)}<div><span class="card-tag moon">New seed style!</span><strong>${escape(newKeepsake.name)}</strong><button class="keepsake-wear" type="button" data-wear="${newKeepsake.id}"${save.keepsake === newKeepsake.id ? ' disabled' : ''}>${save.keepsake === newKeepsake.id ? 'Wearing' : 'Wear it'}</button></div>`;
@@ -1137,7 +1184,7 @@
     $('next-btn').textContent = preview ? 'Back to Worlds' : isKoi() ? !next ? 'All pools' : trialPaid('koi', next) ? 'Next pool' : 'See all pools' : isMoon() ? next ? 'Next trial' : 'All trials' : next ? 'Next garden' : 'My meadow';
     $('retry-btn').textContent = won ? 'Replay' : 'Try again';
     $('retry-btn').classList.toggle('primary', !won);
-    showDialog('result-dialog');
+    showDialog('result-dialog'); celebrate(won);
   }
   function rotateNearest(point) {
     const near = game.bumpers.find(b => b.kind !== 'rock' && Math.hypot(b.x - point.x, b.y - point.y) <= b.length / 2 + 14);
@@ -1221,7 +1268,7 @@
   function openRush() { if (preview) exitPreview(); if (isRush() && !isDepth() && !game.over) { closeDialogs(); setRoute('game'); } else startLevel({ id: 'rush', name: 'Meadow Rush' }); }
   function openLevels() { if (preview) exitPreview(); closeDialogs(); setRoute('levels'); }
   function showUnlock() { const card = $('depth-unlock'); if (card) card.scrollIntoView({ behavior: save.settings.motion ? 'smooth' : 'auto', block: 'center' }); }
-  function startDepth(id) { if (preview) exitPreview(); startLevel({ id: 'rush', depth: id, name: Depths.level(id).name }, { theme: depthTheme(id) }); }
+  function startDepth(id) { if (id === freshDepth) freshDepth = 0; if (preview) exitPreview(); startLevel({ id: 'rush', depth: id, name: Depths.level(id).name }, { theme: depthTheme(id) }); }
   function replay() { if (isDepth()) startDepth(game.plan.id); else startLevel(game.level, { preview, theme }); }
   $('rush-btn').addEventListener('click', openLevels);
   $('levels-rush-btn').addEventListener('click', openRush);
@@ -1385,6 +1432,7 @@
   document.addEventListener('visibilitychange', () => { lastFrame = 0; accumulator = 0; cancelInteraction(); });
   function frame(timestamp) {
     requestAnimationFrame(frame);
+    partyFrame(timestamp);
     if (!document.hidden && route === 'collection') drawShowcase(timestamp);
     if (!document.hidden && route === 'garden' && (meadowDirty || save.settings.motion && timestamp - meadowFrame >= 1000 / 30)) drawMeadow(timestamp);
     if (document.hidden || route !== 'game') { lastFrame = timestamp; return; }
