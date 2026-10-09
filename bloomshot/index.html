@@ -23,8 +23,10 @@
   <script src="keepsakes.js" defer></script>
   <script src="garden.js" defer></script>
   <script src="goals.js" defer></script>
+  <script src="depths.js" defer></script>
   <script src="engine.js" defer></script>
   <script src="rush.js" defer></script>
+  <script src="scenery.js" defer></script>
   <script src="art.js" defer></script>
   <script src="meadow.js" defer></script>
   <script src="sound.js" defer></script>
@@ -94,10 +96,27 @@
         </div>
         <p id="game-hint" class="game-hint">Aim, release, then drag to guide your seeds.</p>
         <div class="game-actions">
-          <button id="back-btn" class="text-button" type="button"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m11.5 5-5 5 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Meadow</span></button>
+          <button id="back-btn" class="text-button" type="button"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m11.5 5-5 5 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Levels</span></button>
           <button id="split-btn" class="split-button" type="button" hidden disabled>Split · 0/6</button>
           <button id="restart-btn" class="text-button" type="button" aria-label="Restart this game"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4.3 7.4a6 6 0 1 1-.2 4.3M4 3.5v4.3h4.3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Restart</span></button>
         </div>
+      </section>
+
+      <section id="levels-view" class="view browse-view" aria-labelledby="levels-title" hidden>
+        <div class="screen-head">
+          <h1 id="levels-title" class="screen-title">Levels</h1>
+          <p id="levels-summary" class="screen-sub">Start at the top and dig down.</p>
+        </div>
+        <button id="resume-btn" class="rush-card resume-card panel" type="button" hidden>
+          <span class="rush-card-icon" aria-hidden="true"><svg viewBox="0 0 26 26"><path d="M10 7.8c0-1 1.1-1.6 1.9-1.1l7 4.4c.8.5.8 1.6 0 2.1l-7 4.4c-.8.5-1.9-.1-1.9-1.1Z" fill="currentColor"/></svg></span>
+          <span class="rush-card-copy"><strong id="resume-title">Resume</strong><span id="resume-sub"></span></span>
+        </button>
+        <ol id="depth-map" class="depth-map" aria-label="Levels"></ol>
+        <h2 class="section-title">Endless</h2>
+        <button id="levels-rush-btn" class="rush-card panel" type="button">
+          <span class="rush-card-icon" aria-hidden="true"><svg viewBox="0 0 26 26"><path d="M10 7.8c0-1 1.1-1.6 1.9-1.1l7 4.4c.8.5.8 1.6 0 2.1l-7 4.4c-.8.5-1.9-.1-1.9-1.1Z" fill="currentColor"/></svg></span>
+          <span class="rush-card-copy"><strong>Meadow Rush</strong><span id="levels-rush-best">Endless waves. How far can you go?</span></span>
+        </button>
       </section>
 
       <section id="garden-view" class="view browse-view" aria-labelledby="garden-title" hidden>
@@ -115,7 +134,7 @@
           <div class="plot-copy"><span id="plot-stage" class="stage-chip">Ready to plant</span><h2 id="plot-name">Sunbell</h2><p id="plot-message">Golden bells catch the first light.</p></div>
           <button id="plant-btn" class="plant-button" type="button">Plant · 4 seeds</button>
         </section>
-        <p id="garden-earning-hint" class="garden-earning-hint">Bloom flowers in Rush to earn seeds.</p>
+        <p id="garden-earning-hint" class="garden-earning-hint">Bloom flowers in any level to earn seeds.</p>
         <section class="decor-panel panel" aria-labelledby="decor-title">
           <div class="decor-head"><h2 id="decor-title">Decorate</h2><span id="decor-count" class="card-meta">0/6 built</span></div>
           <div id="decor-grid" class="decor-grid" role="group" aria-label="Things to build with seeds"></div>
@@ -223,7 +242,12 @@
 
   <dialog id="help-dialog" class="help-dialog" aria-labelledby="help-title">
     <div class="dialog-heading"><h2 id="help-title">How to play</h2><button id="close-help" class="close-button" type="button" aria-label="Close how to play">×</button></div>
-    <details id="rush-help" class="help-mode" open>
+    <details id="levels-help" class="help-mode" open>
+      <summary><span>Levels</span><small>Ten waves</small></summary>
+      <ol class="help-steps"><li><span class="help-number">1</span><div><h3>Ten waves</h3><p>Keep the flowers above the line. Clear all ten waves to finish the level and open the next one.</p></div></li><li><span class="help-number">2</span><div><h3>New pieces</h3><p>Rings take more hits. Cups block shots from below. Puffcaps bloom everything near them. Rocks bounce your seeds.</p></div></li><li><span class="help-number">3</span><div><h3>Stars</h3><p>Finish with all three lives for ★★★. The last wave of every level is a big bloom.</p></div></li></ol>
+      <p class="help-tip">Tap the leaf to turn it and bend your shots.</p>
+    </details>
+    <details id="rush-help" class="help-mode">
       <summary><span>Meadow Rush</span><small>Endless</small></summary>
       <ol class="help-steps"><li><span class="help-number">1</span><div><h3>Aim and fire</h3><p>Drag to aim, release to fire. Another seed is ready a moment later.</p></div></li><li><span class="help-number">2</span><div><h3>Split</h3><p>Six direct hits charge Split. Tap it while a seed is flying for two more.</p></div></li><li><span class="help-number">3</span><div><h3>Hold the line</h3><p>Gold-ring flowers bloom their neighbors. Three clusters over the line ends the run.</p></div></li></ol>
       <p class="help-tip">Tap the leaf to turn it and bend your next shots.</p>

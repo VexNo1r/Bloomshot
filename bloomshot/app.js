@@ -11,7 +11,8 @@
   const native = window.BloomNative || null;
   const STORAGE = new URLSearchParams(location.search).has('qa') ? 'bloomshot.qa.v1' : 'bloomshot.save.v1';
   const Goals = window.BloomGoals;
-  const defaults = { version: 1, garden: BloomGarden.normalize(), goals: Goals.normalize(null, localDate()), progress: {}, moon: {}, koi: {}, daily: {}, rush: { best: 0, bestWave: 1, runs: 0, blooms: 0 }, lastLevel: 1, keepsake: 'meadow', settings: { sound: true, haptics: true, motion: !matchMedia('(prefers-reduced-motion: reduce)').matches } };
+  const Depths = window.BloomDepths;
+  const defaults = { version: 1, garden: BloomGarden.normalize(), goals: Goals.normalize(null, localDate()), progress: {}, moon: {}, koi: {}, daily: {}, rush: { best: 0, bestWave: 1, runs: 0, blooms: 0 }, depths: {}, lastLevel: 1, keepsake: 'meadow', settings: { sound: true, haptics: true, motion: !matchMedia('(prefers-reduced-motion: reduce)').matches } };
   let storageAvailable = true;
   function readSave() {
     try {
@@ -20,6 +21,7 @@
       const valid = structuredClone(defaults);
       valid.garden = BloomGarden.normalize(raw.garden);
       valid.goals = Goals.normalize(raw.goals, localDate());
+      valid.depths = Depths.normalize(raw.depths);
       for (const world of Object.keys(chapters)) for (const level of chapters[world].levels) {
         const record = raw[world]?.[level.id];
         if (record && Number.isFinite(record.best) && Number.isInteger(record.stars) && record.stars >= 0 && record.stars <= 3) valid[world][level.id] = { best: Math.max(0, record.best), stars: record.stars, attempts: Math.max(0, Number(record.attempts) || 0) };
@@ -56,7 +58,7 @@
   const meadowCanvas = $('meadow-canvas'), meadowCtx = meadowCanvas.getContext('2d');
   let meadowDirty = true, meadowFrame = 0, growth = null, bubbleTimer = 0;
   const friendPokes = {};
-  let runId = '', runAward = 0, runBouquet = null, runGoals = null;
+  let runId = '', runAward = 0, runBouquet = null, runGoals = null, depthNews = null;
   let game, route = 'game', theme = 'meadow', preview = false, returnSession = null;
   let aiming = false, guiding = false, pointer = null, activePointer = null, angle = -Math.PI / 2, resultAt = Infinity, resultShown = false;
   const narrowLandscape = matchMedia('(orientation: landscape) and (max-height: 500px)');
@@ -83,6 +85,17 @@
   function unlocked(id) { return id === 1 || (save.progress[id - 1]?.stars || 0) > 0; }
   function earned(flower) { return (save.progress[flower.unlockLevel]?.stars || 0) > 0; }
   const isRush = () => game?.mode === 'rush';
+  // The levels run on the Rush engine with a plan of ten waves each. Levels past the free ones wait for the full unlock.
+  const isDepth = () => isRush() && Boolean(game.plan);
+  const depthsOwned = () => false;
+  const depthOpen = id => Depths.unlocked(save.depths, id, depthsOwned());
+  const depthTheme = id => `depth-${Depths.level(id).key}`;
+  function depthPlan(id) { const level = Depths.level(id); return { id, name: level.name, waves: Depths.waveCount, wave: n => Depths.wave(id, n) }; }
+  // The level the map points at: the first open one without stars, otherwise the deepest open one.
+  function nextDepth() { const open = Depths.levels.filter(level => depthOpen(level.id)); return (open.find(level => !save.depths[level.id]?.stars) || open.at(-1) || Depths.levels[0]).id; }
+  // In a level the wave's own tip stays up while playing; waves without one keep the basic reminder.
+  const depthHint = () => game.waveHint || 'Keep the flowers above the line.';
+  const inProgress = () => Boolean(isRush() && game.started && !game.over && !preview);
   const isMoon = () => game?.level.worldId === 'moon';
   const isKoi = () => game?.level.worldId === 'koi';
   const isChapter = () => Boolean(game && chapters[game.level.worldId]);
@@ -120,24 +133,25 @@
   const keepsakeOpen = id => Keepsakes.unlocked(id, keepsakeContext());
   const currentKeepsake = () => Keepsakes.resolve(save.keepsake, keepsakeContext());
   const collectionOwned = () => Boolean(store && store.owns(Keepsakes.entitlement));
-  function record() { return isRush() ? save.rush : isChapter() ? save[game.level.worldId][game.level.id] : typeof game.level.id === 'number' ? save.progress[game.level.id] : save.daily[game.level.id]; }
+  function record() { return isDepth() ? save.depths[game.plan.id] : isRush() ? save.rush : isChapter() ? save[game.level.worldId][game.level.id] : typeof game.level.id === 'number' ? save.progress[game.level.id] : save.daily[game.level.id]; }
   function localDate() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
   function setRoute(next) {
     route = next; cancelInteraction();
-    for (const name of ['game', 'garden', 'collection', 'worlds']) $(`${name}-view`).hidden = next !== name;
+    for (const name of ['game', 'levels', 'garden', 'collection', 'worlds']) $(`${name}-view`).hidden = next !== name;
     for (const name of ['rush', 'garden', 'collection', 'worlds']) {
-      const active = next === name || (name === 'rush' && next === 'game');
+      const active = next === name || (name === 'rush' && (next === 'game' || next === 'levels'));
       $(`${name}-btn`).classList.toggle('active', active); $(`${name}-btn`).setAttribute('aria-current', active ? 'page' : 'false');
     }
     if (next === 'garden') renderGarden();
     if (next === 'collection') { keepsakePreview = null; showcase.dirty = true; renderCollection(); }
     if (next === 'worlds') renderWorlds();
+    if (next === 'levels') renderLevels();
     document.body.dataset.view = next;
     if (next === 'game') resize();
   }
   function startLevel(level, options = {}) {
     closeDialogs();
-    game = level.id === 'rush' ? new BloomRush.RushGame() : new Game(level); game.particles = []; game.floaters = [];
+    game = level.depth ? new BloomRush.RushGame({ plan: depthPlan(level.depth) }) : level.id === 'rush' ? new BloomRush.RushGame() : new Game(level); game.particles = []; game.floaters = [];
     preview = Boolean(options.preview); theme = options.theme || (isChapter() ? game.level.worldId : 'meadow');
     document.body.dataset.theme = theme;
     document.body.dataset.mode = isRush() ? 'rush' : 'campaign';
@@ -145,7 +159,7 @@
     if (!isRush()) for (const key of ['wave', 'lives', 'elapsed', 'splitReady']) delete canvas.dataset[key];
     $('split-btn').hidden = !isRush();
     angle = -Math.PI / 2; pointer = null; aiming = false; guiding = false; resultAt = Infinity; resultShown = false;
-    displayScore = 0; hudKey = ''; newFlower = null; newKeepsake = null; accumulator = 0; rushRecordBroken = false;
+    displayScore = 0; hudKey = ''; newFlower = null; newKeepsake = null; accumulator = 0; rushRecordBroken = false; depthNews = null; game.shieldSeen = false;
     runId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`; runAward = 0; runBouquet = null; runGoals = null;
     if (!preview && typeof level.id === 'number') { save.lastLevel = level.id; persist(); }
     $('level-name').textContent = level.name;
@@ -157,6 +171,13 @@
       $('game-hint').textContent = 'Keep the flowers above the line.';
       canvas.setAttribute('aria-label', 'Meadow Rush. Aim and release one seed at a time. Flowers descend after your first shot. Three breached clusters end your run. Arrow keys aim, Space fires, S splits after six direct hits, R turns the petal.');
     }
+    if (isDepth()) {
+      const depth = Depths.level(game.plan.id);
+      $('level-name').textContent = depth.name;
+      $('game-hint').textContent = game.waveHint || depth.twist;
+      canvas.setAttribute('aria-label', `Level ${depth.id}, ${depth.name}. Ten waves of flowers. Keep them above the line: three clusters over it ends the level. Arrow keys aim, Space fires, S splits after six direct hits, R turns the leaf.`);
+    }
+    $('back-btn').querySelector('span').textContent = isRush() ? 'Levels' : 'Meadow';
     if (isChapter()) {
       const list = chapters[level.worldId].levels;
       $('level-label').textContent = `${CHAPTER_NAMES[level.worldId]} ${list.findIndex(item => item.id === level.id) + 1}/${list.length}`;
@@ -175,7 +196,7 @@
       $('seed-count').innerHTML = Array.from({ length: isChapter() ? game.rules.shots : 3 }, (_, index) => `<span class="seed-dot ${index < remaining ? 'available' : 'used'}" aria-hidden="true"></span>`).join('') + `<span class="seed-label">${remaining} ${units}</span>`;
       $('seed-count').setAttribute('aria-label', `${remaining} ${units} remaining`);
       $('bloom-count').textContent = rush ? `${game.bloomedCount} ${game.bloomedCount === 1 ? 'bloom' : 'blooms'}` : `${game.bloomedCount} / ${game.buds.length} bloomed`;
-      if (rush) $('level-label').textContent = `Wave ${game.wave} · ×${game.tempo.toFixed(1)}`;
+      if (rush) $('level-label').textContent = isDepth() ? `Level ${game.plan.id} · Wave ${game.wave}/${game.finalWave}` : `Wave ${game.wave} · ×${game.tempo.toFixed(1)}`;
       $('best-value').textContent = preview ? 'Preview' : record()?.best ? fmt(record().best) : '—';
       canvas.dataset.status = game.status; canvas.dataset.blooms = game.bloomedCount; canvas.dataset.level = game.level.id; canvas.dataset.shots = game.shotsLeft;
       $('rotate-btn').disabled = game.status !== 'aiming' || game.rotationUsed || !game.bumpers.length;
@@ -206,14 +227,14 @@
     if (rush) {
       canvas.dataset.wave = game.wave; canvas.dataset.lives = game.lives; canvas.dataset.balls = game.balls.length;
       canvas.dataset.elapsed = game.elapsed.toFixed(2); canvas.dataset.splitReady = game.splitReady;
-      $('rotate-btn').disabled = game.status === 'lost' || game.rotateCooldown > 0;
+      $('rotate-btn').disabled = game.over || game.rotateCooldown > 0;
       $('rotate-btn').textContent = game.rotateCooldown > 0 ? `Turn · ${Math.ceil(game.rotateCooldown)}s` : 'Turn petal';
       $('combo-label').textContent = game.splitCharge >= 1 ? 'Split ready!' : `Split ${Math.round(game.splitCharge * 6)}/6`;
       $('combo-meter').style.setProperty('--charge', `${game.splitCharge * 100}%`);
       $('combo-meter').classList.toggle('fever', game.splitReady);
       $('combo-meter').setAttribute('aria-label', 'Manual split charge');
       $('combo-meter').setAttribute('aria-valuenow', String(Math.round(game.splitCharge * 100)));
-      $('guide-label').textContent = game.status === 'lost' ? 'Run over' : game.fireCooldown > 0 ? 'Reloading' : game.balls.length >= 5 ? 'Max seeds' : 'Fire!';
+      $('guide-label').textContent = game.status === 'won' ? 'Cleared!' : game.status === 'lost' ? isDepth() ? 'Out of lives' : 'Run over' : game.fireCooldown > 0 ? 'Reloading' : game.balls.length >= 5 ? 'Max seeds' : 'Fire!';
       $('split-btn').disabled = !game.splitReady;
       $('split-btn').style.setProperty('--split-charge', `${game.splitCharge * 100}%`);
       $('split-btn').textContent = game.splitReady ? 'Split! +2' : game.splitCharge >= 1 ? game.balls.length ? 'No room' : 'Fire first' : `Split ${Math.round(game.splitCharge * 6)}/6`;
@@ -325,6 +346,52 @@
     const total = Object.values(save.progress).reduce((n, p) => n + p.stars, 0);
     const summary = $('garden-summary'); if (summary) summary.textContent = `${completed}/${levels.length} · ${total} ★`;
   }
+  // The level map on Play: a card per level showing a slice of its own scene, stacked the way the levels go down.
+  const SCENE_SLICE = { meadow: 240, roots: 0, grotto: 46, crystal: 40 };
+  const sceneSlices = new Map();
+  function sceneSlice(level) {
+    if (!sceneSlices.has(level.key)) {
+      let url = '';
+      try {
+        const slice = document.createElement('canvas'); slice.width = 840; slice.height = 340;
+        const brush = slice.getContext('2d'); brush.scale(2, 2); brush.translate(0, -(SCENE_SLICE[level.key] ?? 186));
+        window.BloomScenery.paint(brush, `depth-${level.key}`, { frame: false });
+        url = slice.toDataURL('image/jpeg', .9);
+      } catch (_) { /* the card keeps its plain backing */ }
+      sceneSlices.set(level.key, url);
+    }
+    return sceneSlices.get(level.key);
+  }
+  function renderLevels() {
+    const list = Depths.levels, suggested = nextDepth();
+    const cleared = list.filter(level => save.depths[level.id]?.stars).length, stars = list.reduce((n, level) => n + (save.depths[level.id]?.stars || 0), 0);
+    $('levels-summary').textContent = cleared ? `${cleared} of ${Depths.total} cleared · ${stars} ★` : 'Start at the top and dig down.';
+    const resume = inProgress();
+    $('resume-btn').hidden = !resume;
+    if (resume) {
+      $('resume-title').textContent = isDepth() ? `Resume level ${game.plan.id}` : 'Resume Meadow Rush';
+      $('resume-sub').textContent = isDepth() ? `${Depths.level(game.plan.id).name} · wave ${game.wave} of ${game.finalWave}` : `Wave ${game.wave} · ${fmt(game.score)} points`;
+    }
+    $('depth-map').innerHTML = list.map(level => {
+      const data = save.depths[level.id], open = depthOpen(level.id), done = data?.stars || 0, next = open && !done && level.id === suggested;
+      const state = !open ? `Clear level ${level.id - 1} to open` : done ? `${done} of 3 stars` : data?.wave ? `Best: wave ${data.wave} of ${Depths.waveCount}` : 'Ready to play';
+      const art = sceneSlice(level);
+      return `<li class="depth-stop"><button class="depth-card${open ? '' : ' locked'}${done ? ' cleared' : ''}${next ? ' next' : ''}" type="button" data-depth="${level.id}" aria-label="Level ${level.id}, ${escape(level.name)}. ${escape(level.twist)}. ${state}.">`
+        + `<span class="depth-window" aria-hidden="true">${art ? `<img class="depth-scene" src="${art}" alt="">` : ''}<span class="depth-badge">${level.id}</span>${open ? '' : '<span class="depth-lock"><i class="level-lock"></i></span>'}</span>`
+        + `<span class="depth-foot" aria-hidden="true"><span class="depth-copy"><strong>${escape(level.name)}</strong><span>${escape(open ? data?.wave && !done ? state : level.twist : state)}</span></span>`
+        + (next ? '<span class="depth-go">Play</span>' : open ? `<span class="depth-stars">${starHTML(done)}</span>` : '') + '</span></button></li>';
+    }).join('') + (list.length < Depths.total ? `<li class="depth-stop depth-more"><span class="depth-more-art" aria-hidden="true">${DEEPER}</span><span class="depth-more-copy"><strong>Deeper down</strong><span>${Depths.total - list.length} more levels are on the way.</span></span></li>` : '');
+    $('levels-rush-best').textContent = save.rush.runs ? `Best ${fmt(save.rush.best)} · wave ${save.rush.bestWave}` : 'Endless waves. How far can you go?';
+  }
+  // Below the open levels: rock layers, a fossil and a few crystals, drawn as flat shapes like the scenes.
+  const DEEPER = '<svg viewBox="0 0 380 120" preserveAspectRatio="xMidYMid slice"><rect width="380" height="120" fill="#3a2b3d"/>'
+    + '<path d="M0 0H380V30C330 22 300 38 250 33S170 22 120 30 40 38 0 28Z" fill="#6b4a36"/><path d="M0 28C40 38 80 30 120 30S170 22 250 33 330 22 380 30V36C330 30 300 44 250 40S170 30 120 37 40 44 0 35Z" fill="#4f3832"/>'
+    + '<path d="M0 120V82C50 74 90 88 150 82S260 70 310 80 360 86 380 80V120Z" fill="#2a2036"/>'
+    + '<g fill="#8a6a52" stroke="#3a2b3d" stroke-width="1.4"><ellipse cx="40" cy="16" rx="7" ry="4.5"/><ellipse cx="150" cy="12" rx="5" ry="3.4"/><ellipse cx="282" cy="18" rx="8" ry="5"/><ellipse cx="350" cy="10" rx="4" ry="3"/></g>'
+    + '<g fill="none" stroke="#a48a75" stroke-width="2.4" stroke-linecap="round"><path d="M64 62a9 9 0 1 0 -9 -9a6 6 0 1 0 6 -6a3.5 3.5 0 1 0 -3 3"/><path d="M104 66h34M112 60v12M121 59v14M130 61v10"/><path d="M138 66l8-6v12Z" fill="#a48a75"/></g>'
+    + '<g stroke="#20324f" stroke-width="1.6" stroke-linejoin="round"><path d="M300 98l7-24 7 24Z" fill="#7fe0ff"/><path d="M314 98l5-15 5 15Z" fill="#b9f6ff"/><path d="M290 98l4-11 4 11Z" fill="#a98cf5"/></g>'
+    + '<g fill="#ffd979"><circle cx="190" cy="58" r="2.4"/><circle cx="214" cy="70" r="1.8"/><circle cx="168" cy="72" r="1.6"/></g>'
+    + '<path d="M190 0C176 30 206 52 190 120" fill="none" stroke="#e8c48a" stroke-width="3" stroke-dasharray="7 8" stroke-linecap="round" opacity=".7"/></svg>';
   function renderMeadow() {
     const data = BloomGarden.summary(save.garden), selected = data.plots.find(p => p.selected);
     $('garden-seeds').textContent = fmt(data.seeds);
@@ -344,7 +411,7 @@
     $('plot-message').textContent = selected.description;
     $('plant-btn').disabled = !selected.canPlant;
     $('plant-btn').textContent = selected.stage === 3 ? 'In full bloom' : `${selected.stage ? 'Grow' : 'Plant'} · ${selected.nextCost} seeds`;
-    $('garden-earning-hint').textContent = selected.stage === 3 ? data.completedPlots === 6 ? 'Every patch is in full bloom.' : 'Pick another patch to grow.' : !selected.canPlant ? `${selected.nextCost - data.seeds} more ${selected.nextCost - data.seeds === 1 ? 'seed' : 'seeds'} needed. Play Rush to earn them.` : 'Earn seeds in Rush, puzzles and the daily garden.';
+    $('garden-earning-hint').textContent = selected.stage === 3 ? data.completedPlots === 6 ? 'Every patch is in full bloom.' : 'Pick another patch to grow.' : !selected.canPlant ? `${selected.nextCost - data.seeds} more ${selected.nextCost - data.seeds === 1 ? 'seed' : 'seeds'} needed. Play a level to earn them.` : 'Earn seeds in levels, puzzles and the daily garden.';
     $('garden-btn').classList.toggle('has-seeds', canSpend(data));
     renderDecor(data); renderFriendSpots(data);
     meadowCanvas.dataset.seeds = data.seeds; meadowCanvas.dataset.stages = data.totalStages;
@@ -762,7 +829,7 @@
           game.floaters.push({ x: 210, y: 92, text: `${event.combo} chain`, life: .9, maxLife: .9, kind: 'combo' });
         }
         if (event.combo % 3 === 1) haptic('tick');
-        $('game-hint').textContent = isKoi() ? 'Ride it!' : isMoon() ? 'Nice path!' : isRush() ? game.splitReady ? 'Split is ready!' : 'Gold rings bloom their neighbors too.' : game.guideCharge > 0 ? 'Drag to steer!' : 'Keep the chain going!';
+        $('game-hint').textContent = isKoi() ? 'Ride it!' : isMoon() ? 'Nice path!' : isRush() ? game.splitReady ? 'Split is ready!' : isDepth() ? depthHint() : 'Gold rings bloom their neighbors too.' : game.guideCharge > 0 ? 'Drag to steer!' : 'Keep the chain going!';
       } else if (event.type === 'gate') {
         burst({ x: event.entry.x, y: event.entry.y, type: 'lilac' }, 12);
         burst({ x: event.exit.x, y: event.exit.y, type: 'gold' }, 16);
@@ -780,14 +847,35 @@
         burst({ x: 210, y: 230, type: 'gold', r: 18 }, 46); burst({ x: 120, y: 170, type: 'coral' }, 20); burst({ x: 300, y: 170, type: 'lilac' }, 20);
         jolt(.32, .07, .85);
         game.floaters = game.floaters.filter(item => !['wave', 'combo', 'bonus'].includes(item.kind));
-        game.floaters.push({ x: 210, y: 290, text: 'Wave clear!', label: `next ×${event.next.toFixed(1)}`, life: 1, maxLife: 1, kind: 'wave' });
+        const label = isDepth() ? Depths.wave(game.plan.id, event.wave + 1).boss ? 'Big bloom next!' : `wave ${event.wave + 1} of ${game.finalWave} next` : `next ×${event.next.toFixed(1)}`;
+        game.floaters.push({ x: 210, y: 290, text: 'Wave clear!', label, life: 1, maxLife: 1, kind: 'wave' });
         haptic('surge');
       } else if (event.type === 'wave') {
-        $('game-hint').textContent = `Wave ${game.wave}! Faster flowers, ×${game.tempo.toFixed(1)} points.`;
-        say(`Wave ${game.wave}. Tempo times ${game.tempo.toFixed(1)}. ${game.lives} lives left.`);
+        if (isDepth()) {
+          $('game-hint').textContent = event.hint || `Wave ${game.wave} of ${game.finalWave}.`;
+          say(`Wave ${game.wave} of ${game.finalWave}. ${event.hint || ''} ${game.lives} ${game.lives === 1 ? 'life' : 'lives'} left.`);
+        } else {
+          $('game-hint').textContent = `Wave ${game.wave}! Faster flowers, ×${game.tempo.toFixed(1)} points.`;
+          say(`Wave ${game.wave}. Tempo times ${game.tempo.toFixed(1)}. ${game.lives} lives left.`);
+        }
+      } else if (event.type === 'puff') {
+        burst(event.bud, 34); jolt(.14, 0, .25);
+        $('game-hint').textContent = event.count ? `Puff! ${event.count} ${event.count === 1 ? 'flower' : 'flowers'} caught the spores.` : 'Puff!';
+      } else if (event.type === 'shield') {
+        burst({ x: event.x, y: event.y, type: 'gold', r: 6 }, 6); haptic('tick');
+        if (!game.shieldSeen) { game.shieldSeen = true; $('game-hint').textContent = 'Cups block shots from below. Hit them from the side.'; }
+      } else if (event.type === 'boss') {
+        burst(event.bud, 80); burst({ x: 110, y: 200, type: 'gold' }, 40); burst({ x: 310, y: 200, type: 'lilac' }, 40);
+        jolt(.5, .12, 1); haptic('surge');
+        game.floaters = game.floaters.filter(item => !['wave', 'combo', 'bonus'].includes(item.kind));
+        game.floaters.push({ x: 210, y: 250, text: 'Big bloom!', label: 'everything blooms', life: 1.2, maxLife: 1.2, kind: 'wave' });
+        $('game-hint').textContent = 'Big bloom! The whole garden opens.';
+        say('Big bloom. The whole wave blooms.');
+      } else if (event.type === 'drop') {
+        $('game-hint').textContent = 'More flowers dropping in!';
       } else if (event.type === 'life') {
         jolt(.6, .12, 0);
-        $('game-hint').textContent = game.lives ? `Flowers crossed the line! ${game.lives} ${game.lives === 1 ? 'life' : 'lives'} left.` : 'The flowers reached the line.';
+        $('game-hint').textContent = !game.lives ? 'The flowers reached the line.' : event.boss ? `The big bloom touched the line and climbed back up! ${game.lives} ${game.lives === 1 ? 'life' : 'lives'} left.` : `Flowers crossed the line! ${game.lives} ${game.lives === 1 ? 'life' : 'lives'} left.`;
         haptic('warn');
         say($('game-hint').textContent);
       } else if (event.type === 'burst') {
@@ -804,6 +892,18 @@
       } else if (event.type === 'won' || event.type === 'lost') {
         if (event.type === 'won') { burst({ x: 110, y: 210, type: 'coral' }, 70); burst({ x: 310, y: 210, type: 'gold' }, 70); burst({ x: 210, y: 150, type: 'lilac' }, 60); jolt(.45, .14, 1); }
         resultAt = game.time + (save.settings.motion ? 1.45 : .4); resultShown = false;
+        if (isDepth()) {
+          const id = game.plan.id, won = event.type === 'won', previousStars = save.depths[id]?.stars || 0;
+          const recorded = Depths.record(save.depths, id, { won, lives: game.lives, score: game.score, wave: game.wave });
+          save.depths = recorded.progress;
+          depthNews = { firstClear: recorded.firstClear, newStars: recorded.newStars, opened: recorded.firstClear && Depths.level(id + 1) && depthOpen(id + 1) ? id + 1 : null };
+          awardSeeds({ mode: 'depths', levelId: id, stars: won ? game.stars : 0, previousStars, blooms: game.bloomedCount, wave: game.wave });
+          runGoals = trackGoals({ type: 'rush', blooms: game.bloomedCount, wave: game.wave, chain: game.bestCombo }); runAward += runGoals.paid;
+          persist(); hudKey = '';
+          $('game-hint').textContent = won ? 'Level clear!' : 'Out of lives. Try a new angle.';
+          say(won ? `Level ${id} clear. ${game.stars} stars. ${game.score} points.` : `Out of lives on wave ${game.wave} of ${game.finalWave}. ${game.bloomedCount} blooms.`);
+          continue;
+        }
         if (isRush()) {
           rushRecordBroken = game.score > save.rush.best;
           save.rush.best = Math.max(save.rush.best, game.score);
@@ -848,8 +948,23 @@
     const news = !preview && runGoals && (runGoals.finished.length || runGoals.bonus);
     $('result-goals').hidden = !news;
     if (news) $('result-goals').innerHTML = `<span class="goal-check" aria-hidden="true"></span><span>${starry(goalNews(runGoals))}</span>${runGoals.done < 3 ? `<span class="goal-today">${runGoals.done}/3 today</span>` : ''}`;
-    $('result-stars').hidden = isRush();
-    $('result-dialog').classList.toggle('lost', isRush() ? !rushRecordBroken : !won);
+    $('result-stars').hidden = isRush() && !(isDepth() && won);
+    $('result-dialog').classList.toggle('lost', isDepth() ? !won : isRush() ? !rushRecordBroken : !won);
+    $('result-garden-btn').textContent = isRush() ? 'All levels' : 'Back to the meadow';
+    if (isDepth()) {
+      const id = game.plan.id, next = Depths.level(id + 1), nextOpen = Boolean(next && depthOpen(id + 1));
+      $('result-eyebrow').textContent = won ? `Level ${id} clear!` : 'Out of lives';
+      $('result-title').textContent = won ? ['Cleared!', 'Cleared!', 'Great!', 'Perfect!'][game.stars] : `Wave ${game.wave} of ${game.finalWave}`;
+      $('result-message').textContent = won
+        ? depthNews?.opened ? `Level ${id + 1}, ${next.name}, is open!` : !next ? `${game.bloomedCount} blooms. That's every level so far!` : game.stars < 3 ? `${game.bloomedCount} blooms. Keep all 3 lives for ★★★.` : `${game.bloomedCount} blooms · best chain ${game.bestCombo}`
+        : `${game.bloomedCount} blooms. ${game.wave >= game.finalWave - 2 ? 'So close!' : 'Try a new angle.'}`;
+      $('result-stars').innerHTML = starHTML(game.stars); $('result-stars').setAttribute('aria-label', `${game.stars} of 3 stars`);
+      $('result-score').textContent = fmt(game.score);
+      $('reward-flower').hidden = true;
+      $('next-btn').hidden = !won || !nextOpen; $('next-btn').textContent = `Level ${id + 1}`;
+      $('retry-btn').textContent = won ? 'Replay' : 'Try again'; $('retry-btn').classList.toggle('primary', !won || !nextOpen);
+      showDialog('result-dialog'); return;
+    }
     if (isRush()) {
       $('result-eyebrow').textContent = rushRecordBroken ? 'New best!' : 'Run over';
       $('result-title').textContent = `Wave ${game.wave}`;
@@ -880,7 +995,7 @@
     showDialog('result-dialog');
   }
   function rotateNearest(point) {
-    const near = game.bumpers.find(b => Math.hypot(b.x - point.x, b.y - point.y) <= b.length / 2 + 14);
+    const near = game.bumpers.find(b => b.kind !== 'rock' && Math.hypot(b.x - point.x, b.y - point.y) <= b.length / 2 + 14);
     if (!near) return false;
     if (game.rotate(near.id)) { BloomSound.wake(); processEvents(); toast('Petal turned!'); }
     else if (isRush()) toast('Wait a moment to turn it again.');
@@ -899,7 +1014,7 @@
   function launch() {
     const fired = game.fire(Math.cos(angle), Math.sin(angle));
     pointer = null; aiming = false; game.aim = [];
-    if (fired) { processEvents(); $('game-hint').textContent = isKoi() ? 'Let the water take it.' : isMoon() ? 'Let it fly.' : isRush() ? 'Six direct hits charge your split.' : 'Now drag to steer!'; }
+    if (fired) { processEvents(); $('game-hint').textContent = isKoi() ? 'Let the water take it.' : isMoon() ? 'Let it fly.' : isRush() ? isDepth() ? depthHint() : 'Six direct hits charge your split.' : 'Now drag to steer!'; }
     else if (isRush()) $('game-hint').textContent = game.balls.length >= 5 ? 'Max 5 seeds. Wait for one to land.' : 'Reloading…';
   }
   function cancelInteraction() {
@@ -957,12 +1072,25 @@
   const rotateButton = document.createElement('button'); rotateButton.id = 'rotate-btn'; rotateButton.type = 'button'; rotateButton.className = 'turn-petal-btn'; rotateButton.textContent = 'Turn petal';
   $('restart-btn').parentElement.insertBefore(rotateButton, $('restart-btn'));
   rotateButton.addEventListener('click', () => { if (game.bumpers[0]) rotateNearest(game.bumpers[0]); });
-  function openRush() { if (preview) exitPreview(); if (isRush() && game.status !== 'lost') { closeDialogs(); setRoute('game'); } else startLevel({ id: 'rush', name: 'Meadow Rush' }); }
-  $('rush-btn').addEventListener('click', () => { if (preview) exitPreview(); closeDialogs(); setRoute('game'); if (['won', 'lost'].includes(game.status)) showResult(); });
+  function openRush() { if (preview) exitPreview(); if (isRush() && !isDepth() && !game.over) { closeDialogs(); setRoute('game'); } else startLevel({ id: 'rush', name: 'Meadow Rush' }); }
+  function openLevels() { if (preview) exitPreview(); closeDialogs(); setRoute('levels'); }
+  function startDepth(id) { if (preview) exitPreview(); startLevel({ id: 'rush', depth: id, name: Depths.level(id).name }, { theme: depthTheme(id) }); }
+  function replay() { if (isDepth()) startDepth(game.plan.id); else startLevel(game.level, { preview, theme }); }
+  $('rush-btn').addEventListener('click', openLevels);
+  $('levels-rush-btn').addEventListener('click', openRush);
+  $('resume-btn').addEventListener('click', () => { if (inProgress()) setRoute('game'); else renderLevels(); });
+  $('depth-map').addEventListener('click', event => {
+    const card = event.target.closest('[data-depth]'); if (!card) return;
+    const id = Number(card.dataset.depth), level = Depths.level(id); if (!level) return;
+    BloomSound.wake();
+    if (!depthOpen(id)) { BloomSound.play('tap'); toast(`Clear level ${id - 1} to open ${level.name}.`); return; }
+    // Tapping the level already being played picks it up where it was.
+    if (inProgress() && isDepth() && game.plan.id === id) setRoute('game'); else startDepth(id);
+  });
   $('garden-rush-btn').addEventListener('click', openRush);
   $('split-btn').addEventListener('click', () => { BloomSound.wake(); if (game.split()) processEvents(); });
-  $('restart-btn').addEventListener('click', () => startLevel(game.level, { preview, theme }));
-  $('back-btn').addEventListener('click', () => { if (preview) exitPreview(); else setRoute('garden'); });
+  $('restart-btn').addEventListener('click', replay);
+  $('back-btn').addEventListener('click', () => { if (preview) exitPreview(); else setRoute(isRush() ? 'levels' : 'garden'); });
   $('garden-btn').addEventListener('click', () => { if (preview) exitPreview(); setRoute('garden'); });
   $('grow-garden-btn').addEventListener('click', () => { closeDialogs(); setRoute('garden'); });
   $('plot-markers').addEventListener('click', event => {
@@ -1015,7 +1143,7 @@
     const button = event.target.closest('[data-goal]'); if (!button || button.getAttribute('aria-disabled') === 'true') return;
     BloomSound.wake(); BloomSound.play('tap');
     const play = button.dataset.goal;
-    if (play === 'rush') openRush();
+    if (play === 'rush') openLevels();
     else if (play === 'daily') startLevel(BloomLevels.dailyLevel(localDate()));
     else if (play === 'puzzles') openWorld('meadow');
     else if (play === 'moon' || play === 'koi') openWorld(play);
@@ -1043,10 +1171,11 @@
     wear.disabled = true; wear.textContent = 'Wearing'; toast(`Wearing ${Keepsakes.byId[save.keepsake].name}!`);
   });
   $('daily-btn').addEventListener('click', () => startLevel(BloomLevels.dailyLevel(localDate())));
-  $('retry-btn').addEventListener('click', () => startLevel(game.level, { preview, theme }));
-  $('result-garden-btn').addEventListener('click', () => { closeDialogs(); if (preview) exitPreview(); else setRoute('garden'); });
+  $('retry-btn').addEventListener('click', replay);
+  $('result-garden-btn').addEventListener('click', () => { closeDialogs(); if (preview) exitPreview(); else setRoute(isRush() ? 'levels' : 'garden'); });
   $('next-btn').addEventListener('click', () => {
     closeDialogs(); if (preview) { exitPreview(); return; }
+    if (isDepth()) { const id = game.plan.id + 1; if (Depths.level(id) && depthOpen(id)) startDepth(id); else setRoute('levels'); return; }
     const next = isChapter() ? nextTrial(game.level) : levels.find(l => l.id === game.level.id + 1);
     if (isChapter() && (!next || !trialPaid(game.level.worldId, next))) { const world = game.level.worldId; setRoute('worlds'); openWorld(world); }
     else if (next) startLevel(next); else setRoute('garden');
@@ -1083,7 +1212,7 @@
     $('settings-storage').textContent = storageAvailable ? 'Saved on this device. No account needed.' : "This browser won't save, so progress lasts for this visit only.";
   }
   $('settings-btn').addEventListener('click', () => { updateSettings(); showDialog('settings-dialog'); });
-  $('help-btn').addEventListener('click', () => { $('rush-help').open = isRush(); $('campaign-help').open = !isRush() && !isChapter(); $('moon-help').open = isMoon(); $('koi-help').open = isKoi(); showDialog('help-dialog'); });
+  $('help-btn').addEventListener('click', () => { $('levels-help').open = isDepth() || route === 'levels'; $('rush-help').open = isRush() && !isDepth() && route !== 'levels'; $('campaign-help').open = !isRush() && !isChapter(); $('moon-help').open = isMoon(); $('koi-help').open = isKoi(); showDialog('help-dialog'); });
   for (const key of ['sound', 'haptics', 'motion']) $(`toggle-${key}`).addEventListener('change', event => { save.settings[key] = event.target.checked; BloomSound.wake(); updateSettings(); persist(); });
   $('sound-btn').addEventListener('click', () => { save.settings.sound = !save.settings.sound; BloomSound.wake(); updateSettings(); persist(); toast(save.settings.sound ? 'Sound on' : 'Sound off'); });
   for (const key of ['settings', 'help', 'world']) $(`close-${key}`).addEventListener('click', () => closeDialog(`${key}-dialog`));
@@ -1128,8 +1257,9 @@
     BloomArt.draw(ctx, game, game.time, { theme, reducedMotion: !save.settings.motion, keepsake: worn.seed ? worn : null, pointer, shake, flash, showAim: isRush() ? aiming || game.aim.length > 0 : game.status === 'aiming', selectedBumper: isRush() ? game.rotateCooldown <= 0 ? game.bumpers[0]?.id : null : game.status === 'aiming' && !game.rotationUsed ? game.bumpers[0]?.id : null });
   }
   updateSettings(); persist(); renderMeadow(); renderDaily();
+  // The game opens on the level map; an endless Rush board waits behind it until a level is picked.
   const initial = { id: 'rush', name: 'Meadow Rush' };
-  startLevel(initial); resize(); requestAnimationFrame(frame);
+  startLevel(initial); setRoute('levels'); resize(); requestAnimationFrame(frame);
   // A read-only snapshot aids local QA without adding a way to grant progress.
   Object.defineProperty(window, 'bloomshotState', { get: () => ({ ...game.snapshot(), route, theme, preview, earnedFlowers: flowers.filter(earned).map(f => f.id), storageAvailable }), configurable: false });
 })();

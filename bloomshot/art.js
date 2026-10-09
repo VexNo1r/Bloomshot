@@ -120,13 +120,15 @@
     ctx.restore();
   }
 
+  const scenery = theme => root.BloomScenery && root.BloomScenery.has(theme);
   function makeBackdrop(w, h, theme, rush) {
     let surface;
     if (typeof OffscreenCanvas !== 'undefined') surface = new OffscreenCanvas(w, h);
     else if (typeof document !== 'undefined') { surface = document.createElement('canvas'); surface.width = w; surface.height = h; }
     else return null;
     const ctx = surface.getContext('2d');
-    paintGarden(ctx, w, h, theme, rush);
+    if (scenery(theme)) { ctx.save(); ctx.scale(w / 420, h / 560); root.BloomScenery.paint(ctx, theme); ctx.restore(); }
+    else paintGarden(ctx, w, h, theme, rush);
     return surface;
   }
 
@@ -273,13 +275,14 @@
 
   function drawGarden(ctx, w, h, theme, options) {
     if (!ctx) return;
-    w = w || 420; h = h || 560; theme = PAPER[theme] ? theme : 'meadow';
+    w = w || 420; h = h || 560; theme = PAPER[theme] || scenery(theme) ? theme : 'meadow';
     // Six bounded background variants: three themes, with clear Rush side margins.
     const rush = options && options.mode === 'rush';
     const key = `${theme}:${rush ? 'rush' : 'garden'}`;
     let surface = backdropCache.get(key);
     if (!surface) { surface = makeBackdrop(840, 1120, theme, rush); if (surface) backdropCache.set(key, surface); }
     if (surface) ctx.drawImage(surface, 0, 0, w, h);
+    else if (scenery(theme)) { ctx.save(); ctx.scale(w / 420, h / 560); root.BloomScenery.paint(ctx, theme); ctx.restore(); }
     else paintGarden(ctx, w, h, theme, rush);
   }
 
@@ -584,7 +587,7 @@
 
   function drawRushBoundary(ctx, state, theme) {
     const y = clamp(Number(state.dangerY) || 448, 100, 510);
-    const night = theme === 'moon';
+    const night = theme === 'moon' || Boolean(root.BloomScenery && root.BloomScenery.dark(theme));
     ctx.save();
     const warning = ctx.createLinearGradient(0, y - 15, 0, y + 33);
     warning.addColorStop(0, 'rgba(245,109,143,0)'); warning.addColorStop(.34, 'rgba(245,109,143,.08)'); warning.addColorStop(1, 'rgba(245,109,143,0)');
@@ -598,7 +601,90 @@
       ctx.fillStyle = night ? '#ffd8e5' : '#e86189'; ctx.fill();
     }
     ctx.font = '600 11px Fredoka, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    // Painted level scenes are busy behind the label, so it sits on its own little tag there.
+    if (root.BloomScenery && root.BloomScenery.has(theme)) {
+      const w = ctx.measureText('Danger line').width + 16;
+      ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(210 - w / 2, y + 6.5, w, 17, 8.5); else ctx.rect(210 - w / 2, y + 6.5, w, 17);
+      ctx.fillStyle = night ? 'rgba(38,24,58,.82)' : 'rgba(255,250,240,.94)'; ctx.fill();
+      ctx.strokeStyle = night ? 'rgba(255,145,177,.65)' : 'rgba(232,97,137,.6)'; ctx.lineWidth = 1.2; ctx.stroke();
+    }
     ctx.fillStyle = night ? '#ffcedd' : '#a54164'; ctx.fillText('Danger line', 210, y + 15);
+    ctx.restore();
+  }
+
+  // An acorn cup worn under a bud: shots from below glance off it, so it shows exactly which side is guarded.
+  function drawCup(ctx, bud) {
+    const r = (Number(bud.r) || 11) + 3.2, x = bud.x, y = bud.y + 1.5;
+    ctx.save();
+    ctx.beginPath(); ctx.moveTo(x - r, y); ctx.bezierCurveTo(x - r, y + r * 1.15, x + r, y + r * 1.15, x + r, y); ctx.closePath();
+    ctx.fillStyle = '#b5804a'; ctx.fill();
+    ctx.save(); ctx.clip();
+    ctx.strokeStyle = 'rgba(110,64,28,.75)'; ctx.lineWidth = .9;
+    for (let k = -3; k <= 3; k++) {
+      ctx.beginPath(); ctx.moveTo(x + k * 4.6 - 8, y); ctx.lineTo(x + k * 4.6 + 6, y + r); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x + k * 4.6 + 8, y); ctx.lineTo(x + k * 4.6 - 6, y + r); ctx.stroke();
+    }
+    ctx.fillStyle = 'rgba(80,44,18,.28)'; ctx.fillRect(x, y, r + 2, r * 1.2);
+    ctx.restore();
+    ctx.beginPath(); ctx.moveTo(x - r, y); ctx.bezierCurveTo(x - r, y + r * 1.15, x + r, y + r * 1.15, x + r, y);
+    ctx.strokeStyle = '#5a3417'; ctx.lineWidth = 1.5; ctx.stroke();
+    roundRect(ctx, x - r - 1.5, y - 2.6, r * 2 + 3, 4.6, 2.3); ctx.fillStyle = '#dcaa70'; ctx.fill(); ctx.strokeStyle = '#5a3417'; ctx.lineWidth = 1.3; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x - r + 2, y - 1.2); ctx.lineTo(x - 2, y - 1.2); ctx.strokeStyle = 'rgba(255,240,210,.8)'; ctx.lineWidth = 1; ctx.lineCap = 'round'; ctx.stroke();
+    ctx.restore();
+  }
+  // A puffcap: a round little mushroom that bursts in a spore cloud and blooms everything around it.
+  function drawPuffcap(ctx, bud, time, still) {
+    const r = Number(bud.r) || 12, x = bud.x, y = bud.y, breathe = still ? 1 : 1 + Math.sin(time * 3.1 + x * .05) * .04;
+    ctx.save(); ctx.translate(x, y); ctx.scale(breathe, 1 / breathe);
+    circle(ctx, 0, 1, r + 6, 'rgba(255,240,200,.16)');
+    ctx.beginPath(); ctx.moveTo(-r * .45, r * .55); ctx.quadraticCurveTo(0, r * 1.15, r * .45, r * .55); ctx.closePath(); ctx.fillStyle = '#e8d2b0'; ctx.fill();
+    ctx.beginPath(); ctx.ellipse(0, 0, r, r * .9, 0, 0, TAU); ctx.fillStyle = '#fff4e2'; ctx.fill();
+    ctx.save(); ctx.clip(); ctx.beginPath(); ctx.ellipse(r * .25, r * .3, r, r * .9, 0, 0, TAU); ctx.rect(-r * 2, -r * 2, r * 4, r * 4); ctx.fillStyle = '#efd9bb'; ctx.fill('evenodd'); ctx.restore();
+    ctx.beginPath(); ctx.ellipse(0, 0, r, r * .9, 0, 0, TAU); ctx.strokeStyle = '#9a6e4c'; ctx.lineWidth = 1.5; ctx.stroke();
+    for (const [sx, sy, sr] of [[-.42, .1, .13], [.38, .28, .1], [.1, .5, .09], [-.15, -.42, .08]]) circle(ctx, sx * r, sy * r, sr * r, '#e2c69f');
+    // The pore on top, where the spores come out.
+    ctx.beginPath(); for (let k = 0; k < 5; k++) { const a = -Math.PI / 2 + k * TAU / 5; ctx.lineTo(Math.cos(a) * 3.2, -r * .55 + Math.sin(a) * 2.2); ctx.lineTo(Math.cos(a + TAU / 10) * 1.3, -r * .55 + Math.sin(a + TAU / 10) * .9); }
+    ctx.closePath(); ctx.fillStyle = '#b8875e'; ctx.fill();
+    ctx.beginPath(); ctx.arc(-r * .35, -r * .3, r * .32, 3.5, 4.6); ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.lineWidth = 1.6; ctx.lineCap = 'round'; ctx.stroke();
+    ctx.restore();
+  }
+  // A boss bloom sits on two big leaves, wears a crown and shows its hits left as a ring of segments.
+  function drawBossLeaves(ctx, bud, time, still) {
+    const r = Number(bud.r) || 24, sway = still ? 0 : Math.sin(time * 1.6) * .06;
+    for (const side of [-1, 1]) {
+      ctx.save(); ctx.translate(bud.x + side * r * .35, bud.y + r * .55); ctx.rotate(side * (1.05 + sway));
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.bezierCurveTo(-r * .45, -r * .35, -r * .35, -r * 1.05, 0, -r * 1.25); ctx.bezierCurveTo(r * .38, -r * 1.02, r * .45, -r * .35, 0, 0);
+      ctx.fillStyle = '#52b86a'; ctx.fill(); ctx.strokeStyle = '#256b3f'; ctx.lineWidth = 1.6; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, -2); ctx.quadraticCurveTo(r * .05, -r * .6, 0, -r * 1.1); ctx.strokeStyle = 'rgba(220,255,210,.7)'; ctx.lineWidth = 1.1; ctx.stroke();
+      ctx.restore();
+    }
+  }
+  function drawBossFace(ctx, bud, time, still) {
+    const r = Number(bud.r) || 24, blink = still ? 1 : (time % 3.4 < .12 ? .15 : 1), hurt = typeof bud.hitAt === 'number' && time - bud.hitAt < .3;
+    ctx.save(); ctx.translate(bud.x, bud.y + r * .12);
+    for (const side of [-1, 1]) {
+      ctx.save(); ctx.translate(side * r * .26, 0); ctx.scale(1, hurt ? .2 : blink);
+      ctx.beginPath(); ctx.ellipse(0, 0, r * .13, r * .17, 0, 0, TAU); ctx.fillStyle = '#ffffff'; ctx.fill(); ctx.strokeStyle = '#4a2340'; ctx.lineWidth = 1.2; ctx.stroke();
+      circle(ctx, side * -r * .02, r * .03, r * .075, '#2d1630'); circle(ctx, side * -r * .04, -r * .03, r * .028, '#ffffff');
+      ctx.restore();
+      ctx.beginPath(); ctx.moveTo(side * r * .4, -r * .26); ctx.lineTo(side * r * .14, -r * .18); ctx.strokeStyle = '#4a2340'; ctx.lineWidth = 1.6; ctx.lineCap = 'round'; ctx.stroke();
+    }
+    ctx.beginPath(); ctx.arc(0, r * .3, r * .1, hurt ? Math.PI + .3 : .3, hurt ? -.3 : Math.PI - .3); ctx.strokeStyle = '#4a2340'; ctx.lineWidth = 1.4; ctx.stroke();
+    ctx.restore();
+  }
+  function drawBossRing(ctx, bud) {
+    const r = (Number(bud.r) || 24) + 7, hp = Math.max(0, Number(bud.hp) || 0), max = Math.max(1, Number(bud.maxHp) || 1), gap = .09;
+    ctx.save(); ctx.lineCap = 'round';
+    for (let i = 0; i < max; i++) {
+      const a0 = -Math.PI / 2 + i * TAU / max + gap / 2, a1 = a0 + TAU / max - gap;
+      ctx.beginPath(); ctx.arc(bud.x, bud.y, r, a0, a1); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 5.4; ctx.stroke();
+      ctx.beginPath(); ctx.arc(bud.x, bud.y, r, a0, a1); ctx.strokeStyle = i < hp ? (FLOWERS[bud.type] || FLOWERS.coral).dark : 'rgba(120,120,140,.35)'; ctx.lineWidth = 3; ctx.stroke();
+    }
+    const crownY = bud.y - (Number(bud.r) || 24) - 14;
+    ctx.beginPath(); ctx.moveTo(bud.x - 10, crownY + 6); ctx.lineTo(bud.x - 12, crownY - 4); ctx.lineTo(bud.x - 5, crownY + 1); ctx.lineTo(bud.x, crownY - 8);
+    ctx.lineTo(bud.x + 5, crownY + 1); ctx.lineTo(bud.x + 12, crownY - 4); ctx.lineTo(bud.x + 10, crownY + 6); ctx.closePath();
+    ctx.fillStyle = '#ffd64f'; ctx.fill(); ctx.strokeStyle = '#a8701f'; ctx.lineWidth = 1.4; ctx.lineJoin = 'round'; ctx.stroke();
+    circle(ctx, bud.x, crownY + 1.5, 1.8, '#ef5a7d');
     ctx.restore();
   }
 
@@ -834,7 +920,11 @@
   const AMBIENT = {
     meadow: { petals: ['#ff8fb1', '#ffd45c', '#c2a2ff', '#ffffff'], mote: '255,246,190', grass: ['#2fb57c', '#5fd193', '#8de074'] },
     koi: { petals: ['#ff9d7a', '#ffe08a', '#ffffff', '#ffb4cf'], mote: '230,255,250', grass: ['#1f9d86', '#47c3a9', '#89e6bb'] },
-    moon: { petals: ['#d9b8ff', '#9ff4ff', '#ffc8ef', '#ffffff'], mote: '200,180,255', grass: ['#4b3ca6', '#6a5bd0', '#8f7ff0'] }
+    moon: { petals: ['#d9b8ff', '#9ff4ff', '#ffc8ef', '#ffffff'], mote: '200,180,255', grass: ['#4b3ca6', '#6a5bd0', '#8f7ff0'] },
+    'depth-meadow': { petals: ['#ff8fb1', '#ffd45c', '#ffffff', '#c2a2ff'], mote: '255,246,190', motes: false },
+    'depth-roots': { petals: ['#e6c492', '#f3dcb0', '#c99460'], mote: '255,232,190', butterfly: false, motes: false },
+    'depth-grotto': { petals: ['#9ff7e6', '#c8fff4', '#f2b75a'], mote: '160,255,230', butterfly: false, motes: false },
+    'depth-crystal': { petals: ['#b9f6ff', '#e3d5ff', '#ffffff'], mote: '190,240,255', butterfly: false, motes: false }
   };
   function drawAmbient(ctx, time, theme) {
     const a = AMBIENT[theme] || AMBIENT.meadow;
@@ -854,7 +944,7 @@
       ctx.restore();
     }
     ctx.globalCompositeOperation = 'lighter';
-    for (let i = 0; i < 9; i++) {
+    for (let i = 0; i < (a.motes === false ? 0 : 9); i++) {
       const x = 30 + ((i * 131.7) % 360) + Math.sin(time * .5 + i * 2.1) * 20;
       const y = 520 - ((i * 63 + time * (6 + i % 3)) % 470);
       const pulse = .45 + Math.sin(time * 2.2 + i * 1.3) * .35;
@@ -864,7 +954,7 @@
     }
     ctx.globalCompositeOperation = 'source-over';
     const cycle = time % 17;
-    if (cycle < 10 && theme !== 'moon') {
+    if (cycle < 10 && theme !== 'moon' && a.butterfly !== false) {
       const q = cycle / 10, bx = -20 + q * 460, by = 150 + Math.sin(q * 9) * 34 + Math.sin(q * 23) * 6;
       const flap = Math.abs(Math.sin(time * 15));
       ctx.save(); ctx.translate(bx, by); ctx.rotate(Math.sin(q * 9) * .25 + .1);
@@ -878,7 +968,7 @@
       ctx.beginPath(); ctx.ellipse(0, 0, 1.2, 5, 0, 0, TAU); ctx.fillStyle = '#3b2b4a'; ctx.fill();
       ctx.restore();
     }
-    for (let i = 0; i < 46; i++) {
+    for (let i = 0; i < (a.grass ? 46 : 0); i++) {
       const edge = i < 23, k = edge ? i : i - 23;
       const x = edge ? 10 + k * 4.6 : 410 - k * 4.6;
       if (x > 118 && x < 302) continue;
@@ -1309,7 +1399,7 @@
           ctx.translate(bud.x, bud.y); ctx.scale(1 + squash * .18, 1 - squash * .20); ctx.translate(-bud.x, -bud.y);
         }
       }
-      if (!bud.bloomed && hp > 1) {
+      if (!bud.bloomed && hp > 1 && !bud.boss) {
         for (let layer = 1; layer < hp; layer++) {
           const rr = radius + 2.5 + layer * 3;
           ctx.beginPath();
@@ -1341,14 +1431,18 @@
         const breathe = bud.bloomed && openness >= 1 ? 1 + Math.sin(time * 1.7 + ph) * .035 : 1;
         ctx.translate(bud.x, bud.y); ctx.rotate(sway); ctx.scale(breathe, breathe); ctx.translate(-bud.x, -bud.y);
       }
-      drawFlower(ctx, bud.x, bud.y, bud.r || 16, bud.type, openness, time, flowerVariants.get(bud));
+      if (bud.boss && !bud.bloomed) drawBossLeaves(ctx, bud, time, options.reducedMotion);
+      if (bud.puff) { if (!bud.bloomed) drawPuffcap(ctx, bud, time, options.reducedMotion); }
+      else drawFlower(ctx, bud.x, bud.y, bud.r || 16, bud.type, openness, time, flowerVariants.get(bud));
+      if (bud.shield && !bud.bloomed) drawCup(ctx, bud);
+      if (bud.boss && !bud.bloomed) { drawBossFace(ctx, bud, time, options.reducedMotion); drawBossRing(ctx, bud); }
       if (bud.relay && !bud.bloomed) drawRelayCrown(ctx, bud);
       if (!bud.bloomed && (bud.power || bud.burst || bud.kind === 'burst')) {
         ctx.save(); ctx.shadowColor = '#fff17a'; ctx.shadowBlur = options.reducedMotion ? 0 : 12;
         sparkle(ctx, bud.x, bud.y, (bud.r || 13) * .52, '#ffffff', -.1);
         ctx.restore();
       }
-      if (!bud.bloomed && maxHp > 1) {
+      if (!bud.bloomed && maxHp > 1 && !bud.boss) {
         for (let i = 0; i < Math.min(maxHp, 5); i++) {
           const x = bud.x + (i - (Math.min(maxHp, 5) - 1) / 2) * 5.5;
           circle(ctx, x, bud.y + radius + 9, 2, i < hp ? '#079aaa' : 'rgba(255,255,255,.28)', '#ffffff', .9);
@@ -1356,7 +1450,10 @@
       }
       ctx.restore();
     }
-    for (const bumper of state.bumpers || []) drawBumper(ctx, bumper, options.selectedBumper === bumper.id, time, colors, options.reducedMotion);
+    for (const bumper of state.bumpers || []) {
+      if (bumper.kind === 'rock' && root.BloomScenery) root.BloomScenery.drawRock(ctx, bumper, options.theme);
+      else drawBumper(ctx, bumper, options.selectedBumper === bumper.id, time, colors, options.reducedMotion);
+    }
     if (options.showAim !== false && state.aim && (state.status !== 'flying' || options.showAim === true)) drawAim(ctx, state.aim, colors);
     drawLauncher(ctx, state, time, colors, options.keepsake);
 

@@ -16,6 +16,8 @@
   var DAILY_LIMIT = 21, BOUQUET_GOAL = 4, BOUQUET_SEEDS = 12, BOUQUET_LIMIT = 8;
   // Each of the day's three goals (goals.js) pays once, and finishing all three pays a bonus.
   var GOAL_SEEDS = 4, GOAL_BONUS = 6;
+  // The ten levels: a run pays up to this many seeds for its blooms, plus the first-clear and new-star seeds.
+  var DEPTH_LEVELS = 10, DEPTH_RUN_CAP = 24;
   var DAY = 86400000;
   var STAGES = Object.freeze([
     Object.freeze({ stage: 1, name: 'First shoots', cost: COSTS[0] }),
@@ -114,6 +116,12 @@
       var koiStars = own(savedKoi, koiId) ? integer(savedKoi[koiId], 3) : 0;
       if (koiStars) koiBest[koiId] = koiStars;
     }
+    var depthBest = {};
+    var savedDepth = own(source, 'depthBest') && record(source.depthBest) ? source.depthBest : {};
+    for (var depth = 1; depth <= DEPTH_LEVELS; depth++) {
+      var depthStars = own(savedDepth, depth) ? integer(savedDepth[depth], 3) : 0;
+      if (depthStars) depthBest[depth] = depthStars;
+    }
     var dailyBest = {};
     var savedDaily = own(source, 'dailyBest') && record(source.dailyBest) ? source.dailyBest : {};
     Object.keys(savedDaily).filter(function (id) {
@@ -130,7 +138,7 @@
     return { version: 1,
       seeds: isNew ? 4 : (own(source, 'seeds') ? integer(source.seeds, MAX_SEEDS) : 0),
       selectedId: own(source, 'selectedId') && validPlot(source.selectedId) ? source.selectedId : 'sunbell',
-      levels: levels, receipts: receipts, campaignBest: campaignBest, moonBest: moonBest, koiBest: koiBest,
+      levels: levels, receipts: receipts, campaignBest: campaignBest, moonBest: moonBest, koiBest: koiBest, depthBest: depthBest,
       dailyBest: dailyBest, bouquets: bouquets, decor: built,
       starterSeeds: isNew ? 4 : (own(source, 'starterSeeds') ? integer(source.starterSeeds, 4) : 0),
       totalSeedsEarned: own(source, 'totalSeedsEarned') ? integer(source.totalSeedsEarned, MAX_TOTAL) : 0,
@@ -164,6 +172,17 @@
       // Pay the same lifetime reward whether a player earns stars now or improves later.
       earned = previous === 0 ? 8 + (reward.stars - 1) * 2 : Math.max(0, reward.stars - previous) * 2;
       bests[reward.levelId] = Math.max(previous, reward.stars);
+    } else if (reward.mode === 'depths') {
+      if (!Number.isInteger(reward.levelId) || reward.levelId < 1 || reward.levelId > DEPTH_LEVELS || !Number.isInteger(reward.stars) || reward.stars < 0 || reward.stars > 3 ||
+        !Number.isInteger(reward.blooms) || reward.blooms < 0 || !Number.isInteger(reward.wave) || reward.wave < 1 || reward.wave > 10) return result(0, 'invalid-reward');
+      // Every finished level run pays for the flowers it bloomed, won or not; new stars pay like a garden's.
+      earned = Math.min(DEPTH_RUN_CAP, Math.floor(reward.blooms / 10) + reward.wave - 1);
+      if (reward.blooms > 0) earned = Math.max(1, earned);
+      if (reward.stars > 0) {
+        var had = Math.max(next.depthBest[reward.levelId] || 0, integer(reward.previousStars, 3));
+        earned += had === 0 ? 8 + (reward.stars - 1) * 2 : Math.max(0, reward.stars - had) * 2;
+        next.depthBest[reward.levelId] = Math.max(had, reward.stars);
+      }
     } else if (reward.mode === 'daily') {
       var day = dailyDay(reward.levelId), kept = Object.keys(next.dailyBest).sort();
       if (day === null || !Number.isInteger(reward.stars) || reward.stars < 1 || reward.stars > 3) return result(0, 'invalid-reward');
@@ -265,5 +284,6 @@
       plots: beds };
   }
   return Object.freeze({ plots: plots, decor: decor, normalize: normalize, grant: grant, plant: plant, build: build, select: select, summary: summary, week: week,
-    daily: Object.freeze({ firstClear: [6, 8, 10], perStar: 2, bouquetGoal: BOUQUET_GOAL, bouquetSeeds: BOUQUET_SEEDS, goalSeeds: GOAL_SEEDS, goalBonus: GOAL_BONUS }) });
+    daily: Object.freeze({ firstClear: [6, 8, 10], perStar: 2, bouquetGoal: BOUQUET_GOAL, bouquetSeeds: BOUQUET_SEEDS, goalSeeds: GOAL_SEEDS, goalBonus: GOAL_BONUS }),
+    depths: Object.freeze({ levels: DEPTH_LEVELS, runCap: DEPTH_RUN_CAP }) });
 });

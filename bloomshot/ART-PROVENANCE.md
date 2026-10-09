@@ -8,6 +8,10 @@ Moon artwork in art.js is AI-assisted procedural Canvas illustration. The detail
 
 The gate chime is synthesized in sound.js through Web Audio: a quiet rising two-note response, debounced for rapid crossings and subject to the existing voice, gain and mute limits. It responds to the same gate event as the visual feedback. Planting uses a separate four-note motif. These are AI-assisted code-generated sounds, not recorded or commissioned performances. Instrumented sound tests verify scheduling and limits; they do not replace listening on actual devices.
 
+## Levels
+
+The four level scenes (Sunny Meadow, Root Tunnels, Mushroom Grotto and Crystal Caves) are AI-assisted procedural Canvas illustration in scenery.js. Every hill, root, mushroom, crystal and creature (the bunny, worm, ants, sleeping mole, bat, snail and cave fish) is a flat shape with a colored ink outline and one shade cut toward a fixed light, placed by hand-picked coordinates and drawn from seeded randomness so each scene is the same every time. The level map cards show slices of those same scenes, rendered on the device. The new board pieces (acorn cups, puffcaps, rocks and crystals, and the big bloom with its face and ring of hit marks) are Canvas paths in art.js and scenery.js. No raster images were generated, downloaded or commissioned for the levels, and none of this art was made by a human artist. The puffcap, cup, big bloom, falling flowers and rock sounds are synthesized in sound.js like the rest.
+
 ## Interface
 
 The interface is AI-assisted HTML, CSS and inline SVG. The buttons, panels, ribbon titles, tab icons and the padlock (assets/ui/lock.svg) are vector shapes written in code, not generated images. The game no longer uses any AI-generated raster art: the two image-generator ornaments it used to carry (botanical-header.png behind the score and split-leaf.png behind the Split button) were removed in the October 2026 redesign.

@@ -6,15 +6,15 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
-  // Three small goals a day: one in Rush, one puzzle, one somewhere else. Each pays seeds once, and all three
+  // Three small goals a day: one in the levels or Rush, one puzzle, one somewhere else. Each pays seeds once, and all three
   // pay a bonus. A missed day costs nothing, nothing counts down, and tomorrow simply brings three new goals.
   function goal(id, group, text, target, play) {
     return Object.freeze({ id: id, group: group, text: text, target: target, play: play });
   }
   var catalog = Object.freeze([
-    goal('rush-blooms', 'rush', 'Bloom 50 flowers in Rush', 50, 'rush'),
-    goal('rush-wave', 'rush', 'Reach wave 4 in Rush', 4, 'rush'),
-    goal('rush-chain', 'rush', 'Make an 8 chain in Rush', 8, 'rush'),
+    goal('rush-blooms', 'rush', 'Bloom 50 flowers', 50, 'rush'),
+    goal('rush-wave', 'rush', 'Reach wave 4', 4, 'rush'),
+    goal('rush-chain', 'rush', 'Make an 8 chain', 8, 'rush'),
     goal('puzzles', 'puzzle', 'Clear 2 puzzles', 2, 'puzzles'),
     goal('perfect', 'puzzle', 'Get ★★★ on a puzzle', 1, 'puzzles'),
     goal('daily', 'puzzle', "Clear today's garden", 1, 'daily'),

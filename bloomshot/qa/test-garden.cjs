@@ -315,12 +315,28 @@ test('Summary lists every decoration with its price, whether it is built or affo
   assert.equal(summary.complete, true); assert.equal(summary.builtDecor, 6);
   assert.equal(Garden.summary(Garden.normalize({ levels })).complete, false);
 });
+test('Level runs pay for their blooms, won or lost, and new stars on a level pay once like a garden', () => {
+  const run = (state, extra, id) => Garden.grant(state, { mode: 'depths', completed: true, runId: id, levelId: 2, stars: 0, blooms: 120, wave: 5, ...extra });
+  let state = Garden.normalize({ seeds: 0 });
+  let paid = run(state, {}, 'lvl-a'); assert.equal(paid.awarded, 16); assert.deepEqual(paid.state.depthBest, {}); state = paid.state;
+  paid = run(state, { blooms: 360, wave: 10, stars: 2 }, 'lvl-b'); assert.equal(paid.awarded, 24 + 10); assert.equal(paid.state.depthBest[2], 2); state = paid.state;
+  paid = run(state, { blooms: 360, wave: 10, stars: 2 }, 'lvl-c'); assert.equal(paid.awarded, 24); state = paid.state;
+  paid = run(state, { blooms: 360, wave: 10, stars: 3 }, 'lvl-d'); assert.equal(paid.awarded, 24 + 2); assert.equal(paid.state.depthBest[2], 3); state = paid.state;
+  assert.equal(run(state, { blooms: 360, wave: 10, stars: 3 }, 'lvl-d').reason, 'duplicate');
+  assert.equal(run(state, { blooms: 1, wave: 1 }, 'lvl-e').awarded, 1);
+  assert.equal(run(state, { blooms: 0, wave: 1 }, 'lvl-f').awarded, 0);
+  for (const bad of [{ levelId: 0 }, { levelId: 11 }, { levelId: '2' }, { stars: 4 }, { stars: -1 }, { wave: 0 }, { wave: 11 }, { blooms: -3 }, { blooms: 2.5 }])
+    assert.equal(run(state, bad, 'lvl-bad').reason, 'invalid-reward', JSON.stringify(bad));
+  assert.deepEqual(Garden.normalize({ depthBest: { 1: 3, 2: 9, 11: 2, x: 1 } }).depthBest, { 1: 3, 2: 3 });
+  assert.deepEqual(Garden.normalize({ seeds: 5 }).depthBest, {});
+});
 const report = {
   passed: results.filter(r => r.passed).length, failed: results.filter(r => !r.passed).length,
   observations: { starterSeeds: 4, costsPerPlot: [4, 8, 14], completeMeadowCost: 156, decorCosts: [20, 30, 40, 55, 75, 100], completeDecorCost: 320,
     decentRush: { blooms: 24, wave: 3, awarded: 8 }, weakPositiveRushMinimum: 1, rushRewardCap: 40,
     firstCampaignClearByStars: { 1: 8, 2: 10, 3: 12 }, improvedCampaignStar: 2, receiptWindow: 64,
     firstDailyClearByStars: { 1: 6, 2: 8, 3: 10 }, weeklyBouquet: { dailyClears: 4, seeds: 12 }, dailyMemoryDays: 21,
+    levelRun: { bloomsPerSeed: 10, plusWavesReached: true, cap: 24, firstClearByStars: { 1: 8, 2: 10, 3: 12 }, improvedStar: 2 },
     limitations: ['Local save logic is not a server-authoritative payment or anti-tampering system.',
       'Rush receipt deduplication covers the most recent 64 completions; the UI must issue one unique ID per run.',
       'The caller must persist the initial garden and each successful state transition.',

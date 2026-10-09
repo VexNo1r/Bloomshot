@@ -145,7 +145,8 @@
       note(chord[(combo - 1) % chord.length], 0, data.chain ? 0.30 : 0.44, data.chain ? 0.105 : 0.155, pan);
     } else if (type === 'bounce') {
       if (!allowed('bounce', 0.075)) return;
-      note(data.kind === 'bumper' ? 293.66 : 146.83, 0, 0.08, data.kind === 'bumper' ? 0.075 : 0.043, pan, 'wood', 0);
+      // Rocks knock lower than the leaf, so a bank shot is easy to hear.
+      note(data.kind === 'bumper' ? 293.66 : data.kind === 'rock' ? 110 : 146.83, 0, data.kind === 'rock' ? 0.1 : 0.08, data.kind === 'bumper' ? 0.075 : data.kind === 'rock' ? 0.07 : 0.043, pan, 'wood', 0);
     } else if (type === 'launch') {
       if (!allowed('launch', 0.065)) return;
       note(220, 0, 0.10, 0.10, pan, 'wood'); note(329.63, 0.025, 0.15, 0.085, pan);
@@ -182,6 +183,12 @@
       if (voice) voice.forEach(([frequency, delay, duration, style]) => note(frequency, delay, duration, style === 'wood' ? 0.085 : 0.06, pan * 0.5, style));
     }
     else if (type === 'life' && allowed('life', 0.15)) phrase([220, 174.61], 0.105, 0.25, 0.12, pan);
+    // Level pieces: a puffcap pops with a soft low drop and a sparkle, an acorn cup clinks, the boss blooms
+    // with a full rising chord, and reinforcements land with two small plops.
+    else if (type === 'puff' && allowed('puff', 0.12)) { note(196, 0, 0.2, 0.08, pan, 'drop'); note(587.33, 0.06, 0.26, 0.05, pan); note(880, 0.12, 0.22, 0.035, pan); }
+    else if (type === 'shield' && allowed('shield', 0.09)) { note(1318.51, 0, 0.06, 0.045, pan, 'wood', 0); note(987.77, 0.035, 0.08, 0.035, pan, 'wood', 0); }
+    else if (type === 'boss' && allowed('boss', 0.8)) phrase([261.63, 329.63, 392, 523.25, 659.25, 783.99], 0.07, 0.9, 0.11);
+    else if (type === 'drop' && allowed('drop', 0.5)) { note(440, 0, 0.09, 0.045, 0, 'drop'); note(329.63, 0.08, 0.11, 0.04, 0, 'drop'); }
     else if (type === 'fever' && allowed('fever', 1.0)) phrase([261.63, 329.63, 392], 0.04, 0.52, 0.085);
     else if (type === 'lost' && allowed('lost', 0.6)) phrase([329.63, 261.63, 220], 0.115, 0.40, 0.105);
   }
