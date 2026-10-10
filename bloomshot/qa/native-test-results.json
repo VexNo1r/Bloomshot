@@ -1,10 +1,10 @@
 {
   "generatedBy": "qa/test-native.cjs",
-  "passed": 13,
-  "total": 13,
+  "passed": 16,
+  "total": 16,
   "methodology": "Fake Capacitor shaped like the injected native bridge (Capacitor.Plugins, no registerPlugin), fake storage and a manual timer. No device, no real preferences store.",
   "limitations": [
-    "Plugin names (Haptics, Preferences) and call shapes follow the Capacitor 8 plugin sources and the injected bridge scripts and have not run on a real phone.",
+    "Plugin names (Haptics, Preferences, Share) and call shapes follow the Capacitor 8 plugin sources and the injected bridge scripts and have not run on a real phone.",
     "A save the OS rolls back in web storage but not in preferences (or the reverse) is not detected: once an install has checked its backup, the local save wins."
   ],
   "results": [
@@ -58,6 +58,18 @@
     },
     {
       "name": "Mirror: a save the game could not keep in web storage still reaches the backup once the mirror is open",
+      "passed": true
+    },
+    {
+      "name": "Share (app): the phone share sheet gets the title, text and link, and the link points at the right store",
+      "passed": true
+    },
+    {
+      "name": "Share (app): closing the sheet is a quiet cancel; a sheet that fails falls back to copying; a build without the plugin copies",
+      "passed": true
+    },
+    {
+      "name": "Share (web): the browser share sheet first, the clipboard when it is refused, and nothing at all is a plain failure",
       "passed": true
     }
   ]

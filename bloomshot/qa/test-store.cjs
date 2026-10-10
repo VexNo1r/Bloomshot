@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const Store = require('../store.js');
+const Powers = require('../powers.js');
 const results = [];
 async function test(name, fn) {
   try { await fn(); results.push({ name, passed: true }); }
@@ -380,16 +381,82 @@ const ledgerOf = storage => JSON.parse(storage.data['bloomshot.grants.v1']);
     for (const id of ['p.nogrant', 'p.zero', 'p.nocount', 'p.both']) { assert.equal(find(store, id).available, false, id); assert.equal((await store.purchase(id)).reason, 'unavailable-product'); }
   });
 
+  // A mixed pack: one store product, one transaction, several kinds of powerup.
+  const BAG = { revenueCatKeys: CONFIG.revenueCatKeys, products: POWER.products.concat([
+    { id: 'p.bag', consumable: true, powers: { bomb: 2, rain: 1 }, kind: 'power', title: 'Bag', priceHint: '$1.99', available: true }
+  ]) };
+
+  await test('powerups: a mixed pack is sold only when every item is a positive whole count of a named power', async () => {
+    const config = { revenueCatKeys: CONFIG.revenueCatKeys, products: BAG.products.concat([
+      { id: 'p.empty', consumable: true, powers: {}, title: 'Empty', available: true },
+      { id: 'p.zeroitem', consumable: true, powers: { bomb: 2, rain: 0 }, title: 'Zero item', available: true },
+      { id: 'p.half', consumable: true, powers: { bomb: 1.5 }, title: 'Half', available: true },
+      { id: 'p.list', consumable: true, powers: ['bomb'], title: 'List', available: true },
+      { id: 'p.noname', consumable: true, powers: { '': 1 }, title: 'No name', available: true },
+      { id: 'p.mixed', consumable: true, power: 'bomb', count: 1, powers: { rain: 1 }, title: 'Both ways', available: true }
+    ]) };
+    const store = Store.create(powerEnv(powerPlugin(), { config }));
+    await store.init();
+    const bag = find(store, 'p.bag');
+    assert.equal(bag.available, true); assert.equal(bag.power, null); assert.equal(bag.count, 3);
+    assert.deepEqual(bag.items, [{ power: 'bomb', count: 2 }, { power: 'rain', count: 1 }]);
+    assert.deepEqual(find(store, 'p.rain').items, [{ power: 'rain', count: 3 }]);
+    assert.deepEqual(find(store, 'p.live').items, []);
+    for (const id of ['p.empty', 'p.zeroitem', 'p.half', 'p.list', 'p.noname', 'p.mixed']) { assert.equal(find(store, id).available, false, id); assert.equal((await store.purchase(id)).reason, 'unavailable-product', id); }
+    find(store, 'p.bag').items[0].count = 99; // a copy: changing it changes nothing in the store
+    assert.equal(find(store, 'p.bag').items[0].count, 2);
+  });
+
+  await test('powerups: a mixed pack is one grant with all its items, delivered whole or not at all, and never again', async () => {
+    const plugin = powerPlugin(); const env = powerEnv(plugin, { config: BAG });
+    const store = Store.create(env); await store.init();
+    const result = await store.purchase('p.bag');
+    assert.deepEqual(result, { ok: true, consumable: true, power: null, count: 3, items: [{ power: 'bomb', count: 2 }, { power: 'rain', count: 1 }], transaction: 'GPA.1', delivered: false });
+    result.items[0].count = 99; // the answer is a copy: changing it changes nothing in the ledger
+    assert.equal(store.pendingGrants()[0].items[0].count, 2);
+    // The game fails to save: the whole pack stays waiting, and survives a relaunch with its items.
+    assert.equal(store.deliver(() => false), 0);
+    const relaunch = Store.create(powerEnv(plugin, { config: BAG, storage: env.storage })); await relaunch.init();
+    const waiting = relaunch.pendingGrants();
+    assert.deepEqual(waiting, [{ transaction: 'GPA.1', productId: 'p.bag', power: null, count: 3, items: [{ power: 'bomb', count: 2 }, { power: 'rain', count: 1 }] }]);
+    waiting[0].items[0].count = 99; // a copy
+    assert.equal(relaunch.pendingGrants()[0].items[0].count, 2);
+    assert.deepEqual(take(relaunch).map(g => g.items), [[{ power: 'bomb', count: 2 }, { power: 'rain', count: 1 }]]);
+    assert.deepEqual(take(relaunch), []);
+    await relaunch.restore();
+    const again = Store.create(powerEnv(plugin, { config: BAG, storage: env.storage })); await again.init();
+    assert.deepEqual(again.pendingGrants(), []);
+    assert.equal(plugin.calls.filter(c => c[0] === 'purchase').length, 1);
+  });
+
+  await test('powerups: a waiting grant saved before packs existed still loads as one item; a damaged one is dropped', async () => {
+    const storage = memoryStorage({ 'bloomshot.grants.v1': JSON.stringify({ v: 1, baseline: true, seen: ['GPA.1', 'GPA.2', 'GPA.3', 'GPA.4', 'GPA.5', 'GPA.6'], inflight: [], owed: [
+      { transaction: 'GPA.1', productId: 'p.rain', power: 'rain', count: 3 },
+      { transaction: 'GPA.2', productId: 'p.bag', power: null, count: 3, items: [{ power: 'bomb', count: 2 }, { power: 'rain', count: 0 }] },
+      { transaction: 'GPA.3', productId: 'p.bag', items: [] },
+      { productId: 'p.bomb', power: 'bomb', count: 1 },
+      { transaction: 'GPA.5', productId: 'p.bag', items: [{ power: 'bomb', count: 2 }, { power: 5, count: 1 }] },
+      { transaction: 'GPA.6', productId: 'p.bag', items: [{ power: 'bomb', count: 1 }, { power: 'bomb', count: 1 }] },
+      { transaction: 'GPA.4', productId: 'p.bag', items: [{ power: 'bomb', count: 2 }, { power: 'rain', count: 1 }] }
+    ] }) });
+    const store = Store.create(powerEnv(powerPlugin(), { config: BAG, storage }));
+    await store.init();
+    assert.deepEqual(store.pendingGrants(), [
+      { transaction: 'GPA.1', productId: 'p.rain', power: 'rain', count: 3, items: [{ power: 'rain', count: 3 }] },
+      { transaction: 'GPA.4', productId: 'p.bag', power: null, count: 3, items: [{ power: 'bomb', count: 2 }, { power: 'rain', count: 1 }] }
+    ]);
+  });
+
   await test('powerups: each buy charges once and becomes its own grant, delivered once and never again after a relaunch', async () => {
     const plugin = powerPlugin(); const env = powerEnv(plugin);
     const store = Store.create(env); await store.init();
     const seen = []; store.subscribe(e => seen.push(e.type));
     const first = await store.purchase('p.bomb');
-    assert.deepEqual(first, { ok: true, consumable: true, power: 'bomb', count: 1, transaction: 'GPA.1', delivered: false });
+    assert.deepEqual(first, { ok: true, consumable: true, power: 'bomb', count: 1, items: [{ power: 'bomb', count: 1 }], transaction: 'GPA.1', delivered: false });
     assert.ok(seen.includes('grants'));
     const second = await store.purchase('p.rain');
     assert.deepEqual([second.power, second.count, second.transaction], ['rain', 3, 'GPA.2']);
-    assert.deepEqual(store.pendingGrants()[1], { transaction: 'GPA.2', productId: 'p.rain', power: 'rain', count: 3 });
+    assert.deepEqual(store.pendingGrants()[1], { transaction: 'GPA.2', productId: 'p.rain', power: 'rain', count: 3, items: [{ power: 'rain', count: 3 }] });
     assert.equal(find(store, 'p.bomb').owned, false);
     assert.deepEqual(store.pendingGrants().map(g => g.transaction), ['GPA.1', 'GPA.2']);
     assert.deepEqual(take(store).map(g => [g.power, g.count]), [['bomb', 1], ['rain', 3]]);
@@ -483,7 +550,7 @@ const ledgerOf = storage => JSON.parse(storage.data['bloomshot.grants.v1']);
   await test('powerups: a store answer without a transaction is still matched to the purchase, and only to it', async () => {
     const plugin = powerPlugin({ mode: 'noTransaction' }); const store = Store.create(powerEnv(plugin)); await store.init();
     const bought = await store.purchase('p.rain');
-    assert.deepEqual(bought, { ok: true, consumable: true, power: 'rain', count: 3, transaction: 'GPA.1', delivered: false });
+    assert.deepEqual(bought, { ok: true, consumable: true, power: 'rain', count: 3, items: [{ power: 'rain', count: 3 }], transaction: 'GPA.1', delivered: false });
     plugin.charge('p.bomb'); // a bomb bought on another device
     assert.equal((await store.restore()).ok, true);
     assert.deepEqual(store.pendingGrants().map(g => g.transaction), ['GPA.1']);
@@ -542,7 +609,7 @@ const ledgerOf = storage => JSON.parse(storage.data['bloomshot.grants.v1']);
     const stop = store.onConsumable(g => { got.push(g); return saving; });
     assert.deepEqual(got, []); // not before the store has checked the account
     await store.init();
-    assert.deepEqual(got, [{ transaction: 'GPA.1', productId: 'p.rain', power: 'rain', count: 3 }]);
+    assert.deepEqual(got, [{ transaction: 'GPA.1', productId: 'p.rain', power: 'rain', count: 3, items: [{ power: 'rain', count: 3 }] }]);
     const seen = []; store.subscribe(e => { if (e.type === 'grants') seen.push(store.pendingGrants().length); });
     const bomb = await store.purchase('p.bomb');
     assert.equal(bomb.delivered, true); assert.equal(got.length, 2); assert.equal(got[1].power, 'bomb');
@@ -612,9 +679,13 @@ const ledgerOf = storage => JSON.parse(storage.data['bloomshot.grants.v1']);
     for (const p of products) {
       assert.match(p.id, /^bloomshot\.[a-z0-9]+\.[a-z0-9]+$/, p.id);
       if (p.consumable) {
-        // A powerup grants an item, never an entitlement, and is priced like the one Trevor asked for.
-        assert.equal(p.kind, 'power', p.id); assert.ok(p.power && p.count > 0, p.id); assert.deepEqual(p.entitlements, [], p.id);
-        assert.ok(price(p) > 0 && price(p) < 1, `${p.id} is a small purchase`);
+        // A powerup grants items, never an entitlement. Singles are the 25-cent purchase Trevor asked for; a pack
+        // costs less per powerup than buying them one at a time.
+        assert.equal(p.kind, 'power', p.id); assert.ok(p.items.length > 0 && p.count > 0, p.id); assert.deepEqual(p.entitlements, [], p.id);
+        assert.ok(p.items.every(it => Powers.byId[it.power]), `${p.id} grants a powerup the game does not have`);
+        if (p.count === 1) assert.ok(price(p) > 0 && price(p) < 1, `${p.id} is a small purchase`);
+        else assert.ok(price(p) < p.count * Math.min(...products.filter(s => s.consumable && s.count === 1).map(price)), `${p.id} must cost less than its powerups one by one`);
+        assert.ok(price(p) < 2, `${p.id} stays a small purchase`);
         continue;
       }
       assert.ok(p.entitlements.length > 0, p.id);
@@ -627,6 +698,7 @@ const ledgerOf = storage => JSON.parse(storage.data['bloomshot.grants.v1']);
     // The content that uses a product must name the same ids the catalog sells.
     const Koi = require('../koi.js'); const koi = products.find(p => p.id === Koi.product);
     assert.ok(koi && koi.entitlement === Koi.entitlement, 'koi.js and store-config.js disagree');
+    for (const def of Powers.list) assert.deepEqual(products.find(p => p.id === def.product)?.items, [{ power: def.id, count: 1 }], `powers.js and store-config.js disagree on ${def.id}`);
   });
 
   const failed = results.filter(r => !r.passed);
