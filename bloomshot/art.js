@@ -17,12 +17,25 @@
     poppy: { dark: '#d23c14', base: '#ff6a2a', light: '#ffa45e', tip: '#ffe4c6', heart: '#3a2546', seed: '#6b4a80' }
   };
   // How each flower opens: petal count, reach and breadth, the petal's outline, and the size of its heart.
+  // inner is the second layer (petals as reach, breadth, turn offset, three FLOWERS colors and alpha; or a white ring).
+  // The unfurl reads twist (how far each petal swings as it opens), the sepal colors of its casing shards, and how
+  // spread the cracks run.
   const OPEN = {
-    gold: { count: 12, reach: 1.52, breadth: .25, shape: 'gold', heart: .49, seeds: 29 },
-    coral: { count: 6, reach: 1.52, breadth: .65, shape: 'coral', heart: .32, seeds: 15 },
-    lilac: { count: 6, reach: 1.62, breadth: .35, shape: 'lilac', heart: .24, seeds: 7 },
-    sky: { count: 5, reach: 1.42, breadth: .66, shape: 'sky', heart: .26, seeds: 8 },
-    poppy: { count: 6, reach: 1.56, breadth: .74, shape: 'coral', heart: .3, seeds: 13 }
+    gold: { count: 12, reach: 1.52, breadth: .25, shape: 'gold', heart: .49, seeds: 29,
+      inner: { count: 12, reach: 1.03, breadth: .25, offset: .5, fill: ['light', 'tip', 'base'], alpha: .92, shape: 'gold' },
+      twist: .34, sepal: ['#62c46a', '#2f8d4e', '#c9f5a8'], cracks: .5 },
+    coral: { count: 6, reach: 1.52, breadth: .65, shape: 'coral', heart: .32, seeds: 15,
+      inner: { count: 5, reach: .95, breadth: .46, offset: .34, fill: ['base', 'light', 'dark'], alpha: .85, shape: 'coral' },
+      twist: .62, sepal: ['#43c184', '#1f8a66', '#bff3d2'], cracks: .42 },
+    lilac: { count: 6, reach: 1.62, breadth: .35, shape: 'lilac', heart: .24, seeds: 7,
+      inner: { count: 3, reach: 1.1, breadth: .28, offset: .25, fill: ['light', 'tip', 'base'], alpha: 1, shape: 'lilac' },
+      twist: .78, sepal: ['#3dae8c', '#1c7766', '#b8eedc'], cracks: .36 },
+    sky: { count: 5, reach: 1.42, breadth: .66, shape: 'sky', heart: .26, seeds: 8,
+      inner: { ring: .44 },
+      twist: .5, sepal: ['#48c39b', '#1f8a72', '#c2f6e2'], cracks: .44 },
+    poppy: { count: 6, reach: 1.56, breadth: .74, shape: 'coral', heart: .3, seeds: 13,
+      inner: { count: 4, reach: 1.0, breadth: .62, offset: .5, fill: ['light', 'tip', 'base'], alpha: .9, shape: 'coral' },
+      twist: .7, sepal: ['#78b84f', '#41782c', '#d9f4b0'], cracks: .5 }
   };
 
   const backdropCache = new Map();
@@ -387,19 +400,34 @@
     ctx.closePath();
   }
 
-  function paintFlower(ctx, x, y, r, type, openness, time, phase) {
-    if (!ctx) return;
-    type = FLOWERS[type] ? type : 'coral';
-    const c = FLOWERS[type], o = clamp(Number(openness) || 0, 0, 1);
-    r = Math.max(2, Number(r) || 16);
-    ctx.save(); ctx.translate(x, y);
-    // Small stems and leaves belong to the target itself, not a background plant.
+  // Small stems and leaves belong to the target itself, not a background plant.
+  function paintStem(ctx, r) {
     ctx.beginPath(); ctx.moveTo(0, 5); ctx.quadraticCurveTo(r * .05, r * .75, -r * .13, r * 1.04);
     ctx.strokeStyle = '#26a578'; ctx.lineWidth = Math.max(1, r * .085); ctx.stroke();
     leaf(ctx, -r * .07, r * .80, r * .72, r * .38, -.86, '#4dca8d', '#219d80');
     leaf(ctx, -r * .04, r * .65, r * .60, r * .29, 1.02, '#8ada78', '#46b484');
+  }
+  // The heart: a disc, a lighter seed bed and a sunflower spiral of seeds.
+  function paintHeart(ctx, r, type) {
+    const c = FLOWERS[type], form = OPEN[type], heartSize = form.heart;
+    circle(ctx, 0, 0, r * heartSize, c.heart, 'rgba(255,255,255,.65)', .6);
+    circle(ctx, -r * .035, -r * .055, r * (heartSize - .07), c.seed);
+    const seedCount = form.seeds;
+    for (let i = 0; i < seedCount; i++) {
+      const ang = i * 2.39996, dist = Math.sqrt(i / seedCount) * r * (heartSize - .07);
+      circle(ctx, Math.cos(ang) * dist, Math.sin(ang) * dist, Math.max(.48, r * .032), i % 3 ? c.heart : c.tip);
+    }
+  }
+  // parts picks layers for the unfurl atlas (1 stem, 2 closed bud, 4 open flower); every other caller paints all three.
+  function paintFlower(ctx, x, y, r, type, openness, time, phase, parts) {
+    if (!ctx) return;
+    type = FLOWERS[type] ? type : 'coral';
+    const c = FLOWERS[type], o = clamp(Number(openness) || 0, 0, 1), layers = parts || 7;
+    r = Math.max(2, Number(r) || 16);
+    ctx.save(); ctx.translate(x, y);
+    if (layers & 1) paintStem(ctx, r);
 
-    if (o < .94) {
+    if (o < .94 && layers & 2) {
       const a = 1 - ease(Math.max(0, o - .25) / .69);
       ctx.save(); ctx.globalAlpha *= a;
       // A glassy disc in the flower's own color, with a bright rim, marks the hit area and makes each target a jewel of color.
@@ -442,7 +470,7 @@
       ctx.restore();
     }
 
-    if (o > .001) {
+    if (o > .001 && layers & 4) {
       ctx.save();
       const bloom = ease(o);
       const pop = 1 + Math.sin(o * Math.PI) * .29;
@@ -455,34 +483,15 @@
         petal(ctx, pr * (1 + Math.sin(i * 7.3 + phase) * .045), pr * form.breadth, i * TAU / count, c.base, c.light, c.dark, i, form.shape);
       }
       ctx.shadowColor = 'transparent';
-      if (type === 'gold') {
-        ctx.save(); ctx.globalAlpha *= .92;
-        for (let i = 0; i < 12; i++) petal(ctx, r * 1.03, r * .25, (i + .5) * TAU / 12, c.light, c.tip, c.base, i, 'gold');
-        ctx.restore();
-      } else if (type === 'coral') {
-        ctx.save(); ctx.globalAlpha *= .85;
-        for (let i = 0; i < 5; i++) petal(ctx, r * .95, r * .46, (i + .34) * TAU / 5, c.base, c.light, c.dark, i, 'coral');
-        ctx.restore();
-      } else if (type === 'poppy') {
-        ctx.save(); ctx.globalAlpha *= .9;
-        for (let i = 0; i < 4; i++) petal(ctx, r * 1.0, r * .62, (i + .5) * TAU / 4, c.light, c.tip, c.base, i, 'coral');
-        ctx.restore();
-      } else if (type === 'sky') {
-        // A white ring around the sunny eye, as on a real forget-me-not.
-        circle(ctx, 0, 0, r * .44, 'rgba(255,255,255,.92)');
-      } else {
-        ctx.save();
-        for (let i = 0; i < 3; i++) petal(ctx, r * 1.1, r * .28, (i + .25) * TAU / 3, c.light, c.tip, c.base, i, 'lilac');
+      const inner = form.inner;
+      // Sky: a white ring around the sunny eye, as on a real forget-me-not. The rest: a second, smaller layer of petals.
+      if (inner.ring) circle(ctx, 0, 0, r * inner.ring, 'rgba(255,255,255,.92)');
+      else {
+        ctx.save(); if (inner.alpha !== 1) ctx.globalAlpha *= inner.alpha;
+        for (let i = 0; i < inner.count; i++) petal(ctx, r * inner.reach, r * inner.breadth, (i + inner.offset) * TAU / inner.count, c[inner.fill[0]], c[inner.fill[1]], c[inner.fill[2]], i, inner.shape);
         ctx.restore();
       }
-      const heartSize = form.heart;
-      circle(ctx, 0, 0, r * heartSize, c.heart, 'rgba(255,255,255,.65)', .6);
-      circle(ctx, -r * .035, -r * .055, r * (heartSize - .07), c.seed);
-      const seedCount = form.seeds;
-      for (let i = 0; i < seedCount; i++) {
-        const ang = i * 2.39996, dist = Math.sqrt(i / seedCount) * r * (heartSize - .07);
-        circle(ctx, Math.cos(ang) * dist, Math.sin(ang) * dist, Math.max(.48, r * .032), i % 3 ? c.heart : c.tip);
-      }
+      paintHeart(ctx, r, type);
       ctx.restore();
     }
     ctx.restore();
@@ -527,6 +536,664 @@
     paintFlower(ctx, x, y, r, type, o, time, phase);
   }
 
+  // The bloom moment. A hit bud flashes white, cracks from the side it was struck, sheds its casing and unfurls petal
+  // by petal from the far side, alternating left and right, before handing off to the resting sprite. Everything is
+  // stateless (a function of the bud and its age) and composited from 3x sprites painted once with the same petal()
+  // geometry, so a frame full of blooms costs drawImage calls, not gradients or shadows.
+  const UNFURL = .55, FLASH = .035, UNFURL_MAX = 16, UNFURL_LOW = 6;
+  const atlas = new Map();
+  const budSeeds = new WeakMap(), budSprites = new WeakMap();
+  const unfurlPick = new Set(), unfurlPool = [];
+  const unfurlOptions = { time: 0, reducedMotion: false, quality: 0 };
+  const NO_DASH = [], LINK_DOTS = [.1, 6], STREAM_WIDE = [12, 8], STREAM_FINE = [2.5, 13], SPORE_RING = [.1, 6], SPORE_REACH = 74;
+  const CRACK_STEPS = [.26, .24, .2, .17, .13], PT = { x: 0, y: 0 };
+  let trembleKey = null, trembleTime = 1;
+  const bloomBack = (t, s) => { t = clamp(t, 0, 1) - 1; return 1 + (s + 1) * t * t * t + s * t * t; };
+  const smooth = t => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
+  function easeBounce(t) {
+    t = clamp(t, 0, 1);
+    if (t < 1 / 2.75) return 7.5625 * t * t;
+    if (t < 2 / 2.75) { t -= 1.5 / 2.75; return 7.5625 * t * t + .75; }
+    if (t < 2.5 / 2.75) { t -= 2.25 / 2.75; return 7.5625 * t * t + .9375; }
+    t -= 2.625 / 2.75; return 7.5625 * t * t + .984375;
+  }
+  function hash01(seed, n) {
+    let h = Math.imul(seed ^ Math.imul(n + 1, 0x9e3779b1), 0x85ebca6b);
+    h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16;
+    return (h >>> 0) / 4294967296;
+  }
+  function variantOf(bud) {
+    if (!flowerVariants.has(bud)) flowerVariants.set(bud, ((Math.floor(Number(bud.x) || 0) * 31 + Math.floor(Number(bud.y) || 0) * 17) % 7 + 7) % 7);
+    return flowerVariants.get(bud);
+  }
+  function seedOf(bud) {
+    let seed = budSeeds.get(bud);
+    if (seed === undefined) { seed = idSeed(bud.id != null ? bud.id : `${Math.round(Number(bud.x) || 0)}:${Math.round(Number(bud.startY ?? bud.y) || 0)}`); budSeeds.set(bud, seed); }
+    return seed;
+  }
+  function makeSurface(w, h) {
+    w = Math.max(1, Math.ceil(w)); h = Math.max(1, Math.ceil(h));
+    if (typeof OffscreenCanvas !== 'undefined') { try { return new OffscreenCanvas(w, h); } catch (error) { /* fall back below */ } }
+    if (typeof document !== 'undefined' && document && typeof document.createElement === 'function') {
+      const surface = document.createElement('canvas'); surface.width = w; surface.height = h; return surface;
+    }
+    return null;
+  }
+  // A sprite painted once at 3x inside the box (x0, y0)-(x1, y1) around its own origin. Null where there is no canvas
+  // (node), and callers then draw plain paths.
+  function atlasSprite(key, x0, y0, x1, y1, paint) {
+    if (atlas.has(key)) return atlas.get(key);
+    const w = Math.ceil((x1 - x0) * 3), h = Math.ceil((y1 - y0) * 3), surface = makeSurface(w, h);
+    let sprite = null;
+    const g = surface && surface.getContext('2d');
+    if (g) { g.scale(3, 3); g.translate(-x0, -y0); paint(g); sprite = { surface, x: x0, y: y0, w: w / 3, h: h / 3 }; }
+    if (atlas.size >= 260) atlas.delete(atlas.keys().next().value);
+    atlas.set(key, sprite);
+    return sprite;
+  }
+  function blit(ctx, sprite) { ctx.drawImage(sprite.surface, sprite.x, sprite.y, sprite.w, sprite.h); }
+  // One outer petal pointing up from the flower's center, with the same soft shadow the resting sprite gives it.
+  function outerSprite(type, r) {
+    const form = OPEN[type], c = FLOWERS[type], pr = r * form.reach, b = pr * form.breadth, pad = 2 + r * .2;
+    const half = Math.max(b * 1.2, pr * .4) + pad;
+    return atlasSprite(`o:${type}:${r.toFixed(2)}`, -half, -pr * 1.12 - pad, half, pr * .14 + pad, g => {
+      g.shadowColor = c.dark + '55'; g.shadowBlur = r * .48;
+      petal(g, pr, b, 0, c.base, c.light, c.dark, 0, form.shape);
+    });
+  }
+  // The whole inner layer as paintFlower paints it (each petal at the layer's alpha), so it opens as one rosette.
+  function innerSprite(type, r) {
+    const inner = OPEN[type].inner, c = FLOWERS[type], e = r * (inner.ring || inner.reach * 1.12) + 3;
+    return atlasSprite(`i:${type}:${r.toFixed(2)}`, -e, -e, e, e, g => {
+      if (inner.ring) { circle(g, 0, 0, r * inner.ring, 'rgba(255,255,255,.92)'); return; }
+      g.globalAlpha = inner.alpha;
+      for (let i = 0; i < inner.count; i++) petal(g, r * inner.reach, r * inner.breadth, (i + inner.offset) * TAU / inner.count, c[inner.fill[0]], c[inner.fill[1]], c[inner.fill[2]], i, inner.shape);
+    });
+  }
+  // One inner petal pointing up, as paintFlower paints it (no shadow); the inner sheet places it at the layer's alpha.
+  function innerPetalSprite(type, r) {
+    const inner = OPEN[type].inner, c = FLOWERS[type], pr = r * inner.reach, b = r * inner.breadth, pad = 2;
+    const half = Math.max(b * 1.2, pr * .4) + pad;
+    return atlasSprite(`q:${type}:${r.toFixed(2)}`, -half, -pr * 1.12 - pad, half, pr * .14 + pad,
+      g => petal(g, pr, b, 0, c[inner.fill[0]], c[inner.fill[1]], c[inner.fill[2]], 0, inner.shape));
+  }
+  function heartSprite(type, r) {
+    const e = r * OPEN[type].heart + 1.5;
+    return atlasSprite(`h:${type}:${r.toFixed(2)}`, -e, -e, e, e, g => paintHeart(g, r, type));
+  }
+  function stemSprite(r) {
+    return atlasSprite(`s:${r.toFixed(2)}`, -r * 1.1 - 3, -3, r * 1.05 + 3, r * 1.2 + 6, g => paintStem(g, r));
+  }
+  // The closed bud without its stem: it squashes, cracks and pops on its own.
+  function budSprite(type, r) {
+    const e = r * 1.25 + 6;
+    return atlasSprite(`b:${type}:${r.toFixed(2)}`, -e, -e, e, e, g => paintFlower(g, 0, 0, r, type, 0, 0, 0, 2));
+  }
+  // The one-frame hit: the whole bud, stem and all, in pure white (its soft shadow becomes a white halo).
+  function silhouetteSprite(type, rb) {
+    const e = rb * 1.3 + 6;
+    return atlasSprite(`w:${type}:${rb}`, -e, -e, e, e, g => {
+      paintFlower(g, 0, 0, rb, type, 0, 0, 0, 3);
+      g.globalCompositeOperation = 'source-in'; g.fillStyle = '#ffffff'; g.fillRect(-e, -e, e * 2, e * 2);
+    });
+  }
+  // Soft additive light, painted once: a per-color bloom flash, a warm gold flare and a tight spark.
+  function flashSprite(type) {
+    const c = FLOWERS[type] || FLOWERS.coral;
+    return atlasSprite(`f:${FLOWERS[type] ? type : 'coral'}`, -40, -40, 40, 40, g => {
+      const flash = g.createRadialGradient(0, 0, 0, 0, 0, 40);
+      flash.addColorStop(0, 'rgba(255,255,240,.9)'); flash.addColorStop(.45, c.light + 'aa'); flash.addColorStop(1, c.base + '00');
+      g.fillStyle = flash; g.fillRect(-40, -40, 80, 80);
+    });
+  }
+  // Warm, not white: on the bright meadow sky additive light should gild a flower, not bleach it.
+  function goldSprite() {
+    return atlasSprite('g:gold', -40, -40, 40, 40, g => {
+      const glow = g.createRadialGradient(0, 0, 0, 0, 0, 40);
+      glow.addColorStop(0, 'rgba(255,224,130,.82)'); glow.addColorStop(.28, 'rgba(255,196,72,.52)');
+      glow.addColorStop(.62, 'rgba(255,160,50,.16)'); glow.addColorStop(1, 'rgba(255,150,40,0)');
+      g.fillStyle = glow; g.fillRect(-40, -40, 80, 80);
+    });
+  }
+  // A chain link's head: a tight warm glow with a four-point star baked in, added onto the scene so the star burns white.
+  function headSprite() {
+    return atlasSprite('g:head', -40, -40, 40, 40, g => {
+      const glow = g.createRadialGradient(0, 0, 0, 0, 0, 40);
+      glow.addColorStop(0, 'rgba(255,246,196,.95)'); glow.addColorStop(.18, 'rgba(255,214,96,.7)');
+      glow.addColorStop(.5, 'rgba(255,176,60,.18)'); glow.addColorStop(1, 'rgba(255,160,50,0)');
+      g.fillStyle = glow; g.fillRect(-40, -40, 80, 80);
+      sparkle(g, 0, 0, 17, '#fffdf0', .3);
+    });
+  }
+  // Draws a centered sprite at (x, y), radius-scaled, with no transform calls.
+  function dab(ctx, sprite, x, y, scale) {
+    ctx.drawImage(sprite.surface, x + sprite.x * scale, y + sprite.y * scale, sprite.w * scale, sprite.h * scale);
+  }
+  // Every sprite one bloom needs, painted together on its first frame (one small hitch, not one per stage) and kept
+  // on the bud so later frames skip the key lookups. Null members mean there is no canvas to paint into.
+  function spritesFor(bud, type, r) {
+    let set = budSprites.get(bud);
+    if (!set || set.type !== type || set.r !== r) {
+      set = { type, r, stem: stemSprite(r), closed: budSprite(type, r), outer: outerSprite(type, r), inner: innerSprite(type, r),
+        heart: heartSprite(type, r), white: silhouetteSprite(type, Math.max(4, Math.round(r))), sheet: null, innerSheet: null, innerPetal: null };
+      set.ready = Boolean(set.stem && set.closed && set.outer && set.inner && set.heart && set.white);
+      if (set.ready) {
+        set.sheet = sheetFor('outer', type, r);
+        if (!OPEN[type].inner.ring) { set.innerPetal = innerPetalSprite(type, r); set.innerSheet = sheetFor('inner', type, r); }
+      }
+      budSprites.set(bud, set);
+    }
+    return set;
+  }
+  function drawSilhouette(ctx, x, y, r, type, scale) {
+    type = FLOWERS[type] ? type : 'coral';
+    const rb = Math.max(4, Math.round(r)), k = r / rb * (scale || 1), sprite = silhouetteSprite(type, rb);
+    if (sprite) { dab(ctx, sprite, x, y, k); return; }
+    ctx.save(); ctx.translate(x, y); ctx.scale(k, k);
+    circle(ctx, 0, 0, rb + 2.4, '#ffffff'); paintStem(ctx, rb); ctx.restore();
+  }
+  // The unfurl places dozens of sprites a frame. Rather than save, rotate, scale and restore around each one, it reads
+  // the transform once and sets each sprite's full matrix in a single call.
+  const BASE = new Float64Array(6), FRAME = new Float64Array(6);
+  function readBase(ctx) {
+    if (typeof ctx.getTransform !== 'function') return false;
+    const m = ctx.getTransform();
+    if (!m || !Number.isFinite(m.a) || !Number.isFinite(m.b) || !Number.isFinite(m.c) || !Number.isFinite(m.d) || !Number.isFinite(m.e) || !Number.isFinite(m.f)) return false;
+    BASE[0] = m.a; BASE[1] = m.b; BASE[2] = m.c; BASE[3] = m.d; BASE[4] = m.e; BASE[5] = m.f;
+    return true;
+  }
+  // FRAME = BASE x translate(x, y) x rotate(turn)
+  function setFrame(x, y, turn) {
+    const c = Math.cos(turn), s = Math.sin(turn);
+    FRAME[4] = BASE[0] * x + BASE[2] * y + BASE[4]; FRAME[5] = BASE[1] * x + BASE[3] * y + BASE[5];
+    FRAME[0] = BASE[0] * c + BASE[2] * s; FRAME[1] = BASE[1] * c + BASE[3] * s;
+    FRAME[2] = BASE[2] * c - BASE[0] * s; FRAME[3] = BASE[3] * c - BASE[1] * s;
+  }
+  // Draws a sprite at FRAME x translate(ox, oy) x rotate(angle) x scale(sx, sy).
+  function stamp(ctx, sprite, ox, oy, angle, sx, sy) {
+    const c = Math.cos(angle), s = Math.sin(angle);
+    ctx.setTransform((FRAME[0] * c + FRAME[2] * s) * sx, (FRAME[1] * c + FRAME[3] * s) * sx, (FRAME[2] * c - FRAME[0] * s) * sy, (FRAME[3] * c - FRAME[1] * s) * sy,
+      FRAME[0] * ox + FRAME[2] * oy + FRAME[4], FRAME[1] * ox + FRAME[3] * oy + FRAME[5]);
+    ctx.drawImage(sprite.surface, sprite.x, sprite.y, sprite.w, sprite.h);
+  }
+  function quadAt(t, ax, ay, cx, cy, bx, by) {
+    const u = 1 - t; PT.x = u * u * ax + 2 * u * t * cx + t * t * bx; PT.y = u * u * ay + 2 * u * t * cy + t * t * by; return PT;
+  }
+  // sparkle()'s four-point star added to the current path, turned by computing its points rather than the transform.
+  function starPath(ctx, x, y, size, turn) {
+    const c = Math.cos(turn) * size, s = Math.sin(turn) * size;
+    const X = (u, v) => x + u * c - v * s, Y = (u, v) => y + u * s + v * c;
+    ctx.moveTo(X(0, -1), Y(0, -1));
+    ctx.quadraticCurveTo(X(.16, -.13), Y(.16, -.13), X(1, 0), Y(1, 0));
+    ctx.quadraticCurveTo(X(.15, .14), Y(.15, .14), X(0, 1), Y(0, 1));
+    ctx.quadraticCurveTo(X(-.16, .14), Y(-.16, .14), X(-1, 0), Y(-1, 0));
+    ctx.quadraticCurveTo(X(-.14, -.15), Y(-.14, -.15), X(0, -1), Y(0, -1));
+    ctx.closePath();
+  }
+  // Index distance from the lead petal folded to (-n/2, n/2]; the opening order is 0, 1, -1, 2, -2 ...
+  function foldIndex(i, lead, n) { let d = ((i - lead) % n + n) % n; if (d > n / 2) d -= n; return d; }
+  function leadPetal(angle, n, rot) {
+    // A petal at bend b points along b - PI/2 on screen.
+    return ((Math.round((angle + Math.PI / 2 - rot) / (TAU / n)) % n) + n) % n;
+  }
+  // The heart pops between .2 and .32 s, overshooting to 1.25 before settling.
+  function heartPop(age) {
+    const k = (age - .2) / .12;
+    if (k <= 0) return 0;
+    if (k >= 1) return 1;
+    return k < .55 ? 1.25 * (1 - Math.pow(1 - k / .55, 3)) : 1.25 - .25 * (.5 - .5 * Math.cos(Math.PI * (k - .55) / .45));
+  }
+  // Two or three jagged cracks race across the bud from the point it was struck, thick near the hit and fine at the
+  // tips, with the flower's light leaking through. Drawn in the bud's own (current) frame as five batched strokes.
+  const CRACKS = new Float64Array(3 * 6 * 2);
+  function drawCracks(ctx, r, type, impact, seed, grow) {
+    if (!(grow > 0)) return;
+    const form = OPEN[type], c = FLOWERS[type], count = 2 + (seed & 1), side = impact + Math.PI, alpha = ctx.globalAlpha;
+    const ox = Math.cos(side) * r * .94, oy = Math.sin(side) * r * .94;
+    let reach = 0;
+    for (let j = 0; j < count; j++) {
+      const lane = count === 2 ? (j ? .5 : -.5) : j - 1;
+      const heading = impact + lane * form.cracks * 1.6 + (hash01(seed, j + 40) - .5) * .25;
+      const full = r * (lane === 0 ? 1.45 : 1.05) * (.85 + hash01(seed, j + 50) * .3);
+      let x = ox, y = oy, left = full * grow, k = j * 12;
+      CRACKS[k] = x; CRACKS[k + 1] = y;
+      for (let s = 0; s < 5; s++) {
+        const turn = heading + (s % 2 ? -1 : 1) * (.28 + hash01(seed, j * 7 + s + 60) * .4), step = Math.max(0, Math.min(left, full * CRACK_STEPS[s]));
+        x += Math.cos(turn) * step; y += Math.sin(turn) * step; left -= step;
+        CRACKS[k + 2 + s * 2] = x; CRACKS[k + 3 + s * 2] = y;
+      }
+      reach = count;
+    }
+    const trace = (from, to) => {
+      ctx.beginPath();
+      for (let j = 0; j < reach; j++) {
+        const k = j * 12;
+        ctx.moveTo(CRACKS[k + from * 2], CRACKS[k + from * 2 + 1]);
+        for (let s = from + 1; s <= to; s++) ctx.lineTo(CRACKS[k + s * 2], CRACKS[k + s * 2 + 1]);
+      }
+    };
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    // A soft glow of the flower's light, then a dark seam and the bright crack itself, each thick at the root.
+    trace(0, 5); ctx.strokeStyle = c.tip; ctx.globalAlpha = alpha * .45; ctx.lineWidth = 3.6; ctx.stroke();
+    trace(0, 2); ctx.strokeStyle = c.dark; ctx.globalAlpha = alpha * .6; ctx.lineWidth = 2.5; ctx.stroke();
+    trace(2, 5); ctx.lineWidth = 1.3; ctx.stroke();
+    trace(0, 2); ctx.strokeStyle = '#ffffff'; ctx.globalAlpha = alpha; ctx.lineWidth = 1.5; ctx.stroke();
+    trace(2, 5); ctx.lineWidth = .8; ctx.stroke();
+    ctx.globalAlpha = alpha;
+  }
+  // Curved wedges of the green casing fly off the struck side, spinning and falling: computed from age and the bud's
+  // seed, never stored. They leave as the bud bursts, just after the white hit frame. Each wedge is an arc of the bud's
+  // rim with a ragged inner edge; all of a bud's wedges are one path, filled and outlined once, then one highlight stroke.
+  const SHARD_SPAN = .78;
+  function shardPass(ctx, x, y, r, impact, seed, u, t, total, count, quality, highlight) {
+    const side = impact + Math.PI;
+    ctx.beginPath();
+    for (let j = 0; j < count; j++) {
+      const slot = quality >= 1 ? j * 2 : j;
+      const dir = side + (total > 1 ? slot / (total - 1) - .5 : 0) * 2.2 + (hash01(seed, slot) - .5) * .35;
+      const reach = 30 + hash01(seed, slot + 10) * 30, travel = reach * (1 - Math.pow(1 - u, 2.6));
+      const px = x + Math.cos(dir) * (r * .8 + travel), py = y + Math.sin(dir) * (r * .8 + travel) + 200 * t * t;
+      const size = Math.min(7.5, r * (.42 + hash01(seed, slot + 20) * .22)) * (1 - u * .3), spin = dir + (hash01(seed, slot + 30) - .5) * 30 * t;
+      const cx = px - Math.cos(spin) * size * .55, cy = py - Math.sin(spin) * size * .55;
+      if (highlight) {
+        const from = spin - SHARD_SPAN * .7, radius = size * .82;
+        ctx.moveTo(cx + Math.cos(from) * radius, cy + Math.sin(from) * radius); ctx.arc(cx, cy, radius, from, spin + SHARD_SPAN * .55);
+      } else {
+        ctx.moveTo(cx + Math.cos(spin - SHARD_SPAN) * size, cy + Math.sin(spin - SHARD_SPAN) * size);
+        ctx.arc(cx, cy, size, spin - SHARD_SPAN, spin + SHARD_SPAN);
+        ctx.lineTo(cx + Math.cos(spin + SHARD_SPAN * .4) * size * .45, cy + Math.sin(spin + SHARD_SPAN * .4) * size * .45);
+        ctx.lineTo(cx + Math.cos(spin - SHARD_SPAN * .5) * size * .5, cy + Math.sin(spin - SHARD_SPAN * .5) * size * .5);
+        ctx.closePath();
+      }
+    }
+  }
+  function drawShards(ctx, x, y, r, type, impact, seed, age, quality) {
+    const t = age - .03;
+    if (!(t >= 0 && t < .27) || quality >= 2) return;
+    const total = 4 + (seed % 3 + 3) % 3, count = quality >= 1 ? Math.ceil(total / 2) : total;
+    const u = t / .27, sepal = OPEN[type].sepal, alpha = ctx.globalAlpha;
+    ctx.globalAlpha = alpha * (u < .55 ? 1 : (1 - u) / .45); ctx.lineJoin = 'round';
+    shardPass(ctx, x, y, r, impact, seed, u, t, total, count, quality, false);
+    ctx.fillStyle = sepal[0]; ctx.fill(); ctx.strokeStyle = sepal[1]; ctx.lineWidth = .8; ctx.stroke();
+    shardPass(ctx, x, y, r, impact, seed, u, t, total, count, quality, true);
+    ctx.strokeStyle = sepal[2]; ctx.lineWidth = .9; ctx.stroke();
+    ctx.globalAlpha = alpha;
+  }
+  // Each layer's opening for one type and radius, baked into a sheet of frames with its lead petal pointing up and
+  // turned into place when drawn: one drawImage instead of up to twelve petals and their highlights. The outer layer
+  // has 24 frames from .03 s, the inner layer 19 from .12 s. Each frame is painted the first time a bloom reaches it.
+  // Regular buds only (r <= 16); a boss's single bloom goes petal by petal.
+  // At most twelve sheets are kept. A full cache only frees a sheet no bloom has drawn for a few seconds; otherwise the
+  // new bloom goes petal by petal, so boards that mix sizes (gems, geodes) never make sheets churn. Bosses are not
+  // cached at all, so they never push a sheet out.
+  const SHEET_COLS = 6, SHEET_SCALE = 2.25, SHEET_MAX = 12, SHEET_IDLE = 180;
+  const sheets = new Map();
+  let sheetClock = 0;
+  function sheetFor(layer, type, r) {
+    const form = OPEN[type], outer = layer === 'outer';
+    if (!(r <= 16) || (!outer && form.inner.ring)) return null;
+    const key = `${layer}:${type}:${r.toFixed(2)}`;
+    let sheet = sheets.get(key);
+    if (sheet) { sheet.used = sheetClock; return sheet; }
+    if (sheets.size >= SHEET_MAX) {
+      let idleKey = null, idleAt = Infinity;
+      for (const [name, entry] of sheets) if (entry.used < idleAt) { idleAt = entry.used; idleKey = name; }
+      if (sheetClock - idleAt < SHEET_IDLE) return null;
+      sheets.delete(idleKey);
+    }
+    const half = outer ? (r * form.reach * 1.12 + r * .5) * 1.12 : (r * form.inner.reach * 1.12 + 2) * 1.12;
+    const frames = outer ? 24 : 19, cell = Math.ceil(half * 2 * SHEET_SCALE);
+    const surface = makeSurface(cell * SHEET_COLS, cell * Math.ceil(frames / SHEET_COLS)), g = surface && surface.getContext('2d');
+    if (!g) return null;
+    sheet = { surface, g, type, outer, cell, half: cell / SHEET_SCALE / 2, frames, from: outer ? .03 : .12, step: outer ? .5 / 23 : .02, baked: new Uint8Array(frames), used: sheetClock };
+    sheets.set(key, sheet);
+    return sheet;
+  }
+  // The frame nearest this age, painted now if it never has been. Petals open in order from the lead (0, 1, -1, 2,
+  // -2 ...): each grows from nothing and swings from its folded angle to its open one with a little overshoot, and an
+  // outer petal catches the light as it arrives.
+  function sheetFrame(sheet, sprite, age) {
+    const k = clamp(Math.round((age - sheet.from) / sheet.step), 0, sheet.frames - 1);
+    if (sheet.baked[k]) return k;
+    sheet.baked[k] = 1;
+    const g = sheet.g, cell = sheet.cell, h = sheet.half, form = OPEN[sheet.type], outer = sheet.outer, t = sheet.from + k * sheet.step;
+    const n = outer ? form.count : form.inner.count, delay = outer ? .03 : .12, stagger = (outer ? .3 : .16) / n, span = outer ? .22 : .2;
+    const twist = form.twist * (outer ? 1 : .6), wide = outer ? .5 : .55;
+    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(k % SHEET_COLS * cell, Math.floor(k / SHEET_COLS) * cell, cell, cell);
+    g.setTransform(SHEET_SCALE, 0, 0, SHEET_SCALE, (k % SHEET_COLS + .5) * cell, (Math.floor(k / SHEET_COLS) + .5) * cell);
+    g.save(); g.beginPath(); g.rect(-h, -h, h * 2, h * 2); g.clip();
+    g.imageSmoothingQuality = 'high';
+    if (!outer) g.globalAlpha = form.inner.alpha;
+    for (let i = 0; i < n; i++) {
+      const d = foldIndex(i, 0, n), order = d > 0 ? d * 2 - 1 : -d * 2, p = (t - delay - order * stagger) / span;
+      if (p <= 0) continue;
+      const e = bloomBack(p, 1.7);
+      g.save(); g.rotate(i * TAU / n - Math.sign(d) * twist * (1 - e)); g.scale(e * (wide + (1 - wide) * ease(p)), e); blit(g, sprite);
+      if (outer && p < .45) { g.globalCompositeOperation = 'lighter'; g.globalAlpha = .5 * (1 - p / .45) * (1 - p / .45); blit(g, sprite); }
+      g.restore();
+    }
+    g.restore();
+    return k;
+  }
+  function drawSheet(ctx, sheet, k, x, y, turn) {
+    const cell = sheet.cell, h = sheet.half;
+    setFrame(x, y, turn);
+    ctx.setTransform(FRAME[0], FRAME[1], FRAME[2], FRAME[3], FRAME[4], FRAME[5]);
+    ctx.drawImage(sheet.surface, k % SHEET_COLS * cell, Math.floor(k / SHEET_COLS) * cell, cell, cell, -h, -h, h * 2, h * 2);
+  }
+  // drawUnfurl(ctx, bud, age, {time, reducedMotion, quality}): one bloom, age seconds after bud.bloomAt.
+  function drawUnfurl(ctx, bud, age, options) {
+    if (!ctx || !bud) return;
+    options = options || {};
+    const type = FLOWERS[bud.type] ? bud.type : 'coral', r = Math.max(2, Number(bud.r) || 16);
+    const x = Number(bud.x) || 0, y = Number(bud.y) || 0, variant = variantOf(bud);
+    const time = Number.isFinite(options.time) ? options.time : (Number(bud.bloomAt) || 0) + (Number(age) || 0);
+    age = Number(age);
+    if (!(age < UNFURL)) { drawFlower(ctx, x, y, r, type, 1, time, variant); return; }
+    if (!(age >= 0)) { drawFlower(ctx, x, y, r, type, 0, time, variant); return; }
+    const still = Boolean(options.reducedMotion), quality = Number(options.quality) || 0;
+    const impact = Number.isFinite(bud.impactAngle) ? bud.impactAngle : -Math.PI / 2, seed = seedOf(bud);
+    const sprites = spritesFor(bud, type, r);
+    ctx.save();
+    if (!sprites.ready || !readBase(ctx)) {
+      // No canvas to paint sprites into (node): the white frame, then the plain crossfade, with shards as paths.
+      if (!still && age < FLASH) drawSilhouette(ctx, x, y, r, type, 1.08);
+      else drawFlower(ctx, x, y, r, type, age / UNFURL, time, variant);
+      ctx.restore();
+      if (!still) { ctx.save(); drawShards(ctx, x, y, r, type, impact, seed, age, quality); ctx.restore(); }
+      return;
+    }
+    const alpha = ctx.globalAlpha, op = ctx.globalCompositeOperation;
+    if (!still && age < FLASH) {
+      // The hit frame: the whole bud in white, a touch larger.
+      setFrame(x, y, 0); stamp(ctx, sprites.white, 0, 0, 0, r / Math.max(4, Math.round(r)) * 1.08, r / Math.max(4, Math.round(r)) * 1.08);
+      ctx.setTransform(BASE[0], BASE[1], BASE[2], BASE[3], BASE[4], BASE[5]);
+      drawShards(ctx, x, y, r, type, impact, seed, age, quality);
+      ctx.restore();
+      return;
+    }
+    const form = OPEN[type], phase = variant * .81, rot = Math.sin(phase) * .25, twist = still ? 0 : form.twist;
+    setFrame(x, y, 0); stamp(ctx, sprites.stem, 0, 0, 0, 1, 1);
+    // Outer petals: each grows from nothing and swings from its folded angle to its open one, overshooting a little.
+    const n = form.count, outer = sprites.outer, lead = leadPetal(impact, n, rot), shine = !still && quality < 1, sheet = still ? null : sprites.sheet;
+    const k = sheet ? sheetFrame(sheet, outer, age) : 0;
+    if (sheet) sheet.used = sheetClock;
+    if (k > 0) drawSheet(ctx, sheet, k, x, y, rot + lead * TAU / n);
+    setFrame(x, y, rot);
+    for (let i = 0; i < n && !sheet; i++) {
+      const d = foldIndex(i, lead, n), order = d > 0 ? d * 2 - 1 : -d * 2;
+      const p = (age - .03 - order * .3 / n) / .22;
+      if (p <= 0) continue;
+      const e = bloomBack(p, 1.7), length = 1 + Math.sin(i * 7.3 + phase) * .045, angle = i * TAU / n - Math.sign(d) * twist * (1 - e);
+      stamp(ctx, outer, 0, 0, angle, e * (.5 + .5 * ease(p)), e * length);
+      // Each petal catches the light as it arrives.
+      if (shine && p < .45) {
+        ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = alpha * .5 * (1 - p / .45) * (1 - p / .45);
+        ctx.drawImage(outer.surface, outer.x, outer.y, outer.w, outer.h);
+        ctx.globalCompositeOperation = op; ctx.globalAlpha = alpha;
+      }
+    }
+    // The inner layer follows from .12 s in the same order, from its own petal nearest the hit: from a sheet, or petal
+    // by petal for a boss. The sky's white ring, and every layer with animations off, opens as one rosette.
+    const inner = form.inner, m = inner.count, p = (age - .12) / .2, innerSheet = still ? null : sprites.innerSheet;
+    const first = inner.ring ? 0 : leadPetal(impact, m, rot + inner.offset * TAU / m);
+    if (innerSheet) {
+      const j = sheetFrame(innerSheet, sprites.innerPetal, age);
+      innerSheet.used = sheetClock;
+      if (j > 0) drawSheet(ctx, innerSheet, j, x, y, rot + (first + inner.offset) * TAU / m);
+    } else if (!still && sprites.innerPetal) {
+      setFrame(x, y, rot); ctx.globalAlpha = alpha * inner.alpha;
+      for (let i = 0; i < m; i++) {
+        const d = foldIndex(i, first, m), order = d > 0 ? d * 2 - 1 : -d * 2, q = (age - .12 - order * .16 / m) / .2;
+        if (q <= 0) continue;
+        const e = bloomBack(q, 1.7);
+        stamp(ctx, sprites.innerPetal, 0, 0, (i + inner.offset) * TAU / m - Math.sign(d) * twist * .6 * (1 - e), e * (.55 + .45 * ease(q)), e);
+      }
+      ctx.globalAlpha = alpha;
+    } else if (p > 0) {
+      const e = bloomBack(p, 1.7);
+      setFrame(x, y, rot); stamp(ctx, sprites.inner, 0, 0, -twist * .5 * (1 - e), e, e);
+    }
+    // The closed bud squashes along the hit and cracks, then pops like a bubble over the petals pushing out.
+    const burst = (age - .065) / .06, budAlpha = burst <= 0 ? 1 : 1 - Math.pow(clamp(burst, 0, 1), 1.6);
+    if (budAlpha > 0) {
+      const squash = still ? 0 : Math.sin(Math.PI * clamp(age / .1, 0, 1)) * .15, swell = 1 + .2 * ease(burst);
+      // BASE x translate(x, y) x rotate(impact) x scale(along, across) x rotate(-impact)
+      const ci = Math.cos(impact), si = Math.sin(impact), sa = (1 - squash) * swell, sc = (1 + squash * .7) * swell;
+      const a = ci * ci * sa + si * si * sc, b = ci * si * (sa - sc), d = si * si * sa + ci * ci * sc;
+      setFrame(x, y, 0);
+      ctx.setTransform(FRAME[0] * a + FRAME[2] * b, FRAME[1] * a + FRAME[3] * b, FRAME[0] * b + FRAME[2] * d, FRAME[1] * b + FRAME[3] * d, FRAME[4], FRAME[5]);
+      ctx.globalAlpha = alpha * budAlpha;
+      blit(ctx, sprites.closed);
+      if (!still) drawCracks(ctx, r, type, impact, seed, ease((age - FLASH * .5) / .035));
+      ctx.globalAlpha = alpha;
+    }
+    // The heart pops last.
+    const pop = still ? (age >= .2 ? 1 : 0) : heartPop(age);
+    if (pop > 0) { setFrame(x, y, rot); stamp(ctx, sprites.heart, 0, 0, 0, pop, pop); }
+    if (!still) { ctx.setTransform(BASE[0], BASE[1], BASE[2], BASE[3], BASE[4], BASE[5]); drawShards(ctx, x, y, r, type, impact, seed, age, quality); }
+    // The last few frames melt into the resting sprite, so the hand-off at .55 s has no jump.
+    if (age > UNFURL - .05) {
+      ctx.setTransform(BASE[0], BASE[1], BASE[2], BASE[3], BASE[4], BASE[5]);
+      ctx.globalAlpha = alpha * clamp((age - (UNFURL - .05)) / .05, 0, 1);
+      drawFlower(ctx, x, y, r, type, 1, time, variant);
+    }
+    ctx.restore();
+  }
+  // Which fresh blooms get the full unfurl this frame: those closest to done, up to the budget. The rest crossfade.
+  function pickUnfurls(buds, time, options) {
+    sheetClock++; // once per drawn frame: how recently each sheet was used
+    unfurlPick.clear();
+    if (options.reducedMotion) return unfurlPick;
+    const limit = (Number(options.quality) || 0) >= 2 ? UNFURL_LOW : UNFURL_MAX;
+    for (const bud of buds) {
+      if (!bud || !bud.bloomed || bud.gift || bud.puff || typeof bud.bloomAt !== 'number') continue;
+      const age = time - bud.bloomAt;
+      if (age >= 0 && age < UNFURL) unfurlPool.push(bud);
+    }
+    if (unfurlPool.length > limit) unfurlPool.sort((a, b) => a.bloomAt - b.bloomAt);
+    for (let i = 0; i < unfurlPool.length && i < limit; i++) unfurlPick.add(unfurlPool[i]);
+    unfurlPool.length = 0;
+    return unfurlPick;
+  }
+  // The one group that will reach the danger line soonest, if it gets there within .8 s.
+  function findTremble(state) {
+    trembleKey = null; trembleTime = 1;
+    const line = Number(state.dangerY);
+    if (state.mode !== 'rush' || state.scripted || !(line > 0) || state.lullaby > 0 || state.status === 'won' || state.status === 'lost') return;
+    const speed = Number(state.descentSpeed) || 0;
+    let best = .8;
+    for (const bud of Array.isArray(state.buds) ? state.buds : []) {
+      if (!bud || bud.bloomed || bud.gift || bud.puff || !Number.isFinite(bud.y)) continue;
+      const t = (line - (bud.y + (Number(bud.r) || 11))) / Math.max(1, speed * (Number(bud.fall) || 1));
+      if (t < best) { best = t; trembleKey = bud.group == null ? bud : bud.group; trembleTime = t; }
+    }
+  }
+  function trembles(bud) { return trembleKey !== null && !bud.bloomed && !bud.gift && !bud.puff && (bud.group == null ? bud : bud.group) === trembleKey; }
+  // The finale sweep: each bloomed flower flares with gold light and a white glint as feel's wave passes it. The glows
+  // are added in one 'lighter' pass; the glints, which grow and shrink as they twinkle, are one path and one fill.
+  function drawFlares(ctx, buds, time, options) {
+    if (options.reducedMotion) return;
+    const glints = !((Number(options.quality) || 0) >= 1);
+    let started = false, glow = null, alpha = 1, op = 'source-over', shine = 0;
+    for (const bud of buds) {
+      if (!bud || typeof bud.flareAt !== 'number') continue;
+      const age = time - bud.flareAt;
+      if (!(age >= 0 && age < .35)) continue;
+      const q = age / .35, r = Number(bud.r) || 13, x = Number(bud.x) || 0, y = Number(bud.y) || 0, radius = r * (1.6 + q);
+      if (!started) { started = true; ctx.save(); alpha = ctx.globalAlpha; op = ctx.globalCompositeOperation; ctx.globalCompositeOperation = 'lighter'; glow = goldSprite(); }
+      ctx.globalAlpha = alpha * (1 - q);
+      if (glow) dab(ctx, glow, x, y, radius / 40);
+      else circle(ctx, x, y, radius * .55, 'rgba(255,236,170,.6)');
+      if (glints && q < 2 / 3) shine++;
+    }
+    if (!started) return;
+    ctx.globalCompositeOperation = op; ctx.globalAlpha = alpha;
+    if (shine) {
+      // The glint catches the upper right petal.
+      ctx.beginPath();
+      for (const bud of buds) {
+        if (!bud || typeof bud.flareAt !== 'number') continue;
+        const q = (time - bud.flareAt) / .35, r = Number(bud.r) || 13;
+        if (!(q >= 0 && q < 2 / 3)) continue;
+        const twinkle = Math.sin(Math.PI * q * 1.5);
+        if (twinkle > .02) starPath(ctx, (Number(bud.x) || 0) + r * .42, (Number(bud.y) || 0) - r * .46, r * .95 * twinkle, q * .9);
+      }
+      ctx.fillStyle = '#ffffff'; ctx.fill();
+    }
+    ctx.restore();
+  }
+  function budById(buds, id) {
+    for (let i = 0; i < buds.length; i++) if (buds[i] && buds[i].id === id) return buds[i];
+    return null;
+  }
+  // Chains you can see: each queued bloom that knows its source draws how the bloom travels to it. Links are gathered
+  // first (up to the budget) and then drawn kind by kind, so each stroke style is one call for all links of a kind;
+  // every lit head is then added in one pass.
+  const LINK_ITEM = [], LINK_TARGET = [], LINK_SLOT = [], HEADS = [], RINGS = [];
+  const KIND_PUFF = 1, KIND_BOSS = 2, KIND_SUN = 4, KIND_RELAY = 8;
+  const kindOf = item => item.via === 'puff' ? KIND_PUFF : item.via === 'boss' ? KIND_BOSS : item.via === 'sun' ? KIND_SUN : KIND_RELAY;
+  // Where link i stands: its ends (L.fx, L.fy, L.tx, L.ty) and its eased progress k from item.at to item.when.
+  const L = { fx: 0, fy: 0, tx: 0, ty: 0, k: 0, n: 0 };
+  function linkAt(i, time) {
+    const item = LINK_ITEM[i], target = LINK_TARGET[i];
+    const at = Number.isFinite(item.at) ? item.at : time, when = Number.isFinite(item.when) ? item.when : time;
+    L.fx = item.from.x; L.fy = item.from.y; L.tx = target.x; L.ty = target.y; L.n = LINK_SLOT[i];
+    L.k = when > at ? clamp((time - at) / (when - at), 0, 1) : 1;
+    return L;
+  }
+  // A relay arc bends 40 px off the straight line, always to the upper side.
+  function relayBend(l) {
+    const dx = l.tx - l.fx, dy = l.ty - l.fy, dist = Math.hypot(dx, dy) || 1, nx = dy / dist, ny = -dx / dist, flip = ny > 0 ? -1 : 1;
+    PT.x = (l.fx + l.tx) / 2 + nx * 40 * flip; PT.y = (l.fy + l.ty) / 2 + ny * 40 * flip;
+    return PT;
+  }
+  function beadPath(ctx, x, y, radius) { ctx.moveTo(x + radius, y); ctx.arc(x, y, radius, 0, TAU); }
+  function drawChainLinks(ctx, state, time, options) {
+    if (!ctx || !state) return;
+    options = options || {};
+    const pending = state.pending, quality = Number(options.quality) || 0;
+    if (!Array.isArray(pending) || !pending.length || quality >= 2) return;
+    const buds = Array.isArray(state.buds) ? state.buds : [], limit = quality >= 1 ? 12 : 24, still = Boolean(options.reducedMotion);
+    time = Number(time) || 0;
+    let count = 0, kinds = 0;
+    for (let n = 0; n < pending.length && count < limit; n++) {
+      const item = pending[n], from = item && item.from;
+      if (!from || !Number.isFinite(from.x) || !Number.isFinite(from.y)) continue;
+      const target = budById(buds, item.id);
+      if (!target || target.bloomed || !Number.isFinite(target.x) || !Number.isFinite(target.y)) continue;
+      LINK_ITEM[count] = item; LINK_TARGET[count] = target; LINK_SLOT[count] = n; count++;
+      kinds |= kindOf(item);
+    }
+    if (!count) return;
+    ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    if (still) {
+      // Animations off: a faint dotted thread for as long as each bloom is on its way.
+      ctx.setLineDash(LINK_DOTS); ctx.globalAlpha = .4; ctx.strokeStyle = '#fff6d8'; ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      for (let i = 0; i < count; i++) { ctx.moveTo(LINK_ITEM[i].from.x, LINK_ITEM[i].from.y); ctx.lineTo(LINK_TARGET[i].x, LINK_TARGET[i].y); }
+      ctx.stroke();
+    } else {
+      HEADS.length = 0;
+      if (kinds & KIND_BOSS) {
+        // A stream of gold pours from the big bloom toward each flower: a soft band with bright dashes flowing outward.
+        ctx.beginPath();
+        for (let i = 0; i < count; i++) {
+          if (kindOf(LINK_ITEM[i]) !== KIND_BOSS) continue;
+          const l = linkAt(i, time), e = ease(l.k), hx = l.fx + (l.tx - l.fx) * e, hy = l.fy + (l.ty - l.fy) * e;
+          ctx.moveTo(l.fx, l.fy); ctx.lineTo(hx, hy); HEADS.push(hx, hy, 12, .85, l.n);
+        }
+        ctx.globalAlpha = .3; ctx.strokeStyle = '#ffcf4a'; ctx.lineWidth = 6; ctx.stroke();
+        ctx.setLineDash(STREAM_WIDE); ctx.lineDashOffset = -time * 110; ctx.globalAlpha = .9; ctx.strokeStyle = '#ffc531'; ctx.lineWidth = 2.6; ctx.stroke();
+        ctx.setLineDash(STREAM_FINE); ctx.lineDashOffset = -time * 170; ctx.globalAlpha = 1; ctx.strokeStyle = '#fffbe8'; ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.setLineDash(NO_DASH); ctx.lineDashOffset = 0;
+      }
+      if (kinds & KIND_SUN) {
+        // A straight ray of sunlight with a bright head, its tail catching up.
+        ctx.beginPath();
+        for (let i = 0; i < count; i++) {
+          if (kindOf(LINK_ITEM[i]) !== KIND_SUN) continue;
+          const l = linkAt(i, time), e = ease(l.k), tail = Math.max(0, e - .5), dx = l.tx - l.fx, dy = l.ty - l.fy;
+          ctx.moveTo(l.fx + dx * tail, l.fy + dy * tail); ctx.lineTo(l.fx + dx * e, l.fy + dy * e); HEADS.push(l.fx + dx * e, l.fy + dy * e, 12, 1, l.n);
+        }
+        ctx.globalAlpha = .4; ctx.strokeStyle = '#ffc93a'; ctx.lineWidth = 5; ctx.stroke();
+        ctx.globalAlpha = 1; ctx.strokeStyle = '#ffe680'; ctx.lineWidth = 2.2; ctx.stroke();
+        ctx.strokeStyle = '#fffdf0'; ctx.lineWidth = 1; ctx.stroke();
+      }
+      if (kinds & KIND_RELAY) {
+        // A relay: a gold spark hops along an arc to the next flower in its cluster, three dots trailing it.
+        ctx.beginPath();
+        for (let i = 0; i < count; i++) {
+          if (kindOf(LINK_ITEM[i]) !== KIND_RELAY) continue;
+          const l = linkAt(i, time), bend = relayBend(l), cx = bend.x, cy = bend.y, e = smooth(l.k);
+          for (let s = 0; s <= 10; s++) {
+            const p = quadAt(Math.max(0, e - .45) + Math.min(e, .45) * s / 10, l.fx, l.fy, cx, cy, l.tx, l.ty);
+            if (s) ctx.lineTo(p.x, p.y); else ctx.moveTo(p.x, p.y);
+          }
+          const head = quadAt(e, l.fx, l.fy, cx, cy, l.tx, l.ty);
+          HEADS.push(head.x, head.y, 11, 1, l.n);
+        }
+        ctx.globalAlpha = .4; ctx.strokeStyle = '#ffc93a'; ctx.lineWidth = 3.4; ctx.stroke();
+        ctx.globalAlpha = .9; ctx.strokeStyle = '#fff3b8'; ctx.lineWidth = 1.3; ctx.stroke();
+        ctx.fillStyle = '#ffd24a'; ctx.strokeStyle = '#fff8d8'; ctx.lineWidth = .6;
+        for (let j = 3; j >= 1; j--) {
+          ctx.beginPath();
+          for (let i = 0; i < count; i++) {
+            if (kindOf(LINK_ITEM[i]) !== KIND_RELAY) continue;
+            const l = linkAt(i, time), bend = relayBend(l), p = quadAt(Math.max(0, smooth(l.k) - j * .09), l.fx, l.fy, bend.x, bend.y, l.tx, l.ty);
+            beadPath(ctx, p.x, p.y, 2.7 - j * .45);
+          }
+          ctx.globalAlpha = 1 - j * .2; ctx.fill(); ctx.stroke();
+        }
+      }
+      if (kinds & KIND_PUFF) {
+        // One cloud of spores swells from each puffcap out to its reach, and a spore drifts to each flower it touches.
+        // The cloud ends exactly at the puff's reach (PUFF_REACH in rush.js), so it shows which flowers it catches.
+        RINGS.length = 0;
+        const reach = Number(root.BloomRush && root.BloomRush.PUFF_REACH) || SPORE_REACH;
+        for (let i = 0; i < count; i++) {
+          if (kindOf(LINK_ITEM[i]) !== KIND_PUFF) continue;
+          const l = linkAt(i, time), at = Number.isFinite(LINK_ITEM[i].at) ? LINK_ITEM[i].at : time;
+          let seen = false;
+          for (let r = 0; r < RINGS.length && !seen; r += 3) seen = RINGS[r] === l.fx && RINGS[r + 1] === l.fy && RINGS[r + 2] === at;
+          if (seen) continue;
+          RINGS.push(l.fx, l.fy, at);
+          const u = clamp((time - at) / .4, 0, 1), radius = 8 + ease(u) * (reach - 8), fade = 1 - u * u;
+          if (!(fade > .004)) continue;
+          ctx.beginPath(); ctx.arc(l.fx, l.fy, radius, 0, TAU);
+          ctx.globalAlpha = .28 * fade; ctx.lineWidth = 9; ctx.strokeStyle = '#fff3d6'; ctx.stroke();
+          ctx.setLineDash(SPORE_RING); ctx.lineDashOffset = -time * 14;
+          ctx.globalAlpha = .55 * fade; ctx.lineWidth = 4.2; ctx.strokeStyle = '#a77b52'; ctx.stroke();
+          ctx.globalAlpha = .95 * fade; ctx.lineWidth = 2.8; ctx.strokeStyle = '#fff6e2'; ctx.stroke();
+          ctx.setLineDash(NO_DASH); ctx.lineDashOffset = 0;
+        }
+        ctx.fillStyle = '#fff6e4'; ctx.strokeStyle = '#9c7149';
+        for (let j = 3; j >= 0; j--) {
+          ctx.beginPath();
+          for (let i = 0; i < count; i++) {
+            if (kindOf(LINK_ITEM[i]) !== KIND_PUFF) continue;
+            const l = linkAt(i, time), dx = l.tx - l.fx, dy = l.ty - l.fy, dist = Math.hypot(dx, dy) || 1;
+            const e = ease(l.k), wob = Math.sin(l.k * Math.PI * 3 + l.n) * 4 * (1 - l.k) * (1 - j * .2), s = Math.max(0, e - j * .08);
+            beadPath(ctx, l.fx + dx * s - dy / dist * wob, l.fy + dy * s + dx / dist * wob, j ? 2.2 - j * .4 : 3.1);
+          }
+          ctx.globalAlpha = j ? .7 - j * .17 : 1; ctx.lineWidth = j ? .7 : 1; ctx.fill(); ctx.stroke();
+        }
+      }
+      if (HEADS.length) {
+        // Every head glows in one additive pass, each pulsing a little.
+        const head = headSprite();
+        ctx.globalCompositeOperation = 'lighter';
+        for (let h = 0; h < HEADS.length; h += 5) {
+          const x = HEADS[h], y = HEADS[h + 1], radius = HEADS[h + 2] * (1 + .12 * Math.sin(time * 31 + HEADS[h + 4] * 1.7));
+          ctx.globalAlpha = HEADS[h + 3];
+          if (head) dab(ctx, head, x, y, radius / 40);
+          else circle(ctx, x, y, radius * .55, 'rgba(255,236,170,.6)');
+        }
+      }
+    }
+    ctx.restore();
+    LINK_ITEM.length = 0; LINK_TARGET.length = 0; LINK_SLOT.length = 0;
+  }
   function drawBumper(ctx, bumper, selected, time, colors, reducedMotion) {
     const x = Number(bumper.x) || 0, y = Number(bumper.y) || 0;
     const length = Number(bumper.length) || 62;
@@ -2343,31 +3010,67 @@
         if (age >= 0 && age < .85) {
           const c = FLOWERS[bud.type] || FLOWERS.coral;
           if (age < .16) {
-            // A brief additive flash sells the instant of impact.
-            const f = 1 - age / .16, fr = (bud.r || 13) * (1.4 + (1 - f) * 1.9);
+            // A brief additive flash sells the instant of impact; a cached sprite per color, faded with alpha.
+            const f = 1 - age / .16, fr = (bud.r || 13) * (1.4 + (1 - f) * 1.9), sprite = flashSprite(bud.type);
             ctx.save(); ctx.globalCompositeOperation = 'lighter';
-            const flash = ctx.createRadialGradient(bud.x, bud.y, 0, bud.x, bud.y, fr);
-            flash.addColorStop(0, `rgba(255,255,240,${.9 * f})`); flash.addColorStop(.45, c.light + Math.round(f * 170).toString(16).padStart(2, '0'));
-            flash.addColorStop(1, c.base + '00');
-            ctx.fillStyle = flash; ctx.fillRect(bud.x - fr, bud.y - fr, fr * 2, fr * 2); ctx.restore();
+            if (sprite) { ctx.globalAlpha *= f; ctx.drawImage(sprite.surface, bud.x - fr, bud.y - fr, fr * 2, fr * 2); }
+            else {
+              const flash = ctx.createRadialGradient(bud.x, bud.y, 0, bud.x, bud.y, fr);
+              flash.addColorStop(0, `rgba(255,255,240,${.9 * f})`); flash.addColorStop(.45, c.light + Math.round(f * 170).toString(16).padStart(2, '0'));
+              flash.addColorStop(1, c.base + '00');
+              ctx.fillStyle = flash; ctx.fillRect(bud.x - fr, bud.y - fr, fr * 2, fr * 2);
+            }
+            ctx.restore();
           }
           ctx.save(); ctx.globalAlpha = (1 - age / .85) * .56;
           const radius = (bud.r || 13) + ease(age / .85) * 37;
           circle(ctx, bud.x, bud.y, radius, null, c.base, 2.3 - age * 2);
           if (age > .1) circle(ctx, bud.x, bud.y, radius * .74, null, '#ffffff', 1.4);
-          for (let i = 0; i < 5; i++) {
-            const a = i * TAU / 5 + bud.x * .04 + age * .7;
-            sparkle(ctx, bud.x + Math.cos(a) * radius, bud.y + Math.sin(a) * radius, (1 - age / .85) * 3.7, i % 2 ? c.light : '#ffffff', a);
+          // Five sparkles ride the ring, white and the flower's light color alternating: one path and fill per color.
+          for (let pass = 0; pass < 2; pass++) {
+            ctx.beginPath();
+            for (let i = pass; i < 5; i += 2) {
+              const a = i * TAU / 5 + bud.x * .04 + age * .7;
+              starPath(ctx, bud.x + Math.cos(a) * radius, bud.y + Math.sin(a) * radius, (1 - age / .85) * 3.7, a);
+            }
+            ctx.fillStyle = pass ? c.light : '#ffffff'; ctx.fill();
           }
           ctx.restore();
         }
       }
     }
+    const unfurling = pickUnfurls(buds, time, options);
+    unfurlOptions.time = time; unfurlOptions.reducedMotion = Boolean(options.reducedMotion); unfurlOptions.quality = Number(options.quality) || 0;
+    findTremble(state);
     for (const bud of buds) {
       if (bud.gift) { if (!bud.bloomed) drawGift(ctx, bud, time, options.reducedMotion); continue; }
-      const openness = bud.bloomed ? (options.reducedMotion || typeof bud.bloomAt !== 'number' ? 1 : clamp((time - bud.bloomAt) / .46, 0, 1)) : 0;
+      const age = typeof bud.bloomAt === 'number' ? time - bud.bloomAt : Infinity;
+      // Every bloom takes the same .55 s, whether it unfurls petal by petal or crossfades (over budget).
+      const openness = bud.bloomed ? (options.reducedMotion || typeof bud.bloomAt !== 'number' ? 1 : clamp(age / UNFURL, 0, 1)) : 0;
       const hp = Math.max(1, Number(bud.hp) || 1), maxHp = Math.max(hp, Number(bud.maxHp) || 1), radius = bud.r || 16;
       ctx.save();
+      // A wave tumbles in from above (stage sets enterAt): a ghost waits in place, then the bud drops onto it.
+      // Only the drawing moves; the bud is already live where the ghost is.
+      let entering = false;
+      if (!options.reducedMotion && typeof bud.enterAt === 'number') {
+        const span = Number(bud.enterDur) > 0 ? Number(bud.enterDur) : .4;
+        if (!(typeof bud.spawnAt === 'number' && bud.spawnAt > bud.enterAt + span)) {
+          const k = (time - bud.enterAt) / span;
+          entering = true;
+          if (k < 0) ctx.globalAlpha *= .25;
+          else if (k < 1) {
+            const drop = Number.isFinite(bud.enterDrop) ? bud.enterDrop : 48;
+            ctx.translate(0, -drop * (1 - (bud.enterBounce ? easeBounce(k) : bloomBack(k, 1.4))));
+            ctx.globalAlpha *= Math.min(1, .25 + k * 3);
+          }
+        }
+      }
+      // The group about to cross the line trembles.
+      const shaking = trembles(bud);
+      if (shaking && !options.reducedMotion) {
+        const amp = 1.5 * (.45 + .55 * clamp((.8 - trembleTime) / .35, 0, 1));
+        ctx.translate(Math.sin(time * 22 * TAU + (flowerVariants.get(bud) || 0) * 2.1) * amp, 0);
+      }
       if (!options.reducedMotion && !bud.bloomed && typeof bud.hitAt === 'number') {
         const hitAge = time - bud.hitAt;
         if (hitAge >= 0 && hitAge < .25) {
@@ -2390,8 +3093,8 @@
       }
       // A descending flower retains its drawn variation instead of changing
       // petal orientation whenever its position crosses a pixel boundary.
-      if (!flowerVariants.has(bud)) flowerVariants.set(bud, ((Math.floor(bud.x) * 31 + Math.floor(bud.y) * 17) % 7 + 7) % 7);
-      if (!options.reducedMotion && typeof bud.spawnAt === 'number') {
+      variantOf(bud);
+      if (!entering && !options.reducedMotion && typeof bud.spawnAt === 'number') {
         // A new Rush wave pops in with a little overshoot; only the drawing scales, never the hitbox.
         const k = (time - bud.spawnAt) / .42;
         if (k >= 0 && k < 1) {
@@ -2400,11 +3103,14 @@
         }
       }
       if (!options.reducedMotion) {
-        // Visual-only life: buds sway on their stems, open flowers breathe.
-        // Collision geometry is untouched.
-        const ph = (flowerVariants.get(bud) || 0) * 1.37;
-        const sway = bud.bloomed ? Math.sin(time * 1.1 + ph) * .05 : Math.sin(time * 2.1 + ph) * .07;
-        const breathe = bud.bloomed && openness >= 1 ? 1 + Math.sin(time * 1.7 + ph) * .035 : 1;
+        // Visual-only life: buds nod on their stems, open flowers drift and breathe. Collision geometry is untouched.
+        // A fresh bloom eases from the bud's quick nod into the flower's slow drift, and starts breathing only once open.
+        const ph = (flowerVariants.get(bud) || 0) * 1.37, nod = Math.sin(time * 2.1 + ph) * .07;
+        let sway = nod, breathe = 1;
+        if (bud.bloomed) {
+          sway = nod + (Math.sin(time * 1.1 + ph) * .05 - nod) * smooth(age / UNFURL);
+          breathe = 1 + Math.sin(time * 1.7 + ph) * .035 * clamp((age - UNFURL) / .5, 0, 1);
+        }
         ctx.translate(bud.x, bud.y); ctx.rotate(sway); ctx.scale(breathe, breathe); ctx.translate(-bud.x, -bud.y);
       }
       if (bud.boss && !bud.bloomed) drawBossLeaves(ctx, bud, time, options.reducedMotion);
@@ -2412,7 +3118,9 @@
       if (bud.puff) { if (!bud.bloomed) drawPuffcap(ctx, bud, time, options.reducedMotion); }
       else if (bud.geode && !bud.bloomed) drawGeode(ctx, bud, time);
       else if (bud.gem && !bud.bloomed) drawGem(ctx, bud, time, options.reducedMotion);
-      else drawFlower(ctx, bud.x, bud.y, bud.r || 16, bud.type, openness, time, flowerVariants.get(bud));
+      else if (bud.bloomed && unfurling.has(bud)) drawUnfurl(ctx, bud, age, unfurlOptions);
+      else if (!options.reducedMotion && (bud.bloomed ? age >= 0 && age < FLASH : time - bud.hitAt >= 0 && time - bud.hitAt < FLASH)) drawSilhouette(ctx, bud.x, bud.y, radius, bud.type, 1.08);
+      else drawFlower(ctx, bud.x, bud.y, radius, bud.type, openness, time, flowerVariants.get(bud));
       if (bud.briar && bud.bloomed && bud.regrowAt) drawRegrow(ctx, bud, time);
       if (bud.shield && !bud.bloomed) drawCup(ctx, bud);
       if (bud.shell && !bud.bloomed) drawShell(ctx, bud);
@@ -2429,8 +3137,11 @@
           circle(ctx, x, bud.y + radius + 9, 2, i < hp ? '#079aaa' : 'rgba(255,255,255,.28)', '#ffffff', .9);
         }
       }
+      // Animations off: the trembling group shows a still red pip instead.
+      if (shaking && options.reducedMotion) circle(ctx, bud.x, bud.y + radius + (maxHp > 1 && !bud.boss ? 17 : 10), 2.5, '#ff3d6e', '#ffffff', 1);
       ctx.restore();
     }
+    drawFlares(ctx, buds, time, options);
     if (rush) drawLullaby(ctx, state, time, options.reducedMotion, buds, true);
     for (const bumper of state.bumpers || []) {
       if (bumper.kind === 'rock' && root.BloomScenery) root.BloomScenery.drawRock(ctx, bumper, options.theme);
@@ -2443,6 +3154,7 @@
     if (rush) drawChainHud(ctx, state, time, options);
     for (const particle of state.particles || []) drawParticle(ctx, particle, time, options.reducedMotion);
     if (!rush) drawGuide(ctx, state, balls, time, options.reducedMotion);
+    drawChainLinks(ctx, state, time, options);
     balls.forEach((ball, index) => drawProjectile(ctx, ball, index, time, options.reducedMotion, state.feverTime > 0, options.keepsake));
 
     for (const floater of state.floaters || []) {
@@ -2459,5 +3171,5 @@
     drawFeelOverlay(ctx, state, time, options);
   }
 
-  root.BloomArt = { draw, drawFlower, drawGarden, drawMoon, koiFish, drawProjectile, drawParticle, drawSeed, drawPowerIcon };
+  root.BloomArt = { draw, drawFlower, drawGarden, drawMoon, koiFish, drawProjectile, drawParticle, drawSeed, drawPowerIcon, drawUnfurl, drawChainLinks };
 })(typeof window !== 'undefined' ? window : globalThis);
