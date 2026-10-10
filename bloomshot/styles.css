@@ -706,3 +706,15 @@ body[data-world="moon"] .desktop-mode-moon,body[data-world="koi"] .desktop-mode-
 }
 .reduce-motion *,.reduce-motion *::before,.reduce-motion *::after{animation:none!important;transition:none!important}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+
+/* Super Bloom and the wave-6 checkpoint (Rush and levels). */
+body[data-mode="rush"] .fever-banner{color:#fffaf0;letter-spacing:0;
+  text-shadow:2px 2px 0 var(--gold-edge),-2px 2px 0 var(--gold-edge),2px -2px 0 var(--gold-edge),-2px -2px 0 var(--gold-edge),0 5px 0 #a8660a,0 0 18px #ffd04a99}
+/* The banner lands big, then settles small at the top for the rest of the six seconds, clear of the falling flowers. */
+body[data-mode="rush"] .fever-banner:not([hidden]){animation:super-pop .42s var(--press),super-settle .5s ease-in-out 1.4s forwards}
+@keyframes super-pop{from{opacity:0;transform:translateX(-50%) scale(.5) rotate(-12deg)}to{opacity:1;transform:translateX(-50%) rotate(-4deg)}}
+@keyframes super-settle{from{transform:translateX(-50%) rotate(-4deg)}to{transform:translateX(-50%) translateY(-24px) scale(.62) rotate(-3deg);opacity:.94}}
+#checkpoint-btn{margin-top:10px}
+#checkpoint-btn+.button-link{margin-top:6px}
+body.reduce-motion[data-mode="rush"] .fever-banner{transform:translateX(-50%) translateY(-24px) scale(.62) rotate(-3deg)}
+@media(prefers-reduced-motion:reduce){body[data-mode="rush"] .fever-banner{transform:translateX(-50%) translateY(-24px) scale(.62) rotate(-3deg)}}

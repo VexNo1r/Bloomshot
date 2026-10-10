@@ -1342,15 +1342,161 @@
     });
   }
 
+  // The chain HUD for Rush and the levels: a sun fan of eight petals over the seed pod that fills from good shots,
+  // and a multiplier badge by the pod. Everything with a gradient or a glow is painted once into a 3x sprite, so a
+  // frame costs a few drawImage calls, one arc and one short label.
+  const hudCache = new Map();
+  function hudSprite(key, w, h, paint) {
+    if (hudCache.has(key)) return hudCache.get(key);
+    let surface = null;
+    if (typeof OffscreenCanvas !== 'undefined') surface = new OffscreenCanvas(Math.ceil(w * 3), Math.ceil(h * 3));
+    else if (typeof document !== 'undefined' && document.createElement) { surface = document.createElement('canvas'); surface.width = Math.ceil(w * 3); surface.height = Math.ceil(h * 3); }
+    const c = surface && surface.getContext('2d');
+    const sprite = c ? { surface, w, h } : null;
+    if (c) { c.scale(3, 3); paint(c); }
+    hudCache.set(key, sprite);
+    return sprite;
+  }
+  // The fan's hub sits 3 px under the pod's center, so its top petal stays clear of the danger line's tag.
+  const SUN = { x: 210, y: 501, inner: 21, outer: 29, arc: Math.PI * 150 / 180, petals: 8 };
+  // One fan petal, its base at the origin and its tip pointing up.
+  function sunPetalPath(ctx, length, half) {
+    ctx.beginPath(); ctx.moveTo(0, 0);
+    ctx.bezierCurveTo(-half * 1.25, -length * .22, -half * .95, -length * .82, 0, -length);
+    ctx.bezierCurveTo(half * .95, -length * .82, half * 1.25, -length * .22, 0, 0); ctx.closePath();
+  }
+  function paintLitPetal(ctx, length, half) {
+    ctx.save(); ctx.shadowColor = 'rgba(255,176,32,.75)'; ctx.shadowBlur = 4;
+    sunPetalPath(ctx, length, half);
+    const fill = ctx.createLinearGradient(0, 0, 0, -length);
+    fill.addColorStop(0, '#f39a12'); fill.addColorStop(.45, '#ffc93a'); fill.addColorStop(1, '#fff1a6');
+    ctx.fillStyle = fill; ctx.fill(); ctx.restore();
+    sunPetalPath(ctx, length, half); ctx.lineWidth = .9; ctx.strokeStyle = '#c9770c'; ctx.lineJoin = 'round'; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, -length * .2); ctx.quadraticCurveTo(half * .18, -length * .55, 0, -length * .8);
+    ctx.strokeStyle = 'rgba(255,253,232,.8)'; ctx.lineWidth = .8; ctx.lineCap = 'round'; ctx.stroke();
+  }
+  // An unlit petal is only an outline: a cream line under a gold one, so it reads on bright and dark scenes.
+  function paintEmptyPetal(ctx, length, half) {
+    sunPetalPath(ctx, length, half); ctx.lineJoin = 'round';
+    ctx.lineWidth = 2.4; ctx.strokeStyle = '#fffaf0'; ctx.stroke();
+    ctx.lineWidth = 1.1; ctx.strokeStyle = '#b8780f'; ctx.stroke();
+  }
+  const fanAngle = slot => -Math.PI / 2 - SUN.arc / 2 + slot * SUN.arc / (SUN.petals - 1);
+  // The whole resting fan with its first `lit` petals lit, painted in the fan box's own coordinates.
+  const FAN_BOX = { x: 172, y: 462, w: 76, h: 52 }, WHEEL_STEPS = 16;
+  function paintFan(c, lit) {
+    c.save(); c.translate(-FAN_BOX.x, -FAN_BOX.y);
+    for (let i = 0; i < SUN.petals; i++) {
+      c.globalAlpha = i < lit ? 1 : .35;
+      drawSunPetal(c, null, fanAngle(i), 1, i < lit ? paintLitPetal : paintEmptyPetal);
+    }
+    c.restore();
+  }
+  // One step of the turning Super Bloom wheel: every petal lit, the ones entering and leaving the arc faded.
+  function paintWheel(c, step) {
+    c.save(); c.translate(-FAN_BOX.x, -FAN_BOX.y);
+    for (let i = -1; i < SUN.petals; i++) {
+      const slot = i + step / WHEEL_STEPS, edge = clamp(Math.min(slot + 1, SUN.petals - slot), 0, 1);
+      if (edge <= 0) continue;
+      c.globalAlpha = edge; drawSunPetal(c, null, fanAngle(slot), 1, paintLitPetal);
+    }
+    c.restore();
+  }
+  function drawSunPetal(ctx, sprite, angle, scale, paint) {
+    const length = SUN.outer - SUN.inner, half = 3.6;
+    ctx.save(); ctx.translate(SUN.x + Math.cos(angle) * SUN.inner, SUN.y + Math.sin(angle) * SUN.inner);
+    ctx.rotate(angle + Math.PI / 2); if (scale !== 1) ctx.scale(scale, scale);
+    if (sprite) ctx.drawImage(sprite.surface, -sprite.w / 2, 5 - sprite.h, sprite.w, sprite.h);
+    else paint(ctx, length, half);
+    ctx.restore();
+  }
+  const BADGE = {
+    1: { fill: '#fffaf0', edge: '#dcc48c', ink: '#7a5a22', ring: '#c9a24c' },
+    2: { fill: '#5cb8ff', edge: '#1d6ad6', ink: '#ffffff', ring: '#2582e6' },
+    3: { fill: '#a983ff', edge: '#6a46cc', ink: '#ffffff', ring: '#7550e0' },
+    4: { fill: '#ff6f9a', edge: '#c92d63', ink: '#ffffff', ring: '#e2477c' },
+    5: { fill: '#ffc93a', edge: '#d0820c', ink: '#6a3f00', ring: '#e59a12' }
+  };
+  function paintBadge(ctx, tint, r) {
+    const c = r + 5;
+    ctx.save(); ctx.shadowColor = 'rgba(40,60,70,.32)'; ctx.shadowBlur = 4; ctx.shadowOffsetY = 1.5;
+    circle(ctx, c, c, r, tint.edge); ctx.restore();
+    const face = ctx.createLinearGradient(0, c - r, 0, c + r);
+    face.addColorStop(0, '#ffffff'); face.addColorStop(.18, tint.fill); face.addColorStop(1, tint.fill);
+    circle(ctx, c, c - .6, r - 2.2, face);
+    ctx.save(); ctx.globalAlpha = .45; ctx.beginPath(); ctx.ellipse(c - r * .28, c - r * .42, r * .4, r * .2, -.5, 0, TAU); ctx.fillStyle = '#ffffff'; ctx.fill(); ctx.restore();
+  }
+  function drawChainHud(ctx, state, time, options) {
+    if (state.status === 'lost' || state.status === 'won') return;
+    const still = Boolean(options && options.reducedMotion);
+    const superLeft = Math.max(0, Number(state.superBloom) || 0), sun = clamp(Number(state.sun) || 0, 0, 1);
+    if (!state.scripted) {
+      const length = SUN.outer - SUN.inner, half = 3.6, pad = 5;
+      const lit = hudSprite('petal:lit', half * 2 + pad * 2, length + pad * 2, c => { c.translate(half + pad, length + pad); paintLitPetal(c, length, half); });
+      // During a Super Bloom the wheel turns: petals rise in on the left and sink out on the right, and the gold
+      // drains back from the right as the six seconds run down. Otherwise it fills left to right, an eighth at a time.
+      const turning = superLeft > 0 && !still;
+      const filled = superLeft > 0 ? superLeft / 6 * SUN.petals : sun * SUN.petals;
+      ctx.save();
+      if (turning) {
+        // The turning wheel is one of 16 cached steps; a wedge clip from the left end to the drain line hides the rest.
+        const step = Math.floor(((time * 1.15) % 1) * WHEEL_STEPS) % WHEEL_STEPS;
+        const wheel = hudSprite('wheel:' + step, FAN_BOX.w, FAN_BOX.h, c => paintWheel(c, step));
+        ctx.beginPath(); ctx.moveTo(SUN.x, SUN.y); ctx.arc(SUN.x, SUN.y, 44, fanAngle(-1.6), fanAngle(Math.min(filled, SUN.petals + .6))); ctx.closePath(); ctx.clip();
+        if (wheel) ctx.drawImage(wheel.surface, FAN_BOX.x, FAN_BOX.y, FAN_BOX.w, FAN_BOX.h);
+        else { ctx.translate(FAN_BOX.x, FAN_BOX.y); paintWheel(ctx, step); }
+      } else {
+        // The resting fan is one sprite per number of lit petals; only the petal filling now and a fresh one are drawn on top.
+        const whole = Math.min(SUN.petals, Math.floor(filled + 1e-9)), part = filled - whole;
+        const fan = hudSprite('fan:' + whole, FAN_BOX.w, FAN_BOX.h, c => paintFan(c, whole));
+        const breathe = state.superQueued && !still ? 1 + Math.sin(time * 4) * .03 : 1;
+        if (breathe !== 1) { ctx.translate(SUN.x, SUN.y); ctx.scale(breathe, breathe); ctx.translate(-SUN.x, -SUN.y); }
+        if (fan) ctx.drawImage(fan.surface, FAN_BOX.x, FAN_BOX.y, FAN_BOX.w, FAN_BOX.h);
+        else { ctx.save(); ctx.translate(FAN_BOX.x, FAN_BOX.y); paintFan(ctx, whole); ctx.restore(); }
+        if (part > 0 && whole < SUN.petals) {
+          ctx.globalAlpha = .35 + .65 * part;
+          drawSunPetal(ctx, lit, fanAngle(whole), .45 + .55 * part, paintLitPetal);
+        }
+        const since = time - (Number(state.sunAt) || -1);
+        if (!still && whole > 0 && superLeft <= 0 && since >= 0 && since < .28) {
+          const fresh = 1 - since / .28;
+          ctx.globalAlpha = 1; drawSunPetal(ctx, lit, fanAngle(whole - 1), 1 + .35 * fresh * fresh, paintLitPetal);
+        }
+      }
+      ctx.restore();
+    }
+    // The multiplier badge: hidden until two blooms chain, its ring the time left to keep the chain going.
+    const combo = Number(state.combo) || 0;
+    if (combo < 2) return;
+    const mult = clamp(Math.round(Number(state.mult) || 1), 1, 5), tint = BADGE[mult], r = 17, x = 352, y = 516;
+    const since = time - (Number(state.multAt) || -1), pulse = !still && mult > 1 && since >= 0 && since < .2 ? 1.25 - .25 * (since / .2) : 1;
+    const left = clamp((Number(state.comboLeft) || 0) / (Number(state.comboWindow) || 1.1), 0, 1);
+    const badge = hudSprite('badge:' + mult, (r + 5) * 2, (r + 5) * 2, c => paintBadge(c, tint, r));
+    ctx.save(); ctx.translate(x, y); if (pulse !== 1) ctx.scale(pulse, pulse);
+    ctx.beginPath(); ctx.arc(0, 0, r + 3.6, 0, TAU); ctx.strokeStyle = 'rgba(255,252,240,.7)'; ctx.lineWidth = 3.2; ctx.stroke();
+    if (left > 0) {
+      ctx.beginPath(); ctx.arc(0, 0, r + 3.6, -Math.PI / 2, -Math.PI / 2 + TAU * left);
+      ctx.strokeStyle = tint.ring; ctx.lineWidth = 2.6; ctx.lineCap = 'round'; ctx.stroke();
+    }
+    if (badge) ctx.drawImage(badge.surface, -r - 5, -r - 5, badge.w, badge.h);
+    else { ctx.save(); ctx.translate(-r - 5, -r - 5); paintBadge(ctx, tint, r); ctx.restore(); }
+    ctx.font = '700 15px Fredoka, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = tint.ink; ctx.fillText('×' + mult, 0, .5);
+    ctx.restore();
+  }
+
+  // A score pop. Its size grows with the chain multiplier; the type is set at 15 px and scaled, so the white
+  // outline grows with it. Pops from a Super Bloom wear a gold rim.
   function drawPop(ctx, floater, reducedMotion) {
     const life = Math.max(0, floater.life), duration = floater.maxLife || .8, age = duration - life;
     const scale = reducedMotion ? 1 : Math.min(1.25, .4 + age * 9) - Math.max(0, age - .1) * .4;
+    const size = clamp(Number(floater.size) || 15, 8, 40), grow = Math.max(.7, scale) * size / 15;
     ctx.save(); ctx.translate(floater.x, floater.y - (reducedMotion ? 0 : ease(age / duration) * 26));
-    ctx.scale(Math.max(.7, scale), Math.max(.7, scale));
+    ctx.scale(grow, grow);
     ctx.globalAlpha = Math.min(1, life / .25); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    const size = floater.size || 15;
-    ctx.font = `700 ${size}px Fredoka, system-ui, sans-serif`; ctx.lineJoin = 'round';
-    ctx.lineWidth = 3.4; ctx.strokeStyle = '#ffffff'; ctx.strokeText(floater.text, 0, 0);
+    ctx.font = '700 15px Fredoka, system-ui, sans-serif'; ctx.lineJoin = 'round';
+    if (floater.golden) { ctx.lineWidth = 6.2; ctx.strokeStyle = '#ffd04a'; ctx.strokeText(floater.text, 0, 0); }
+    ctx.lineWidth = floater.golden ? 3 : 3.4; ctx.strokeStyle = floater.golden ? '#fffbe8' : '#ffffff'; ctx.strokeText(floater.text, 0, 0);
     ctx.fillStyle = floater.color || '#e2477c'; ctx.fillText(floater.text, 0, 0);
     ctx.restore();
   }
@@ -1363,10 +1509,45 @@
     ctx.fillStyle = color; ctx.fill(); ctx.restore();
   }
 
+  // Super Bloom turns the sky gold: a warm wash with a lit rim, and a soft band of light rising through it. Both
+  // are painted once; a frame draws them with an alpha that fades in over .35 s and out over the last .6 s.
+  function paintGoldSky(c) {
+    const wash = c.createLinearGradient(0, 0, 0, 560);
+    wash.addColorStop(0, 'rgba(255,196,64,.46)'); wash.addColorStop(.38, 'rgba(255,220,120,.22)');
+    wash.addColorStop(.72, 'rgba(255,214,110,.1)'); wash.addColorStop(1, 'rgba(255,184,60,.26)');
+    c.fillStyle = wash; c.fillRect(0, 0, 420, 560);
+    c.save(); c.shadowColor = '#ffb21e'; c.shadowBlur = 20; c.strokeStyle = '#ffe28a'; c.lineWidth = 3; c.globalAlpha = .85;
+    roundRect(c, 18, 18, 384, 524, 25); c.stroke(); c.restore();
+    c.strokeStyle = 'rgba(255,253,236,.7)'; c.lineWidth = 1.2; roundRect(c, 18, 18, 384, 524, 25); c.stroke();
+  }
+  function paintGoldBand(c) {
+    for (const [x, y, rx, ry, color] of [[120, 120, 240, 70, '255,214,96'], [310, 150, 210, 60, '255,190,120'], [210, 100, 300, 44, '255,240,170']]) {
+      c.save(); c.translate(x, y); c.rotate(-.18); c.scale(1, ry / rx);
+      const g = c.createRadialGradient(0, 0, 0, 0, 0, rx);
+      g.addColorStop(0, `rgba(${color},.42)`); g.addColorStop(.6, `rgba(${color},.16)`); g.addColorStop(1, `rgba(${color},0)`);
+      c.fillStyle = g; c.fillRect(-rx, -rx, rx * 2, rx * 2); c.restore();
+    }
+  }
+  function drawGoldSky(ctx, state, time, still) {
+    const left = Number(state.superBloom) || 0, fade = Math.min(1, (6 - left) / .35, left / .6);
+    if (!(fade > 0)) return;
+    const sky = hudSprite('sky:gold', 420, 560, paintGoldSky), band = hudSprite('sky:band', 420, 240, paintGoldBand);
+    ctx.save(); ctx.globalAlpha = fade;
+    if (sky) ctx.drawImage(sky.surface, 0, 0, 420, 560);
+    else { ctx.fillStyle = 'rgba(255,214,110,.16)'; ctx.fillRect(15, 15, 390, 530); }
+    if (band) {
+      // The band climbs from below the pod to above the top in about five seconds, then starts again.
+      const y = still ? 120 : 560 - ((time * 150) % 800);
+      ctx.globalAlpha = fade * (still ? .7 : .9); ctx.drawImage(band.surface, 0, y - 120, 420, 240);
+    }
+    ctx.restore();
+  }
   function drawAtmosphere(ctx, state, time, options) {
+    const golden = state.mode === 'rush' && state.superBloom > 0;
+    if (golden) drawGoldSky(ctx, state, time, options.reducedMotion);
     if (options.reducedMotion) return;
     ctx.save();
-    const fever = state.feverTime > 0;
+    const fever = state.feverTime > 0 && !golden;
     if (fever) {
       // Slow aurora-like color waves, never a flashing full-screen overlay.
       const wave = ctx.createLinearGradient(0, 130 + Math.sin(time * .9) * 80, 420, 430);
@@ -1377,12 +1558,12 @@
       ctx.shadowColor = '#fe7cef'; ctx.shadowBlur = 18;
       roundRect(ctx, 18, 18, 384, 524, 25); ctx.stroke(); ctx.shadowBlur = 0;
     }
-    const count = fever ? 24 : 10;
+    const count = fever || golden ? 24 : 10;
     for (let i = 0; i < count; i++) {
       const x = 22 + ((i * 61.13 + Math.sin(time * .3 + i) * 14) % 376 + 376) % 376;
       const y = 28 + ((i * 79.87 - time * (5 + i % 3)) % 485 + 485) % 485;
-      ctx.globalAlpha = (fever ? .55 : .23) * (.55 + Math.sin(time * 1.3 + i * 2) * .3);
-      sparkle(ctx, x, y, fever ? 3 + i % 3 : 2.1, '#ffffff', i * .21);
+      ctx.globalAlpha = (fever || golden ? .55 : .23) * (.55 + Math.sin(time * 1.3 + i * 2) * .3);
+      sparkle(ctx, x, y, fever || golden ? 3 + i % 3 : 2.1, golden ? i % 3 ? '#fff4c2' : '#ffd25a' : '#ffffff', i * .21);
     }
     ctx.restore();
   }
@@ -1980,6 +2161,7 @@
     drawLauncher(ctx, state, time, colors, options.keepsake, options.kick, options.reducedMotion);
 
     const balls = Array.isArray(state.balls) ? state.balls : state.ball ? [state.ball] : [];
+    if (rush) drawChainHud(ctx, state, time, options);
     for (const particle of state.particles || []) drawParticle(ctx, particle, time, options.reducedMotion);
     if (!rush) drawGuide(ctx, state, balls, time, options.reducedMotion);
     balls.forEach((ball, index) => drawProjectile(ctx, ball, index, time, options.reducedMotion, state.feverTime > 0, options.keepsake));
