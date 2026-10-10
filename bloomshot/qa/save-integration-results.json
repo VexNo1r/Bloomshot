@@ -1,5 +1,5 @@
 {
-  "passed": 71,
+  "passed": 72,
   "failed": 0,
   "methodology": "Executes the complete current app.js in an isolated Node VM using real garden/level/engine modules, fake localStorage, and DOM/canvas adapters. Completion fixtures exercise actual engine completion events and app handlers. No real browser or user saves are read or changed.",
   "limitations": [
@@ -29,6 +29,10 @@
     },
     {
       "name": "Restarting an unfinished run does not grant rewards",
+      "passed": true
+    },
+    {
+      "name": "Starting an endless run over keeps a new best score and wave, and still pays nothing",
       "passed": true
     },
     {

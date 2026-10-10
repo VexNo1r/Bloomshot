@@ -39,7 +39,8 @@
   };
 
   const backdropCache = new Map();
-  const flowerCache = new Map();
+  // Room for a level's open flowers in all seven variations, their closed sprites and the boss (prewarm fills it).
+  const flowerCache = new Map(), FLOWER_CACHE = 96;
   const gateCache = new Map();
   const flowerVariants = new WeakMap();
   const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
@@ -527,7 +528,7 @@
           const context = surface.getContext('2d'); context.scale(3, 3);
           paintFlower(context, size / 2, size / 2, r, type, o, time, phase);
           sprite = { surface, size };
-          if (flowerCache.size >= 80) flowerCache.delete(flowerCache.keys().next().value);
+          if (flowerCache.size >= FLOWER_CACHE) flowerCache.delete(flowerCache.keys().next().value);
           flowerCache.set(key, sprite);
         }
       }
@@ -541,6 +542,9 @@
   // stateless (a function of the bud and its age) and composited from 3x sprites painted once with the same petal()
   // geometry, so a frame full of blooms costs drawImage calls, not gradients or shadows.
   const UNFURL = .55, FLASH = .035, UNFURL_MAX = 16, UNFURL_LOW = 6;
+  // Every sprite painted (or sheet frame baked) bumps this count, so the app can tell a frame that paid for a first
+  // paint from one that is really slow (the quality governor skips the former).
+  let painted = 0;
   const atlas = new Map();
   const budSeeds = new WeakMap(), budSprites = new WeakMap();
   const unfurlPick = new Set(), unfurlPool = [];
@@ -562,8 +566,9 @@
     h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16;
     return (h >>> 0) / 4294967296;
   }
+  // A boss is one of a kind, so it always wears the first variation and its open sprite can be painted ahead.
   function variantOf(bud) {
-    if (!flowerVariants.has(bud)) flowerVariants.set(bud, ((Math.floor(Number(bud.x) || 0) * 31 + Math.floor(Number(bud.y) || 0) * 17) % 7 + 7) % 7);
+    if (!flowerVariants.has(bud)) flowerVariants.set(bud, bud.boss ? 0 : ((Math.floor(Number(bud.x) || 0) * 31 + Math.floor(Number(bud.y) || 0) * 17) % 7 + 7) % 7);
     return flowerVariants.get(bud);
   }
   function seedOf(bud) {
@@ -586,7 +591,7 @@
     const w = Math.ceil((x1 - x0) * 3), h = Math.ceil((y1 - y0) * 3), surface = makeSurface(w, h);
     let sprite = null;
     const g = surface && surface.getContext('2d');
-    if (g) { g.scale(3, 3); g.translate(-x0, -y0); paint(g); sprite = { surface, x: x0, y: y0, w: w / 3, h: h / 3 }; }
+    if (g) { g.scale(3, 3); g.translate(-x0, -y0); paint(g); sprite = { surface, x: x0, y: y0, w: w / 3, h: h / 3 }; painted++; }
     if (atlas.size >= 260) atlas.delete(atlas.keys().next().value);
     atlas.set(key, sprite);
     return sprite;
@@ -823,10 +828,10 @@
   // turned into place when drawn: one drawImage instead of up to twelve petals and their highlights. The outer layer
   // has 24 frames from .03 s, the inner layer 19 from .12 s. Each frame is painted the first time a bloom reaches it.
   // Regular buds only (r <= 16); a boss's single bloom goes petal by petal.
-  // At most twelve sheets are kept. A full cache only frees a sheet no bloom has drawn for a few seconds; otherwise the
+  // At most sixteen sheets are kept (a level's flowers need ten to sixteen, all baked ahead by prewarm). A full cache only frees a sheet no bloom has drawn for a few seconds; otherwise the
   // new bloom goes petal by petal, so boards that mix sizes (gems, geodes) never make sheets churn. Bosses are not
   // cached at all, so they never push a sheet out.
-  const SHEET_COLS = 6, SHEET_SCALE = 2.25, SHEET_MAX = 12, SHEET_IDLE = 180;
+  const SHEET_COLS = 6, SHEET_SCALE = 2.25, SHEET_MAX = 16, SHEET_IDLE = 180;
   const sheets = new Map();
   let sheetClock = 0;
   function sheetFor(layer, type, r) {
@@ -854,8 +859,9 @@
   // outer petal catches the light as it arrives.
   function sheetFrame(sheet, sprite, age) {
     const k = clamp(Math.round((age - sheet.from) / sheet.step), 0, sheet.frames - 1);
-    if (sheet.baked[k]) return k;
-    sheet.baked[k] = 1;
+    // Frame 0 is the layer before it starts to open: never drawn, so never painted.
+    if (k === 0 || sheet.baked[k]) return k;
+    sheet.baked[k] = 1; painted++;
     const g = sheet.g, cell = sheet.cell, h = sheet.half, form = OPEN[sheet.type], outer = sheet.outer, t = sheet.from + k * sheet.step;
     const n = outer ? form.count : form.inner.count, delay = outer ? .03 : .12, stagger = (outer ? .3 : .16) / n, span = outer ? .22 : .2;
     const twist = form.twist * (outer ? 1 : .6), wide = outer ? .5 : .55;
@@ -1019,16 +1025,29 @@
     for (const bud of buds) {
       if (!bud || typeof bud.flareAt !== 'number') continue;
       const age = time - bud.flareAt;
-      if (!(age >= 0 && age < .35)) continue;
-      const q = age / .35, r = Number(bud.r) || 13, x = Number(bud.x) || 0, y = Number(bud.y) || 0, radius = r * (1.6 + q);
+      // A flower's flare lasts .35 s and its ring .5 s.
+      if (!(age >= 0 && age < .5)) continue;
       if (!started) { started = true; ctx.save(); alpha = ctx.globalAlpha; op = ctx.globalCompositeOperation; ctx.globalCompositeOperation = 'lighter'; glow = goldSprite(); }
+      if (age >= .35) continue;
+      const q = age / .35, r = Number(bud.r) || 13, x = Number(bud.x) || 0, y = Number(bud.y) || 0, radius = r * (2.6 + q * .9);
       ctx.globalAlpha = alpha * (1 - q);
       if (glow) dab(ctx, glow, x, y, radius / 40);
       else circle(ctx, x, y, radius * .55, 'rgba(255,236,170,.6)');
       if (glints && q < 2 / 3) shine++;
     }
     if (!started) return;
-    ctx.globalCompositeOperation = op; ctx.globalAlpha = alpha;
+    ctx.globalCompositeOperation = op;
+    // A thin gold ring opens around each flower as the light reaches it.
+    ctx.strokeStyle = '#ffe08a';
+    for (const bud of buds) {
+      if (!bud || typeof bud.flareAt !== 'number') continue;
+      const q = (time - bud.flareAt) / .5;
+      if (!(q >= 0 && q < 1)) continue;
+      const r = Number(bud.r) || 13;
+      ctx.globalAlpha = alpha * (1 - q) * .9; ctx.lineWidth = 2.6 * (1 - q) + .6;
+      ctx.beginPath(); ctx.arc(Number(bud.x) || 0, Number(bud.y) || 0, r * (1.2 + ease(q) * 1.6), 0, TAU); ctx.stroke();
+    }
+    ctx.globalAlpha = alpha;
     if (shine) {
       // The glint catches the upper right petal.
       ctx.beginPath();
@@ -1287,7 +1306,7 @@
     if (canvas) {
       const g = canvas.getContext('2d'), c = px / 2, fill = g.createRadialGradient(c, c, 0, c, c, radius * 3);
       for (const [at, color] of stops) fill.addColorStop(at, color);
-      g.fillStyle = fill; g.fillRect(0, 0, px, px);
+      g.fillStyle = fill; g.fillRect(0, 0, px, px); painted++;
       sprite = { canvas, size: px / 3 };
     }
     feelSprites.set(key, sprite);
@@ -1305,15 +1324,14 @@
     if (canvas) {
       const g = canvas.getContext('2d'), fill = across ? g.createLinearGradient(0, 0, w, 0) : g.createLinearGradient(0, 0, 0, h);
       for (const [at, color] of stops) fill.addColorStop(at, color);
-      g.fillStyle = fill; g.fillRect(0, 0, w, h);
+      g.fillStyle = fill; g.fillRect(0, 0, w, h); painted++;
       sprite = canvas;
     }
     feelSprites.set(key, sprite);
     return sprite;
   }
   // A full-board vignette in one color: clear in the middle, deepening toward the edges and corners.
-  function feelVeil(ctx, rgb, alpha) {
-    if (!(alpha > .002)) return;
+  function veilSprite(rgb) {
     const key = 'veil|' + rgb;
     let sprite = feelSprites.get(key);
     if (sprite === undefined) {
@@ -1325,11 +1343,17 @@
         const fill = g.createRadialGradient(210, 210, 60, 210, 210, 300);
         fill.addColorStop(0, `rgba(${rgb},0)`); fill.addColorStop(.4, `rgba(${rgb},.08)`); fill.addColorStop(.62, `rgba(${rgb},.5)`);
         fill.addColorStop(.85, `rgba(${rgb},.9)`); fill.addColorStop(1, `rgba(${rgb},1)`);
-        g.fillStyle = fill; g.fillRect(0, 0, 420, 420);
+        g.fillStyle = fill; g.fillRect(0, 0, 420, 420); painted++;
         sprite = canvas;
       }
       feelSprites.set(key, sprite);
     }
+    return sprite;
+  }
+  const VEILS = ['38,18,64', '232,36,84', '236,40,80', '120,240,200'];
+  function feelVeil(ctx, rgb, alpha) {
+    if (!(alpha > .002)) return;
+    const sprite = veilSprite(rgb);
     ctx.save(); ctx.globalAlpha = clamp(alpha, 0, 1);
     if (sprite) ctx.drawImage(sprite, 0, 0, 420, 560);
     else { ctx.globalAlpha *= .35; ctx.fillStyle = `rgb(${rgb})`; ctx.fillRect(0, 0, 420, 560); }
@@ -1503,8 +1527,10 @@
       drawPowerIcon(ctx, state.armed, x, y, 12.5, time);
     } else if (state.status === 'aiming' || !state.status || (rush && state.status !== 'lost')) drawSeed(ctx, x + (pull ? pull.x : 0), y + (pull ? pull.y : 0), 8.4, time, false, style);
     ctx.restore();
-    // Lives (Rush) or shots left sit still under the pod; a heart just lost cracks in two and falls away.
+    // Lives (Rush) or shots left sit still under the pod; a heart just lost cracks in two and falls away. Rush hearts
+    // are drawn a third bigger so they read on a small phone.
     ctx.save(); ctx.fillStyle = colors.ink; ctx.globalAlpha = .7;
+    if (rush) { ctx.translate(x, y + 27); ctx.scale(1.3, 1.3); ctx.translate(-x, -y - 27); ctx.globalAlpha = 1; }
     const broken = rush && !reducedMotion && state.heartBreak && Number.isFinite(state.heartBreak.at) ? state.heartBreak : null;
     for (let i = 0; i < 3; i++) {
       const px = x + (i - 1) * (rush ? 11 : 9);
@@ -1553,6 +1579,7 @@
     }
     return threat;
   }
+  const DANGER_TAG_X = 74;
   function drawRushBoundary(ctx, state, theme, time, reducedMotion) {
     const y = clamp(Number(state.dangerY) || 448, 100, 510);
     const night = theme === 'moon' || Boolean(root.BloomScenery && root.BloomScenery.dark(theme));
@@ -1580,16 +1607,18 @@
       ctx.beginPath(); ctx.moveTo(x, y - 4); ctx.lineTo(x + 3, y); ctx.lineTo(x, y + 4); ctx.lineTo(x - 3, y); ctx.closePath();
       ctx.fillStyle = night ? '#ffd8e5' : '#e86189'; ctx.fill();
     }
-    ctx.font = '600 11px Fredoka, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    if (heat > .05) { ctx.translate(210, y + 15); ctx.scale(1 + heat * .14, 1 + heat * .14); ctx.translate(-210, -y - 15); }
+    // The tag sits at the line's left end, clear of the sun fan over the pod and of every aim line.
+    const tx = DANGER_TAG_X;
+    ctx.font = '600 12px Fredoka, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    if (heat > .05) { ctx.translate(tx, y + 15); ctx.scale(1 + heat * .14, 1 + heat * .14); ctx.translate(-tx, -y - 15); }
     // Painted level scenes are busy behind the label, so it sits on its own little tag there.
     if (root.BloomScenery && root.BloomScenery.has(theme)) {
       const w = ctx.measureText('Danger line').width + 16;
-      ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(210 - w / 2, y + 6.5, w, 17, 8.5); else ctx.rect(210 - w / 2, y + 6.5, w, 17);
+      ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(tx - w / 2, y + 6, w, 18, 9); else ctx.rect(tx - w / 2, y + 6, w, 18);
       ctx.fillStyle = night ? 'rgba(38,24,58,.82)' : 'rgba(255,250,240,.94)'; ctx.fill();
       ctx.strokeStyle = night ? 'rgba(255,145,177,.65)' : 'rgba(232,97,137,.6)'; ctx.lineWidth = 1.2; ctx.stroke();
     }
-    ctx.fillStyle = night ? '#ffcedd' : '#a54164'; ctx.fillText('Danger line', 210, y + 15);
+    ctx.fillStyle = night ? '#ffcedd' : '#a54164'; ctx.fillText('Danger line', tx, y + 15);
     ctx.restore();
   }
 
@@ -2297,19 +2326,23 @@
   // and a multiplier badge by the pod. Everything with a gradient or a glow is painted once into a 3x sprite, so a
   // frame costs a few drawImage calls, one arc and one short label.
   const hudCache = new Map();
-  function hudSprite(key, w, h, paint) {
+  // scale: how finely it is painted (3x by default; a soft full-board wash looks the same at 1x for a ninth of the cost).
+  function hudSprite(key, w, h, paint, scale) {
     if (hudCache.has(key)) return hudCache.get(key);
+    const k = scale || 3;
     let surface = null;
-    if (typeof OffscreenCanvas !== 'undefined') surface = new OffscreenCanvas(Math.ceil(w * 3), Math.ceil(h * 3));
-    else if (typeof document !== 'undefined' && document.createElement) { surface = document.createElement('canvas'); surface.width = Math.ceil(w * 3); surface.height = Math.ceil(h * 3); }
+    if (typeof OffscreenCanvas !== 'undefined') surface = new OffscreenCanvas(Math.ceil(w * k), Math.ceil(h * k));
+    else if (typeof document !== 'undefined' && document.createElement) { surface = document.createElement('canvas'); surface.width = Math.ceil(w * k); surface.height = Math.ceil(h * k); }
     const c = surface && surface.getContext('2d');
     const sprite = c ? { surface, w, h } : null;
-    if (c) { c.scale(3, 3); paint(c); }
+    if (c) { c.scale(k, k); paint(c); painted++; }
     hudCache.set(key, sprite);
     return sprite;
   }
   // The fan's hub sits 3 px under the pod's center, so its top petal stays clear of the danger line's tag.
-  const SUN = { x: 210, y: 501, inner: 21, outer: 29, arc: Math.PI * 150 / 180, petals: 8 };
+  // Its petals are 12 px long, big enough to read as the meter for Super Bloom; the danger line's tag sits at the
+  // line's left end, so nothing covers the fan.
+  const SUN = { x: 210, y: 501, inner: 22, outer: 34, half: 4.8, arc: Math.PI * 150 / 180, petals: 8 };
   // One fan petal, its base at the origin and its tip pointing up.
   function sunPetalPath(ctx, length, half) {
     ctx.beginPath(); ctx.moveTo(0, 0);
@@ -2326,19 +2359,20 @@
     ctx.beginPath(); ctx.moveTo(0, -length * .2); ctx.quadraticCurveTo(half * .18, -length * .55, 0, -length * .8);
     ctx.strokeStyle = 'rgba(255,253,232,.8)'; ctx.lineWidth = .8; ctx.lineCap = 'round'; ctx.stroke();
   }
-  // An unlit petal is only an outline: a cream line under a gold one, so it reads on bright and dark scenes.
+  // An unlit petal is a soft cream shape with a gold rim, so the empty meter reads on bright and dark scenes alike.
   function paintEmptyPetal(ctx, length, half) {
     sunPetalPath(ctx, length, half); ctx.lineJoin = 'round';
-    ctx.lineWidth = 2.4; ctx.strokeStyle = '#fffaf0'; ctx.stroke();
-    ctx.lineWidth = 1.1; ctx.strokeStyle = '#b8780f'; ctx.stroke();
+    ctx.fillStyle = 'rgba(255,248,226,.62)'; ctx.fill();
+    ctx.lineWidth = 2.2; ctx.strokeStyle = 'rgba(255,250,240,.9)'; ctx.stroke();
+    ctx.lineWidth = 1.1; ctx.strokeStyle = '#c98a1a'; ctx.stroke();
   }
   const fanAngle = slot => -Math.PI / 2 - SUN.arc / 2 + slot * SUN.arc / (SUN.petals - 1);
   // The whole resting fan with its first `lit` petals lit, painted in the fan box's own coordinates.
-  const FAN_BOX = { x: 172, y: 462, w: 76, h: 52 }, WHEEL_STEPS = 16;
+  const FAN_BOX = { x: 164, y: 455, w: 92, h: 56 }, WHEEL_STEPS = 16;
   function paintFan(c, lit) {
     c.save(); c.translate(-FAN_BOX.x, -FAN_BOX.y);
     for (let i = 0; i < SUN.petals; i++) {
-      c.globalAlpha = i < lit ? 1 : .35;
+      c.globalAlpha = i < lit ? 1 : .8;
       drawSunPetal(c, null, fanAngle(i), 1, i < lit ? paintLitPetal : paintEmptyPetal);
     }
     c.restore();
@@ -2353,8 +2387,12 @@
     }
     c.restore();
   }
+  function litPetalSprite() {
+    const length = SUN.outer - SUN.inner, half = SUN.half, pad = 5;
+    return hudSprite('petal:lit', half * 2 + pad * 2, length + pad * 2, c => { c.translate(half + pad, length + pad); paintLitPetal(c, length, half); });
+  }
   function drawSunPetal(ctx, sprite, angle, scale, paint) {
-    const length = SUN.outer - SUN.inner, half = 3.6;
+    const length = SUN.outer - SUN.inner, half = SUN.half;
     ctx.save(); ctx.translate(SUN.x + Math.cos(angle) * SUN.inner, SUN.y + Math.sin(angle) * SUN.inner);
     ctx.rotate(angle + Math.PI / 2); if (scale !== 1) ctx.scale(scale, scale);
     if (sprite) ctx.drawImage(sprite.surface, -sprite.w / 2, 5 - sprite.h, sprite.w, sprite.h);
@@ -2368,6 +2406,7 @@
     4: { fill: '#ff6f9a', edge: '#c92d63', ink: '#ffffff', ring: '#e2477c' },
     5: { fill: '#ffc93a', edge: '#d0820c', ink: '#6a3f00', ring: '#e59a12' }
   };
+  const badgeSprite = mult => hudSprite('badge:' + mult, 44, 44, c => paintBadge(c, BADGE[mult], 17));
   function paintBadge(ctx, tint, r) {
     const c = r + 5;
     ctx.save(); ctx.shadowColor = 'rgba(40,60,70,.32)'; ctx.shadowBlur = 4; ctx.shadowOffsetY = 1.5;
@@ -2382,8 +2421,7 @@
     const still = Boolean(options && options.reducedMotion);
     const superLeft = Math.max(0, Number(state.superBloom) || 0), sun = clamp(Number(state.sun) || 0, 0, 1);
     if (!state.scripted) {
-      const length = SUN.outer - SUN.inner, half = 3.6, pad = 5;
-      const lit = hudSprite('petal:lit', half * 2 + pad * 2, length + pad * 2, c => { c.translate(half + pad, length + pad); paintLitPetal(c, length, half); });
+      const lit = litPetalSprite();
       // During a Super Bloom the wheel turns: petals rise in on the left and sink out on the right, and the gold
       // drains back from the right as the six seconds run down. Otherwise it fills left to right, an eighth at a time.
       const turning = superLeft > 0 && !still;
@@ -2393,7 +2431,7 @@
         // The turning wheel is one of 16 cached steps; a wedge clip from the left end to the drain line hides the rest.
         const step = Math.floor(((time * 1.15) % 1) * WHEEL_STEPS) % WHEEL_STEPS;
         const wheel = hudSprite('wheel:' + step, FAN_BOX.w, FAN_BOX.h, c => paintWheel(c, step));
-        ctx.beginPath(); ctx.moveTo(SUN.x, SUN.y); ctx.arc(SUN.x, SUN.y, 44, fanAngle(-1.6), fanAngle(Math.min(filled, SUN.petals + .6))); ctx.closePath(); ctx.clip();
+        ctx.beginPath(); ctx.moveTo(SUN.x, SUN.y); ctx.arc(SUN.x, SUN.y, 52, fanAngle(-1.6), fanAngle(Math.min(filled, SUN.petals + .6))); ctx.closePath(); ctx.clip();
         if (wheel) ctx.drawImage(wheel.surface, FAN_BOX.x, FAN_BOX.y, FAN_BOX.w, FAN_BOX.h);
         else { ctx.translate(FAN_BOX.x, FAN_BOX.y); paintWheel(ctx, step); }
       } else {
@@ -2408,6 +2446,11 @@
           ctx.globalAlpha = .35 + .65 * part;
           drawSunPetal(ctx, lit, fanAngle(whole), .45 + .55 * part, paintLitPetal);
         }
+        // The next petal to fill glows softly, so the meter invites the next good shot; when one is left it pulses faster.
+        if (!still && superLeft <= 0 && !state.superQueued && whole < SUN.petals && part < .25) {
+          const beat = .5 + .5 * Math.sin(time * (whole === SUN.petals - 1 ? 9 : 4.5));
+          ctx.globalAlpha = .16 + .3 * beat; drawSunPetal(ctx, lit, fanAngle(whole), .92 + .08 * beat, paintLitPetal);
+        }
         const since = time - (Number(state.sunAt) || -1);
         if (!still && whole > 0 && superLeft <= 0 && since >= 0 && since < .28) {
           const fresh = 1 - since / .28;
@@ -2416,13 +2459,14 @@
       }
       ctx.restore();
     }
-    // The multiplier badge: hidden until two blooms chain, its ring the time left to keep the chain going.
-    const combo = Number(state.combo) || 0;
-    if (combo < 2) return;
-    const mult = clamp(Math.round(Number(state.mult) || 1), 1, 5), tint = BADGE[mult], r = 17, x = 352, y = 516;
+    // The multiplier badge: hidden until a chain earns x2, its ring the time left to keep the chain going. During a
+    // Super Bloom it shows the doubled value in gold, so 'double points' and the badge agree.
+    const base = clamp(Math.round(Number(state.mult) || 1), 1, 5), doubled = superLeft > 0, shown = doubled ? base * 2 : base;
+    if (shown < 2) return;
+    const mult = doubled ? 5 : base, tint = BADGE[mult], r = 17, x = 352, y = 516;
     const since = time - (Number(state.multAt) || -1), pulse = !still && mult > 1 && since >= 0 && since < .2 ? 1.25 - .25 * (since / .2) : 1;
     const left = clamp((Number(state.comboLeft) || 0) / (Number(state.comboWindow) || 1.1), 0, 1);
-    const badge = hudSprite('badge:' + mult, (r + 5) * 2, (r + 5) * 2, c => paintBadge(c, tint, r));
+    const badge = badgeSprite(mult);
     ctx.save(); ctx.translate(x, y); if (pulse !== 1) ctx.scale(pulse, pulse);
     ctx.beginPath(); ctx.arc(0, 0, r + 3.6, 0, TAU); ctx.strokeStyle = 'rgba(255,252,240,.7)'; ctx.lineWidth = 3.2; ctx.stroke();
     if (left > 0) {
@@ -2431,16 +2475,21 @@
     }
     if (badge) ctx.drawImage(badge.surface, -r - 5, -r - 5, badge.w, badge.h);
     else { ctx.save(); ctx.translate(-r - 5, -r - 5); paintBadge(ctx, tint, r); ctx.restore(); }
-    ctx.font = '700 15px Fredoka, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillStyle = tint.ink; ctx.fillText('×' + mult, 0, .5);
+    ctx.font = `700 ${shown >= 10 ? 13 : 15}px Fredoka, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = tint.ink; ctx.fillText('×' + shown, 0, .5);
     ctx.restore();
   }
 
   // A score pop. Its size grows with the chain multiplier; the type is set at 15 px and scaled, so the white
   // outline grows with it. Pops from a Super Bloom wear a gold rim.
   function drawPop(ctx, floater, reducedMotion) {
-    const life = Math.max(0, floater.life), duration = floater.maxLife || .8, age = duration - life;
-    const scale = reducedMotion ? 1 : Math.min(1.25, .4 + age * 9) - Math.max(0, age - .1) * .4;
+    // A pop can wait a beat (wait, seconds) so the bloom under it reads first; it never grows past full size, and
+    // a chain adding to it (bumpAt) gives it a small nudge.
+    const life = Math.max(0, floater.life), wait = Math.max(0, Number(floater.wait) || 0), duration = (floater.maxLife || .8) - wait;
+    const age = duration - life;
+    if (age < 0) return;
+    const bump = Number.isFinite(floater.bumpAt) ? (floater.maxLife - life) - floater.bumpAt : Infinity;
+    const scale = reducedMotion ? 1 : (Math.min(1, .45 + age * 8) - Math.max(0, age - .15) * .12) * (bump >= 0 && bump < .14 ? 1 + .12 * Math.sin(bump / .14 * Math.PI) : 1);
     const size = clamp(Number(floater.size) || 15, 8, 40), grow = Math.max(.7, scale) * size / 15;
     ctx.save(); ctx.translate(floater.x, floater.y - (reducedMotion ? 0 : ease(age / duration) * 26));
     ctx.scale(grow, grow);
@@ -2463,11 +2512,12 @@
   // Super Bloom turns the sky gold: a warm wash with a lit rim, and a soft band of light rising through it. Both
   // are painted once; a frame draws them with an alpha that fades in over .35 s and out over the last .6 s.
   function paintGoldSky(c) {
+    // Warm at the top and bottom edges, nearly clear through the middle, so a teal lake or blue cave keeps its colors.
     const wash = c.createLinearGradient(0, 0, 0, 560);
-    wash.addColorStop(0, 'rgba(255,196,64,.46)'); wash.addColorStop(.38, 'rgba(255,220,120,.22)');
-    wash.addColorStop(.72, 'rgba(255,214,110,.1)'); wash.addColorStop(1, 'rgba(255,184,60,.26)');
+    wash.addColorStop(0, 'rgba(255,196,64,.4)'); wash.addColorStop(.3, 'rgba(255,220,120,.12)');
+    wash.addColorStop(.7, 'rgba(255,214,110,.05)'); wash.addColorStop(1, 'rgba(255,184,60,.22)');
     c.fillStyle = wash; c.fillRect(0, 0, 420, 560);
-    c.save(); c.shadowColor = '#ffb21e'; c.shadowBlur = 20; c.strokeStyle = '#ffe28a'; c.lineWidth = 3; c.globalAlpha = .85;
+    c.save(); c.shadowColor = '#ffb21e'; c.shadowBlur = 7; c.strokeStyle = '#ffe28a'; c.lineWidth = 3; c.globalAlpha = .85;
     roundRect(c, 18, 18, 384, 524, 25); c.stroke(); c.restore();
     c.strokeStyle = 'rgba(255,253,236,.7)'; c.lineWidth = 1.2; roundRect(c, 18, 18, 384, 524, 25); c.stroke();
   }
@@ -2482,7 +2532,7 @@
   function drawGoldSky(ctx, state, time, still) {
     const left = Number(state.superBloom) || 0, fade = Math.min(1, (6 - left) / .35, left / .6);
     if (!(fade > 0)) return;
-    const sky = hudSprite('sky:gold', 420, 560, paintGoldSky), band = hudSprite('sky:band', 420, 240, paintGoldBand);
+    const sky = hudSprite('sky:gold', 420, 560, paintGoldSky, 1), band = hudSprite('sky:band', 420, 240, paintGoldBand, 1);
     ctx.save(); ctx.globalAlpha = fade;
     if (sky) ctx.drawImage(sky.surface, 0, 0, 420, 560);
     else { ctx.fillStyle = 'rgba(255,214,110,.16)'; ctx.fillRect(15, 15, 390, 530); }
@@ -2711,6 +2761,7 @@
     ctx.restore();
   }
 
+  const glowMote = hex => feelGlow('pglow|' + hex, 8, [[0, '#ffffff'], [.35, hex], [1, hex + '00']]);
   function drawParticle(ctx, particle, time, reducedMotion) {
     const f = clamp((particle.life == null ? 1 : particle.life) / (particle.maxLife || 1), 0, 1);
     if (!f) return;
@@ -2723,10 +2774,20 @@
       ctx.restore(); return;
     }
     if (particle.kind === 'glow') {
+      // A glow mote is one cached sprite per color, scaled and faded, never a gradient per frame.
       ctx.globalCompositeOperation = 'lighter';
-      const gr = size * 3.2, g = ctx.createRadialGradient(particle.x, particle.y, 0, particle.x, particle.y, gr);
-      g.addColorStop(0, '#ffffff'); g.addColorStop(.35, color); g.addColorStop(1, color + '00');
-      ctx.globalAlpha = f; ctx.fillStyle = g; ctx.fillRect(particle.x - gr, particle.y - gr, gr * 2, gr * 2);
+      const gr = size * 3.2, hex = /^#[0-9a-f]{6}$/i.test(color) ? color : '#ffcd45';
+      const sprite = glowMote(hex);
+      ctx.globalAlpha = f;
+      if (sprite) drawGlowSprite(ctx, sprite, particle.x, particle.y, gr / 8);
+      else { ctx.globalAlpha = f * .5; circle(ctx, particle.x, particle.y, gr * .5, hex); }
+      ctx.restore(); return;
+    }
+    if (particle.kind === 'light') {
+      // The finale's light: a warm glow on the flower that swells and fades, gilding it instead of bleaching the board.
+      const q = 1 - f, rr = size + ease(q) * (particle.grow || 40), sprite = goldSprite();
+      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .62 * f * f;
+      if (sprite) dab(ctx, sprite, particle.x, particle.y, rr / 40); else circle(ctx, particle.x, particle.y, rr * .5, 'rgba(255,224,130,.5)');
       ctx.restore(); return;
     }
     if (particle.kind === 'firefly') {
@@ -2803,13 +2864,16 @@
     // A restrained metallic relief gives the number the finish of a small trophy.
     const fill = ctx.createLinearGradient(0, -size * .5, 0, size * .5);
     face.stops.forEach((color, i) => fill.addColorStop([0, .3, .57, 1][i], color));
-    ctx.lineJoin = 'round'; ctx.lineWidth = praise ? 3.2 : 2.1; ctx.strokeStyle = '#fffce5';
+    ctx.lineJoin = 'round';
+    // A banner gets a dark rim under its cream line, so gold lettering still reads on the gold sky and amber scenes.
+    if (wave) { ctx.lineWidth = 7; ctx.strokeStyle = '#5a3412'; ctx.strokeText(value, 0, .8); }
+    ctx.lineWidth = praise ? 3.2 : wave ? 3 : 2.1; ctx.strokeStyle = '#fffce5';
     ctx.shadowColor = 'rgba(53,53,89,.45)'; ctx.shadowBlur = 7; ctx.shadowOffsetY = 3;
     ctx.strokeText(value, 0, 0); ctx.fillStyle = face.under; ctx.fillText(value, 0, 1.7);
     ctx.shadowBlur = 0; ctx.shadowOffsetY = 0; ctx.fillStyle = fill; ctx.fillText(value, 0, 0);
     if (combo || bonus || wave) {
       const width = praise ? ctx.measureText(value).width : 0;
-      ctx.font = '600 13px Fredoka, system-ui, sans-serif';
+      ctx.font = `600 ${wave ? 14 : 13}px Fredoka, system-ui, sans-serif`;
       const label = wave || praise ? String(floater.label || '') : combo ? 'chain!' : 'extra seeds';
       ctx.shadowColor = 'rgba(255,255,255,.95)'; ctx.shadowBlur = 4;
       // A cream outline keeps the small line readable on the dark caves as well as the bright meadow.
@@ -2843,16 +2907,21 @@
     if (typeof OffscreenCanvas !== 'undefined') surface = new OffscreenCanvas(pw, ph);
     else if (typeof document !== 'undefined' && document.createElement) { surface = document.createElement('canvas'); surface.width = pw; surface.height = ph; }
     if (!surface) return null;
-    const c = surface.getContext('2d'); c.scale(k, k); paint(c);
+    const c = surface.getContext('2d'); c.scale(k, k); paint(c); painted++;
     const sprite = { surface, w, h, k };
     if (stageCache.size >= 64) stageCache.delete(stageCache.keys().next().value);
     stageCache.set(key, sprite);
     return sprite;
   }
   // Lettering is only cached once the font has arrived, so a sprite never keeps a fallback face.
+  // A face that has arrived stays arrived, so the check (a style lookup each call) runs only until it does.
+  const fontsIn = new Set();
   function fontReady(font) {
+    if (fontsIn.has(font)) return true;
     const fonts = typeof document !== 'undefined' && document.fonts;
-    return !fonts || typeof fonts.check !== 'function' || fonts.check(font);
+    const ready = !fonts || typeof fonts.check !== 'function' || fonts.check(font);
+    if (ready) fontsIn.add(font);
+    return ready;
   }
   function measure(ctx, font, text) { ctx.font = font; return Number(ctx.measureText(String(text)).width) || 0; }
   function shade(hex, amount) {
@@ -2924,9 +2993,17 @@
     if (L.label) { c.font = L.lf; c.fillStyle = boss ? '#ffcbe3' : '#9c6a2c'; c.fillText(L.label, 0, ly); }
     c.restore();
   }
+  // Layouts are measured once per callout and kept on it (as a hidden field, so copies of the floater stay plain).
+  function layoutOf(ctx, floater, kind, make) {
+    const held = floater.__layout;
+    if (held && held.kind === kind && held.text === floater.text && held.label === floater.label) return held.value;
+    const value = make(ctx, floater);
+    try { Object.defineProperty(floater, '__layout', { value: { kind, text: floater.text, label: floater.label, value }, configurable: true, writable: true, enumerable: false }); } catch (error) { /* frozen: measure again next time */ }
+    return value;
+  }
   function drawTitle(ctx, floater, reducedMotion) {
     const life = Math.max(0, floater.life == null ? 1 : floater.life), duration = floater.maxLife || 1.2, age = Math.max(0, duration - life);
-    const L = titleLayout(ctx, floater);
+    const L = layoutOf(ctx, floater, 'title', titleLayout);
     let scale = 1, alpha = Math.min(1, life / .26);
     if (!reducedMotion) {
       // A boss's card slams down; every other title springs up and then floats.
@@ -2990,16 +3067,21 @@
       c.lineWidth = 3.2; c.stroke();
     }
   }
-  function paintStamp(c, S) {
-    const deep = shade(S.color, .42), dark = shade(S.color, .2), hw = S.bw / 2, hh = S.bh / 2, mx = -hw, tx = S.medal / 2;
+  // The bonus tag tucked under the band: painted live each frame (a plain shape and one line of text, no blur), so
+  // the cached body serves every bonus a trick can pay.
+  function paintStampTag(c, S) {
+    if (!S.label) return;
+    const deep = shade(S.color, .42), dark = shade(S.color, .2), hw = S.bw / 2, hh = S.bh / 2, w = S.lw + 18, x = hw - w - 10;
     c.save(); c.translate(S.medal / 2 - 2, 0); c.lineJoin = 'round';
-    if (S.label) {
-      const w = S.lw + 18, x = hw - w - 10;
-      c.save(); c.shadowColor = 'rgba(40,30,60,.25)'; c.shadowBlur = 4; c.shadowOffsetY = 2;
-      roundRect(c, x, hh - 8, w, 25, 9); c.fillStyle = '#fffaf0'; c.fill(); c.restore();
-      roundRect(c, x, hh - 8, w, 25, 9); c.strokeStyle = dark; c.lineWidth = 1.6; c.stroke();
-      c.font = S.lf; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = deep; c.fillText(S.label, x + w / 2, hh + 8.5);
-    }
+    roundRect(c, x, hh - 6.5, w, 25, 9); c.fillStyle = 'rgba(40,30,60,.2)'; c.fill();
+    roundRect(c, x, hh - 8, w, 25, 9); c.fillStyle = '#fffaf0'; c.fill(); c.strokeStyle = dark; c.lineWidth = 1.6; c.stroke();
+    c.font = S.lf; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = deep; c.fillText(S.label, x + w / 2, hh + 8.5);
+    c.restore();
+  }
+  function paintStamp(c, S, tag) {
+    const deep = shade(S.color, .42), dark = shade(S.color, .2), hw = S.bw / 2, hh = S.bh / 2, mx = -hw, tx = S.medal / 2;
+    if (tag !== false) paintStampTag(c, S);
+    c.save(); c.translate(S.medal / 2 - 2, 0); c.lineJoin = 'round';
     c.save(); c.shadowColor = 'rgba(40,30,60,.35)'; c.shadowBlur = 7; c.shadowOffsetY = 3;
     roundRect(c, -hw, -hh, S.bw, S.bh, hh); c.fillStyle = S.color; c.fill(); c.restore();
     c.save(); roundRect(c, -hw, -hh, S.bw, S.bh, hh); c.clip();
@@ -3017,7 +3099,7 @@
   }
   function drawStamp(ctx, floater, reducedMotion) {
     const life = Math.max(0, floater.life == null ? 1 : floater.life), duration = floater.maxLife || 1.1, age = Math.max(0, duration - life);
-    const S = stampLayout(ctx, floater);
+    const S = layoutOf(ctx, floater, 'stamp', stampLayout);
     let scale = 1, alpha = Math.min(1, life / .22);
     if (!reducedMotion) {
       // Stamped on: it drops from above the page, squashes once and lifts away as it fades.
@@ -3025,11 +3107,14 @@
       else if (age < .3) scale = 1 - .07 * Math.sin((age - .11) / .19 * Math.PI);
       if (life < .22) scale *= 1 + (1 - life / .22) * .08;
     }
-    ctx.save(); ctx.translate(onBoard(floater.x, S.w), Number(floater.y) || 200); ctx.rotate(-6 * Math.PI / 180); ctx.scale(scale, scale);
+    // A stamp in the pod's lane (lane) is a little smaller and sits square, like a tag on the score.
+    const lane = Boolean(floater.lane), size = lane ? .8 : 1;
+    ctx.save(); ctx.translate(lane ? clamp(Number(floater.x) || 104, 22 + S.w * size / 2, 398 - S.w * size / 2) : onBoard(floater.x, S.w), Number(floater.y) || 200);
+    ctx.rotate((lane ? -3 : -6) * Math.PI / 180); ctx.scale(scale * size, scale * size);
     ctx.globalAlpha *= alpha;
-    const key = `trick|${S.kind}|${S.text}|${S.label}`;
-    const sprite = fontReady(S.tf) ? stageSprite(key, S.w, S.h, c => { c.translate(S.w / 2, S.h / 2); paintStamp(c, S); }) : null;
-    if (sprite) ctx.drawImage(sprite.surface, -S.w / 2, -S.h / 2, S.w, S.h); else paintStamp(ctx, S);
+    const key = `trick|${S.kind}|${S.text}`;
+    const sprite = fontReady(S.tf) ? stageSprite(key, S.w, S.h, c => { c.translate(S.w / 2, S.h / 2); paintStamp(c, S, false); }) : null;
+    if (sprite) { paintStampTag(ctx, S); ctx.drawImage(sprite.surface, -S.w / 2, -S.h / 2, S.w, S.h); } else paintStamp(ctx, S);
     if (!reducedMotion && age >= .1 && age < .38) {
       // Ink flicks out from the edge as it lands.
       const k = (age - .1) / .28, rx = S.bw / 2 + 18 + k * 16, ry = S.bh / 2 + 12 + k * 14;
@@ -3060,10 +3145,12 @@
   }
   function drawLifeBand(ctx, floater, reducedMotion) {
     const life = Math.max(0, floater.life == null ? 1 : floater.life), duration = floater.maxLife || 1.1, age = Math.max(0, duration - life);
-    const text = String(floater.text || ''), tf = '700 16px Fredoka, system-ui, sans-serif';
-    ctx.save(); const tw = measure(ctx, tf, text); ctx.restore();
-    const L = { text, tf, bw: Math.min(300, Math.max(124, tw + 54)), bh: 30 };
-    L.w = Math.ceil(L.bw + 16); L.h = 46;
+    const L = layoutOf(ctx, floater, 'life', () => {
+      const text = String(floater.text || ''), tf = '700 16px Fredoka, system-ui, sans-serif';
+      ctx.save(); const tw = measure(ctx, tf, text); ctx.restore();
+      const bw = Math.min(300, Math.max(124, tw + 54));
+      return { text, tf, bw, bh: 30, w: Math.ceil(bw + 16), h: 46 };
+    }), text = L.text, tf = L.tf;
     let scale = 1, dx = 0, alpha = Math.min(1, life / .25);
     if (!reducedMotion) { scale = age < .2 ? .55 + .45 * backOut(age / .2, 2) : 1; if (age < .4) dx = Math.sin(age * 58) * 5 * (1 - age / .4); alpha *= Math.min(1, age / .05); }
     ctx.save(); ctx.translate(onBoard(floater.x, L.w) + dx, Number(floater.y) || 380); ctx.scale(scale, scale); ctx.globalAlpha *= alpha;
@@ -3087,9 +3174,9 @@
     if (!still && harvest && harvest.length) drawHarvest(ctx, harvest);
     if (!still && stage && stage.glow > 0) {
       // Where the orbs land, the corner flares a little more with each one.
-      const g = clamp(stage.glow, 0, 1), sprite = orbSprite();
-      ctx.globalAlpha = g; glowAt(ctx, sprite, HARVEST_TO.x, HARVEST_TO.y, 34 + g * 60);
-      sparkle(ctx, HARVEST_TO.x - 6, HARVEST_TO.y + 8, 4 + g * 9, '#ffffff', time * 2);
+      const g = clamp(stage.glow, 0, 1), sprite = orbSprite(), gy = Math.max(6, HARVEST_TO.y);
+      ctx.globalAlpha = g; glowAt(ctx, sprite, HARVEST_TO.x, gy, 34 + g * 60);
+      sparkle(ctx, HARVEST_TO.x - 6, gy + 8, 4 + g * 9, '#ffffff', time * 2);
     }
     ctx.restore();
     if (!still && stage && typeof stage.introAt === 'number') drawCurtain(ctx, time - stage.introAt);
@@ -3097,7 +3184,13 @@
 
   // Harvest orbs: each bloom's light lifts off its flower and arcs into the score at the top right, quicker as
   // it goes. They all share one glow sprite; the colored core is the flower's own.
+  // Where the orbs fly: the score readout's place in board space (it sits above the board, so y can be negative).
+  // The app sets it from the page layout; the glow that greets them sits just inside the board's top edge.
   const HARVEST_TO = { x: 392, y: 10 };
+  function setHarvestTarget(x, y) {
+    if (Number.isFinite(x)) HARVEST_TO.x = clamp(x, 30, 390);
+    if (Number.isFinite(y)) HARVEST_TO.y = clamp(y, -60, 10);
+  }
   function orbSprite() {
     return stageSprite('orb', 32, 32, c => {
       const g = c.createRadialGradient(16, 16, 0, 16, 16, 16);
@@ -3154,7 +3247,7 @@
   // The boss's health vine across the top: one leaf per hit left. A lost leaf falls, a pale stretch of stem shows
   // the damage and shrinks, and a hit shakes the vine. Stems are cached once and cropped; leaves are cached per
   // hit count.
-  const VINE = { x: 90, y: 26, w: 240, left: 56, top: 4, width: 308, height: 44 };
+  const VINE = { x: 90, y: 18, w: 240, left: 56, top: -4, width: 308, height: 44 };
   const vineY = x => VINE.y + Math.sin((x - VINE.x) / VINE.w * TAU * 1.5) * 1.6;
   function vineStem(c, from, to) {
     c.beginPath();
@@ -3229,7 +3322,9 @@
     // A boss only ever loses leaves, so the sprite for the count it just left is let go (up to 19 of them a fight).
     const leavesKey = `vine|leaves|${max}|${hp}`;
     if (vineLeavesKey !== leavesKey) { if (vineLeavesKey) stageCache.delete(vineLeavesKey); vineLeavesKey = leavesKey; }
-    vineBlit(ctx, vinePiece(leavesKey, paintLeaves), paintLeaves, VINE.left, right);
+    // Once it blooms only the leaf scars are left, for the .45 s the vine fades: painted live, not a new sprite at
+    // the busiest moment of the level.
+    vineBlit(ctx, bud.bloomed ? null : vinePiece(leavesKey, paintLeaves), paintLeaves, VINE.left, right);
     // Lost leaves drop off and tumble away.
     const length = vineLeafSize(max);
     for (const fall of vine.fallen || []) {
@@ -3240,11 +3335,13 @@
       leaf(ctx, x0 + spin * age * 24, vineY(x0) + age * 26 + age * age * 150, length, length * .6, (fall.i % 2 ? Math.PI - .8 : .8) + spin * age * 6, '#6cc274', '#2a7744');
       ctx.restore();
     }
-    if (vine.name && reveal > .6) {
-      ctx.globalAlpha *= clamp((reveal - .6) / .4, 0, 1);
-      ctx.font = '600 11px Fredoka, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
-      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,250,236,.95)'; ctx.strokeText(vine.name, VINE.x + VINE.w / 2, VINE.y + 18);
-      ctx.fillStyle = (FLOWERS[type] || FLOWERS.coral).dark; ctx.fillText(vine.name, VINE.x + VINE.w / 2, VINE.y + 18);
+    // The name waits while the boss's own card shows it, then comes in under the vine.
+    const card = (Number(vine.cardUntil) || 0) - time, named = clamp((reveal - .6) / .4, 0, 1) * (card > 0 ? clamp(1 - card / .25, 0, 1) : 1);
+    if (vine.name && named > 0) {
+      ctx.globalAlpha *= named;
+      ctx.font = '700 13px Fredoka, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+      ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(255,250,236,.97)'; ctx.strokeText(vine.name, VINE.x + VINE.w / 2, VINE.y + 19);
+      ctx.fillStyle = (FLOWERS[type] || FLOWERS.coral).dark; ctx.fillText(vine.name, VINE.x + VINE.w / 2, VINE.y + 19);
     }
     ctx.restore();
   }
@@ -3523,15 +3620,16 @@
     if (rush) drawLullaby(ctx, state, time, options.reducedMotion, buds, false);
     // Bloom rings are drawn under the flowers, never on top of aiming feedback.
     for (const bud of buds) {
-      if (bud.bloomed && !options.reducedMotion && typeof bud.bloomAt === 'number') {
+      if (bud.bloomed && !bud.leaving && !options.reducedMotion && typeof bud.bloomAt === 'number') {
         const age = time - bud.bloomAt;
         if (age >= 0 && age < .85) {
           const c = FLOWERS[bud.type] || FLOWERS.coral;
           if (age < .16) {
             // A brief additive flash sells the instant of impact; a cached sprite per color, faded with alpha.
-            const f = 1 - age / .16, fr = (bud.r || 13) * (1.4 + (1 - f) * 1.9), sprite = flashSprite(bud.type);
+            // A big flower (a boss) gets a softer, tighter one, so its own crack and petals stay readable.
+            const big = (bud.r || 13) > 18, f = 1 - age / .16, fr = (bud.r || 13) * (big ? 1.25 + (1 - f) * 1 : 1.4 + (1 - f) * 1.9), sprite = flashSprite(bud.type);
             ctx.save(); ctx.globalCompositeOperation = 'lighter';
-            if (sprite) { ctx.globalAlpha *= f; ctx.drawImage(sprite.surface, bud.x - fr, bud.y - fr, fr * 2, fr * 2); }
+            if (sprite) { ctx.globalAlpha *= f * (big ? .5 : 1); ctx.drawImage(sprite.surface, bud.x - fr, bud.y - fr, fr * 2, fr * 2); }
             else {
               const flash = ctx.createRadialGradient(bud.x, bud.y, 0, bud.x, bud.y, fr);
               flash.addColorStop(0, `rgba(255,255,240,${.9 * f})`); flash.addColorStop(.45, c.light + Math.round(f * 170).toString(16).padStart(2, '0'));
@@ -3557,7 +3655,7 @@
         }
       }
     }
-    const unfurling = pickUnfurls(buds, time, options);
+    const unfurling = pickUnfurls(buds, time, options), line = rush ? Number(state.dangerY) || 448 : Infinity;
     unfurlOptions.time = time; unfurlOptions.reducedMotion = Boolean(options.reducedMotion); unfurlOptions.quality = Number(options.quality) || 0;
     findTremble(state);
     for (const bud of buds) {
@@ -3566,7 +3664,17 @@
       // Every bloom takes the same .55 s, whether it unfurls petal by petal or crossfades (over budget).
       const openness = bud.bloomed ? (options.reducedMotion || typeof bud.bloomAt !== 'number' ? 1 : clamp(age / UNFURL, 0, 1)) : 0;
       const hp = Math.max(1, Number(bud.hp) || 1), maxHp = Math.max(hp, Number(bud.maxHp) || 1), radius = bud.r || 16;
+      // A spent flower that has finished opening fades as it sinks to the danger line, gone 26 px past it.
+      let sink = 1;
+      if (bud.bloomed && line < Infinity) {
+        const over = bud.y + radius - (line - 8);
+        if (over > 0) sink = 1 - clamp(over / 26, 0, 1) * (options.reducedMotion ? 1 : clamp((age - UNFURL) / .25, 0, 1));
+        if (sink <= 0) continue;
+      }
+      // The tutorial fades the last step's flowers out (bud.fade, 1 to 0 in real time) as the next card comes up.
+      if (typeof bud.fade === 'number') { sink *= clamp(bud.fade, 0, 1); if (sink <= 0) continue; }
       ctx.save();
+      if (sink < 1) ctx.globalAlpha *= sink;
       // A wave tumbles in from above (stage sets enterAt): a ghost waits in place, then the bud drops onto it.
       // Only the drawing moves; the bud is already live where the ghost is.
       let entering = false;
@@ -3690,5 +3798,86 @@
     drawFeelOverlay(ctx, state, time, options);
   }
 
-  root.BloomArt = { draw, drawFlower, drawGarden, drawMoon, koiFish, drawProjectile, drawParticle, drawSeed, drawPowerIcon, drawUnfurl, drawChainLinks };
+  // Warm-up. Everything a level can need is painted ahead, in small slices the app runs while the level's intro plays,
+  // so the first Super Bloom, trick, title, finale and bloom of each flower never pay for a paint on the frame they
+  // appear. prewarm({ flowers: [{ type, r }], board: [{ x, y, r, type }], boss: { type, r, x, y, max }, callouts })
+  // returns { step(ms) } which paints jobs until ms have passed and returns true once every job is done.
+  const warmClock = () => (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now());
+  function warmCallout(ctx, floater) {
+    if (!ctx || !floater) return;
+    if (floater.kind === 'title') {
+      const L = titleLayout(ctx, floater);
+      if (fontReady(L.tf)) stageSprite(`title|${L.boss ? 'boss' : floater.size === 'small' ? 'small' : 'big'}|${L.text}|${L.label}`, L.w, L.h, c => { c.translate(L.w / 2, L.h / 2); paintTitle(c, L); });
+    } else if (floater.kind === 'trick') {
+      const S = stampLayout(ctx, floater);
+      if (fontReady(S.tf)) stageSprite(`trick|${S.kind}|${S.text}`, S.w, S.h, c => { c.translate(S.w / 2, S.h / 2); paintStamp(c, S, false); });
+    } else if (floater.kind === 'life') {
+      const text = String(floater.text || ''), tf = '700 16px Fredoka, system-ui, sans-serif';
+      ctx.save(); const tw = measure(ctx, tf, text); ctx.restore();
+      const bw = Math.min(300, Math.max(124, tw + 54)), L = { text, tf, bw, bh: 30, w: Math.ceil(bw + 16), h: 46 };
+      if (fontReady(tf)) stageSprite(`life|${text}`, L.w, L.h, c => { c.translate(L.w / 2, L.h / 2); paintLifeBand(c, L); });
+    }
+  }
+  function prewarm(plan) {
+    plan = plan || {};
+    const jobs = [], scratch = makeSurface(4, 4), sctx = scratch && scratch.getContext('2d'), add = fn => jobs.push(fn);
+    // The HUD: the gold sky and its band, the sun fan at every count, the turning wheel, the badges.
+    add(() => hudSprite('sky:gold', 420, 560, paintGoldSky, 1)); add(() => hudSprite('sky:band', 420, 240, paintGoldBand, 1));
+    add(litPetalSprite);
+    for (let i = 0; i <= SUN.petals; i++) add(() => hudSprite('fan:' + i, FAN_BOX.w, FAN_BOX.h, c => paintFan(c, i)));
+    for (let i = 0; i < WHEEL_STEPS; i++) add(() => hudSprite('wheel:' + i, FAN_BOX.w, FAN_BOX.h, c => paintWheel(c, i)));
+    for (let m = 1; m <= 5; m++) add(() => badgeSprite(m));
+    // Light: the finale's gold, each color's bloom flash and glow motes, the orbs, the veils and the curtains.
+    add(goldSprite); add(headSprite); add(orbSprite);
+    for (const type of Object.keys(FLOWERS)) { add(() => flashSprite(type)); add(() => glowMote(FLOWERS[type].base.slice(0, 7))); }
+    for (const hex of ['#ff5d94', '#ffd148', '#a47dff', '#45adff', '#ff7433']) add(() => glowMote(hex));
+    for (const rgb of VEILS) add(() => veilSprite(rgb));
+    add(() => curtainSprite('top')); add(() => curtainSprite('bottom'));
+    // Lettering: titles, the boss's card, stamps and life bands (each only once its font is in).
+    for (const floater of plan.callouts || []) add(() => warmCallout(sctx, floater));
+    // The boss's vine.
+    if (plan.boss && FLOWERS[plan.boss.type]) {
+      const type = plan.boss.type, max = Math.max(1, Math.round(plan.boss.max || 1));
+      add(() => vinePiece(`vine|base|${type}`, c => paintVineBase(c, type)));
+      add(() => vinePiece('vine|lag', c => paintVineStem(c, '#ffe58a', '#fffbe6'))); add(() => vinePiece('vine|live', c => paintVineStem(c, '#3c9a50', '#9de58f')));
+    }
+    // Flowers: every sprite a bloom needs for each kind and size, then every frame of its unfurl sheets, and the
+    // open flower in each of its seven variations (a wave that has not come down yet blooms into any of them; the
+    // boss always wears the first).
+    const kinds = (plan.flowers || []).filter(f => FLOWERS[f.type] && Number(f.r) > 0);
+    for (const { type, r } of kinds) for (let v = 0; v < 7; v++) add(() => drawFlower(sctx, 0, 0, r, type, 1, 0, v));
+    if (plan.boss && FLOWERS[plan.boss.type]) { const boss = { type: plan.boss.type, r: Number(plan.boss.r) || 24 }; kinds.push(boss); add(() => drawFlower(sctx, 0, 0, boss.r, boss.type, 1, 0, 0)); }
+    for (const { type, r } of kinds) {
+      add(() => {
+        const set = spritesFor({ id: `warm:${type}:${r}` }, type, r);
+        if (!set.ready) return;
+        for (const [sheet, sprite] of [[set.sheet, set.outer], [set.innerSheet, set.innerPetal]]) {
+          if (!sheet || !sprite) continue;
+          for (let k = 1; k < sheet.frames; k++) jobs.push(() => { sheetFrame(sheet, sprite, sheet.from + k * sheet.step); sheet.used = sheetClock; });
+        }
+      });
+      add(() => drawFlower(sctx, 0, 0, r, type, 0, 0, 0));
+    }
+    // The flowers on the board now, resting open, as each one will look once it blooms.
+    for (const bud of (plan.board || []).slice(0, 40)) {
+      if (!bud || !FLOWERS[bud.type]) continue;
+      add(() => drawFlower(sctx, Number(bud.x) || 0, Number(bud.y) || 0, Number(bud.r) || 11, bud.type, 1, 0, ((Math.floor(Number(bud.x) || 0) * 31 + Math.floor(Number(bud.y) || 0) * 17) % 7 + 7) % 7));
+    }
+    let next = 0;
+    return {
+      step(ms) {
+        const end = warmClock() + (Number(ms) > 0 ? Number(ms) : 3);
+        while (next < jobs.length) {
+          try { jobs[next++](); } catch (error) { /* a sprite that cannot be painted ahead is painted when first drawn */ }
+          if (warmClock() >= end) break;
+        }
+        return next >= jobs.length;
+      },
+      get left() { return jobs.length - next; },
+      get total() { return jobs.length; }
+    };
+  }
+
+  root.BloomArt = { draw, drawFlower, drawGarden, drawMoon, koiFish, drawProjectile, drawParticle, drawSeed, drawPowerIcon, drawUnfurl, drawChainLinks,
+    prewarm, setHarvestTarget, paints: () => painted };
 })(typeof window !== 'undefined' ? window : globalThis);

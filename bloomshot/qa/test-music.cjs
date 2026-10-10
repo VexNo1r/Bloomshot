@@ -200,6 +200,14 @@ async function main() {
     assert(counted > 3000, `${counted} notes checked`);
   });
 
+  await test('Two waves before the boss its pulse and kit render ahead, so its groove is ready when it lands, but stay silent', async () => {
+    const plain = fixture(), soon = fixture();
+    for (const h of [plain, soon]) { h.sound.wake(); h.tick(1); }
+    for (let i = 0; i < 12; i++) { plain.frame({ route: 'game', groove: 'meadow' }); soon.frame({ route: 'game', groove: 'meadow', bossSoon: true }); await settle(); }
+    assert.equal(plain.offline.length, LAYERS.length - 2, 'otherwise the boss pair waits for the boss');
+    assert.equal(soon.offline.length, LAYERS.length, 'every layer, the boss pair included, is rendered');
+    assert.deepEqual(on(soon.frame({ route: 'game', groove: 'meadow', bossSoon: true })), on(plain.frame({ route: 'game', groove: 'meadow' })));
+  });
   await test('Layer targets follow heat and threat; a boss wave swaps in its own pulse and kit', async () => {
     const cases = [
       [{ heat: 0 }, ['bed']], [{ heat: 0.19 }, ['bed']], [{ heat: 0.2 }, ['bed', 'pulse']], [{ heat: 0.45 }, ['bed', 'pulse', 'kit']],

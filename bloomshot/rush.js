@@ -79,7 +79,7 @@
       this.started = false; this.elapsed = 0; this.fireCooldown = 0; this.rotateCooldown = 0;
       this.splitCharge = 0; this.directHits = 0; this.totalBlooms = 0;
       this.guideCharge = 0; this.guideTarget = null;
-      this.waveBreaches = 0; this.nextWaveAt = null; this.lastHitAt = -100;
+      this.waveBreaches = 0; this.nextWaveAt = null; this.lastHitAt = -100; this.bossDown = false;
       this.speed = 460; this.descentSpeed = 10.2; this.waveFireDelay = FIRE_DELAY; this.waveHint = '';
       // Gifts need a source of chance from the app; without one (tests, the practice bot) none appear.
       this.random = options && typeof options.random === 'function' ? options.random : null;
@@ -275,7 +275,7 @@
       while (this.sunLit < lit) { this.sunAt = this.time; this.event('sunPetal', { petal: this.sunLit++, of: SUN_PETALS }); }
       if (this.sunCharge < need - 1e-9) return;
       this.sunFills++;
-      const resting = this.nextWaveAt !== null || (!this.buds.some(open) && this.pending.length === 0 && !(this.drops && this.drops.length));
+      const resting = this.nextWaveAt !== null || this.bossDown || (!this.buds.some(open) && this.pending.length === 0 && !(this.drops && this.drops.length));
       if (resting) this.superQueued = true; else this._startSuper();
     }
     _startSuper() {
@@ -348,6 +348,9 @@
         this.buds.filter(other => open(other) && !queued(other))
           .sort((a, b) => Math.hypot(a.x - bud.x, a.y - bud.y) - Math.hypot(b.x - bud.x, b.y - bud.y))
           .forEach((other, index) => this.pending.push(this._link(other.id, this.time + .25 + index * .06, bud, 'boss', true)));
+        // It is the wave's last beat: reinforcements still to come never arrive, and a sun that fills in the cascade
+        // waits for the next wave instead of starting a Super Bloom over a garden that is already won.
+        this.drops = []; this.bossDown = true;
         this.event('boss', { bud, gain, name: bud.name || null });
       }
       if (bud.relay && !chain) {
@@ -402,7 +405,7 @@
     _loadWave() {
       const missed = this.buds.find(bud => bud.gift);
       if (missed) this.event('giftGone', { power: missed.gift, x: missed.x, y: missed.y });
-      this.wave++; this.waveBreaches = 0; this.nextWaveAt = null; this.pending = []; this.waveStart = this.time;
+      this.wave++; this.waveBreaches = 0; this.nextWaveAt = null; this.pending = []; this.waveStart = this.time; this.bossDown = false;
       this.waveBlooms = 0; this.waveBestChain = 0; this.waveTricks = 0; this.waveKinds.clear();
       // A seed still flying into the new wave keeps its tally, so its hat trick and grand slam stay once a seed.
       for (const id of this.credits.keys()) if (!this.balls.some(ball => ball.id === id)) this.credits.delete(id);
@@ -474,7 +477,7 @@
         if (bud && item.from && !bud.bloomed) bud.impactAngle = Math.atan2(bud.y - item.from.y, bud.x - item.from.x);
         this.due = item; this.strike(bud, true); this.due = null;
       });
-      if (this.briarTimers && this.briarTimers.size) this._regrow();
+      if (this.briarTimers && this.briarTimers.size && !this.bossDown) this._regrow();
       if (this.nextWaveAt !== null && this.time + 1e-10 >= this.nextWaveAt) this._loadWave();
       const waveTime = this.time - this.waveStart;
       if (this.giftAt !== null && waveTime >= this.giftAt) this._spawnGift();
@@ -583,7 +586,8 @@
       this.ball = this.balls[0] || null;
       if (!this.scripted && !this.buds.some(open) && this.pending.length === 0 && this.nextWaveAt === null && !(this.drops && this.drops.length)) {
         if (this.wave >= this.finalWave) { this._clearLevel(); return; }
-        this.nextWaveAt = this.time + 0.7;
+        // Every fifth wave of endless Rush ends on the finale, so its gold sweep gets time to land before the next wave.
+        this.nextWaveAt = this.time + (!this.plan && this.wave % 5 === 0 ? 1.4 : 0.7);
         this.event('cleared', { wave: this.wave, tempo: this.tempo, next: tempoFor(this.wave + 1), blooms: this.waveBlooms, bestChain: this.waveBestChain, tricks: this.waveTricks });
       }
     }

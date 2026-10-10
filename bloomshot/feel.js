@@ -25,6 +25,8 @@
   const FINALE = { scale: .22, scaleIn: .08, zoom: 1.16, zoomIn: .25, vignette: .45, vignetteIn: .3, hold: .95 };
   const RELEASE = { scale: .22, zoom: .6, vignette: .5 };
   const IMPACT = { kick: .025, dur: .04 };
+  // An impact nothing built up to (a chain or a cascade ended the level) leans in and slows down on its own.
+  const COLD = { scale: .4, scaleIn: .05, zoom: 1.08, zoomIn: .2, vignette: .25 };
   const DIP = { scale: .45, in: .04, hold: .25, out: .12 };
   const PUNCH = { zoom: 1.06, in: .06, out: .3 };
   const ZOOM_MAX = 1.2, BUSY_TAIL = .1, PAN_RATE = 10, BOARD = { width: 420, height: 560 };
@@ -96,10 +98,15 @@
         tween(zoom, FINALE.zoom, FINALE.zoomIn, EASE.inOutSine);
         tween(vignette, FINALE.vignette, FINALE.vignetteIn, EASE.outCubic);
       } else if (kind === 'impact') {
-        // A kick a little further in, then the long settle back.
+        // A kick a little further in, then the long settle back. A cold impact ({ x, y, cold: true }) with the camera
+        // still wide gets a short lean-in and slow-down first, so the end is never flat.
         if (opts) focus(opts);
         phase = 'impact';
-        tween(zoom, Math.min(ZOOM_MAX, zoom.value + IMPACT.kick), IMPACT.dur, EASE.outCubic);
+        if (opts && opts.cold && zoom.value <= 1.001) {
+          tween(scale, COLD.scale, COLD.scaleIn, EASE.outCubic);
+          tween(zoom, COLD.zoom, COLD.zoomIn, EASE.outCubic);
+          tween(vignette, COLD.vignette, COLD.zoomIn, EASE.outCubic);
+        } else tween(zoom, Math.min(ZOOM_MAX, zoom.value + IMPACT.kick), IMPACT.dur, EASE.outCubic);
       } else if (kind === 'release') {
         if (!cinematic() || phase === 'release') return false;
         release();
@@ -174,18 +181,28 @@
     return request;
   }
 
-  // Quality governor: an average of frame time (alpha .1). Two seconds above 19 ms steps to tier 1, two seconds
-  // above 25 ms to tier 2, and it never steps back down within a page session. Tab switches (over 100 ms) are ignored.
-  function createGovernor() {
-    let ema = 0, primed = false, tier = 0, slow = 0, slower = 0;
-    function sample(realDt) {
+  // Quality governor: an average (alpha .1) of what each sample measures. createGovernor() measures frame time: two
+  // seconds above 19 ms steps to tier 1, two seconds above 25 ms to tier 2, and it never steps back down within a page
+  // session. createGovernor({ slow, slower, recover }) sets the two thresholds in ms, and with recover (seconds) a run
+  // that long under 80% of slow steps back down one tier. sample(seconds, span) measures a cost rather than a frame
+  // time when span (the real seconds the sample covers) is given, so a phone capped at 30 Hz doing little work per
+  // frame is never mistaken for a slow one. Samples over 100 ms (tab switches) are ignored.
+  function createGovernor(options) {
+    const o = options || {}, SLOW = o.slow > 0 ? o.slow : 19, SLOWER = o.slower > 0 ? o.slower : 25, RECOVER = o.recover > 0 ? o.recover : 0;
+    let ema = 0, primed = false, tier = 0, slow = 0, slower = 0, calm = 0;
+    function sample(realDt, span) {
       const ms = (Number(realDt) || 0) * 1000;
       if (!(ms > 0) || ms > 100) return tier;
+      const dt = Number(span) > 0 ? Math.min(.1, Number(span)) : ms / 1000;
       ema = primed ? ema + (ms - ema) * .1 : ms; primed = true;
-      slow = ema > 19 ? slow + ms / 1000 : 0;
-      slower = ema > 25 ? slower + ms / 1000 : 0;
-      if (tier < 2 && slower >= 2) tier = 2;
-      else if (tier < 1 && slow >= 2) tier = 1;
+      slow = ema > SLOW ? slow + dt : 0;
+      slower = ema > SLOWER ? slower + dt : 0;
+      if (tier < 2 && slower >= 2) { tier = 2; calm = 0; }
+      else if (tier < 1 && slow >= 2) { tier = 1; calm = 0; }
+      if (RECOVER && tier > 0) {
+        calm = ema < SLOW * .8 ? calm + dt : 0;
+        if (calm >= RECOVER) { tier--; calm = 0; slow = 0; slower = 0; }
+      }
       return tier;
     }
     sample.sample = sample;
@@ -225,5 +242,5 @@
   }
 
   return { create, toBoard, toScreen, createHitStop, createGovernor, predictHit, ease: EASE,
-    timings: { FINALE, RELEASE, IMPACT, DIP, PUNCH, ZOOM_MAX, BUSY_TAIL, STOP_MAX } };
+    timings: { FINALE, RELEASE, IMPACT, COLD, DIP, PUNCH, ZOOM_MAX, BUSY_TAIL, STOP_MAX } };
 });

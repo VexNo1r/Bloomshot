@@ -41,6 +41,7 @@ h1,h2,h3,p{margin:0}
 button{font:inherit;color:inherit;cursor:pointer;appearance:none;border:0;background:none;padding:0;touch-action:manipulation}
 button:disabled{cursor:default}
 button:focus-visible,summary:focus-visible,canvas:focus-visible,input:focus-visible{outline:3px solid var(--sky);outline-offset:3px}
+body:not([data-input="keys"]) :is(button,summary,canvas,input):focus-visible{outline:none}
 button svg{flex-shrink:0}
 [hidden]{display:none!important}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
@@ -171,6 +172,10 @@ body[data-mode="campaign"] .game-actions{grid-template-columns:1fr 50px}
 .game-actions #restart-btn{order:2;width:50px;height:50px;border-radius:50%;color:var(--ink-soft);background:linear-gradient(180deg,#fffef8,var(--cream-2));box-shadow:inset 0 0 0 2px var(--edge-dark),0 4px 0 var(--edge-dark);transition:transform .12s var(--press)}
 .game-actions #restart-btn svg{width:22px;height:22px}
 .game-actions #restart-btn span{display:none}
+.game-actions #restart-btn{position:relative}
+.game-actions #restart-btn.armed{color:#fff;background:linear-gradient(180deg,#ff8f7e,#f2665a);box-shadow:inset 0 0 0 2px #c94a3f,0 4px 0 #c94a3f}
+.game-actions #restart-btn.armed span{display:block;position:absolute;right:-2px;bottom:calc(100% + 10px);padding:6px 11px 7px;border-radius:12px;background:var(--ink);color:var(--cream);font:700 14px/1 var(--body);white-space:nowrap;box-shadow:0 4px 12px #1d3a2e40;animation:restart-arm .2s var(--press)}
+@keyframes restart-arm{from{transform:translateY(5px);opacity:0}}
 .game-actions #restart-btn:active{transform:translateY(3px) rotate(-30deg);box-shadow:inset 0 0 0 2px var(--edge-dark),0 1px 0 var(--edge-dark)}
 
 /* ---------- Tab bar ---------- */
@@ -620,6 +625,8 @@ dialog[open]{animation:dialog-in .34s var(--press)}
 /* The card is the only guide while it plays: the hint line, the tabs and Back/Restart step aside, and the buttons go
    once the last card is up. */
 body[data-tutorial="on"] :is(.bottom-nav,#back-btn,#restart-btn,#game-hint),body[data-tutorial-phase="finale"] .game-actions,body[data-tutorial-phase="end"] .game-actions{visibility:hidden}
+/* A card at the top covers the header; its logo and round buttons would peek out around it, so they step aside until it moves. */
+body:has(.tutorial:not([hidden]):not([data-place="low"])) .app-header>*{visibility:hidden}
 @keyframes tutorial-dim{from{opacity:0}}
 @keyframes tutorial-ring{50%{transform:scale(1.06);opacity:.7}}
 @keyframes tutorial-in{from{transform:translate(-50%,-8px) scale(.96);opacity:0}}
@@ -679,6 +686,18 @@ body[data-world="moon"] .desktop-mode-moon,body[data-world="koi"] .desktop-mode-
   .bottom-nav{padding-top:5px;padding-bottom:calc(5px + env(safe-area-inset-bottom))}
   .board-wrap{border-radius:20px;padding:4px}
   #game-canvas{border-radius:16px}
+  /* On a short phone the level and Rush HUD folds into one row (the lives are the hearts under the seed), so the
+     board gets the height back. */
+  body[data-mode="rush"] .game-hud{padding:6px 12px}
+  body[data-mode="rush"] .level-title-group{display:flex;align-items:center;gap:8px}
+  body[data-mode="rush"] .level-title-group h1{margin-top:0;font-size:17px;min-width:0}
+  body[data-mode="rush"] .score-value{font-size:26px}
+  body[data-mode="rush"] .garden-status{display:none}
+  body[data-mode="rush"] .play-strip{margin:4px 0 5px}
+  body[data-mode="rush"] .game-hint{flex-basis:24px}
+  body[data-mode="rush"] .game-actions{flex-basis:52px;padding-bottom:6px}
+  /* Here a tutorial card at the top reaches the powerup tray, which it does not teach until it moves down. */
+  body:has(.tutorial:not([hidden]):not([data-place="low"])) .power-group{visibility:hidden}
 }
 @media(max-width:350px){
   .app-header{padding:0 8px}
@@ -699,6 +718,9 @@ body[data-world="moon"] .desktop-mode-moon,body[data-world="koi"] .desktop-mode-
 }
 @media(orientation:landscape) and (max-height:500px){
   #orientation-note{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:24px;text-align:center;background:var(--bg)}
+  /* An open card lives in the top layer, above the note; it waits, hidden, until the phone is upright again. */
+  dialog[open]{visibility:hidden}
+  dialog::backdrop{opacity:0}
   #orientation-note>span{font:700 44px/1 var(--display);color:var(--green)}
   #orientation-note strong{font:700 25px/1.2 var(--display)}
   #orientation-note p{font-size:16px;color:var(--ink-soft)}
@@ -709,11 +731,16 @@ body[data-world="moon"] .desktop-mode-moon,body[data-world="koi"] .desktop-mode-
 
 /* Super Bloom and the wave-6 checkpoint (Rush and levels). */
 body[data-mode="rush"] .fever-banner{color:#fffaf0;letter-spacing:0;
-  text-shadow:2px 2px 0 var(--gold-edge),-2px 2px 0 var(--gold-edge),2px -2px 0 var(--gold-edge),-2px -2px 0 var(--gold-edge),0 5px 0 #a8660a,0 0 18px #ffd04a99}
+  text-shadow:2px 2px 0 #9a5a0c,-2px 2px 0 #9a5a0c,2px -2px 0 #9a5a0c,-2px -2px 0 #9a5a0c,0 5px 0 #5a3412,0 0 18px #ffd04a99}
 /* The board announces a Super Bloom big in its middle; as that fades, this banner pops into its small place at the
    top for the rest of the six seconds, clear of the falling flowers, so two big headlines never show at once. */
-body[data-mode="rush"] .fever-banner{transform:translateX(-50%) translateY(-24px) scale(.62) rotate(-3deg);opacity:.94}
+body[data-mode="rush"] .fever-banner{--fever-y:-24px;transform:translateX(-50%) translateY(var(--fever-y)) scale(.62) rotate(-3deg);opacity:.94}
 body[data-mode="rush"] .fever-banner:not([hidden]){animation:super-pop .36s var(--press) 1.1s both}
-@keyframes super-pop{from{opacity:0;transform:translateX(-50%) translateY(-24px) scale(.3) rotate(-12deg)}to{opacity:.94;transform:translateX(-50%) translateY(-24px) scale(.62) rotate(-3deg)}}
+/* Later Super Blooms have no big announcement on the board, so the banner comes straight away. */
+body[data-mode="rush"] .fever-banner.soon:not([hidden]){animation-delay:0s}
+/* In a boss wave the health vine owns the top edge and the boss sits right under it, so the banner stays away: the
+   turning sun, the gold x2 badge and the hint under the board carry the Super Bloom there. */
+body[data-mode="rush"][data-boss="on"] .fever-banner{display:none}
+@keyframes super-pop{from{opacity:0;transform:translateX(-50%) translateY(var(--fever-y)) scale(.3) rotate(-12deg)}to{opacity:.94;transform:translateX(-50%) translateY(var(--fever-y)) scale(.62) rotate(-3deg)}}
 #checkpoint-btn{margin-top:10px}
 #checkpoint-btn+.button-link{margin-top:6px}

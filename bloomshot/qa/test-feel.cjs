@@ -136,6 +136,27 @@ test('The quality governor steps up after two slow seconds and never steps back 
   assert.equal(typeof g.sample, 'function');
 });
 
+test('A governor fed the work per frame never mistakes a 30 Hz phone for a slow one, and recovers when asked to', () => {
+  // A phone capped at 30 Hz that does 4 ms of work a frame stays on full quality.
+  const capped = Feel.createGovernor({ slow: 11, slower: 15, recover: 8 });
+  for (let i = 0; i < 900; i++) capped.sample(.004, 1 / 30);
+  assert.equal(capped.tier, 0, 'a capped display is not a slow phone');
+  // Real work over the thresholds still steps up after two seconds of real time, not two seconds of work.
+  const busy = Feel.createGovernor({ slow: 11, slower: 15, recover: 8 });
+  let tier1At = null, t = 0;
+  for (; t < 3; t += 1 / 60) if (busy.sample(.013, 1 / 60) === 1 && tier1At === null) tier1At = t;
+  assert.equal(busy.tier, 1); assert(tier1At >= 1.9 && tier1At < 2.6, `tier 1 after ${tier1At} s`);
+  for (let i = 0; i < 180; i++) busy.sample(.018, 1 / 60);
+  assert.equal(busy.tier, 2);
+  // Eight calm seconds step back down one tier at a time.
+  for (let i = 0; i < 60 * 7; i++) busy.sample(.004, 1 / 60);
+  assert.equal(busy.tier, 2, 'not before eight seconds');
+  for (let i = 0; i < 60 * 2; i++) busy.sample(.004, 1 / 60);
+  assert.equal(busy.tier, 1, 'one step down');
+  for (let i = 0; i < 60 * 9; i++) busy.sample(.004, 1 / 60);
+  assert.equal(busy.tier, 0, 'and back to full quality');
+});
+
 test('Screen points map back to the board through the zoom within .01 px', () => {
   const out = { zoom: 1.16, fx: 233, fy: 118 };
   for (const p of [{ x: 0, y: 0 }, { x: 420, y: 560 }, { x: 233, y: 118 }, { x: 17.5, y: 401.25 }]) {
@@ -261,7 +282,7 @@ function boot({ motion = true } = {}) {
     BloomFeel: Feel,
     BloomSound: { wake: noop, setEnabled: noop, play: (type, detail) => cues.push({ type, detail, at: now }), muffle: (amount, seconds) => cues.push({ type: 'muffle', detail: { amount, seconds }, at: now }) },
     BloomKeepsakes: Keepsakes,
-    BloomArt: { draw: (ctx, state, time, options) => draws.push({ time, camera: options.camera ? { ...options.camera } : null, vignette: options.vignette, danger: { ...options.danger }, quality: options.quality }),
+    BloomArt: { draw: (ctx, state, time, options) => draws.push({ time, camera: options.camera ? { ...options.camera } : null, vignette: options.vignette, danger: { ...options.danger }, quality: options.quality, flash: options.flash }),
       drawFlower: noop, drawMoon: noop, koiFish: noop, drawGarden: noop, drawProjectile: noop, drawParticle: noop, drawSeed: noop, drawPowerIcon: noop },
     BloomMeadow: { plots: Garden.plots.map((p, i) => ({ id: p.id, x: 65 + i * 50, y: 150, labelY: 180, accent: p.color })),
       decor: Garden.decor.map((d, i) => ({ id: d.id, x: 40 + i * 60, y: 200, accent: '#ffffff', icon: [40 + i * 60, 190, 40] })),
@@ -352,6 +373,43 @@ test('The last bloom of a level plays one finale: the roll, a slow lean-in, the 
   assert(game.particles.length > 0 || marks.openAt, 'blossoms fell');
 });
 
+test('The boss is the last flower: its bloom calls off the reinforcements, the finale plays on it and nothing piles on top', () => {
+  const app = boot({ motion: true }), { game, boss } = bossShot(app);
+  // Reinforcements still to come, two open flowers off to the sides, and a sun one bloom from full.
+  game.drops = [{ at: 30, buds: [{ id: 'late-1', group: 'late', x: 120, y: 66, r: 11, type: 'sky', hp: 1, maxHp: 1, fall: 1, sway: 0 }] }];
+  for (const [x, y] of [[60, 300], [360, 300]]) game.buds.push({ id: `side-${x}`, group: `side-${x}`, x, y, baseX: x, startY: y, r: 11, type: 'lilac', hp: 1, maxHp: 1, fall: 1, sway: 0, hitAt: -100, bloomed: false, bloomAt: -100 });
+  game.sunCharge = game._sunNeed() - .01; game.sunFills = 1;
+  let light = false, popsAfter = 0, title = null;
+  const marks = playOut(app, game, 12, () => {
+    light = light || game.particles.some(p => p.kind === 'light');
+    if (app.cues.some(c => c.type === 'finale')) popsAfter = Math.max(popsAfter, game.floaters.filter(f => f.kind === 'pop' || f.kind === 'wave' || f.kind === 'trick' || f.kind === 'combo').length);
+    title = title || game.floaters.find(f => f.kind === 'title' && /clear!$/.test(f.text));
+  });
+  assert(marks.finaleAt !== null && marks.finaleAt < marks.impactAt, 'the drumroll built on the boss with reinforcements still queued');
+  const boss10 = app.cues.find(c => c.type === 'bloom' && c.detail.bud === boss);
+  assert(boss10 && boss10.detail.finale === true, 'the finale is the boss');
+  assert.equal(game.status, 'won'); assert.equal(game.drops.length, 0, 'the reinforcements never came');
+  assert(!app.cues.some(c => c.type === 'drop'), 'no drop after the boss');
+  assert(!app.cues.some(c => c.type === 'superBloom'), 'no Super Bloom over a garden that is already won');
+  assert(game.buds.filter(b => b.id.startsWith('side-')).every(b => b.bloomed), 'the rest of the wave bloomed in the cascade');
+  // The impact is a light on the flower, not a white-out, and no banner, pop or stamp is stacked over the finale.
+  assert(app.draws.every(d => !(d.flash > .5)), `the screen flash peaked at ${Math.max(...app.draws.map(d => d.flash || 0))}`);
+  assert(light, 'a warm light on the flower instead');
+  assert.equal(popsAfter, 0, 'no score pop, banner, stamp or praise over the finale');
+  assert(title, 'the level title came up'); assert.equal(title.text, 'Level 1 clear!'); assert.equal(title.label, 'Old Sunny bloomed!');
+  assert(title.y >= 300, `the ribbon sits clear of the boss (y ${title.y})`);
+  assert(!app.cues.some(c => c.type === 'trick'), 'no stamps');
+});
+
+test('A bloom the camera never saw coming still gets a short lean-in and slow-down', () => {
+  const feel = Feel.create({ motion: true });
+  assert.equal(feel.request('impact', { x: 120, y: 200, cold: true }), true);
+  let low = 1, peak = 1;
+  for (let t = 0; t < 1.2; t += DT) { const out = feel.step(DT); low = Math.min(low, out.scale); peak = Math.max(peak, out.zoom); }
+  assert(low < .5, `time slowed to ${low}`); assert(peak > 1.05 && peak <= 1.2, `zoom ${peak}`);
+  const out = feel.step(DT); assert.equal(out.scale, 1); assert.equal(out.busy, false);
+});
+
 test('The finale leads a swaying boss: a shot that will meet it builds early, one it will drift away from never builds', () => {
   // The boss swings right through the middle of its sway (about 69 px/s) as a seed climbs straight up toward its row.
   const shotAt = (offset, below) => {
@@ -429,15 +487,19 @@ test('The last ring cracked a moment before still leaves the impact its full fro
   assert(frozen >= 6, `the impact froze for ${frozen} frames (.09 s is six frames)`);
 });
 
-test('A tap during the sweep skips straight to the result', () => {
+test('A tap during the sweep skips straight to the result, but never in the first second and a half after the win', () => {
   const app = boot({ motion: true }), { game } = bossShot(app);
-  let tappedAt = null;
+  let strayAt = null, tappedAt = null;
   const tap = () => app.$('game-canvas').emit('pointerdown', { clientX: 210, clientY: 300, pointerId: 1, button: 0, pointerType: 'touch', isPrimary: true });
-  const marks = playOut(app, game, 12, t => {
-    // A tap while the gold light runs ends the wait at once.
-    if (tappedAt === null && game.status === 'won' && game.feel && game.feel.sweeping) { tappedAt = t; tap(); }
+  const marks = playOut(app, game, 12, (t, seen) => {
+    // A player still firing at the last flower taps again right after the win: the finale plays on.
+    if (strayAt === null && game.status === 'won' && game.feel && game.feel.sweeping) { strayAt = t; tap(); }
+    // A tap 1.5 s after the win, while the gold light or the wait before the card is still on, ends it at once.
+    else if (strayAt !== null && tappedAt === null && t - seen.wonAt >= 1.5 + 1e-9 && !app.$('result-dialog').open) { tappedAt = t; tap(); }
   });
-  assert(tappedAt !== null, 'the sweep was running');
+  assert(strayAt !== null, 'the sweep was running');
+  assert(tappedAt !== null, 'the finale was still playing 1.5 s after the win');
+  assert(marks.openAt - strayAt >= 1.4, `the stray tap was swallowed (result ${marks.openAt - strayAt} s after it)`);
   // At most the win's own hit-stop (.09 s) and a frame or two.
   assert(marks.openAt !== null && marks.openAt - tappedAt <= .09 + 3 / 60, `result ${marks.openAt - tappedAt} s after the tap`);
   assert.equal(game.feel.sweeping, false); assert.equal(game.feel.waiting, false);

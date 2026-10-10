@@ -14,8 +14,10 @@ function activeEmpty() {
   const game = new RushGame(); game.started = true; game.status = 'flying'; return game;
 }
 function clearWave(game) {
+  // Every fifth endless wave ends on the finale and waits 1.4 s for its sweep; every other wave 0.7 s.
+  const finale = !game.plan && game.wave % 5 === 0;
   for (const bud of game.buds) while (!bud.bloomed) game.strike(bud, true);
-  advance(game, 0.8);
+  advance(game, finale ? 1.5 : 0.8);
 }
 function compact(game) {
   return { ...game.snapshot(), buds: game.snapshot().buds,
@@ -168,6 +170,23 @@ test('Tempo rises a tenth per wave to x2, multiplies every score and shortens th
   const before = game.score; game.strike(ordinary); assert.equal(game.score - before, 150);
   const mid = game.score; game.strike(layered); assert.equal(game.score - mid, 75);
   game.fireCooldown = 0; assert(game.fire(0, -1)); assert(Math.abs(game.fireCooldown - 0.525) < 1e-9);
+});
+
+test('An endless finale wave (every fifth) waits 1.4 s for the next wave; every other wave and every level wave 0.7 s', () => {
+  const game = activeEmpty();
+  for (let wave = 1; wave <= 5; wave++) {
+    for (const bud of game.buds) while (!bud.bloomed) game.strike(bud, true);
+    advance(game, .05);
+    const cleared = game.events.filter(e => e.type === 'cleared').at(-1);
+    assert.equal(cleared.wave, wave);
+    assert(Math.abs(game.nextWaveAt - (game.time - .05 + (wave === 5 ? 1.4 : .7))) < .02, `wave ${wave} waits ${game.nextWaveAt - game.time + .05} s`);
+    advance(game, wave === 5 ? 1.45 : .75); assert.equal(game.wave, wave + 1);
+  }
+  const levels = require('../depths.js');
+  const level = new RushGame({ plan: { id: 1, name: 'Sunny Meadow', waves: 10, wave: n => levels.wave(1, n) } }); level.started = true; level.status = 'flying';
+  level.wave = 4; level._loadWave(); level.drops = [];
+  for (const bud of level.buds) while (!bud.bloomed) level.strike(bud, true);
+  advance(level, .05); assert(Math.abs(level.nextWaveAt - (level.time - .05 + .7)) < .02, 'a level wave 5 keeps 0.7 s');
 });
 
 test('Clearing a wave announces it once, and the next wave drops in with a spawn time', () => {

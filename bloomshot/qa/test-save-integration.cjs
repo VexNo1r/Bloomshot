@@ -212,9 +212,23 @@ test('Completed Rush rewards are saved before the result dialog and cannot repea
 test('Restarting an unfinished run does not grant rewards', () => {
   const app = boot(legacySave()); const before = app.saved();
   const game = app.games.at(-1); game.totalBlooms = 24; game.wave = 3;
+  // Restart sits next to Split: the first tap on a run with progress only asks for a second one.
+  app.click('restart-btn');
+  assert.equal(app.games.length, 1, 'one tap does not wipe the run'); assert(app.$('restart-btn').classList.contains('armed'));
+  assert.equal(app.$('restart-btn').attributes['aria-label'], 'Tap again to restart');
   app.click('restart-btn');
   // The restarted board is the first one played, so it shows the powerups tip once; nothing else changes.
   assert.equal(app.games.length, 2); assert.deepEqual({ ...app.saved(), powersMet: false }, before);
+  assert.equal(app.$('restart-btn').classList.contains('armed'), false);
+});
+test('Starting an endless run over keeps a new best score and wave, and still pays nothing', () => {
+  const app = boot(legacySave()); const before = app.saved();
+  const game = app.games.at(-1); game.started = true; game.score = 5000; game.wave = 4;
+  app.click('restart-btn'); app.click('restart-btn');
+  assert.equal(app.games.length, 2);
+  const after = app.saved();
+  assert.equal(after.rush.best, 5000); assert.equal(after.rush.bestWave, 4);
+  assert.equal(after.rush.runs, before.rush.runs, 'an abandoned run is not counted'); assert.deepEqual(after.garden, before.garden, 'and earns no seeds');
 });
 test('Visual previews grant no progress and restore the original in-progress run ID for its reward', () => {
   const app = boot(legacySave()); const original = app.games.at(-1); const before = app.saved();
@@ -341,7 +355,7 @@ test('Clearing a Rush wave shows the next tempo, and the HUD and result carry th
   assert.equal(game.wave, 2); assert.match(app.$('level-label').textContent, /^Wave 2 · ×1\.1$/);
   assert.match(app.$('game-hint').textContent, /×1\.1 points/);
   game._lose(); for (let i = 0; i < 40; i++) app.frame();
-  assert.match(app.$('result-message').textContent, /tempo ×1\.1/);
+  assert.match(app.$('result-message').textContent, /tempo\u00a0×1\.1/);
 });
 test('The Complete Garden states its price and exact saving everywhere it is offered, buys all three at once, and then disappears', () => {
   const store = fakeStore({ live: true, available: true }), app = boot(legacySave(), { store });
@@ -1094,13 +1108,21 @@ test('Super Bloom, trick shots and long chains reach the board, the hint line an
   assert(game.floaters.some(f => f.kind === 'wave' && f.text === 'Super Bloom!' && f.label === 'seeds fly through flowers'), 'the first one says what it does');
   game.superBloom = .001; app.frame();
   assert.equal(game.superBloom, 0); assert.equal(app.$('fever-banner').hidden, true);
-  assert.equal(app.$('game-hint').textContent, 'Tap to shoot. Gold crowns bloom their whole cluster.', 'the wave hint comes back');
-  game._charge(48, { by: 1 }); app.frame();
-  assert(game.floaters.some(f => f.kind === 'wave' && f.label === 'double points'), 'later ones are short');
+  assert.equal(app.$('game-hint').textContent, 'Drag up and let go. Crowns bloom their whole bunch.', 'the wave hint comes back');
+  game.floaters = []; game._charge(48, { by: 1 }); app.frame();
+  // Later ones leave the middle of the board to the flowers: the gold sky, the banner (straight away) and the hint say it.
+  assert(!game.floaters.some(f => f.kind === 'wave' && f.text === 'Super Bloom!'), 'later ones keep the board clear');
+  assert.equal(app.$('fever-banner').hidden, false); assert(app.$('fever-banner').classList.contains('soon'), 'the banner comes at once');
+  assert.equal(app.$('game-hint').textContent, 'Super Bloom! Double points.');
   const bud = game.buds.find(b => !b.bloomed); game._trick('bank', bud, 1, false); app.frame();
   const stamp = game.floaters.find(f => f.kind === 'trick');
   assert.deepEqual({ trick: stamp.trick, text: stamp.text, label: stamp.label }, { trick: 'bank', text: 'Bank shot!', label: '+300' });
-  assert(stamp.y > 65 && stamp.y <= 400, 'the stamp stays on the board'); assert.equal(app.$('announcement').textContent, 'Bank shot!');
+  assert(stamp.y > game.dangerY && stamp.y < 545, 'the stamp lands in the lane by the pod, under the danger line, clear of the flowers');
+  assert.equal(app.$('announcement').textContent, 'Bank shot!');
+  // One stamp at a time, at most one every two seconds; the trick still counts and is announced.
+  const tricks = game.trickCount; game._trick('rebound', bud, 1, false); app.frame();
+  assert.equal(game.floaters.filter(f => f.kind === 'trick').length, 1); assert.equal(game.floaters.find(f => f.kind === 'trick').trick, 'bank');
+  assert.equal(game.trickCount, tricks + 1); assert.equal(app.$('announcement').textContent, 'Rebound!');
   // Praise waits for real chains: nothing at 5, the first word at 8, the next at 16.
   const praise = () => game.floaters.filter(f => f.kind === 'combo').map(f => f.text);
   game.floaters = []; game.event('bloom', { bud, gain: 100, combo: 5, mult: 2, chain: false }); app.frame(); assert.deepEqual(praise(), []);
@@ -1111,7 +1133,7 @@ test('Super Bloom, trick shots and long chains reach the board, the hint line an
   // The endless run's summary counts its trick shots.
   app.click('back-btn'); app.click('levels-rush-btn');
   const run = app.games.at(-1); assert.equal(run.plan, null); run.started = true; run.trickCount = 3; run.totalBlooms = 30; run.wave = 4; run._lose(); settleLevel(app);
-  assert.match(app.$('result-message').textContent, / · 3 tricks$/); assert.equal(app.$('checkpoint-btn').hidden, true);
+  assert.match(app.$('result-message').textContent, / · 3\u00a0tricks$/); assert.equal(app.$('checkpoint-btn').hidden, true);
 });
 (async () => {
 for (const { name, fn } of later) {

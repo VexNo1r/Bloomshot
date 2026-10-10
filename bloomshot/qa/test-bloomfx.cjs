@@ -261,14 +261,16 @@ test('Only the group about to cross the line trembles, by at most 1.5 px, and ne
   const [tutorial] = offsets({ scripted: true }, 30.004);
   assert(near(tutorial, low.x), 'calm in the scripted tutorial, where flowers stop above the line');
 });
-test('Finale flares: gold light from 1.6r to 2.6r fading out over .35 s, with a glint unless quality is lowered', () => {
+test('Finale flares: gold light from 2.6r to 3.5r fading out over .35 s, a gold ring per flower, and a glint unless quality is lowered', () => {
   const b = bud({ type: 'coral', r: 12, bloomed: true, bloomAt: 1, flareAt: 5 });
-  const glow = t => { const { ctx, images, fills } = recorder(); Art.draw(ctx, rush([b]), t, { showAim: false }); return { light: images.filter(i => i.op === 'lighter'), fills }; };
+  const glow = t => { const { ctx, images, fills, arcs } = recorder(); Art.draw(ctx, rush([b]), t, { showAim: false }); return { light: images.filter(i => i.op === 'lighter'), fills, rings: arcs.filter(a => near(a.x, b.x, .01) && near(a.y, b.y, .01) && a.radius > 12 * 1.15) }; };
   const start = glow(5.001).light[0], end = glow(5.34).light[0];
   assert(start && end, 'a glow is drawn');
-  assert(near(start.w / 2, 12 * 1.6, .2) && start.alpha > .95, `starts at 1.6r, full strength (${(start.w / 2).toFixed(1)})`);
-  assert(near(end.w / 2, 12 * 2.6, .4) && end.alpha < .05, `ends near 2.6r, faded (${(end.w / 2).toFixed(1)})`);
-  assert.equal(glow(5.36).light.length, 0, 'over after .35 s');
+  assert(near(start.w / 2, 12 * 2.6, .3) && start.alpha > .95, `starts at 2.6r, full strength (${(start.w / 2).toFixed(1)})`);
+  assert(near(end.w / 2, 12 * 3.5, .5) && end.alpha < .05, `ends near 3.5r, faded (${(end.w / 2).toFixed(1)})`);
+  assert.equal(glow(5.36).light.length, 0, 'the light is over after .35 s');
+  assert(glow(5.2).rings.length >= 1 && glow(5.45).rings.length >= 1, 'a gold ring opens around the flower and outlasts the light');
+  assert.equal(glow(5.51).rings.length, 0, 'and is gone after .5 s');
   assert.equal(glow(4.99).light.length, 0, 'nothing before flareAt');
   // The glint is a white four-point star centered on the upper right petal.
   const spot = [b.x + 12 * .42, b.y - 12 * .46];
@@ -380,7 +382,7 @@ test('Sheets never churn: a boss takes no slot, and boards that mix sizes reuse 
     return new Set(images.filter(i => i.cut).map(i => i.img));
   };
   const regular = TYPES.map(type => [type, 11]);
-  // Gems (r 9) and a geode (r 14) on the same board as the regular buds: 9 + 6 + 3 sheets, more than the cache holds.
+  // Gems (r 9) and geodes (r 14) on the same board as the regular buds: 9 + 6 + 4 sheets, more than the cache holds.
   const mixed = [['gold', 9], ['coral', 9], ['lilac', 9], ['poppy', 14], ['coral', 14]];
   // A boss bloom first: it goes petal by petal and must not hold sheet slots.
   frame([['gold', 24, { boss: true }], ['coral', 26, { boss: true }]]);
@@ -394,11 +396,29 @@ test('Sheets never churn: a boss takes no slot, and boards that mix sizes reuse 
     for (const sheet of frame(mixed)) seen.add(sheet);
   }
   assert.equal(totals.surfaces, settled, 'no new surfaces once the cache is warm');
-  assert(seen.size <= 12, `at most twelve sheets in use (${seen.size})`);
+  assert(seen.size <= 16, `at most sixteen sheets in use (${seen.size})`);
   for (const sheet of frame(regular)) assert(first.has(sheet), 'the regular buds keep their own sheets');
   // A size nobody has drawn for a few seconds gives up its slot to the sizes in play.
   for (let i = 0; i < 200; i++) frame(mixed);
   assert.equal(frame(mixed).size, 10, 'idle sheets make room for the gems and geodes now on the board');
+});
+test('Warmed up for a level, its flowers open in every variation and the boss blooms without painting anything new', () => {
+  const Fresh = loadArt(true);
+  const warm = Fresh.prewarm({ flowers: [{ type: 'sky', r: 12 }, { type: 'gold', r: 11 }], boss: { type: 'poppy', r: 27, max: 9 } });
+  for (let guard = 0; guard < 1000 && !warm.step(1000); guard++);
+  assert.equal(warm.left, 0, 'every warm-up job ran');
+  const surfaces = totals.surfaces, paints = Fresh.paints();
+  for (let v = 0; v < 7; v++) { Fresh.drawFlower(recorder().ctx, 100, 100, 12, 'sky', 1, 0, v); Fresh.drawFlower(recorder().ctx, 100, 100, 11, 'gold', 1, 0, v); }
+  // Wherever it landed, the boss wears the variation that was painted ahead, and so does its last unfurl frame.
+  for (const [x, y] of [[213, 101], [190, 140]]) {
+    const boss = bud({ type: 'poppy', r: 27, boss: true, bloomed: true, bloomAt: 0, x, y });
+    Fresh.drawUnfurl(recorder().ctx, boss, .53, { time: .53 }); Fresh.drawUnfurl(recorder().ctx, boss, .6, { time: .6 });
+  }
+  assert.equal(totals.surfaces, surfaces, 'no new sprite surfaces'); assert.equal(Fresh.paints(), paints, 'and nothing repainted');
+  // A regular bloom's first frames, before its petals start to move, paint nothing either.
+  const fresh = bud({ type: 'gold', r: 11, bloomed: true, bloomAt: 0 });
+  for (const age of [.05, .1, .125]) Fresh.drawUnfurl(recorder().ctx, fresh, age, { time: age });
+  assert.equal(Fresh.paints(), paints, 'frame 0 of a sheet is never painted');
 });
 test("The puff's spore cloud ends exactly at the puff's reach", () => {
   const target = bud({ x: 250, y: 220 }), from = { x: 200, y: 200 };

@@ -68,7 +68,7 @@
   // back unless all three bloom within regrow seconds).
   var LEVELS = [
     lv(1, 'meadow', 'Sunny Meadow', 'Learn the ropes', 1.55, [
-      { f: 'square', s: 'tri', d: 9, then: [{ t: 6, f: 'top3', s: 'tri' }], hint: 'Tap to shoot. Gold crowns bloom their whole cluster.' },
+      { f: 'square', s: 'tri', d: 9, then: [{ t: 6, f: 'top3', s: 'tri' }], hint: 'Drag up and let go. Crowns bloom their whole bunch.' },
       { f: 'wall', s: 'tri', d: 9.5, then: [{ t: 7, f: 'top4', s: 'line' }] },
       { f: 'vee', s: 'tri', d: 10, hp: 1, then: [{ t: 6, f: 'top5', s: 'tri', hp: 1 }], hint: 'Ringed buds take two hits.' },
       { f: 'grid', s: 'tri', d: 10, hp: 2, then: [{ t: 7, f: 'topvee', s: 'tri', hp: 1 }] },

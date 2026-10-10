@@ -578,6 +578,8 @@
     }
     // The drumroll into the finale.
     else if (type === 'roll' && allowed('roll', 0.5)) startRoll(clamp(num(data.dur, 0.9), 0.3, 0.86));
+    // A drumroll whose seed missed after all stops cleanly instead of trailing off into nothing.
+    else if (type === 'rollCut') cutRoll();
     // The sweep: each flaring flower plays the next note of a rising pentatonic run, in its own instrument.
     else if (type === 'sweep' && allowed('sweep', 0.02)) {
       const n = Math.max(1, Math.floor(num(data.n, 1))), i = clamp(Math.floor(num(data.i)), 0, n - 1);
@@ -1274,7 +1276,8 @@
       want(name, 'bed', 0);
       LAYERS.forEach((layer, index) => {
         if (on[layer]) want(name, layer, 1 + index);
-        else if (!menus && !layer.startsWith('boss')) want(name, layer, 20 + index);
+        // The boss pair renders ahead once the boss is near (state.bossSoon), so its groove is ready when it lands.
+        else if (!menus && (!layer.startsWith('boss') || state.bossSoon)) want(name, layer, 20 + index);
       });
       for (const layer of LAYERS) band.targets[layer] = on[layer] ? MIX[layer] : 0;
       attachReady(band);

@@ -144,7 +144,7 @@ test('Endless Rush opens on "Rush", and each new wave shows its number and tempo
   app.run(1.3); game.started = true; game._loadWave(); app.frame();
   const small = titles(game).filter(f => f.size === 'small');
   assert.deepEqual(plain(small.map(f => [f.text, f.label, f.maxLife])), [['Wave 2', '×1.1', .9]]);
-  assert(Math.abs(small[0].y - 120) < 1, 'it sits at y 120 (floaters drift up a little each frame)');
+  assert(Math.abs(small[0].y - 32) < 1, 'it rides the top edge at y 32, above where the new buds land (floaters drift up a little each frame)');
   const starts = game.buds.map(b => b.enterAt);
   assert(starts.every(t => typeof t === 'number') && Math.max(...starts) - Math.min(...starts) <= .35 + 1e-9);
 });
@@ -207,7 +207,8 @@ test('A boss wave drops its big bloom from 140 px, then its name card and health
   const landed = app.cues('bossLand')[0];
   assert(landed.at - boss.enterAt < .8 * .4, 'the thud comes on first touchdown'); assert.equal(landed.data.x, boss.x);
   const card = titles(game).find(f => f.boss);
-  assert.deepEqual(plain([card.text, card.label, card.y, card.maxLife]), ['Mother Morel', `${boss.maxHp} hits to bloom`, 160, 1.6]);
+  assert.deepEqual(plain([card.text, card.label, card.y, card.maxLife]), ['Mother Morel', `${boss.maxHp} hits to bloom`, 178, 1.6]);
+  assert(card.y - 29 > boss.y + boss.r * 1.3, 'the card sits below the boss, not over it');
   const vine = game.stage.vine;
   assert.equal(vine.bud, boss); assert.equal(vine.name, 'Mother Morel'); assert.equal(vine.max, boss.maxHp); assert.equal(typeof vine.shownAt, 'number');
   // Three hits: three leaves fall, the vine shakes, and the pale damage stretch shrinks back in about .4 s.
