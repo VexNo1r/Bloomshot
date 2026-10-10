@@ -326,7 +326,8 @@
         }
         p.x += d.x * hit.t; p.y += d.y * hit.t;
         points.push({ x: p.x, y: p.y });
-        if (hit.kind === 'bud') break;
+        // The aim knows which flower it ends on (non-enumerable, so the points still compare as plain arrays).
+        if (hit.kind === 'bud') { Object.defineProperty(points, 'target', { value: hit.item, enumerable: false }); break; }
         distance = segment === distance ? distance * (1 - hit.t) : distance - segment * hit.t;
         p.gateCooldown = Math.max(0, p.gateCooldown - segment * hit.t / this.speed);
         if (hit.kind === 'gate') {

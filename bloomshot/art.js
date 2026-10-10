@@ -597,6 +597,217 @@
     ctx.restore();
   }
 
+  // Feel: the finale camera, the pod's slingshot pose, comet seeds and the danger drama. Glows and veils are
+  // sprites made once at 3x (OffscreenCanvas, else a page canvas); in Node there is no surface and plain shapes
+  // stand in. draw() sets frameAhead (seeds glide between physics steps in slow motion) and the quality tier.
+  let frameAhead = 0, feelQuality = 0, feelOpts = null, aimSince = null, lockTarget = null, lockSince = 0;
+  const feelSprites = new Map();
+  const easeBack = k => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(k - 1, 3) + c1 * Math.pow(k - 1, 2); };
+  // Squash, lean and ring timings follow the real clock, so the tutorial's slow motion never makes them sluggish.
+  const feelClock = time => feelOpts && Number.isFinite(feelOpts.realTime) ? feelOpts.realTime : Number(time) || 0;
+  function feelSurface(w, h) {
+    if (typeof OffscreenCanvas !== 'undefined') return new OffscreenCanvas(w, h);
+    if (typeof document !== 'undefined' && document && typeof document.createElement === 'function') {
+      const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h; return canvas;
+    }
+    return null;
+  }
+  // A soft round glow, cached per key: `stops` run from the center (0) to clear at the rim (1).
+  function feelGlow(key, radius, stops) {
+    if (feelSprites.has(key)) return feelSprites.get(key);
+    const px = Math.ceil(radius * 6) + 2, canvas = feelSurface(px, px);
+    let sprite = null;
+    if (canvas) {
+      const g = canvas.getContext('2d'), c = px / 2, fill = g.createRadialGradient(c, c, 0, c, c, radius * 3);
+      for (const [at, color] of stops) fill.addColorStop(at, color);
+      g.fillStyle = fill; g.fillRect(0, 0, px, px);
+      sprite = { canvas, size: px / 3 };
+    }
+    feelSprites.set(key, sprite);
+    return sprite;
+  }
+  function drawGlowSprite(ctx, sprite, x, y, scale) {
+    const size = sprite.size * (scale || 1);
+    ctx.drawImage(sprite.canvas, x - size / 2, y - size / 2, size, size);
+  }
+  // A gradient strip (vertical unless `across`), stretched to any size when drawn: streaks, edge light, the danger band.
+  function feelStrip(key, across, stops) {
+    if (feelSprites.has(key)) return feelSprites.get(key);
+    const w = across ? 96 : 4, h = across ? 4 : 96, canvas = feelSurface(w, h);
+    let sprite = null;
+    if (canvas) {
+      const g = canvas.getContext('2d'), fill = across ? g.createLinearGradient(0, 0, w, 0) : g.createLinearGradient(0, 0, 0, h);
+      for (const [at, color] of stops) fill.addColorStop(at, color);
+      g.fillStyle = fill; g.fillRect(0, 0, w, h);
+      sprite = canvas;
+    }
+    feelSprites.set(key, sprite);
+    return sprite;
+  }
+  // A full-board vignette in one color: clear in the middle, deepening toward the edges and corners.
+  function feelVeil(ctx, rgb, alpha) {
+    if (!(alpha > .002)) return;
+    const key = 'veil|' + rgb;
+    let sprite = feelSprites.get(key);
+    if (sprite === undefined) {
+      const canvas = feelSurface(420, 560);
+      sprite = null;
+      if (canvas) {
+        const g = canvas.getContext('2d');
+        g.scale(1, 560 / 420);
+        const fill = g.createRadialGradient(210, 210, 60, 210, 210, 300);
+        fill.addColorStop(0, `rgba(${rgb},0)`); fill.addColorStop(.4, `rgba(${rgb},.08)`); fill.addColorStop(.62, `rgba(${rgb},.5)`);
+        fill.addColorStop(.85, `rgba(${rgb},.9)`); fill.addColorStop(1, `rgba(${rgb},1)`);
+        g.fillStyle = fill; g.fillRect(0, 0, 420, 420);
+        sprite = canvas;
+      }
+      feelSprites.set(key, sprite);
+    }
+    ctx.save(); ctx.globalAlpha = clamp(alpha, 0, 1);
+    if (sprite) ctx.drawImage(sprite, 0, 0, 420, 560);
+    else { ctx.globalAlpha *= .35; ctx.fillStyle = `rgb(${rgb})`; ctx.fillRect(0, 0, 420, 560); }
+    ctx.restore();
+  }
+  // One tapered ribbon through a seed's trail into its head: full width at the seed, a point at the tail.
+  function trailX(trail, start, n, hx, i) { return i < n ? trail[start + i].x : hx; }
+  function trailY(trail, start, n, hy, i) { return i < n ? trail[start + i].y : hy; }
+  function cometEdge(ctx, trail, start, n, hx, hy, i, width, sign) {
+    const x = trailX(trail, start, n, hx, i), y = trailY(trail, start, n, hy, i);
+    const a = Math.max(0, i - 1), b = Math.min(n, i + 1);
+    let dx = trailX(trail, start, n, hx, b) - trailX(trail, start, n, hx, a), dy = trailY(trail, start, n, hy, b) - trailY(trail, start, n, hy, a);
+    const length = Math.hypot(dx, dy) || 1, w = width * i / n * sign;
+    dx /= length; dy /= length;
+    ctx.lineTo(x - dy * w, y + dx * w);
+  }
+  function cometTrail(ctx, trail, hx, hy, width, color, alpha) {
+    if (!Array.isArray(trail) || trail.length < 2) return;
+    let start = 0;
+    for (let i = trail.length - 1; i > 0; i--) if (trail[i].move) { start = i; break; }
+    const n = trail.length - start;
+    if (n < 2 || !Number.isFinite(trail[start].x)) return;
+    ctx.beginPath(); ctx.moveTo(trail[start].x, trail[start].y);
+    for (let i = 1; i <= n; i++) cometEdge(ctx, trail, start, n, hx, hy, i, width, 1);
+    for (let i = n; i >= 1; i--) cometEdge(ctx, trail, start, n, hx, hy, i, width, -1);
+    ctx.closePath();
+    ctx.globalAlpha = alpha; ctx.fillStyle = color; ctx.fill(); ctx.globalAlpha = 1;
+  }
+  // The pod pulls back and leans toward the aim like a slingshot, and kicks back along the shot when it fires.
+  // podPose returns how far the seed sits drawn back in the pod, against the aim, like a stretched band.
+  const podPull = { x: 0, y: 0 };
+  function podPose(ctx, state, time, x, y) {
+    const aim = state.aim, live = state.status !== 'won' && state.status !== 'lost', now = feelClock(time);
+    let hold = 0, lean = 0, rx = 0, ry = 0;
+    podPull.x = podPull.y = 0;
+    if (live && Array.isArray(aim) && aim.length > 1 && aim[0] && aim[1] && Number.isFinite(aim[1].x) && Number.isFinite(aim[0].x)) {
+      if (aimSince === null || now < aimSince) aimSince = now;
+      hold = ease((now - aimSince) / .15);
+      const dx = aim[1].x - aim[0].x, dy = aim[1].y - aim[0].y, length = Math.hypot(dx, dy) || 1;
+      const off = Math.atan2(dy, dx) + Math.PI / 2;
+      lean = clamp(off / 1.2, -1, 1) * .18 * hold;
+      podPull.x = -dx / length * 4 * hold; podPull.y = -dy / length * 4 * hold;
+    } else aimSince = null;
+    if (Number.isFinite(state.recoilAt)) {
+      const t = (time - state.recoilAt) / .18;
+      if (t >= 0 && t < 1) {
+        const push = 5 * (1 - easeBack(t)), a = Number.isFinite(state.recoilAngle) ? state.recoilAngle : -Math.PI / 2;
+        rx = -Math.cos(a) * push; ry = -Math.sin(a) * push;
+      }
+    }
+    if (!hold && !rx && !ry) return podPull;
+    ctx.translate(x + rx, y + 19 + ry); ctx.rotate(lean); ctx.scale(1 + .06 * hold, 1 - .1 * hold); ctx.translate(-x, -y - 19);
+    return podPull;
+  }
+  function heartPath(ctx, px, y) {
+    ctx.beginPath(); ctx.moveTo(px, y + 30);
+    ctx.bezierCurveTo(px - 7, y + 26, px - 3, y + 21, px, y + 25);
+    ctx.bezierCurveTo(px + 3, y + 21, px + 7, y + 26, px, y + 30);
+  }
+  // A lost life: the heart cracks down the middle and its halves tip apart and fall.
+  function brokenHeart(ctx, px, y, age) {
+    const k = clamp(age / .7, 0, 1), fall = 18 * k * k, tilt = .5 * ease(k);
+    ctx.save();
+    if (k < .35) { ctx.globalAlpha = (1 - k / .35) * .8; circle(ctx, px, y + 26, 5 + k * 26, null, '#ff8fb0', 2 - k * 4); }
+    for (const side of [-1, 1]) {
+      ctx.save(); ctx.globalAlpha = 1 - k * k;
+      ctx.translate(px + side * (.6 + 3.2 * k), y + 30 + fall); ctx.rotate(side * tilt); ctx.translate(-px, -y - 30);
+      ctx.beginPath(); ctx.moveTo(px, y + 18); ctx.lineTo(px + .9, y + 22.6); ctx.lineTo(px - 1.1, y + 25.2); ctx.lineTo(px + .8, y + 27.6); ctx.lineTo(px, y + 31.5);
+      ctx.lineTo(px + side * 10, y + 31.5); ctx.lineTo(px + side * 10, y + 18); ctx.closePath(); ctx.clip();
+      heartPath(ctx, px, y); ctx.fillStyle = '#ef668e'; ctx.fill(); ctx.strokeStyle = '#c8517a'; ctx.lineWidth = .65; ctx.stroke();
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+  // A breach leaves a wilted ghost of each lost flower on the line: a bent stem with its head hanging, in the
+  // flower's own colors gone dusty. It tips over, sinks and fades. Each type is drawn once into a sprite.
+  function dusty(hex, amount) {
+    const n = parseInt(String(hex).slice(1), 16), dust = [150, 128, 116];
+    const c = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v, i) => Math.round(v + (dust[i] - v) * amount));
+    return `rgb(${c[0]},${c[1]},${c[2]})`;
+  }
+  function paintWilt(g, type) {
+    const tint = FLOWERS[type] || FLOWERS.coral, petal = dusty(tint.base, .42), edge = dusty(tint.dark, .38), stem = '#7f9156';
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    // The stem rises from the foot (0, 0), bends over and hangs the head down to the right.
+    g.beginPath(); g.moveTo(0, 0); g.bezierCurveTo(-1.5, -12, 2, -22, 9, -21); g.quadraticCurveTo(12.5, -20.5, 12.5, -16.5);
+    g.strokeStyle = '#ffffff'; g.lineWidth = 3.4; g.globalAlpha = .7; g.stroke(); g.globalAlpha = 1;
+    g.strokeStyle = stem; g.lineWidth = 1.7; g.stroke();
+    g.beginPath(); g.ellipse(-3.2, -8, 4.6, 1.7, .55, 0, TAU); g.fillStyle = '#93a463'; g.fill(); g.strokeStyle = '#6c7d48'; g.lineWidth = .6; g.stroke();
+    // Five petals droop from the head in a loose bell.
+    for (let i = 0; i < 5; i++) {
+      const a = Math.PI / 2 + (i - 2) * .38, px = 12.5 + Math.cos(a) * 4.6, py = -15 + Math.sin(a) * 4.6;
+      g.beginPath(); g.ellipse(px, py, 5.4, 2.6, a, 0, TAU);
+      g.fillStyle = petal; g.fill(); g.strokeStyle = edge; g.lineWidth = .7; g.stroke();
+    }
+    g.beginPath(); g.arc(12.5, -16.2, 2.3, 0, TAU); g.fillStyle = stem; g.fill(); g.strokeStyle = '#5f7040'; g.lineWidth = .6; g.stroke();
+  }
+  function wiltSprite(type) {
+    const key = 'wilt|' + type;
+    if (feelSprites.has(key)) return feelSprites.get(key);
+    const w = 36, h = 36, canvas = feelSurface(w * 3, h * 3);
+    let sprite = null;
+    if (canvas) {
+      const g = canvas.getContext('2d'); g.scale(3, 3); g.translate(10, 30);
+      paintWilt(g, type);
+      sprite = { canvas, w, h, ox: 10, oy: 30 };
+    }
+    feelSprites.set(key, sprite);
+    return sprite;
+  }
+  function drawWilts(ctx, state, time, reducedMotion) {
+    const wilts = Array.isArray(state.wilts) ? state.wilts : [];
+    for (const w of wilts) {
+      const age = time - w.at;
+      if (!(age >= 0 && age < 1.2) || !Number.isFinite(w.x) || !Number.isFinite(w.y)) continue;
+      const k = age / 1.2, e = reducedMotion ? 0 : ease(k), side = Math.floor(w.x / 7) % 2 ? 1 : -1;
+      const s = clamp((Number(w.r) || 11) / 11, .8, 1.6) * 1.4, type = FLOWERS[w.type] ? w.type : 'coral', sprite = wiltSprite(type);
+      ctx.save(); ctx.globalAlpha = .95 * (1 - k * k);
+      // The foot stays on the line while the whole flower tips over and sinks below it.
+      ctx.translate(w.x, w.y + 14 * e); ctx.scale(side * s, s); ctx.rotate(.08 + .5 * e);
+      if (sprite) ctx.drawImage(sprite.canvas, -sprite.ox, -sprite.oy, sprite.w, sprite.h);
+      else paintWilt(ctx, type);
+      ctx.restore();
+    }
+  }
+
+  // Screen-space overlays after the board: the finale's dusk vignette, the last-life pulse, the red flash of a
+  // lost life and the mint glow of a close call. Each is a cached veil drawn with an alpha; nothing here filters.
+  function drawFeelOverlay(ctx, state, time, options) {
+    const reduced = Boolean(options.reducedMotion), d = options.danger, live = state.status !== 'lost' && state.status !== 'won';
+    if (!reduced) feelVeil(ctx, '38,18,64', Number(options.vignette) || 0);
+    if (d && state.mode === 'rush') {
+      // The last life breathes at 1 Hz between .10 and .18 at the middle of each edge (the veil is half strength
+      // there and full in the corners), and holds still at .12 with reduced motion.
+      if (d.lastLife && live) feelVeil(ctx, '232,36,84', 2 * (reduced ? .12 : .14 + Math.sin(feelClock(time) * TAU) * .04));
+      if (!reduced && d.redFlash > 0) {
+        ctx.save(); ctx.globalAlpha = .22 * clamp(d.redFlash, 0, 1); ctx.fillStyle = 'rgb(255,70,90)'; ctx.fillRect(0, 0, 420, 560); ctx.restore();
+        feelVeil(ctx, '236,40,80', .55 * d.redFlash);
+      }
+      if (!reduced && d.mintFlash > 0) feelVeil(ctx, '120,240,200', .3 * d.mintFlash);
+    }
+    // The frame is done: seeds outside draw() (the collection showcase) draw where they are.
+    frameAhead = 0; feelOpts = null;
+  }
+
   function drawLauncher(ctx, state, time, colors, style, kick, reducedMotion) {
     const x = (state.launcher && Number(state.launcher.x)) || 210;
     const y = (state.launcher && Number(state.launcher.y)) || 498;
@@ -604,32 +815,37 @@
     const left = rush ? (state.lives == null ? 3 : state.lives) : state.shotsLeft == null ? 3 : state.shotsLeft;
     const k = reducedMotion ? 0 : clamp(Number(kick) || 0, 0, 1), next = FLOWERS[state.nextType];
     ctx.save();
+    const pull = reducedMotion ? null : podPose(ctx, state, time, x, y);
     // A shot pushes the pod down and wide for a blink before it springs back, with a puff of air around it.
     if (k > 0) {
       circle(ctx, x, y, 20 + (1 - k) * 18, null, next ? next.light : '#ffffff', 3 * k);
       ctx.translate(x, y); ctx.scale(1 + .13 * k, 1 - .13 * k); ctx.translate(-x, -y);
     }
-    ctx.shadowColor = '#12bcc199'; ctx.shadowBlur = 16;
+    const halo = reducedMotion ? null : feelGlow('pod-halo', 30, [[0, 'rgba(18,188,193,.5)'], [.62, 'rgba(18,188,193,.28)'], [1, 'rgba(18,188,193,0)']]);
+    if (halo) drawGlowSprite(ctx, halo, x, y + 2);
+    else { ctx.shadowColor = '#12bcc199'; ctx.shadowBlur = 16; }
     circle(ctx, x, y + 2, 22, 'rgba(5,155,150,.15)');
     circle(ctx, x, y, 19.5, '#50d7bb', '#ffffff', 1.5);
     circle(ctx, x, y, 14.7, '#d6ffee', '#9be9d8', 1);
-    ctx.shadowColor = 'transparent';
+    ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
     if (next && rush && !state.armed && state.status !== 'lost' && state.status !== 'won') circle(ctx, x, y, 17.1, null, next.base, 2.2);
     if (rush && state.armed && POWER_TINT[state.armed] && state.status !== 'lost' && state.status !== 'won') {
       // An armed powerup sits in the launcher in place of the seed, with a ring that breathes.
       const beat = .5 + Math.sin(time * 5) * .5;
       circle(ctx, x, y, 22 + beat * 3, null, POWER_TINT[state.armed], 2.4);
       drawPowerIcon(ctx, state.armed, x, y, 12.5, time);
-    } else if (state.status === 'aiming' || !state.status || (rush && state.status !== 'lost')) drawSeed(ctx, x, y, 8.4, time, false, style);
-    ctx.fillStyle = colors.ink; ctx.globalAlpha = .7;
+    } else if (state.status === 'aiming' || !state.status || (rush && state.status !== 'lost')) drawSeed(ctx, x + (pull ? pull.x : 0), y + (pull ? pull.y : 0), 8.4, time, false, style);
+    ctx.restore();
+    // Lives (Rush) or shots left sit still under the pod; a heart just lost cracks in two and falls away.
+    ctx.save(); ctx.fillStyle = colors.ink; ctx.globalAlpha = .7;
+    const broken = rush && !reducedMotion && state.heartBreak && Number.isFinite(state.heartBreak.at) ? state.heartBreak : null;
     for (let i = 0; i < 3; i++) {
       const px = x + (i - 1) * (rush ? 11 : 9);
       if (rush) {
-        ctx.beginPath(); ctx.moveTo(px, y + 30);
-        ctx.bezierCurveTo(px - 7, y + 26, px - 3, y + 21, px, y + 25);
-        ctx.bezierCurveTo(px + 3, y + 21, px + 7, y + 26, px, y + 30);
+        heartPath(ctx, px, y);
         ctx.fillStyle = i < left ? '#ef668e' : 'rgba(255,255,255,.40)'; ctx.fill();
         ctx.strokeStyle = i < left ? '#c8517a' : 'rgba(143,178,171,.7)'; ctx.lineWidth = .65; ctx.stroke();
+        if (broken && broken.index === i && i >= left && time - broken.at >= 0 && time - broken.at < .7) brokenHeart(ctx, px, y, time - broken.at);
       } else if (i < left) {
         ctx.beginPath(); ctx.ellipse(px, y + 27, 1.9, 3, .45, 0, TAU); ctx.fill();
       } else circle(ctx, px, y + 27, 1.7, null, colors.fine, .7);
@@ -638,27 +854,26 @@
   }
 
   // Rush tempo: as the multiplier climbs, warm light streams up the glasshouse and its edges glow.
-  // Stateless (a function of time), so it costs nothing to keep and nothing to reset.
+  // Stateless (a function of time), so it costs nothing to keep and nothing to reset. Streaks and edges are
+  // cached gradient strips, so a frame makes no gradients.
   function drawTempo(ctx, state, time) {
     const heat = clamp((Number(state.tempo) || 1) - 1, 0, 1);
     if (!(heat > 0) || state.status === 'lost') return;
     // Normal blending: additive light vanishes against the bright meadow sky.
     ctx.save(); ctx.lineCap = 'round';
-    const count = 5 + Math.round(heat * 13), speed = 170 + heat * 280;
+    const streak = feelStrip('tempo-streak', false, [[0, 'rgba(255,214,120,0)'], [.35, 'rgba(255,206,104,1)'], [1, 'rgba(255,240,190,0)']]);
+    const count = 5 + Math.round(heat * 13), speed = 170 + heat * 280, peak = .22 + heat * .3;
     for (let i = 0; i < count; i++) {
-      const x = 34 + (i * 137.508) % 352, length = 16 + heat * 34 + (i % 3) * 9;
+      const x = 34 + (i * 137.508) % 352, length = 16 + heat * 34 + (i % 3) * 9, width = 1.4 + (i % 2) * .9;
       const y = 610 - ((time * speed * (.75 + (i % 4) * .12) + i * 211.7) % 720);
-      const streak = ctx.createLinearGradient(x, y, x, y + length);
-      streak.addColorStop(0, 'rgba(255,214,120,0)'); streak.addColorStop(.35, `rgba(255,206,104,${.22 + heat * .3})`); streak.addColorStop(1, 'rgba(255,240,190,0)');
-      ctx.strokeStyle = streak; ctx.lineWidth = 1.4 + (i % 2) * .9;
-      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + length); ctx.stroke();
+      if (streak) { ctx.globalAlpha = peak; ctx.drawImage(streak, x - width / 2, y, width, length); }
+      else { ctx.globalAlpha = peak * .5; ctx.strokeStyle = 'rgb(255,206,104)'; ctx.lineWidth = width; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + length); ctx.stroke(); }
     }
     const glow = .10 + heat * .22 + Math.sin(time * 5.5) * .03 * heat;
-    for (const side of [0, 1]) {
-      const edge = ctx.createLinearGradient(side ? 420 : 0, 0, side ? 386 : 34, 0);
-      edge.addColorStop(0, `rgba(255,190,90,${glow})`); edge.addColorStop(1, 'rgba(255,190,90,0)');
-      ctx.fillStyle = edge; ctx.fillRect(side ? 386 : 0, 0, 34, 560);
-    }
+    const edge = feelStrip('tempo-edge', true, [[0, 'rgba(255,190,90,1)'], [1, 'rgba(255,190,90,0)']]);
+    ctx.globalAlpha = clamp(glow, 0, 1);
+    if (edge) { ctx.drawImage(edge, 0, 0, 34, 560); ctx.translate(420, 0); ctx.scale(-1, 1); ctx.drawImage(edge, 0, 0, 34, 560); }
+    else { ctx.globalAlpha *= .5; ctx.fillStyle = 'rgb(255,190,90)'; ctx.fillRect(0, 0, 12, 560); ctx.fillRect(408, 0, 12, 560); }
     ctx.restore();
   }
 
@@ -679,17 +894,21 @@
     const beat = reducedMotion ? .5 : Math.pow(Math.max(0, Math.sin((Number(time) || 0) * (5 + threat * 5))), 6);
     const heat = Math.pow(threat, 1.5) * (.5 + .5 * beat);
     ctx.save();
-    const reach = 15 + heat * 70;
-    const warning = ctx.createLinearGradient(0, y - reach, 0, y + 33);
-    warning.addColorStop(0, 'rgba(255,60,110,0)'); warning.addColorStop(.34 + heat * .36, `rgba(255,60,110,${.08 + heat * .5})`); warning.addColorStop(1, 'rgba(255,60,110,0)');
-    ctx.fillStyle = warning; ctx.fillRect(22, y - reach, 376, reach + 33);
-    if (heat > .05) { ctx.shadowColor = `rgba(255,50,100,${Math.min(1, heat * 1.3)})`; ctx.shadowBlur = 6 + heat * 14; }
+    // A rosy band that swells up from the line and fades below it, from two cached strips (no gradient per frame).
+    const reach = 15 + heat * 70, up = feelStrip('line-up', false, [[0, 'rgba(255,60,110,0)'], [1, 'rgba(255,60,110,1)']]);
+    const down = feelStrip('line-down', false, [[0, 'rgba(255,60,110,1)'], [1, 'rgba(255,60,110,0)']]);
+    if (up && down) {
+      ctx.globalAlpha = .08 + heat * .5; ctx.drawImage(up, 22, y - reach, 376, reach); ctx.drawImage(down, 22, y, 376, 33);
+      // The line's own glow, tighter and brighter as the danger beats.
+      if (heat > .05) { const g = 4 + heat * 10; ctx.globalAlpha = Math.min(1, heat * 1.3) * .7; ctx.drawImage(up, 24, y - g, 372, g); ctx.drawImage(down, 24, y, 372, g); }
+      ctx.globalAlpha = 1;
+    } else { ctx.globalAlpha = .08 + heat * .5; ctx.fillStyle = 'rgba(255,60,110,.5)'; ctx.fillRect(22, y - reach * .4, 376, reach * .4 + 12); ctx.globalAlpha = 1; }
+    drawWilts(ctx, state, Number(time) || 0, reducedMotion);
     ctx.beginPath(); ctx.moveTo(24, y + .8); ctx.lineTo(396, y + .8);
     ctx.strokeStyle = night ? 'rgba(255,234,238,.55)' : 'rgba(255,255,255,.9)'; ctx.lineWidth = 3 + heat * 2.5; ctx.stroke();
     ctx.beginPath(); ctx.moveTo(24, y); ctx.lineTo(396, y);
     ctx.setLineDash([8, 5]); ctx.lineDashOffset = reducedMotion ? 0 : -(Number(time) || 0) * (8 + threat * 30);
     ctx.strokeStyle = heat > .3 ? '#ff3d6e' : night ? '#ff91b1' : '#e86189'; ctx.lineWidth = 1.6 + heat * 1.6; ctx.stroke(); ctx.setLineDash([]); ctx.lineDashOffset = 0;
-    ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
     for (const x of [28, 392]) {
       ctx.beginPath(); ctx.moveTo(x, y - 4); ctx.lineTo(x + 3, y); ctx.lineTo(x, y + 4); ctx.lineTo(x - 3, y); ctx.closePath();
       ctx.fillStyle = night ? '#ffd8e5' : '#e86189'; ctx.fill();
@@ -1018,6 +1237,25 @@
       distance += len;
       afterGate += len;
     }
+    // Four little arrowheads snap in around the flower the line ends on and turn slowly, so the shot reads as
+    // locked on. They sit outside the flower's own rings (a boss's health, a relay's crown).
+    const target = points.target;
+    if (target && !target.bloomed && Number.isFinite(target.x) && Number.isFinite(target.y)) {
+      const now = feelClock(time);
+      if (target !== lockTarget || now < lockSince) { lockTarget = target; lockSince = now; }
+      const k = reducedMotion ? 1 : clamp((now - lockSince) / .2, 0, 1), e = reducedMotion ? 1 : easeBack(k);
+      const radius = (Number(target.r) || 12) + (target.boss ? 15 : 11) + 18 * (1 - e);
+      const spin = Math.PI / 4 + (reducedMotion ? 0 : now * .9), pulse = reducedMotion ? 1 : 1 + .08 * Math.sin(now * 7);
+      ctx.globalAlpha = clamp(k * 2.5, 0, 1); ctx.lineJoin = 'round';
+      for (let i = 0; i < 4; i++) {
+        const a = spin + i * TAU / 4;
+        ctx.save(); ctx.translate(target.x + Math.cos(a) * radius, target.y + Math.sin(a) * radius); ctx.rotate(a); ctx.scale(pulse, pulse);
+        ctx.beginPath(); ctx.moveTo(-3.4, 0); ctx.lineTo(4.2, -5); ctx.quadraticCurveTo(2.4, 0, 4.2, 5); ctx.closePath();
+        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3.2; ctx.stroke();
+        ctx.fillStyle = dot; ctx.fill(); ctx.strokeStyle = ring; ctx.lineWidth = .9; ctx.stroke();
+        ctx.restore();
+      }
+    } else lockTarget = null;
     ctx.restore();
   }
 
@@ -1421,95 +1659,132 @@
     ctx.restore();
   }
   // Accents ride on real trail samples; a sample's own position picks its accent, so accents
-  // stay put as the trail ages instead of flickering from frame to frame.
-  function drawKeepsakeTrail(ctx, ball, style, r, time, hot) {
+  // stay put as the trail ages instead of flickering from frame to frame. The ribbon is one tapered path into
+  // the seed's drawn head (hx, hy), and firefly glows come from a cached sprite.
+  function drawKeepsakeTrail(ctx, ball, style, r, time, hot, hx, hy) {
     const trail = ball.trail, spec = style.trail, accents = spec.accents;
-    for (let i = 1; i < trail.length; i++) {
-      if (trail[i].move) continue;
-      const f = i / trail.length;
-      ctx.beginPath(); ctx.moveTo(trail[i - 1].x, trail[i - 1].y); ctx.lineTo(trail[i].x, trail[i].y);
-      ctx.strokeStyle = spec.ribbon; ctx.lineWidth = r * (hot ? 2 : 1.55) * f; ctx.globalAlpha = f * (hot ? .62 : .45); ctx.stroke();
-    }
+    cometTrail(ctx, trail, Number.isFinite(hx) ? hx : ball.x, Number.isFinite(hy) ? hy : ball.y, r * (hot ? 1 : .78), spec.ribbon, hot ? .62 : .45);
     for (let i = 0; i < trail.length; i++) {
       const p = trail[i], key = Math.abs(Math.round(p.x * 7.3 + p.y * 13.1));
       if (p.move || key % (hot ? 2 : 3)) continue;
       const f = (i + 1) / trail.length, size = r * (.55 + f * .75), color = accents[key % accents.length], spin = key * .37;
       ctx.save(); ctx.globalAlpha = Math.min(1, f * 1.15);
       if (spec.kind === 'blossoms') { ctx.translate(p.x, p.y); ctx.rotate(spin + time * 1.6); ctx.scale(.75, .75); sakuraPetal(ctx, size); ctx.fillStyle = color; ctx.fill(); }
-      else if (spec.kind === 'fireflies') fireflyGlow(ctx, p.x + Math.sin(time * 3 + key) * 3, p.y + Math.cos(time * 2.4 + key) * 3, size * .45, color, .35 + .65 * Math.max(0, Math.sin(time * 9 + key)));
+      else if (spec.kind === 'fireflies') {
+        const blink = .35 + .65 * Math.max(0, Math.sin(time * 9 + key)), fx = p.x + Math.sin(time * 3 + key) * 3, fy = p.y + Math.cos(time * 2.4 + key) * 3, s = size * .45;
+        const glow = feelGlow('firefly|' + color, 10.8, [[0, color + 'bb'], [.35, color + '4d'], [1, color + '00']]);
+        ctx.globalAlpha *= blink;
+        if (glow) drawGlowSprite(ctx, glow, fx, fy, s / 3); else circle(ctx, fx, fy, s * 2, color + '33');
+        circle(ctx, fx, fy, s * .8, color); circle(ctx, fx - s * .15, fy - s * .15, s * .38, '#fffbe6');
+      }
       else if (spec.kind === 'flakes') goldFlake(ctx, p.x, p.y, size * .8, color, spin + time * 4);
       else if (spec.kind === 'stars') { ctx.globalAlpha *= .45 + .55 * Math.abs(Math.sin(time * 6 + key)); sparkle(ctx, p.x, p.y, size * 1.1, color, spin); }
       ctx.restore();
     }
     ctx.globalAlpha = 1;
   }
+  // A soft colored halo under a seed, cached per color and size, in place of a per-frame shadow blur.
+  function seedHalo(color, r, blur) {
+    const R = r + 1.3 + blur, edge = (r + 1.3) / R;
+    return feelGlow(`halo|${color}|${r}|${blur}`, R, [[0, color + '80'], [edge, color + '80'], [Math.min(.99, edge + 4 / R), color + '38'], [1, color + '00']]);
+  }
+  function seedStretch(ctx, ball, x, y, reducedMotion) {
+    // Fresh off the pod the seed is stretched along its flight, then snaps round.
+    const age = Number(ball.age);
+    if (reducedMotion || !(age >= 0 && age < .08)) return;
+    const s = 1 + .35 * (1 - age / .08);
+    ctx.translate(x, y); ctx.rotate(Math.atan2(Number(ball.vy) || 0, Number(ball.vx) || 0)); ctx.scale(s, 1 / Math.sqrt(s)); ctx.translate(-x, -y);
+  }
   function drawProjectile(ctx, ball, index, time, reducedMotion, fever, style) {
-    if (ball.power && POWER_TINT[ball.power]) { drawPowerShot(ctx, ball, time, reducedMotion); return; }
-    if (style && style.seed) { drawStyledProjectile(ctx, ball, time, reducedMotion, fever, style); return; }
+    // In slow motion a seed is drawn where it is between two physics steps, so it glides instead of stepping.
+    const ox = frameAhead ? (Number(ball.vx) || 0) * frameAhead : 0, oy = frameAhead ? (Number(ball.vy) || 0) * frameAhead : 0;
+    if (ball.power && POWER_TINT[ball.power]) {
+      if (ox || oy) { ctx.save(); ctx.translate(ox, oy); drawPowerShot(ctx, ball, time, reducedMotion); ctx.restore(); }
+      else drawPowerShot(ctx, ball, time, reducedMotion);
+      return;
+    }
+    if (style && style.seed) { drawStyledProjectile(ctx, ball, time, reducedMotion, fever, style, index); return; }
     const c = FLOWERS[ball.type] || FLOWERS[['coral', 'gold', 'lilac'][index % 3]];
-    const r = ball.r || 5.5, trail = ball.trail || [];
+    const r = ball.r || 5.5, trail = ball.trail || [], x = ball.x + ox, y = ball.y + oy, hot = Boolean(fever || ball.hot);
     ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    if (!reducedMotion && trail.length > 1) {
-      // A tapering ribbon connects actual physics samples, giving speed and weight.
-      for (let i = 1; i < trail.length; i++) {
-        if (trail[i].move) continue;
-        const f = i / trail.length;
-        ctx.beginPath(); ctx.moveTo(trail[i - 1].x, trail[i - 1].y); ctx.lineTo(trail[i].x, trail[i].y);
-        ctx.strokeStyle = fever || (ball.hot && !reducedMotion) ? `hsl(${(time * 240 + i * 14) % 360},95%,66%)` : c.base;
-        ctx.lineWidth = r * 1.65 * f; ctx.globalAlpha = f * .53; ctx.stroke();
-      }
+    // A comet: one tapered ribbon in the flower's color (a turning rainbow when the chain runs hot) and a bright
+    // core along its last few samples. On a struggling phone only the first three seeds keep their tails.
+    if (!reducedMotion && trail.length > 1 && !(feelQuality >= 1 && index >= 3)) {
+      cometTrail(ctx, trail, x, y, r * .95, hot ? `hsl(${Math.round(time * 240) % 360},95%,66%)` : c.base, .55);
       const start = Math.max(0, trail.length - 7);
       ctx.beginPath(); ctx.moveTo(trail[start].x, trail[start].y);
       for (let i = start + 1; i < trail.length; i++) {
         if (trail[i].move) ctx.moveTo(trail[i].x, trail[i].y);
         else ctx.lineTo(trail[i].x, trail[i].y);
       }
-      ctx.lineTo(ball.x, ball.y); ctx.strokeStyle = '#fffbe1'; ctx.lineWidth = r * .55; ctx.globalAlpha = .8; ctx.stroke();
+      ctx.lineTo(x, y); ctx.strokeStyle = '#fffbe1'; ctx.lineWidth = r * .55; ctx.globalAlpha = .8; ctx.stroke();
     }
     ctx.globalAlpha = 1;
     if (!reducedMotion) {
+      const glow = feelGlow(`seed|${c.light}`, r * 4.2, [[0, c.light + 'aa'], [1, c.light + '00']]);
       ctx.globalCompositeOperation = 'lighter';
-      const glow = ctx.createRadialGradient(ball.x, ball.y, 0, ball.x, ball.y, r * 4.2);
-      glow.addColorStop(0, c.light + 'aa'); glow.addColorStop(1, c.light + '00');
-      ctx.fillStyle = glow; ctx.fillRect(ball.x - r * 4.2, ball.y - r * 4.2, r * 8.4, r * 8.4);
+      if (glow) drawGlowSprite(ctx, glow, x, y); else circle(ctx, x, y, r * 2.4, c.light + '44');
       ctx.globalCompositeOperation = 'source-over';
     }
-    ctx.shadowColor = c.base; ctx.shadowBlur = fever ? 19 : 12;
-    circle(ctx, ball.x, ball.y, r + 1.3, c.base);
+    const halo = reducedMotion ? null : seedHalo(c.base, r, fever ? 19 : 12);
+    if (halo) drawGlowSprite(ctx, halo, x, y);
+    else { ctx.shadowColor = c.base; ctx.shadowBlur = fever ? 19 : 12; }
+    seedStretch(ctx, ball, x, y, reducedMotion);
+    circle(ctx, x, y, r + 1.3, c.base);
     ctx.shadowBlur = 0;
-    circle(ctx, ball.x, ball.y, r * .78, '#fffdf2');
-    circle(ctx, ball.x - r * .23, ball.y - r * .27, r * .27, '#ffffff');
+    circle(ctx, x, y, r * .78, '#fffdf2');
+    circle(ctx, x - r * .23, y - r * .27, r * .27, '#ffffff');
     if (fever && !reducedMotion) {
       ctx.globalAlpha = .85;
-      sparkle(ctx, ball.x, ball.y, r * 1.95, '#fffce999', time + index);
+      sparkle(ctx, x, y, r * 1.95, '#fffce999', time + index);
     }
     ctx.restore();
   }
 
-  function drawStyledProjectile(ctx, ball, time, reducedMotion, fever, style) {
+  function drawStyledProjectile(ctx, ball, time, reducedMotion, fever, style, index) {
     const s = style.seed, r = ball.r || 5.5, hot = fever || ball.hot;
+    const x = ball.x + (frameAhead ? (Number(ball.vx) || 0) * frameAhead : 0), y = ball.y + (frameAhead ? (Number(ball.vy) || 0) * frameAhead : 0);
     ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    if (!reducedMotion && (ball.trail || []).length > 1) drawKeepsakeTrail(ctx, ball, style, r, time, hot);
+    if (!reducedMotion && (ball.trail || []).length > 1 && !(feelQuality >= 1 && index >= 3)) drawKeepsakeTrail(ctx, ball, style, r, time, hot, x, y);
     if (!reducedMotion) {
-      const pulse = style.id === 'firefly' ? 1 + Math.sin(time * 8) * .22 : 1, gr = r * 4.4 * pulse * (hot ? 1.25 : 1);
+      const pulse = style.id === 'firefly' ? 1 + Math.sin(time * 8) * .22 : 1, gr = r * 4.4 * (hot ? 1.25 : 1);
+      const glow = feelGlow(`styled|${style.id}|${hot ? 1 : 0}`, gr, [[0, s.light + 'cc'], [1, s.light + '00']]);
       ctx.globalCompositeOperation = 'lighter';
-      const glow = ctx.createRadialGradient(ball.x, ball.y, 0, ball.x, ball.y, gr);
-      glow.addColorStop(0, s.light + 'cc'); glow.addColorStop(1, s.light + '00');
-      ctx.fillStyle = glow; ctx.fillRect(ball.x - gr, ball.y - gr, gr * 2, gr * 2);
+      if (glow) drawGlowSprite(ctx, glow, x, y, pulse); else circle(ctx, x, y, gr * .55 * pulse, s.light + '44');
       ctx.globalCompositeOperation = 'source-over';
     }
-    ctx.shadowColor = s.base; ctx.shadowBlur = hot ? 19 : 12;
+    const halo = reducedMotion ? null : seedHalo(s.base, r, hot ? 19 : 12);
+    if (halo) drawGlowSprite(ctx, halo, x, y);
+    else { ctx.shadowColor = s.base; ctx.shadowBlur = hot ? 19 : 12; }
+    seedStretch(ctx, ball, x, y, reducedMotion);
     if (style.id === 'gilded') {
-      const metal = ctx.createLinearGradient(ball.x - r, ball.y - r, ball.x + r, ball.y + r);
-      metal.addColorStop(0, s.core); metal.addColorStop(.45, s.light); metal.addColorStop(.7, s.base); metal.addColorStop(1, s.rim);
-      circle(ctx, ball.x, ball.y, r + 1.3, metal);
-    } else circle(ctx, ball.x, ball.y, r + 1.3, s.base);
+      // The gilded body is a cached metal sprite; in Node it falls back to the plain gradient.
+      const key = `gilded|${r}`;
+      let metal = feelSprites.get(key);
+      if (metal === undefined) {
+        const size = (r + 1.3) * 2 + 2, canvas = feelSurface(Math.ceil(size * 3), Math.ceil(size * 3));
+        metal = null;
+        if (canvas) {
+          const g = canvas.getContext('2d'); g.scale(3, 3);
+          const c = size / 2, fill = g.createLinearGradient(c - r, c - r, c + r, c + r);
+          fill.addColorStop(0, s.core); fill.addColorStop(.45, s.light); fill.addColorStop(.7, s.base); fill.addColorStop(1, s.rim);
+          circle(g, c, c, r + 1.3, fill); metal = { canvas, size };
+        }
+        feelSprites.set(key, metal);
+      }
+      if (metal) ctx.drawImage(metal.canvas, x - metal.size / 2, y - metal.size / 2, metal.size, metal.size);
+      else {
+        const fill = ctx.createLinearGradient(x - r, y - r, x + r, y + r);
+        fill.addColorStop(0, s.core); fill.addColorStop(.45, s.light); fill.addColorStop(.7, s.base); fill.addColorStop(1, s.rim);
+        circle(ctx, x, y, r + 1.3, fill);
+      }
+    } else circle(ctx, x, y, r + 1.3, s.base);
     ctx.shadowBlur = 0;
-    if (style.id === 'sakura') blossom(ctx, ball.x, ball.y, r * 1.15, s.light, reducedMotion ? 0 : time * 3);
-    else if (style.id === 'moonlit') { circle(ctx, ball.x, ball.y, r * .8, s.core); circle(ctx, ball.x + r * .32, ball.y - r * .12, r * .62, s.light); }
-    else if (style.id !== 'gilded') circle(ctx, ball.x, ball.y, r * .74, s.core);
-    circle(ctx, ball.x - r * .25, ball.y - r * .28, r * .25, '#ffffff');
-    if (hot && !reducedMotion) { ctx.globalAlpha = .85; sparkle(ctx, ball.x, ball.y, r * 1.95, '#ffffffaa', time); }
+    if (style.id === 'sakura') blossom(ctx, x, y, r * 1.15, s.light, reducedMotion ? 0 : time * 3);
+    else if (style.id === 'moonlit') { circle(ctx, x, y, r * .8, s.core); circle(ctx, x + r * .32, y - r * .12, r * .62, s.light); }
+    else if (style.id !== 'gilded') circle(ctx, x, y, r * .74, s.core);
+    circle(ctx, x - r * .25, y - r * .28, r * .25, '#ffffff');
+    if (hot && !reducedMotion) { ctx.globalAlpha = .85; sparkle(ctx, x, y, r * 1.95, '#ffffffaa', time); }
     ctx.restore();
   }
 
@@ -1858,6 +2133,10 @@
     const colors = PAPER[options.theme] || PAPER.meadow;
     ctx.save();
     const rush = state.mode === 'rush';
+    // Feel: seeds glide a fraction of a step ahead in slow motion, and the finale camera leans in, backdrop and all.
+    feelOpts = options; frameAhead = Number(options.ahead) || 0; feelQuality = Number(options.quality) || 0;
+    const camera = options.camera;
+    if (camera && camera.zoom > 1.001 && !options.reducedMotion) { ctx.translate(camera.fx, camera.fy); ctx.scale(camera.zoom, camera.zoom); ctx.translate(-camera.fx, -camera.fy); }
     drawGarden(ctx, 420, 560, options.theme, { mode: state.mode });
     if (!options.reducedMotion) drawAmbient(ctx, time, options.theme);
     drawAtmosphere(ctx, state, time, options);
@@ -1995,6 +2274,7 @@
       v.addColorStop(0, `rgba(255,248,220,${options.flash * .28})`); v.addColorStop(1, `rgba(255,190,230,${options.flash * .12})`);
       ctx.fillStyle = v; ctx.fillRect(0, 0, 420, 560); ctx.restore();
     }
+    drawFeelOverlay(ctx, state, time, options);
   }
 
   root.BloomArt = { draw, drawFlower, drawGarden, drawMoon, koiFish, drawProjectile, drawParticle, drawSeed, drawPowerIcon };
