@@ -14,6 +14,7 @@ const Keepsakes = require('../keepsakes.js');
 const Engine = require('../engine.js');
 const Rush = require('../rush.js');
 const Depths = require('../depths.js');
+const Powers = require('../powers.js');
 const source = fs.readFileSync(path.join(__dirname, '../app.js'), 'utf8');
 const results = [];
 function test(name, fn) {
@@ -31,17 +32,24 @@ function legacySave() {
 const FUTURE = { id: 'orchard', name: 'Night Orchard', tagline: 'Soon.', description: 'A future garden.', price: null, theme: 'moon', available: false, mechanic: 'Planned.' };
 const BUNDLE = 'bloomshot.bundle.launch1';
 // Mirrors store.js: a product grants one or more entitlements; owned means all of them, partial means some.
-function fakeStore({ owned = [], live = false, available = false, price = '$4.99', stylePrice = '$1.99', bundlePrice = '$5.99', levelsPrice = '$2.99', amounts = [4.99, 1.99, 5.99], currency = 'USD', mode = 'native' } = {}) {
+// Powerups are consumables: the store hands each purchase to the game's grant handler, then reports it.
+function fakeStore({ owned = [], live = false, available = false, price = '$4.99', stylePrice = '$1.99', bundlePrice = '$5.99', levelsPrice = '$2.99', amounts = [4.99, 1.99, 5.99], currency = 'USD', mode = 'native', powers = false, powerPrice = '$0.25' } = {}) {
   const have = new Set(owned), listeners = [], purchases = [];
-  const catalog = [{ id: Koi.product, entitlements: [Koi.entitlement], kind: 'world', price, amount: amounts[0], currency },
+  let grant = null, serial = 0;
+  const consumables = powers ? Powers.list.map(p => ({ id: p.product, entitlements: [], kind: 'power', consumable: true, power: p.id, price: powerPrice, amount: .25, currency })) : [];
+  const catalog = [...consumables, { id: Koi.product, entitlements: [Koi.entitlement], kind: 'world', price, amount: amounts[0], currency },
     { id: Keepsakes.product, entitlements: [Keepsakes.entitlement], kind: 'style', price: stylePrice, amount: amounts[1], currency },
     { id: BUNDLE, entitlements: [Koi.entitlement, Keepsakes.entitlement], kind: 'bundle', price: bundlePrice, amount: amounts[2], currency },
     { id: Depths.product, entitlements: [Depths.entitlement], kind: 'levels', price: levelsPrice, amount: 2.99, currency }];
   const held = item => item.entitlements.filter(e => have.has(e)).length;
   return { mode, busy: false, purchases, isLive: () => live, owns: id => have.has(id), revoke: id => have.delete(id),
-    products: () => catalog.map(item => ({ ...item, entitlement: item.entitlements[0], available, owned: held(item) === item.entitlements.length, partial: held(item) > 0 && held(item) < item.entitlements.length })),
+    products: () => catalog.map(item => ({ ...item, entitlement: item.entitlements[0], available, owned: !item.consumable && held(item) === item.entitlements.length, partial: held(item) > 0 && held(item) < item.entitlements.length })),
+    onConsumable: fn => { grant = fn; },
+    // The store handing a purchase over again, as after a crash before it was finished.
+    replay: (id, transaction) => grant({ productId: id, power: catalog.find(entry => entry.id === id).power, count: 1, transaction }),
     purchase: id => {
       purchases.push(id); const item = catalog.find(entry => entry.id === id);
+      if (item.consumable) { const transaction = `T${++serial}`; const kept = grant({ productId: id, power: item.power, count: 1, transaction }); return Promise.resolve({ ok: kept, consumable: true, power: item.power, count: 1, transaction }); }
       if (held(item) > 0) return Promise.resolve({ ok: false, reason: 'partly-owned' });
       item.entitlements.forEach(e => have.add(e)); listeners.forEach(fn => fn({ type: 'entitlements' })); return Promise.resolve({ ok: true, entitlements: item.entitlements });
     },
@@ -100,10 +108,10 @@ function boot(raw, { storageFails = false, search = '', otherSave, store, native
     performance: { now: () => now }, devicePixelRatio: 1,
     matchMedia: () => ({ matches: false, addEventListener: noop }),
     requestAnimationFrame: fn => { nextFrame = fn; }, setTimeout: () => 1, clearTimeout: noop,
-    BloomLevels: { ...Levels, worlds: [...Levels.worlds, FUTURE] }, BloomMoon: Moon, BloomKoi: Koi, BloomGarden: Garden, BloomGoals: goals ? Goals : QuietGoals, ...(store ? { BloomStore: store } : {}), ...(native ? { BloomNative: native } : {}), BloomEngine: { ...Engine, Game: ObservedGame }, BloomRush: { RushGame: ObservedRush }, BloomDepths: Depths, BloomScenery: { paint: noop, has: () => true },
+    BloomLevels: { ...Levels, worlds: [...Levels.worlds, FUTURE] }, BloomMoon: Moon, BloomKoi: Koi, BloomGarden: Garden, BloomGoals: goals ? Goals : QuietGoals, ...(store ? { BloomStore: store } : {}), ...(native ? { BloomNative: native } : {}), BloomEngine: { ...Engine, Game: ObservedGame }, BloomRush: { RushGame: ObservedRush }, BloomDepths: Depths, BloomPowers: Powers, BloomScenery: { paint: noop, has: () => true },
     BloomSound: { wake: noop, play: noop, setEnabled: noop }, BloomKeepsakes: Keepsakes,
     BloomArt: { draw: (ctx, state, time, options) => boardDraws.push(options.keepsake ? options.keepsake.id : 'meadow'), drawFlower: noop, drawMoon: noop, koiFish: noop,
-      drawGarden: noop, drawProjectile: noop, drawParticle: noop, drawSeed: noop },
+      drawGarden: noop, drawProjectile: noop, drawParticle: noop, drawSeed: noop, drawPowerIcon: noop },
     BloomMeadow: { plots: Garden.plots.map((p, i) => ({ id: p.id, x: 65 + i * 50, y: 150, labelY: 180, accent: p.color })),
       decor: Garden.decor.map((d, i) => ({ id: d.id, x: 40 + i * 60, y: 200, accent: '#ffffff', icon: [40 + i * 60, 190, 40] })),
       friends: Garden.decor.map((d, i) => ({ id: d.friend.id, decorId: d.id, x: 40 + i * 60, y: 180 })), reactSeconds: 1.1,
@@ -168,7 +176,8 @@ test('Restarting an unfinished run does not grant rewards', () => {
   const app = boot(legacySave()); const before = app.saved();
   const game = app.games.at(-1); game.totalBlooms = 24; game.wave = 3;
   app.click('restart-btn');
-  assert.equal(app.games.length, 2); assert.deepEqual(app.saved(), before);
+  // The restarted board is the first one played, so it shows the powerups tip once; nothing else changes.
+  assert.equal(app.games.length, 2); assert.deepEqual({ ...app.saved(), powersMet: false }, before);
 });
 test('Visual previews grant no progress and restore the original in-progress run ID for its reward', () => {
   const app = boot(legacySave()); const original = app.games.at(-1); const before = app.saved();
@@ -660,6 +669,64 @@ test('Clearing level 4 points to the unlock once, gently; with it owned, Next go
   assert.match(owner.$('result-message').textContent, /Level 5, Glowworm Lake, is open!/); assert.equal(owner.$('next-btn').textContent, 'Level 5');
   assert(owner.$('next-btn').classList.contains('button-primary'));
   owner.click('next-btn'); assert.equal(depthGame(owner).plan.id, 5);
+});
+test('A save from before powerups starts with one of each, and counts survive a reload', () => {
+  const app = boot(legacySave()), saved = app.saved();
+  assert.deepEqual(saved.powers, { sunburst: 1, dandelion: 1, beeline: 1, lullaby: 1 }); assert.deepEqual(saved.powerReceipts, []);
+  const later = { ...saved, powers: { sunburst: 0, dandelion: 5, beeline: 2, lullaby: 0 } };
+  assert.deepEqual(boot(later).saved().powers, later.powers, 'an emptied powerup stays empty after a reload');
+});
+test('The powerups tip waits for the first level, not the level map', () => {
+  const app = boot(legacySave());
+  assert.equal(app.saved().powersMet, false); assert.notEqual(app.$('toast').textContent, 'New: powerups! Tap one above the board, then fire.');
+  app.click('depth-map', { depth: '1' });
+  assert.equal(app.$('toast').textContent, 'New: powerups! Tap one above the board, then fire.'); assert.equal(app.saved().powersMet, true);
+});
+test('Picking a powerup and firing spends exactly one; picking it again first puts it back', () => {
+  const app = boot(cleared(1)); app.click('depth-map', { depth: '1' });
+  const game = depthGame(app);
+  assert.match(app.$('power-left').innerHTML, /data-power="sunburst"/); assert.match(app.$('power-right').innerHTML, /data-power="lullaby"/);
+  app.click('power-left', { power: 'sunburst' }); assert.equal(game.armed, 'sunburst');
+  assert.match(app.$('power-left').innerHTML, /power-chip armed/); assert.equal(app.$('game-hint').textContent, 'Sunburst ready. Fire into a crowd!');
+  app.click('power-left', { power: 'sunburst' }); assert.equal(game.armed, null); assert.equal(app.saved().powers.sunburst, 1, 'putting it back is free');
+  app.click('power-left', { power: 'sunburst' }); game.fire(0, -1); app.frame();
+  assert.equal(app.saved().powers.sunburst, 0); assert.equal(game.armed, null);
+  app.click('power-left', { power: 'sunburst' }); assert.equal(game.armed, null);
+  assert.equal(app.$('toast').textContent, 'No Sunburst left. Gift bubbles in the waves hold more.', 'an empty powerup sells nothing mid-run');
+  assert.match(app.$('power-left').innerHTML, /power-chip empty/);
+});
+test('Lullaby waits for the first shot, then spends one', () => {
+  const app = boot(cleared(1)); app.click('depth-map', { depth: '1' });
+  const game = depthGame(app);
+  app.click('power-right', { power: 'lullaby' }); assert.equal(game.lullaby, 0); assert.equal(app.saved().powers.lullaby, 1);
+  assert.equal(app.$('toast').textContent, 'Fire your first seed, then use Lullaby.');
+  game.fire(0, -1); app.frame(); app.click('power-right', { power: 'lullaby' }); app.frame();
+  assert(game.lullaby > 0); assert.equal(app.saved().powers.lullaby, 0);
+});
+test('A caught gift is saved at once, before the run ends', () => {
+  const app = boot(cleared(1)); app.click('depth-map', { depth: '1' });
+  const game = depthGame(app);
+  game.started = true; game._collect({ gift: 'beeline', x: 120, y: 90 }); app.frame();
+  assert.equal(app.saved().powers.beeline, 2); assert.match(app.$('game-hint').textContent, /You caught a Bee Line! You have 2\./);
+  assert.match(app.$('power-right').innerHTML, /aria-label="Bee Line, 2 left\./);
+});
+test('The powerup shelf shows counts, never sells on the web or before launch, and buys exactly one per tap', () => {
+  const web = boot(legacySave()); web.click('rush-btn');
+  assert.match(web.$('power-shelf').innerHTML, /You have 1/); assert(!web.$('power-shelf').innerHTML.includes('data-buy'));
+  assert.match(web.$('power-shelf').innerHTML, /You can buy more in the Bloomshot app\. Gift bubbles in the waves hold more, free\./);
+  assert.equal(web.$('power-total').textContent, '4 in your bag');
+  const offSale = boot(legacySave(), { store: fakeStore({ live: true, available: false, powers: true }) }); offSale.click('rush-btn');
+  assert.match(offSale.$('power-shelf').innerHTML, /Not on sale yet\./); assert(!offSale.$('power-shelf').innerHTML.includes('data-buy'));
+  const store = fakeStore({ live: true, available: true, powers: true }), app = boot(legacySave(), { store }); app.click('rush-btn');
+  assert.match(app.$('power-shelf').innerHTML, /data-buy="bloomshot\.power\.dandelion"[^>]*>Get 1 · \$0\.25</);
+  assert.match(app.$('power-shelf').innerHTML, /Each tap buys one powerup, the one you picked\./);
+  app.click('power-shelf', { buy: 'bloomshot.power.dandelion' });
+  assert.deepEqual(store.purchases, ['bloomshot.power.dandelion']); assert.equal(app.saved().powers.dandelion, 2);
+  assert.deepEqual(app.saved().powerReceipts, ['T1']);
+  assert.equal(store.replay('bloomshot.power.dandelion', 'T1'), true, 'a replayed purchase is acknowledged');
+  assert.equal(app.saved().powers.dandelion, 2, 'and adds nothing');
+  store.replay('bloomshot.power.lullaby', 'T9'); assert.equal(app.saved().powers.lullaby, 2, 'a purchase finished after a restart still arrives');
+  for (const id of ['sunburst', 'beeline']) assert.equal(app.saved().powers[id], 1, 'buying one never touches the others');
 });
 test('Level records are cleaned on load and a cleared level opens the next one', () => {
   const before = legacySave(); before.depths = { 1: { stars: 9, best: -5, wave: 3 }, 2: 'bad', 3: [], 12: { stars: 1, best: 1, wave: 1 } };

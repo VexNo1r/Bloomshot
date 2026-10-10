@@ -543,7 +543,12 @@
     circle(ctx, x, y, 19.5, '#50d7bb', '#ffffff', 1.5);
     circle(ctx, x, y, 14.7, '#d6ffee', '#9be9d8', 1);
     ctx.shadowColor = 'transparent';
-    if (state.status === 'aiming' || !state.status || (rush && state.status !== 'lost')) drawSeed(ctx, x, y, 8.4, time, false, style);
+    if (rush && state.armed && POWER_TINT[state.armed] && state.status !== 'lost' && state.status !== 'won') {
+      // An armed powerup sits in the launcher in place of the seed, with a ring that breathes.
+      const beat = .5 + Math.sin(time * 5) * .5;
+      circle(ctx, x, y, 22 + beat * 3, null, POWER_TINT[state.armed], 2.4);
+      drawPowerIcon(ctx, state.armed, x, y, 12.5, time);
+    } else if (state.status === 'aiming' || !state.status || (rush && state.status !== 'lost')) drawSeed(ctx, x, y, 8.4, time, false, style);
     ctx.fillStyle = colors.ink; ctx.globalAlpha = .7;
     for (let i = 0; i < 3; i++) {
       const px = x + (i - 1) * (rush ? 11 : 9);
@@ -1340,6 +1345,7 @@
     ctx.globalAlpha = 1;
   }
   function drawProjectile(ctx, ball, index, time, reducedMotion, fever, style) {
+    if (ball.power && POWER_TINT[ball.power]) { drawPowerShot(ctx, ball, time, reducedMotion); return; }
     if (style && style.seed) { drawStyledProjectile(ctx, ball, time, reducedMotion, fever, style); return; }
     const c = FLOWERS[ball.type] || FLOWERS[['coral', 'gold', 'lilac'][index % 3]];
     const r = ball.r || 5.5, trail = ball.trail || [];
@@ -1538,6 +1544,202 @@
     ctx.restore();
   }
 
+  // Powerups, drawn like the rest of the board: flat shapes with a colored ink edge and one shade cut.
+  // The same drawings serve the tray, the shelf, the launcher, the shot in flight and the gift bubbles.
+  const POWER_TINT = { sunburst: '#ffb534', dandelion: '#cfe3f0', beeline: '#ffd23f', lullaby: '#b9a6ff' };
+  // An arc from one angle to another that goes the way passing through a third.
+  function arcVia(ctx, cx, cy, radius, from, to, via) {
+    const turn = a => ((a % TAU) + TAU) % TAU;
+    ctx.arc(cx, cy, radius, from, to, !(turn(via - from) < turn(to - from)));
+  }
+  function iconSun(ctx, r, time) {
+    ctx.save(); ctx.rotate(time * .5);
+    for (let i = 0; i < 10; i++) {
+      const reach = r * (i % 2 ? .82 : 1);
+      ctx.save(); ctx.rotate(i / 10 * TAU);
+      ctx.beginPath(); ctx.moveTo(r * .46, -r * .17); ctx.quadraticCurveTo(reach * .8, -r * .09, reach, 0); ctx.quadraticCurveTo(reach * .8, r * .09, r * .46, r * .17); ctx.closePath();
+      ctx.fillStyle = i % 2 ? '#ffc94a' : '#ffad2e'; ctx.fill(); ctx.lineWidth = r * .07; ctx.strokeStyle = '#d8732a'; ctx.lineJoin = 'round'; ctx.stroke();
+      ctx.restore();
+    }
+    ctx.restore();
+    circle(ctx, 0, 0, r * .56, '#ffd54a');
+    ctx.save(); ctx.beginPath(); ctx.arc(0, 0, r * .56, 0, TAU); ctx.clip();
+    circle(ctx, r * .2, r * .22, r * .5, '#ffc23c');
+    ctx.restore();
+    circle(ctx, 0, 0, r * .56, null, '#d8732a', r * .08);
+    ctx.beginPath(); ctx.ellipse(-r * .24, -r * .27, r * .12, r * .07, -.6, 0, TAU); ctx.fillStyle = '#fffbe0'; ctx.fill();
+    ctx.fillStyle = '#7a3f17';
+    for (const side of [-1, 1]) { ctx.beginPath(); ctx.ellipse(side * r * .17, -r * .05, r * .055, r * .085, 0, 0, TAU); ctx.fill(); }
+    ctx.beginPath(); ctx.arc(0, r * .05, r * .17, .2 * Math.PI, .8 * Math.PI); ctx.lineWidth = r * .065; ctx.lineCap = 'round'; ctx.strokeStyle = '#7a3f17'; ctx.stroke();
+    ctx.globalAlpha *= .7; circle(ctx, -r * .31, r * .13, r * .08, '#ff8c78'); circle(ctx, r * .31, r * .13, r * .08, '#ff8c78');
+  }
+  function puff(ctx, x, y, size, spokes, tilt) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(tilt || 0);
+    ctx.lineCap = 'round';
+    for (let i = 0; i < spokes; i++) {
+      const a = i / spokes * TAU, ex = Math.cos(a) * size, ey = Math.sin(a) * size;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(ex, ey); ctx.strokeStyle = '#b9cad6'; ctx.lineWidth = Math.max(.6, size * .05); ctx.stroke();
+      circle(ctx, ex, ey, size * .16, '#ffffff', '#9fb5c6', Math.max(.5, size * .045));
+    }
+    ctx.restore();
+  }
+  function iconDandelion(ctx, r) {
+    ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(r * .12, r * .98); ctx.quadraticCurveTo(r * .18, r * .45, 0, r * .05); ctx.strokeStyle = '#3f9e5e'; ctx.lineWidth = r * .11; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(r * .14, r * .72); ctx.quadraticCurveTo(r * .5, r * .55, r * .58, r * .7); ctx.quadraticCurveTo(r * .42, r * .82, r * .14, r * .72); ctx.fillStyle = '#5cc27a'; ctx.fill();
+    ctx.lineWidth = r * .05; ctx.strokeStyle = '#2f8a4e'; ctx.stroke();
+    circle(ctx, 0, -r * .2, r * .64, 'rgba(255,255,255,.92)', '#a9bfd0', r * .05);
+    puff(ctx, 0, -r * .2, r * .52, 16, .1);
+    circle(ctx, 0, -r * .2, r * .13, '#c08d4c', '#8d5f2c', r * .05);
+    puff(ctx, r * .78, -r * .78, r * .16, 7, .4);
+    puff(ctx, r * .92, -r * .44, r * .11, 6, 1.1);
+  }
+  function iconBee(ctx, r, time, flap) {
+    const beat = flap == null ? .85 : flap;
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    ctx.save(); ctx.globalAlpha *= .9;
+    for (const [x, y, w, h, a] of [[-r * .12, -r * .44, r * .3, r * .2, -.45], [r * .2, -r * .42, r * .24, r * .17, .3]]) {
+      ctx.beginPath(); ctx.ellipse(x, y, w, h * beat, a, 0, TAU); ctx.fillStyle = 'rgba(226,246,255,.95)'; ctx.fill();
+      ctx.lineWidth = r * .055; ctx.strokeStyle = '#7fb3d4'; ctx.stroke();
+    }
+    ctx.restore();
+    ctx.beginPath(); ctx.moveTo(-r * .62, 0); ctx.lineTo(-r * .84, r * .04); ctx.lineTo(-r * .62, r * .12); ctx.fillStyle = '#3b2a1e'; ctx.fill();
+    ctx.beginPath(); ctx.ellipse(-r * .06, r * .04, r * .6, r * .42, 0, 0, TAU); ctx.fillStyle = '#ffd23f'; ctx.fill();
+    ctx.save(); ctx.clip();
+    ctx.fillStyle = '#3b2a1e'; ctx.fillRect(-r * .3, -r * .5, r * .15, r); ctx.fillRect(r * .02, -r * .5, r * .15, r);
+    ctx.fillStyle = '#f2b52c'; ctx.beginPath(); ctx.ellipse(r * .08, r * .3, r * .62, r * .2, 0, 0, TAU); ctx.fill();
+    ctx.restore();
+    ctx.beginPath(); ctx.ellipse(-r * .06, r * .04, r * .6, r * .42, 0, 0, TAU); ctx.lineWidth = r * .08; ctx.strokeStyle = '#7a4f12'; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(r * .58, -r * .2); ctx.quadraticCurveTo(r * .7, -r * .62, r * .9, -r * .58); ctx.lineWidth = r * .05; ctx.strokeStyle = '#3b2a1e'; ctx.stroke();
+    circle(ctx, r * .9, -r * .58, r * .05, '#3b2a1e');
+    circle(ctx, r * .52, 0, r * .27, '#3b2a1e', '#24180f', r * .05);
+    circle(ctx, r * .6, -r * .06, r * .09, '#ffffff'); circle(ctx, r * .62, -r * .05, r * .045, '#1b120b');
+    circle(ctx, r * .44, r * .1, r * .05, '#ff8c9a');
+  }
+  function iconMoon(ctx, r, time) {
+    const R = r * .66, cx = r * .42, cy = -r * .28, q = R * .82, d = Math.hypot(cx, cy);
+    const a = (R * R - q * q + d * d) / (2 * d), h = Math.sqrt(Math.max(0, R * R - a * a));
+    const px = a * cx / d, py = a * cy / d, ox = -cy / d * h, oy = cx / d * h;
+    const p1 = [px + ox, py + oy], p2 = [px - ox, py - oy], away = Math.atan2(-cy, -cx);
+    const shape = () => {
+      ctx.beginPath();
+      arcVia(ctx, 0, 0, R, Math.atan2(p1[1], p1[0]), Math.atan2(p2[1], p2[0]), away);
+      arcVia(ctx, cx, cy, q, Math.atan2(p2[1] - cy, p2[0] - cx), Math.atan2(p1[1] - cy, p1[0] - cx), away);
+      ctx.closePath();
+    };
+    shape(); ctx.fillStyle = '#c9b8ff'; ctx.fill();
+    ctx.save(); shape(); ctx.clip(); circle(ctx, R * .28, R * .5, R * .9, '#ad98f2'); ctx.restore();
+    shape(); ctx.lineWidth = r * .08; ctx.lineJoin = 'round'; ctx.strokeStyle = '#6a55c0'; ctx.stroke();
+    ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.arc(-R * .5, -R * .02, R * .14, .15 * Math.PI, .85 * Math.PI); ctx.lineWidth = r * .06; ctx.strokeStyle = '#4b3a8f'; ctx.stroke();
+    ctx.globalAlpha *= .7; circle(ctx, -R * .36, R * .3, R * .1, '#ff9fc0'); ctx.globalAlpha /= .7;
+    const z = (x, y, s) => { ctx.beginPath(); ctx.moveTo(x - s, y - s); ctx.lineTo(x + s, y - s); ctx.lineTo(x - s, y + s); ctx.lineTo(x + s, y + s); ctx.lineWidth = s * .55; ctx.strokeStyle = '#6a55c0'; ctx.stroke(); };
+    const lift = time ? Math.sin(time * 2) * r * .04 : 0;
+    z(r * .5, -r * .5 + lift, r * .13); z(r * .78, -r * .82 + lift, r * .09);
+    sparkle(ctx, r * .78, r * .38, r * .12, '#fff3b0', .2);
+  }
+  function drawPowerIcon(ctx, id, x, y, r, time, flap) {
+    if (!ctx || !POWER_TINT[id]) return;
+    ctx.save(); ctx.translate(x, y);
+    if (id === 'sunburst') iconSun(ctx, r, time || 0);
+    else if (id === 'dandelion') iconDandelion(ctx, r);
+    else if (id === 'beeline') iconBee(ctx, r, time || 0, flap);
+    else iconMoon(ctx, r, time || 0);
+    ctx.restore();
+  }
+  // A gift bubble with a ribbon bow, holding the powerup it gives. It glows so it reads on dark scenes.
+  function drawGift(ctx, bud, time, still) {
+    const r = bud.r || 14, wobble = still ? 0 : Math.sin(time * 3 + bud.x * .05) * .04;
+    let pop = 1;
+    if (!still && typeof bud.spawnAt === 'number') { const k = clamp((time - bud.spawnAt) / .5, 0, 1); pop = .4 + .6 * ease(k); }
+    ctx.save(); ctx.translate(bud.x, bud.y); ctx.scale((1 + wobble) * pop, (1 - wobble) * pop);
+    const glow = ctx.createRadialGradient(0, 0, r * .4, 0, 0, r * 2.1);
+    glow.addColorStop(0, 'rgba(255,244,190,.5)'); glow.addColorStop(1, 'rgba(255,244,190,0)');
+    ctx.fillStyle = glow; ctx.fillRect(-r * 2.1, -r * 2.1, r * 4.2, r * 4.2);
+    const skin = ctx.createRadialGradient(-r * .3, -r * .35, r * .1, 0, 0, r);
+    skin.addColorStop(0, 'rgba(255,255,255,.75)'); skin.addColorStop(.55, 'rgba(214,240,255,.42)'); skin.addColorStop(1, 'rgba(176,214,255,.6)');
+    circle(ctx, 0, 0, r, skin);
+    drawPowerIcon(ctx, bud.gift, 0, r * .06, r * .66, still ? 0 : time, .8);
+    circle(ctx, 0, 0, r, null, '#ffffff', 2);
+    circle(ctx, 0, 0, r + 1.3, null, '#6fa6cf', 1);
+    ctx.beginPath(); ctx.arc(0, 0, r * .74, 3.6, 4.4); ctx.lineCap = 'round'; ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.stroke();
+    // The bow sits on top like a gift tag.
+    ctx.translate(0, -r - 1); ctx.lineJoin = 'round';
+    for (const side of [-1, 1]) {
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.bezierCurveTo(side * 9, -9, side * 11, 2, 0, 0); ctx.fillStyle = '#ff7aa6'; ctx.fill();
+      ctx.lineWidth = 1.1; ctx.strokeStyle = '#c84f7c'; ctx.stroke();
+    }
+    circle(ctx, 0, 0, 2.4, '#ff9cbd', '#c84f7c', 1);
+    ctx.restore();
+    if (!still) sparkle(ctx, bud.x + Math.cos(time * 2) * (r + 6), bud.y + Math.sin(time * 2) * (r + 6), 2.6, '#fff8cf', time);
+  }
+  // A powered shot in flight: a spinning little sun, a bee on its dotted bee line, or a dandelion seed.
+  function drawPowerShot(ctx, ball, time, reducedMotion) {
+    const trail = ball.trail || [], tint = POWER_TINT[ball.power] || '#ffffff';
+    ctx.save(); ctx.lineCap = 'round';
+    if (!reducedMotion && trail.length > 1) {
+      if (ball.power === 'beeline') {
+        for (let i = 0; i < trail.length; i += 2) { ctx.globalAlpha = i / trail.length * .8; circle(ctx, trail[i].x, trail[i].y, 1.5, '#5b3d1c'); }
+      } else {
+        for (let i = 1; i < trail.length; i++) {
+          if (trail[i].move) continue;
+          const f = i / trail.length;
+          ctx.beginPath(); ctx.moveTo(trail[i - 1].x, trail[i - 1].y); ctx.lineTo(trail[i].x, trail[i].y);
+          ctx.strokeStyle = tint; ctx.lineWidth = 9 * f; ctx.globalAlpha = f * .45; ctx.stroke();
+        }
+      }
+      ctx.globalAlpha = 1;
+    }
+    if (!reducedMotion) {
+      ctx.globalCompositeOperation = 'lighter';
+      const glow = ctx.createRadialGradient(ball.x, ball.y, 0, ball.x, ball.y, 26);
+      glow.addColorStop(0, tint + '99'); glow.addColorStop(1, tint + '00');
+      ctx.fillStyle = glow; ctx.fillRect(ball.x - 26, ball.y - 26, 52, 52);
+      ctx.globalCompositeOperation = 'source-over';
+    }
+    if (ball.power === 'beeline') {
+      ctx.translate(ball.x, ball.y);
+      const heading = Math.atan2(ball.vy || 0, ball.vx || 1);
+      // The bee always flies right side up, facing the way it is going.
+      if (Math.cos(heading) < 0) { ctx.scale(-1, 1); ctx.rotate(Math.PI - heading); } else ctx.rotate(heading);
+      drawPowerIcon(ctx, 'beeline', 0, 0, 12, time, reducedMotion ? .85 : .35 + Math.abs(Math.sin(time * 40)) * .65);
+    } else if (ball.power === 'sunburst') drawPowerIcon(ctx, 'sunburst', ball.x, ball.y, 12, reducedMotion ? 0 : time * 3);
+    else {
+      const away = Math.atan2(-(ball.vy || -1), -(ball.vx || 0));
+      ctx.beginPath(); ctx.moveTo(ball.x, ball.y); ctx.lineTo(ball.x + Math.cos(away) * 9, ball.y + Math.sin(away) * 9); ctx.strokeStyle = '#d9c7a4'; ctx.lineWidth = 1.2; ctx.stroke();
+      puff(ctx, ball.x + Math.cos(away) * 10, ball.y + Math.sin(away) * 10, 6.5, 9, time);
+      ctx.beginPath(); ctx.ellipse(ball.x, ball.y, 2.4, 4, away + Math.PI / 2, 0, TAU); ctx.fillStyle = '#c08d4c'; ctx.fill(); ctx.lineWidth = .9; ctx.strokeStyle = '#8d5f2c'; ctx.stroke();
+    }
+    ctx.restore();
+  }
+  // Lullaby: a soft dusk over the board, little z's over the dozing flowers and a moon that counts down.
+  // The dusk goes under the flowers; the z's and the moon go over them.
+  function drawLullaby(ctx, state, time, reducedMotion, buds, over) {
+    const left = Number(state.lullaby) || 0;
+    if (left <= 0) return;
+    const fade = Math.min(1, left / .5) * Math.min(1, (6 - left) / .3 + .2);
+    ctx.save();
+    if (!over) { ctx.globalAlpha = .2 * fade; ctx.fillStyle = '#5b47b8'; ctx.fillRect(0, 0, 420, 560); ctx.restore(); return; }
+    let shown = 0;
+    for (const bud of buds) {
+      if (bud.bloomed || bud.gift || shown >= 12) continue;
+      const first = bud.group ? buds.find(other => other.group === bud.group && !other.bloomed) : bud;
+      if (first !== bud) continue;
+      shown++;
+      const rise = reducedMotion ? 0 : (time * 12 + bud.x * .7) % 18;
+      ctx.globalAlpha = fade * (reducedMotion ? .9 : .45 + .55 * (1 - rise / 18));
+      const s = 3.6, x = bud.x + (bud.r || 12) * .8, y = bud.y - (bud.r || 12) - 4 - rise;
+      ctx.beginPath(); ctx.moveTo(x - s, y - s); ctx.lineTo(x + s, y - s); ctx.lineTo(x - s, y + s); ctx.lineTo(x + s, y + s);
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = 3.4; ctx.strokeStyle = '#ffffff'; ctx.stroke();
+      ctx.lineWidth = 1.7; ctx.strokeStyle = '#6a55c0'; ctx.stroke();
+    }
+    ctx.globalAlpha = fade;
+    circle(ctx, 384, 38, 19, 'rgba(255,253,244,.94)', '#d9cdfa', 2);
+    ctx.beginPath(); ctx.arc(384, 38, 19, -Math.PI / 2, -Math.PI / 2 + TAU * clamp(left / 6, 0, 1)); ctx.lineWidth = 3.4; ctx.lineCap = 'round'; ctx.strokeStyle = '#8b74e6'; ctx.stroke();
+    drawPowerIcon(ctx, 'lullaby', 384, 39, 13, reducedMotion ? 0 : time);
+    ctx.restore();
+  }
+
   function draw(ctx, state, time, options) {
     if (!ctx) return;
     state = state || {}; options = options || {}; time = Number(time) || 0;
@@ -1561,6 +1763,7 @@
     if (scenery(options.theme)) drawBurrows(ctx, state.gates, time, options.reducedMotion, options.theme);
     else drawGates(ctx, state.gates, time, options.reducedMotion);
     drawBriars(ctx, buds);
+    if (rush) drawLullaby(ctx, state, time, options.reducedMotion, buds, false);
     // Bloom rings are drawn under the flowers, never on top of aiming feedback.
     for (const bud of buds) {
       if (bud.bloomed && !options.reducedMotion && typeof bud.bloomAt === 'number') {
@@ -1589,6 +1792,7 @@
       }
     }
     for (const bud of buds) {
+      if (bud.gift) { if (!bud.bloomed) drawGift(ctx, bud, time, options.reducedMotion); continue; }
       const openness = bud.bloomed ? (options.reducedMotion || typeof bud.bloomAt !== 'number' ? 1 : clamp((time - bud.bloomAt) / .46, 0, 1)) : 0;
       const hp = Math.max(1, Number(bud.hp) || 1), maxHp = Math.max(hp, Number(bud.maxHp) || 1), radius = bud.r || 16;
       ctx.save();
@@ -1655,6 +1859,7 @@
       }
       ctx.restore();
     }
+    if (rush) drawLullaby(ctx, state, time, options.reducedMotion, buds, true);
     for (const bumper of state.bumpers || []) {
       if (bumper.kind === 'rock' && root.BloomScenery) root.BloomScenery.drawRock(ctx, bumper, options.theme);
       else drawBumper(ctx, bumper, options.selectedBumper === bumper.id, time, colors, options.reducedMotion);
@@ -1680,5 +1885,5 @@
     }
   }
 
-  root.BloomArt = { draw, drawFlower, drawGarden, drawMoon, koiFish, drawProjectile, drawParticle, drawSeed };
+  root.BloomArt = { draw, drawFlower, drawGarden, drawMoon, koiFish, drawProjectile, drawParticle, drawSeed, drawPowerIcon };
 })(typeof window !== 'undefined' ? window : globalThis);

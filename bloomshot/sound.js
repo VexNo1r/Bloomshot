@@ -191,6 +191,18 @@
     else if (type === 'drop' && allowed('drop', 0.5)) { note(440, 0, 0.09, 0.045, 0, 'drop'); note(329.63, 0.08, 0.11, 0.04, 0, 'drop'); }
     else if (type === 'geode' && allowed('geode', 0.12)) { note(1567.98, 0, 0.12, 0.045, pan, 'bell'); note(2093, 0.05, 0.16, 0.035, pan, 'bell'); note(2637.02, 0.1, 0.2, 0.028, pan, 'bell'); }
     else if (type === 'regrow' && allowed('regrow', 0.3)) { note(220, 0, 0.14, 0.05, pan, 'wood'); note(174.61, 0.08, 0.18, 0.045, pan, 'wood'); }
+    // Powerups: arming clicks up, a Sunburst opens with a bright fanfare, a bee buzzes past each flower,
+    // a Lullaby hums three falling notes, and a gift bubble chimes when it arrives and when it is caught.
+    else if (type === 'arm' && allowed('touch', 0.05)) { note(data.power ? 523.25 : 392, 0, 0.08, 0.06, 0, 'wood', 0); if (data.power) note(783.99, 0.05, 0.12, 0.05, 0, 'bell'); }
+    else if (type === 'power' && allowed('power', 0.3)) {
+      if (data.power === 'lullaby') phrase([659.25, 523.25, 392], 0.16, 0.6, 0.075);
+      else if (data.power === 'dandelion') { note(880, 0, 0.12, 0.05, 0, 'drop'); note(1046.5, 0.04, 0.12, 0.045, -0.4, 'drop'); note(1174.66, 0.08, 0.14, 0.045, 0.4, 'drop'); }
+      else note(data.power === 'beeline' ? 233.08 : 392, 0, 0.12, 0.07, 0, 'wood');
+    }
+    else if (type === 'sunburst' && allowed('sunburst', 0.3)) phrase([392, 523.25, 659.25, 783.99, 1046.5], 0.035, 0.6, 0.11, pan);
+    else if (type === 'bee' && allowed('bee', 0.07)) { note(233.08, 0, 0.05, 0.05, pan, 'wood'); note(246.94, 0.04, 0.05, 0.045, pan, 'wood'); }
+    else if (type === 'giftAppear' && allowed('gift', 0.5)) { note(1318.51, 0, 0.16, 0.04, pan, 'bell'); note(1567.98, 0.1, 0.22, 0.035, pan, 'bell'); }
+    else if (type === 'gift' && allowed('gift', 0.2)) phrase([783.99, 1046.5, 1318.51, 1567.98], 0.05, 0.42, 0.09, pan);
     else if (type === 'fever' && allowed('fever', 1.0)) phrase([261.63, 329.63, 392], 0.04, 0.52, 0.085);
     else if (type === 'lost' && allowed('lost', 0.6)) phrase([329.63, 261.63, 220], 0.115, 0.40, 0.105);
   }

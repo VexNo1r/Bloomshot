@@ -1,5 +1,5 @@
 {
-  "passed": 44,
+  "passed": 50,
   "failed": 0,
   "methodology": "Executes the complete current app.js in an isolated Node VM using real garden/level/engine modules, fake localStorage, and DOM/canvas adapters. Completion fixtures exercise actual engine completion events and app handlers. No real browser or user saves are read or changed.",
   "limitations": [
@@ -177,6 +177,30 @@
     },
     {
       "name": "Clearing level 4 points to the unlock once, gently; with it owned, Next goes straight to level 5",
+      "passed": true
+    },
+    {
+      "name": "A save from before powerups starts with one of each, and counts survive a reload",
+      "passed": true
+    },
+    {
+      "name": "The powerups tip waits for the first level, not the level map",
+      "passed": true
+    },
+    {
+      "name": "Picking a powerup and firing spends exactly one; picking it again first puts it back",
+      "passed": true
+    },
+    {
+      "name": "Lullaby waits for the first shot, then spends one",
+      "passed": true
+    },
+    {
+      "name": "A caught gift is saved at once, before the run ends",
+      "passed": true
+    },
+    {
+      "name": "The powerup shelf shows counts, never sells on the web or before launch, and buys exactly one per tap",
       "passed": true
     },
     {

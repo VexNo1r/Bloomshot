@@ -10,6 +10,12 @@
   // A turning shell lets a shot through only near its opening (about 140 degrees of the circle). Briars
   // grow back unless their whole patch blooms within a few seconds of the first one.
   const SHELL_OPEN = .34, REGROW = 4;
+  // Powerups. Sunburst blooms everything within reach of its first touch, Dandelion fans into three seeds,
+  // Bee Line flies through flowers (cups and shells too) and blooms each one, Lullaby stops the falling for a
+  // few seconds. A gift bubble holding one sometimes floats down in a wave; shooting it keeps the powerup.
+  const SUN_REACH = 82, FAN = .2, LULLABY = 6, GIFT_CHANCE = .06, GIFT_R = 14;
+  const SHOT_POWERS = ['sunburst', 'dandelion', 'beeline'], GIFTS = ['sunburst', 'dandelion', 'beeline', 'lullaby'];
+  const open = bud => !bud.bloomed && !bud.gift;
   const PALETTES = ['gold', 'coral', 'lilac'];
   // Tempo: each wave adds a tenth to every score (up to x2 at wave 11) and reloads a little faster
   // (0.65 s down to 0.45 s by wave 9), so the run speeds up for the player as well as against them.
@@ -59,7 +65,12 @@
       this.guideCharge = 0; this.guideTarget = null;
       this.waveBreaches = 0; this.nextWaveAt = null; this.lastHitAt = -100;
       this.speed = 460; this.descentSpeed = 10.2; this.waveFireDelay = FIRE_DELAY; this.waveHint = '';
+      // Gifts need a source of chance from the app; without one (tests, the practice bot) none appear.
+      this.random = options && typeof options.random === 'function' ? options.random : null;
+      this.giftChance = this.random ? Number.isFinite(options.giftChance) ? options.giftChance : GIFT_CHANCE : 0;
+      this.giftsLeft = 1; this.giftAt = null; this.armed = null; this.lullaby = 0; this.powersUsed = 0;
       if (first) this._applyWave(first);
+      this._rollGift();
     }
     _applyWave(spec) {
       this.speed = spec.speed; this.descentSpeed = spec.descent; this.waveFireDelay = spec.fireDelay;
@@ -73,7 +84,7 @@
     _dropIn(waveTime) {
       const next = this.drops && this.drops[0];
       if (!next) return;
-      const live = this.buds.filter(bud => !bud.bloomed), bottom = Math.max(...next.buds.map(bud => bud.y + bud.r));
+      const live = this.buds.filter(open), bottom = Math.max(...next.buds.map(bud => bud.y + bud.r));
       if (!(waveTime >= next.at || !live.length) || !live.every(bud => bud.y - bud.r >= bottom + 12)) return;
       this.drops.shift();
       // Flowers that bloomed a while ago and still sit where the drop lands make way for it.
@@ -94,19 +105,79 @@
       if (length < 1e-6 || dy / length > -0.12) return false;
       this.started = true; this.status = 'flying';
       this.fireCooldown = this.plan ? this.waveFireDelay : fireDelayFor(this.wave); this.shotNumber++; this.aim = [];
-      this.spawnBall({ x: this.launcher.x, y: this.launcher.y, angle: Math.atan2(dy, dx),
-        speed: this.speed, type: PALETTES[(this.shotNumber - 1) % PALETTES.length] });
-      this.event('launch', { wave: this.wave, count: 1 });
+      const power = this.armed, angle = Math.atan2(dy, dx), type = PALETTES[(this.shotNumber - 1) % PALETTES.length];
+      this.armed = null;
+      // A Dandelion fans out three seeds, even when that briefly goes past the usual five in the air.
+      for (const offset of power === 'dandelion' ? [-FAN, 0, FAN] : [0]) this.spawnBall({ x: this.launcher.x, y: this.launcher.y,
+        angle: angle + offset, speed: this.speed, type, power }, power === 'dandelion');
+      this.event('launch', { wave: this.wave, count: power === 'dandelion' ? 3 : 1 });
+      if (power) { this.powersUsed++; this.event('power', { power, x: this.launcher.x, y: this.launcher.y, angle }); }
       return true;
     }
-    spawnBall(spec) {
-      if (this.balls.length >= CAP || this.over) return false;
+    spawnBall(spec, force = false) {
+      if ((!force && this.balls.length >= CAP) || this.over) return false;
       const speed = spec.speed || this.speed;
       this.balls.push({ id: ++this.ballSerial, x: spec.x, y: spec.y, r: RADIUS,
         vx: Math.cos(spec.angle) * speed, vy: Math.sin(spec.angle) * speed,
-        speed, trail: [], age: 0, gateCooldown: 0, gateHops: 0, lane: null, type: spec.type || 'gold' });
+        speed, trail: [], age: 0, gateCooldown: 0, gateHops: 0, lane: null, type: spec.type || 'gold',
+        power: SHOT_POWERS.includes(spec.power) ? spec.power : null, passed: [] });
       this.ball = this.balls[0] || null;
       return true;
+    }
+    // A shot powerup waits on the next shot; picking the same one again puts it back.
+    arm(power) {
+      if (this.over || !SHOT_POWERS.includes(power)) return false;
+      this.armed = this.armed === power ? null : power;
+      this.event('arm', { power: this.armed });
+      return true;
+    }
+    lull() {
+      if (!this.started || this.over || this.lullaby > 0) return false;
+      this.lullaby = LULLABY; this.powersUsed++;
+      this.event('power', { power: 'lullaby', x: 210, y: 250 });
+      return true;
+    }
+    _rollGift() {
+      this.giftAt = null;
+      if (!this.random || this.giftsLeft <= 0 || this.bossWave) return;
+      if (this.random() < this.giftChance) this.giftAt = 2 + this.random() * 4;
+    }
+    // The gift floats in near the top, clear of the flowers, and drifts down a little faster than they do.
+    _spawnGift() {
+      this.giftAt = null;
+      const live = this.buds.filter(bud => !bud.bloomed);
+      for (let tries = 0; tries < 10; tries++) {
+        const x = 70 + this.random() * 280, y = 50;
+        if (live.some(bud => Math.hypot(bud.x - x, bud.y - y) < bud.r + GIFT_R + 12)) continue;
+        const power = GIFTS[Math.min(GIFTS.length - 1, Math.floor(this.random() * GIFTS.length))];
+        this.giftsLeft--;
+        this.buds.push({ id: `gift-${this.wave}-${this.ballSerial}`, group: `gift-${this.wave}`, x, y, baseX: x, startY: y, r: GIFT_R, type: 'gold',
+          gift: power, relay: false, hp: 1, maxHp: 1, fall: 1.35, sway: 16, swayW: 1.4, swayPhase: this.random() * 6, hitAt: -100, bloomed: false, bloomAt: -100, spawnAt: this.time });
+        this.event('giftAppear', { power, x, y });
+        return;
+      }
+    }
+    _collect(gift) {
+      this.buds = this.buds.filter(bud => bud !== gift);
+      this.event('gift', { power: gift.gift, x: gift.x, y: gift.y });
+    }
+    // A bee blooms whatever it touches; a big bloom only loses three of its rings to it.
+    _beeHit(bud) {
+      if (bud.boss) { for (let i = 0; i < 3 && !bud.bloomed; i++) this.strike(bud); }
+      else { bud.hp = 1; this.strike(bud); }
+      this.event('bee', { x: bud.x, y: bud.y });
+    }
+    // A sunburst opens at its first touch: that flower and every one within reach bloom in a ripple.
+    _sunburst(ball, bud) {
+      const x = ball.x, y = ball.y;
+      ball.dead = true;
+      const reach = this.buds.filter(other => open(other) && Math.hypot(other.x - x, other.y - y) <= SUN_REACH + other.r);
+      for (const other of reach) {
+        if (other.boss) { for (let i = 0; i < 4 && !other.bloomed; i++) this.strike(other); continue; }
+        if (other === bud) { other.hp = 1; this.strike(other); continue; }
+        if (!this.pending.some(item => item.id === other.id)) this.pending.push({ id: other.id, when: this.time + .05 + Math.hypot(other.x - x, other.y - y) / 700, force: true });
+      }
+      this.event('sunburst', { x, y, count: reach.length });
     }
     split() {
       if (!this.splitReady) return false;
@@ -131,6 +202,7 @@
     }
     strike(bud, chain = false) {
       if (!bud || bud.bloomed || this.over) return;
+      if (bud.gift) { this._collect(bud); return; }
       if (!chain) { this.directHits++; this.splitCharge = Math.min(1, this.splitCharge + 1 / 6); }
       if (this.splitCharge > 1 - 1e-8) this.splitCharge = 1;
       if (this.time - this.lastHitAt > 1.1) this.combo = 0;
@@ -163,14 +235,14 @@
       if (bud.briar) this._briarBloomed(bud);
       // A puffcap blooms everything within reach a moment later; puffcaps it reaches go off in turn.
       if (bud.puff) {
-        const near = this.buds.filter(other => other !== bud && !other.bloomed && !queued(other) && Math.hypot(other.x - bud.x, other.y - bud.y) <= PUFF_REACH)
+        const near = this.buds.filter(other => other !== bud && open(other) && !queued(other) && Math.hypot(other.x - bud.x, other.y - bud.y) <= PUFF_REACH)
           .sort((a, b) => Math.hypot(a.x - bud.x, a.y - bud.y) - Math.hypot(b.x - bud.x, b.y - bud.y));
         near.forEach((other, index) => this.pending.push({ id: other.id, when: this.time + .09 + index * .045 }));
         this.event('puff', { bud, count: near.length });
       }
       // Blooming a boss blooms the rest of its wave.
       if (bud.boss) {
-        this.buds.filter(other => !other.bloomed && !queued(other)).forEach((other, index) => this.pending.push({ id: other.id, when: this.time + .25 + index * .06, force: true }));
+        this.buds.filter(other => open(other) && !queued(other)).forEach((other, index) => this.pending.push({ id: other.id, when: this.time + .25 + index * .06, force: true }));
         this.event('boss', { bud, gain });
       }
       if (this.combo % 12 === 0) { this.feverTime = 1.6; this.event('fever', { combo: this.combo }); }
@@ -216,6 +288,8 @@
       return Boolean(bud.shell) && hit.nx * Math.cos(bud.shellAngle || 0) + hit.ny * Math.sin(bud.shellAngle || 0) < SHELL_OPEN;
     }
     _loadWave() {
+      const missed = this.buds.find(bud => bud.gift);
+      if (missed) this.event('giftGone', { power: missed.gift, x: missed.x, y: missed.y });
       this.wave++; this.waveBreaches = 0; this.nextWaveAt = null; this.pending = []; this.waveStart = this.time;
       if (this.plan) {
         const spec = this.plan.wave(this.wave);
@@ -231,12 +305,13 @@
         this.descentSpeed = descentFor(this.wave);
       }
       for (const bud of this.buds) bud.spawnAt = this.time;
+      this._rollGift();
       this.level.subtitle = 'Wave ' + this.wave + '. Keep the flowers above the line.';
       this.event('wave', { wave: this.wave, speed: this.speed, descentSpeed: this.descentSpeed, buds: this.buds.length, tempo: this.tempo, hint: this.waveHint, boss: Boolean(this.bossWave) });
     }
     _lose() {
       if (this.over) return;
-      this.status = 'lost'; this.lives = 0; this.balls = []; this.ball = null;
+      this.status = 'lost'; this.lives = 0; this.balls = []; this.ball = null; this.armed = null; this.lullaby = 0;
       this.pending = []; this.pendingBalls = []; this.aim = []; this.nextWaveAt = null;
       this.event('lost', { wave: this.wave, elapsed: this.elapsed });
     }
@@ -244,7 +319,7 @@
     finishShot() { this.ball = this.balls[0] || null; }
     win() { if (this.started && !this.over && this.nextWaveAt === null) this.nextWaveAt = this.time + 0.7; }
     _clearLevel() {
-      this.status = 'won'; this.balls = []; this.ball = null; this.pending = []; this.aim = []; this.nextWaveAt = null;
+      this.status = 'won'; this.balls = []; this.ball = null; this.armed = null; this.lullaby = 0; this.pending = []; this.aim = []; this.nextWaveAt = null;
       this.event('won', { wave: this.wave, lives: this.lives, stars: this.stars, elapsed: this.elapsed });
     }
     step(dt) {
@@ -262,6 +337,7 @@
       if (this.rotateCooldown <= 1e-7) this.rotationUsed = false;
       if (!this.started || this.over) return;
       this.elapsed += dt;
+      this.lullaby = Math.max(0, this.lullaby - dt);
       this.fireCooldown = Math.max(0, this.fireCooldown - dt);
       if (this.time - this.lastHitAt > 1.1) this.combo = 0;
       const due = this.pending.filter(item => item.when <= this.time);
@@ -274,8 +350,10 @@
       if (this.briarTimers && this.briarTimers.size) this._regrow();
       if (this.nextWaveAt !== null && this.time + 1e-10 >= this.nextWaveAt) this._loadWave();
       const waveTime = this.time - this.waveStart;
+      if (this.giftAt !== null && waveTime >= this.giftAt) this._spawnGift();
+      // During a Lullaby nothing falls; flowers still sway and shells still turn.
       for (const bud of this.buds) {
-        bud.y += this.descentSpeed * (bud.fall || 1) * dt;
+        if (this.lullaby <= 0) bud.y += this.descentSpeed * (bud.fall || 1) * dt;
         if (bud.sway) bud.x = bud.baseX + Math.sin(waveTime * bud.swayW + bud.swayPhase) * bud.sway;
         if (bud.shellSpin) bud.shellAngle += bud.shellSpin * dt;
       }
@@ -286,6 +364,8 @@
       for (const group of breached) {
         if (this.status === 'lost' || this.waveBreaches >= 3) break;
         const member = this.buds.find(bud => bud.group === group && !bud.bloomed);
+        // A gift that drifts past the line floats away; it never costs a life.
+        if (member.gift) { this.buds = this.buds.filter(bud => bud !== member); this.event('giftGone', { power: member.gift, x: member.x, y: member.y }); continue; }
         // A puffcap that drifts past the line just fizzles; it never costs a life.
         if (member.puff) { this.buds = this.buds.filter(bud => bud !== member); this.pending = this.pending.filter(item => item.id !== member.id); continue; }
         // A boss that reaches the line costs a life and climbs back to the top to try again.
@@ -318,7 +398,9 @@
         for (let i = 0; i < 5 && remaining > 1e-7; i++) {
           const duration = ball.gateCooldown > 1e-9 ? Math.min(remaining, ball.gateCooldown) : remaining;
           const d = { x: ball.vx * duration, y: ball.vy * duration };
-          const hit = Engine.earliest(this, ball, d);
+          // A bee never touches the same flower twice.
+          const world = ball.power === 'beeline' && ball.passed.length ? { bumpers: this.bumpers, gates: this.gates, buds: this.buds.filter(bud => !ball.passed.includes(bud.id)) } : this;
+          const hit = Engine.earliest(world, ball, d);
           if (!hit) {
             ball.x += d.x; ball.y += d.y;
             ball.gateCooldown = Math.max(0, (ball.gateCooldown || 0) - duration);
@@ -338,6 +420,10 @@
             }
             continue;
           }
+          // A gift is caught and the shot flies on; a bee flies on through flowers; a sunburst opens on its first touch.
+          if (hit.kind === 'bud' && hit.item.gift) { this._collect(hit.item); continue; }
+          if (hit.kind === 'bud' && ball.power === 'beeline') { ball.passed.push(hit.item.id); this._beeHit(hit.item); continue; }
+          if (hit.kind === 'bud' && ball.power === 'sunburst') { this._sunburst(ball, hit.item); break; }
           // An acorn cup turns away any shot that meets it from below; a shell, any shot that misses its opening.
           if (hit.kind === 'bud' && this._guarded(hit.item, hit)) this.event('shield', { bud: hit.item, x: ball.x, y: ball.y, shell: Boolean(hit.item.shell) });
           else if (hit.kind === 'bud') this.strike(hit.item);
@@ -347,9 +433,9 @@
           ball.x += hit.nx * 0.08; ball.y += hit.ny * 0.08;
         }
       }
-      this.balls = this.balls.filter(ball => ball.y <= BOUNDS.bottom + RADIUS && ball.age < BALL_LIFE);
+      this.balls = this.balls.filter(ball => !ball.dead && ball.y <= BOUNDS.bottom + RADIUS && ball.age < BALL_LIFE);
       this.ball = this.balls[0] || null;
-      if (!this.buds.some(bud => !bud.bloomed) && this.pending.length === 0 && this.nextWaveAt === null && !(this.drops && this.drops.length)) {
+      if (!this.buds.some(open) && this.pending.length === 0 && this.nextWaveAt === null && !(this.drops && this.drops.length)) {
         if (this.wave >= this.finalWave) { this._clearLevel(); return; }
         this.nextWaveAt = this.time + 0.7;
         this.event('cleared', { wave: this.wave, tempo: this.tempo, next: tempoFor(this.wave + 1) });
@@ -361,11 +447,11 @@
         speed: this.speed, descentSpeed: this.descentSpeed, balls: this.balls.length, currents: this.currents.length, gates: this.gates.length,
         fireCooldown: this.fireCooldown, rotateCooldown: this.rotateCooldown, splitCharge: this.splitCharge, splitReady: this.splitReady,
         combo: this.combo, bestCombo: this.bestCombo, bloomedCount: this.bloomedCount,
-        directHits: this.directHits, rotationUsed: this.rotationUsed,
-        buds: this.buds.map(({ id, x, y, hp, relay, bloomed, shield, puff, boss, shell, geode, gem, briar }) => ({ id, x, y, hp, relay, bloomed,
-          shield: Boolean(shield), puff: Boolean(puff), boss: Boolean(boss), shell: Boolean(shell), geode: Boolean(geode), gem: Boolean(gem), briar: Boolean(briar) })),
+        directHits: this.directHits, rotationUsed: this.rotationUsed, armed: this.armed, lullaby: this.lullaby, powersUsed: this.powersUsed,
+        buds: this.buds.map(({ id, x, y, hp, relay, bloomed, shield, puff, boss, shell, geode, gem, briar, gift }) => ({ id, x, y, hp, relay, bloomed,
+          shield: Boolean(shield), puff: Boolean(puff), boss: Boolean(boss), shell: Boolean(shell), geode: Boolean(geode), gem: Boolean(gem), briar: Boolean(briar), gift: gift || null })),
         rocks: this.bumpers.filter(item => item.kind === 'rock').map(({ id, x, y, length, angle }) => ({ id, x, y, length, angle })) };
     }
   }
-  return { RushGame, tempoFor, fireDelayFor, descentFor };
+  return { RushGame, tempoFor, fireDelayFor, descentFor, SUN_REACH, LULLABY, GIFT_CHANCE, SHOT_POWERS };
 });
