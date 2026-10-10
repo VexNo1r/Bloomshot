@@ -11,6 +11,8 @@
   //   haptic(kind): real haptics in the native app (iPhone ignores navigator.vibrate); vibrate() on the web.
   //   mirror / restore: the player's save is copied to the app's native preferences so that the OS clearing
   //   the WebView's storage cannot wipe a garden.
+  //   share({ text, url, title }): the phone's share sheet in the app, the browser's own share sheet on the web,
+  //   otherwise the text and link are copied to the clipboard. link: the link to put in a share.
   //
   // Which copy wins. localStorage is the source of truth once this install has checked it against the backup
   // (a marker, SYNC_KEY, is stored beside the save to say so). Until then the local save is unverified: it may
@@ -22,6 +24,9 @@
   var SYNC_KEY = 'bloomshot.native.synced.v1';
   var VIBRATION = { tick: 8, tap: 12, surge: [12, 35, 18], warn: [18, 25, 18] };
   var MIRROR_DELAY = 400;
+  // Where a shared link sends people: the Play Store page from the Android app, the free web game from everywhere
+  // else until the App Store listing exists.
+  var LINKS = { android: 'https://play.google.com/store/apps/details?id=dev.bloomshot.game', web: 'https://vexno1r.github.io/Bloomshot/' };
 
   function create(env) {
     env = env || {};
@@ -43,6 +48,11 @@
     }
     var haptics = native ? plugin('Haptics') : null;
     var prefs = native ? plugin('Preferences') : null;
+    var sharer = native ? plugin('Share') : null;
+    var platform = 'web';
+    try { if (native && typeof Capacitor.getPlatform === 'function') platform = String(Capacitor.getPlatform()); } catch (_) { /* treated as web */ }
+    var webShare = Boolean(!native && nav && typeof nav.share === 'function');
+    var clipboard = nav && nav.clipboard && typeof nav.clipboard.writeText === 'function' ? nav.clipboard : null;
 
     // The mirror stays closed until restore() has looked at the backup, so the game's starting save can never
     // overwrite a backup that has not been read yet. A backup that cannot be read keeps it closed for the session.
@@ -118,9 +128,48 @@
       return false;
     }
 
+    // Closing the share sheet without picking anything is not a failure: the game should just carry on quietly.
+    function cancelled(error) {
+      var text = error ? String(error.name || '') + ' ' + String(error.message || error) : '';
+      return /abort|cancel/i.test(text);
+    }
+    // Answers { ok: true, via: 'sheet' } once a share sheet has been used, { ok: true, via: 'copied' } when the text
+    // went to the clipboard instead (say so to the player), { ok: false, cancelled: true } when they closed the
+    // sheet, and { ok: false } when nothing could share. Call it straight from a tap: browsers only allow a share
+    // sheet or clipboard write in response to one.
+    async function share(message) {
+      message = message || {};
+      var text = typeof message.text === 'string' ? message.text : '';
+      var url = typeof message.url === 'string' ? message.url : '';
+      var title = typeof message.title === 'string' ? message.title : '';
+      if (!text && !url) return { ok: false };
+      var payload = {};
+      if (title) payload.title = title;
+      if (text) payload.text = text;
+      if (url) payload.url = url;
+      if (sharer || webShare) {
+        try {
+          if (sharer) await sharer.share(title ? Object.assign({ dialogTitle: title }, payload) : payload);
+          else await nav.share(payload);
+          return { ok: true, via: 'sheet' };
+        } catch (error) {
+          if (cancelled(error)) return { ok: false, cancelled: true };
+          // Anything else (no share target, a browser that refuses) falls through to the clipboard.
+        }
+      }
+      if (clipboard) {
+        try { await clipboard.writeText(text && url ? text + '\n' + url : text || url); return { ok: true, via: 'copied' }; } catch (_) { /* nothing left to try */ }
+      }
+      return { ok: false };
+    }
+
     return {
       isNative: native,
       haptic: haptic,
+      share: share,
+      canShare: Boolean(sharer || webShare || clipboard),
+      link: platform === 'android' ? LINKS.android : LINKS.web,
+      links: { android: LINKS.android, web: LINKS.web },
       mirror: mirror,
       restore: restore,
       // True once a restore has rewritten storage and a reload is on its way: the page must not save again.
