@@ -699,106 +699,323 @@
   }
 
   // ---------- Level 3: Mushroom Grotto ----------
-  function mushroom(ctx, x, y, w, h, cap, capDark, spots, glow, tilt = 0) {
-    ctx.save(); ctx.translate(x, y); ctx.rotate(tilt);
-    if (glow) { dot(ctx, 0, -h * .9, w * 1.25, glow + '22'); dot(ctx, 0, -h * .9, w * .85, glow + '30'); }
-    ctx.beginPath(); ctx.moveTo(-w * .2, 0); ctx.quadraticCurveTo(-w * .26, -h * .5, -w * .16, -h * .82); ctx.lineTo(w * .16, -h * .82); ctx.quadraticCurveTo(w * .26, -h * .5, w * .2, 0); ctx.closePath();
-    ctx.fillStyle = '#f3e3cc'; ctx.fill(); ctx.strokeStyle = '#5b3f52'; ctx.lineWidth = 1.3; ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(w * .06, -h * .1); ctx.quadraticCurveTo(w * .12, -h * .45, w * .08, -h * .75); ctx.strokeStyle = '#d8c2a6'; ctx.lineWidth = 1.4; ctx.stroke();
-    const capPts = [[-w * .55, -h * .78], [-w * .5, -h * 1.08], [-w * .2, -h * 1.3], [w * .2, -h * 1.3], [w * .5, -h * 1.08], [w * .55, -h * .78], [0, -h * .7]];
-    shape(ctx, capPts, cap, null); cel(ctx, capPts, capDark, w * .12, h * .1); shape(ctx, capPts, null, '#4a2a3e', 1.4);
-    for (const [sx, sy, sr] of spots) dot(ctx, sx * w, -h + sy * h, sr * w, '#fff2e4');
-    ctx.beginPath(); ctx.arc(-w * .22, -h * 1.12, w * .16, 3.6, 4.7); ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 1.2; ctx.lineCap = 'round'; ctx.stroke();
-    ctx.restore();
-  }
+  // A violet cavern lit by its own mushrooms. A teal colony in the lower left is the key light, a warm amber colony
+  // answers from the lower right, and between them the far hall sinks into lavender haze where the flowers play.
+  // The old outlined rock wall, still used by the deeper levels.
   function caveWall(ctx, pts, fill, shade, line) { shape(ctx, pts, fill, null); cel(ctx, pts, shade, 6, 4); shape(ctx, pts, null, line, 1.8); }
-  function snail(ctx, x, y, s) {
-    ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
-    ctx.beginPath(); ctx.moveTo(-14, 0); ctx.quadraticCurveTo(-4, -3, 10, -2); ctx.quadraticCurveTo(16, -8, 15, -13); ctx.lineTo(18, -12); ctx.quadraticCurveTo(19, -4, 14, 0); ctx.closePath();
-    ctx.fillStyle = '#c9d7a8'; ctx.fill(); ctx.strokeStyle = '#59633c'; ctx.lineWidth = 1.1; ctx.stroke();
-    for (const [ax, ay] of [[15, -13], [18, -12]]) { stroke(ctx, [[ax, ay], [ax + 1, ay - 6]], '#59633c', .9); dot(ctx, ax + 1, ay - 6.5, 1.1, '#59633c'); }
-    dot(ctx, -2, -9, 9, '#f2b75a'); ctx.beginPath(); ctx.arc(-2, -9, 9, 0, TAU); ctx.strokeStyle = '#8a5a23'; ctx.lineWidth = 1.2; ctx.stroke();
-    ctx.beginPath(); for (let a = 0; a < 2.6 * TAU; a += .2) { const rr = 1 + a * .45; ctx.lineTo(-2 + Math.cos(a) * rr, -9 + Math.sin(a) * rr); } ctx.strokeStyle = '#a86f2a'; ctx.lineWidth = 1; ctx.stroke();
-    ctx.restore();
-  }
-  function bat(ctx, x, y, s) {
-    ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
-    stroke(ctx, [[0, -14], [0, -8]], '#1a1229', 1.4);
-    const wings = [[-9, -6], [-12, 4], [-6, 12], [0, 14], [6, 12], [12, 4], [9, -6], [0, -9]];
-    shape(ctx, wings, '#5d4a7e', '#1a1229', 1.4);
-    stroke(ctx, [[-6, 0], [-4, 8]], 'rgba(26,18,41,.5)', 1); stroke(ctx, [[6, 0], [4, 8]], 'rgba(26,18,41,.5)', 1);
-    // Hanging upside down, fast asleep.
-    for (const ex of [-2.6, 2.6]) { ctx.beginPath(); ctx.arc(ex, 6, 1.6, Math.PI + .3, -.3); ctx.strokeStyle = '#f1e6ff'; ctx.lineWidth = 1; ctx.stroke(); }
-    for (const ex of [-4, 4]) { ctx.beginPath(); ctx.moveTo(ex - 2, 12); ctx.lineTo(ex, 16); ctx.lineTo(ex + 2, 12); ctx.fillStyle = '#5d4a7e'; ctx.fill(); }
-    ctx.restore();
-  }
-  function glowVine(ctx, x, len, seed) {
-    const r = rng(seed), pts = [];
-    for (let i = 0; i <= 5; i++) pts.push([x + Math.sin(i * 1.3 + seed) * 4, 30 + len * i / 5]);
-    stroke(ctx, pts, '#2c6e64', 2.2); stroke(ctx, pts, '#3f9a8a', 1.1);
-    for (let i = 1; i <= 5; i++) {
-      const p = pts[i], side = i % 2 ? -1 : 1;
-      ctx.beginPath(); ctx.ellipse(p[0] + side * 4, p[1] - 2, 3.4, 1.8, side * .6, 0, TAU); ctx.fillStyle = '#4fb39f'; ctx.fill();
-      if (i > 1 && r() < .8) { dot(ctx, p[0], p[1] + 3, 7, 'rgba(143,245,227,.16)'); dot(ctx, p[0], p[1] + 3, 3, '#a8fbe9'); dot(ctx, p[0] - .8, p[1] + 2.2, 1, '#ffffff'); }
+  const GROTTO_KEY = [44, 486], GROTTO_WARM = [382, 496];
+  const GROTTO_TEAL = { glow: '112,242,222', top: '#1f6f7e', mid: '#45c2b8', edge: '#c8fff2', gill: '#effff9', vein: 'rgba(40,150,150,.4)', stem: ['#dcf3ee', '#5c6c98'], spot: 'rgba(206,255,244,.7)' };
+  const GROTTO_AMBER = { glow: '255,184,100', top: '#94462e', mid: '#e3934a', edge: '#ffe4aa', gill: '#fff4da', vein: 'rgba(170,96,40,.4)', stem: ['#f6e8d8', '#76648c'], spot: 'rgba(255,238,210,.7)' };
+  const GROTTO_ROSE = { top: '#5a2650', mid: '#a4486e', edge: '#de7c96', gill: '#4e2c58', vein: 'rgba(30,12,36,.4)', stem: ['#d8c8de', '#5a4c7c'], spot: 'rgba(255,220,230,.7)' };
+  // A mushroom: a stem that flares at the foot, gills under a domed cap. Glowing caps are lit from within, brightest
+  // at the rim and gills; the others are lit from the side facing the key light. (x, y) is the foot, s the cap's
+  // half-width, toward which side the light comes from.
+  function grottoShroom(ctx, x, y, s, len, lean, pal, seed, dome = .64, toward = -1) {
+    const r = rng(seed), bend = (r() - .5) * s * .7, glow = pal.glow, dh = s * dome;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(lean);
+    if (glow) { bloom(ctx, 0, -len - dh * .3, s * 4.4, glow, .22); bloom(ctx, 0, -len - dh * .2, s * 2, glow, .3); }
+    // The stem, lit at the top by the gills above it and sinking into shade at the foot.
+    const sw = s * .19, bw = s * .3;
+    const stem = [[-bw, 1], [-sw * 1.12 + bend * .6, -len * .45], [-sw + bend * .2, -len], [sw + bend * .2, -len], [sw * 1.12 + bend * .6, -len * .45], [bw, 1], [0, 3]];
+    shape(ctx, stem, lin(ctx, -bw, 0, bw, 0, toward < 0 ? [[0, pal.stem[0]], [1, pal.stem[1]]] : [[0, pal.stem[1]], [1, pal.stem[0]]]), null);
+    clipTo(ctx, stem, () => {
+      if (glow) wash(ctx, lin(ctx, 0, -len, 0, -len * .3, [[0, rgba(glow, .8)], [1, rgba(glow, 0)]]), 'screen', 1, -s, -len - 2, s * 2, len);
+      wash(ctx, lin(ctx, 0, -len * .4, 0, 2, [[0, 'rgba(34,20,64,0)'], [1, 'rgba(34,20,64,.7)']]), null, 1, -s, -len * .4, s * 2, len * .4 + 4);
+      stroke(ctx, [[toward * sw * .45, -len * .92], [toward * sw * .6 + bend * .4, -len * .45], [toward * bw * .5, -3]], 'rgba(255,255,255,.22)', Math.max(.8, s * .06));
+    });
+    if (s > 16) {
+      // A little skirt on the big ones.
+      ctx.beginPath(); ctx.ellipse(bend * .22, -len * .8, sw * 1.7, s * .07, 0, 0, Math.PI); ctx.fillStyle = glow ? rgba(glow, .55) : 'rgba(220,200,230,.5)'; ctx.fill();
     }
+    // The gills, then the cap over them.
+    ctx.beginPath(); ctx.ellipse(0, -len, s * .94, s * .2, 0, 0, TAU);
+    ctx.fillStyle = glow ? rad(ctx, 0, -len, s, [[0, pal.gill], [.75, pal.edge], [1, pal.mid]]) : pal.gill; ctx.fill();
+    ctx.save(); ctx.beginPath(); ctx.ellipse(0, -len, s * .94, s * .2, 0, 0, TAU); ctx.clip();
+    for (let a = .12; a < Math.PI - .08; a += .2) { ctx.beginPath(); ctx.moveTo(0, -len - s * .06); ctx.lineTo(Math.cos(a) * s, -len + Math.sin(a) * s * .22); ctx.strokeStyle = pal.vein; ctx.lineWidth = .6; ctx.stroke(); }
+    ctx.restore();
+    const capPath = () => {
+      ctx.beginPath(); ctx.moveTo(-s, -len + s * .02);
+      ctx.bezierCurveTo(-s * 1.03, -len - dh * .8, -s * .5, -len - dh * 1.02, s * .05, -len - dh);
+      ctx.bezierCurveTo(s * .6, -len - dh * .98, s * 1.04, -len - dh * .7, s, -len + s * .02);
+      ctx.quadraticCurveTo(s * .55, -len + s * .15, 0, -len + s * .1); ctx.quadraticCurveTo(-s * .55, -len + s * .15, -s, -len + s * .02); ctx.closePath();
+    };
+    capPath();
+    ctx.fillStyle = glow ? lin(ctx, 0, -len - dh, 0, -len + s * .1, [[0, pal.top], [.6, pal.mid], [1, pal.edge]])
+      : lin(ctx, toward * s, -len - dh, -toward * s * .6, -len, [[0, pal.edge], [.4, pal.mid], [1, pal.top]]);
+    ctx.fill();
+    ctx.save(); capPath(); ctx.clip();
+    // Freckles across the dome, smaller toward the rim.
+    const n = 4 + Math.floor(r() * 4);
+    for (let i = 0; i < n; i++) {
+      const a = -Math.PI * (.12 + r() * .76), d = .2 + r() * .62, px = Math.cos(a) * s * d * .95, py = -len - dh * .25 + Math.sin(a) * dh * d * .85, pr = s * (.045 + r() * .065) * (1.25 - d * .6);
+      ctx.beginPath(); ctx.ellipse(px, py, pr * 1.3, pr, a * .2, 0, TAU); ctx.fillStyle = pal.spot; ctx.fill();
+    }
+    if (glow) {
+      // Light from inside: the rim and lower dome glow, the crown stays deep.
+      wash(ctx, rad(ctx, 0, -len + s * .25, s * 1.1, [[0, rgba(glow, .6)], [.55, rgba(glow, .2)], [1, rgba(glow, 0)]]), 'screen', 1, -s * 1.2, -len - dh - 2, s * 2.4, dh + s * .4);
+      ctx.beginPath(); ctx.ellipse(-s * .34, -len - dh * .72, s * .3, dh * .14, -.4, 0, TAU); ctx.fillStyle = 'rgba(255,255,255,.2)'; ctx.fill();
+    } else {
+      ctx.beginPath(); ctx.ellipse(toward * s * .42, -len - dh * .64, s * .3, dh * .14, toward * .5, 0, TAU); ctx.fillStyle = 'rgba(255,230,240,.18)'; ctx.fill();
+    }
+    ctx.restore();
+    // The cap's thin lower lip.
+    ctx.beginPath(); ctx.moveTo(-s, -len + s * .02); ctx.quadraticCurveTo(-s * .55, -len + s * .15, 0, -len + s * .1); ctx.quadraticCurveTo(s * .55, -len + s * .15, s, -len + s * .02);
+    ctx.strokeStyle = glow ? rgba(glow, .8) : 'rgba(240,150,180,.45)'; ctx.lineWidth = Math.max(.8, s * .05); ctx.stroke();
+    ctx.restore();
+  }
+  // A cave wall: deep violet rock, darkest at its outer edge, warmed by the colony at its foot. Soft bulges catch a
+  // little light along the inner edge and deep seams run down between them.
+  function grottoWall(ctx, pts, seed, light, lx, ly, side) {
+    soft(ctx, () => smooth(ctx, pts.map(([x, y]) => [x - side * 5, y + 4]), true), 'rgba(16,8,36,.4)', 10);
+    const [x0, , x1] = bounds(pts), outer = side < 0 ? x0 : x1, inner = side < 0 ? x1 : x0;
+    shape(ctx, pts, lin(ctx, outer, 0, inner, 0, [[0, '#120b24'], [.55, '#1d1538'], [1, '#2a1f4c']]), null);
+    clipTo(ctx, pts, () => {
+      const r = rng(seed);
+      for (let i = 0; i < 7; i++) {
+        const y = 70 + i * 56 + r() * 30, ex = edgeAt(pts.filter(p => p[1] > 0).map(([x, yy]) => [yy, x]).sort((a, b) => a[0] - b[0]), y);
+        soft(ctx, () => ctx.ellipse(ex + side * (12 + r() * 8), y, 10 + r() * 8, 26 + r() * 20, 0, 0, TAU), 'rgba(150,130,220,.12)', 12);
+        soft(ctx, () => ctx.ellipse(ex + side * (24 + r() * 10), y + 30, 5, 22 + r() * 14, side * .1, 0, TAU), 'rgba(8,2,20,.4)', 8);
+      }
+      wash(ctx, rad(ctx, lx, ly, 300, [[0, rgba(light, .55)], [.3, rgba(light, .18)], [1, rgba(light, 0)]]), 'screen');
+      wash(ctx, lin(ctx, 0, 20, 0, 160, [[0, 'rgba(10,4,24,.8)'], [1, 'rgba(10,4,24,0)']]), null, 1, -10, 20, 440, 140);
+    });
+    rim(ctx, pts, rad(ctx, lx, ly, 240, [[0, rgba(light, .75)], [.6, rgba(light, .2)], [1, rgba(light, 0)]]), -side * 1.8, 1.4);
+  }
+  // A shelf of rock grown out of a wall: a front face in shade, a mossy top lit by the colony that grows on it, and
+  // moss hanging off its lip.
+  function grottoLedge(ctx, x0, x1, y, side, seed, light) {
+    const r = rng(seed), w = x1 - x0, tip = side < 0 ? x1 : x0, root = side < 0 ? x0 : x1, k = -side;
+    const face = [[root, y - 2.5], [tip - k * 7, y - 2], [tip - k * 1.5, y + .5], [tip, y + 5], [tip - k * 3, y + 10], [tip - k * 13, y + 14], [root + k * w * .45, y + 19], [root + k * 9, y + 28], [root, y + 36]];
+    soft(ctx, () => ctx.ellipse(tip - k * w * .4, y + 20, w * .42, 8, 0, 0, TAU), 'rgba(8,2,22,.5)', 9);
+    shape(ctx, face, lin(ctx, 0, y - 2, 0, y + 30, [[0, '#45387a'], [.25, '#2e2458'], [1, '#22183f']]), null);
+    grottoEdge(ctx, face, tip, y - 12, 44, light, .45);
+    // The moss: a bumpy cushion along the top.
+    const top = [], under = [];
+    for (let i = 0; i <= 10; i++) { const t = i / 10, x = root + k * w * t; top.push([x, y - 1.5 - Math.sin(t * Math.PI) * 2 - r() * 2.2]); under.push([x, y + 2.4 + r() * 1.6 + (t > .85 ? 2 : 0)]); }
+    shape(ctx, top.concat(under.reverse()), lin(ctx, 0, y - 6, 0, y + 5, [[0, rgba(light, .95)], [.4, '#4a9a8e'], [1, '#2a5060']]), null);
+    for (let i = 0; i < 4; i++) {
+      const x = root + k * w * (.35 + r() * .62), len = 6 + r() * 12, hang = [[x, y + 2], [x + (r() - .5) * 2, y + 2 + len * .5], [x + (r() - .5) * 3, y + 2 + len]];
+      shape(ctx, ribbon2(hang, 2.6, .9), lin(ctx, 0, y, 0, y + len, [[0, '#3f8a80'], [1, rgba(light, .5)]]), null);
+    }
+  }
+  function grottoMoss(ctx, x0, x1, y, seed, light, tilt = 0) {
+    const r = rng(seed), w = x1 - x0, top = [], under = [];
+    for (let i = 0; i <= 12; i++) { const t = i / 12, x = x0 + w * t, yy = y + tilt * w * t; top.push([x, yy - Math.sin(t * Math.PI) * 2.4 - r() * 2]); under.push([x, yy + 2.6 + r() * 1.4]); }
+    shape(ctx, top.concat(under.reverse()), lin(ctx, 0, y - 5, 0, y + 5, [[0, rgba(light, .85)], [.4, '#3d8a7e'], [1, 'rgba(38,64,90,.6)']]), null);
+  }
+  // Hanging vines with beads of light, strung from the roof near the walls.
+  function grottoVine(ctx, x, y, len, seed, light) {
+    const r = rng(seed), pts = [];
+    for (let i = 0; i <= 6; i++) pts.push([x + Math.sin(i * 1.1 + seed) * 3.4 + i * (r() - .5) * .8, y + len * i / 6]);
+    stroke(ctx, pts, 'rgba(20,46,62,.9)', 1.9); stroke(ctx, pts.map(([px, py]) => [px - .5, py]), 'rgba(80,160,150,.5)', .7);
+    for (let i = 1; i <= 6; i++) {
+      const [px, py] = pts[i], side = i % 2 ? -1 : 1;
+      ctx.beginPath(); ctx.ellipse(px + side * 3.4, py - 3, 3.2, 1.4, side * .7, 0, TAU); ctx.fillStyle = i % 3 ? '#2a5c62' : '#3f8a84'; ctx.fill();
+      if (i > 1 && (i === 6 || r() < .5)) { bloom(ctx, px, py + 3, 10, light, .5); ctx.beginPath(); ctx.ellipse(px, py + 3, 1.5, 2.1, 0, 0, TAU); ctx.fillStyle = '#dcfff6'; ctx.fill(); }
+    }
+  }
+  // Columns where stalactite and stalagmite have grown together, pinched at the waist.
+  function grottoPillar(x, w, waist, y0, y1, seed) {
+    const r = rng(seed), h = y1 - y0, j = () => (r() - .5) * w * .1;
+    const L = [[x - w * .62, y0], [x - w * .34 + j(), y0 + h * .22], [x - waist / 2 + j(), y0 + h * .5], [x - w * .32 + j(), y0 + h * .78], [x - w * .66, y1]];
+    const R = [[x + w * .7, y1], [x + w * .34 + j(), y0 + h * .76], [x + waist / 2 + j(), y0 + h * .48], [x + w * .3 + j(), y0 + h * .2], [x + w * .58, y0]];
+    return L.concat(R);
+  }
+  // A cluster of stalagmites standing on one base line, each a soft cone.
+  function grottoSpires(ctx, base, spires, fill, rimColor, dx) {
+    for (const [x, tip, w] of spires) {
+      const h = base - tip, pts = [[x - w / 2, base + 4], [x - w * .3, tip + h * .45], [x - w * .08, tip + 5], [x + w * .02, tip], [x + w * .1, tip + 6], [x + w * .32, tip + h * .5], [x + w / 2, base + 4]];
+      shape(ctx, pts, fill, null); rim(ctx, pts, rimColor, dx, -.6);
+    }
+  }
+  function grottoBat(ctx, x, y, s) {
+    ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+    const line = 'rgba(26,16,48,.6)';
+    stroke(ctx, [[-2, -13], [-1.4, -7]], '#241a3e', 1.3); stroke(ctx, [[2, -13], [1.4, -7]], '#241a3e', 1.3);
+    // Hanging upside down, wings folded round like a cloak; the ears point at the floor.
+    const body = [[0, -8], [7, -5], [10, 3], [8, 11], [3, 15], [-3, 15], [-8, 11], [-10, 3], [-7, -5]];
+    soft(ctx, () => ctx.ellipse(0, 6, 12, 12, 0, 0, TAU), 'rgba(255,184,100,.16)', 6);
+    shape(ctx, body, lin(ctx, 0, -8, 0, 15, [[0, '#2e2250'], [.55, '#4c3c78'], [1, '#7e6290']]), line, .9);
+    stroke(ctx, [[-6, -3], [-3.6, 6], [-4.4, 12]], 'rgba(26,16,48,.45)', .8); stroke(ctx, [[6, -3], [3.6, 6], [4.4, 12]], 'rgba(26,16,48,.45)', .8);
+    for (const ex of [-3.4, 3.4]) { ctx.beginPath(); ctx.moveTo(ex - 2, 13.6); ctx.lineTo(ex * 1.3, 19); ctx.lineTo(ex + 2, 13.8); ctx.closePath(); ctx.fillStyle = '#6a5290'; ctx.fill(); ctx.strokeStyle = line; ctx.lineWidth = .8; ctx.stroke(); }
+    ctx.beginPath(); ctx.ellipse(0, 9.6, 5.4, 4.4, 0, 0, TAU); ctx.fillStyle = '#7a62a0'; ctx.fill();
+    for (const ex of [-2.2, 2.2]) { ctx.beginPath(); ctx.arc(ex, 9.2, 1.3, Math.PI + .4, -.4); ctx.strokeStyle = '#f2e6ff'; ctx.lineWidth = .9; ctx.stroke(); }
+    dot(ctx, 0, 11.8, .7, '#241a3e');
+    stroke(ctx, [[-8.4, 9], [-3, 14.6]], 'rgba(255,200,140,.4)', 1); stroke(ctx, [[8.4, 9], [3, 14.6]], 'rgba(255,200,140,.4)', 1);
+    ctx.restore();
+  }
+  function grottoSnail(ctx, x, y, s) {
+    ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+    soft(ctx, () => ctx.ellipse(0, 1, 16, 2.4, 0, 0, TAU), 'rgba(12,6,26,.5)', 3);
+    const foot = [[-15, 0], [-6, -3], [8, -3], [13, -8], [15, -13], [18, -12], [18.6, -5], [14, 0], [0, 1.4]];
+    shape(ctx, foot, lin(ctx, 0, -13, 0, 1, [[0, '#d8e6c4'], [1, '#8a9c8c']]), 'rgba(70,90,70,.5)', .9);
+    for (const [ax, ay] of [[15, -12.6], [17.6, -11.8]]) { const tx = ax + .8 + (ax - 16), ty = ay - 6; stroke(ctx, [[ax, ay], [tx, ty]], 'rgba(90,110,80,.9)', .8); dot(ctx, tx, ty - .4, 1.1, '#e6f2d2'); }
+    dot(ctx, 16.6, -10.2, .8, '#3a3a3a');
+    ctx.beginPath(); ctx.arc(-2, -9, 9, 0, TAU);
+    ctx.fillStyle = rad(ctx, -2, -9, 9, [[0, '#ffd890'], [.6, '#e0924a'], [1, '#9a4e2c']], 2, -6, 1); ctx.fill();
+    ctx.strokeStyle = 'rgba(120,60,30,.45)'; ctx.lineWidth = .9; ctx.stroke();
+    ctx.beginPath(); for (let a = 0; a < 2.6 * TAU; a += .2) { const rr = 1 + a * .46; ctx.lineTo(-2 + Math.cos(a) * rr, -9 + Math.sin(a) * rr); } ctx.strokeStyle = 'rgba(140,70,32,.55)'; ctx.lineWidth = .9; ctx.stroke();
+    ctx.beginPath(); ctx.arc(-2, -9, 7.4, 3.5, 4.6); ctx.strokeStyle = 'rgba(255,246,220,.6)'; ctx.lineWidth = 1.1; ctx.stroke();
+    ctx.restore();
+  }
+  // Spores drifting up from a colony: a loose plume of soft motes, thinning as it rises.
+  function grottoSpores(ctx, x, y, w, h, n, light, seed) {
+    const r = rng(seed);
+    for (let i = 0; i < n; i++) {
+      const t = Math.pow(r(), .8), px = x + (r() - .5) * w * (.4 + t * .6) + Math.sin(t * 5 + seed) * 10, py = y - t * h, s = .6 + r() * 1.1 * (1 - t * .5);
+      bloom(ctx, px, py, s * 4.5, light, .2 * (1 - t * .6));
+      dot(ctx, px, py, s * .7, rgba(light, .7 * (1 - t * .55)));
+    }
+  }
+  // A soft inner glow along a shape's edges, fading with distance from a light at (lx, ly).
+  function grottoEdge(ctx, pts, lx, ly, r, rgb, a) {
+    clipTo(ctx, pts, () => {
+      for (const [w, k] of [[14, .2], [7, .35], [2.5, .6]]) {
+        ctx.beginPath(); smooth(ctx, pts, true); ctx.strokeStyle = rad(ctx, lx, ly, r, [[0, rgba(rgb, a * k)], [.6, rgba(rgb, a * k * .4)], [1, rgba(rgb, 0)]]);
+        ctx.lineWidth = w; ctx.lineJoin = 'round'; ctx.stroke();
+      }
+    });
+  }
+  // A giant mushroom far back in the hall, a hazy silhouette whose gills still glow and light the cap's rim.
+  function grottoGiant(ctx, x, y, s, len, lean, top, under, light, a) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(lean);
+    const dh = s * .5, stem = [[-s * .34, 2], [-s * .18, -len * .12], [-s * .13, -len * .55], [-s * .11, -len], [s * .11, -len], [s * .15, -len * .5], [s * .2, -len * .1], [s * .38, 2]];
+    shape(ctx, stem, lin(ctx, 0, -len, 0, 0, [[0, under], [.3, top], [1, under]]), null);
+    bloom(ctx, 0, -len + s * .05, s * 1.4, light, a);
+    const cap = () => {
+      ctx.beginPath(); ctx.moveTo(-s, -len + s * .04);
+      ctx.bezierCurveTo(-s * .96, -len - dh * .9, -s * .4, -len - dh * 1.05, 0, -len - dh);
+      ctx.bezierCurveTo(s * .45, -len - dh * 1.04, s * .98, -len - dh * .85, s, -len + s * .04);
+      ctx.quadraticCurveTo(0, -len - s * .06, -s, -len + s * .04); ctx.closePath();
+    };
+    cap(); ctx.fillStyle = lin(ctx, 0, -len - dh, 0, -len + s * .04, [[0, top], [1, under]]); ctx.fill();
+    ctx.save(); cap(); ctx.clip();
+    wash(ctx, lin(ctx, 0, -len - dh * .3, 0, -len + s * .05, [[0, rgba(light, 0)], [1, rgba(light, a * .9)]]), 'screen', 1, -s - 2, -len - dh, s * 2 + 4, dh + s * .1);
+    ctx.restore();
+    ctx.beginPath(); ctx.ellipse(0, -len + s * .015, s * .92, s * .07, 0, 0, Math.PI); ctx.fillStyle = rgba(light, a * 1.2); ctx.fill();
+    ctx.restore();
   }
   function paintGrotto(ctx, framed) {
-    const back = ctx.createLinearGradient(0, 0, 0, 560);
-    back.addColorStop(0, '#4f3f6e'); back.addColorStop(.6, '#41335d'); back.addColorStop(1, '#2f2445');
-    ctx.fillStyle = back; ctx.fillRect(0, 0, 420, 560);
-    // Far pillars and hanging rock, pale with distance.
-    for (const [x, w, s] of [[128, 46, 1], [304, 56, 2]]) {
-      const col = [[x - w / 2, 560], [x - w * .32, 380], [x - w * .18, 300], [x - w * .3, 210], [x - w * .5, 40], [x + w * .5, 40], [x + w * .28, 200], [x + w * .2, 310], [x + w * .34, 400], [x + w / 2, 560]];
-      shape(ctx, col, '#574776', 'rgba(130,110,170,.35)', 1.2);
-      cel(ctx, col, '#4f406d', 8, 0);
-      void s;
+    const [kx, ky] = GROTTO_KEY, [wx, wy] = GROTTO_WARM, TEAL = GROTTO_TEAL.glow, AMBER = GROTTO_AMBER.glow, AIR = '120,102,186', HALL = '156,136,226';
+    // The far hall: deep violet overhead, opening out into a lavender glow low down behind the flowers.
+    wash(ctx, lin(ctx, 0, 0, 0, 560, [[0, '#1a1232'], [.16, '#281d4e'], [.45, '#3f3276'], [.7, '#54468c'], [.8, '#4c3f86'], [1, '#261c46']]));
+    bloom(ctx, 214, 420, 300, '164,140,224', .34);
+    for (const [x, w, waist, s] of [[52, 80, 36, 1], [372, 90, 40, 4]]) {
+      const pts = grottoPillar(x, w, waist, 10, 440, s);
+      shape(ctx, pts, lin(ctx, 0, 0, 0, 440, [[0, '#2c2258'], [.55, '#43367c'], [1, '#56488e']]), null);
     }
-    // A crack in the ceiling lets a shaft of daylight in.
-    ctx.save(); ctx.globalCompositeOperation = 'screen';
-    ctx.beginPath(); ctx.moveTo(236, 36); ctx.lineTo(262, 36); ctx.lineTo(330, 452); ctx.lineTo(176, 452); ctx.closePath();
-    ctx.fillStyle = 'rgba(190,170,255,.10)'; ctx.fill();
-    ctx.beginPath(); ctx.moveTo(242, 36); ctx.lineTo(256, 36); ctx.lineTo(290, 452); ctx.lineTo(214, 452); ctx.closePath();
-    ctx.fillStyle = 'rgba(220,210,255,.08)'; ctx.fill();
-    ctx.restore();
-    const rs = rng(55);
-    for (let i = 0; i < 10; i++) { const x = 70 + rs() * 280, y = 70 + rs() * 330; stroke(ctx, [[x, y], [x + 6 + rs() * 8, y + 6], [x + 4, y + 14 + rs() * 8]], 'rgba(40,28,62,.40)', 1.1); }
-    // Ceiling with stalactites, glow vines and a sleeping bat.
-    caveWall(ctx, [[-10, -10], [430, -10], [430, 34], [380, 48], [330, 36], [276, 54], [262, 36], [236, 36], [220, 50], [160, 40], [100, 52], [40, 38], [-10, 46]], '#2f2443', '#261d38', '#1a1229');
-    dot(ctx, 249, 36, 7, '#e9e2ff');
-    for (const [x, w, h] of [[76, 18, 34], [118, 12, 20], [300, 16, 30], [342, 10, 18]]) {
-      ctx.beginPath(); ctx.moveTo(x - w / 2, 44); ctx.quadraticCurveTo(x - w * .2, 44 + h * .6, x, 44 + h); ctx.quadraticCurveTo(x + w * .25, 44 + h * .55, x + w / 2, 44); ctx.closePath();
-      ctx.fillStyle = '#2f2443'; ctx.fill(); ctx.strokeStyle = '#1a1229'; ctx.lineWidth = 1.5; ctx.stroke();
-      stroke(ctx, [[x - w * .25, 48], [x - w * .1, 44 + h * .6]], 'rgba(150,130,200,.45)', 1.1);
+    const fr = rng(37), farRoof = [[440, -10], [-20, -10]];
+    for (let x = -20; x <= 440; x += 16 + fr() * 14) { const deep = fr() < .3; farRoof.push([x, 50 + fr() * 8], [x + 5, deep ? 80 + fr() * 30 : 60 + fr() * 10], [x + 10, 52 + fr() * 6]); }
+    shape(ctx, farRoof, '#291e50', null);
+    air(ctx, 0, 470, AIR, .22, .3);
+    // Giant mushrooms far back in the hall, hazy silhouettes whose gills still glow.
+    grottoGiant(ctx, 300, 436, 56, 156, .05, '#382c70', '#4a3d86', AMBER, .2);
+    grottoGiant(ctx, 120, 440, 74, 214, -.04, '#32276a', '#463a84', TEAL, .22);
+    grottoGiant(ctx, 212, 438, 28, 66, .1, '#44387e', '#504390', TEAL, .14);
+    air(ctx, 0, 470, AIR, .18, .26);
+    // Slow wisps of spore haze hanging in the hall.
+    for (const [x, y, w, h, a] of [[150, 130, 170, 12, .1], [300, 176, 130, 9, .08], [190, 300, 200, 14, .09], [110, 372, 120, 10, .08]]) soft(ctx, () => ctx.ellipse(x, y, w / 2, h, -.03, 0, TAU), `rgba(186,170,240,${a})`, 14);
+    // The far floor, a ridge of distant colonies glowing faintly along it.
+    band(ctx, ridge(424, 5, 31, 52), 560, lin(ctx, 0, 414, 0, 470, [[0, '#4e4188'], [1, '#3a2e6c']]), null);
+    for (const [x, y, k] of [[150, 422, 1], [262, 418, .8], [96, 426, .6], [324, 424, .7], [196, 426, .5]]) { const c = x < 210 ? TEAL : AMBER; bloom(ctx, x, y, 30 * k, c, .18); dot(ctx, x, y - 1, 1.4 * k, rgba(c, .45)); }
+    air(ctx, 384, 470, '160,140,220', 0, .22);
+    // The middle distance: stalactites from the roof and rounded flowstone banked against the walls.
+    for (const [x, w, h, s] of [[112, 34, 84, 4], [150, 18, 40, 5], [276, 20, 46, 6], [314, 38, 92, 7]]) {
+      const r = rng(s), pts = [[x - w / 2, -4], [x - w * .32, h * .45], [x - w * .08 + (r() - .5) * 4, h * .86], [x + w * .02, h], [x + w * .14, h * .8], [x + w * .34, h * .4], [x + w / 2, -4]];
+      shape(ctx, pts, lin(ctx, 0, 0, 0, h, [[0, '#211845'], [1, '#3c3070']]), null);
+      grottoEdge(ctx, pts, x < 210 ? kx : wx, 300, 300, x < 210 ? TEAL : AMBER, .35);
     }
-    glowVine(ctx, 54, 120, 1); glowVine(ctx, 158, 54, 2); glowVine(ctx, 334, 86, 3); glowVine(ctx, 372, 150, 4);
-    bat(ctx, 290, 64, 1);
-    // Side walls with ledges, each ledge growing glowing mushrooms.
-    const left = [[-10, 40], [40, 52], [52, 124], [34, 170], [70, 214], [44, 256], [28, 330], [62, 380], [36, 452], [-10, 460]];
-    caveWall(ctx, left, '#2c2140', '#231a34', '#160f22');
-    const right = [[430, 40], [382, 52], [368, 112], [392, 160], [356, 204], [380, 270], [396, 320], [362, 380], [388, 452], [430, 460]];
-    caveWall(ctx, right, '#2c2140', '#231a34', '#160f22');
-    for (const [pts, c] of [[[[36, 214], [70, 214], [62, 222], [30, 222]], '#5f9a6a'], [[[350, 204], [384, 204], [384, 212], [356, 212]], '#5f9a6a'], [[[24, 380], [62, 380], [56, 388], [20, 388]], '#5f9a6a']]) shape(ctx, pts, c, '#3f6b49', 1.1);
-    mushroom(ctx, 56, 216, 22, 22, '#6fe0cf', '#4fbfb0', [[-.2, -.18, .08], [.18, -.12, .06], [-.02, -.25, .05]], '#8ff5e3', .08);
-    mushroom(ctx, 38, 214, 13, 13, '#6fe0cf', '#4fbfb0', [[0, -.2, .1]], '#8ff5e3', -.25);
-    mushroom(ctx, 370, 206, 20, 20, '#f2b75a', '#d39540', [[-.15, -.15, .08], [.2, -.1, .06]], '#ffd27a', -.12);
-    mushroom(ctx, 386, 206, 11, 11, '#f2b75a', '#d39540', [[0, -.2, .09]], '#ffd27a', .3);
-    snail(ctx, 380, 270, .8);
-    mushroom(ctx, 46, 382, 16, 16, '#6fe0cf', '#4fbfb0', [[.1, -.18, .09], [-.2, -.08, .06]], '#8ff5e3', .18);
-    mushroom(ctx, 30, 382, 9, 9, '#e66a7e', '#c24c63', [[0, -.2, .1]], null, -.2);
-    // Drifting spores, mostly near the walls.
-    for (let i = 0; i < 46; i++) { const x = 30 + rs() * 360, y = 60 + rs() * 380; if (Math.abs(x - 210) < 110 && rs() < .7) continue; dot(ctx, x, y, .9 + rs() * .9, 'rgba(200,255,244,.5)'); }
-    // Floor: rock, moss, a glowing puddle and the big mushroom patches.
-    band(ctx, ridge(450, 4, 71, 36), 560, '#2d2243', '#1a1229', 1.8);
-    band(ctx, ridge(474, 3, 72, 40), 560, '#33284b', null);
-    shape(ctx, [[246, 510], [282, 500], [318, 506], [324, 520], [288, 530], [250, 524]], '#3f5f7a', '#1a1229', 1.4);
-    for (const [x, y, w] of [[272, 512, 12], [300, 520, 8]]) stroke(ctx, [[x - w / 2, y], [x + w / 2, y]], 'rgba(143,245,227,.55)', 1.2);
-    for (const [x, y, w, sd] of [[96, 458, 46, 1], [312, 462, 56, 2], [170, 540, 50, 3]]) shape(ctx, blob(x, y, w, 7, sd, .2, 9), '#5f9a6a', '#3f6b49', 1.2);
-    mushroom(ctx, 42, 552, 44, 54, '#e66a7e', '#c24c63', [[-.25, -.2, .08], [.12, -.24, .07], [.3, -.05, .05], [-.05, -.02, .05]], null, -.08);
-    mushroom(ctx, 86, 552, 26, 32, '#e66a7e', '#c24c63', [[-.1, -.2, .09], [.2, -.05, .07]], null, .14);
-    mushroom(ctx, 20, 508, 15, 17, '#f2b75a', '#d39540', [[0, -.2, .1]], null, -.22);
-    mushroom(ctx, 380, 552, 40, 50, '#6fe0cf', '#4fbfb0', [[-.2, -.2, .08], [.15, -.15, .07], [.3, 0, .05]], '#8ff5e3', .1);
-    mushroom(ctx, 340, 554, 22, 26, '#e66a7e', '#c24c63', [[0, -.2, .1], [.25, -.05, .06]], null, -.12);
-    mushroom(ctx, 402, 500, 13, 15, '#f2b75a', '#d39540', [[0, -.2, .1]], null, .25);
+    for (const [pts, light, lx2, ly2] of [[[[-20, 480], [-20, 316], [14, 306], [40, 322], [56, 352], [76, 374], [98, 398], [116, 430], [126, 476]], TEAL, kx, ky],
+      [[[440, 480], [440, 300], [404, 296], [378, 318], [360, 350], [338, 374], [318, 404], [304, 440], [298, 476]], AMBER, wx, wy]]) {
+      shape(ctx, pts, lin(ctx, 0, 300, 0, 470, [[0, '#3a2e70'], [1, '#2a2054']]), null);
+      grottoEdge(ctx, pts, lx2, ly2, 260, light, .7);
+    }
+    air(ctx, 40, 470, AIR, .08, .12);
+    // The colonies' light reaching into the cave, teal from the left and amber from the right.
+    bloom(ctx, kx + 10, ky + 20, 330, TEAL, .32);
+    bloom(ctx, wx, wy + 20, 240, AMBER, .22);
+    for (const [a, len, w, al] of [[-1.02, 380, 40, .06], [-1.28, 330, 28, .05], [-.82, 300, 24, .04]]) shaft(ctx, kx + 14, ky - 6, a, len, 18, w, TEAL, al);
+    // Near walls with their ledges, and the roof.
+    const left = [[-30, 10], [36, 26], [52, 64], [58, 112], [48, 156], [42, 196], [46, 230], [34, 276], [30, 310], [36, 346], [44, 380], [38, 412], [36, 444], [44, 474], [-30, 490]];
+    const right = [[450, 10], [386, 26], [370, 70], [366, 120], [376, 160], [380, 196], [378, 236], [388, 268], [386, 300], [388, 340], [392, 384], [382, 430], [378, 474], [450, 490]];
+    grottoWall(ctx, left, 11, TEAL, kx, ky, -1);
+    grottoWall(ctx, right, 12, AMBER, wx, wy, 1);
+    grottoEdge(ctx, left, 220, 300, 250, HALL, .3); grottoEdge(ctx, right, 200, 300, 250, HALL, .3);
+    const roof = [[-20, -20], [440, -20], [440, 30], [402, 40], [360, 32], [318, 44], [272, 34], [226, 42], [184, 32], [136, 42], [92, 34], [50, 44], [-20, 34]];
+    soft(ctx, () => smooth(ctx, roof.map(([x, y]) => [x, y + 7]), true), 'rgba(12,6,28,.6)', 10);
+    shape(ctx, roof, lin(ctx, 0, 0, 0, 46, [[0, '#110b22'], [1, '#231a44']]), null);
+    for (const [x, w, h] of [[30, 26, 66], [64, 12, 28], [104, 12, 18], [300, 10, 16], [350, 18, 34], [388, 28, 70]]) {
+      const top = 30, pts = [[x - w / 2, top], [x - w * .22, top + h * .55], [x + w * .04, top + h], [x + w * .2, top + h * .5], [x + w / 2, top]];
+      shape(ctx, pts, lin(ctx, x - w / 2, 0, x + w / 2, 0, [[0, '#251a46'], [1, '#150e2c']]), null);
+      grottoEdge(ctx, pts, x < 210 ? kx : wx, 260, 300, x < 210 ? TEAL : AMBER, .45);
+    }
+    // The ledge colonies; the snail works along the lower right ledge.
+    grottoLedge(ctx, 24, 86, 200, -1, 1, TEAL);
+    grottoLedge(ctx, 338, 404, 192, 1, 2, AMBER);
+    grottoLedge(ctx, 20, 80, 366, -1, 3, TEAL);
+    grottoLedge(ctx, 350, 408, 302, 1, 4, AMBER);
+    grottoShroom(ctx, 54, 200, 9, 10, -.22, GROTTO_TEAL, 3, .7, 1);
+    grottoShroom(ctx, 70, 202, 14, 16, .06, GROTTO_TEAL, 1, .62, 1);
+    grottoShroom(ctx, 86, 205, 6, 7, .32, GROTTO_TEAL, 2, .72, 1);
+    grottoShroom(ctx, 340, 192, 7, 8, -.3, GROTTO_AMBER, 5, .72, -1);
+    grottoShroom(ctx, 356, 191, 13, 14, .1, GROTTO_AMBER, 4, .62, -1);
+    grottoShroom(ctx, 64, 366, 10, 11, .12, GROTTO_TEAL, 6, .66, 1);
+    grottoShroom(ctx, 50, 364, 6, 7, -.24, GROTTO_ROSE, 7, .72, 1);
+    grottoSnail(ctx, 368, 301, .7);
+    for (const [x, len, s] of [[16, 160, 1], [32, 104, 2], [48, 64, 3], [384, 128, 4], [402, 180, 5]]) grottoVine(ctx, x, 34, len, s, x < 210 ? TEAL : AMBER);
+    grottoBat(ctx, 350, 72, .86);
+    // The floor dips into a basin, and the basin holds a still pool: the hall's lavender glow lies on its far half,
+    // the dark roof on its near half, and each colony drops a long soft reflection into it.
+    const floor = ridge(452, 3, 71, 40);
+    soft(ctx, () => { smooth(ctx, floor.map(([x, y]) => [x, y - 8]), false); ctx.lineTo(440, 600); ctx.lineTo(-20, 600); ctx.closePath(); }, 'rgba(18,10,40,.4)', 12);
+    band(ctx, floor, 560, lin(ctx, 0, 446, 0, 560, [[0, '#3a2e6c'], [.3, '#2a204e'], [1, '#160e2c']]), null);
+    grottoEdge(ctx, floor.concat([[440, 600], [-20, 600]]), 210, 400, 240, HALL, .4);
+    const pool = [[90, 484], [124, 470], [170, 465], [214, 462], [262, 466], [300, 471], [334, 484], [326, 520], [286, 541], [210, 549], [134, 541], [96, 520]];
+    soft(ctx, () => smooth(ctx, pool.map(([x, y]) => [x, y + 2]), true), 'rgba(10,4,24,.6)', 6);
+    shape(ctx, pool, lin(ctx, 0, 462, 0, 549, [[0, '#8574bc'], [.12, '#5c4e9e'], [.45, '#34296c'], [1, '#18123a']]), null);
+    clipTo(ctx, pool, () => {
+      for (const [x, c, a, w] of [[kx + 56, TEAL, .45, 44], [wx - 54, AMBER, .36, 36]]) {
+        wash(ctx, lin(ctx, x - w, 0, x + w, 0, [[0, rgba(c, 0)], [.5, rgba(c, a)], [1, rgba(c, 0)]]), 'screen', 1, x - w, 460, w * 2, 100);
+      }
+      soft(ctx, () => ctx.ellipse(210, 528, 52, 14, 0, 0, TAU), 'rgba(14,8,34,.5)', 6);
+      const r = rng(81);
+      for (let i = 0; i < 16; i++) { const y = 472 + Math.pow(r(), 1.3) * 74, x = 104 + r() * 212, w = 8 + r() * 30 * (1 - (y - 470) / 120); stroke(ctx, [[x - w / 2, y], [x + w / 2, y]], i % 3 ? 'rgba(210,200,255,.2)' : 'rgba(20,10,40,.3)', .8); }
+    });
+    stroke(ctx, pool.slice(0, 7), 'rgba(206,196,252,.4)', 1);
+    // The launcher's stone: an island of moss in the middle of the pool.
+    bloom(ctx, 210, 500, 80, '176,156,236', .18);
+    soft(ctx, () => ctx.ellipse(212, 518, 58, 8, 0, 0, TAU), 'rgba(8,2,22,.6)', 6);
+    const rock = [[156, 510], [164, 498], [186, 491], [214, 489], [244, 492], [262, 500], [266, 510], [252, 520], [214, 524], [172, 520]];
+    shape(ctx, rock, lin(ctx, 0, 490, 0, 524, [[0, '#4c3e80'], [.5, '#2e2458'], [1, '#1a1234']]), null);
+    const cap = [[160, 503], [168, 496], [180, 492], [194, 488], [208, 489], [222, 486], [236, 489], [250, 492], [262, 501], [244, 504], [214, 507], [184, 506]];
+    shape(ctx, cap, lin(ctx, 0, 487, 0, 507, [[0, '#8fcabc'], [.45, '#55938e'], [1, '#33606e']]), null);
+    grottoEdge(ctx, cap, 190, 480, 80, '210,255,244', .6);
+    stroke(ctx, [[160, 512], [190, 519], [236, 519], [262, 511]], 'rgba(200,190,250,.3)', 1);
+    // The colonies stand on mossy mounds in the corners, with dusky toadstools at their feet.
+    for (const [pts, light, lx2, ly2] of [[[[-20, 600], [-20, 466], [24, 472], [66, 486], [100, 506], [128, 534], [140, 600]], TEAL, kx, ky], [[[440, 600], [440, 474], [402, 480], [360, 494], [324, 518], [300, 548], [296, 600]], AMBER, wx, wy]]) {
+      soft(ctx, () => smooth(ctx, pts.map(([x, y]) => [x, y - 4]), true), 'rgba(8,2,22,.5)', 10);
+      shape(ctx, pts, lin(ctx, 0, 466, 0, 560, [[0, '#33285e'], [1, '#140c28']]), null);
+      clipTo(ctx, pts, () => wash(ctx, rad(ctx, lx2, ly2 + 10, 150, [[0, rgba(light, .45)], [1, rgba(light, 0)]]), 'screen'));
+      grottoEdge(ctx, pts, lx2, ly2, 170, light, .4);
+      clipTo(ctx, pts, () => soft(ctx, () => smooth(ctx, pts.slice(1, -1).map(([x, y]) => [x, y + 3]), false), rgba(light, .3), 6));
+    }
+    grottoShroom(ctx, 152, 556, 8, 12, .14, GROTTO_ROSE, 21, .7, -1);
+    grottoShroom(ctx, 132, 548, 11, 18, -.06, GROTTO_ROSE, 22, .66, -1);
+    grottoShroom(ctx, 14, 484, 8, 10, -.3, GROTTO_TEAL, 24, .7, 1);
+    grottoShroom(ctx, 102, 526, 20, 28, .14, GROTTO_TEAL, 23, .6, 1);
+    grottoShroom(ctx, 48, 528, 40, 44, -.06, GROTTO_TEAL, 25, .58, 1);
+    grottoShroom(ctx, 286, 558, 7, 10, -.16, GROTTO_ROSE, 26, .7, 1);
+    grottoShroom(ctx, 410, 494, 8, 11, .3, GROTTO_AMBER, 28, .7, -1);
+    grottoShroom(ctx, 328, 538, 16, 22, -.16, GROTTO_AMBER, 27, .62, -1);
+    grottoShroom(ctx, 378, 534, 34, 40, .08, GROTTO_AMBER, 29, .58, -1);
+    grottoSpores(ctx, 56, 470, 90, 190, 16, TEAL, 1);
+    grottoSpores(ctx, 376, 480, 70, 150, 11, AMBER, 2);
+    // Foreground: dark lips of rock across the bottom corners, rimmed by the glow behind them.
+    for (const [pts, light, lx2] of [[[[-20, 600], [-20, 532], [10, 536], [34, 554], [44, 600]], TEAL, 60], [[[440, 600], [440, 526], [420, 530], [400, 556], [394, 600]], AMBER, 360]]) {
+      shape(ctx, pts, '#100a20', null); grottoEdge(ctx, pts, lx2, 500, 90, light, .7);
+    }
+    grade(ctx, 'rgba(150,120,220,.4)', 'rgba(40,30,90,.5)', 'rgba(22,10,46,.55)');
+    grain(ctx, .08);
     if (framed) frame(ctx, '#7c64a8', '#b9a6e6');
   }
 
