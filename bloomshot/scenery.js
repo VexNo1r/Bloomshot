@@ -1398,11 +1398,6 @@
     for (const [w, c] of [[9, 'rgba(255,110,50,.10)'], [5, 'rgba(255,130,60,.22)'], [2.2, '#ff9a48'], [.9, '#ffe2a0']]) { path(); ctx.strokeStyle = c; ctx.lineWidth = w * width; ctx.stroke(); }
     ctx.restore();
   }
-  function crackPath(x, y, dx, dy, steps, seed, jag = 5) {
-    const r = rng(seed), out = [[x, y]];
-    for (let i = 0; i < steps; i++) { x += dx + (r() - .5) * jag; y += dy + (r() - .5) * jag; out.push([x, y]); }
-    return out;
-  }
   const emberRGB = c => c[0] === '#' ? [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16)) : c.slice(c.indexOf('(') + 1, -1).split(',').map(Number);
   function emberMix(c0, c1, t) {
     const a = emberRGB(c0), b = emberRGB(c1), k = Math.max(0, Math.min(1, t));
@@ -1664,182 +1659,289 @@
   }
 
   // ---------- Level 8: Geode Mine ----------
-  const WOOD = ['#c99463', '#a8754a', '#875a37', '#4a2a1a'];
-  // A squared timber: lit top edge, shaded underside, grain, a knot and the odd nail.
-  function timber(ctx, pts, seed, vertical) {
-    const [light, base, shade, ink] = WOOD;
-    poly(ctx, pts, base, null);
-    clipTo(ctx, pts, () => {
-      const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]), x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys), r = rng(seed);
-      if (vertical) { ctx.fillStyle = shade; ctx.fillRect(x1 - (x1 - x0) * .32, y0 - 40, 60, y1 - y0 + 80); ctx.fillStyle = light; ctx.fillRect(x0, y0 - 40, (x1 - x0) * .2, y1 - y0 + 80); }
-      else { ctx.fillStyle = shade; ctx.fillRect(x0 - 40, y1 - (y1 - y0) * .34, x1 - x0 + 80, 60); ctx.fillStyle = light; ctx.fillRect(x0 - 40, y0, x1 - x0 + 80, (y1 - y0) * .2); }
-      for (let i = 0; i < 4; i++) {
-        if (vertical) { const x = x0 + 4 + r() * (x1 - x0 - 8), ya = y0 + r() * (y1 - y0) * .5; stroke(ctx, [[x, ya], [x + (r() - .5) * 3, ya + 40 + r() * 60], [x + (r() - .5) * 2, ya + 90 + r() * 80]], 'rgba(74,42,26,.4)', 1); }
-        else { const y = y0 + 4 + r() * (y1 - y0 - 8), xa = x0 + r() * (x1 - x0) * .6; stroke(ctx, [[xa, y], [xa + 50 + r() * 50, y + (r() - .5) * 3], [xa + 110 + r() * 80, y + (r() - .5) * 2]], 'rgba(74,42,26,.4)', 1); }
-      }
-      const kx = x0 + (x1 - x0) * (.3 + r() * .4), ky = y0 + (y1 - y0) * (.3 + r() * .4);
-      ctx.beginPath(); ctx.ellipse(kx, ky, vertical ? 3 : 5, vertical ? 5 : 3, 0, 0, TAU); ctx.strokeStyle = 'rgba(74,42,26,.55)'; ctx.lineWidth = 1.1; ctx.stroke();
-      dot(ctx, kx, ky, 1.2, 'rgba(74,42,26,.55)');
-    });
-    poly(ctx, pts, null, ink, 1.7);
+  // An old drift running back into the hill on sets of timber. Two lanterns hung at its mouth are the light: warm on
+  // the near timbers and the floor, falling away down the tunnel into violet dark, where geodes in the walls glow cool
+  // from within. The minecart and its mouse wait on the cross-track; a cobweb fills the corner nobody sweeps.
+  // (The colour helpers emberMix and emberLine come from the Ember Hollows section above.)
+  const GEODE_VP = [222, 298];
+  const geodeAt = (x, y, k) => [GEODE_VP[0] + (x - GEODE_VP[0]) * k, GEODE_VP[1] + (y - GEODE_VP[1]) * k];
+  const GEODE_LAMPS = [[58, 132], [362, 116]];
+  const geodeLamp = (x, y) => Math.min(1, GEODE_LAMPS.reduce((m, [lx, ly]) => m + Math.exp(-((x - lx) ** 2 + (y - ly) ** 2) / 12000), 0));
+  const GEODE_WOOD = { lit: '#e09c5c', mid: '#8e5a36', shade: '#4a2e26', dark: '#2e1e1c' };
+  // A squared beam along a centre line, wide w0 at its start and w1 at its end, modelled across its width toward the
+  // lit side (+1 or -1 along the normal), with grain running its length, a knot, and the lit arris picked out.
+  function geodeBeam(ctx, x0, y0, x1, y1, w0, w1, side, seed, o = {}) {
+    const pal = o.pal || GEODE_WOOD, fog = o.fog || 0, tint = c => fog ? emberMix(c, o.haze || '#2a2244', fog) : c;
+    const len = Math.hypot(x1 - x0, y1 - y0), nx = -(y1 - y0) / len, ny = (x1 - x0) / len, r = rng(seed);
+    const q = [[x0 + nx * w0 / 2, y0 + ny * w0 / 2], [x1 + nx * w1 / 2, y1 + ny * w1 / 2], [x1 - nx * w1 / 2, y1 - ny * w1 / 2], [x0 - nx * w0 / 2, y0 - ny * w0 / 2]];
+    const mx = (x0 + x1) / 2, my = (y0 + y1) / 2, wm = (w0 + w1) / 4;
+    const warm = o.warm ?? .5, lit = emberMix(pal.mid, pal.lit, warm);
+    poly(ctx, q, lin(ctx, mx + nx * wm * side, my + ny * wm * side, mx - nx * wm * side, my - ny * wm * side, [[0, tint(lit)], [.4, tint(pal.mid)], [1, tint(pal.shade)]]));
+    if (fog > .7) return q;
+    ctx.save(); ctx.beginPath(); ctx.moveTo(q[0][0], q[0][1]); for (const p of q.slice(1)) ctx.lineTo(p[0], p[1]); ctx.closePath(); ctx.clip();
+    for (let i = 0; i < (o.grain ?? 7); i++) {
+      const off = (r() - .5) * .86, t0 = r() * .5, t1 = t0 + .25 + r() * .5, w = w0 + (w1 - w0) * t0;
+      const p = t => [x0 + (x1 - x0) * t + nx * off * w, y0 + (y1 - y0) * t + ny * off * w];
+      stroke(ctx, [p(t0), p((t0 + t1) / 2).map((v, k) => v + (k ? ny : nx) * (r() - .5) * 2), p(t1)], i % 3 ? `rgba(40,20,14,${(.3 * (1 - fog)).toFixed(3)})` : `rgba(255,220,170,${(.18 * (1 - fog)).toFixed(3)})`, .7 + r() * .7);
+    }
+    if (o.dim) { ctx.fillStyle = lin(ctx, x0, y0, x1, y1, o.dim.map(([at, a]) => [at, `rgba(18,10,24,${a})`])); ctx.fillRect(Math.min(x0, x1) - 40, Math.min(y0, y1) - 40, Math.abs(x1 - x0) + 80, Math.abs(y1 - y0) + 80); }
+    if (!o.noKnot && fog < .4) {
+      const t = .25 + r() * .5, w = w0 + (w1 - w0) * t, kx = x0 + (x1 - x0) * t + nx * (r() - .5) * w * .4, ky = y0 + (y1 - y0) * t + ny * (r() - .5) * w * .4, a = Math.atan2(y1 - y0, x1 - x0);
+      ctx.beginPath(); ctx.ellipse(kx, ky, w * .13, w * .06, a, 0, TAU); ctx.fillStyle = 'rgba(46,24,16,.4)'; ctx.fill();
+      for (const k of [1.6, 2.4]) { ctx.beginPath(); ctx.ellipse(kx, ky, w * .13 * k * 1.4, w * .06 * k, a, Math.PI * 1.1, Math.PI * 1.9); ctx.strokeStyle = 'rgba(46,24,16,.22)'; ctx.lineWidth = .7; ctx.stroke(); }
+    }
+    ctx.restore();
+    const e = side > 0 ? [q[0], q[1]] : [q[3], q[2]];
+    emberLine(ctx, e.map(([px, py]) => [px - nx * side * .6, py - ny * side * .6]), `rgba(255,226,180,${(.45 * warm * (1 - fog)).toFixed(3)})`, 1);
+    return q;
   }
-  function nailHead(ctx, x, y) { dot(ctx, x, y, 2, '#3a3440'); dot(ctx, x - .6, y - .6, .8, '#9a93a8'); }
-  // A geode cracked open: a rough rind, a thin pale band, and a jagged mouth packed with amethyst points.
-  function geode(ctx, x, y, rx, ry, seed, tilt = 0) {
+  // An iron strap across a joint: a dark plate catching the lantern light along its top edge, with its rivets.
+  function geodeStrap(ctx, pts, warm = .5) {
+    soft(ctx, () => { ctx.moveTo(pts[0][0] + 1, pts[0][1] + 2); for (const [x, y] of pts.slice(1)) ctx.lineTo(x + 1, y + 2); ctx.closePath(); }, 'rgba(10,6,14,.5)', 2);
+    poly(ctx, pts, lin(ctx, 0, pts[0][1], 0, pts[2][1], [[0, emberMix('#3a3240', '#6a5a58', warm)], [1, '#1e1a24']]));
+    emberLine(ctx, [[pts[0][0] + .6, pts[0][1] + .6], [pts[1][0] - .6, pts[1][1] + .6]], `rgba(255,214,170,${(.2 + warm * .35).toFixed(3)})`, .8);
+    const [cx, cy] = pts.reduce(([a, b], [x, y]) => [a + x / pts.length, b + y / pts.length], [0, 0]);
+    for (const [px, py] of pts) { const x = cx + (px - cx) * .62, y = cy + (py - cy) * .5; dot(ctx, x, y, 1.3, '#16121c'); dot(ctx, x - .4, y - .4, .55, `rgba(255,230,200,${(.3 + warm * .4).toFixed(3)})`); }
+  }
+  // An amethyst point: a six-sided crystal lit from inside, pale at the tip, deep violet at the root.
+  function geodePoint(ctx, x, y, w, h, tilt, glow = 1) {
     ctx.save(); ctx.translate(x, y); ctx.rotate(tilt);
-    const r = rng(seed), rind = blob(0, 0, rx, ry, seed, .14, 12);
-    shape(ctx, rind, '#7a6878', null); cel(ctx, rind, '#5c4b60', -rx * .16, -ry * .18); shape(ctx, rind, null, '#2a1e33', 1.6);
-    for (let i = 0; i < 7; i++) { const a = r() * TAU, k = .78 + r() * .14; dot(ctx, Math.cos(a) * rx * k, Math.sin(a) * ry * k, .7 + r() * .7, 'rgba(42,30,51,.45)'); }
-    // The break: jagged, a little off center, as if knocked open from the upper left.
-    const mouth = [], n = 16, ox = -rx * .08, oy = -ry * .06;
-    for (let i = 0; i < n; i++) { const a = i / n * TAU, k = (i % 2 ? .62 : .74) + (r() - .5) * .1; mouth.push([ox + Math.cos(a) * rx * k, oy + Math.sin(a) * ry * k]); }
-    poly(ctx, mouth.map(([px, py]) => [ox + (px - ox) * 1.1, oy + (py - oy) * 1.12]), '#efe2f8', '#b9a2d4', 1);
-    poly(ctx, mouth, '#4a2d84', null);
-    clipTo(ctx, rind, () => {
-      ctx.save(); ctx.beginPath(); ctx.moveTo(mouth[0][0], mouth[0][1]); for (const p of mouth.slice(1)) ctx.lineTo(p[0], p[1]); ctx.closePath(); ctx.clip();
-      // Points grow inward from the rim; the ones lit from the upper left are pale, the rest deep violet.
-      for (let i = 0; i < n; i += 1) {
-        const [px, py] = mouth[i], [qx, qy] = mouth[(i + 1) % n], len = .45 + r() * .3, tx = px + (ox - px) * len + (r() - .5) * 3, ty = py + (oy - py) * len + (r() - .5) * 3;
-        const lit = px + py < ox + oy;
-        poly(ctx, [[px, py], [tx, ty], [qx, qy]], lit ? '#9a6be0' : '#c7a4ff', null);
-        poly(ctx, [[px, py], [tx, ty], [(px + qx) / 2, (py + qy) / 2]], lit ? '#7c4fc8' : '#e2d0ff', null);
-        stroke(ctx, [[px, py], [tx, ty], [qx, qy]], 'rgba(46,22,96,.7)', .7);
-      }
-      for (const [cx, cy, w, h, t] of [[ox + rx * .1, oy + ry * .3, 6, 13, -.2], [ox - rx * .18, oy + ry * .24, 4.6, 9, -.5], [ox + rx * .3, oy + ry * .2, 4, 8, .4]]) crystal(ctx, cx, cy, w * rx / 26, h * rx / 26, t, ['#f1e6ff', '#c6a2ff', '#8a5ad6', '#3a1e72']);
-      ctx.restore();
-    });
-    poly(ctx, mouth, null, '#2e1a5a', 1.2);
-    sparkle(ctx, ox - rx * .2, oy - ry * .18, Math.min(rx, ry) * .2, '#ffffff');
+    const body = [[-w / 2, 0], [-w / 2, -h * .68], [0, -h], [w / 2, -h * .68], [w / 2, 0]];
+    poly(ctx, body, lin(ctx, 0, -h, 0, 0, [[0, '#c9a6ff'], [1, '#4a2a8a']]));
+    poly(ctx, [[-w / 2, 0], [-w / 2, -h * .68], [0, -h], [-w * .08, 0]], lin(ctx, 0, -h, 0, 0, [[0, emberMix('#b48ae8', '#f4e6ff', glow)], [.6, '#9a6ae0'], [1, '#5a34a0']]));
+    poly(ctx, [[w * .14, 0], [w * .14, -h * .82], [w / 2, -h * .68], [w / 2, 0]], 'rgba(30,14,70,.42)');
+    emberLine(ctx, [[-w / 2 + .6, -h * .66], [0, -h + .8]], `rgba(255,248,255,${(.4 + glow * .4).toFixed(3)})`, .8);
     ctx.restore();
   }
-  // A patch of wall rock for a geode to sit in.
-  function rockPatch(ctx, x, y, rx, ry, seed) { const pts = blob(x, y, rx, ry, seed, .18, 10); shape(ctx, pts, '#3a2e52', null); cel(ctx, pts, '#30264a', -rx * .12, -ry * .14); shape(ctx, pts, null, 'rgba(28,20,48,.8)', 1.2); stroke(ctx, pts.slice(5, 8), 'rgba(170,140,220,.25)', 1); }
-  function lantern(ctx, x, y) {
-    halo(ctx, x, y + 18, 46, '255,196,110', .07);
-    stroke(ctx, [[x, y - 2], [x, y + 6]], '#3a3440', 1.2);
-    ctx.beginPath(); ctx.arc(x, y + 6, 3, 0, TAU); ctx.strokeStyle = '#3a3440'; ctx.lineWidth = 1.1; ctx.stroke();
-    poly(ctx, [[x - 6, y + 12], [x + 6, y + 12], [x + 8, y + 15], [x - 8, y + 15]], '#4a4458', '#1e1a26', 1.1);
-    ctx.beginPath(); ctx.moveTo(x - 6, y + 12); ctx.quadraticCurveTo(x, y + 5, x + 6, y + 12); ctx.fillStyle = '#4a4458'; ctx.fill(); ctx.strokeStyle = '#1e1a26'; ctx.lineWidth = 1.1; ctx.stroke();
-    poly(ctx, [[x - 7, y + 15], [x + 7, y + 15], [x + 6, y + 33], [x - 6, y + 33]], 'rgba(255,214,140,.9)', null);
-    dot(ctx, x, y + 26, 5, '#fff3c8'); ctx.beginPath(); ctx.ellipse(x, y + 24, 2, 4, 0, 0, TAU); ctx.fillStyle = '#ffb347'; ctx.fill();
-    for (const k of [-1, 1]) stroke(ctx, [[x + k * 7, y + 15], [x + k * 6, y + 33]], '#2a2633', 1.6);
-    stroke(ctx, [[x, y + 15], [x, y + 33]], 'rgba(42,38,51,.6)', 1);
-    poly(ctx, [[x - 8, y + 33], [x + 8, y + 33], [x + 6, y + 37], [x - 6, y + 37]], '#4a4458', '#1e1a26', 1.1);
-    stroke(ctx, [[x - 4.6, y + 18], [x - 4.2, y + 29]], 'rgba(255,255,255,.7)', 1);
+  function geodeCluster(ctx, x, y, s, seed, n = 5, glow = 1) {
+    const r = rng(seed), pts = [];
+    for (let i = 0; i < n; i++) { const t = n === 1 ? .5 : i / (n - 1), big = Math.sin(t * Math.PI); pts.push([x + (t - .5) * s * 1.6 + (r() - .5) * s * .2, (t - .5) * 1.1 + (r() - .5) * .3, s * (.22 + big * .14), s * (.5 + big * .7 + r() * .3)]); }
+    soft(ctx, () => ctx.ellipse(x, y + 1, s * 1.1, s * .2, 0, 0, TAU), 'rgba(14,8,26,.5)', 3);
+    bloom(ctx, x, y - s * .6, s * 2.2, '176,130,255', .22 * glow);
+    pts.sort((a, b) => a[3] - b[3]).forEach(([px, a, w, h]) => geodePoint(ctx, px, y, w, h, a * .7, glow));
   }
-  function mouse(ctx, x, y, s) {
+  // A geode broken open in the rock: a rough rind, a pale agate band, and a jagged mouth packed with amethyst that
+  // glows from the hollow at its heart.
+  function geodeHollow(ctx, x, y, rx, ry, seed, tilt = 0, glow = 1) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(tilt);
+    const r = rng(seed), rind = blob(0, 0, rx, ry, seed, .12, 12);
+    bloom(ctx, 0, 0, rx * 2.4, '170,120,255', .16 * glow);
+    soft(ctx, () => smooth(ctx, rind.map(([px, py]) => [px + 1.5, py + 2.5]), true), 'rgba(12,6,22,.55)', 4);
+    shape(ctx, rind, lin(ctx, -rx, -ry, rx, ry, [[0, '#8a7a8c'], [.5, '#5e4e68'], [1, '#3a2e48']]), null);
+    for (let i = 0; i < 8; i++) { const a = r() * TAU, k = .8 + r() * .14; dot(ctx, Math.cos(a) * rx * k, Math.sin(a) * ry * k, .6 + r() * .8, 'rgba(30,20,44,.4)'); }
+    const mouth = [], n = 18, ox = -rx * .06, oy = -ry * .04;
+    for (let i = 0; i < n; i++) { const a = i / n * TAU, k = (i % 2 ? .6 : .72) + (r() - .5) * .1; mouth.push([ox + Math.cos(a) * rx * k, oy + Math.sin(a) * ry * k]); }
+    poly(ctx, mouth.map(([px, py]) => [ox + (px - ox) * 1.14, oy + (py - oy) * 1.14]), lin(ctx, 0, -ry, 0, ry, [[0, '#f2e6f8'], [1, '#a890c0']]));
+    poly(ctx, mouth, rad(ctx, ox, oy + ry * .1, rx * .7, [[0, emberMix('#5a34a0', '#d8c0ff', glow)], [.45, '#5e3aa8'], [1, '#26124e']]));
+    ctx.save(); ctx.beginPath(); ctx.moveTo(mouth[0][0], mouth[0][1]); for (const p of mouth.slice(1)) ctx.lineTo(p[0], p[1]); ctx.closePath(); ctx.clip();
+    for (let i = 0; i < n; i++) {
+      const [px, py] = mouth[i], [qx, qy] = mouth[(i + 1) % n], len = .22 + r() * .34, tx = px + (ox - px) * len + (r() - .5) * 2, ty = py + (oy - py) * len + (r() - .5) * 2;
+      const tone = .15 + r() * .55 + (py > oy ? .2 : 0), c = emberMix('#3a1e74', '#c8a8f8', tone);
+      poly(ctx, [[px, py], [tx, ty], [qx, qy]], c);
+      poly(ctx, [[px, py], [tx, ty], [(px + qx) / 2, (py + qy) / 2]], emberMix(c, '#1e0c40', .35));
+    }
+    for (let i = 0; i < 3; i++) { const a = r() * TAU, d = r() * .25; geodeGlint(ctx, ox + Math.cos(a) * rx * d, oy + Math.sin(a) * ry * d + ry * .1, 1.6 + r() * 1.4); }
+    ctx.restore();
+    bloom(ctx, ox, oy + ry * .1, rx * .45, '230,210,255', .26 * glow);
+    ctx.restore();
+  }
+  function geodeGlint(ctx, x, y, s) { poly(ctx, [[x - s * .6, y], [x, y - s], [x + s * .6, y], [x, y + s * .5]], 'rgba(236,224,255,.75)'); }
+  // A miner's lantern: a dark iron frame round warm glass and a steady flame, its light pooled about it.
+  function geodeLantern(ctx, x, y) {
+    bloom(ctx, x, y + 22, 150, '255,186,100', .34);
+    bloom(ctx, x, y + 22, 48, '255,220,150', .5);
+    emberLine(ctx, [[x, y - 10], [x, y + 4]], '#2a2230', 1.2);
+    ctx.beginPath(); ctx.arc(x, y + 6, 3, 0, TAU); ctx.strokeStyle = '#3a3040'; ctx.lineWidth = 1.2; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x - 7, y + 14); ctx.quadraticCurveTo(x, y + 6, x + 7, y + 14); ctx.closePath(); ctx.fillStyle = lin(ctx, x - 7, 0, x + 7, 0, [[0, '#5a4e5a'], [1, '#2a2230']]); ctx.fill();
+    poly(ctx, [[x - 8, y + 14], [x + 8, y + 14], [x + 9, y + 17], [x - 9, y + 17]], '#3a3040');
+    poly(ctx, [[x - 7, y + 17], [x + 7, y + 17], [x + 6, y + 35], [x - 6, y + 35]], lin(ctx, x - 7, 0, x + 7, 0, [[0, '#ffe0a0'], [.5, '#fff3cc'], [1, '#ffbe6a']]));
+    ctx.beginPath(); ctx.ellipse(x, y + 26, 2.4, 5, 0, 0, TAU); ctx.fillStyle = '#ffffff'; ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x, y + 27.5, 1.6, 3, 0, 0, TAU); ctx.fillStyle = '#ffb347'; ctx.fill();
+    for (const k of [-1, 1]) emberLine(ctx, [[x + k * 7, y + 17], [x + k * 6, y + 35]], '#2e2634', 1.5);
+    emberLine(ctx, [[x, y + 17], [x, y + 35]], 'rgba(46,38,52,.55)', .9);
+    poly(ctx, [[x - 8.5, y + 35], [x + 8.5, y + 35], [x + 6.5, y + 39], [x - 6.5, y + 39]], '#3a3040');
+    emberLine(ctx, [[x - 4.4, y + 19], [x - 4, y + 32]], 'rgba(255,255,255,.75)', .9);
+  }
+  // The mouse, peeking over the rim of the cart.
+  function geodeMouse(ctx, x, y, s) {
     ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
-    const ink = '#4a3a44';
-    for (const ex of [-7, 7]) { dot(ctx, ex, -10, 5.4, '#b8a6ac'); ctx.beginPath(); ctx.arc(ex, -10, 5.4, 0, TAU); ctx.strokeStyle = ink; ctx.lineWidth = 1.1; ctx.stroke(); dot(ctx, ex, -9.6, 3.2, '#f4b2c0'); }
+    const line = '#6a4e5a';
+    for (const ex of [-7, 7]) { dot(ctx, ex, -10, 5.6, '#c4b0b8'); ctx.beginPath(); ctx.arc(ex, -10, 5.6, 0, TAU); ctx.strokeStyle = line; ctx.lineWidth = .9; ctx.stroke(); dot(ctx, ex, -9.6, 3.4, '#f4b0c0'); }
     const head = [[-8, 0], [-8.6, -6], [-4, -10], [4, -10], [8.6, -6], [8, 0], [0, 2]];
-    shape(ctx, head, '#c9b7bd', null); cel(ctx, head, '#ad9aa2', -2, 2); shape(ctx, head, null, ink, 1.2);
+    shape(ctx, head, lin(ctx, -6, -10, 6, 2, [[0, '#e2d2d6'], [1, '#a8949e']]), line, 1);
     dot(ctx, -3.2, -4.4, 1.4, '#2a1a24'); dot(ctx, 3.2, -4.4, 1.4, '#2a1a24'); dot(ctx, -3.6, -4.9, .5, '#ffffff'); dot(ctx, 2.8, -4.9, .5, '#ffffff');
     dot(ctx, 0, -1.6, 1.4, '#e98a9c');
-    for (const k of [-1, 1]) for (const d of [-1, 1]) stroke(ctx, [[k * 2.6, -1 + d * .6], [k * 9, -2 + d * 1.6]], 'rgba(74,58,68,.6)', .5);
+    for (const k of [-1, 1]) for (const d of [-1, 1]) stroke(ctx, [[k * 2.6, -1 + d * .6], [k * 9, -2 + d * 1.6]], 'rgba(90,70,80,.55)', .5);
     dot(ctx, -6, -2, 1.4, 'rgba(240,140,160,.45)'); dot(ctx, 6, -2, 1.4, 'rgba(240,140,160,.45)');
-    for (const px of [-5, 5]) { ctx.beginPath(); ctx.ellipse(px, 2.6, 2.2, 1.6, 0, 0, TAU); ctx.fillStyle = '#f4b2c0'; ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = .8; ctx.stroke(); }
+    for (const px of [-5, 5]) { ctx.beginPath(); ctx.ellipse(px, 2.6, 2.2, 1.6, 0, 0, TAU); ctx.fillStyle = '#f4b2c0'; ctx.fill(); ctx.strokeStyle = line; ctx.lineWidth = .7; ctx.stroke(); }
     ctx.restore();
   }
-  function minecart(ctx, x, y, s) {
+  // The minecart: a riveted iron tub heaped with amethyst, the lantern light along its rolled rim.
+  function geodeCart(ctx, x, y, s) {
     ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
-    const ink = '#1e1a26';
-    // Its load first: amethyst and geode halves heaped above the rim.
-    crystalCluster(ctx, -14, -30, .72, VIOLET, 41, .8);
-    crystal(ctx, 30, -30, 9, 20, .5, VIOLET);
-    geode(ctx, -32, -36, 11, 9, 44, -.4);
-    mouse(ctx, 14, -40, 1.2);
+    soft(ctx, () => ctx.ellipse(0, 8, 50, 6, 0, 0, TAU), 'rgba(10,6,18,.6)', 5);
+    geodeHollow(ctx, -26, -36, 11, 9, 44, -.4, .8);
+    geodeCluster(ctx, -6, -32, 16, 41, 5, .9);
+    geodePoint(ctx, 30, -32, 9, 20, .5, .8);
+    geodeMouse(ctx, 14, -38, 1.15);
     const body = [[-44, -34], [44, -34], [36, 4], [-36, 4]];
-    poly(ctx, body, '#6b6478', null);
-    clipTo(ctx, body, () => { ctx.fillStyle = '#4f4860'; ctx.fillRect(14, -40, 40, 50); ctx.fillStyle = '#8a839a'; ctx.fillRect(-50, -34, 100, 5); });
-    poly(ctx, body, null, ink, 1.7);
-    for (const bx of [-30, 0, 30]) stroke(ctx, [[bx, -30], [bx * .86, 2]], 'rgba(30,26,38,.55)', 1.4);
-    for (const [bx, by] of [[-38, -28], [38, -28], [-33, -2], [33, -2], [-4, -28], [4, -28]]) nailHead(ctx, bx, by);
-    poly(ctx, [[-47, -37], [47, -37], [47, -32], [-47, -32]], '#857e94', ink, 1.4);
+    poly(ctx, body, lin(ctx, -44, -34, 30, 10, [[0, '#8a7c88'], [.45, '#5a5068'], [1, '#2e2838']]));
+    clipTo(ctx, body, () => {
+      for (const [bx, w] of [[-30, 5], [0, 5], [30, 5]]) poly(ctx, [[bx - w / 2, -34], [bx + w / 2, -34], [bx * .86 + w / 2, 4], [bx * .86 - w / 2, 4]], 'rgba(20,14,30,.28)');
+      for (const [cx, cy, rr] of [[-24, -10, 6], [20, -20, 5], [8, -4, 4]]) soft(ctx, () => ctx.ellipse(cx, cy, rr * 1.6, rr, .3, 0, TAU), 'rgba(150,70,40,.3)', 4);
+      wash(ctx, lin(ctx, 0, -34, 0, 4, [[0, 'rgba(0,0,0,0)'], [1, 'rgba(10,6,20,.45)']]), null, 1, -50, -34, 100, 40);
+    });
+    for (const [bx, by] of [[-38, -28], [38, -28], [-33, -2], [33, -2], [-4, -28], [4, -28], [-4, -4], [4, -4]]) { dot(ctx, bx, by, 1.4, '#221c2a'); dot(ctx, bx - .4, by - .4, .6, 'rgba(255,220,190,.55)'); }
+    poly(ctx, [[-47, -37], [47, -37], [47, -32], [-47, -32]], lin(ctx, 0, -37, 0, -32, [[0, '#c4aa98'], [1, '#4a4058']]));
     for (const wx of [-24, 24]) {
-      dot(ctx, wx, 6, 8, '#3a3440'); ctx.beginPath(); ctx.arc(wx, 6, 8, 0, TAU); ctx.strokeStyle = ink; ctx.lineWidth = 1.5; ctx.stroke();
-      dot(ctx, wx, 6, 3, '#857e94'); ctx.beginPath(); ctx.arc(wx, 6, 5.6, 3.6, 4.8); ctx.strokeStyle = 'rgba(200,190,220,.6)'; ctx.lineWidth = 1.1; ctx.stroke();
+      dot(ctx, wx, 6, 8.4, '#221c2c');
+      ctx.beginPath(); ctx.arc(wx, 6, 6.6, 3.4, 5.2); ctx.strokeStyle = 'rgba(220,190,170,.5)'; ctx.lineWidth = 1.2; ctx.stroke();
+      dot(ctx, wx, 6, 2.6, '#5a5068'); dot(ctx, wx - .6, 5.2, .9, 'rgba(255,230,200,.6)');
     }
     ctx.restore();
   }
-  function pickaxe(ctx, x, y, len, angle) {
+  function geodePick(ctx, x, y, len, angle) {
     ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
-    poly(ctx, [[-2.4, 0], [2.4, 0], [2, -len], [-2, -len]], '#c99463', '#4a2a1a', 1.2);
-    stroke(ctx, [[-1, -4], [-1, -len + 6]], 'rgba(255,230,190,.6)', 1);
+    soft(ctx, () => ctx.rect(-1, -len, 6, len), 'rgba(10,6,18,.4)', 3);
+    poly(ctx, [[-2.4, 0], [2.4, 0], [2, -len], [-2, -len]], lin(ctx, -2.4, 0, 2.4, 0, [[0, '#e8b47a'], [.5, '#a06a40'], [1, '#5a3a26']]));
+    emberLine(ctx, [[-.8, -4], [-.8, -len + 6]], 'rgba(255,236,200,.5)', .8);
     ctx.beginPath(); ctx.moveTo(-24, -len + 10); ctx.quadraticCurveTo(-10, -len - 6, 0, -len - 4); ctx.quadraticCurveTo(10, -len - 6, 24, -len + 10); ctx.quadraticCurveTo(10, -len - 1, 0, -len + 3); ctx.quadraticCurveTo(-10, -len - 1, -24, -len + 10); ctx.closePath();
-    ctx.fillStyle = '#8f8a9c'; ctx.fill(); ctx.strokeStyle = '#2a2633'; ctx.lineWidth = 1.3; ctx.stroke();
-    stroke(ctx, [[-18, -len + 4], [-8, -len - 3], [0, -len - 2.4]], 'rgba(255,255,255,.6)', 1);
-    poly(ctx, [[-4, -len - 5], [4, -len - 5], [4, -len + 5], [-4, -len + 5]], '#6e687c', '#2a2633', 1.1);
+    ctx.fillStyle = lin(ctx, 0, -len - 6, 0, -len + 6, [[0, '#c8c0d0'], [1, '#4a4458']]); ctx.fill();
+    stroke(ctx, [[-18, -len + 4], [-8, -len - 3], [0, -len - 2.4]], 'rgba(255,250,240,.7)', .9);
+    poly(ctx, [[-4, -len - 5], [4, -len - 5], [4, -len + 5], [-4, -len + 5]], '#3a3448');
     ctx.restore();
   }
-  function cobweb(ctx, x, y, r, flip) {
-    ctx.save(); ctx.translate(x, y); ctx.scale(flip ? -1 : 1, 1);
-    const spokes = [0, .4, .8, 1.2, 1.57];
-    for (const a of spokes) stroke(ctx, [[0, 0], [Math.cos(a) * r, Math.sin(a) * r]], 'rgba(230,220,250,.35)', .6);
-    for (let k = 1; k <= 3; k++) {
+  // A cobweb strung in a corner: spokes and sagging rings, catching the lantern light.
+  function geodeWeb(ctx, x, y, r, a0, a1, seed) {
+    const rr = rng(seed), spokes = [];
+    for (let i = 0; i <= 6; i++) spokes.push(a0 + (a1 - a0) * i / 6 + (i % 6 ? (rr() - .5) * .12 : 0));
+    ctx.save(); ctx.lineCap = 'round';
+    for (const a of spokes) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); ctx.strokeStyle = 'rgba(255,236,214,.34)'; ctx.lineWidth = .5; ctx.stroke(); }
+    for (let k = 1; k <= 5; k++) {
       ctx.beginPath();
-      spokes.forEach((a, i) => { const rr = r * k / 3.4, px = Math.cos(a) * rr, py = Math.sin(a) * rr; if (!i) ctx.moveTo(px, py); else { const m = (a + spokes[i - 1]) / 2; ctx.quadraticCurveTo(Math.cos(m) * rr * .82, Math.sin(m) * rr * .82, px, py); } });
-      ctx.strokeStyle = 'rgba(230,220,250,.32)'; ctx.lineWidth = .6; ctx.stroke();
+      spokes.forEach((a, i) => { const d = r * (k / 5.6) * (.92 + rr() * .1), px = x + Math.cos(a) * d, py = y + Math.sin(a) * d; if (!i) ctx.moveTo(px, py); else { const m = (a + spokes[i - 1]) / 2; ctx.quadraticCurveTo(x + Math.cos(m) * d * .84, y + Math.sin(m) * d * .84, px, py); } });
+      ctx.strokeStyle = `rgba(255,236,214,${(.36 - k * .03).toFixed(3)})`; ctx.lineWidth = .5; ctx.stroke();
     }
     ctx.restore();
   }
   function paintGeode(ctx, framed) {
-    const back = ctx.createLinearGradient(0, 0, 0, 560);
-    back.addColorStop(0, '#3b2f53'); back.addColorStop(.6, '#33284b'); back.addColorStop(1, '#2a213e');
-    ctx.fillStyle = back; ctx.fillRect(0, 0, 420, 560);
-    {
-      const X = (x, k) => 210 + (x - 210) * k, Y = (y, k) => 300 + (y - 300) * k;
-      poly(ctx, [[-10, 462], [430, 462], [X(378, .26), Y(462, .26)], [X(42, .26), Y(462, .26)]], '#2c2343', null);
-      for (const t of [.25, .5, .75]) stroke(ctx, [[-10 + 440 * t, 462], [X(42, .26) + (X(378, .26) - X(42, .26)) * t, Y(462, .26)]], 'rgba(150,120,200,.07)', 1);
+    const F = .17, A = geodeAt;
+    // The drift: ceiling, walls and floor running back to a far end lost in violet dark.
+    wash(ctx, '#1c1630');
+    const near = [44, 50, 376, 466], [l, t, rr, b] = near;
+    const surf = (pts, g) => poly(ctx, pts, g);
+    surf([A(l, t, 1), A(rr, t, 1), A(rr, t, F), A(l, t, F)], lin(ctx, 0, t, 0, A(0, t, F)[1], [[0, '#4a3650'], [.5, '#33264a'], [1, '#221a38']]));
+    surf([A(l, t, 1), A(l, t, F), A(l, b, F), A(l, b, 1)], lin(ctx, l, 0, A(l, 0, F)[0], 0, [[0, '#4e3c62'], [.55, '#352a50'], [1, '#241c3c']]));
+    surf([A(rr, t, 1), A(rr, t, F), A(rr, b, F), A(rr, b, 1)], lin(ctx, rr, 0, A(rr, 0, F)[0], 0, [[0, '#4a3a60'], [.55, '#33284e'], [1, '#241c3c']]));
+    surf([A(l, b, 1), A(rr, b, 1), A(rr, b, F), A(l, b, F)], lin(ctx, 0, b, 0, A(0, b, F)[1], [[0, '#4a3848'], [.6, '#33284a'], [1, '#261e3e']]));
+    // The rock: bedding lines running back toward the far end, and broad soft facets.
+    const r = rng(808);
+    for (const [wall, x0, x1] of [[[A(l, t, 1), A(l, t, F), A(l, b, F), A(l, b, 1)], l, 1], [[A(rr, t, 1), A(rr, t, F), A(rr, b, F), A(rr, b, 1)], rr, 1]]) {
+      void x1;
+      clipTo(ctx, wall, () => {
+        for (let i = 0; i < 7; i++) { const yy = t + 20 + r() * (b - t - 40), k1 = .3 + r() * .5; emberLine(ctx, [A(x0, yy, 1), A(x0, yy + (r() - .5) * 30, k1)], i % 2 ? 'rgba(14,8,26,.35)' : 'rgba(200,180,240,.1)', 1 + r()); }
+        for (let i = 0; i < 6; i++) { const k = .35 + r() * .6, [fx, fy] = A(x0, t + 30 + r() * (b - t - 60), k); soft(ctx, () => ctx.ellipse(fx, fy, 30 * k, 50 * k, 0, 0, TAU), i % 2 ? 'rgba(16,10,30,.3)' : 'rgba(150,130,200,.1)', 14 * k); }
+      });
     }
-    // The drift runs on into the dark through older sets of timber, each one dimmer than the last.
-    for (const [k, a, dark] of [[.66, .32, '#2f2546'], [.42, .2, '#282040'], [.26, .12, '#211a36']]) {
-      const X = x => 210 + (x - 210) * k, Y = y => 300 + (y - 300) * k;
-      poly(ctx, [[X(42), Y(46)], [X(378), Y(46)], [X(378), Y(462)], [X(42), Y(462)]], dark, null);
-      ctx.save(); ctx.globalAlpha = a;
-      for (const pts of [[[X(-4), Y(18)], [X(424), Y(18)], [X(424), Y(46)], [X(-4), Y(46)]], [[X(14), Y(46)], [X(42), Y(46)], [X(42), Y(462)], [X(14), Y(462)]], [[X(378), Y(46)], [X(406), Y(46)], [X(406), Y(462)], [X(378), Y(462)]]]) poly(ctx, pts, '#8a6448', '#2a1a14', 1.2);
-      ctx.restore();
+    clipTo(ctx, [A(l, t, 1), A(rr, t, 1), A(rr, t, F), A(l, t, F)], () => { for (let i = 0; i < 6; i++) { const xx = l + 20 + r() * (rr - l - 40), k1 = .3 + r() * .5; emberLine(ctx, [A(xx, t, 1), A(xx + (r() - .5) * 40, t, k1)], 'rgba(14,8,26,.3)', 1 + r() * 1.4); } });
+    // The far end, and a lantern burning a long way down the drift.
+    const [fx0, fy0] = A(l, t, F), [fx1, fy1] = A(rr, b, F);
+    poly(ctx, [[fx0, fy0], [fx1, fy0], [fx1, fy1], [fx0, fy1]], lin(ctx, 0, fy0, 0, fy1, [[0, '#1a1430'], [1, '#2a1e3a']]));
+    bloom(ctx, 214, 302, 46, '255,180,110', .22);
+    dot(ctx, 214, 302, 1.6, 'rgba(255,214,160,.7)');
+    // The track runs back down the drift from the turntable, on sleepers spaced in perspective.
+    for (let z = 1; z < 7; z += .55 + z * .12) { const k = 1 / z; if (k < F + .02) break; const [sx0, sy] = A(186, b + 4, k), [sx1] = A(234, b + 4, k); poly(ctx, [[sx0, sy - 1.6 * k], [sx1, sy - 1.6 * k], [sx1, sy + 1.6 * k], [sx0, sy + 1.6 * k]], `rgba(30,18,26,${(.25 + k * .3).toFixed(3)})`); }
+    for (const x of [194, 226]) { const [nx0, ny0] = A(x, b + 30, 1), [nx1, ny1] = A(x, b + 4, F + .02); ctx.beginPath(); ctx.moveTo(nx0, ny0); ctx.lineTo(nx1, ny1); ctx.strokeStyle = lin(ctx, 0, ny0, 0, ny1, [[0, 'rgba(210,190,220,.4)'], [1, 'rgba(210,190,220,0)']]); ctx.lineWidth = 1.2; ctx.stroke(); }
+    // Older sets of timber, each further one dimmer, one of them sagging.
+    for (const [k, sag, cap] of [[.3, 0, true], [.44, 2.4, true], [.64, -1.2, true]]) {
+      const fog = Math.min(.92, (1 - k) * 1.5 + .12), haze = '#2a2246', warm = .1 + k * .2, W = 32 * k;
+      const [lx0] = A(12, 0, k), [lx1] = A(44, 0, k), [rx0] = A(376, 0, k), [rx1] = A(408, 0, k), [, cy0] = A(0, 20, k), [, cy1] = A(0, 50, k), [, fy] = A(0, 470, k);
+      soft(ctx, () => { ctx.rect(lx0 - 2, cy0, rx1 - lx0 + 4, (cy1 - cy0) + 4); ctx.rect(lx0 - 2, cy0, lx1 - lx0 + 4, fy - cy0); ctx.rect(rx0 - 2, cy0, rx1 - rx0 + 4, fy - cy0); }, `rgba(10,6,20,${(.5 * k).toFixed(3)})`, 8 * k);
+      geodeBeam(ctx, (lx0 + lx1) / 2, fy, (lx0 + lx1) / 2 + sag * 4, cy0, W, W, -1, 10 + k * 100, { fog, haze, warm, grain: 3 });
+      geodeBeam(ctx, (rx0 + rx1) / 2, fy, (rx0 + rx1) / 2, cy0, W, W, 1, 20 + k * 100, { fog, haze, warm, grain: 3 });
+      if (cap) geodeBeam(ctx, lx0 - 6 * k, (cy0 + cy1) / 2 + sag, rx1 + 6 * k, (cy0 + cy1) / 2 - sag, (cy1 - cy0), (cy1 - cy0), 1, 30 + k * 100, { fog, haze, warm, grain: 3 });
+      else { geodeBeam(ctx, lx0 - 4 * k, (cy0 + cy1) / 2, lx1 + 40 * k, (cy0 + cy1) / 2 + 3, cy1 - cy0, (cy1 - cy0) * .9, 1, 31, { fog, haze, warm, grain: 3 }); geodeBeam(ctx, rx1 + 4 * k, (cy0 + cy1) / 2, rx0 - 60 * k, (cy0 + cy1) / 2 + 6 * k, cy1 - cy0, (cy1 - cy0) * .9, 1, 32, { fog, haze, warm, grain: 3 }); }
     }
-    const rv = rng(808);
-    for (const [x0, y0, len] of [[56, 160, 40], [336, 130, 40], [60, 400, 40], [328, 404, 44]]) {
-      const v = crackPath(x0, y0, len / 6, 3, 6, x0, 4);
-      stroke(ctx, v, 'rgba(180,140,240,.22)', 2.2); stroke(ctx, v, 'rgba(220,200,255,.36)', .8);
-      for (let i = 0; i < 2; i++) { const p = v[1 + Math.floor(rv() * 4)]; sparkle(ctx, p[0], p[1], 2 + rv() * 1.5, 'rgba(230,215,255,.7)'); }
+    // Air down the drift: violet haze thickest toward the far end.
+    ctx.save(); ctx.globalCompositeOperation = 'source-over';
+    wash(ctx, rad(ctx, GEODE_VP[0], GEODE_VP[1], 230, [[0, 'rgba(44,34,74,.55)'], [.45, 'rgba(44,34,74,.25)'], [1, 'rgba(44,34,74,0)']]));
+    ctx.restore();
+    // Geodes in the walls just inside the mouth, half behind the posts, and amethyst breaking out of the rock.
+    geodeHollow(ctx, 70, 250, 22, 30, 51, .1, 1);
+    geodeHollow(ctx, 352, 196, 16, 22, 52, -.1, .9);
+    geodeHollow(ctx, 362, 372, 12, 16, 53, .15, .8);
+    geodeCluster(ctx, 66, 402, 14, 61, 5, .9);
+    geodeCluster(ctx, 352, 300, 11, 62, 4, .8);
+    // The lanterns' light on the near walls, ceiling and floor.
+    for (const [x, y] of GEODE_LAMPS) { bloom(ctx, x + (x < 210 ? 20 : -20), y + 20, 190, '255,166,92', .2); bloom(ctx, x, y + 120, 130, '255,166,92', .1); }
+    // The near set: two posts, the cap and its knee braces, strapped with iron.
+    soft(ctx, () => { ctx.rect(-10, 14, 440, 42); ctx.rect(8, 40, 42, 440); ctx.rect(370, 40, 42, 440); }, 'rgba(8,4,16,.55)', 10);
+    const posts = [[12, 44, 1, 2], [376, 408, -1, 3]];
+    for (const [x0, x1, s] of posts) {
+      const inner = s > 0 ? x1 : x0, [bx] = A(inner, 0, .95), [, by0] = A(0, 50, .95), [, by1] = A(0, 470, .95);
+      poly(ctx, [[inner, 50], [bx, by0], [bx, by1], [inner, 470]], lin(ctx, 0, 60, 0, 470, [[0, '#a06a44'], [.3, '#6a4430'], [1, '#2a1c1e']]));
     }
-    // Geodes set into the walls, and little crystal clusters breaking out of the rock.
-    rockPatch(ctx, 62, 238, 36, 30, 1); geode(ctx, 64, 236, 24, 19, 51, -.2);
-    rockPatch(ctx, 360, 178, 30, 26, 2); geode(ctx, 358, 176, 19, 15, 52, .3);
-    rockPatch(ctx, 364, 364, 22, 18, 3); geode(ctx, 364, 362, 13, 11, 53, -.4);
-    crystalCluster(ctx, 70, 372, .4, VIOLET, 61, .7);
-    crystalCluster(ctx, 346, 260, .34, VIOLET, 62, .7);
-    // The timber set: two posts, a cap across the top and knee braces in the corners.
-    timber(ctx, [[-10, 18], [430, 18], [430, 46], [-10, 46]], 1, false);
-    for (const [x0, x1, sd] of [[14, 42, 2], [378, 406, 3]]) timber(ctx, [[x0, 46], [x1, 46], [x1, 470], [x0, 470]], sd, true);
-    timber(ctx, [[42, 104], [42, 126], [112, 46], [88, 46]], 4, false);
-    timber(ctx, [[378, 104], [378, 126], [308, 46], [332, 46]], 5, false);
-    for (const [bx, by] of [[28, 32], [392, 32], [52, 54], [368, 54], [28, 112], [392, 112], [28, 460], [392, 460]]) nailHead(ctx, bx, by);
-    for (const [x0, y0] of [[14, 40], [378, 40]]) { poly(ctx, [[x0 - 3, y0], [x0 + 31, y0], [x0 + 31, y0 + 14], [x0 - 3, y0 + 14]], 'rgba(58,52,64,.9)', '#1e1a26', 1.1); nailHead(ctx, x0 + 6, y0 + 7); nailHead(ctx, x0 + 22, y0 + 7); }
+    // The knee braces go in first so the posts and cap cover their cut ends.
+    for (const [ax, ay, bx2, by2, sd] of [[44, 140, 124, 50, 4], [376, 172, 290, 50, 5]]) {
+      soft(ctx, () => { ctx.moveTo(ax, ay + 8); ctx.lineTo(bx2, by2 + 8); ctx.lineTo(bx2 + (ax < 210 ? 14 : -14), by2 + 8); ctx.lineTo(ax, ay + 24); ctx.closePath(); }, 'rgba(8,4,16,.45)', 6);
+      geodeBeam(ctx, ax + (ax < 210 ? -14 : 14), ay + 10, bx2 + (ax < 210 ? 8 : -8), by2 - 12, 18, 18, ax < 210 ? -1 : 1, sd, { warm: .9, grain: 5, dim: [[0, .1], [.35, 0], [1, .35]] });
+    }
+    for (const [x0, x1, s, sd] of posts) geodeBeam(ctx, (x0 + x1) / 2, 472, (x0 + x1) / 2, 46, 32, 32, s, sd, { warm: .75, dim: [[0, .62], [.45, .3], [.82, 0], [1, .12]] });
+    poly(ctx, [[44, 50], [376, 50], A(376, 50, .95), A(44, 50, .95)], lin(ctx, 0, 50, 0, 62, [[0, '#b07a4e'], [1, '#6a4430']]));
+    geodeBeam(ctx, -10, 35, 430, 35, 30, 30, -1, 1, { warm: .6, dim: [[0, .3], [.17, 0], [.5, .4], [.83, 0], [1, .3]] });
+    for (const pts of [[[24, 44], [46, 44], [46, 60], [24, 60]], [[374, 44], [396, 44], [396, 60], [374, 60]]]) geodeStrap(ctx, pts, .55);
+    for (const pts of [[[12, 146], [46, 146], [46, 156], [12, 156]], [[374, 178], [408, 178], [408, 188], [374, 188]]]) geodeStrap(ctx, pts, .5);
+    // A cobweb in the top left corner, its spider let down on a thread.
+    geodeWeb(ctx, 45, 51, 52, 0, Math.PI / 2, 7);
+    const [sx, sy] = [84, 84];
+    emberLine(ctx, [[sx, 60], [sx, sy - 4]], 'rgba(255,236,214,.32)', .5);
+    dot(ctx, sx, sy, 2.6, '#2a2032'); dot(ctx, sx, sy - 3.4, 1.8, '#2a2032');
+    for (const k of [-1, 1]) for (const d of [-1, 0, 1]) stroke(ctx, [[sx, sy], [sx + k * 3.4, sy - 1 + d * 2], [sx + k * 4.6, sy + 1 + d * 2.4]], '#2a2032', .6);
+    dot(ctx, sx - .8, sy - 3.8, .5, '#ffffff'); dot(ctx, sx + .8, sy - 3.8, .5, '#ffffff');
+    // The lanterns, hung from the cap near each post.
+    for (const [x, y] of GEODE_LAMPS) {
+      const post = x < 210 ? 44 : 376, d = x < 210 ? 1 : -1, ay = y - 38;
+      poly(ctx, [[post - d * 2, ay - 4], [post + d * 1.5, ay - 4], [post + d * 1.5, ay + 6], [post - d * 2, ay + 6]], '#241e2a');
+      emberLine(ctx, [[post, ay - 1], [x, ay - 1], [x + d * 3, ay - 3.4]], '#2a2430', 2.2);
+      emberLine(ctx, [[post, ay - 1.8], [x, ay - 1.8]], 'rgba(255,214,170,.45)', .7);
+      ctx.beginPath(); ctx.moveTo(post, ay + 12); ctx.quadraticCurveTo(post + d * (x - post) * d * .2, ay + 2, x - d * 2, ay - .5); ctx.strokeStyle = '#2a2430'; ctx.lineWidth = 1.3; ctx.stroke();
+      ctx.beginPath(); ctx.arc(post + d * 6, ay + 4.5, 2.6, 0, TAU); ctx.strokeStyle = '#2a2430'; ctx.lineWidth = 1; ctx.stroke();
+      geodeLantern(ctx, x, y - 26);
+    }
     // A coil of rope hung on a spike in the right post.
-    nailHead(ctx, 392, 300);
-    for (const [rx, ry, a] of [[10, 13, 0], [8.6, 11.4, .1], [7.2, 10, -.05]]) { ctx.beginPath(); ctx.ellipse(392 + a * 10, 314, rx, ry, a, 0, TAU); ctx.strokeStyle = '#4a2a1a'; ctx.lineWidth = 3.4; ctx.stroke(); ctx.strokeStyle = '#d2b07c'; ctx.lineWidth = 2; ctx.stroke(); }
-    stroke(ctx, [[386, 326], [384, 340], [388, 352]], '#4a2a1a', 3.4); stroke(ctx, [[386, 326], [384, 340], [388, 352]], '#d2b07c', 2);
-    cobweb(ctx, 42, 46, 30, false);
-    stroke(ctx, [[60, 64], [60, 76]], 'rgba(230,220,250,.4)', .5);
-    dot(ctx, 60, 78, 2.6, '#2a2236'); dot(ctx, 60, 74.6, 1.8, '#2a2236');
-    for (const k of [-1, 1]) for (const d of [-1, 0, 1]) stroke(ctx, [[60, 78], [60 + k * 3.4, 77 + d * 2], [60 + k * 4.6, 79 + d * 2.4]], '#2a2236', .6);
-    dot(ctx, 59.2, 74.4, .5, '#ffffff'); dot(ctx, 60.8, 74.4, .5, '#ffffff');
-    // Lanterns hung from the cap, warm against the violet.
-    lantern(ctx, 74, 88); lantern(ctx, 346, 88);
-    // Floor, a rail track along it and the props of the working day.
-    band(ctx, ridge(458, 2.4, 91, 32), 560, '#2e2440', '#140e22', 1.8);
-    band(ctx, ridge(500, 2, 92, 50), 560, '#291f3a', null);
+    dot(ctx, 392, 290, 2, '#221c2a');
+    for (const [rx, ry, a] of [[10, 13, 0], [8.6, 11.4, .1], [7.2, 10, -.05]]) { ctx.beginPath(); ctx.ellipse(392 + a * 10, 304, rx, ry, a, 0, TAU); ctx.strokeStyle = '#5a3e2a'; ctx.lineWidth = 3.4; ctx.stroke(); ctx.strokeStyle = '#d2b07c'; ctx.lineWidth = 2; ctx.stroke(); }
+    stroke(ctx, [[386, 316], [384, 330], [388, 344]], '#5a3e2a', 3.4); stroke(ctx, [[386, 316], [384, 330], [388, 344]], '#d2b07c', 2);
+    // The gallery floor across the front, the cross-track and the turntable under the launcher.
+    band(ctx, ridge(468, 1.6, 91, 40), 560, lin(ctx, 0, 466, 0, 560, [[0, '#4a3646'], [.5, '#33263e'], [1, '#1c1428']]), null);
+    soft(ctx, () => ctx.rect(-10, 466, 440, 6), 'rgba(10,6,18,.5)', 5);
+    for (const [x] of GEODE_LAMPS) soft(ctx, () => ctx.ellipse(x + (x < 210 ? 30 : -30), 480, 90, 14, 0, 0, TAU), 'rgba(255,180,110,.16)', 14);
+    for (const x of [28, 392]) soft(ctx, () => ctx.ellipse(x, 472, 30, 5, 0, 0, TAU), 'rgba(8,4,14,.6)', 4);
     const rf = rng(919);
-    for (let i = 0; i < 50; i++) { const x = 10 + rf() * 400, y = 466 + rf() * 90; if (Math.abs(x - 210) < 80 && rf() < .8) continue; dot(ctx, x, y, .7 + rf() * 1.1, rf() < .5 ? 'rgba(10,6,20,.4)' : 'rgba(190,170,230,.25)'); }
-    for (let x = -6; x < 430; x += 24) poly(ctx, [[x - 9, 532], [x + 9, 532], [x + 12, 542], [x - 6, 542]], '#5e4436', '#2a1a14', 1);
-    for (const y of [524, 536]) { poly(ctx, [[-10, y - 2], [430, y - 2], [430, y + 2], [-10, y + 2]], '#6b6478', '#1e1a26', 1.1); stroke(ctx, [[-10, y - 1], [430, y - 1]], 'rgba(220,210,240,.5)', .8); }
-    pickaxe(ctx, 66, 462, 78, -.32);
-    geode(ctx, 48, 516, 30, 22, 71, .15);
-    for (const [x, y, w, h, sd] of [[96, 548, 9, 6, 81], [118, 526, 6, 4, 82], [300, 550, 7, 5, 83]]) pebble(ctx, x, y, w, h, sd, '#6e5f80', '#56496a', '#1e1530');
-    minecart(ctx, 356, 518, 1);
+    for (let i = 0; i < 70; i++) { const x = 10 + rf() * 400, y = 474 + rf() * 84; if (Math.abs(x - 210) < 90 && rf() < .85) continue; dot(ctx, x, y, .6 + rf() * 1.1, rf() < .55 ? 'rgba(10,6,20,.4)' : 'rgba(220,190,200,.18)'); }
+    for (let x = -6; x < 430; x += 22) poly(ctx, [[x - 8, 534], [x + 8, 534], [x + 10, 542], [x - 6, 542]], lin(ctx, 0, 534, 0, 542, [[0, '#6a4a38'], [1, '#2e1e1c']]));
+    for (const y of [473, 482]) poly(ctx, [[184, y - 1.6], [236, y - 1.6], [237, y + 1.8], [183, y + 1.8]], 'rgba(40,24,26,.75)');
+    for (const x of [194, 226]) { emberLine(ctx, [[x, 466], [x + (x - 210) * .04, 492]], '#2a2432', 2.2); emberLine(ctx, [[x, 466], [x + (x - 210) * .04, 492]], 'rgba(220,200,230,.4)', .7); }
+    soft(ctx, () => ctx.ellipse(210, 506, 62, 17, 0, 0, TAU), 'rgba(10,6,18,.55)', 6);
+    ctx.beginPath(); ctx.ellipse(210, 504, 56, 15, 0, 0, TAU); ctx.fillStyle = lin(ctx, 0, 489, 0, 519, [[0, '#6e5048'], [1, '#3a2834']]); ctx.fill();
+    clipTo(ctx, blob(210, 504, 56, 15, 1, 0, 24), () => {
+      for (let k = -4; k <= 4; k++) { emberLine(ctx, [[210 + k * 12.4, 486], [210 + k * 12.4, 522]], 'rgba(30,18,22,.45)', 1); emberLine(ctx, [[211.2 + k * 12.4, 486], [211.2 + k * 12.4, 522]], 'rgba(255,220,180,.08)', .7); }
+      wash(ctx, rad(ctx, 210, 498, 56, [[0, 'rgba(255,206,150,.22)'], [1, 'rgba(255,206,150,0)']]), 'screen');
+    });
+    ctx.beginPath(); ctx.ellipse(210, 504, 56, 15, 0, 0, TAU); ctx.strokeStyle = '#2a2232'; ctx.lineWidth = 2.6; ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(210, 503.2, 56, 15, 0, Math.PI * 1.06, Math.PI * 1.94); ctx.strokeStyle = 'rgba(255,220,190,.32)'; ctx.lineWidth = .9; ctx.stroke();
+    for (const y of [528, 540]) { poly(ctx, [[-10, y - 2], [430, y - 2], [430, y + 2], [-10, y + 2]], lin(ctx, 0, y - 2, 0, y + 2, [[0, '#a898b0'], [1, '#2e2838']])); emberLine(ctx, [[-10, y - 1.2], [430, y - 1.2]], 'rgba(255,236,220,.35)', .7); }
+    // The working corner: a cracked geode by the left post, the pickaxe leant there, the cart on the right.
+    geodePick(ctx, 64, 470, 80, -.32);
+    geodeHollow(ctx, 50, 512, 30, 22, 71, .12, .9);
+    for (const [x, y, w, h, sd] of [[98, 548, 8, 5, 81], [120, 528, 5, 3.6, 82], [296, 552, 7, 4.6, 83]]) { soft(ctx, () => ctx.ellipse(x, y + h * .7, w, h * .4, 0, 0, TAU), 'rgba(10,6,18,.5)', 2); const pts = blob(x, y, w, h, sd, .16, 8); lit(ctx, pts, '#8a7a96', '#3a2e4a'); }
+    geodeCluster(ctx, 134, 548, 9, 63, 3, .7);
+    geodeCart(ctx, 354, 520, 1);
+    // Dust hanging in the lantern light.
+    const rd = rng(55);
+    for (let i = 0; i < 18; i++) { const [lx, ly] = GEODE_LAMPS[i % 2], a = rd() * TAU, d = 20 + rd() * 70; dot(ctx, lx + Math.cos(a) * d * .7, ly + 30 + Math.sin(a) * d, .5 + rd() * .7, `rgba(255,226,180,${(.25 + rd() * .3).toFixed(3)})`); }
+    grade(ctx, 'rgba(255,200,140,.35)', 'rgba(96,74,180,.45)', 'rgba(20,10,36,.6)');
+    grain(ctx, .08);
     if (framed) frame(ctx, '#8664ae', '#f3c98a');
   }
 
