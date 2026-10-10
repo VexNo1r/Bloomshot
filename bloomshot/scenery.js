@@ -607,7 +607,7 @@
     }
     ctx.globalAlpha = 1;
   }
-  function paintGardenMeadow(ctx, rush) {
+  function paintGardenMeadow(ctx, rush, framed) {
     const [lx, ly] = SUNWARD, sun = [338, 84], edge = rush ? 16 : 0;
     // Morning sky, brightest around the sun.
     wash(ctx, lin(ctx, 0, 0, 0, 380, [[0, '#4ea5e2'], [.45, '#93d1f0'], [.8, '#dff1ef'], [1, '#fbf1d6']]));
@@ -669,7 +669,7 @@
     for (const [a, len, w, al] of [[2.32, 560, 30, .1], [2.16, 520, 22, .08], [2.5, 480, 18, .07]]) shaft(ctx, sun[0], sun[1], a, len, 10, w * 2.4, '255,244,206', al);
     grade(ctx, 'rgba(255,228,176,.5)', 'rgba(80,100,150,.45)', 'rgba(60,70,90,.32)');
     grain(ctx, .06);
-    frame(ctx, '#4fb3a6', '#ffffff');
+    if (framed) frame(ctx, '#4fb3a6', '#ffffff');
   }
 
   // The Moon Garden: a walled garden at night under a full moon. Cool moonlight from the upper right rims the
@@ -698,7 +698,7 @@
     bloom(ctx, x, y, r * 4, '200,220,255', .3);
     gardenBloom(ctx, x, y, r, ['#b9c4ee', '#e4e9ff', '#ffffff', '#f6e7a8', '#ffffff'], SUNWARD[0], SUNWARD[1], seed, 5);
   }
-  function paintGardenMoon(ctx, rush) {
+  function paintGardenMoon(ctx, rush, framed) {
     const moon = [344, 92], edge = rush ? 14 : 0;
     wash(ctx, lin(ctx, 0, 0, 0, 430, [[0, '#0f1440'], [.45, '#1f2566'], [.8, '#3a3486'], [1, '#5b4a9c']]));
     bloom(ctx, 210, 450, 330, '200,130,230', .25);
@@ -769,11 +769,11 @@
     for (const [x, y] of [[40, 470], [130, 432], [300, 458], [384, 428], [250, 520], [160, 506]]) { bloom(ctx, x, y, 12, '220,255,150', .5); dot(ctx, x, y, 1.2, '#f6ffd0'); }
     grade(ctx, 'rgba(140,130,255,.35)', 'rgba(30,20,80,.5)', 'rgba(10,8,40,.45)');
     grain(ctx, .07);
-    frame(ctx, '#8f7fe8', '#e9e2ff');
+    if (framed) frame(ctx, '#8f7fe8', '#e9e2ff');
   }
 
-  // The Koi Pond, seen from above: clear green-blue water over a pebbled floor, sunlight netting the shallows, lily
-  // pads drifting at the edges and a little wooden jetty at the bottom where the launcher stands.
+  // The Koi Conservatory's pond, seen from above: clear green-blue water over a pebbled floor, sunlight netting the
+  // shallows, the glasshouse frame's shadow falling across it, lily pads at the edges and a jetty for the launcher.
   function koiPad(ctx, x, y, r, rot, seed, depth = 1) {
     soft(ctx, () => ctx.arc(x + 7 * depth, y + 9 * depth, r, 0, TAU), 'rgba(10,60,60,.32)', 6);
     ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
@@ -797,7 +797,7 @@
     }
     dot(ctx, x, y, r * .16, '#f5c64a');
   }
-  function paintGardenKoi(ctx, rush) {
+  function paintGardenKoi(ctx, rush, framed) {
     const edge = rush ? 14 : 0;
     // Deep water in the middle, shallower and brighter toward the banks, with the sky's glare at the top.
     wash(ctx, rad(ctx, 210, 250, 380, [[0, '#2aa2a1'], [.6, '#3fb4a8'], [1, '#6cc9b0']]));
@@ -823,6 +823,11 @@
     }
     ctx.restore();
     for (const [a, len, w, al] of [[1.1, 620, 40, .1], [1.2, 600, 26, .08]]) shaft(ctx, 40, -20, a, len, 20, w * 2, '240,255,230', al);
+    // The conservatory's iron glazing bars throw a faint slanted lattice of shadow over the water.
+    ctx.save(); ctx.translate(210, 260); ctx.rotate(.32); ctx.globalAlpha = .5;
+    for (let k = -6; k <= 6; k++) soft(ctx, () => ctx.rect(k * 74 - 2, -420, 4, 840), 'rgba(16,80,84,.16)', 3);
+    for (let k = -5; k <= 5; k++) soft(ctx, () => ctx.rect(-420, k * 96 - 1.5, 840, 3), 'rgba(16,80,84,.12)', 3);
+    ctx.restore();
     // Lily pads and two water lilies at the edges, ripples around them.
     for (const [x, y, r0, rot, s] of [[22, 150, 26, .4, 1], [58, 196, 16, 2.2, 2], [400, 110, 28, 1.6, 3], [370, 152, 15, 4.1, 4], [24, 380, 22, 3.2, 5], [398, 344, 24, .9, 6], [52, 432, 14, 5.2, 7], [376, 410, 16, 2.6, 8], [300, 24, 18, .3, 9], [120, 20, 14, 2.8, 10]]) {
       koiPad(ctx, x + (x < 210 ? -edge : edge), y, r0, rot, s);
@@ -866,7 +871,7 @@
     }
     grade(ctx, 'rgba(220,255,240,.35)', 'rgba(20,70,90,.45)', 'rgba(10,50,60,.35)');
     grain(ctx, .06);
-    frame(ctx, '#3badc6', '#e6fffb');
+    if (framed) frame(ctx, '#3badc6', '#e6fffb');
   }
 
   // ---------- Level 2: Root Tunnels ----------
@@ -2557,6 +2562,6 @@
   // The garden worlds share the kit but not the level behaviours (burrows, cave water), so they have their own entry.
   const GARDENS = { meadow: paintGardenMeadow, moon: paintGardenMoon, koi: paintGardenKoi };
   const garden = theme => Object.prototype.hasOwnProperty.call(GARDENS, theme);
-  function paintGarden(ctx, theme, rush) { if (garden(theme)) GARDENS[theme](ctx, Boolean(rush)); }
+  function paintGarden(ctx, theme, rush, framed = true) { if (garden(theme)) GARDENS[theme](ctx, Boolean(rush), framed); }
   root.BloomScenery = Object.freeze({ has, paint, garden, paintGarden, drawRock, dark: theme => has(theme) && SCENES[theme].dark, ink: theme => has(theme) ? SCENES[theme].ink : null, themes: Object.keys(SCENES) });
 })(typeof window !== 'undefined' ? window : globalThis);
