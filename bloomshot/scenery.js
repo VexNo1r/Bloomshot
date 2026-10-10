@@ -1597,8 +1597,15 @@
   }
 
   // ---------- Level 6: Fossil Beds ----------
+  // A night dig deep in the sandstone: the beds of old seas laid down in bands of ochre, rose, cream and grey clay,
+  // cut back in terraces down to the floor of the pit. A work lamp hung from the gantry at the upper right is the key
+  // light, pouring warm light down across the floor to the launcher and the half-dug skull; the far wall and the
+  // side away from the lamp sink into a cool dusty lilac. The crew's mole sleeps in the shade by the finds crate.
+  const FOSSIL_LAMP = [354, 46], FOSSIL_WARM = '255,204,136', FOSSIL_AIR = '230,196,178';
+  const FOSSIL_BONE = ['#fbf0da', '#e8cfa6', '#b6927a'];
   // Sandstone laid down in tilted beds: each band a gentle ridge that dips toward the left.
-  function bed(y, amp, seed, tilt = .07) { return ridge(y, amp, seed, 52).map(([x, yy]) => [x, yy + (210 - x) * tilt]); }
+  function fossilBed(y, amp, seed, tilt = .06) { return ridge(y, amp, seed, 52).map(([x, yy]) => [x, yy + (210 - x) * tilt]); }
+  // Kept as it was: the sand rocks in play wear this little shell, ink line and all.
   function ammonite(ctx, x, y, r, rot, bone, shade, ink) {
     ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
     dot(ctx, 0, 0, r, bone); ctx.beginPath(); ctx.arc(.8, .8, r - 1.4, -.4, 2.2); ctx.strokeStyle = shade; ctx.lineWidth = r * .22; ctx.stroke();
@@ -1613,214 +1620,344 @@
     ctx.beginPath(); ctx.arc(-r * .2, -r * .2, r * .62, 3.5, 4.5); ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 1.1; ctx.lineCap = 'round'; ctx.stroke();
     ctx.restore();
   }
-  function fishBones(ctx, x, y, len, flip, ink) {
+  // A shell in relief in the rock: lit on its upper right by the lamp, the whorls cut as grooves with a lit lip.
+  function fossilShell(ctx, x, y, r, rot, alpha = 1, shadow = true) {
+    ctx.save(); ctx.globalAlpha = alpha;
+    if (shadow) soft(ctx, () => ctx.arc(x - r * .16, y + r * .22, r, 0, TAU), 'rgba(80,40,40,.42)', r * .35);
+    ctx.translate(x, y);
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU);
+    ctx.fillStyle = rad(ctx, r * .3, -r * .35, r * 1.45, [[0, FOSSIL_BONE[0]], [.5, FOSSIL_BONE[1]], [1, FOSSIL_BONE[2]]]); ctx.fill();
+    ctx.rotate(rot);
+    const k = Math.log(r / 1.2) / (3 * TAU), at = a => 1.2 * Math.exp(k * a);
+    const spiral = (off, color, w) => { ctx.beginPath(); for (let a = 0; a <= 3 * TAU; a += .12) { const rr = Math.max(0, at(a) + off); ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); } ctx.strokeStyle = color; ctx.lineWidth = w; ctx.stroke(); };
+    spiral(0, 'rgba(128,80,62,.5)', Math.max(.8, r * .07));
+    spiral(-r * .07, 'rgba(255,246,226,.5)', Math.max(.5, r * .04));
+    for (let a = TAU * .9; a < 3 * TAU; a += .42) {
+      const r0 = at(a - TAU) + r * .04, r1 = at(a) - r * .05;
+      ctx.beginPath(); ctx.moveTo(Math.cos(a) * r0, Math.sin(a) * r0); ctx.lineTo(Math.cos(a + .08) * r1, Math.sin(a + .08) * r1); ctx.strokeStyle = 'rgba(150,100,76,.3)'; ctx.lineWidth = Math.max(.5, r * .05); ctx.stroke();
+    }
+    ctx.rotate(-rot);
+    ctx.beginPath(); ctx.arc(0, 0, r * .93, -1.8, .2); ctx.strokeStyle = 'rgba(255,248,232,.7)'; ctx.lineWidth = Math.max(.7, r * .08); ctx.lineCap = 'round'; ctx.stroke();
+    ctx.restore();
+  }
+  // A hollow brushed out around a find: in shadow under its upper right lip, its far side catching the lamp.
+  function fossilHollow(ctx, pts) {
+    shape(ctx, pts, 'rgba(140,82,62,.26)', null);
+    cel(ctx, pts, 'rgba(84,44,44,.34)', 2.8, -3.6);
+    cel(ctx, pts, 'rgba(255,234,200,.34)', -1.8, 2.4);
+  }
+  function fossilBone(ctx, x, y, len, rot, k = 1) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
+    const h = len / 2, w = 1.6 * k, e = 2.3 * k, o = .8 * k;
+    const path = () => {
+      ctx.moveTo(-h + 2, -w); ctx.lineTo(h - 2, -w); ctx.arc(h - 1, -w - o, e, 2.4, .6, false); ctx.arc(h - 1, w + o, e, -.6, -2.4, false);
+      ctx.lineTo(-h + 2, w); ctx.arc(-h + 1, w + o, e, .6, -2.4 + TAU, false); ctx.arc(-h + 1, -w - o, e, 2.4 - TAU, -.6 + TAU, false); ctx.closePath();
+    };
+    soft(ctx, () => { ctx.save(); ctx.translate(-1, 1.8); path(); ctx.restore(); }, 'rgba(80,40,40,.4)', 2.4);
+    ctx.beginPath(); path(); ctx.fillStyle = lin(ctx, 0, -w - e, 0, w + e, [[0, FOSSIL_BONE[0]], [.55, FOSSIL_BONE[1]], [1, FOSSIL_BONE[2]]]); ctx.fill();
+    stroke(ctx, [[-h + 3, -w * .4], [h - 4, -w * .4]], 'rgba(255,252,240,.75)', .8 * k);
+    ctx.restore();
+  }
+  // A fish laid flat in the stone: every bone a pale stroke with a soft shadow just below it, no outline.
+  function fossilFish(ctx, x, y, len, flip) {
     ctx.save(); ctx.translate(x, y); ctx.scale(flip ? -1 : 1, 1);
     const spine = [[-len * .42, 0], [-len * .1, -1.6], [len * .2, -1], [len * .4, 1]];
-    stroke(ctx, spine, ink, 2.6); stroke(ctx, spine, '#f8ecd4', 1.3);
+    const ribs = [];
     for (let i = 0; i < 6; i++) {
       const sx = -len * .3 + i * len * .1, h = 7.5 - Math.abs(i - 2) * 1.2;
-      for (const s of [-1, 1]) { stroke(ctx, [[sx, s * .4 - 1], [sx + 2.5, s * h * .7 - 1], [sx + 1, s * h - 1]], ink, 2.2); stroke(ctx, [[sx, s * .4 - 1], [sx + 2.5, s * h * .7 - 1], [sx + 1, s * h - 1]], '#f8ecd4', 1); }
+      for (const s of [-1, 1]) ribs.push([[sx, s * .4 - 1], [sx + 2.5, s * h * .7 - 1], [sx + 1, s * h - 1]]);
     }
-    const head = [[-len * .42, -7], [-len * .62, -1], [-len * .44, 6], [-len * .34, 0]];
-    shape(ctx, head, '#f8ecd4', ink, 1.2); dot(ctx, -len * .46, -1.4, 1.6, ink);
-    poly(ctx, [[len * .38, 0], [len * .58, -8], [len * .52, 0], [len * .58, 8]], '#f8ecd4', ink, 1.1);
-    for (const a of [-5, -2, 2, 5]) stroke(ctx, [[len * .42, 0], [len * .55, a]], 'rgba(138,90,52,.6)', .7);
+    const head = [[-len * .42, -7], [-len * .62, -1], [-len * .44, 6], [-len * .34, 0]], tail = [[len * .38, 0], [len * .58, -8], [len * .52, 0], [len * .58, 8]];
+    for (const [dx, dy, c, k] of [[flip ? 1 : -1, 1.6, 'rgba(84,44,40,.3)', 1], [0, 0, '#eedcbc', 1], [flip ? -.3 : .3, -.4, 'rgba(255,252,240,.6)', .4]]) {
+      ctx.save(); ctx.translate(dx, dy);
+      stroke(ctx, spine, c, 2.2 * k); for (const rb of ribs) stroke(ctx, rb, c, 1.1 * k);
+      if (k === 1) { shape(ctx, head, c, null); poly(ctx, tail, c, null); }
+      ctx.restore();
+    }
+    ctx.beginPath(); ctx.ellipse(-len * .46, -1.4, 1.8, 1.6, 0, 0, TAU); ctx.fillStyle = 'rgba(120,72,56,.6)'; ctx.fill();
+    for (const a of [-5, -2, 2, 5]) stroke(ctx, [[len * .42, 0], [len * .55, a]], 'rgba(150,100,76,.4)', .7);
     ctx.restore();
   }
-  function trilobite(ctx, x, y, s, rot) {
+  function fossilTrilobite(ctx, x, y, s, rot) {
     ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(s, s);
-    const ink = '#8a5a34';
     const body = [[-7, -4], [-6.4, 4], [-3.6, 10], [0, 12.4], [3.6, 10], [6.4, 4], [7, -4]];
-    shape(ctx, body, '#f3e2c2', null); cel(ctx, body, '#e1c79c', -2, 2); shape(ctx, body, null, ink, 1.2);
-    for (let i = 0; i < 6; i++) { const yy = -2.4 + i * 2.3, w = 6.8 - i * .62; ctx.beginPath(); ctx.moveTo(-w, yy); ctx.quadraticCurveTo(0, yy + 1.6, w, yy); ctx.strokeStyle = 'rgba(138,90,52,.75)'; ctx.lineWidth = .8; ctx.stroke(); }
-    ctx.beginPath(); ctx.ellipse(0, 3, 2.4, 8.4, 0, 0, TAU); ctx.fillStyle = '#fbf0dc'; ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = .9; ctx.stroke();
     const head = [[-10.6, 1], [-9.4, -6], [-4.6, -10.6], [0, -11.6], [4.6, -10.6], [9.4, -6], [10.6, 1], [7, -3.4], [0, -4.4], [-7, -3.4]];
-    shape(ctx, head, '#f8ecd4', ink, 1.2);
-    ctx.beginPath(); ctx.ellipse(0, -7, 2.6, 3, 0, 0, TAU); ctx.fillStyle = '#fbf0dc'; ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = .9; ctx.stroke();
-    for (const side of [-1, 1]) { ctx.beginPath(); ctx.ellipse(side * 5, -6.4, 1.6, 1.2, 0, 0, TAU); ctx.fillStyle = '#c9955c'; ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = .8; ctx.stroke(); }
+    soft(ctx, () => { smooth(ctx, body.map(([px, py]) => [px - 1.2, py + 1.8]), true); smooth(ctx, head.map(([px, py]) => [px - 1.2, py + 1.8]), true); }, 'rgba(80,40,40,.4)', 2.4);
+    shape(ctx, body, lin(ctx, 6, -4, -6, 12, [[0, FOSSIL_BONE[0]], [.6, FOSSIL_BONE[1]], [1, FOSSIL_BONE[2]]]), null);
+    for (let i = 0; i < 6; i++) {
+      const yy = -2.4 + i * 2.3, w = 6.8 - i * .62;
+      ctx.beginPath(); ctx.moveTo(-w, yy); ctx.quadraticCurveTo(0, yy + 1.6, w, yy); ctx.strokeStyle = 'rgba(140,92,70,.45)'; ctx.lineWidth = .8; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-w + .6, yy + .9); ctx.quadraticCurveTo(0, yy + 2.5, w - .6, yy + .9); ctx.strokeStyle = 'rgba(255,248,232,.4)'; ctx.lineWidth = .6; ctx.stroke();
+    }
+    ctx.beginPath(); ctx.ellipse(0, 3, 2.4, 8.4, 0, 0, TAU); ctx.fillStyle = lin(ctx, 2, -5, -2, 11, [[0, '#fff8e8'], [1, '#d9bd98']]); ctx.fill();
+    shape(ctx, head, lin(ctx, 9, -11, -9, 1, [[0, FOSSIL_BONE[0]], [.6, FOSSIL_BONE[1]], [1, FOSSIL_BONE[2]]]), null);
+    rim(ctx, head, 'rgba(255,252,240,.7)', .9, -1);
+    ctx.beginPath(); ctx.ellipse(0, -7, 2.6, 3, 0, 0, TAU); ctx.fillStyle = lin(ctx, 2, -10, -2, -4, [[0, '#fffaf0'], [1, '#dcc09c']]); ctx.fill();
+    for (const side of [-1, 1]) { ctx.beginPath(); ctx.ellipse(side * 5, -6.4, 1.6, 1.2, 0, 0, TAU); ctx.fillStyle = 'rgba(150,100,76,.6)'; ctx.fill(); }
     ctx.restore();
   }
-  function bone(ctx, x, y, len, rot, ink) {
-    ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
-    const h = len / 2;
-    ctx.beginPath(); ctx.moveTo(-h + 2, -1.6); ctx.lineTo(h - 2, -1.6); ctx.arc(h - 1, -2.4, 2.2, 2.4, 0.6, false); ctx.arc(h - 1, 2.4, 2.2, -.6, -2.4, false);
-    ctx.lineTo(-h + 2, 1.6); ctx.arc(-h + 1, 2.4, 2.2, .6, -2.4 + TAU, false); ctx.arc(-h + 1, -2.4, 2.2, 2.4 - TAU, -.6 + TAU, false);
-    ctx.closePath(); ctx.fillStyle = '#f8ecd4'; ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = 1.1; ctx.lineJoin = 'round'; ctx.stroke();
-    stroke(ctx, [[-h + 3, -.3], [h - 4, -.3]], 'rgba(255,255,255,.75)', .8);
-    ctx.restore();
-  }
-  // The star of the dig: a big, friendly dinosaur skull, half out of the floor, grinning.
-  function dinoSkull(ctx, x, y, s) {
+  // The star of the dig: a big, friendly dinosaur skull, half out of the floor, grinning. Modelled by the lamp from
+  // the upper right; the dark of the mouth and the sockets does the drawing.
+  function fossilSkull(ctx, x, y, s) {
     ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
-    const ink = '#87562f', boneC = '#f8ecd4', shade = '#e8d2ad', hole = '#cf9f68';
-    // The mouth sits open in a grin: dark inside, the lower jaw hinged a little away.
-    shape(ctx, [[30, -2], [70, -8], [112, -14], [108, 0], [70, 8], [34, 10]], '#b98454', null);
+    const boneLit = '#fdf3de', hollow = '#8c5a46', seam = 'rgba(150,96,74,.45)';
+    const tooth = (tx, ty, dir) => {
+      ctx.beginPath();
+      if (dir < 0) { ctx.moveTo(tx - 3.6, ty + 2); ctx.quadraticCurveTo(tx - 1, ty - 8, tx + 1, ty - 7.4); ctx.quadraticCurveTo(tx + 3, ty - 4, tx + 3.6, ty + 2); }
+      else { ctx.moveTo(tx - 3.8, ty - 2); ctx.quadraticCurveTo(tx - 3, ty + 7, tx, ty + 8); ctx.quadraticCurveTo(tx + 3, ty + 7, tx + 3.8, ty - 2); }
+      ctx.fillStyle = lin(ctx, tx + 3, ty - 6, tx - 3, ty + 6, [[0, '#fff8e8'], [1, '#cfae8a']]); ctx.fill();
+    };
+    soft(ctx, () => ctx.ellipse(60, 16, 74, 12, -.06, 0, TAU), 'rgba(70,34,34,.5)', 10);
+    shape(ctx, [[30, -2], [70, -8], [112, -14], [108, 0], [70, 8], [34, 10]], lin(ctx, 0, -12, 0, 10, [[0, '#6e4236'], [1, '#9a6650']]), null);
+    for (const tx of [50, 63, 76, 89, 101]) tooth(tx, 8 - (tx - 40) * .1, -1);
     const jaw = [[12, 4], [40, 8], [74, 6], [104, 0], [114, -4], [113, 4], [98, 12], [66, 19], [34, 21], [10, 16]];
-    for (const tx of [50, 63, 76, 89, 101]) { const ty = 8 - (tx - 40) * .1; ctx.beginPath(); ctx.moveTo(tx - 3.6, ty + 2); ctx.quadraticCurveTo(tx - 1, ty - 8, tx + 1, ty - 7.4); ctx.quadraticCurveTo(tx + 3, ty - 4, tx + 3.6, ty + 2); ctx.fillStyle = boneC; ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = 1.1; ctx.stroke(); }
-    shape(ctx, jaw, boneC, null); cel(ctx, jaw, shade, -4, 3); shape(ctx, jaw, null, ink, 1.6);
-    stroke(ctx, [[30, 12], [60, 13], [92, 7]], 'rgba(135,86,47,.4)', 1);
+    shape(ctx, jaw, lin(ctx, 112, -2, 30, 22, [[0, '#f8ead0'], [.55, '#e2c49e'], [1, '#b08a76']]), null);
+    rim(ctx, jaw, 'rgba(255,250,236,.7)', 1, -1.4);
+    stroke(ctx, [[30, 13], [60, 14], [92, 8]], seam, 1);
+    for (const tx of [52, 64, 76, 88, 100, 111, 121]) tooth(tx, -4 - (tx - 40) * .09, 1);
     const skull = [[-6, -34], [8, -52], [34, -60], [58, -54], [80, -42], [106, -33], [124, -27], [131, -17], [126, -10], [110, -11], [86, -7], [60, -4], [36, -1], [14, 4], [-4, -6]];
-    for (const tx of [52, 64, 76, 88, 100, 111, 121]) { const ty = -4 - (tx - 40) * .09; ctx.beginPath(); ctx.moveTo(tx - 3.8, ty - 2); ctx.quadraticCurveTo(tx - 3, ty + 7, tx, ty + 8); ctx.quadraticCurveTo(tx + 3, ty + 7, tx + 3.8, ty - 2); ctx.fillStyle = boneC; ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = 1.1; ctx.stroke(); }
-    shape(ctx, skull, boneC, null); cel(ctx, skull, shade, -6, 6); shape(ctx, skull, null, ink, 1.8);
-    // Holes in the skull show the sand behind; the eye socket wears a happy brow.
-    ctx.beginPath(); ctx.ellipse(42, -30, 11.5, 10.5, -.2, 0, TAU); ctx.fillStyle = hole; ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = 1.4; ctx.stroke();
-    ctx.beginPath(); ctx.arc(42, -30, 6, Math.PI + .5, -.5); ctx.strokeStyle = 'rgba(135,86,47,.5)'; ctx.lineWidth = 1.2; ctx.stroke();
-    stroke(ctx, [[26, -42], [40, -48], [58, -42]], ink, 1.4);
-    shape(ctx, [[64, -32], [80, -36], [94, -30], [82, -24], [68, -24]], hole, ink, 1.3);
-    ctx.beginPath(); ctx.ellipse(118, -22, 3.4, 2.4, -.3, 0, TAU); ctx.fillStyle = hole; ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = 1.1; ctx.stroke();
-    stroke(ctx, [[14, -50], [30, -56], [52, -54]], 'rgba(255,255,255,.8)', 1.6);
-    stroke(ctx, [[86, -38], [104, -31], [118, -27]], 'rgba(255,255,255,.7)', 1.3);
-    stroke(ctx, [[2, -26], [10, -18], [8, -10]], 'rgba(135,86,47,.45)', 1);
-    stroke(ctx, [[100, -14], [106, -20]], 'rgba(135,86,47,.45)', 1);
-    // A seedling has taken root in the eye socket.
-    stroke(ctx, [[42, -26], [41, -36], [44, -44]], '#5aa85f', 1.5);
-    for (const [lx, ly, a] of [[38.6, -41, -.6], [48, -46, .5]]) { ctx.beginPath(); ctx.ellipse(lx, ly, 4.6, 2.4, a, 0, TAU); ctx.fillStyle = '#7fcf73'; ctx.fill(); ctx.strokeStyle = '#3f8a48'; ctx.lineWidth = .9; ctx.stroke(); }
+    shape(ctx, skull, lin(ctx, 112, -56, 20, 4, [[0, boneLit], [.5, '#ecd4ae'], [1, '#bc9a84']]), null);
+    clipTo(ctx, skull, () => {
+      soft(ctx, () => ctx.ellipse(16, -6, 46, 16, -.2, 0, TAU), 'rgba(130,86,86,.32)', 12);
+      soft(ctx, () => ctx.ellipse(70, -52, 50, 9, .2, 0, TAU), 'rgba(255,252,240,.5)', 9);
+    });
+    rim(ctx, skull, 'rgba(255,252,240,.8)', 1.4, -2);
+    // The eye socket under a happy brow, the long window in the snout, a nostril.
+    const socket = blob(42, -30, 11.5, 10.5, 31, .05, 10), snout = [[64, -32], [80, -36], [94, -30], [82, -24], [68, -24]];
+    for (const h of [socket, snout]) {
+      shape(ctx, h, lin(ctx, 0, -38, 0, -20, [[0, '#6a3e32'], [1, hollow]]), null);
+      cel(ctx, h, 'rgba(255,240,212,.5)', -1.2, 2);
+    }
+    ctx.beginPath(); ctx.ellipse(118, -22, 3.4, 2.4, -.3, 0, TAU); ctx.fillStyle = hollow; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(25, -43); ctx.quadraticCurveTo(40, -51, 58, -43); ctx.strokeStyle = 'rgba(160,110,86,.45)'; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(25, -45); ctx.quadraticCurveTo(40, -53, 58, -45); ctx.strokeStyle = 'rgba(255,252,240,.85)'; ctx.lineWidth = 1.4; ctx.stroke();
+    stroke(ctx, [[2, -26], [10, -18], [8, -10]], seam, 1);
+    stroke(ctx, [[100, -14], [106, -20]], seam, 1);
+    // A seedling has taken root in the eye socket and reaches for the lamp.
+    stroke(ctx, [[42, -26], [42, -36], [46, -44]], '#5e9e52', 1.5);
+    for (const [lx, ly, a, c] of [[38.8, -40.6, -.6, '#6fb460'], [49.4, -46, .5, '#98d47a']]) { ctx.beginPath(); ctx.ellipse(lx, ly, 4.6, 2.4, a, 0, TAU); ctx.fillStyle = c; ctx.fill(); }
     ctx.restore();
   }
-  // A sleepy mole on the dig crew, sat back against the crate, hard hat slipping, brush still in paw.
-  function moleDigger(ctx, x, y, s) {
+  // The dig crew: a sleepy mole sat back against the crate, hard hat slipping, brush still in paw. A character, so
+  // he keeps soft colored lines; he sleeps in the shade, so only the top of his hat catches the lamp.
+  function fossilMole(ctx, x, y, s) {
     ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
-    const ink = '#3d2e2b';
+    const ink = 'rgba(64,42,40,.7)';
+    soft(ctx, () => ctx.ellipse(0, 3, 22, 4.4, 0, 0, TAU), 'rgba(40,20,30,.5)', 4);
     const body = [[-17, 0], [-19, -16], [-14, -30], [0, -35], [14, -30], [19, -16], [17, 0], [0, 3]];
-    shape(ctx, body, '#7a6560', null); cel(ctx, body, '#655350', -4, 3); shape(ctx, body, null, ink, 1.5);
-    ctx.beginPath(); ctx.ellipse(0, -9, 11, 9.5, 0, 0, TAU); ctx.fillStyle = '#968079'; ctx.fill();
-    for (const side of [-1, 1]) { ctx.beginPath(); ctx.ellipse(side * 11, 1.4, 7.4, 3.6, side * .22, 0, TAU); ctx.fillStyle = '#f2a9a8'; ctx.fill(); ctx.strokeStyle = '#a55e60'; ctx.lineWidth = 1; ctx.stroke(); }
-    // Paws folded over a little brush.
-    poly(ctx, [[-13, -4], [7, -17], [8.6, -15], [-11.4, -1.8]], '#c08a57', '#6e4322', 1);
-    ctx.beginPath(); ctx.moveTo(7, -17.6); ctx.quadraticCurveTo(13, -24, 17, -21); ctx.quadraticCurveTo(15, -15, 9, -14.4); ctx.closePath(); ctx.fillStyle = '#5a4434'; ctx.fill(); ctx.strokeStyle = '#2e2018'; ctx.lineWidth = 1; ctx.stroke();
-    for (const [px, py] of [[-6, -8], [4, -11]]) { ctx.beginPath(); ctx.ellipse(px, py, 4.6, 3.4, -.5, 0, TAU); ctx.fillStyle = '#f59aa5'; ctx.fill(); ctx.strokeStyle = '#a55e60'; ctx.lineWidth = 1; ctx.stroke(); }
-    // A long whiskery snout, a pink nose and eyes shut tight.
-    ctx.beginPath(); ctx.ellipse(0, -22, 7.6, 5.4, 0, 0, TAU); ctx.fillStyle = '#a48e86'; ctx.fill();
-    ctx.beginPath(); ctx.ellipse(0, -21, 3.6, 2.8, 0, 0, TAU); ctx.fillStyle = '#f59aa5'; ctx.fill(); ctx.strokeStyle = '#a55e60'; ctx.lineWidth = 1; ctx.stroke();
-    dot(ctx, -1, -22, .9, '#ffffff');
-    for (const side of [-1, 1]) for (const k of [-1, 1]) stroke(ctx, [[side * 5, -20 + k], [side * 11, -21 + k * 2.4]], 'rgba(61,46,43,.5)', .6);
-    for (const ex of [-6.2, 6.2]) { ctx.beginPath(); ctx.arc(ex, -28.4, 2.3, .3, Math.PI - .3); ctx.strokeStyle = '#231816'; ctx.lineWidth = 1.2; ctx.stroke(); }
-    dot(ctx, -10.6, -24, 2, 'rgba(246,160,176,.5)'); dot(ctx, 10.6, -24, 2, 'rgba(246,160,176,.5)');
+    shape(ctx, body, lin(ctx, 10, -34, -10, 2, [[0, '#8a7470'], [1, '#56443f']]), ink, 1.2);
+    ctx.beginPath(); ctx.ellipse(0, -9, 11, 9.5, 0, 0, TAU); ctx.fillStyle = 'rgba(170,148,140,.55)'; ctx.fill();
+    for (const side of [-1, 1]) { ctx.beginPath(); ctx.ellipse(side * 11, 1.4, 7.4, 3.6, side * .22, 0, TAU); ctx.fillStyle = '#e8a2a2'; ctx.fill(); ctx.strokeStyle = 'rgba(165,94,96,.7)'; ctx.lineWidth = .9; ctx.stroke(); }
+    poly(ctx, [[-13, -4], [7, -17], [8.6, -15], [-11.4, -1.8]], '#b88454', null);
+    ctx.beginPath(); ctx.moveTo(7, -17.6); ctx.quadraticCurveTo(13, -24, 17, -21); ctx.quadraticCurveTo(15, -15, 9, -14.4); ctx.closePath(); ctx.fillStyle = '#5a4434'; ctx.fill();
+    for (const [px, py] of [[-6, -8], [4, -11]]) { ctx.beginPath(); ctx.ellipse(px, py, 4.6, 3.4, -.5, 0, TAU); ctx.fillStyle = '#f09aa4'; ctx.fill(); ctx.strokeStyle = 'rgba(165,94,96,.7)'; ctx.lineWidth = .9; ctx.stroke(); }
+    ctx.beginPath(); ctx.ellipse(0, -22, 7.6, 5.4, 0, 0, TAU); ctx.fillStyle = '#a28c84'; ctx.fill();
+    ctx.beginPath(); ctx.ellipse(0, -21, 3.6, 2.8, 0, 0, TAU); ctx.fillStyle = '#f59aa5'; ctx.fill();
+    dot(ctx, -1, -22, .9, 'rgba(255,255,255,.9)');
+    for (const side of [-1, 1]) for (const k of [-1, 1]) stroke(ctx, [[side * 5, -20 + k], [side * 11, -21 + k * 2.4]], 'rgba(61,46,43,.4)', .6);
+    for (const ex of [-6.2, 6.2]) { ctx.beginPath(); ctx.arc(ex, -28.4, 2.3, .3, Math.PI - .3); ctx.strokeStyle = '#2a1c1a'; ctx.lineWidth = 1.2; ctx.stroke(); }
+    dot(ctx, -10.6, -24, 2, 'rgba(246,160,176,.45)'); dot(ctx, 10.6, -24, 2, 'rgba(246,160,176,.45)');
     // The hard hat, tipped down over one eye, its lamp off for the nap.
     ctx.save(); ctx.translate(1, -35.5); ctx.rotate(-.14);
-    ctx.beginPath(); ctx.moveTo(-14, 0); ctx.quadraticCurveTo(-13, -14, 0, -14.6); ctx.quadraticCurveTo(13, -14, 14, 0); ctx.closePath(); ctx.fillStyle = '#f6c745'; ctx.fill();
-    ctx.beginPath(); ctx.moveTo(3, -14); ctx.quadraticCurveTo(11, -11, 13, -1); ctx.lineTo(14, 0); ctx.quadraticCurveTo(13, -14, 3, -14.6); ctx.fillStyle = '#dca42c'; ctx.fill();
-    ctx.beginPath(); ctx.moveTo(-14, 0); ctx.quadraticCurveTo(-13, -14, 0, -14.6); ctx.quadraticCurveTo(13, -14, 14, 0); ctx.closePath(); ctx.strokeStyle = '#94661b'; ctx.lineWidth = 1.3; ctx.stroke();
-    poly(ctx, [[-17, -.4], [17, -.4], [17, 2.8], [-17, 2.8]], '#f6c745', '#94661b', 1.2);
-    stroke(ctx, [[0, -14], [0, -1]], 'rgba(148,102,27,.6)', 1.2);
-    ctx.beginPath(); ctx.ellipse(-8, -6.4, 3.8, 3.4, 0, 0, TAU); ctx.fillStyle = '#fff3c4'; ctx.fill(); ctx.strokeStyle = '#94661b'; ctx.lineWidth = 1; ctx.stroke();
-    ctx.beginPath(); ctx.arc(-4.6, -9.6, 5.4, 3.6, 4.4); ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = 1.2; ctx.stroke();
+    const dome = () => { ctx.beginPath(); ctx.moveTo(-14, 0); ctx.quadraticCurveTo(-13, -14, 0, -14.6); ctx.quadraticCurveTo(13, -14, 14, 0); ctx.closePath(); };
+    dome(); ctx.fillStyle = lin(ctx, 8, -15, -8, 0, [[0, '#ffd760'], [.6, '#e8b034'], [1, '#b98222']]); ctx.fill();
+    dome(); ctx.strokeStyle = 'rgba(150,100,30,.6)'; ctx.lineWidth = 1; ctx.stroke();
+    poly(ctx, [[-17, -.4], [17, -.4], [17, 2.8], [-17, 2.8]], lin(ctx, 0, -.4, 0, 2.8, [[0, '#f2c048'], [1, '#a87820']]), null);
+    stroke(ctx, [[0, -14], [0, -1]], 'rgba(150,100,30,.45)', 1.2);
+    ctx.beginPath(); ctx.ellipse(-8, -6.4, 3.8, 3.4, 0, 0, TAU); ctx.fillStyle = '#e8dcb4'; ctx.fill(); ctx.strokeStyle = 'rgba(150,100,30,.6)'; ctx.lineWidth = .9; ctx.stroke();
+    ctx.beginPath(); ctx.arc(1, -1, 13.4, -1.9, -.7); ctx.strokeStyle = 'rgba(255,246,214,.8)'; ctx.lineWidth = 1.4; ctx.lineCap = 'round'; ctx.stroke();
     ctx.restore();
-    ctx.font = '600 9px Fredoka, sans-serif'; ctx.fillStyle = 'rgba(110,67,34,.8)'; ctx.fillText('z', -26, -40); ctx.font = '600 7px Fredoka, sans-serif'; ctx.fillText('z', -33, -49);
+    ctx.font = '600 9px Fredoka, sans-serif'; ctx.fillStyle = 'rgba(255,236,206,.75)'; ctx.fillText('z', -26, -40); ctx.font = '600 7px Fredoka, sans-serif'; ctx.fillText('z', -33, -49);
     ctx.restore();
   }
-  function bulb(ctx, x, y, tilt = 0) {
-    halo(ctx, x, y + 7, 16, '255,214,120', .16);
+  // A bulb on the string: a warm glass drop under a little dark socket.
+  function fossilBulb(ctx, x, y, tilt) {
+    bloom(ctx, x, y + 8, 22, FOSSIL_WARM, .32);
     ctx.save(); ctx.translate(x, y); ctx.rotate(tilt);
-    poly(ctx, [[-2.6, -1], [2.6, -1], [2.6, 3.4], [-2.6, 3.4]], '#5d4a3a', '#3e2f24', 1);
-    ctx.beginPath(); ctx.ellipse(0, 8, 4, 5, 0, 0, TAU); ctx.fillStyle = '#fff3b8'; ctx.fill(); ctx.strokeStyle = '#b8802a'; ctx.lineWidth = 1.1; ctx.stroke();
-    stroke(ctx, [[-1.4, 9.6], [-.6, 7], [.6, 9.4], [1.4, 7]], '#e8a23a', .8);
-    dot(ctx, -1.5, 6.2, 1.1, '#ffffff');
+    poly(ctx, [[-2.2, -1], [2.2, -1], [2.2, 3.2], [-2.2, 3.2]], '#3e2e2a', null);
+    ctx.beginPath(); ctx.ellipse(0, 7.6, 3.6, 4.6, 0, 0, TAU); ctx.fillStyle = rad(ctx, 0, 8, 4.8, [[0, '#fffbe6'], [.6, '#ffe7a4'], [1, '#f2b45a']]); ctx.fill();
     ctx.restore();
+  }
+  // A ladder of rough timber, lit along the edges that face the lamp.
+  function fossilLadder(ctx, rails, rungs) {
+    for (const [a, b] of rails) soft(ctx, () => { ctx.moveTo(a[0] - 4, a[1] + 3); ctx.lineTo(b[0] - 4, b[1] + 3); ctx.lineTo(b[0] - 1, b[1] + 3); ctx.lineTo(a[0] - 1, a[1] + 3); ctx.closePath(); }, 'rgba(60,30,40,.4)', 4);
+    const [[l0, l1], [r0, r1]] = rails;
+    for (let k = 0; k < rungs; k++) {
+      const t = (k + .5) / rungs, ya = l0[1] + (l1[1] - l0[1]) * t, xa = l0[0] + (l1[0] - l0[0]) * t, xb = r0[0] + (r1[0] - r0[0]) * t, yb = r0[1] + (r1[1] - r0[1]) * t;
+      soft(ctx, () => { ctx.rect(xa - 2, ya + 2, xb - xa, 2.6); }, 'rgba(60,30,40,.35)', 2);
+      poly(ctx, [[xa, ya - 1.7], [xb, yb - 1.7], [xb, yb + 1.7], [xa, ya + 1.7]], lin(ctx, 0, ya - 1.7, 0, ya + 1.7, [[0, '#e0b27e'], [1, '#8a5c3c']]), null);
+    }
+    for (const [a, b] of rails) {
+      const nx = 2.2, rail = [[a[0] - nx, a[1]], [b[0] - nx, b[1]], [b[0] + nx, b[1]], [a[0] + nx, a[1]]];
+      poly(ctx, rail, lin(ctx, a[0] - nx, 0, a[0] + nx, 0, [[0, '#e8bc88'], [.45, '#b07c50'], [1, '#6e4630']]), null);
+    }
   }
   function paintFossil(ctx, framed) {
-    ctx.fillStyle = '#f6e3c0'; ctx.fillRect(0, 0, 420, 560);
-    const beds = [[54, '#f1d3a4', '#e0bd8c'], [112, '#f7e4c0', '#e6c99c'], [170, '#eecf9f', '#dcb886'], [232, '#f0cfa8', '#ddb38c'], [292, '#f4dbb0', '#e2bf90'], [350, '#e9c492', '#d5a978'], [404, '#e3b986', '#cd9f6e']];
-    beds.forEach(([y, fill, line], i) => band(ctx, bed(y, 4 + i * .6, 60 + i), 560, fill, line, 1.3));
-    // Fine laminations and grit, kept to the sides of the wall.
+    const [lx, ly] = FOSSIL_LAMP;
+    // The far wall of the pit: warm sand high up near the lamp, sinking into a cool dusty lilac in the depths.
+    wash(ctx, '#e4b47c');
+    const farBeds = [[60, '#d9a46e'], [98, '#ecc490'], [136, '#cc8e64'], [180, '#e2b07a'], [212, '#b89ca0'], [224, '#d69c6c'], [274, '#c4845f'], [314, '#deac7a'], [356, '#b47a62'], [388, '#cf9870'], [426, '#ab7460']];
+    farBeds.forEach(([y, color], i) => {
+      const top = fossilBed(y, 5, 61 + i);
+      soft(ctx, () => { smooth(ctx, top, false); ctx.lineTo(440, 600); ctx.lineTo(-20, 600); ctx.closePath(); }, color, 3);
+      stroke(ctx, top.map(([x, yy]) => [x, yy - .6]), 'rgba(255,240,214,.16)', 1.2);
+    });
+    wash(ctx, lin(ctx, 0, 0, 0, 560, [[0, 'rgba(255,255,255,0)'], [.45, 'rgba(200,170,190,.2)'], [1, 'rgba(110,80,130,.5)']]), 'multiply');
+    // Fine laminations and grit, only toward the sides.
     const r = rng(616);
-    for (let i = 0; i < 70; i++) {
-      const left = i % 2 === 0, x = left ? 10 + r() * 80 : 330 + r() * 80, y = 40 + r() * 400, w = 8 + r() * 26;
-      stroke(ctx, [[x, y + (210 - x) * .07], [x + w, y + (210 - x - w) * .07]], 'rgba(176,122,72,.22)', .9);
+    for (let i = 0; i < 60; i++) {
+      const left = i % 2 === 0, x = left ? 6 + r() * 80 : 334 + r() * 80, y = 40 + r() * 400, w = 10 + r() * 30;
+      stroke(ctx, [[x, y + (210 - x) * .06], [x + w, y + (210 - x - w) * .06]], 'rgba(130,70,50,.14)', .9);
     }
-    for (let i = 0; i < 160; i++) {
-      const x = 12 + r() * 396, y = 30 + r() * 420;
-      if (Math.abs(x - 210) < 130 && r() < .8) continue;
-      dot(ctx, x, y, .6 + r() * 1, r() < .5 ? 'rgba(150,96,50,.3)' : 'rgba(255,248,230,.55)');
+    grit(ctx, 0, 30, 420, 420, 260, 617, (x, y, rr) => !(Math.abs(x - 210) < 140 && rr() < .85));
+    // A great shell the size of a cartwheel, still asleep in the far wall, and the stepped cuts of an older dig.
+    fossilShell(ctx, 336, 252, 58, 2.2, .13, false);
+    for (const [x0, x1, y] of [[96, 170, 132], [250, 330, 330]]) { soft(ctx, () => ctx.rect(x0, y, x1 - x0, 6), 'rgba(120,70,70,.1)', 4); stroke(ctx, [[x0, y], [x1, y - 1]], 'rgba(255,236,206,.14)', 1.2); }
+    air(ctx, 20, 460, FOSSIL_AIR, .34, .18);
+    // The lamp's light: a warm pool high on the right and a broad cone down across the pit to the floor.
+    bloom(ctx, lx, ly, 300, '255,214,160', .4);
+    for (const [a, len, w0, w1, al] of [[1.88, 540, 14, 100, .05], [1.88, 540, 10, 72, .05], [1.88, 520, 6, 46, .05], [2.14, 480, 8, 54, .04], [2.14, 480, 4, 30, .04]]) shaft(ctx, lx - 4, ly + 8, a, len, w0, w1, '255,232,190', al);
+    // The cut walls of the pit step inward as they go down; their beds carry on through them, bolder up close.
+    const left = densify([[-20, 20], [30, 24], [34, 92], [29, 147], [48, 150], [51, 222], [47, 288], [64, 291], [67, 362], [61, 452], [-20, 452]], 9, 1);
+    const right = densify([[440, 20], [392, 24], [387, 96], [391, 139], [375, 142], [372, 222], [377, 287], [356, 290], [353, 366], [359, 452], [440, 452]], 9, 2);
+    const beds = [[20, '#e4b480'], [62, '#d49866'], [94, '#e8c08c'], [126, '#c4845e'], [168, '#deae7a'], [204, '#a8929a'], [216, '#d8a272'], [258, '#c68860'], [298, '#e2b282'], [336, '#b6785c'], [370, '#d49e6e'], [410, '#bf845e']];
+    for (const [wall, side] of [[left, -1], [right, 1]]) {
+      soft(ctx, () => smooth(ctx, wall.map(([x, y]) => [x - side * 7, y + 6]), true), 'rgba(70,36,46,.38)', 12);
+      shape(ctx, wall, '#d8a26c', null);
+      clipTo(ctx, wall, () => {
+        beds.forEach(([y, color], i) => {
+          const top = fossilBed(y + 8, 3, 80 + i);
+          band(ctx, top, 600, color, null);
+          stroke(ctx, top, 'rgba(255,238,208,.22)', 1);
+          soft(ctx, () => { smooth(ctx, top.map(([x, yy]) => [x, yy + 1]), false); ctx.lineTo(440, top[top.length - 1][1] + 6); ctx.lineTo(-20, top[0][1] + 6); ctx.closePath(); }, 'rgba(110,56,40,.16)', 3);
+        });
+        const rl = rng(90 + side);
+        for (let i = 0; i < 40; i++) { const x = side < 0 ? rl() * 60 : 352 + rl() * 70, y = 30 + rl() * 420, w = 6 + rl() * 20; stroke(ctx, [[x, y + (210 - x) * .06], [x + w, y + (210 - x - w) * .06]], 'rgba(120,64,44,.18)', .8); }
+        // Away from the lamp the right wall falls into cool shade; the left wall takes the light full on.
+        if (side > 0) wash(ctx, lin(ctx, 0, 0, 0, 460, [[0, 'rgba(120,96,150,.22)'], [1, 'rgba(84,62,120,.42)']]), 'multiply');
+        else wash(ctx, lin(ctx, 0, 0, 0, 460, [[0, 'rgba(255,220,170,.22)'], [1, 'rgba(120,80,120,.18)']]), side < 0 ? 'soft-light' : null);
+        // Each step's overhang throws a shadow down the face under it.
+        for (const [x0, x1, y] of side < 0 ? [[-20, 52, 150], [-20, 66, 291]] : [[372, 440, 142], [353, 440, 290]]) soft(ctx, () => ctx.rect(x0, y, x1 - x0, 10), 'rgba(70,34,40,.3)', 6);
+      });
+      rim(ctx, wall, lin(ctx, 0, 20, 0, 452, side < 0 ? [[0, 'rgba(255,240,206,.42)'], [1, 'rgba(255,240,206,.12)']] : [[0, 'rgba(255,226,190,.2)'], [1, 'rgba(255,226,190,.04)']]), -side * 1.6, -1.2);
     }
-    // Light falls off from the work lights down into the pit.
-    const fall = ctx.createLinearGradient(0, 30, 0, 452);
-    fall.addColorStop(0, 'rgba(255,246,222,.4)'); fall.addColorStop(.45, 'rgba(255,246,222,0)'); fall.addColorStop(1, 'rgba(176,104,60,.10)');
-    ctx.fillStyle = fall; ctx.fillRect(0, 0, 420, 452);
-    // Two faint shells pressed into the far wall.
-    ctx.save(); ctx.globalAlpha = .22; ammonite(ctx, 118, 196, 9, .4, '#f5e2c0', '#e2c39a', '#b98858'); ammonite(ctx, 306, 338, 7, 2, '#f5e2c0', '#e2c39a', '#b98858'); ctx.restore();
-    // The roof of the dig: a darker overhang, with a string of work lights hung under it.
-    const roof = [[-10, -10], [430, -10], [430, 30], [380, 38], [320, 30], [250, 40], [190, 32], [120, 40], [60, 30], [-10, 38]];
-    caveWall(ctx, roof, '#d9a874', '#c99561', '#8f5e33');
-    for (let x = 20; x < 410; x += 26) stroke(ctx, [[x, 10 + (x * 7) % 9], [x + 14, 12 + (x * 3) % 7]], 'rgba(143,94,51,.35)', 1);
-    // The cut walls of the pit step inward as they go down; the beds carry on through them.
-    const left = densify([[-10, 26], [30, 30], [34, 92], [29, 147], [48, 150], [51, 222], [47, 288], [64, 291], [67, 362], [61, 452], [-10, 452]], 9, 1);
-    const right = densify([[430, 26], [392, 30], [387, 96], [391, 139], [375, 142], [372, 222], [377, 287], [356, 290], [353, 366], [359, 452], [430, 452]], 9, 2);
-    for (const wall of [left, right]) {
-      shape(ctx, wall, '#daa86f', null);
-      clipTo(ctx, wall, () => beds.forEach(([y], i) => band(ctx, bed(y + 10, 3, 80 + i), 560, ['#daa86f', '#d49f66', '#dcae78'][i % 3], 'rgba(140,86,42,.45)', 1.1)));
-      cel(ctx, wall, 'rgba(150,88,38,.24)', wall === left ? 8 : -8, 0);
-      shape(ctx, wall, null, '#8a5530', 1.8);
+    // The treads of the steps, catching the lamp from above.
+    for (const [x0, x1, y] of [[29, 49, 148], [47, 65, 289.5], [376, 391, 140.5], [356, 377, 288.5]]) {
+      poly(ctx, [[x0, y - 1.6], [x1, y + .4], [x1, y + 2.4], [x0, y + .4]], x0 < 200 ? '#f6dcae' : '#d8b496', null);
     }
-    for (const [x0, x1, y] of [[30, 47, 148], [48, 63, 289], [376, 390, 140], [357, 376, 288]]) stroke(ctx, [[x0 + 1, y + 1.6], [x1 - 1, y + 1.6]], 'rgba(255,246,222,.9)', 1.6);
-    // A ladder leans on the right wall, up to the way out.
-    for (const [x0, x1] of [[366, 384], [382, 400]]) { stroke(ctx, [[x0 + 3, 146], [x1 + 3, 18]], 'rgba(150,96,50,.35)', 3.4); }
-    for (let k = 0; k < 8; k++) {
-      const t = (k + .5) / 8, yy = 146 - t * 128, xa = 366 + t * 18, xb = 382 + t * 18;
-      poly(ctx, [[xa, yy - 1.6], [xb, yy - 1.6], [xb, yy + 1.6], [xa, yy + 1.6]], '#c49766', '#6e4322', 1);
+    // Small stones bedded in the walls.
+    const sr = rng(77);
+    for (let i = 0; i < 18; i++) {
+      const side = i % 2, x = side ? 360 + sr() * 50 : 6 + sr() * 50, y = 60 + sr() * 380;
+      stone(ctx, x, y, 2.4 + sr() * 3.4, 1.8 + sr() * 2.2, 700 + i, side ? ['#d6c0b0', '#8a6c70', 'rgba(255,240,220,.35)'] : ['#e8d0b0', '#a07a5e', 'rgba(255,246,226,.5)']);
     }
-    for (const [x0, x1] of [[366, 384], [382, 400]]) { stroke(ctx, [[x0, 146], [x1, 14]], '#6e4322', 4.2); stroke(ctx, [[x0, 146], [x1, 14]], '#c79a68', 2.2); }
-    // The work lights.
-    const hooks = [[18, 34], [150, 38], [282, 36], [404, 34]], cable = [];
-    for (let h = 0; h < hooks.length - 1; h++) {
-      const [x0, y0] = hooks[h], [x1, y1] = hooks[h + 1];
-      for (let t = 0; t < 1; t += .1) cable.push([x0 + (x1 - x0) * t, y0 + (y1 - y0) * t + Math.sin(t * Math.PI) * 15]);
-    }
-    cable.push(hooks[hooks.length - 1]);
-    stroke(ctx, cable, '#4b3a2e', 1.3);
-    for (const [x, y] of hooks) dot(ctx, x, y, 2, '#4b3a2e');
-    for (const [i, t] of [[3, .1], [7, -.08], [12, .04], [16, .16], [20, -.12], [25, .06]]) bulb(ctx, cable[i][0], cable[i][1], t);
-    // Fossils in the side walls, each in the little hollow someone has been brushing out.
-    const hollow = (pts, seed) => { const h = blob(pts[0], pts[1], pts[2], pts[3], seed, .14, 10); shape(ctx, h, '#d6a670', null); cel(ctx, h, '#e9c08c', -2, -3); shape(ctx, h, null, '#9a693c', 1.2); };
-    hollow([18, 214, 22, 20], 1); ammonite(ctx, 18, 214, 15, .5, '#f6e6c8', '#e3c79c', '#8a5a34');
-    hollow([396, 196, 30, 13], 2); fishBones(ctx, 398, 196, 46, true, '#8a5a34');
-    hollow([398, 254, 17, 21], 3); trilobite(ctx, 398, 254, 1.3, .25);
-    hollow([30, 360, 14, 10], 4); bone(ctx, 30, 360, 18, .5, '#8a5a34');
+    // Finds in the walls, each in the hollow someone has been brushing out.
     // Ribs of something very large curve out of the upper left wall, the rest of it still asleep in the rock.
-    hollow([12, 92, 26, 52], 6);
+    fossilHollow(ctx, blob(12, 92, 27, 54, 6, .12, 10));
     for (let i = 0; i < 5; i++) {
-      const y = 52 + i * 18, len = 26 - i * 2.6, rib = [[4, y], [4 + len * .55, y + 3], [4 + len * .9, y + 12], [4 + len, y + 22]];
-      stroke(ctx, rib, '#8a5a34', 5); stroke(ctx, rib, '#f8ecd4', 3); stroke(ctx, rib.slice(0, 3).map(([x, yy]) => [x, yy - .8]), 'rgba(255,255,255,.7)', .8);
+      const y = 52 + i * 18, len = 26 - i * 2.6, rib = ribbon2([[2, y], [2 + len * .55, y + 3], [2 + len * .9, y + 12], [2 + len, y + 22]], 5.4, .7);
+      soft(ctx, () => smooth(ctx, rib.map(([x, yy]) => [x - 1.2, yy + 2]), true), 'rgba(80,40,40,.4)', 2.4);
+      shape(ctx, rib, lin(ctx, 2, y, 2 + len, y + 22, [[0, FOSSIL_BONE[0]], [.6, FOSSIL_BONE[1]], [1, FOSSIL_BONE[2]]]), null);
+      rim(ctx, rib, 'rgba(255,252,240,.7)', .6, -1.2);
     }
-    for (let i = 0; i < 6; i++) { const y = 46 + i * 18, v = [[-6, y - 6], [3, y - 7.4], [8, y - 4], [9.6, y + .4], [8, y + 4.6], [3, y + 7], [-6, y + 6]]; shape(ctx, v, '#f6e8cc', null); cel(ctx, v, '#e3c79c', -1.4, 1.6); shape(ctx, v, null, '#8a5a34', 1.2); stroke(ctx, [[-1, y - 4], [4, y - 4.6]], 'rgba(255,255,255,.8)', .9); }
-    hollow([404, 360, 12, 10], 5); ammonite(ctx, 404, 360, 8, 1, '#f6e6c8', '#e3c79c', '#8a5a34');
-    // Tools left on the ledge: a trowel stuck in the sand and a soft brush.
-    ctx.save(); ctx.translate(366, 284); ctx.rotate(.38);
-    poly(ctx, [[-1.6, -14], [1.6, -14], [1.6, -4], [-1.6, -4]], '#a0693c', '#5a3a24', 1);
-    poly(ctx, [[0, -4], [5.6, 2], [0, 10], [-5.6, 2]], '#cfd6dc', '#5d6a76', 1.1);
-    stroke(ctx, [[-2.6, 1.6], [0, -1.8]], 'rgba(255,255,255,.8)', .9);
+    for (let i = 0; i < 6; i++) {
+      const y = 46 + i * 18, v = [[-6, y - 6], [3, y - 7.4], [8, y - 4], [9.6, y + .4], [8, y + 4.6], [3, y + 7], [-6, y + 6]];
+      soft(ctx, () => smooth(ctx, v.map(([x, yy]) => [x - 1, yy + 1.8]), true), 'rgba(80,40,40,.4)', 2);
+      shape(ctx, v, lin(ctx, 8, y - 7, -2, y + 7, [[0, FOSSIL_BONE[0]], [.6, FOSSIL_BONE[1]], [1, FOSSIL_BONE[2]]]), null);
+      rim(ctx, v, 'rgba(255,252,240,.7)', .8, -1);
+    }
+    fossilHollow(ctx, blob(22, 214, 22, 20, 1, .14, 10)); fossilShell(ctx, 22, 214, 15, .5);
+    fossilHollow(ctx, blob(32, 360, 15, 10, 4, .14, 10)); fossilBone(ctx, 32, 360, 18, .5);
+    fossilHollow(ctx, blob(28, 418, 13, 9, 7, .14, 9)); fossilTrilobite(ctx, 28, 418, .8, -.5);
+    fossilHollow(ctx, blob(398, 196, 30, 13, 2, .14, 10)); fossilFish(ctx, 400, 196, 46, true);
+    fossilHollow(ctx, blob(398, 254, 17, 21, 3, .14, 10)); fossilTrilobite(ctx, 398, 254, 1.3, .25);
+    fossilHollow(ctx, blob(402, 360, 12, 10, 5, .14, 10)); fossilShell(ctx, 402, 360, 8, 1);
+    // Tools left on the steps: a trowel stuck in the sand and a soft brush.
+    ctx.save(); ctx.translate(366, 283); ctx.rotate(.38);
+    soft(ctx, () => { ctx.moveTo(-4, 0); ctx.lineTo(4, 10); ctx.lineTo(-2, 12); ctx.closePath(); }, 'rgba(60,30,40,.35)', 3);
+    poly(ctx, [[-1.6, -14], [1.6, -14], [1.6, -4], [-1.6, -4]], lin(ctx, -1.6, 0, 1.6, 0, [[0, '#d09a64'], [1, '#7a4a2c']]), null);
+    poly(ctx, [[0, -4], [5.6, 2], [0, 10], [-5.6, 2]], lin(ctx, -5, -4, 5, 10, [[0, '#eef2f4'], [1, '#8a96a2']]), null);
     ctx.restore();
     ctx.save(); ctx.translate(48, 285); ctx.rotate(-.12);
-    poly(ctx, [[-10, -1.6], [4, -1.6], [4, 1.6], [-10, 1.6]], '#c08a57', '#6e4322', 1);
-    poly(ctx, [[4, -2.6], [8, -2.6], [8, 2.6], [4, 2.6]], '#b8b0a6', '#5d554c', 1);
-    ctx.beginPath(); ctx.moveTo(8, -3); ctx.quadraticCurveTo(15, -4, 16, 0); ctx.quadraticCurveTo(15, 4, 8, 3); ctx.closePath(); ctx.fillStyle = '#5a4434'; ctx.fill(); ctx.strokeStyle = '#2e2018'; ctx.lineWidth = 1; ctx.stroke();
+    soft(ctx, () => ctx.rect(-10, 1, 26, 3), 'rgba(60,30,40,.35)', 2);
+    poly(ctx, [[-10, -1.6], [4, -1.6], [4, 1.6], [-10, 1.6]], lin(ctx, 0, -1.6, 0, 1.6, [[0, '#e0a86c'], [1, '#8a5a34']]), null);
+    poly(ctx, [[4, -2.6], [8, -2.6], [8, 2.6], [4, 2.6]], lin(ctx, 0, -2.6, 0, 2.6, [[0, '#e8e2da'], [1, '#8a827a']]), null);
+    ctx.beginPath(); ctx.moveTo(8, -3); ctx.quadraticCurveTo(15, -4, 16, 0); ctx.quadraticCurveTo(15, 4, 8, 3); ctx.closePath(); ctx.fillStyle = '#5a4434'; ctx.fill();
     ctx.restore();
-    // The floor of the dig, swept smooth in the middle.
-    band(ctx, bed(452, 2, 91, .01), 560, '#e8c595', '#a8774a', 1.8);
-    band(ctx, bed(498, 3, 92, .01), 560, '#e1b988', '#c39466', 1.2);
-    band(ctx, bed(534, 3, 93, .01), 560, '#d9ae7d', '#bb8b5d', 1.1);
-    const rf = rng(717);
-    for (let i = 0; i < 46; i++) { const x = 16 + rf() * 388, y = 462 + rf() * 92; if (Math.abs(x - 210) < 70) continue; dot(ctx, x, y, .7 + rf(), i % 2 ? 'rgba(150,96,50,.3)' : 'rgba(255,248,230,.6)'); }
-    for (const [x, y, w, h, sd] of [[164, 532, 6, 4, 71], [262, 540, 7, 4.5, 72], [300, 474, 5, 3.6, 73]]) pebble(ctx, x, y, w, h, sd, '#f0dcc0', '#d6bc96', '#8f5e33');
-    // The skull, with the string-and-peg grid that marks it out.
-    const pit = blob(60, 504, 98, 44, 9, .1, 12);
-    shape(ctx, pit, '#d6a670', null); cel(ctx, pit, '#e4b885', 6, -6); shape(ctx, pit, null, 'rgba(154,105,60,.8)', 1.3);
-    dinoSkull(ctx, -4, 526, 1);
-    for (let i = 0; i < 3; i++) dot(ctx, 128 + i * 4, 512 - i * 2, 1.4 + i * .3, '#d4a36c');
-    for (const [x, y] of [[14, 452], [146, 458]]) { poly(ctx, [[x - 1.6, y - 16], [x + 1.6, y - 16], [x + 1.2, y + 4], [x - 1.2, y + 4]], '#c49766', '#6e4322', 1); }
-    stroke(ctx, [[14, 440], [80, 446], [146, 444]], 'rgba(255,255,255,.85)', .8);
-    poly(ctx, [[146, 442], [158, 445], [146, 448]], '#ef6a5b', '#a63b33', .9);
-    bone(ctx, 128, 546, 16, -.3, '#8a5a34');
-    // A crate of finds and the sleepy dig crew in the right corner.
-    const crate = [[340, 470], [402, 466], [404, 520], [342, 524]];
-    ammonite(ctx, 360, 466, 9, 1.2, '#f6e6c8', '#e3c79c', '#8a5a34'); bone(ctx, 384, 462, 20, -.4, '#8a5a34');
-    poly(ctx, crate, '#c48e58', '#6e4322', 1.6);
-    poly(ctx, [[372, 468], [403, 466], [404, 520], [373, 522]], '#ac7846', null);
-    for (const y of [486, 504]) stroke(ctx, [[342, y], [404, y - 1]], '#6e4322', 1.2);
-    for (const x of [344, 400]) stroke(ctx, [[x, 472], [x + .4, 520]], '#6e4322', 1.1);
-    stroke(ctx, [[345, 474], [372, 471]], 'rgba(255,240,210,.7)', 1.2);
-    poly(ctx, crate, null, '#6e4322', 1.6);
-    moleDigger(ctx, 352, 538, 1.1);
+    // The ladder up the right wall to the way out.
+    fossilLadder(ctx, [[[374, 142], [390, 12]], [[390, 142], [406, 12]]], 8);
+    // The top lip of the pit, dark against the lamp, with the string of bulbs pinned along under it.
+    const roof = [[-10, -10], [430, -10], [430, 20], [380, 26], [320, 20], [250, 27], [190, 22], [120, 28], [60, 21], [-10, 27]];
+    soft(ctx, () => smooth(ctx, roof.map(([x, y]) => [x, y + 6]), true), 'rgba(70,36,40,.4)', 8);
+    shape(ctx, roof, lin(ctx, 0, 0, 0, 28, [[0, '#4a2c2c'], [1, '#7a4a3c']]), null);
+    rim(ctx, roof, 'rgba(255,214,160,.5)', 0, 1.6);
+    for (let x = 16; x < 410; x += 23) stroke(ctx, [[x, 23 + (x * 7) % 5], [x + 2, 30 + (x * 3) % 8]], 'rgba(244,214,180,.32)', .8);
+    const hooks = [[-6, 26], [104, 28], [214, 25], [312, 24]], cable = [];
+    for (let h = 0; h < hooks.length - 1; h++) {
+      const [x0, y0] = hooks[h], [x1, y1] = hooks[h + 1];
+      for (let t = 0; t < 1; t += .1) cable.push([x0 + (x1 - x0) * t, y0 + (y1 - y0) * t + Math.sin(t * Math.PI) * 12]);
+    }
+    cable.push(hooks[hooks.length - 1]);
+    stroke(ctx, cable, 'rgba(50,32,30,.85)', 1.1);
+    for (const [i, t] of [[4, .1], [8, -.08], [15, .06], [18, -.1], [25, .12]]) fossilBulb(ctx, cable[i][0], cable[i][1] - 1, t);
+    // The work lamp, hung on its cable from a spike in the lip: the key light of the dig.
+    stroke(ctx, [[lx + 6, 20], [lx + 3, ly - 14]], '#2a1c1a', 1.2);
+    dot(ctx, lx + 6, 21, 1.6, '#3a2a26');
+    ctx.save(); ctx.translate(lx, ly - 8); ctx.rotate(.42);
+    poly(ctx, [[-6, -8], [6, -8], [13, 6], [-13, 6]], lin(ctx, -13, 0, 13, 0, [[0, '#3c5c5a'], [.5, '#6a908a'], [1, '#2c4442']]), null);
+    stroke(ctx, [[-5.4, -7.4], [-12, 5.4]], 'rgba(220,255,246,.35)', .9);
+    poly(ctx, [[-3, -11], [3, -11], [3, -8], [-3, -8]], '#2a2a28', null);
+    ctx.beginPath(); ctx.ellipse(0, 6, 13, 3.2, 0, 0, TAU); ctx.fillStyle = '#fff6da'; ctx.fill();
+    ctx.restore();
+    bloom(ctx, lx - 3, ly + 2, 60, '255,226,170', .7); bloom(ctx, lx - 3, ly + 2, 16, '255,250,230', .9);
+    // The floor of the dig, swept smooth in the middle where the lamp pools.
+    const floor = fossilBed(452, 2, 91, .01);
+    soft(ctx, () => { smooth(ctx, floor.map(([x, y]) => [x, y - 5]), false); ctx.lineTo(440, 600); ctx.lineTo(-20, 600); ctx.closePath(); }, 'rgba(70,34,40,.32)', 10);
+    band(ctx, floor, 600, lin(ctx, 0, 450, 0, 560, [[0, '#d8aa7c'], [.5, '#c08c6a'], [1, '#8e6464']]), null);
+    rim(ctx, floor.concat([[440, 600], [-20, 600]]), 'rgba(255,236,200,.5)', 0, -2);
+    for (const [y, seed, c] of [[490, 92, 'rgba(150,90,70,.14)'], [528, 93, 'rgba(120,70,70,.16)']]) { const pts = fossilBed(y, 3, seed, .01); soft(ctx, () => { smooth(ctx, pts, false); ctx.lineTo(440, 600); ctx.lineTo(-20, 600); ctx.closePath(); }, c, 4); }
+    bloom(ctx, 196, 500, 150, '255,214,160', .3);
+    grit(ctx, 0, 456, 420, 104, 140, 718, (x) => Math.abs(x - 210) > 80);
+    // Two boards laid over the soft floor: the crew's walkway, and the launcher's stand.
+    for (const [x0, x1, y, tilt, seed] of [[150, 286, 487, -.012, 1], [132, 268, 501, .01, 2]]) {
+      const dy = (x1 - x0) * tilt, top = [[x0, y], [x1, y + dy], [x1 - 3, y + dy + 10], [x0 - 3, y + 10]], edge = [[x0 - 3, y + 10], [x1 - 3, y + dy + 10], [x1 - 3, y + dy + 13], [x0 - 3, y + 13]];
+      soft(ctx, () => { ctx.moveTo(x0 - 6, y + 12); ctx.lineTo(x1, y + dy + 12); ctx.lineTo(x1, y + dy + 16); ctx.lineTo(x0 - 6, y + 16); ctx.closePath(); }, 'rgba(70,34,30,.5)', 4);
+      poly(ctx, edge, '#6e4632', null);
+      poly(ctx, top, lin(ctx, x0, y, x1, y + 10, [[0, '#d8aa76'], [.6, '#c49464'], [1, '#a87a52']]), null);
+      stroke(ctx, [top[0], top[1]], 'rgba(255,238,206,.55)', 1);
+      const rp = rng(seed);
+      for (let k = 0; k < 3; k++) { const t = .25 + k * .25, a = x0 + 6 + rp() * 40, b = x1 - 6 - rp() * 40; stroke(ctx, [[a, y + 10 * t + (a - x0) * tilt], [b, y + 10 * t + (b - x0) * tilt]], 'rgba(120,70,44,.2)', .7); }
+      for (const nx of [x0 + 5, x1 - 6]) dot(ctx, nx, y + 5 + (nx - x0) * tilt, .8, 'rgba(70,40,30,.55)');
+      soft(ctx, () => ctx.ellipse(x1 - 4, y + dy + 8, 8, 4, 0, 0, TAU), 'rgba(220,180,140,.6)', 3);
+    }
+    // The skull, in its own excavation hollow, with the string-and-peg grid that marks it out.
+    const pit = blob(56, 506, 100, 44, 9, .1, 12);
+    shape(ctx, pit, lin(ctx, 0, 462, 0, 550, [[0, '#9c6a58'], [.4, '#b88664'], [1, '#c89a72']]), null);
+    cel(ctx, pit, 'rgba(84,44,50,.3)', 2, -5);
+    rim(ctx, pit, 'rgba(255,236,200,.4)', -1, 2.4);
+    fossilSkull(ctx, -6, 528, 1);
+    fossilBone(ctx, 128, 545, 16, -.3);
+    for (const [x, y] of [[12, 462], [150, 468]]) {
+      soft(ctx, () => ctx.ellipse(x - 2, y + 4, 4, 1.4, 0, 0, TAU), 'rgba(60,30,30,.45)', 2);
+      poly(ctx, [[x - 1.6, y - 16], [x + 1.6, y - 16], [x + 1.2, y + 4], [x - 1.2, y + 4]], lin(ctx, x - 1.6, 0, x + 1.6, 0, [[0, '#7a5034'], [1, '#d8aa78']]), null);
+    }
+    stroke(ctx, [[12, 448], [80, 455], [150, 454]], 'rgba(255,248,232,.75)', .7);
+    ctx.beginPath(); ctx.moveTo(150, 452); ctx.quadraticCurveTo(158, 452, 163, 456); ctx.lineTo(150, 459); ctx.closePath(); ctx.fillStyle = lin(ctx, 150, 0, 163, 0, [[0, '#c84c40'], [1, '#f07a62']]); ctx.fill();
+    for (const [x, y, w, h, sd] of [[172, 538, 5, 3.4, 71], [252, 542, 6, 3.8, 72], [312, 470, 4.4, 3, 73], [88, 462, 4, 2.8, 74]]) stone(ctx, x, y, w, h, sd, ['#f0dcc0', '#a07c64', 'rgba(255,248,232,.7)']);
+    // The crate of finds in the right corner, in the shade, and the crew asleep against it.
+    const crate = [[338, 470], [402, 466], [405, 522], [341, 526]];
+    fossilShell(ctx, 358, 466, 9, 1.2); fossilBone(ctx, 384, 462, 20, -.4);
+    soft(ctx, () => ctx.ellipse(370, 526, 40, 5, 0, 0, TAU), 'rgba(50,26,36,.5)', 6);
+    poly(ctx, crate, lin(ctx, 338, 0, 405, 0, [[0, '#b0805c'], [.48, '#9a6c4c'], [.52, '#7e5640'], [1, '#6a4636']]), null);
+    for (const y of [486, 505]) { stroke(ctx, [[340, y], [404, y - 1]], 'rgba(50,28,24,.45)', 1.1); stroke(ctx, [[340, y + 1.2], [404, y + .2]], 'rgba(255,226,190,.18)', .8); }
+    stroke(ctx, [[339, 471], [402, 467]], 'rgba(255,232,196,.55)', 1.2);
+    wash(ctx, rad(ctx, 384, 512, 96, [[0, 'rgba(90,70,130,.3)'], [1, 'rgba(90,70,130,0)']]), 'multiply');
+    fossilMole(ctx, 350, 538, 1.1);
+    // Near the corners: a coil of rope on the floor at the bottom right, nearly a silhouette.
+    for (let k = 0; k < 4; k++) { ctx.beginPath(); ctx.ellipse(412, 546 - k * 2.6, 20 - k * 2, 6.4 - k * .6, 0, 0, TAU); ctx.strokeStyle = k % 2 ? '#5a3a2c' : '#6e4a36'; ctx.lineWidth = 3.4; ctx.stroke(); }
+    stroke(ctx, [[396, 538], [404, 535], [414, 537]], 'rgba(255,220,180,.3)', 1);
+    grade(ctx, 'rgba(255,206,140,.42)', 'rgba(96,74,150,.45)', 'rgba(60,30,40,.5)');
+    grain(ctx, .08);
     if (framed) frame(ctx, '#b27a48', '#fff0d2');
   }
 
