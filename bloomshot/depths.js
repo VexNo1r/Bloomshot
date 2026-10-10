@@ -91,7 +91,7 @@
       { f: 'grid', s: ['tri', 'stack', 'tri', 'stack', 'tri', 'stack'], d: 13, hp: 3, fast: [1], rocks: [[110, 322, 46, 0], [210, 292, 46, 0], [310, 322, 46, 0]], petal: [210, 384, 135], then: [{ t: 6, f: 'topvee', s: 'tri', hp: 3 }, { t: 12, f: 'topstacks', s: 'stack', hp: 2, fast: [0, 3] }] },
       { f: [[70, 182], [350, 182], [140, 236], [280, 236]], s: ['stack', 'stack', 'tri', 'tri'], d: 7.5, hp: 1, rocks: [[150, 304, 44, -25], [270, 304, 44, 25]], boss: { name: 'Rootknot', hp: 8, r: 24, type: 'coral', sway: 56, x: 210, y: 104 }, then: [{ t: 8, f: 'topsides', s: 'stack', hp: 2 }, { t: 16, f: 'topsides', s: 'tri', hp: 2 }], hint: 'Big bloom! Eight hits.' }
     ]),
-    lv(3, 'grotto', 'Mushroom Grotto', 'Cups and puffcaps', 1.36, [
+    lv(3, 'grotto', 'Mushroom Grotto', 'Cups and puffcaps', 1.42, [
       { f: 'grid', s: 'tri', d: 11, puffs: [[210, 158]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 1, puffs: [[175, 104]] }], hint: 'Pop a puffcap to bloom everything near it.' },
       { f: 'wall', s: 'tri', d: 11.5, cup: [0, 1, 2, 3, 4], then: [{ t: 6, f: 'top4', s: 'tri', cup: [0, 1, 2, 3] }], hint: 'Cups block shots from below. Hit the crowns!' },
       { f: 'vee', s: 'tri', d: 11.5, cup: [1, 3], cupAll: [2], puffs: [[210, 100]], then: [{ t: 7, f: 'top5', s: 'line', hp: 2, cup: [0, 4] }], hint: 'Fully cupped? Bounce off the top wall.' },
@@ -127,7 +127,7 @@
       { f: 'grid', s: ['tri', 'line', 'tri', 'line', 'tri', 'line'], d: 13.5, hp: 2, hp3: 1, cup: [0, 2, 3, 5], puffs: [[150, 158], [270, 158]], currents: [[210, 262, 340, 44, 180, 6], [210, 372, 330, 50, 0, 4]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, cup: [1, 3] }, { t: 12, f: 'topvee', s: 'line', hp3: 2 }] },
       { f: [[76, 192], [344, 192], [140, 250], [280, 250]], s: 'tri', d: 8, hp: 2, cup: [2, 3], currents: [[210, 352, 330, 56, 0, 4.5]], boss: { name: 'Lantern Lily', hp: 13, r: 26, type: 'lilac', sway: 56, x: 210, y: 100 }, then: [{ t: 8, f: 'topsides', s: 'tri', hp: 2, cup: [0, 1, 2, 3] }, { t: 16, f: 'topsides', s: 'line', hp: 2 }], hint: 'Big bloom! Thirteen hits.' }
     ]),
-    lv(6, 'fossil', 'Fossil Beds', 'Turning shells', 1.36, [
+    lv(6, 'fossil', 'Fossil Beds', 'Turning shells', 1.4, [
       { f: 'square', s: 'tri', d: 10.5, shell: [0, 3], spin: 1.1, then: [{ t: 6, f: 'top3', s: 'tri', shell: [1] }], hint: 'Shells turn. Shoot through the opening.' },
       { f: 'wall', s: 'tri', d: 11, hp: 1, shell: [1, 3], spin: 1.3, rocks: [[150, 318, 52, 0], [270, 318, 52, 0]], then: [{ t: 6, f: 'top4', s: 'tri', shell: [1, 2] }] },
       { f: 'corners', s: 'tri', d: 11.5, shell: [0, 1, 2, 3], spin: 1, then: [{ t: 7, f: 'top4', s: 'tri', hp: 1 }], hint: 'Crowns in shells. Wait for the gap.' },
@@ -151,7 +151,7 @@
       { f: 'grid', s: 'tri', d: 13, hp: 2, hp3: 1, cupAll: [0, 2], cup: [1, 3, 4, 5], puffs: [[210, 158]], rocks: [[210, 300, 60, 0, 90, .3]], gates: [[100, 404, 56, 70, 35], [320, 404, 364, 70, 145]], then: [{ t: 6, f: 'top3', s: 'tri', hp: 2, cup: [0, 2] }, { t: 12, f: 'top3', s: 'tri', hp3: 1 }] },
       { f: [[80, 190], [340, 190]], s: 'tri', d: 8.5, hp: 2, cupAll: [0, 1], rocks: [[210, 300, 120, 0]], gates: [[100, 404, 56, 120, 60], [320, 404, 364, 120, 120]], boss: { name: 'Ember Rose', hp: 15, r: 26, type: 'coral', sway: 58, x: 210, y: 100 }, then: [{ t: 8, f: 'topsides', s: 'tri', hp: 2, cup: [0, 3] }, { t: 16, f: 'topsides', s: 'stack', hp: 2 }], hint: 'Big bloom! Fifteen hits.' }
     ]),
-    lv(8, 'geode', 'Geode Mine', 'Geodes and gems', 1.68, [
+    lv(8, 'geode', 'Geode Mine', 'Geodes and gems', 1.72, [
       { f: 'square', s: 'tri', d: 10.5, geodes: [[210, 150, 2, 3]], then: [{ t: 6, f: 'top3', s: 'tri' }], hint: 'Geodes crack into gems. Catch them!' },
       { f: 'wall', s: 'line', d: 11, hp: 1, geodes: [[120, 210, 2, 2], [300, 210, 2, 2]], rocks: [[210, 318, 60, 0, 90, .28]], then: [{ t: 6, f: 'top4', s: 'tri', hp: 1 }], hint: 'Mine carts roll by. Time your shots.' },
       { f: 'vee', s: 'tri', d: 11.5, hp: 1, cup: [1, 3], geodes: [[210, 252, 3, 3]], then: [{ t: 6, f: 'top5', s: 'line', hp: 1 }, { t: 12, f: 'top3', s: 'tri', geodes: [[158, 100, 2, 2]] }] },

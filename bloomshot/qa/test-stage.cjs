@@ -103,6 +103,8 @@ function clearWave(app, extra = 0) {
 function bossWave(app, name) {
   const game = app.game(); game.started = true; game.wave = 9; game.drops = []; game._loadWave();
   if (name) game.events.at(-1).bossName = name;
+  // null strips the names the levels give their bosses, to check the fallback.
+  else if (name === null) { delete game.events.at(-1).bossName; game.buds.forEach(bud => { if (bud.boss) delete bud.name; }); }
   app.frame();
   return game.buds.find(bud => bud.boss);
 }
@@ -224,7 +226,7 @@ test('A boss wave drops its big bloom from 140 px, then its name card and health
 });
 test('An unnamed big bloom is called Big bloom, and its hit count reads right', () => {
   const app = level(player(), 1); app.run(1.3);
-  const game = app.game(), boss = bossWave(app);
+  const game = app.game(), boss = bossWave(app, null);
   app.run(1, () => app.cues('bossLand').length > 0);
   const card = titles(game).find(f => f.boss);
   assert.equal(card.text, 'Big bloom'); assert.equal(card.label, `${boss.maxHp} hits to bloom`);

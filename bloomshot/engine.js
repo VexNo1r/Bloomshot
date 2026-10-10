@@ -76,6 +76,8 @@
     const b = 2 * (mx * d.x + my * d.y);
     const z = mx * mx + my * my - radius * radius;
     if (a < 1e-12 || b >= 0) return null;
+    // Already touching and closing in (a swaying or falling flower stepped onto the seed): it hits now, never passes through.
+    if (z <= 0) { const length = Math.hypot(mx, my) || 1; return { t: 0, nx: mx / length, ny: my / length }; }
     const discriminant = b * b - 4 * a * z;
     if (discriminant < 0) return null;
     const t = (-b - Math.sqrt(discriminant)) / (2 * a);
