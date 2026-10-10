@@ -2300,115 +2300,244 @@
   }
 
   // ---------- Level 10: Starseed Core ----------
+  // The heart of the world, the bottom of the dig. The starseed lies half sunk in the floor behind the launcher and is
+  // the only light: gold at its opening seam, rose where it spills up the roots, fading into a violet dark where old
+  // stars hang in the dust. Every root of the world comes down the walls and curls in toward it, modelled toward it
+  // and lit along the side that faces it, with a thread of gold running down each one. Two seed sprites keep watch.
   const GOLD = ['#fff4c8', '#ffd27a', '#e0a040', '#7a4a1a'];
-  // A great root: a tapering ribbon of bark with a vein of light running down it toward the seed.
-  // The two edges of a ribbon that tapers along a line of points.
-  function ribbon(pts, width, taper, r) {
-    const left = [], right = [];
-    for (let i = 0; i < pts.length; i++) {
-      const p = pts[i], q = pts[Math.min(pts.length - 1, i + 1)], o = pts[Math.max(0, i - 1)];
-      const dx = q[0] - o[0], dy = q[1] - o[1], len = Math.hypot(dx, dy) || 1, w = width * (1 - i / (pts.length - 1) * taper) / 2 * (.9 + r() * .2);
-      left.push([p[0] - dy / len * w, p[1] + dx / len * w]); right.push([p[0] + dy / len * w, p[1] - dx / len * w]);
-    }
-    return [left, right];
+  const CORE = [210, 540], CORE_AIR = '74,52,118', CORE_WARM = '255,196,124';
+  const CORE_BARK = { dark: '#170e26', mid: '#2e1f46', lit: '#8c5274' };
+  function coreMix(c0, c1, t) {
+    const hex = c => [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16)), a = hex(c0), b = hex(c1), k = Math.max(0, Math.min(1, t));
+    return `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * k)).join(',')})`;
   }
-  function coreRoot(ctx, pts, width, glow = .6) {
-    const r = rng(Math.round(pts[0][0] * 13 + width)), [left, right] = ribbon(pts, width, .72, r);
-    const outline = left.concat(right.slice().reverse());
-    shape(ctx, outline, '#4b2e55', null); cel(ctx, outline, '#3a2245', width * .18, width * .08);
-    // Bark: long grooves that follow the grain, and the odd knot.
-    clipTo(ctx, outline, () => {
-      for (let i = 0; i < pts.length - 1; i++) {
-        const [x0, y0] = pts[i], [x1, y1] = pts[i + 1], dx = x1 - x0, dy = y1 - y0, len = Math.hypot(dx, dy) || 1, nx = -dy / len, ny = dx / len, w = width * (1 - i / (pts.length - 1) * .72) / 2;
-        for (const k of [-.55, .5, -.15]) {
-          const off = k * w + (r() - .5) * 3, t0 = r() * .3, t1 = .55 + r() * .4;
-          stroke(ctx, [[x0 + dx * t0 + nx * off, y0 + dy * t0 + ny * off], [x0 + dx * (t0 + t1) / 2 + nx * (off + 1.5), y0 + dy * (t0 + t1) / 2 + ny * (off + 1.5)], [x0 + dx * t1 + nx * off, y0 + dy * t1 + ny * off]], 'rgba(22,10,32,.42)', 1.1);
-        }
-        if (w > 12 && r() < .35) { const kx = x0 + dx * .5 - nx * w * .4, ky = y0 + dy * .5 - ny * w * .4; ctx.beginPath(); ctx.ellipse(kx, ky, 3.4, 2.2, Math.atan2(dy, dx), 0, TAU); ctx.strokeStyle = 'rgba(22,10,32,.5)'; ctx.lineWidth = 1.1; ctx.stroke(); }
-      }
+  // Points pushed off a line along its normals; `taper` narrows the offset toward the end like the ribbon itself.
+  function coreOffset(pts, off, taper = 0) {
+    return pts.map((p, i) => {
+      const q = pts[Math.min(pts.length - 1, i + 1)], o = pts[Math.max(0, i - 1)], dx = q[0] - o[0], dy = q[1] - o[1], len = Math.hypot(dx, dy) || 1;
+      const k = off * (1 - i / (pts.length - 1) * taper);
+      return [p[0] - dy / len * k, p[1] + dx / len * k];
     });
-    shape(ctx, outline, null, '#1a0d22', 1.7);
-    stroke(ctx, left.slice(1, -1).map(([x, y], i) => [x + (pts[i + 1][0] - x) * .22, y + (pts[i + 1][1] - y) * .22]), 'rgba(200,160,230,.38)', 1.2);
-    for (const [w, c] of [[5, `rgba(255,190,110,${.12 * glow})`], [2.4, `rgba(255,205,130,${.35 * glow})`], [.9, `rgba(255,236,190,${.9 * glow})`]]) stroke(ctx, pts.slice(1), c, w);
+  }
+  // A smooth run of points along a Catmull-Rom curve through `pts`, `per` samples to each span.
+  function coreSpline(pts, per = 6) {
+    const out = [], n = pts.length, at = i => pts[Math.max(0, Math.min(n - 1, i))];
+    for (let i = 0; i < n - 1; i++) {
+      const p0 = at(i - 1), p1 = at(i), p2 = at(i + 1), p3 = at(i + 2);
+      for (let k = 0; k < per; k++) {
+        const t = k / per, t2 = t * t, t3 = t2 * t;
+        out.push([0, 1].map(j => .5 * (2 * p1[j] + (p2[j] - p0[j]) * t + (2 * p0[j] - 5 * p1[j] + 4 * p2[j] - p3[j]) * t2 + (3 * p1[j] - p0[j] - 3 * p2[j] + p3[j]) * t3)));
+      }
+    }
+    out.push(pts[n - 1]);
+    return out;
+  }
+  // The seed's light on an edge or a vein: strong close to it, falling away up the walls.
+  const coreFall = (ctx, rgb, a, reach = 520) => rad(ctx, CORE[0], CORE[1], reach, [[0, rgba(rgb, a)], [.4, rgba(rgb, a * .6)], [1, rgba(rgb, a * .1)]]);
+  // A root of the world: a tapering ribbon of bark, rounded toward the seed, with grooves along the grain, a warm rim
+  // on the side that faces the light and a thread of gold running down it. `fog` sinks it into the violet air.
+  function coreRoot(ctx, pts, width, seed, o = {}) {
+    const fog = o.fog || 0, taper = o.taper ?? .8, glow = (o.glow ?? 1) * (1 - fog * .7), outline = ribbon2(pts, width, taper);
+    const [x0, y0, x1, y1] = bounds(outline), dx = CORE[0] - (x0 + x1) / 2, dy = CORE[1] - (y0 + y1) / 2, d = Math.hypot(dx, dy) || 1, tx = dx / d, ty = dy / d;
+    const tone = c => fog ? coreMix(c, o.haze || '#3c2c5c', fog) : c;
+    if (o.shadow !== false) soft(ctx, () => smooth(ctx, outline.map(([x, y]) => [x - tx * 5, y - ty * 5 + 2]), true), `rgba(12,6,24,${(.55 * (1 - fog)).toFixed(3)})`, 9);
+    shape(ctx, outline, tone(CORE_BARK.dark), null);
+    clipTo(ctx, outline, () => {
+      shape(ctx, ribbon2(pts.map(([x, y]) => [x + tx * width * .12, y + ty * width * .12]), width * .8, taper), tone(CORE_BARK.mid), null);
+      ctx.save(); ctx.globalAlpha = .92 * (1 - fog * .6);
+      shape(ctx, ribbon2(pts.map(([x, y]) => [x + tx * width * .27, y + ty * width * .27]), width * .34, taper), tone(CORE_BARK.lit), null);
+      ctx.restore();
+      if (fog < .6) {
+        const r = rng(seed);
+        for (let k = 0; k < Math.max(4, width / 3.4); k++) {
+          const from = Math.floor(r() * (pts.length - 2)), run = pts.slice(from, from + 2 + Math.floor(r() * 3)), off = (r() - .5) * width * .7;
+          stroke(ctx, coreOffset(run, off * (1 - from / (pts.length - 1) * taper)), k % 3 ? `rgba(14,6,26,${(.4 * (1 - fog)).toFixed(3)})` : `rgba(255,214,190,${(.2 * (1 - fog)).toFixed(3)})`, .8 + r() * 1.2);
+        }
+      }
+      // Nearer the seed the bark warms.
+      bloom(ctx, CORE[0], CORE[1], o.reach || 300, '255,140,110', .34 * (1 - fog));
+    });
+    rim(ctx, outline, coreFall(ctx, '255,196,140', .95 * (1 - fog)), tx * 3, ty * 3);
+    if (glow > .05) {
+      // The vein runs in the groove nearest the light and breaks where the bark closes over it.
+      const cx = pts[pts.length - 1][0] - pts[0][0], cy = pts[pts.length - 1][1] - pts[0][1], vein = coreOffset(coreSpline(pts, 6), (cx * ty - cy * tx > 0 ? 1 : -1) * width * .14, taper);
+      const r = rng(seed + 7), runs = [];
+      for (let i = Math.floor(r() * 3); i < vein.length - 1;) { const len = 4 + Math.floor(r() * 9); runs.push(vein.slice(i, i + len + 1)); i += len + 1 + Math.floor(r() * 3); }
+      for (const [w, a, rgb] of [[6, .22, '255,166,104'], [2.6, .6, '255,212,150'], [1, 1, '255,246,220']]) {
+        const style = coreFall(ctx, rgb, a * glow, 520);
+        for (const run of runs) stroke(ctx, run, style, w);
+      }
+    }
     return outline;
   }
-  function seedSprite(ctx, x, y, s, wave) {
-    ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
-    halo(ctx, 0, -6, 18, '255,220,140', .09);
-    stroke(ctx, [[0, -13], [1, -18]], '#5aa85f', 1.3);
-    ctx.beginPath(); ctx.ellipse(4, -19, 3.6, 1.8, -.4, 0, TAU); ctx.fillStyle = '#8fd67d'; ctx.fill(); ctx.strokeStyle = '#3f8a48'; ctx.lineWidth = .8; ctx.stroke();
-    const body = [[-8, 0], [-9, -7], [-5, -13], [3, -13.4], [8.6, -8], [8, 0], [0, 1.4]];
-    shape(ctx, body, '#fff1c6', null); cel(ctx, body, '#f6d48e', -2, 2); shape(ctx, body, null, '#b47a3a', 1.2);
-    dot(ctx, -3, -6.4, 1.2, '#5a3418'); dot(ctx, 3, -6.4, 1.2, '#5a3418');
-    ctx.beginPath(); ctx.arc(0, -4.6, 1.8, .3, Math.PI - .3); ctx.strokeStyle = '#5a3418'; ctx.lineWidth = .8; ctx.stroke();
-    dot(ctx, -5.4, -4, 1.3, 'rgba(255,150,140,.55)'); dot(ctx, 5.4, -4, 1.3, 'rgba(255,150,140,.55)');
-    if (wave) { stroke(ctx, [[7.6, -6], [12, -10], [13, -14]], '#b47a3a', 2.6); stroke(ctx, [[7.6, -6], [12, -10], [13, -14]], '#fff1c6', 1.3); }
+  // A soft cloud of light: a bloom stretched into an ellipse.
+  function coreHaze(ctx, x, y, rx, ry, rot, rgb, a) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(1, ry / rx); bloom(ctx, 0, 0, rx, rgb, a); ctx.restore();
+  }
+  // Old stars in the dark: thickest along a faint band across the top, faint and tiny wherever flowers can be.
+  function coreStars(ctx, seed) {
+    const r = rng(seed), open = (x, y) => x > 64 && x < 356 && y > 26 && y < 450;
+    const colors = ['255,246,222', '226,210,255', '200,240,236', '255,214,200'];
+    for (let i = 0; i < 300; i++) {
+      let x, y;
+      if (i < 170) { const t = r(), n = (r() + r() + r() - 1.5) * 46; x = -20 + t * 460 - n * .38; y = 34 + t * 176 + n; }
+      else { x = r() * 420; y = 20 + r() * 440; }
+      const calm = open(x, y), a = calm ? .1 + r() * .22 : .3 + r() * .5, size = calm ? .35 + r() * .45 : .45 + r() * .9;
+      dot(ctx, x, y, size, rgba(colors[i % 4], a));
+    }
+    for (const [x, y, s] of [[36, 118, 3.4], [54, 232, 2.4], [384, 92, 3], [396, 214, 2.2], [30, 352, 2.6], [404, 330, 3.2], [46, 60, 2], [372, 46, 2.4]]) {
+      bloom(ctx, x, y, s * 4, '255,236,200', .3);
+      sparkle(ctx, x, y, s, 'rgba(255,248,226,.85)');
+    }
+  }
+  // Gold seed-crystals grown where the light pools: a six-sided point, its facet toward the seed lit, the far one dim.
+  function coreShard(ctx, x, y, w, h, tilt, face) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(tilt); if (face > 0) ctx.scale(-1, 1);
+    const body = [[-w / 2, 0], [-w / 2, -h * .7], [0, -h], [w / 2, -h * .7], [w / 2, 0]];
+    poly(ctx, body, lin(ctx, 0, -h, 0, 0, [[0, '#ffe4a0'], [.55, '#d88a44'], [1, '#6a3424']]));
+    poly(ctx, [[-w / 2, 0], [-w / 2, -h * .7], [0, -h], [-w * .06, 0]], lin(ctx, 0, -h, 0, 0, [[0, '#fffbe6'], [.5, '#ffd27a'], [1, '#c06a30']]));
+    poly(ctx, [[w * .14, 0], [w * .14, -h * .84], [w / 2, -h * .7], [w / 2, 0]], 'rgba(70,24,40,.4)');
+    stroke(ctx, [[-w / 2 + .5, -h * .68], [0, -h + .6]], 'rgba(255,252,236,.85)', .8);
     ctx.restore();
   }
-  function paintCore(ctx, framed) {
-    const back = ctx.createLinearGradient(0, 0, 0, 560);
-    back.addColorStop(0, '#1b1432'); back.addColorStop(.45, '#271a42'); back.addColorStop(.78, '#3a2050'); back.addColorStop(1, '#5a2c5a');
-    ctx.fillStyle = back; ctx.fillRect(0, 0, 420, 560);
-    // Light welling up from the seed below the floor of the world.
-    const well = ctx.createRadialGradient(210, 640, 40, 210, 640, 330);
-    well.addColorStop(0, 'rgba(255,214,140,.55)'); well.addColorStop(.45, 'rgba(255,160,120,.18)'); well.addColorStop(1, 'rgba(255,140,120,0)');
-    ctx.fillStyle = well; ctx.fillRect(0, 300, 420, 260);
-    // Soft rings of light ripple out from it, seen only at the edges.
-    const fade = ctx.createLinearGradient(0, 0, 420, 0);
-    fade.addColorStop(0, 'rgba(255,215,150,.26)'); fade.addColorStop(.24, 'rgba(255,215,150,0)'); fade.addColorStop(.76, 'rgba(255,215,150,0)'); fade.addColorStop(1, 'rgba(255,215,150,.26)');
-    for (const [rr, w] of [[250, 1.4], [318, 1.1], [392, 1.4], [470, 1], [552, 1.2]]) { ctx.beginPath(); ctx.arc(210, 650, rr, Math.PI, TAU); ctx.strokeStyle = fade; ctx.lineWidth = w; ctx.stroke(); }
-    // Faint far roots in the dark, all bending toward the light.
-    const rf = rng(77);
-    for (const [pts, w] of [[[[120, -10], [112, 110], [134, 230], [160, 330], [176, 410]], 22], [[[300, -10], [316, 130], [292, 260], [258, 360], [244, 420]], 24], [[[206, -10], [198, 70], [210, 150], [204, 210]], 12]]) {
-      const [l, rr] = ribbon(pts, w, .9, rf), out = l.concat(rr.reverse());
-      shape(ctx, out, 'rgba(58,36,80,.55)', 'rgba(150,110,190,.12)', 1);
-      stroke(ctx, pts.slice(1), 'rgba(255,200,130,.10)', 1.2);
-    }
-    // The roof of the world, roots pushing down through it.
-    caveWall(ctx, [[-10, -10], [430, -10], [430, 28], [370, 38], [300, 26], [240, 38], [180, 28], [120, 40], [60, 30], [-10, 38]], '#20152f', '#1a1128', '#0e0818');
-    coreRoot(ctx, [[96, -10], [92, 30], [70, 76], [52, 120], [34, 170]], 18, .5);
-    coreRoot(ctx, [[322, -10], [330, 34], [352, 80], [372, 128]], 16, .5);
-    coreRoot(ctx, [[190, 20], [196, 40], [188, 58]], 7, .35);
-    coreRoot(ctx, [[252, 24], [246, 44], [254, 62], [250, 74]], 6, .35);
-    // The two great roots come down the walls and curl in toward the seed.
-    coreRoot(ctx, [[-20, -10], [22, 70], [10, 170], [30, 270], [16, 360], [44, 440], [110, 500], [176, 540], [204, 566]], 64, 1);
-    coreRoot(ctx, [[440, -10], [398, 80], [412, 190], [390, 290], [406, 380], [372, 450], [306, 506], [244, 542], [216, 566]], 60, 1);
-    coreRoot(ctx, [[26, 300], [60, 330], [72, 372], [64, 410]], 12, .7);
-    coreRoot(ctx, [[396, 236], [362, 262], [352, 300]], 11, .7);
-    coreRoot(ctx, [[40, 470], [80, 520], [96, 566]], 22, .8);
-    coreRoot(ctx, [[380, 470], [350, 520], [338, 566]], 20, .8);
-    // The starseed itself, mostly below the world, its seam just starting to open.
-    const seed = [[210, 464], [236, 472], [270, 498], [298, 536], [314, 590], [298, 650], [210, 690], [122, 650], [106, 590], [122, 536], [150, 498], [184, 472]];
-    halo(ctx, 210, 560, 130, '255,206,130', .07);
-    shape(ctx, seed, '#c97868', null);
+  function coreCluster(ctx, x, y, s, seed, n, face) {
+    const r = rng(seed), pts = [];
+    for (let i = 0; i < n; i++) { const t = n === 1 ? .5 : i / (n - 1), big = Math.sin(t * Math.PI); pts.push([x + (t - .5) * s * 1.7 + (r() - .5) * s * .2, (t - .5) * 1.1 + (r() - .5) * .3, s * (.24 + big * .14), s * (.5 + big * .8 + r() * .3)]); }
+    soft(ctx, () => ctx.ellipse(x, y + 1, s * 1.2, s * .22, 0, 0, TAU), 'rgba(18,6,24,.55)', 3);
+    bloom(ctx, x, y - s * .5, s * 2.6, '255,196,110', .3);
+    pts.sort((a, b) => a[3] - b[3]).forEach(([px, a, w, h]) => coreShard(ctx, px, y, w, h, a * .7, face));
+  }
+  // A seed sprite: a little sprouting seed with a face, sat on a root and lit warm from the seed's side. A character,
+  // so it keeps soft colored lines.
+  function coreSprite(ctx, x, y, s, face, wave) {
+    ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+    bloom(ctx, face * 4, -6, 24, CORE_WARM, .2);
+    soft(ctx, () => ctx.ellipse(-face * 2, 1, 10, 2.4, 0, 0, TAU), 'rgba(16,6,26,.6)', 3);
+    stroke(ctx, [[0, -13], [.8, -16.4], [2, -19]], '#4f9a68', 1.4);
+    ctx.beginPath(); ctx.ellipse(5.4, -19.6, 4.2, 2, -.42, 0, TAU); ctx.fillStyle = lin(ctx, 2, -21, 9, -18, [[0, '#a8e8a4'], [1, '#55a070']]); ctx.fill();
+    ctx.strokeStyle = 'rgba(40,104,74,.75)'; ctx.lineWidth = .7; ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(-2.6, -18, 2.6, 1.3, .5, 0, TAU); ctx.fillStyle = '#7cc488'; ctx.fill();
+    const body = [[-8, 0], [-9, -7], [-5, -13], [3, -13.4], [8.6, -8], [8, 0], [0, 1.4]];
+    shape(ctx, body, lin(ctx, face * 9, 0, -face * 8, -13, [[0, '#ffe0a4'], [.45, '#fbeacc'], [1, '#c8b0c4']]), null);
+    rim(ctx, body, 'rgba(255,220,160,.9)', face * 1.6, 1.4);
+    shape(ctx, body, null, 'rgba(146,84,72,.8)', 1);
+    dot(ctx, -3, -6.4, 1.25, '#4a2a22'); dot(ctx, 3, -6.4, 1.25, '#4a2a22');
+    dot(ctx, -2.6, -6.9, .4, 'rgba(255,255,255,.9)'); dot(ctx, 3.4, -6.9, .4, 'rgba(255,255,255,.9)');
+    ctx.beginPath(); ctx.arc(0, -4.6, 1.8, .3, Math.PI - .3); ctx.strokeStyle = '#4a2a22'; ctx.lineWidth = .8; ctx.lineCap = 'round'; ctx.stroke();
+    dot(ctx, -5.4, -4, 1.4, 'rgba(255,140,140,.5)'); dot(ctx, 5.4, -4, 1.4, 'rgba(255,140,140,.5)');
+    if (wave) { const arm = [[7.6, -6], [12, -10], [13, -14]]; stroke(ctx, arm, 'rgba(146,84,72,.8)', 2.8); stroke(ctx, arm, '#fbe6c0', 1.4); }
+    ctx.restore();
+  }
+  // The starseed, mostly below the floor of the world, its husk ribbed like a great seed and its seam opening on light.
+  function coreSeed(ctx) {
+    const seed = [[210, 452], [238, 460], [270, 484], [296, 520], [310, 566], [298, 618], [210, 648], [122, 618], [110, 566], [124, 520], [150, 484], [182, 460]];
+    bloom(ctx, 210, 536, 250, '255,150,110', .38);
+    soft(ctx, () => smooth(ctx, seed.map(([x, y]) => [210 + (x - 210) * 1.05, y - 3]), true), 'rgba(255,176,120,.55)', 16);
+    shape(ctx, seed, rad(ctx, 210, 560, 150, [[0, '#ffd59a'], [.32, '#ee9c6e'], [.68, '#b85f6c'], [1, '#5e2a52']], 210, 530, 8), null);
     clipTo(ctx, seed, () => {
-      ctx.beginPath(); smooth(ctx, seed.map(([x, y]) => [210 + (x - 210) * .72, y + 18]), true); ctx.fillStyle = '#dc9472'; ctx.fill();
-      ctx.beginPath(); smooth(ctx, seed.map(([x, y]) => [210 + (x - 210) * .42, y + 34]), true); ctx.fillStyle = '#eab281'; ctx.fill();
-      for (const k of [-.8, -.5, -.22, .22, .5, .8]) stroke(ctx, [[210 + k * 6, 468], [210 + k * 40, 494], [210 + k * 76, 534], [210 + k * 100, 590]], 'rgba(130,56,74,.32)', 1.3);
-      ctx.beginPath(); smooth(ctx, seed.map(([x, y]) => [x + 9, y + 6]), true); ctx.rect(-50, -50, 520, 660); ctx.fillStyle = 'rgba(130,52,84,.38)'; ctx.fill('evenodd');
+      // The husk turns away from the light inside it, so its flanks sink into plum.
+      wash(ctx, lin(ctx, 110, 0, 310, 0, [[0, 'rgba(60,20,60,.5)'], [.3, 'rgba(60,20,60,0)'], [.7, 'rgba(60,20,60,0)'], [1, 'rgba(60,20,60,.5)']]), 'multiply');
+      for (const k of [-.74, -.4, .4, .74]) {
+        const rib = [[210 + k * 6, 456], [210 + k * 44, 486], [210 + k * 80, 528], [210 + k * 100, 580], [210 + k * 96, 640]];
+        stroke(ctx, rib, 'rgba(96,30,64,.24)', 2.4);
+        stroke(ctx, rib.map(([x, y]) => [x - Math.sign(k) * 1.6, y]), 'rgba(255,224,186,.18)', 1);
+      }
+      soft(ctx, () => ctx.ellipse(210, 470, 30, 11, 0, 0, TAU), 'rgba(255,236,204,.38)', 8);
     });
-    shape(ctx, seed, null, '#6a2844', 2);
-    stroke(ctx, [[164, 494], [186, 476], [204, 469]], 'rgba(255,240,210,.7)', 1.6);
-    const seam = [[210, 468], [208, 486], [212, 504], [209, 524], [212, 544], [210, 564]];
-    for (const [w, c] of [[11, 'rgba(255,230,160,.16)'], [5, 'rgba(255,236,180,.42)'], [1.8, '#fff4d0']]) stroke(ctx, seam, c, w);
-    for (const [x, y] of [[198, 520], [222, 506], [203, 548], [219, 538]]) dot(ctx, x, y, 1, 'rgba(255,240,200,.8)');
-    // Gold crystals and two little seedlings keeping the seed company.
-    crystalCluster(ctx, 44, 556, .7, GOLD, 91, .9);
-    crystalCluster(ctx, 384, 552, .62, GOLD, 92, .9);
-    crystal(ctx, 118, 512, 7, 15, -.4, GOLD); crystal(ctx, 300, 512, 6, 13, .45, GOLD);
-    seedSprite(ctx, 72, 468, 1, true);
-    seedSprite(ctx, 352, 476, .9, false);
-    // Star motes and little rings of light drifting at the edges.
-    const rs = rng(1010);
-    for (let i = 0; i < 40; i++) {
-      const left = i % 2 === 0, x = left ? 12 + rs() * 76 : 332 + rs() * 76, y = 50 + rs() * 400, c = ['rgba(255,226,160,.9)', 'rgba(255,190,200,.85)', 'rgba(255,255,240,.9)'][i % 3];
-      if (rs() < .35) sparkle(ctx, x, y, 2 + rs() * 2.6, c); else dot(ctx, x, y, .8 + rs() * .8, c);
+    rim(ctx, seed, 'rgba(255,220,180,.42)', 0, -1.6);
+    const seam = [[210, 456], [208, 474], [212, 492], [209, 512], [212, 532], [210, 556]];
+    for (const [w, c] of [[16, 'rgba(255,206,140,.13)'], [7, 'rgba(255,224,166,.32)'], [3, 'rgba(255,240,204,.7)'], [1.2, '#fffbea']]) stroke(ctx, seam, c, w);
+    for (const [x, y] of [[198, 520], [223, 504], [203, 546], [219, 536]]) dot(ctx, x, y, .9, 'rgba(255,244,214,.8)');
+  }
+  // Specks of seed-light rising from the core along a curve, fading as they climb.
+  function coreMotes(ctx, a, b, c, count, seed, spread) {
+    const r = rng(seed);
+    for (let i = 0; i < count; i++) {
+      const t = r(), [x, y] = bezierAt(a, b, c, t), px = x + (r() - .5) * spread, py = y + (r() - .5) * spread * .6, s = (.6 + r() * 1.3) * (1 - t * .5), al = (.85 - t * .6) * (.5 + r() * .5);
+      if (s > 1.2) bloom(ctx, px, py, s * 5, CORE_WARM, al * .3);
+      dot(ctx, px, py, s, `rgba(255,${226 + Math.round(r() * 20)},${170 + Math.round(r() * 50)},${al.toFixed(3)})`);
     }
-    for (const [x, y, rr] of [[56, 220, 9], [372, 170, 7], [30, 400, 6], [396, 352, 10], [90, 96, 5], [334, 420, 5]]) {
-      ctx.beginPath(); ctx.arc(x, y, rr, 0, TAU); ctx.strokeStyle = 'rgba(255,220,160,.35)'; ctx.lineWidth = 1; ctx.stroke();
-      dot(ctx, x, y, 1.4, 'rgba(255,240,200,.9)');
+  }
+  function paintCore(ctx, framed) {
+    // Violet dark above, warming through plum to rose where the seed's light reaches.
+    wash(ctx, lin(ctx, 0, 0, 0, 560, [[0, '#18193a'], [.3, '#271f4c'], [.56, '#36275c'], [.78, '#4e2f66'], [.92, '#6c3664'], [1, '#7c3a5c']]));
+    // Dust lit faintly from far below, and a pale band of old stars across the top.
+    coreHaze(ctx, 110, 120, 170, 70, .36, '170,110,200', .16);
+    coreHaze(ctx, 310, 70, 150, 50, .36, '100,190,210', .17);
+    coreHaze(ctx, 120, 300, 150, 60, -.3, '110,140,230', .1);
+    coreHaze(ctx, 200, 140, 260, 46, .36, '210,180,240', .1);
+    coreHaze(ctx, 210, 400, 260, 120, 0, '200,100,150', .14);
+    coreStars(ctx, 1010);
+    // Rings of light rippling out from the seed, seen only toward the walls.
+    const fade = lin(ctx, 0, 0, 420, 0, [[0, 'rgba(255,206,150,.22)'], [.22, 'rgba(255,206,150,0)'], [.78, 'rgba(255,206,150,0)'], [1, 'rgba(255,206,150,.22)']]);
+    for (const [rr, w] of [[230, 1.2], [300, 1], [376, 1.3], [456, .9], [540, 1.1]]) { ctx.beginPath(); ctx.arc(210, 620, rr, Math.PI, TAU); ctx.strokeStyle = fade; ctx.lineWidth = w; ctx.stroke(); }
+    // Far roots hanging down out of the dark, all leaning toward the light, almost lost in the air.
+    for (const [pts, w, sd, fog] of [
+      [[[120, -10], [112, 100], [130, 210], [154, 306], [174, 394], [188, 452]], 22, 1, .8], [[[302, -10], [314, 120], [294, 236], [264, 336], [242, 428]], 24, 2, .8],
+      [[[206, -10], [200, 60], [210, 128], [204, 186]], 11, 3, .72], [[[66, -10], [80, 80], [104, 168]], 14, 4, .7], [[[358, -10], [344, 76], [326, 150]], 13, 5, .7]]) coreRoot(ctx, pts, w, sd, { fog, shadow: false, glow: .22 });
+    air(ctx, 20, 470, CORE_AIR, .2, .06);
+    // The shafts of light fanning up from the seam, kept off the middle of the board.
+    for (const [a, al] of [[-.62, .05], [-.38, .04], [.38, .04], [.62, .05]]) shaft(ctx, 210, 474, -Math.PI / 2 + a, 470, 5, 64, '255,206,150', al);
+    // The walls: dark earth wrapped in roots, the faces toward the seed catching it.
+    for (const [wall, side] of [
+      [[[-20, -10], [44, -10], [56, 70], [42, 150], [60, 238], [48, 326], [64, 404], [56, 472], [-20, 486]], -1],
+      [[[440, -10], [376, -10], [364, 76], [378, 156], [360, 244], [372, 330], [356, 410], [366, 472], [440, 486]], 1]]) {
+      const [x0, , x1] = bounds(wall);
+      soft(ctx, () => smooth(ctx, wall.map(([x, y]) => [x - side * 8, y]), true), 'rgba(10,4,20,.5)', 14);
+      shape(ctx, wall, side < 0 ? lin(ctx, x1, 0, x0, 0, [[0, '#3c2a54'], [.5, '#2a1d42'], [1, '#1a1230']]) : lin(ctx, x0, 0, x1, 0, [[0, '#3c2a54'], [.5, '#2a1d42'], [1, '#1a1230']]), null);
+      clipTo(ctx, wall, () => { bloom(ctx, CORE[0], CORE[1], 340, '255,130,110', .3); grit(ctx, x0, 0, x1 - x0, 480, 70, 40 + side, null); });
+      rim(ctx, wall, 'rgba(255,180,150,.28)', -side * 2, 1.2);
     }
-    for (const [x, y, s] of [[60, 140, 4.4], [366, 96, 3.6], [24, 330, 3.6], [400, 300, 4.2], [108, 452, 3.2], [318, 448, 3.4]]) sparkle(ctx, x, y, s, '#fff6dc');
+    for (const [pts, w, sd] of [
+      [[[30, -10], [44, 90], [30, 196], [48, 296]], 18, 11], [[[-10, 116], [22, 190], [42, 262], [34, 334]], 14, 12], [[[56, -10], [50, 40], [62, 92]], 9, 13],
+      [[[392, -10], [378, 96], [392, 200], [372, 300]], 18, 14], [[[430, 140], [398, 206], [380, 278], [388, 350]], 14, 15], [[[362, -10], [370, 44], [358, 96]], 9, 16]]) coreRoot(ctx, pts, w, sd, { fog: .3, glow: .7 });
+    // The roof of the world, lit from far below along its underside.
+    const roof = [[-10, -10], [430, -10], [430, 26], [372, 34], [300, 24], [240, 36], [180, 26], [118, 38], [58, 28], [-10, 36]];
+    shape(ctx, roof, lin(ctx, 0, 0, 0, 38, [[0, '#120c22'], [1, '#2a1d40']]), null);
+    rim(ctx, roof, 'rgba(255,190,160,.3)', 0, 1.8);
+    coreRoot(ctx, [[96, -10], [92, 30], [72, 72], [56, 114], [40, 164]], 16, 21, { glow: .6 });
+    coreRoot(ctx, [[324, -10], [330, 34], [350, 78], [368, 124]], 15, 22, { glow: .6 });
+    coreRoot(ctx, [[190, 16], [196, 34], [188, 52]], 7, 23, { glow: .4, fog: .2 });
+    coreRoot(ctx, [[252, 20], [246, 40], [254, 58], [250, 70]], 6, 24, { glow: .4, fog: .2 });
+    // The floor of the world: rooty earth dipping toward the seed, its top lit warm in the middle.
+    const ground = [[-20, 458], [30, 466], [80, 482], [124, 498], [166, 508], [210, 512], [254, 508], [296, 498], [340, 482], [390, 466], [440, 458]];
+    soft(ctx, () => { smooth(ctx, ground.map(([x, y]) => [x, y - 4]), false); ctx.lineTo(440, 600); ctx.lineTo(-20, 600); ctx.closePath(); }, 'rgba(12,4,22,.5)', 10);
+    band(ctx, ground, 600, lin(ctx, 0, 456, 0, 560, [[0, '#4a2c56'], [.5, '#352046'], [1, '#22132e']]));
+    rim(ctx, ground.concat([[440, 600], [-20, 600]]), lin(ctx, 0, 0, 420, 0, [[0, 'rgba(255,190,150,.12)'], [.5, 'rgba(255,214,170,.6)'], [1, 'rgba(255,190,150,.12)']]), 0, -2.2);
+    grit(ctx, 0, 462, 420, 100, 90, 1012, (x) => Math.abs(x - 210) > 96);
+    // The seed, and the floor's near lip lying over its lower half.
+    coreSeed(ctx);
+    for (const [a, al] of [[-.18, .05], [.18, .05]]) shaft(ctx, 210, 470, -Math.PI / 2 + a, 150, 4, 26, '255,226,180', al);
+    // The two great roots come down the walls and curl in to cradle the seed.
+    coreRoot(ctx, [[-30, -10], [22, 80], [8, 180], [30, 280], [14, 370], [42, 440], [84, 486], [116, 516], [128, 566]], 64, 31, { taper: .72, reach: 260 });
+    coreRoot(ctx, [[450, -10], [398, 90], [412, 200], [390, 300], [406, 390], [378, 450], [336, 490], [304, 518], [292, 566]], 60, 32, { taper: .72, reach: 260 });
+    coreRoot(ctx, [[26, 300], [60, 330], [72, 372], [64, 410]], 12, 33, { glow: .8 });
+    coreRoot(ctx, [[396, 236], [362, 262], [352, 300]], 11, 34, { glow: .8 });
+    coreRoot(ctx, [[40, 470], [78, 516], [94, 566]], 22, 35, { glow: .8 });
+    coreRoot(ctx, [[380, 470], [350, 516], [336, 566]], 20, 36, { glow: .8 });
+    const lip = [[-20, 538], [60, 534], [120, 542], [164, 550], [210, 554], [256, 550], [300, 542], [360, 534], [440, 538]];
+    soft(ctx, () => { smooth(ctx, lip.map(([x, y]) => [x, y - 3]), false); ctx.lineTo(440, 600); ctx.lineTo(-20, 600); ctx.closePath(); }, 'rgba(255,190,130,.35)', 6);
+    band(ctx, lip, 600, lin(ctx, 0, 534, 0, 560, [[0, '#3a2040'], [1, '#1c0f22']]));
+    rim(ctx, lip.concat([[440, 600], [-20, 600]]), lin(ctx, 0, 0, 420, 0, [[0, 'rgba(255,200,160,0)'], [.5, 'rgba(255,224,180,.7)'], [1, 'rgba(255,200,160,0)']]), 0, -1.8);
+    // Gold seed-crystals where the light pools, and the two seed sprites keeping watch from the great roots.
+    coreShard(ctx, 120, 512, 6.4, 14, -.42, 1); coreShard(ctx, 130, 516, 4, 8, .1, 1);
+    coreShard(ctx, 300, 512, 6, 13, .45, -1);
+    coreSprite(ctx, 74, 466, 1, 1, true);
+    coreSprite(ctx, 350, 474, .9, -1, false);
+    // Seed-light drifting up the walls.
+    coreMotes(ctx, [120, 500], [40, 380], [56, 150], 26, 41, 26);
+    coreMotes(ctx, [300, 500], [384, 380], [366, 170], 22, 42, 24);
+    coreMotes(ctx, [170, 480], [130, 470], [96, 430], 6, 43, 10);
+    // Foreground: two dark roots across the bottom corners, almost silhouettes.
+    for (const [pts, w, side] of [[[[-26, 506], [26, 528], [62, 566]], 40, -1], [[[446, 498], [396, 528], [362, 566]], 36, 1]]) {
+      const out = ribbon2(pts, w, .55);
+      shape(ctx, out, '#140b1e', null);
+      rim(ctx, out, 'rgba(255,170,140,.3)', -side * 1.6, -1.2);
+    }
+    coreCluster(ctx, 38, 550, 16, 91, 5, 1);
+    coreCluster(ctx, 386, 546, 14, 92, 4, -1);
+    grade(ctx, 'rgba(112,100,220,.42)', 'rgba(255,170,104,.42)', 'rgba(16,6,30,.58)');
+    grain(ctx, .08);
     if (framed) frame(ctx, '#c4894a', '#ffe3a8');
   }
 
