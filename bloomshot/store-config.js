@@ -17,7 +17,14 @@
       // A bundle is its own store product that grants several entitlements: in RevenueCat, attach this one product
       // to every entitlement listed here. Keep its price below the sum of the items, or it is not a bundle.
       // Never offer it to a player who already owns one of its items (the store refuses it as 'partly-owned').
-      { id: 'bloomshot.bundle.launch1', entitlements: ['world_koi', 'style_collection1'], kind: 'bundle', title: 'Launch Bundle', priceHint: '$5.99', available: false }
+      { id: 'bloomshot.bundle.launch1', entitlements: ['world_koi', 'style_collection1'], kind: 'bundle', title: 'Launch Bundle', priceHint: '$5.99', available: false },
+      // Powerups: consumables, bought again and again, one powerup per purchase. They grant `count` of `power` into the
+      // player's save through BloomStore.onConsumable and are attached to no entitlement. $0.25 on Google Play; Apple's
+      // lowest price is $0.29, so that is the App Store price. The game always shows the store's own price.
+      { id: 'bloomshot.power.sunburst', consumable: true, power: 'sunburst', count: 1, kind: 'power', title: 'Sunburst', priceHint: '$0.25', available: false },
+      { id: 'bloomshot.power.lullaby', consumable: true, power: 'lullaby', count: 1, kind: 'power', title: 'Lullaby', priceHint: '$0.25', available: false },
+      { id: 'bloomshot.power.dandelion', consumable: true, power: 'dandelion', count: 1, kind: 'power', title: 'Dandelion', priceHint: '$0.25', available: false },
+      { id: 'bloomshot.power.beeline', consumable: true, power: 'beeline', count: 1, kind: 'power', title: 'Bee Line', priceHint: '$0.25', available: false }
     ]
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
