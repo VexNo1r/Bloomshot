@@ -399,6 +399,17 @@ test('A flight trick pays at most once a bloom and each kind once a wave; hat an
   shoot(slams, 210, 360, up, .2); advance(slams, 1.4);
   assert(slams.buds.every(b => b.bloomed)); assert.equal(kinds(slams).filter(k => k === 'slam').length, 1, 'fifteen blooms, one grand slam');
 });
+test('A seed that flies on into the next wave keeps its hat trick spent', () => {
+  const game = board([bud('a', 120, 300), bud('b', 120, 250), bud('c', 120, 200)]);
+  game.spawnBall({ x: 120, y: 380, angle: up, power: 'beeline' }); const ball = game.balls.at(-1);
+  while (game.wave === 1) game.step(1 / 120);
+  assert(game.balls.includes(ball), 'the seed is still flying'); assert.deepEqual(kinds(game), ['hat']);
+  game.buds = [bud('d', ball.x, ball.y + Math.sign(ball.vy) * 40)]; game.descentSpeed = 0;
+  for (let i = 0; i < 60 && !game.buds[0].bloomed; i++) game.step(1 / 120);
+  assert(game.buds[0].bloomed, 'it blooms a flower of the new wave');
+  assert.deepEqual(kinds(game), ['hat'], 'one hat trick a seed, across waves too');
+  assert.equal(game.events.filter(e => e.type === 'bloom').at(-1).seedStep, 3, 'its tally carries on');
+});
 test('The multiplier announces each rise, and a chain of five or more announces its end', () => {
   const game = board(Array.from({ length: 10 }, (_, i) => bud('m' + i, 60 + i * 33, 150)));
   for (let i = 0; i < 9; i++) game.strike(game.buds[i]);

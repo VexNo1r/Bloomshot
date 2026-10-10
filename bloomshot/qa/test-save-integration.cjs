@@ -1015,6 +1015,17 @@ test('A level lost at wave 6 or later offers a free restart from wave 6 that sta
   assert.equal(app.$('checkpoint-btn').hidden, true); assert.equal(app.$('retry-btn').textContent, 'Try again');
   assert.match(app.$('result-message').textContent, /Try a new angle\.$/);
 });
+test('A checkpoint run pays seeds only for the waves it played, so restarting at wave 6 is never a seed farm', () => {
+  const app = boot(legacySave()); app.click('depth-map', { depth: '1' });
+  let game = depthGame(app); game.started = true; game.wave = 6; game._lose(); settleLevel(app);
+  const seeds = () => app.saved().garden.seeds, before = seeds();
+  app.click('checkpoint-btn'); game = depthGame(app); assert.equal(game.startWave, 6);
+  game.started = true; game._lose(); settleLevel(app);
+  assert.equal(seeds() - before, 0, 'losing straight away at wave 6 earns nothing for waves 1 to 5');
+  app.click('checkpoint-btn'); game = depthGame(app);
+  game.started = true; game.wave = 8; game.totalBlooms = 40; game._lose(); settleLevel(app);
+  assert.equal(seeds() - before, 4 + 2, 'forty blooms and the two waves it cleared');
+});
 test('A level cleared from the checkpoint records at most two stars and says how to earn three', () => {
   const app = boot(legacySave()); app.click('depth-map', { depth: '1' });
   let game = depthGame(app); game.started = true; game.wave = 8; game._lose(); settleLevel(app);

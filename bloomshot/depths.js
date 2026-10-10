@@ -139,7 +139,7 @@
       { f: 'stairs', s: 'tri', d: 13.5, hp: 2, hp3: 1, shell: [0, 1, 2, 3, 4], spin: 2.3, rocks: [[150, 330, 44, 30], [270, 330, 44, -30]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, hp3: 1, shell: [0, 2, 4] }, { t: 12, f: 'topstacks', s: 'stack', hp3: 2 }] },
       { f: [[76, 192], [344, 192], [140, 252], [280, 252]], s: 'tri', d: 8.5, hp: 2, shell: [0, 1], cup: [2, 3], spin: 1.4, boss: { name: 'Ammonite Queen', hp: 14, r: 26, type: 'gold', sway: 56, x: 210, y: 100, shell: 1.1 }, then: [{ t: 8, f: 'topsides', s: 'tri', hp: 2, shell: [0, 3] }, { t: 16, f: 'topsides', s: 'stack', hp: 2 }], hint: 'A shelled big bloom! Aim for the gap.' }
     ]),
-    lv(7, 'ember', 'Ember Hollows', 'Tunnels', 1.84, [
+    lv(7, 'ember', 'Ember Hollows', 'Tunnels', 2, [
       { f: 'grid', s: 'tri', d: 10.5, rocks: [[210, 300, 160, 0]], gates: [[80, 404, 350, 296, -125]], then: [{ t: 6, f: 'top3', s: 'tri' }], hint: 'Tunnels! Shoot in one, out the other.' },
       { f: [[110, 150], [210, 150], [310, 150]], s: 'tri', d: 11, cupAll: [0, 1, 2], gates: [[100, 404, 56, 92, 30], [320, 404, 364, 92, 150]], then: [{ t: 7, f: 'top3', s: 'tri', cup: [0, 1, 2] }], hint: 'All cupped? Tunnel in from above.' },
       { f: 'stacks', s: 'stack', d: 11.5, hp: 1, rocks: [[210, 292, 290, 0]], gates: [[150, 392, 64, 236, -62], [270, 392, 356, 236, -118]], then: [{ t: 6, f: 'topstacks', s: 'stack', hp: 1 }], hint: 'Walled off? Take the tunnels around.' },
@@ -175,7 +175,7 @@
       { f: 'grid', s: 'tri', d: 13.5, hp: 2, briar: [0, 1, 2, 3, 4, 5], regrow: 3.6, puffs: [[150, 158], [270, 158]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, briar: [0, 2, 4] }, { t: 12, f: 'topvee', s: 'line', hp3: 1 }] },
       { f: [[80, 190], [340, 190]], s: 'tri', d: 8.5, hp: 1, briar: [0, 1], regrow: 4, boss: { name: 'Thornmother', hp: 17, r: 26, type: 'lilac', sway: 58, x: 210, y: 100 }, then: [{ t: 8, f: 'topsides', s: 'tri', hp: 1, briar: [0, 3] }, { t: 16, f: 'topsides', s: 'line', hp: 2 }], hint: 'Big bloom! Seventeen hits.' }
     ]),
-    lv(10, 'core', 'Starseed Core', 'The final test', 1.73, [
+    lv(10, 'core', 'Starseed Core', 'The final test', 1.8, [
       { f: 'grid', s: 'tri', d: 11, hp: 1, shell: [0, 2], spin: 1.3, currents: [[210, 330, 330, 56, 0, 4]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 1 }], hint: 'The last level. Everything you learned.' },
       { f: [[110, 150], [210, 150], [310, 150]], s: 'tri', d: 11.5, hp: 2, cupAll: [0, 2], cup: [1], gates: [[100, 404, 56, 92, 30], [320, 404, 364, 92, 150]], then: [{ t: 6, f: 'top3', s: 'tri', hp: 2, cup: [0, 1, 2] }] },
       { f: 'vee', s: 'tri', d: 12, hp: 1, briar: [1, 3], geodes: [[210, 252, 2, 3]], then: [{ t: 6, f: 'top5', s: 'line', hp: 2 }, { t: 12, f: 'top3', s: 'tri', briar: [1] }] },

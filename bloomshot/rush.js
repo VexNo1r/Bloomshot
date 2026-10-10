@@ -403,7 +403,9 @@
       const missed = this.buds.find(bud => bud.gift);
       if (missed) this.event('giftGone', { power: missed.gift, x: missed.x, y: missed.y });
       this.wave++; this.waveBreaches = 0; this.nextWaveAt = null; this.pending = []; this.waveStart = this.time;
-      this.waveBlooms = 0; this.waveBestChain = 0; this.waveTricks = 0; this.waveKinds.clear(); this.credits.clear();
+      this.waveBlooms = 0; this.waveBestChain = 0; this.waveTricks = 0; this.waveKinds.clear();
+      // A seed still flying into the new wave keeps its tally, so its hat trick and grand slam stay once a seed.
+      for (const id of this.credits.keys()) if (!this.balls.some(ball => ball.id === id)) this.credits.delete(id);
       if (this.plan) {
         const spec = this.plan.wave(this.wave);
         const petal = this.bumpers.find(item => item.id === 'petal');
