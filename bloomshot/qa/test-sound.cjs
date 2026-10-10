@@ -19,8 +19,20 @@ const CUES = [
   ['geode', { bud: { x: 210 }, count: 3 }], ['regrow', { x: 210, count: 4 }], ['arm', { power: 'sunburst' }], ['arm', { power: null }],
   ['power', { power: 'sunburst' }], ['power', { power: 'dandelion' }], ['power', { power: 'beeline' }], ['power', { power: 'lullaby' }],
   ['sunburst', { x: 210, count: 5 }], ['bee', { x: 210 }], ['giftAppear', { power: 'bee', x: 210 }], ['gift', { power: 'bee', x: 210 }], ['gift', {}],
-  ['fever', { combo: 12 }], ['lost', {}], ['lost', { wave: 4 }], ['star', { index: 0 }], ['star', { index: 1 }], ['star', { index: 2 }]
+  ['fever', { combo: 12 }], ['lost', {}], ['lost', { wave: 4 }], ['star', { index: 0 }], ['star', { index: 1 }], ['star', { index: 2 }],
+  // Blooms that climb the seed ladder, each flower in its own instrument.
+  ['bloom', { combo: 3, seedStep: 0, mult: 1, seed: 4, bud: { x: 100, type: 'gold' } }], ['bloom', { combo: 9, seedStep: 11, mult: 3, super: true, bud: { x: 200, type: 'lilac' } }],
+  ['bloom', { combo: 2, seedStep: 1, chain: true, bud: { x: 300, type: 'coral' } }], ['bloom', { combo: 4, seedStep: 3, bud: { x: 380, type: 'sky' } }], ['bloom', { combo: 5, seedStep: 6, bud: { x: 20, type: 'poppy' } }],
+  ['superBloom', { time: 6 }], ['superBloomEnd', {}], ['sunPetal', { petal: 0, of: 8 }], ['sunPetal', { petal: 7, of: 8 }], ['mult', { mult: 2 }], ['mult', { mult: 5 }], ['chainEnd', { chain: 9 }],
+  ['trick', { kind: 'slam', name: 'Grand slam!', bonus: 2000, x: 210, y: 200 }], ['trick', { kind: 'hat', x: 100 }], ['trick', { kind: 'close', x: 300 }], ['trick', { kind: 'tunnel', x: 210 }],
+  ['trick', { kind: 'rebound', x: 60 }], ['trick', { kind: 'bank', x: 360 }], ['trick', { kind: 'trick', x: 210 }],
+  ['roll', { dur: 0.9 }], ['finale', { x: 210, type: 'gold' }], ['finale', { x: 90, type: 'poppy' }], ['sweep', { i: 0, n: 10, type: 'coral' }], ['sweep', { i: 9, n: 10, type: 'sky' }],
+  ['aimTick', { notch: -30 }], ['aimTick', { notch: 4 }], ['aimLock', { type: 'gold' }], ['heartbeat', {}],
+  ['intro', { level: 4, boss: false }], ['intro', { level: 10, boss: true }], ['intro', { level: 'rush', boss: false }], ['pluck', { i: 0, n: 24 }], ['pluck', { i: 23, n: 24 }],
+  ['plop', { i: 3, x: 120 }], ['bossLand', { x: 210 }], ['tally', { i: 0, n: 14 }], ['tally', { i: 13, n: 14 }], ['record', {}], ['splitReady', {}],
+  ['lullabyTick', { left: 3 }], ['lullabyTick', { left: 1 }], ['lullabyWake', {}], ['briarTick', { left: 2, x: 100 }], ['briarTick', { left: 0.5, x: 300 }]
 ];
+const FLOWERS = ['gold', 'coral', 'lilac', 'sky', 'poppy'];
 function fixture(options = {}) {
   const contexts = []; let wallTime = 100000;
   class Parameter {
@@ -44,6 +56,14 @@ function fixture(options = {}) {
       if (options.noConvolver) this.createConvolver = undefined;
       if (options.noBuffer) this.createBuffer = undefined;
       if (options.noCompressor) this.createDynamicsCompressor = undefined;
+      if (!options.buffers) this.createBufferSource = undefined;
+    }
+    // Only with options.buffers: noise transients and rolls play through buffer sources.
+    createBufferSource() {
+      const n = new Node(this, 'source'); n.buffer = null; n.loop = false; n.started = false; n.ended = false;
+      n.start = (time, offset = 0, duration) => { assert(!n.started); n.started = true; n.startAt = time; n.offset = offset; n.duration = duration; };
+      n.stop = time => { n.stopAt = time; };
+      return n;
     }
     createGain() { const n = new Node(this, 'gain'); n.gain = new Parameter(1); return n; }
     createBiquadFilter() { const n = new Node(this, 'filter'); n.frequency = new Parameter(350); n.Q = new Parameter(1); return n; }
@@ -77,7 +97,7 @@ function fixture(options = {}) {
     advance(seconds) {
       if (this.state !== 'running') return;
       this.currentTime += seconds;
-      for (const node of this.nodes) if (node.kind === 'oscillator' && node.started && !node.ended && node.stopAt <= this.currentTime + 1e-9) {
+      for (const node of this.nodes) if ((node.kind === 'oscillator' || node.kind === 'source') && node.started && !node.ended && node.stopAt <= this.currentTime + 1e-9) {
         node.ended = true; if (node.onended) node.onended();
       }
     }
@@ -117,8 +137,10 @@ async function test(name, run) {
 async function main() {
   await test('Public interface stays unchanged; audio remains lazy and unsupported browsers stay playable', () => {
     const h = fixture({ noAudio: true });
-    assert.deepEqual(Object.keys(h.sound).sort(), ['play', 'setEnabled', 'wake']);
+    assert.deepEqual(Object.keys(h.sound).sort(), ['muffle', 'music', 'play', 'setEnabled', 'setMusic', 'wake']);
+    assert.deepEqual(Object.keys(h.sound.music).sort(), ['frame', 'stop']);
     h.sound.play('bloom'); h.sound.wake(); h.sound.setEnabled(false); h.sound.setEnabled(true);
+    h.sound.setMusic(false); h.sound.setMusic(true); h.sound.muffle(0.75, 0.5); h.sound.music.frame({ route: 'game', groove: 'meadow', heat: 1 }); h.sound.music.stop();
     assert.equal(h.contexts.length, 0);
     const lazy = fixture(); lazy.sound.play('launch'); assert.equal(lazy.contexts.length, 0);
     lazy.sound.wake(); assert.equal(lazy.context.options.latencyHint, 'interactive');
@@ -567,6 +589,140 @@ async function main() {
     h.sound.play('bloom'); h.context.state = 'closed'; h.sound.wake();
     assert.equal(h.contexts.length, 2); h.sound.play('bloom'); assert.equal(h.voices().length, 1);
     assert.equal(h.context.nodes.filter(n => n.kind === 'convolver').length, 1, 'A new context gets its own room');
+  });
+  const pitchClass = f => ((Math.round(12 * Math.log2(f / 261.6255653)) % 12) + 12) % 12;
+  const peak = node => Math.max(...node.gain.events.map(e => e.value || 0));
+  await test('Crisp transients run through one seeded noise buffer and a band at or under 3.6 kHz, then clean up', () => {
+    const h = fixture({ buffers: true }); h.sound.wake(); h.tick(1); const shared = h.context.nodes.length;
+    const expect = [['bloom', { combo: 1, bud: { x: 100 } }, 2000, 0.025], ['crack', { bud: { x: 90 } }, 1200, 0.03],
+      ['bounce', { kind: 'wall', x: 10 }, 300, 0.02], ['bounce', { kind: 'bumper', x: 200 }, 2400, 0.012]];
+    const seen = [];
+    for (const [type, data, band, length] of expect) {
+      const before = h.context.nodes.length; h.sound.play(type, data);
+      const sources = h.context.nodes.slice(before).filter(n => n.kind === 'source');
+      seen.push(...sources.map(n => ({ source: n, filter: n.connections[0], gain: n.connections[0].connections[0] })));
+      assert.equal(sources.length, 1, `${type} has one transient`);
+      const [source] = sources, filter = source.connections[0], gain = filter.connections[0];
+      assert.equal(filter.type, 'bandpass'); assert.equal(filter.frequency.value, band, `${type} band`);
+      assert(Math.abs(source.duration - length) < 0.01 && source.stopAt - source.startAt < length + 0.012, `${type} lasts about ${length * 1000} ms`);
+      assert(peak(gain) <= 0.16 && peak(gain) > 0, `${type} transient is soft`); assert.equal(gain.gain.events[0].value, 0, 'starts from silence');
+      assert.equal(gain.gain.events[gain.gain.events.length - 1].value, 0, 'ends at silence');
+      h.tick(0.2);
+    }
+    // The finale's burst, the boss landing and the roll's strokes are filtered noise too; every band stays at or under 3.6 kHz.
+    for (const [type, data] of [['finale', { x: 210 }], ['bossLand', { x: 210 }], ['roll', { dur: 0.6 }]]) {
+      const before = h.context.nodes.length; h.sound.play(type, data);
+      seen.push(...h.context.nodes.slice(before).filter(n => n.kind === 'source').map(n => ({ source: n, filter: n.connections[0], gain: n.connections[0].connections[0] })));
+      h.tick(0.3);
+    }
+    assert.equal(seen.length, 7);
+    assert(seen.every(({ filter }) => filter.kind === 'filter' && filter.frequency.value <= 3600), 'Every noise filter stays at or under 3.6 kHz');
+    assert(seen.every(({ gain }) => peak(gain) <= 0.16), 'Every noise gain stays soft');
+    assert.equal(new Set(seen.map(({ source }) => source.buffer)).size, 1, 'One shared noise buffer, made once');
+    const noise = seen[0].source.buffer; assert(Math.abs(noise.duration - 0.25) < 0.001);
+    const again = fixture({ buffers: true }); again.sound.wake(); again.tick(1); again.sound.play('bloom');
+    const twin = again.context.nodes.find(n => n.kind === 'source').buffer;
+    assert.deepEqual(Array.from(twin.getChannelData(0).slice(0, 64)), Array.from(noise.getChannelData(0).slice(0, 64)), 'Seeded: the same noise every time');
+    h.tick(3);
+    assert.equal(h.context.nodes.slice(shared).filter(n => !n.disconnected).length, 0, 'Transient nodes disconnect when they end');
+    // Without buffer sources (older browsers and the default fixture) the notes still play and nothing throws.
+    const plain = fixture(); plain.sound.wake(); plain.tick(1); plain.sound.play('bloom'); plain.sound.play('crack', { bud: { x: 1 } });
+    assert.equal(plain.voices().length, 2); assert.equal(plain.context.nodes.filter(n => n.kind === 'source').length, 0);
+  });
+  await test('A new best cuts the tail of the losing phrase and plays its sparkle fanfare', () => {
+    const h = fixture(); h.sound.wake(); h.tick(1); h.sound.play('lost', {});
+    const lost = h.voices(); assert(lost.length >= 4); h.tick(0.05);
+    const now = h.context.currentTime; h.sound.play('record', {});
+    for (const voice of lost) assert(voice.stopAt <= now + 0.025, 'every lost note, sounding or still to come, fades out at once');
+    const fanfare = h.voices().filter(v => !lost.includes(v));
+    assert(fanfare.length >= 6, 'the fanfare plays'); assert(fanfare.some(v => tones(h, v).length >= 3), 'over a chord');
+    assert(fanfare.every(v => inKey(target(v)) && v.stopAt - now <= 1.1));
+    const alone = fixture(); alone.sound.wake(); alone.tick(1); alone.sound.play('record', {}); assert(alone.voices().length >= 6, 'it also plays on its own');
+  });
+  await test('The seed ladder climbs the chord (root, third, fifth, octave) and stays in it, within 140 Hz to 1.1 kHz', () => {
+    const triads = [[0, 4, 7], [9, 0, 4], [5, 9, 0], [7, 11, 2]];
+    const pitch = (combo, seedStep, data = {}) => { const h = fixture(); h.sound.wake(); h.tick(1); h.sound.play('bloom', { combo, seedStep, ...data }); return target(h.voices()[0]); };
+    [1, 6, 11, 16].forEach((combo, chordIndex) => {
+      const ladder = Array.from({ length: 16 }, (_, k) => pitch(combo, k));
+      const triad = triads[chordIndex];
+      assert.equal(pitchClass(ladder[0]), triad[0], 'step 0 is the root');
+      assert.equal(pitchClass(ladder[1]), triad[1], 'step 1 is the third'); assert.equal(pitchClass(ladder[2]), triad[2], 'step 2 is the fifth');
+      assert(Math.abs(ladder[3] / ladder[0] - 2) < 1e-6, 'step 3 is the octave');
+      for (const f of ladder) { assert(triad.includes(pitchClass(f)), `${f.toFixed(1)} Hz stays on the chord`); assert(f >= 140 && f <= 1100); assert(inKey(f)); }
+      const top = ladder.findIndex((f, k) => k && f <= ladder[k - 1]);
+      assert(top >= 6, 'at least two octaves of climb'); for (let k = 1; k < top; k++) assert(ladder[k] > ladder[k - 1], 'it climbs');
+      assert(ladder.slice(top).every(f => f >= ladder[top - 4] && f <= ladder[top - 1]), 'past the top it dances on the last notes');
+    });
+    // seedStep only picks the rung; the instrument comes from the flower, and a missing step keeps the combo walk.
+    assert.equal(pitch(3, 2, { bud: { type: 'lilac' } }).toFixed(3), pitch(3, 2).toFixed(3));
+    for (const missing of [undefined, null, NaN, -1, 'x']) assert.equal(pitch(4, missing).toFixed(3), pitch(4).toFixed(3), `seedStep ${missing} keeps the combo walk`);
+  });
+  await test('Each flower blooms in its own instrument: gold bell, coral marimba, lilac harp, sky glass, poppy pan', () => {
+    const play = data => { const h = fixture({ random: '() => 0.5' }); h.sound.wake(); h.tick(1); h.sound.play('bloom', { combo: 1, seedStep: 0, ...data });
+      const voice = h.voices()[0], fundamental = target(voice);
+      const partials = h.oscillators().filter(o => o !== voice).map(o => (target(o) / fundamental).toFixed(3)).sort();
+      return { fundamental, signature: partials.join(','), oscillators: h.oscillators().length, level: peak(voice.connections[0]) }; };
+    const sounds = Object.fromEntries(FLOWERS.map(type => [type, play({ bud: { x: 210, type } })]));
+    assert.equal(new Set(Object.values(sounds).map(s => s.signature)).size, 5, JSON.stringify(sounds));
+    assert.equal(sounds.gold.signature, play({ bud: { x: 210 } }).signature, 'gold keeps the bell; an untyped bloom does too');
+    assert(sounds.coral.signature.startsWith('3.980'), 'coral is the marimba bar');
+    assert.equal(sounds.lilac.signature, '2.000,3.000,4.000', 'lilac is a harp: harmonic overtones');
+    assert(sounds.sky.signature.includes('1.004'), 'sky is glass: a beating twin');
+    assert(sounds.poppy.signature.startsWith('2.000,3.000'), 'poppy is a pan');
+    for (const sound of Object.values(sounds)) {
+      assert(Math.abs(sound.fundamental - sounds.gold.fundamental) < 1e-6, 'the flower changes the instrument, not the note');
+      assert(sound.oscillators >= 2 && sound.oscillators <= 4 && sound.level <= 0.15);
+    }
+    // The pan's octave blooms in just after the strike.
+    const h = fixture(); h.sound.wake(); h.tick(1); h.sound.play('bloom', { combo: 1, bud: { type: 'poppy' } });
+    const swell = h.context.nodes.find(n => n.kind === 'gain' && n.gain.events[1] && n.gain.events[1].kind === 'linear' && n.gain.events[0].value > 0);
+    assert(swell && swell.gain.events[1].value > swell.gain.events[0].value);
+  });
+  await test('Finale cues: the roll swells and is cut by the impact; won waits for the sweep; a finale wave adds no cleared cue', () => {
+    const h = fixture({ buffers: true }); h.sound.wake(); h.tick(1);
+    const start = h.context.currentTime; h.sound.play('roll', { dur: 0.9 });
+    const [timp] = h.voices(); const events = timp.connections[0].gain.events;
+    const swell = events.find(e => e.kind === 'linear' && e.value > 0);
+    assert(swell.time - start >= 0.8, 'the roll crescendos over its duration'); assert(timp.stopAt - start <= 1.1, 'and fades by itself');
+    assert(inKey(target(timp)) && pitchClass(target(timp)) === 7, 'on G, the dominant');
+    const strokes = h.context.nodes.find(n => n.kind === 'source' && n.loop).connections[0].connections[0].gain.events;
+    const peaks = strokes.filter(e => e.kind === 'linear' && e.value > 0).map(e => e.value);
+    assert(peaks.length >= 12 && peaks[peaks.length - 1] > peaks[0] * 4, 'faster, louder strokes'); assert(Math.max(...peaks) <= 0.16);
+    h.tick(0.5); const impact = h.context.currentTime; h.sound.play('finale', { x: 210, type: 'gold' });
+    assert(timp.stopAt <= impact + 0.025, 'the impact cuts the roll');
+    const cut = strokes.filter(e => e.time >= impact - 1e-9);
+    assert(cut.some(e => e.kind === 'linear' && e.value === 0 && e.time <= impact + 0.013), 'the snare stops dead');
+    const finale = h.voices().filter(v => v !== timp);
+    assert(finale.some(v => target(v) >= 60 && target(v) < 70), 'a sub thump at C2'); assert(finale.some(v => tones(h, v).length >= 3), 'an impact chord');
+    const late = fixture(); late.sound.wake(); late.tick(1); const at = late.context.currentTime;
+    late.sound.play('won', { stars: 3, finale: true });
+    const won = late.voices(); assert(won.length >= 7);
+    assert(won.every(v => v.startAt >= at + 0.5 - 1e-9), 'the fanfare waits half a second'); assert(won.every(v => v.stopAt - v.startAt <= 1.1));
+    const quiet = fixture(); quiet.sound.wake(); quiet.tick(1); quiet.sound.play('cleared', { wave: 3, finale: true });
+    assert.equal(quiet.voices().length, 0, 'a finale wave adds nothing on cleared'); quiet.sound.play('cleared', { wave: 3 }); assert(quiet.voices().length >= 4);
+  });
+  await test('Rising cues climb: sweep, plucks, tally, sun petals and the multiplier all go up in C major', () => {
+    const climb = (type, list) => list.map(data => { const h = fixture(); h.sound.wake(); h.tick(1); h.sound.play(type, data); return Math.min(...h.voices().map(target)); });
+    const check = (type, pitches) => { for (let i = 1; i < pitches.length; i++) assert(pitches[i] > pitches[i - 1], `${type} rises`); pitches.forEach(f => assert(inKey(f), type)); };
+    check('sweep', climb('sweep', Array.from({ length: 10 }, (_, i) => ({ i, n: 10, type: 'gold' }))));
+    climb('sweep', Array.from({ length: 10 }, (_, i) => ({ i, n: 10 }))).forEach(f => assert([0, 2, 4, 7, 9].includes(pitchClass(f)), 'the sweep is pentatonic'));
+    check('pluck', climb('pluck', Array.from({ length: 9 }, (_, i) => ({ i, n: 24 }))));
+    check('tally', climb('tally', [0, 2, 4, 6, 8, 10, 13].map(i => ({ i, n: 14 }))));
+    check('sunPetal', climb('sunPetal', Array.from({ length: 8 }, (_, petal) => ({ petal, of: 8 }))));
+    check('mult', climb('mult', [2, 3, 4, 5].map(mult => ({ mult }))));
+    const lullaby = climb('lullabyTick', [3, 2, 1].map(left => ({ left }))); assert(lullaby[0] > lullaby[1] && lullaby[1] > lullaby[2] && pitchClass(lullaby[2]) === 0, 'lullaby counts down to C');
+    const briar = climb('briarTick', [2, 1.5, 1, 0.5].map(left => ({ left }))); check('briarTick', briar);
+    // Aim ticks are the quietest sound in the game and wrap every seven notches.
+    const tick = fixture(); tick.sound.wake(); tick.tick(1); tick.sound.play('aimTick', { notch: 3 });
+    assert(tick.voices().every(v => peak(v.connections[0]) <= 0.025)); assert.equal(climb('aimTick', [{ notch: 3 }])[0].toFixed(3), climb('aimTick', [{ notch: 10 }])[0].toFixed(3));
+  });
+  await test('Without an offline renderer the music is silently off, and the music calls never throw', () => {
+    const h = fixture(); h.sound.wake(); h.tick(1);
+    const states = [undefined, null, {}, { route: 'game', groove: 'meadow', heat: 1, threat: 1, superBloom: true, boss: true }, { route: 'levels' }, { hidden: true }, { hidden: false }];
+    for (const state of states) { const snap = h.sound.music.frame(state); assert.equal(snap.playing, false); }
+    h.sound.muffle(0.75, 0.5); h.sound.muffle('x', -1); h.sound.setMusic(false); h.sound.setMusic(true); h.sound.music.stop();
+    assert.equal(h.context.nodes.filter(n => n.kind === 'source').length, 0);
+    h.sound.play('bloom'); assert.equal(h.voices().length, 1, 'cues carry on');
   });
   const report = { passed: results.filter(r => r.passed).length, failed: results.filter(r => !r.passed).length,
     limits: 'Instrumented Web Audio API scheduling/graph tests, not a rendered browser audio capture or a listening assessment. Device speakers, perceptual loudness, and audio-to-screen latency still require on-device listening.', results };
