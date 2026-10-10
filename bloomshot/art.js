@@ -126,10 +126,15 @@
     if (typeof OffscreenCanvas !== 'undefined') surface = new OffscreenCanvas(w, h);
     else if (typeof document !== 'undefined') { surface = document.createElement('canvas'); surface.width = w; surface.height = h; }
     else return null;
-    const ctx = surface.getContext('2d');
-    if (scenery(theme)) { ctx.save(); ctx.scale(w / 420, h / 560); root.BloomScenery.paint(ctx, theme); ctx.restore(); }
-    else paintGarden(ctx, w, h, theme, rush);
+    paintBackdrop(surface.getContext('2d'), w, h, theme, rush);
     return surface;
+  }
+  // Level scenes and the garden worlds are painted in scenery.js; the older garden paper stays as a fallback.
+  function paintBackdrop(ctx, w, h, theme, rush) {
+    const painter = root.BloomScenery;
+    if (scenery(theme)) { ctx.save(); ctx.scale(w / 420, h / 560); painter.paint(ctx, theme); ctx.restore(); }
+    else if (painter && painter.garden && painter.garden(theme)) { ctx.save(); ctx.scale(w / 420, h / 560); painter.paintGarden(ctx, theme, rush); ctx.restore(); }
+    else paintGarden(ctx, w, h, theme, rush);
   }
 
   function paintGarden(ctx, w, h, theme, rush) {
@@ -282,8 +287,7 @@
     let surface = backdropCache.get(key);
     if (!surface) { surface = makeBackdrop(840, 1120, theme, rush); if (surface) backdropCache.set(key, surface); }
     if (surface) ctx.drawImage(surface, 0, 0, w, h);
-    else if (scenery(theme)) { ctx.save(); ctx.scale(w / 420, h / 560); root.BloomScenery.paint(ctx, theme); ctx.restore(); }
-    else paintGarden(ctx, w, h, theme, rush);
+    else paintBackdrop(ctx, w, h, theme, rush);
   }
 
   function petal(ctx, radius, breadth, bend, color, light, dark, index, shape) {

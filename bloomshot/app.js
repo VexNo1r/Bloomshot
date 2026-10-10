@@ -355,7 +355,7 @@
     const summary = $('garden-summary'); if (summary) summary.textContent = `${completed}/${levels.length} · ${total} ★`;
   }
   // The level map on Play: a card per level showing a slice of its own scene, stacked the way the levels go down.
-  const SCENE_SLICE = { meadow: 240, roots: 0, grotto: 46, crystal: 40, lake: 390, fossil: 390, ember: 390, geode: 14, briar: 10, core: 390 };
+  const SCENE_SLICE = { meadow: 240, roots: 0, grotto: 350, crystal: 330, lake: 380, fossil: 390, ember: 370, geode: 10, briar: 10, core: 390 };
   const sceneSlices = new Map();
   function sceneSlice(level) {
     if (!sceneSlices.has(level.key)) {
@@ -749,38 +749,27 @@
     showcase.dirty = false;
   }
   const worldImages = new Map();
+  // Each world card shows a slice of that world's own painted board, with a few of its flowers or koi in front.
+  const WORLD_SLICE = { meadow: 232, moon: 238, koi: 96 };
   function worldArt(world) {
     if (!worldImages.has(world.id)) {
       const surface = document.createElement('canvas'); surface.width = 720; surface.height = 340;
       const brush = surface.getContext('2d'); brush.scale(2, 2);
-      const moon = world.id === 'moon', koi = world.id === 'koi';
-      const sky = brush.createLinearGradient(0, 0, 360, 170);
-      sky.addColorStop(0, moon ? '#292253' : koi ? '#8fefe4' : '#b6eef8');
-      sky.addColorStop(1, moon ? '#7056a2' : koi ? '#5dbecd' : '#e0f8d3');
-      brush.fillStyle = sky; brush.fillRect(0, 0, 360, 170);
-      if (moon) BloomArt.drawMoon(brush, 285, 44, 29);
+      const moon = world.id === 'moon', koi = world.id === 'koi', theme = moon ? 'moon' : koi ? 'koi' : 'meadow', painter = window.BloomScenery;
+      if (painter && painter.garden && painter.garden(theme)) {
+        brush.save(); brush.scale(360 / 420, 360 / 420); brush.translate(0, -WORLD_SLICE[theme]); painter.paintGarden(brush, theme, false, false); brush.restore();
+      } else {
+        const sky = brush.createLinearGradient(0, 0, 360, 170);
+        sky.addColorStop(0, moon ? '#292253' : koi ? '#8fefe4' : '#b6eef8'); sky.addColorStop(1, moon ? '#7056a2' : koi ? '#5dbecd' : '#e0f8d3');
+        brush.fillStyle = sky; brush.fillRect(0, 0, 360, 170);
+      }
+      if (moon) BloomArt.drawMoon(brush, 300, 40, 22);
       if (koi) {
-        // A still pool seen from above: sunlit caustics, ripples, lily pads and three koi.
-        const glow = brush.createRadialGradient(250, 40, 10, 250, 40, 220);
-        glow.addColorStop(0, 'rgba(255,248,214,.75)'); glow.addColorStop(1, 'rgba(255,248,214,0)');
-        brush.fillStyle = glow; brush.fillRect(0, 0, 360, 170);
-        brush.strokeStyle = '#eafff9'; brush.lineWidth = 1.1;
-        for (let i = 0; i < 9; i++) { brush.globalAlpha = .18; brush.beginPath(); brush.moveTo(-10, 18 + i * 19); brush.bezierCurveTo(90, 8 + i * 19, 200, 34 + i * 19, 370, 14 + i * 19); brush.stroke(); }
-        brush.globalAlpha = .45; brush.lineWidth = 1.3;
-        for (const [cx, cy] of [[287, 89], [96, 58]]) for (let i = 0; i < 4; i++) { brush.beginPath(); brush.ellipse(cx, cy, 16 + i * 13, 5 + i * 4.5, -.18, 0, Math.PI * 2); brush.stroke(); }
-        brush.globalAlpha = 1;
-        for (const [x, y, r, notch] of [[54, 128, 30, .3], [168, 34, 22, 2.2], [322, 140, 34, 3.7], [236, 150, 18, 1.2]]) {
-          brush.fillStyle = '#2f9e6e'; brush.beginPath(); brush.moveTo(x, y); brush.arc(x, y, r, notch + .35, notch + Math.PI * 2 - .05); brush.closePath(); brush.fill();
-          brush.fillStyle = '#5cc98c'; brush.beginPath(); brush.moveTo(x, y); brush.arc(x, y, r * .82, notch + .4, notch + Math.PI * 2 - .1); brush.closePath(); brush.fill();
-          brush.strokeStyle = 'rgba(255,255,255,.35)'; brush.lineWidth = 1;
-          for (let v = 0; v < 6; v++) { const a = notch + .7 + v * .95; brush.beginPath(); brush.moveTo(x, y); brush.lineTo(x + Math.cos(a) * r * .78, y + Math.sin(a) * r * .78); brush.stroke(); }
-        }
-        BloomArt.drawFlower(brush, 54, 124, 17, 'coral', 1, 0); BloomArt.drawFlower(brush, 322, 134, 19, 'lilac', 1, 0); BloomArt.drawFlower(brush, 168, 31, 12, 'gold', 1, 0);
         if (BloomArt.koiFish) for (const [x, y, a, size, palette] of [[150, 104, -.35, 22, ['#f0552f', '#ffb48a']], [252, 64, 2.7, 18, ['#ffffff', '#ffe7c7']], [104, 150, .15, 15, ['#f7a21b', '#ffe3a1']]]) {
           brush.save(); brush.globalAlpha = .22; brush.fillStyle = '#0b5e63'; brush.beginPath(); brush.ellipse(x + 4, y + 6, size, size * .4, a, 0, Math.PI * 2); brush.fill(); brush.restore();
           BloomArt.koiFish(brush, x, y, a, .4, size, palette);
         }
-      } else for (const [x, y, r, type] of [[72, 71, 32, 'coral'], [173, 109, 30, 'gold'], [238, 126, 24, 'lilac'], [331, 160, 28, 'coral']]) {
+      } else for (const [x, y, r, type] of moon ? [[166, 98, 21, 'lilac'], [318, 126, 19, 'coral']] : [[58, 100, 23, 'coral'], [312, 120, 21, 'gold']]) {
         brush.strokeStyle = moon ? '#5de0c7' : '#209f83'; brush.lineWidth = 3;
         brush.beginPath(); brush.moveTo(x + 8, 180); brush.quadraticCurveTo(x - 15, y + 45, x, y); brush.stroke();
         brush.save(); brush.translate(x, y + 43); brush.rotate(-.55);
