@@ -2314,336 +2314,568 @@
   }
 
   // ---------- Level 7: Ember Hollows ----------
-  // A basalt column seen from the front: a hexagonal top and three faces, lit from the upper left.
-  const BASALT = ['#5f3a4c', '#4a2c3c', '#3c2332', '#2f1a27', '#170a12'];
-  function hexColumn(ctx, x, top, w, bottom, pal = BASALT, seed = 1) {
-    const [lid, lit, face, dark, ink] = pal, h = w * .2, l = x - w / 2, r = x + w / 2, a = x - w * .22, b = x + w * .22;
-    poly(ctx, [[l, top], [a, top + h], [a, bottom], [l, bottom]], lit, null);
-    poly(ctx, [[a, top + h], [b, top + h], [b, bottom], [a, bottom]], face, null);
-    poly(ctx, [[b, top + h], [r, top], [r, bottom], [b, bottom]], dark, null);
-    const rr = rng(seed);
-    for (let y = top + 22 + rr() * 30; y < bottom - 8; y += 34 + rr() * 50) {
-      const tilt = (rr() - .5) * 4;
-      stroke(ctx, [[l + 1, y + tilt], [a, y + 2], [b, y + 2 - tilt * .3], [r - 1, y - tilt]], ink, 1.1);
-      stroke(ctx, [[a + 2, y + 3.4], [b - 2, y + 3.4 - tilt * .3]], 'rgba(255,190,170,.12)', 1);
-    }
-    poly(ctx, [[l, top], [r, top], [r, bottom], [l, bottom]], null, ink, 1.5);
-    stroke(ctx, [[a, top + h], [a, bottom]], ink, 1); stroke(ctx, [[b, top + h], [b, bottom]], ink, 1);
-    poly(ctx, [[l, top], [a, top - h], [b, top - h], [r, top], [b, top + h], [a, top + h]], lid, ink, 1.5);
-    stroke(ctx, [[l + 3, top - .4], [a + 1, top - h + 1.4], [b - 2, top - h + 1.4]], 'rgba(255,214,190,.35)', 1.1);
-  }
-  // A seam of magma: a wide soft glow, then a hot line with a white core.
+  // Deep in the basalt the only light is the lava. It pools in the low corners and glows up through the cracks, so
+  // every column is warm at its foot and sinks into cool violet above, and the column ends hanging from the roof are
+  // lit from underneath. Smoke holds the glow in the middle distance; embers ride the heat up the walls.
+  // A seam of magma: a wide soft glow, then a hot line with a white core. (The basalt rocks in play use it too.)
   function magma(ctx, pts, width = 1) {
     const path = () => { ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (const p of pts.slice(1)) ctx.lineTo(p[0], p[1]); };
     ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     for (const [w, c] of [[9, 'rgba(255,110,50,.10)'], [5, 'rgba(255,130,60,.22)'], [2.2, '#ff9a48'], [.9, '#ffe2a0']]) { path(); ctx.strokeStyle = c; ctx.lineWidth = w * width; ctx.stroke(); }
     ctx.restore();
   }
-  function crackPath(x, y, dx, dy, steps, seed, jag = 5) {
-    const r = rng(seed), out = [[x, y]];
-    for (let i = 0; i < steps; i++) { x += dx + (r() - .5) * jag; y += dy + (r() - .5) * jag; out.push([x, y]); }
-    return out;
+  const emberRGB = c => c[0] === '#' ? [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16)) : c.slice(c.indexOf('(') + 1, -1).split(',').map(Number);
+  function emberMix(c0, c1, t) {
+    const a = emberRGB(c0), b = emberRGB(c1), k = Math.max(0, Math.min(1, t));
+    return `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * k)).join(',')})`;
   }
-  function ember(ctx, x, y, s, hot) {
-    dot(ctx, x, y, s * 3.4, 'rgba(255,130,60,.13)');
-    if (hot) sparkle(ctx, x, y, s * 2.2, '#ffd9a0'); else dot(ctx, x, y, s, '#ffb35c');
+  function emberLine(ctx, pts, color, width) {
+    ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (const p of pts.slice(1)) ctx.lineTo(p[0], p[1]);
+    ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke();
   }
-  function lavaPool(ctx, x, y, rx, ry, seed) {
-    halo(ctx, x, y, rx * 1.7, '255,120,50', .06);
-    const rim = blob(x, y, rx + 7, ry + 5, seed, .1, 11), pool = blob(x, y - 1, rx, ry, seed + 1, .1, 11);
-    shape(ctx, rim, '#2b1520', '#140810', 1.6);
-    stroke(ctx, rim.slice(5, 9).map(([px, py]) => [px, py - 1.6]), 'rgba(255,170,110,.3)', 1.2);
-    shape(ctx, pool, '#f2662f', null);
+  // The two lava pools, and how strongly their light reaches a point.
+  const EMBER_POOLS = [[76, 510, 1], [364, 522, .8]];
+  const emberHeat = (x, y) => Math.min(1, EMBER_POOLS.reduce((m, [px, py, k]) => Math.max(m, k * Math.exp(-((x - px) ** 2 + ((y - py) * 1.3) ** 2) / 26000)), 0) + .12);
+  const EMBER_NEAR = { shade: '#1a1224', top: '#3a3152', mid: '#4a3048', foot: '#9a4a3c', hot: '#e0784a', lid: '#5a5276', lidWarm: '#a0645a' };
+  const EMBER_FORE = { shade: '#0e0812', top: '#1c1526', mid: '#201420', foot: '#40201f', hot: '#7a3426', lid: '#2a2236', lidWarm: '#5a3030' };
+  // A basalt column seen front-on: three faces of a hexagonal prism under its lid. All faces share the one light, the
+  // glow from the floor, so the gradient runs on the scene's heights and warms with nearness to a pool; the face turned
+  // to the glow (toward +1: the right face, -1: the left) gets all of it. Cross-joints break the shaft, and the lid is
+  // thinner the nearer it sits to eye level.
+  function emberColumn(ctx, x, top, w, bottom, o = {}) {
+    const pal = o.pal || EMBER_NEAR, toward = o.toward || 0, tilt = o.tilt || 0, r = rng(o.seed || 7);
+    const h = w * .19 * Math.max(.3, Math.min(1, (top - 60) / 260)), l = x - w / 2, rr = x + w / 2, a = x - w * .25, b = x + w * .25, T = px => top + (px - x) * tilt;
+    const heat = o.heat ?? emberHeat(x, bottom - 20), foot = emberMix(pal.foot, pal.hot, (heat - .45) * 1.6);
+    if (o.occlude !== false) soft(ctx, () => ctx.rect(l - 2, T(x) - h * 1.4, w + 4, bottom - top + h * 2), 'rgba(12,5,16,.5)', 9);
+    const lift = toward > 0 ? [.14, .62, 1] : toward < 0 ? [1, .62, .14] : [.5, 1, .5];
+    const faces = [[[l, T(l)], [a, T(a) + h], [a, bottom], [l, bottom]], [[a, T(a) + h], [b, T(b) + h], [b, bottom], [a, bottom]], [[b, T(b) + h], [rr, T(rr)], [rr, bottom], [b, bottom]]];
+    faces.forEach((f, i) => poly(ctx, f, lin(ctx, 0, 30, 0, 476, [[0, emberMix(pal.shade, pal.top, lift[i])], [.52, emberMix(pal.shade, pal.mid, lift[i])], [1, emberMix(pal.shade, foot, lift[i] * (.5 + heat * .5))]])));
+    ctx.save(); ctx.beginPath(); ctx.rect(l, T(x) - h * 2, w, bottom - T(x) + h * 3); ctx.clip();
+    // Weathering streaks and chipped edges, then the joints: a dark gap and a lip below it catching what light there is.
+    for (let i = 0; i < 4; i++) { const sx = l + 2 + r() * (w - 4), sy = top + h + r() * (bottom - top) * .7; stroke(ctx, [[sx, sy], [sx + (r() - .5) * 2, sy + 16 + r() * 50]], 'rgba(10,4,16,.16)', 1 + r() * 1.8); }
+    for (let i = 0; i < 3; i++) { const side = r() < .5, cy = top + 30 + r() * (bottom - top - 40), ex = side ? l : rr, d = side ? 1 : -1, cw = 2 + r() * 3; poly(ctx, [[ex, cy], [ex + d * cw, cy + 3 + r() * 3], [ex, cy + 8 + r() * 6]], 'rgba(14,6,20,.55)'); }
+    for (let y = top + 22 + r() * 34; y < bottom - 14; y += 30 + r() * 48) {
+      const s = (r() - .5) * 3, j = [[l, y + s], [a, y + h + s * .3], [b, y + h - s * .3], [rr, y - s]];
+      if (o.magmaBelow && y > o.magmaBelow && r() < .6) { magma(ctx, j, .5); continue; }
+      emberLine(ctx, j, 'rgba(12,5,18,.6)', 1.2);
+      const warm = Math.min(1, heat * Math.max(0, (y - 200) / 260));
+      emberLine(ctx, j.map(([px, py]) => [px, py + 1.5]), warm > .2 ? `rgba(255,170,130,${(.06 + warm * .26).toFixed(3)})` : 'rgba(190,180,240,.1)', .9);
+    }
+    // The lit edge: the corner turned toward the glow, and a rim down the outside of the column, both fading upward.
+    const ex = toward > 0 ? b : toward < 0 ? a : null, ox = toward > 0 ? rr - .7 : toward < 0 ? l + .7 : null;
+    const fade = al => lin(ctx, 0, bottom, 0, Math.max(top, bottom - 300), [[0, `rgba(255,176,120,${(al * heat).toFixed(3)})`], [1, 'rgba(255,176,120,0)']]);
+    if (ex !== null) {
+      emberLine(ctx, [[ex, T(ex) + h], [ex, bottom]], fade(.35), 1); emberLine(ctx, [[ox, T(ox)], [ox, bottom]], fade(.75), 1.5);
+      const cx = toward > 0 ? l + .7 : rr - .7;
+      emberLine(ctx, [[cx, T(cx) + 2], [cx, bottom]], lin(ctx, 0, top, 0, bottom, [[0, 'rgba(150,140,230,.22)'], [1, 'rgba(150,140,230,0)']]), 1.2);
+    }
+    ctx.restore();
+    // The lid sees only the cool air above, with a little warmth near the floor.
+    const lid = [[l, T(l)], [a, T(a) - h], [b, T(b) - h], [rr, T(rr)], [b, T(b) + h], [a, T(a) + h]];
+    poly(ctx, lid, lin(ctx, 0, T(x) - h, 0, T(x) + h, [[0, emberMix(pal.shade, pal.lid, .72)], [1, emberMix(pal.lid, pal.lidWarm, heat * Math.max(0, (top - 220) / 240))]]));
+    emberLine(ctx, [[l + .5, T(l)], [a, T(a) + h - .4], [b, T(b) + h - .4], [rr - .5, T(rr)]], 'rgba(222,208,255,.24)', .9);
+    if (o.chip) poly(ctx, [[b + (rr - b) * .1, T(b) - h * 1.1], [rr + 1, T(rr) - 1], [rr + 1, T(rr) + h * 2.6], [rr - w * .16, T(rr) + h * .6]], emberMix(pal.shade, pal.top, .3));
+  }
+  // A column end hanging from the roof, seen from below: its underside takes what glow climbs this high.
+  function emberHang(ctx, x, w, by, glow, pal = EMBER_NEAR, haze = 0) {
+    const h = w * .19 * Math.max(.3, Math.min(1, (190 - by) / 170)), l = x - w / 2, rr = x + w / 2, a = x - w * .25, b = x + w * .25;
+    const fog = c => emberMix(c, '#3a2a4c', haze);
+    soft(ctx, () => ctx.rect(l - 1, -20, w + 2, by + 20), 'rgba(10,4,14,.4)', 6);
+    const faces = [[[l, -14], [a, -14], [a, by - h], [l, by]], [[a, -14], [b, -14], [b, by - h], [a, by - h]], [[b, -14], [rr, -14], [rr, by], [b, by - h]]];
+    [.36, .7, .22].forEach((k, i) => poly(ctx, faces[i], lin(ctx, 0, Math.max(0, by - 90), 0, by, [[0, fog(emberMix(pal.shade, pal.top, k * .7))], [1, fog(emberMix(pal.shade, '#5e3a52', k))]])));
+    for (let y = by - 22 - (x * 3 % 11); y > 4; y -= 30 + (x * 7 % 17)) emberLine(ctx, [[l, y], [a, y - h], [b, y - h], [rr, y]], `rgba(12,5,18,${(.5 - haze * .3).toFixed(3)})`, 1);
+    const under = [[l, by], [a, by - h], [b, by - h], [rr, by], [b, by + h], [a, by + h]];
+    poly(ctx, under, lin(ctx, 0, by - h, 0, by + h, [[0, fog(emberMix('#4a3048', '#b0645a', glow))], [1, fog(emberMix('#55344a', '#d88a68', glow))]]));
+    emberLine(ctx, [[l + .5, by], [a, by + h - .3], [b, by + h - .3], [rr - .5, by]], `rgba(255,200,160,${(.12 + glow * .3).toFixed(3)})`, .8);
+  }
+  // A column of the far hall, flat in the smoke, lit only at its foot.
+  function emberFar(ctx, x, top, w, bottom, c) {
+    const h = w * .19 * Math.max(.3, Math.min(1, (top - 60) / 260)), l = x - w / 2, rr = x + w / 2, a = x - w * .25, b = x + w * .25;
+    poly(ctx, [[l, top], [a, top + h], [b, top + h], [rr, top], [rr, bottom], [l, bottom]], lin(ctx, 0, top, 0, bottom, [[0, c.face], [.62, c.face], [1, c.foot]]));
+    poly(ctx, [[l, top], [a, top + h], [a, bottom], [l, bottom]], c.side);
+    poly(ctx, [[l, top], [a, top - h], [b, top - h], [rr, top], [b, top + h], [a, top + h]], c.lid);
+  }
+  // The lava: a lip of cooled rock with its back wall lit by the melt; the melt white-hot where it wells up, skinned
+  // with dark crust toward its edges, and every crack in the crust glowing.
+  function emberPool(ctx, x, y, rx, ry, seed) {
+    const r = rng(seed), pool = blob(x, y, rx, ry, seed + 1, .09, 14), at = (a, k, dy = 0) => [x + Math.cos(a) * rx * k, y + Math.sin(a) * ry * k + dy];
+    soft(ctx, () => ctx.ellipse(x, y + 1, rx + 12, ry + 7, 0, 0, TAU), 'rgba(16,4,10,.6)', 7);
+    // The hollow it lies in: the far wall lit hot by the melt below it.
+    const hollow = pool.map(([px, py]) => [x + (px - x) * 1.07, y + (py - y) * 1.3 - 3]);
+    shape(ctx, hollow, lin(ctx, 0, y - ry * 1.3 - 3, 0, y, [[0, '#ffa058'], [.45, '#b04428'], [1, '#5a1c1c']]), null);
+    shape(ctx, pool, rad(ctx, x - rx * .1, y, rx * 1.02, [[0, '#fff4c8'], [.2, '#ffd56c'], [.48, '#ff9a38'], [.8, '#ee5c22'], [1, '#c43a1a']]), null);
     clipTo(ctx, pool, () => {
-      shape(ctx, pool.map(([px, py]) => [x + (px - x) * .78 - rx * .08, y + (py - y) * .6 - ry * .2]), '#ff9a3c', null);
-      const r = rng(seed + 2);
+      // The melt cools and darkens toward its edge, and floes of crust drift on it, each rimmed with light.
+      ctx.beginPath(); smooth(ctx, pool, true); ctx.lineWidth = ry * .8; ctx.strokeStyle = 'rgba(120,28,16,.5)'; ctx.stroke();
       for (let i = 0; i < 5; i++) {
-        const cx = x - rx * .7 + r() * rx * 1.4, cy = y - ry * .5 + r() * ry, crust = blob(cx, cy, 4 + r() * 7, 2 + r() * 2.4, seed + 10 + i, .25, 7);
-        shape(ctx, crust, '#8f2f22', '#5a1912', 1); stroke(ctx, crust.slice(4, 7), 'rgba(255,190,120,.5)', .8);
+        const a = r() * TAU, len = .2 + r() * .45, k = .52 + r() * .36, thick = .08 + r() * .1, floe = [];
+        for (let t = 0; t <= 4; t++) floe.push(at(a + len * t / 4, k + thick * Math.sin(t / 4 * Math.PI) * (.6 + r() * .6)));
+        for (let t = 4; t >= 0; t--) floe.push(at(a + len * t / 4, k - thick * Math.sin(t / 4 * Math.PI) * (.6 + r() * .6)));
+        soft(ctx, () => smooth(ctx, floe, true), 'rgba(255,220,130,.75)', 2.2);
+        shape(ctx, floe, i % 2 ? '#5a1c14' : '#6e2418', null);
+        stroke(ctx, floe.slice(0, 5), 'rgba(255,150,80,.4)', .7);
       }
-      for (let i = 0; i < 3; i++) { const bx = x - rx * .5 + r() * rx, by = y - ry * .3 + r() * ry * .6; ctx.beginPath(); ctx.ellipse(bx, by, 2.6, 1.3, 0, 0, TAU); ctx.strokeStyle = '#ffe2a0'; ctx.lineWidth = .9; ctx.stroke(); }
+      for (let i = 0; i < 3; i++) { const bx = x - rx * .3 + r() * rx * .5, by = y - ry * .25 + r() * ry * .4; ctx.beginPath(); ctx.ellipse(bx, by, 2 + r() * 2.4, .9 + r() * .6, 0, 0, TAU); ctx.strokeStyle = 'rgba(255,250,224,.85)'; ctx.lineWidth = .7; ctx.stroke(); }
     });
-    shape(ctx, pool, null, '#7a2216', 1.4);
-    stroke(ctx, pool.slice(6, 9).map(([px, py]) => [px, py + 1.4]), '#ffd38a', 1.2);
+    // The near rim of the hollow overlaps the melt; its edge catches the glow.
+    const outer = [], inner = [];
+    for (let a = .05; a <= Math.PI - .05 + 1e-6; a += (Math.PI - .1) / 10) { outer.push(at(a, 1.14, 4)); inner.unshift(at(a, .98, -1.4 - Math.sin(a) * 1.5)); }
+    const rimPts = outer.concat(inner);
+    shape(ctx, rimPts, lin(ctx, 0, y, 0, y + ry + 6, [[0, '#4a2228'], [1, '#22101a']]), null);
+    stroke(ctx, inner.slice(1, -1), 'rgba(255,176,110,.7)', 1.1);
+    bloom(ctx, x - rx * .1, y, rx * .8, '255,236,170', .3);
   }
-  function obsidian(ctx, x, y, w, h, tilt) {
-    crystal(ctx, x, y, w, h, tilt, ['#6b5a86', '#2e2240', '#1d1529', '#0e0816']);
+  // Embers riding the heat up a wall: a curving drift from the source, thinning and cooling as they climb.
+  function emberDrift(ctx, p0, p1, p2, n, seed, spread) {
+    const r = rng(seed);
+    for (let i = 0; i < n; i++) {
+      const t = Math.pow(r(), 1.35), [px, py] = bezierAt(p0, p1, p2, t), x = px + (r() - .5) * spread * (.4 + t), y = py + (r() - .5) * 16;
+      const s = (1.5 - t * .7) * (.6 + r() * .8), a = (1 - t * .65) * (.7 + r() * .3);
+      ctx.fillStyle = rad(ctx, x, y, s * 4.5, [[0, `rgba(255,120,40,${(a * .35).toFixed(3)})`], [1, 'rgba(255,120,40,0)']]); ctx.fillRect(x - s * 5, y - s * 5, s * 10, s * 10);
+      dot(ctx, x, y, s * .75, `rgba(255,${Math.round(200 + 40 * (1 - t))},${Math.round(120 + 60 * (1 - t))},${a.toFixed(3)})`);
+    }
   }
-  // A fire salamander basking on a warm column top, tail hanging over the edge.
-  function salamander(ctx, x, y, s, flip) {
+  // Obsidian: glassy black blades, cool violet on the facet facing up, the lava reflected along the foot.
+  function emberShard(ctx, x, y, w, h, tilt) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(tilt);
+    soft(ctx, () => ctx.ellipse(0, 0, w * 1.3, 2.2, 0, 0, TAU), 'rgba(10,2,8,.6)', 2);
+    const blade = [[-w, 0], [-w * .8, -h * .62], [0, -h], [w * .9, -h * .58], [w, 0]];
+    poly(ctx, blade, '#120a18');
+    poly(ctx, [[-w, 0], [-w * .8, -h * .62], [0, -h], [w * .1, 0]], lin(ctx, 0, -h, 0, 0, [[0, '#5a5080'], [.5, '#2a2040'], [1, '#a8482c']]));
+    emberLine(ctx, [[-w * .78, -h * .58], [0, -h + .8]], 'rgba(226,216,255,.6)', .8);
+    emberLine(ctx, [[w * .92, -h * .08], [w * .82, -h * .5]], 'rgba(255,160,100,.55)', .8);
+    ctx.restore();
+  }
+  // Glowing bracket fungus on a column face: fans of warm flesh brightest at the rim, gills beneath, a glow on the stone.
+  function emberBracket(ctx, x, y, w, flip) {
+    ctx.save(); ctx.translate(x, y); ctx.scale(flip ? -1 : 1, 1);
+    bloom(ctx, w * .5, w * .1, w * 2, '255,140,70', .22);
+    soft(ctx, () => ctx.ellipse(w * .4, w * .36, w * .5, w * .12, 0, 0, TAU), 'rgba(16,6,14,.4)', 2);
+    ctx.beginPath(); ctx.moveTo(0, w * .02); ctx.quadraticCurveTo(w * .55, w * .34, w * .98, w * .04); ctx.quadraticCurveTo(w * .5, w * .16, 0, -w * .06); ctx.closePath();
+    ctx.fillStyle = '#8a3422'; ctx.fill();
+    for (let k = 1; k < 6; k++) emberLine(ctx, [[0, 0], [w * k / 6, w * (.06 + .2 * Math.sin(k / 6 * Math.PI))]], 'rgba(255,170,110,.35)', .5);
+    ctx.beginPath(); ctx.moveTo(0, -w * .3); ctx.bezierCurveTo(w * .46, -w * .56, w * 1.04, -w * .32, w, w * .02); ctx.quadraticCurveTo(w * .5, -w * .02, 0, -w * .04); ctx.closePath();
+    ctx.fillStyle = lin(ctx, 0, 0, w, 0, [[0, '#5a2420'], [.5, '#c45e36'], [.88, '#ffb070'], [1, '#ffe2a8']]); ctx.fill();
+    for (const k of [.4, .7]) { ctx.beginPath(); ctx.ellipse(0, -w * .02, w * k, w * k * .44, -.08, -1.25, .05); ctx.strokeStyle = 'rgba(100,30,20,.32)'; ctx.lineWidth = .6; ctx.stroke(); }
+    ctx.restore();
+  }
+  // The fire salamander, basking on a column top above the right-hand pool, its belly lit from below.
+  function emberSalamander(ctx, x, y, s, flip) {
     ctx.save(); ctx.translate(x, y); ctx.scale(flip ? -s : s, s);
-    const ink = '#6a1c14', skin = '#ee6a3e', belly = '#f9a66b', spot = '#ffd166';
-    stroke(ctx, [[14, -3], [22, -2], [26, 4], [24, 12], [19, 14]], ink, 6.4);
-    stroke(ctx, [[14, -3], [22, -2], [26, 4], [24, 12], [19, 14]], skin, 4.2);
-    for (const [lx, ly, a] of [[-8, 0, -.5], [8, 0, .5]]) { ctx.save(); ctx.translate(lx, ly); ctx.rotate(a); ctx.beginPath(); ctx.ellipse(0, 1.6, 2, 3.4, 0, 0, TAU); ctx.fillStyle = skin; ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = 1; ctx.stroke(); ctx.restore(); }
+    const line = '#7a2618', skin = lin(ctx, 0, -12, 0, 2, [[0, '#c8462a'], [.6, '#e86438'], [1, '#ffa45e']]), spot = '#ffd36a';
+    soft(ctx, () => ctx.ellipse(2, 1.5, 22, 2.4, 0, 0, TAU), 'rgba(12,4,10,.55)', 2);
+    const tail = [[14, -3], [22, -2], [26, 4], [24, 12], [19, 15]];
+    stroke(ctx, tail, line, 6); stroke(ctx, tail, '#d4502e', 4); stroke(ctx, tail.map(([px, py]) => [px + .8, py + .4]), 'rgba(255,170,100,.55)', 1.2);
+    for (const [lx, ly, a] of [[-8, 0, -.5], [8, 0, .5]]) { ctx.save(); ctx.translate(lx, ly); ctx.rotate(a); ctx.beginPath(); ctx.ellipse(0, 1.6, 2, 3.4, 0, 0, TAU); ctx.fillStyle = '#b8402a'; ctx.fill(); ctx.restore(); }
     const body = [[-14, -2], [-8, -7.6], [4, -8], [15, -5], [16, -1], [4, .6], [-8, .6]];
-    shape(ctx, body, skin, null); cel(ctx, body, '#d9542d', -1, 2.2); shape(ctx, body, null, ink, 1.3);
-    stroke(ctx, [[-8, -.6], [4, -.4], [13, -1.6]], belly, 1.2);
+    shape(ctx, body, skin, line, 1.1);
+    stroke(ctx, [[-8, -.2], [4, 0], [13, -1.2]], 'rgba(255,214,150,.8)', 1.1);
     for (const [sx, sy, sr] of [[-4, -5, 1.6], [3, -6, 1.3], [9, -4.4, 1.2], [21, 0, 1], [24.4, 7, 1]]) dot(ctx, sx, sy, sr, spot);
     const head = [[-24, -3], [-22.4, -9.6], [-15, -12], [-9, -8.6], [-8, -2], [-15, .8], [-21.6, .6]];
-    shape(ctx, head, skin, null); cel(ctx, head, '#d9542d', 1, 2); shape(ctx, head, null, ink, 1.3);
+    shape(ctx, head, skin, line, 1.1);
+    stroke(ctx, [[-22, -.6], [-15, .2], [-9.5, -1.6]], 'rgba(255,214,150,.75)', 1);
     dot(ctx, -13, -10.4, 1.3, spot);
     dot(ctx, -18.4, -6.4, 2.2, '#2a0d0a'); dot(ctx, -19.1, -7.2, .8, '#ffffff');
-    ctx.beginPath(); ctx.moveTo(-23, -2.2); ctx.quadraticCurveTo(-19, .2, -15.4, -2.6); ctx.strokeStyle = '#2a0d0a'; ctx.lineWidth = .9; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-23, -2.2); ctx.quadraticCurveTo(-19, .2, -15.4, -2.6); ctx.strokeStyle = '#5a160e'; ctx.lineWidth = .9; ctx.stroke();
     dot(ctx, -14.6, -4.4, 1.5, 'rgba(255,200,170,.6)');
-    for (const [lx, a] of [[-11, -.3], [6, .4]]) { ctx.save(); ctx.translate(lx, 0); ctx.rotate(a); ctx.beginPath(); ctx.ellipse(0, 1.8, 2.2, 3.6, 0, 0, TAU); ctx.fillStyle = skin; ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = 1; ctx.stroke(); for (const t of [-1.4, 0, 1.4]) dot(ctx, t, 5.2, .7, ink); ctx.restore(); }
+    for (const [lx, a] of [[-11, -.3], [6, .4]]) { ctx.save(); ctx.translate(lx, 0); ctx.rotate(a); ctx.beginPath(); ctx.ellipse(0, 1.8, 2.2, 3.6, 0, 0, TAU); ctx.fillStyle = '#e86438'; ctx.fill(); ctx.strokeStyle = line; ctx.lineWidth = .9; ctx.stroke(); for (const t of [-1.4, 0, 1.4]) dot(ctx, t, 5.2, .7, line); ctx.restore(); }
     ctx.restore();
   }
-  function paintEmber(ctx, framed) {
-    const back = ctx.createLinearGradient(0, 0, 0, 560);
-    back.addColorStop(0, '#2f1a29'); back.addColorStop(.55, '#3a2030'); back.addColorStop(1, '#452431');
-    ctx.fillStyle = back; ctx.fillRect(0, 0, 420, 560);
-    // Far back: a hall of columns, dim and warm, shorter toward the middle.
-    const far = ['#45293a', '#3f2535', '#392131', '#33202d', '#2a1824'];
-    ctx.save();
-    for (const [x, top, w] of [[22, 112, 32], [56, 150, 26], [80, 204, 22], [112, 270, 30], [140, 318, 20], [176, 356, 26], [204, 372, 18], [228, 350, 24], [262, 334, 20], [292, 276, 30], [322, 236, 22], [344, 188, 26], [376, 150, 32], [406, 98, 28]]) { ctx.globalAlpha = .3 + Math.min(1, Math.abs(x - 210) / 170) * .3; hexColumn(ctx, x, top, w, 470, far, x); }
-    ctx.restore();
-    const heat = ctx.createLinearGradient(0, 300, 0, 470);
-    heat.addColorStop(0, 'rgba(255,120,60,0)'); heat.addColorStop(1, 'rgba(255,120,60,.10)');
-    ctx.fillStyle = heat; ctx.fillRect(0, 300, 420, 170);
-    // The roof: basalt, column ends hanging down like organ pipes, magma glowing in the joints.
-    const roof = [[-10, -10], [430, -10], [430, 36], [380, 44], [320, 34], [250, 46], [190, 36], [130, 46], [70, 34], [-10, 44]];
-    caveWall(ctx, roof, '#2a1622', '#22111b', '#140810');
-    for (const [x, w, len] of [[48, 24, 40], [72, 20, 26], [104, 18, 16], [150, 16, 10], [282, 16, 12], [318, 20, 22], [348, 22, 36], [374, 18, 20]]) {
-      const top = edgeAt(roof.slice(2).reverse(), x) - 6, bottom = top + len, h = w * .2;
-      poly(ctx, [[x - w / 2, top], [x - w * .22, top], [x - w * .22, bottom + h], [x - w / 2, bottom]], '#3a2231', null);
-      poly(ctx, [[x - w * .22, top], [x + w * .22, top], [x + w * .22, bottom + h], [x - w * .22, bottom + h]], '#2f1a28', null);
-      poly(ctx, [[x + w * .22, top], [x + w / 2, top], [x + w / 2, bottom], [x + w * .22, bottom + h]], '#241320', null);
-      poly(ctx, [[x - w / 2, top], [x - w / 2, bottom], [x - w * .22, bottom + h], [x + w * .22, bottom + h], [x + w / 2, bottom], [x + w / 2, top]], null, '#140810', 1.4);
-      stroke(ctx, [[x - w * .22, top + 2], [x - w * .22, bottom + h - 1]], '#140810', .9); stroke(ctx, [[x + w * .22, top + 2], [x + w * .22, bottom + h - 1]], '#140810', .9);
-    }
-    magma(ctx, [[20, 18], [44, 26], [60, 22], [86, 30]], .8);
-    magma(ctx, [[300, 22], [330, 28], [348, 20], [372, 26], [400, 18]], .8);
-    magma(ctx, [[196, 10], [214, 16], [232, 12]], .6);
-    // The side walls: steps of columns, the near ones overlapping the far, magma in the cracks between.
-    const backWall = [[-10, 40], [40, 46], [52, 120], [44, 200], [60, 260], [-10, 270]];
-    caveWall(ctx, backWall, '#2a1622', '#22111b', '#140810');
-    caveWall(ctx, [[430, 40], [384, 48], [372, 110], [384, 180], [366, 250], [430, 260]], '#2a1622', '#22111b', '#140810');
-    magma(ctx, crackPath(44, 120, -2, 16, 6, 3, 6), .9);
-    magma(ctx, crackPath(380, 112, 1, 18, 5, 4, 6), .9);
-    for (const [x, top, w, sd] of [[8, 74, 30, 1], [36, 148, 26, 2], [412, 96, 30, 3], [388, 176, 26, 4]]) hexColumn(ctx, x, top, w, 470, BASALT, sd);
-    magma(ctx, [[22, 150], [23, 200], [21, 260], [23, 330]], .7);
-    magma(ctx, [[400, 178], [401, 240], [399, 300]], .7);
-    for (const [x, top, w, sd] of [[18, 252, 32, 5], [48, 318, 24, 6], [22, 388, 30, 7], [404, 270, 30, 8], [374, 346, 24, 9], [400, 404, 30, 10]]) hexColumn(ctx, x, top, w, 470, BASALT, sd);
-    salamander(ctx, 370, 342, 1.12, false);
-    // Ember brackets: shelf fungus that has learned to glow, stepping up the left columns.
-    for (const [x, y, w] of [[60, 370, 12], [59, 356, 17], [60, 341, 11], [37, 438, 14], [37, 425, 9]]) {
-      dot(ctx, x + w * .3, y, w * 1.4, 'rgba(255,140,60,.10)');
-      ctx.beginPath(); ctx.moveTo(x - 1, y - w * .34); ctx.bezierCurveTo(x + w * .5, y - w * .62, x + w * 1.08, y - w * .3, x + w, y + w * .04); ctx.quadraticCurveTo(x + w * .5, y + w * .26, x - 1, y + w * .2); ctx.closePath();
-      ctx.fillStyle = '#e8743a'; ctx.fill(); ctx.strokeStyle = '#5a1a12'; ctx.lineWidth = 1.1; ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(x + w * .15, y + w * .1); ctx.quadraticCurveTo(x + w * .55, y + w * .2, x + w * .92, y + .4); ctx.strokeStyle = '#ffd38a'; ctx.lineWidth = 1.1; ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(x + w * .1, y - w * .14); ctx.quadraticCurveTo(x + w * .45, y - w * .4, x + w * .8, y - w * .08); ctx.strokeStyle = 'rgba(255,220,170,.55)'; ctx.lineWidth = .8; ctx.stroke();
-    }
-    // Little crusts of glowing lichen on the column faces.
-    for (const [x, y] of [[30, 290], [12, 420], [394, 320], [410, 450], [52, 366]]) { dot(ctx, x, y, 3.4, 'rgba(255,140,60,.18)'); dot(ctx, x, y, 1.4, '#ff9a48'); dot(ctx, x + 2.4, y + 1.2, .9, '#ffc070'); }
-    // Floor: the tops of short columns make a worn hexagon pavement.
-    band(ctx, ridge(456, 2, 77, 40), 560, '#2d1824', '#140810', 1.8);
-    clipTo(ctx, [[-10, 458], [430, 458], [430, 600], [-10, 600]], () => {
-      const r = rng(707);
-      for (let row = 0; row < 6; row++) {
-        const y = 466 + row * 17, w = 36 + row * 4, h = 8 + row * 1.4;
-        for (let col = -1; col < 14; col++) {
-          const x = col * w * .78 + (row % 2) * w * .39 - 8, tone = r();
-          const hex = [[x - w / 2, y], [x - w / 4, y - h], [x + w / 4, y - h], [x + w / 2, y], [x + w / 4, y + h], [x - w / 4, y + h]];
-          poly(ctx, hex, tone < .33 ? '#3a2130' : tone < .66 ? '#361f2c' : '#331c29', 'rgba(20,8,16,.75)', 1.2);
-          stroke(ctx, [[x - w / 2 + 2, y - .5], [x - w / 4 + 1, y - h + 1.4], [x + w / 4 - 2, y - h + 1.4]], 'rgba(255,200,180,.08)', 1);
-        }
+  // The floor: the worn tops of short columns, a causeway in perspective, dark except where a pool lights it; the
+  // gaps run with magma only right beside the lava.
+  function emberFloor(ctx) {
+    band(ctx, ridge(452, 1.6, 77, 40), 560, lin(ctx, 0, 450, 0, 560, [[0, '#2e1c2c'], [1, '#12080e']]), null);
+    const r = rng(707), near = (x, y) => EMBER_POOLS.reduce((m, [px, py, k]) => Math.max(m, k * Math.exp(-((x - px) ** 2 + ((y - py) * 1.6) ** 2) / 7000)), 0);
+    let y = 458, h = 3.6;
+    for (let row = 0; y < 590; row++) {
+      const w = h * 4, step = w * .76;
+      for (let k = -1; k * step < 440; k++) {
+        if (r() < .05) continue;
+        const z = r() < .14 ? -h * (.8 + r() * .8) : (r() - .5) * h * .5, x = k * step + (row % 2) * step * .5 - 6, yy = y + (k % 2 ? h * .55 : 0) + z, heat = near(x, yy);
+        const top = [[x - w / 2, yy], [x - w / 4, yy - h], [x + w / 4, yy - h], [x + w / 2, yy], [x + w / 4, yy + h], [x - w / 4, yy + h]];
+        const lidC = emberMix(emberMix('#2c2034', '#36283e', r()), '#c06a3c', heat * 1.05);
+        poly(ctx, [[x - w / 2, yy], [x - w / 4, yy + h], [x + w / 4, yy + h], [x + w / 2, yy], [x + w / 2, yy + h * 1.7 - z], [x - w / 2, yy + h * 1.7 - z]], emberMix('#140a12', '#62281e', heat));
+        poly(ctx, top.map(([px, py]) => [x + (px - x) * .94, yy + (py - yy) * .9]), lin(ctx, 0, yy - h, 0, yy + h, [[0, emberMix(lidC, '#24182c', .3)], [1, lidC]]));
+        emberLine(ctx, [[x - w * .44, yy - .2], [x - w * .23, yy - h * .82], [x + w * .2, yy - h * .82]], `rgba(214,196,250,${(.05 + (1 - heat) * .04).toFixed(3)})`, .7);
+        if (heat > .5 && r() < (heat - .35) * .8) magma(ctx, [[x - w / 2, yy + h * .1], [x - w / 4, yy + h * 1.05], [x + w / 4, yy + h * 1.05], [x + w / 2, yy + h * .1]].slice(r() < .5 ? 0 : 1, 3 + (r() < .5)), .3 + heat * .2);
       }
-    });
-    // Lava pools in the corners, with glassy obsidian and embers rising off them.
-    lavaPool(ctx, 60, 524, 44, 12, 21); lavaPool(ctx, 366, 532, 38, 11, 31);
-    for (const [x, y, w, h, t] of [[18, 500, 9, 30, -.25], [30, 506, 7, 18, .3], [112, 540, 6, 14, .4], [404, 506, 9, 28, .25], [392, 512, 6, 15, -.35], [318, 548, 6, 12, -.3]]) obsidian(ctx, x, y, w, h, t);
-    const re = rng(919);
-    for (let i = 0; i < 46; i++) {
-      const left = i % 2 === 0, x = left ? 10 + re() * 70 : 340 + re() * 70, y = 70 + Math.pow(re(), .7) * 440;
-      ember(ctx, x, y, .7 + re() * .8, re() < .2);
+      y += h * 1.9; h *= 1.21;
     }
-    for (const [x, y] of [[96, 498], [72, 470], [50, 446], [340, 500], [356, 470], [384, 440], [120, 490], [308, 486]]) ember(ctx, x, y, 1, false);
+    // The far floor sinks into the haze in the middle of the hall; at the walls it meets the columns in shadow.
+    ctx.save(); ctx.translate(210, 452); ctx.scale(1, .2);
+    ctx.fillStyle = rad(ctx, 0, 0, 220, [[0, 'rgba(110,56,74,.8)'], [.6, 'rgba(100,50,70,.4)'], [1, 'rgba(100,50,70,0)']]); ctx.fillRect(-220, -220, 440, 440);
+    ctx.restore();
+    for (const [x, w] of [[30, 90], [390, 90]]) soft(ctx, () => ctx.ellipse(x, 456, w, 7, 0, 0, TAU), 'rgba(16,6,14,.55)', 8);
+  }
+  // The roof: a vault of basalt whose column ends hang down, short over the middle, long at the walls.
+  function emberRoof(ctx) {
+    wash(ctx, lin(ctx, 0, -10, 0, 70, [[0, '#120c1e'], [1, 'rgba(18,12,30,0)']]), null, 1, -10, -10, 440, 80);
+    const r = rng(303);
+    for (const [x0, n, extra] of [[-6, 4, 40], [58, 3, 14], [104, 5, 8], [176, 3, 0], [226, 4, 4], [292, 3, 12], [340, 5, 30]]) {
+      let x = x0;
+      for (let i = 0; i < n; i++) {
+        const w = 13 + r() * 10, d = Math.abs(x - 210) / 210, by = 14 + Math.pow(d, 2.2) * 120 + Math.sin(i / Math.max(1, n - 1) * Math.PI) * extra + r() * 8;
+        emberHang(ctx, x, w, by, .14 + d * .26, EMBER_NEAR, .55);
+        x += w * .84;
+      }
+    }
+    air(ctx, -10, 200, '40,30,62', .2, 0);
+    for (const [x, w, by, g] of [[-6, 36, 176, .42], [24, 30, 132, .4], [50, 24, 96, .36], [72, 20, 70, .3], [92, 18, 50, .26], [120, 16, 34, .2], [304, 16, 40, .22], [328, 20, 58, .28], [352, 24, 84, .34], [380, 30, 122, .4], [410, 36, 160, .44]]) emberHang(ctx, x, w, by, g);
+  }
+  // A long layer of smoke lying in the hall: a soft wavy band, thicker in the middle, its edges lost.
+  function emberSmoke(ctx, y, x0, x1, thick, color, seed, blur = 12) {
+    const top = ridge(y, thick * .4, seed, 36, x0, x1), under = ridge(y + thick, thick * .3, seed + 1, 44, x0, x1).reverse();
+    const pts = top.map(([x, yy]) => [x, yy + (1 - Math.sin(Math.PI * (x - x0) / (x1 - x0))) * thick * .5]).concat(under.map(([x, yy]) => [x, yy - (1 - Math.sin(Math.PI * Math.max(0, Math.min(1, (x - x0) / (x1 - x0))))) * thick * .5]));
+    soft(ctx, () => smooth(ctx, pts, true), color, blur);
+  }
+  function paintEmber(ctx, framed) {
+    // The hollow: cool violet up in the dark, warming through mauve to a smoky rose where the lava light reaches.
+    wash(ctx, lin(ctx, 0, 0, 0, 470, [[0, '#1c1832'], [.28, '#2a2042'], [.6, '#462a48'], [.84, '#633544'], [1, '#7c4240']]));
+    bloom(ctx, 210, 474, 330, '255,128,80', .26);
+    // The far hall: columns standing back into the smoke, stepping down toward the middle.
+    const farA = { face: '#3a2a48', side: '#33243f', lid: '#4a3c5e', foot: '#6a3a48' };
+    for (const [x, top, w] of [[6, 70, 30], [34, 112, 24], [58, 150, 28], [84, 200, 20], [104, 228, 26], [128, 270, 18], [150, 300, 24], [176, 334, 20], [196, 352, 16], [216, 344, 22], [240, 330, 18], [262, 306, 26], [286, 268, 20], [306, 236, 24], [330, 190, 30], [356, 150, 22], [380, 118, 26], [408, 86, 30]]) emberFar(ctx, x, top, w, 470, farA);
+    air(ctx, 20, 470, '118,62,86', 0, .62);
+    // Smoke hanging in the hall, holding the glow.
+    for (const [y, x0, x1, th, c, sd] of [[118, 60, 300, 12, 'rgba(118,100,168,.14)', 1], [150, 150, 430, 16, 'rgba(118,100,168,.12)', 2], [214, -20, 250, 18, 'rgba(150,104,160,.13)', 3], [262, 170, 440, 22, 'rgba(170,100,130,.14)', 4], [330, -20, 300, 24, 'rgba(196,110,120,.14)', 5], [396, 100, 440, 26, 'rgba(214,120,110,.16)', 6]]) emberSmoke(ctx, y, x0, x1, th, c, sd);
+    // The middle distance: shorter columns closing in from both sides.
+    const farB = { face: '#3d2944', side: '#312136', lid: '#524266', foot: '#7c403e' };
+    for (const [x, top, w] of [[74, 236, 30], [100, 302, 26], [124, 358, 30], [148, 404, 22], [280, 394, 24], [302, 348, 30], [328, 290, 26], [350, 242, 32]]) emberFar(ctx, x, top, w, 472, farB);
+    air(ctx, 200, 470, '124,62,78', .1, .42);
+    bloom(ctx, 210, 466, 200, '255,150,96', .18);
+    emberRoof(ctx);
+    // The walls: tall columns into the roof, then steps coming down toward the middle, each warmer than the last.
+    for (const [x, top, w, sd] of [[-4, -40, 34, 11], [22, 120, 30, 1], [48, 232, 32, 2], [76, 326, 28, 3], [98, 410, 24, 4]]) emberColumn(ctx, x, top, w, 472, { toward: 1, seed: sd, magmaBelow: 360, chip: sd === 2 });
+    for (const [x, top, w, sd, t] of [[426, -40, 36, 12, 0], [398, 92, 32, 5, 0], [372, 210, 30, 6, -.03], [348, 318, 30, 7, 0], [324, 420, 22, 8, .05]]) emberColumn(ctx, x, top, w, 472, { toward: -1, seed: sd, tilt: t, magmaBelow: 380, chip: sd === 6 });
+    // A crack in the left wall bleeds a thread of lava down into the pool.
+    const fall = [[29, 412], [30, 436], [28, 458], [31, 480], [38, 498]];
+    bloom(ctx, 30, 460, 54, '255,120,50', .32);
+    for (const [w, c] of [[9, 'rgba(255,110,50,.16)'], [4.4, '#c8481c'], [2.8, '#ff9338'], [1.1, '#ffe8a8']]) stroke(ctx, fall, c, w);
+    magma(ctx, [[17, 416], [24, 411], [30, 412], [36, 409]], .75);
+    // Bracket fungi on the left wall, the salamander basking on the right.
+    for (const [x, y, w] of [[34, 352, 13], [34, 338, 9], [62, 404, 11]]) emberBracket(ctx, x, y, w, false);
+    emberSalamander(ctx, 350, 318, 1.05, false);
+    // The floor, the launch stone and the lava pools.
+    emberFloor(ctx);
+    soft(ctx, () => ctx.ellipse(210, 520, 80, 22, 0, 0, TAU), 'rgba(14,4,12,.6)', 10);
+    const dais = [[148, 504], [180, 484], [240, 484], [272, 504], [240, 524], [180, 524]];
+    poly(ctx, [[148, 504], [180, 524], [240, 524], [272, 504], [272, 520], [240, 542], [180, 542], [148, 520]], lin(ctx, 148, 0, 272, 0, [[0, '#6a3028'], [.35, '#3a1a24'], [.7, '#3a1a24'], [1, '#5a2a26']]));
+    wash(ctx, lin(ctx, 0, 506, 0, 542, [[0, 'rgba(14,4,10,0)'], [1, 'rgba(14,4,10,.6)']]), null, 1, 148, 506, 124, 36);
+    poly(ctx, dais, lin(ctx, 148, 0, 272, 0, [[0, '#7a4a48'], [.3, '#4e3446'], [.7, '#4e3446'], [1, '#6a4246']]));
+    clipTo(ctx, dais, () => {
+      soft(ctx, () => ctx.ellipse(210, 490, 56, 9, 0, 0, TAU), 'rgba(160,150,214,.16)', 8);
+    });
+    emberLine(ctx, [[149, 504], [180, 523.4], [240, 523.4], [271, 504]], 'rgba(255,186,150,.38)', 1);
+    emberLine(ctx, [[149, 503.6], [180, 484.6], [240, 484.6], [271, 503.6]], 'rgba(220,206,255,.16)', .9);
+    for (const [x, y, rx, ry, sd] of [[EMBER_POOLS[0][0], EMBER_POOLS[0][1], 60, 15, 21], [EMBER_POOLS[1][0], EMBER_POOLS[1][1], 40, 10, 31]]) {
+      bloom(ctx, x, y - 8, rx * 2.4, '255,112,44', .34);
+      emberPool(ctx, x, y, rx, ry, sd);
+    }
+    for (const [x, y, w, h, t] of [[132, 530, 4.6, 12, .3], [142, 534, 3.4, 8, -.2], [318, 550, 4.4, 10, -.3], [404, 520, 6, 20, .22], [394, 526, 4.2, 12, -.32], [10, 566, 12, 44, .12], [30, 566, 8, 26, .42], [-4, 560, 9, 30, -.2]]) emberShard(ctx, x, y, w, h, t);
+    // The lava's light rising up the walls, and embers riding it.
+    for (const [x, a, len, al] of [[66, -1.5, 330, .08], [96, -1.68, 240, .05], [372, -1.66, 300, .06]]) shaft(ctx, x, 516, a, len, 20, 46, '255,140,80', al);
+    emberDrift(ctx, [66, 510], [20, 380], [44, 140], 30, 11, 36);
+    emberDrift(ctx, [372, 524], [410, 400], [386, 200], 22, 12, 30);
+    emberDrift(ctx, [104, 520], [136, 476], [116, 440], 6, 13, 26);
+    // Foreground: a broken stump in the lower right corner, almost in silhouette.
+    emberColumn(ctx, 408, 478, 58, 600, { pal: EMBER_FORE, toward: -1, seed: 9, tilt: .1, heat: .8 });
+    grade(ctx, 'rgba(110,104,200,.5)', 'rgba(255,140,80,.45)', 'rgba(24,8,26,.6)');
+    grain(ctx, .08);
     if (framed) frame(ctx, '#a5503a', '#ffb27a');
   }
 
   // ---------- Level 8: Geode Mine ----------
-  const WOOD = ['#c99463', '#a8754a', '#875a37', '#4a2a1a'];
-  // A squared timber: lit top edge, shaded underside, grain, a knot and the odd nail.
-  function timber(ctx, pts, seed, vertical) {
-    const [light, base, shade, ink] = WOOD;
-    poly(ctx, pts, base, null);
-    clipTo(ctx, pts, () => {
-      const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]), x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys), r = rng(seed);
-      if (vertical) { ctx.fillStyle = shade; ctx.fillRect(x1 - (x1 - x0) * .32, y0 - 40, 60, y1 - y0 + 80); ctx.fillStyle = light; ctx.fillRect(x0, y0 - 40, (x1 - x0) * .2, y1 - y0 + 80); }
-      else { ctx.fillStyle = shade; ctx.fillRect(x0 - 40, y1 - (y1 - y0) * .34, x1 - x0 + 80, 60); ctx.fillStyle = light; ctx.fillRect(x0 - 40, y0, x1 - x0 + 80, (y1 - y0) * .2); }
-      for (let i = 0; i < 4; i++) {
-        if (vertical) { const x = x0 + 4 + r() * (x1 - x0 - 8), ya = y0 + r() * (y1 - y0) * .5; stroke(ctx, [[x, ya], [x + (r() - .5) * 3, ya + 40 + r() * 60], [x + (r() - .5) * 2, ya + 90 + r() * 80]], 'rgba(74,42,26,.4)', 1); }
-        else { const y = y0 + 4 + r() * (y1 - y0 - 8), xa = x0 + r() * (x1 - x0) * .6; stroke(ctx, [[xa, y], [xa + 50 + r() * 50, y + (r() - .5) * 3], [xa + 110 + r() * 80, y + (r() - .5) * 2]], 'rgba(74,42,26,.4)', 1); }
-      }
-      const kx = x0 + (x1 - x0) * (.3 + r() * .4), ky = y0 + (y1 - y0) * (.3 + r() * .4);
-      ctx.beginPath(); ctx.ellipse(kx, ky, vertical ? 3 : 5, vertical ? 5 : 3, 0, 0, TAU); ctx.strokeStyle = 'rgba(74,42,26,.55)'; ctx.lineWidth = 1.1; ctx.stroke();
-      dot(ctx, kx, ky, 1.2, 'rgba(74,42,26,.55)');
-    });
-    poly(ctx, pts, null, ink, 1.7);
+  // An old drift running back into the hill on sets of timber. Two lanterns hung at its mouth are the light: warm on
+  // the near timbers and the floor, falling away down the tunnel into violet dark, where geodes in the walls glow cool
+  // from within. The minecart and its mouse wait on the cross-track; a cobweb fills the corner nobody sweeps.
+  // (The colour helpers emberMix and emberLine come from the Ember Hollows section above.)
+  const GEODE_VP = [222, 298];
+  const geodeAt = (x, y, k) => [GEODE_VP[0] + (x - GEODE_VP[0]) * k, GEODE_VP[1] + (y - GEODE_VP[1]) * k];
+  const GEODE_LAMPS = [[58, 132], [362, 116]];
+  const geodeLamp = (x, y) => Math.min(1, GEODE_LAMPS.reduce((m, [lx, ly]) => m + Math.exp(-((x - lx) ** 2 + (y - ly) ** 2) / 12000), 0));
+  const GEODE_WOOD = { lit: '#e09c5c', mid: '#8e5a36', shade: '#4a2e26', dark: '#2e1e1c' };
+  // A squared beam along a centre line, wide w0 at its start and w1 at its end, modelled across its width toward the
+  // lit side (+1 or -1 along the normal), with grain running its length, a knot, and the lit arris picked out.
+  function geodeBeam(ctx, x0, y0, x1, y1, w0, w1, side, seed, o = {}) {
+    const pal = o.pal || GEODE_WOOD, fog = o.fog || 0, tint = c => fog ? emberMix(c, o.haze || '#2a2244', fog) : c;
+    const len = Math.hypot(x1 - x0, y1 - y0), nx = -(y1 - y0) / len, ny = (x1 - x0) / len, r = rng(seed);
+    const q = [[x0 + nx * w0 / 2, y0 + ny * w0 / 2], [x1 + nx * w1 / 2, y1 + ny * w1 / 2], [x1 - nx * w1 / 2, y1 - ny * w1 / 2], [x0 - nx * w0 / 2, y0 - ny * w0 / 2]];
+    const mx = (x0 + x1) / 2, my = (y0 + y1) / 2, wm = (w0 + w1) / 4;
+    const warm = o.warm ?? .5, lit = emberMix(pal.mid, pal.lit, warm);
+    poly(ctx, q, lin(ctx, mx + nx * wm * side, my + ny * wm * side, mx - nx * wm * side, my - ny * wm * side, [[0, tint(lit)], [.4, tint(pal.mid)], [1, tint(pal.shade)]]));
+    if (fog > .7) return q;
+    ctx.save(); ctx.beginPath(); ctx.moveTo(q[0][0], q[0][1]); for (const p of q.slice(1)) ctx.lineTo(p[0], p[1]); ctx.closePath(); ctx.clip();
+    for (let i = 0; i < (o.grain ?? 7); i++) {
+      const off = (r() - .5) * .86, t0 = r() * .5, t1 = t0 + .25 + r() * .5, w = w0 + (w1 - w0) * t0;
+      const p = t => [x0 + (x1 - x0) * t + nx * off * w, y0 + (y1 - y0) * t + ny * off * w];
+      stroke(ctx, [p(t0), p((t0 + t1) / 2).map((v, k) => v + (k ? ny : nx) * (r() - .5) * 2), p(t1)], i % 3 ? `rgba(40,20,14,${(.3 * (1 - fog)).toFixed(3)})` : `rgba(255,220,170,${(.18 * (1 - fog)).toFixed(3)})`, .7 + r() * .7);
+    }
+    if (o.dim) { ctx.fillStyle = lin(ctx, x0, y0, x1, y1, o.dim.map(([at, a]) => [at, `rgba(18,10,24,${a})`])); ctx.fillRect(Math.min(x0, x1) - 40, Math.min(y0, y1) - 40, Math.abs(x1 - x0) + 80, Math.abs(y1 - y0) + 80); }
+    if (!o.noKnot && fog < .4) {
+      const t = .25 + r() * .5, w = w0 + (w1 - w0) * t, kx = x0 + (x1 - x0) * t + nx * (r() - .5) * w * .4, ky = y0 + (y1 - y0) * t + ny * (r() - .5) * w * .4, a = Math.atan2(y1 - y0, x1 - x0);
+      ctx.beginPath(); ctx.ellipse(kx, ky, w * .13, w * .06, a, 0, TAU); ctx.fillStyle = 'rgba(46,24,16,.4)'; ctx.fill();
+      for (const k of [1.6, 2.4]) { ctx.beginPath(); ctx.ellipse(kx, ky, w * .13 * k * 1.4, w * .06 * k, a, Math.PI * 1.1, Math.PI * 1.9); ctx.strokeStyle = 'rgba(46,24,16,.22)'; ctx.lineWidth = .7; ctx.stroke(); }
+    }
+    ctx.restore();
+    const e = side > 0 ? [q[0], q[1]] : [q[3], q[2]];
+    emberLine(ctx, e.map(([px, py]) => [px - nx * side * .6, py - ny * side * .6]), `rgba(255,226,180,${(.45 * warm * (1 - fog)).toFixed(3)})`, 1);
+    return q;
   }
-  function nailHead(ctx, x, y) { dot(ctx, x, y, 2, '#3a3440'); dot(ctx, x - .6, y - .6, .8, '#9a93a8'); }
-  // A geode cracked open: a rough rind, a thin pale band, and a jagged mouth packed with amethyst points.
-  function geode(ctx, x, y, rx, ry, seed, tilt = 0) {
+  // An iron strap across a joint: a dark plate catching the lantern light along its top edge, with its rivets.
+  function geodeStrap(ctx, pts, warm = .5) {
+    soft(ctx, () => { ctx.moveTo(pts[0][0] + 1, pts[0][1] + 2); for (const [x, y] of pts.slice(1)) ctx.lineTo(x + 1, y + 2); ctx.closePath(); }, 'rgba(10,6,14,.5)', 2);
+    poly(ctx, pts, lin(ctx, 0, pts[0][1], 0, pts[2][1], [[0, emberMix('#3a3240', '#6a5a58', warm)], [1, '#1e1a24']]));
+    emberLine(ctx, [[pts[0][0] + .6, pts[0][1] + .6], [pts[1][0] - .6, pts[1][1] + .6]], `rgba(255,214,170,${(.2 + warm * .35).toFixed(3)})`, .8);
+    const [cx, cy] = pts.reduce(([a, b], [x, y]) => [a + x / pts.length, b + y / pts.length], [0, 0]);
+    for (const [px, py] of pts) { const x = cx + (px - cx) * .62, y = cy + (py - cy) * .5; dot(ctx, x, y, 1.3, '#16121c'); dot(ctx, x - .4, y - .4, .55, `rgba(255,230,200,${(.3 + warm * .4).toFixed(3)})`); }
+  }
+  // An amethyst point: a six-sided crystal lit from inside, pale at the tip, deep violet at the root.
+  function geodePoint(ctx, x, y, w, h, tilt, glow = 1) {
     ctx.save(); ctx.translate(x, y); ctx.rotate(tilt);
-    const r = rng(seed), rind = blob(0, 0, rx, ry, seed, .14, 12);
-    shape(ctx, rind, '#7a6878', null); cel(ctx, rind, '#5c4b60', -rx * .16, -ry * .18); shape(ctx, rind, null, '#2a1e33', 1.6);
-    for (let i = 0; i < 7; i++) { const a = r() * TAU, k = .78 + r() * .14; dot(ctx, Math.cos(a) * rx * k, Math.sin(a) * ry * k, .7 + r() * .7, 'rgba(42,30,51,.45)'); }
-    // The break: jagged, a little off center, as if knocked open from the upper left.
-    const mouth = [], n = 16, ox = -rx * .08, oy = -ry * .06;
-    for (let i = 0; i < n; i++) { const a = i / n * TAU, k = (i % 2 ? .62 : .74) + (r() - .5) * .1; mouth.push([ox + Math.cos(a) * rx * k, oy + Math.sin(a) * ry * k]); }
-    poly(ctx, mouth.map(([px, py]) => [ox + (px - ox) * 1.1, oy + (py - oy) * 1.12]), '#efe2f8', '#b9a2d4', 1);
-    poly(ctx, mouth, '#4a2d84', null);
-    clipTo(ctx, rind, () => {
-      ctx.save(); ctx.beginPath(); ctx.moveTo(mouth[0][0], mouth[0][1]); for (const p of mouth.slice(1)) ctx.lineTo(p[0], p[1]); ctx.closePath(); ctx.clip();
-      // Points grow inward from the rim; the ones lit from the upper left are pale, the rest deep violet.
-      for (let i = 0; i < n; i += 1) {
-        const [px, py] = mouth[i], [qx, qy] = mouth[(i + 1) % n], len = .45 + r() * .3, tx = px + (ox - px) * len + (r() - .5) * 3, ty = py + (oy - py) * len + (r() - .5) * 3;
-        const lit = px + py < ox + oy;
-        poly(ctx, [[px, py], [tx, ty], [qx, qy]], lit ? '#9a6be0' : '#c7a4ff', null);
-        poly(ctx, [[px, py], [tx, ty], [(px + qx) / 2, (py + qy) / 2]], lit ? '#7c4fc8' : '#e2d0ff', null);
-        stroke(ctx, [[px, py], [tx, ty], [qx, qy]], 'rgba(46,22,96,.7)', .7);
-      }
-      for (const [cx, cy, w, h, t] of [[ox + rx * .1, oy + ry * .3, 6, 13, -.2], [ox - rx * .18, oy + ry * .24, 4.6, 9, -.5], [ox + rx * .3, oy + ry * .2, 4, 8, .4]]) crystal(ctx, cx, cy, w * rx / 26, h * rx / 26, t, ['#f1e6ff', '#c6a2ff', '#8a5ad6', '#3a1e72']);
-      ctx.restore();
-    });
-    poly(ctx, mouth, null, '#2e1a5a', 1.2);
-    sparkle(ctx, ox - rx * .2, oy - ry * .18, Math.min(rx, ry) * .2, '#ffffff');
+    const body = [[-w / 2, 0], [-w / 2, -h * .68], [0, -h], [w / 2, -h * .68], [w / 2, 0]];
+    poly(ctx, body, lin(ctx, 0, -h, 0, 0, [[0, '#c9a6ff'], [1, '#4a2a8a']]));
+    poly(ctx, [[-w / 2, 0], [-w / 2, -h * .68], [0, -h], [-w * .08, 0]], lin(ctx, 0, -h, 0, 0, [[0, emberMix('#b48ae8', '#f4e6ff', glow)], [.6, '#9a6ae0'], [1, '#5a34a0']]));
+    poly(ctx, [[w * .14, 0], [w * .14, -h * .82], [w / 2, -h * .68], [w / 2, 0]], 'rgba(30,14,70,.42)');
+    emberLine(ctx, [[-w / 2 + .6, -h * .66], [0, -h + .8]], `rgba(255,248,255,${(.4 + glow * .4).toFixed(3)})`, .8);
     ctx.restore();
   }
-  // A patch of wall rock for a geode to sit in.
-  function rockPatch(ctx, x, y, rx, ry, seed) { const pts = blob(x, y, rx, ry, seed, .18, 10); shape(ctx, pts, '#3a2e52', null); cel(ctx, pts, '#30264a', -rx * .12, -ry * .14); shape(ctx, pts, null, 'rgba(28,20,48,.8)', 1.2); stroke(ctx, pts.slice(5, 8), 'rgba(170,140,220,.25)', 1); }
-  function lantern(ctx, x, y) {
-    halo(ctx, x, y + 18, 46, '255,196,110', .07);
-    stroke(ctx, [[x, y - 2], [x, y + 6]], '#3a3440', 1.2);
-    ctx.beginPath(); ctx.arc(x, y + 6, 3, 0, TAU); ctx.strokeStyle = '#3a3440'; ctx.lineWidth = 1.1; ctx.stroke();
-    poly(ctx, [[x - 6, y + 12], [x + 6, y + 12], [x + 8, y + 15], [x - 8, y + 15]], '#4a4458', '#1e1a26', 1.1);
-    ctx.beginPath(); ctx.moveTo(x - 6, y + 12); ctx.quadraticCurveTo(x, y + 5, x + 6, y + 12); ctx.fillStyle = '#4a4458'; ctx.fill(); ctx.strokeStyle = '#1e1a26'; ctx.lineWidth = 1.1; ctx.stroke();
-    poly(ctx, [[x - 7, y + 15], [x + 7, y + 15], [x + 6, y + 33], [x - 6, y + 33]], 'rgba(255,214,140,.9)', null);
-    dot(ctx, x, y + 26, 5, '#fff3c8'); ctx.beginPath(); ctx.ellipse(x, y + 24, 2, 4, 0, 0, TAU); ctx.fillStyle = '#ffb347'; ctx.fill();
-    for (const k of [-1, 1]) stroke(ctx, [[x + k * 7, y + 15], [x + k * 6, y + 33]], '#2a2633', 1.6);
-    stroke(ctx, [[x, y + 15], [x, y + 33]], 'rgba(42,38,51,.6)', 1);
-    poly(ctx, [[x - 8, y + 33], [x + 8, y + 33], [x + 6, y + 37], [x - 6, y + 37]], '#4a4458', '#1e1a26', 1.1);
-    stroke(ctx, [[x - 4.6, y + 18], [x - 4.2, y + 29]], 'rgba(255,255,255,.7)', 1);
+  function geodeCluster(ctx, x, y, s, seed, n = 5, glow = 1) {
+    const r = rng(seed), pts = [];
+    for (let i = 0; i < n; i++) { const t = n === 1 ? .5 : i / (n - 1), big = Math.sin(t * Math.PI); pts.push([x + (t - .5) * s * 1.6 + (r() - .5) * s * .2, (t - .5) * 1.1 + (r() - .5) * .3, s * (.22 + big * .14), s * (.5 + big * .7 + r() * .3)]); }
+    soft(ctx, () => ctx.ellipse(x, y + 1, s * 1.1, s * .2, 0, 0, TAU), 'rgba(14,8,26,.5)', 3);
+    bloom(ctx, x, y - s * .6, s * 2.2, '176,130,255', .22 * glow);
+    pts.sort((a, b) => a[3] - b[3]).forEach(([px, a, w, h]) => geodePoint(ctx, px, y, w, h, a * .7, glow));
   }
-  function mouse(ctx, x, y, s) {
+  // A geode broken open in the rock: a rough rind, a pale agate band, and a jagged mouth packed with amethyst that
+  // glows from the hollow at its heart.
+  function geodeHollow(ctx, x, y, rx, ry, seed, tilt = 0, glow = 1) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(tilt);
+    const r = rng(seed), rind = blob(0, 0, rx, ry, seed, .12, 12);
+    bloom(ctx, 0, 0, rx * 2.4, '170,120,255', .16 * glow);
+    soft(ctx, () => smooth(ctx, rind.map(([px, py]) => [px + 1.5, py + 2.5]), true), 'rgba(12,6,22,.55)', 4);
+    shape(ctx, rind, lin(ctx, -rx, -ry, rx, ry, [[0, '#8a7a8c'], [.5, '#5e4e68'], [1, '#3a2e48']]), null);
+    for (let i = 0; i < 8; i++) { const a = r() * TAU, k = .8 + r() * .14; dot(ctx, Math.cos(a) * rx * k, Math.sin(a) * ry * k, .6 + r() * .8, 'rgba(30,20,44,.4)'); }
+    const mouth = [], n = 18, ox = -rx * .06, oy = -ry * .04;
+    for (let i = 0; i < n; i++) { const a = i / n * TAU, k = (i % 2 ? .6 : .72) + (r() - .5) * .1; mouth.push([ox + Math.cos(a) * rx * k, oy + Math.sin(a) * ry * k]); }
+    poly(ctx, mouth.map(([px, py]) => [ox + (px - ox) * 1.14, oy + (py - oy) * 1.14]), lin(ctx, 0, -ry, 0, ry, [[0, '#f2e6f8'], [1, '#a890c0']]));
+    poly(ctx, mouth, rad(ctx, ox, oy + ry * .1, rx * .7, [[0, emberMix('#5a34a0', '#d8c0ff', glow)], [.45, '#5e3aa8'], [1, '#26124e']]));
+    ctx.save(); ctx.beginPath(); ctx.moveTo(mouth[0][0], mouth[0][1]); for (const p of mouth.slice(1)) ctx.lineTo(p[0], p[1]); ctx.closePath(); ctx.clip();
+    for (let i = 0; i < n; i++) {
+      const [px, py] = mouth[i], [qx, qy] = mouth[(i + 1) % n], len = .22 + r() * .34, tx = px + (ox - px) * len + (r() - .5) * 2, ty = py + (oy - py) * len + (r() - .5) * 2;
+      const tone = .15 + r() * .55 + (py > oy ? .2 : 0), c = emberMix('#3a1e74', '#c8a8f8', tone);
+      poly(ctx, [[px, py], [tx, ty], [qx, qy]], c);
+      poly(ctx, [[px, py], [tx, ty], [(px + qx) / 2, (py + qy) / 2]], emberMix(c, '#1e0c40', .35));
+    }
+    for (let i = 0; i < 3; i++) { const a = r() * TAU, d = r() * .25; geodeGlint(ctx, ox + Math.cos(a) * rx * d, oy + Math.sin(a) * ry * d + ry * .1, 1.6 + r() * 1.4); }
+    ctx.restore();
+    bloom(ctx, ox, oy + ry * .1, rx * .45, '230,210,255', .26 * glow);
+    ctx.restore();
+  }
+  function geodeGlint(ctx, x, y, s) { poly(ctx, [[x - s * .6, y], [x, y - s], [x + s * .6, y], [x, y + s * .5]], 'rgba(236,224,255,.75)'); }
+  // A miner's lantern: a dark iron frame round warm glass and a steady flame, its light pooled about it.
+  function geodeLantern(ctx, x, y) {
+    bloom(ctx, x, y + 22, 150, '255,186,100', .34);
+    bloom(ctx, x, y + 22, 48, '255,220,150', .5);
+    emberLine(ctx, [[x, y - 10], [x, y + 4]], '#2a2230', 1.2);
+    ctx.beginPath(); ctx.arc(x, y + 6, 3, 0, TAU); ctx.strokeStyle = '#3a3040'; ctx.lineWidth = 1.2; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x - 7, y + 14); ctx.quadraticCurveTo(x, y + 6, x + 7, y + 14); ctx.closePath(); ctx.fillStyle = lin(ctx, x - 7, 0, x + 7, 0, [[0, '#5a4e5a'], [1, '#2a2230']]); ctx.fill();
+    poly(ctx, [[x - 8, y + 14], [x + 8, y + 14], [x + 9, y + 17], [x - 9, y + 17]], '#3a3040');
+    poly(ctx, [[x - 7, y + 17], [x + 7, y + 17], [x + 6, y + 35], [x - 6, y + 35]], lin(ctx, x - 7, 0, x + 7, 0, [[0, '#ffe0a0'], [.5, '#fff3cc'], [1, '#ffbe6a']]));
+    ctx.beginPath(); ctx.ellipse(x, y + 26, 2.4, 5, 0, 0, TAU); ctx.fillStyle = '#ffffff'; ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x, y + 27.5, 1.6, 3, 0, 0, TAU); ctx.fillStyle = '#ffb347'; ctx.fill();
+    for (const k of [-1, 1]) emberLine(ctx, [[x + k * 7, y + 17], [x + k * 6, y + 35]], '#2e2634', 1.5);
+    emberLine(ctx, [[x, y + 17], [x, y + 35]], 'rgba(46,38,52,.55)', .9);
+    poly(ctx, [[x - 8.5, y + 35], [x + 8.5, y + 35], [x + 6.5, y + 39], [x - 6.5, y + 39]], '#3a3040');
+    emberLine(ctx, [[x - 4.4, y + 19], [x - 4, y + 32]], 'rgba(255,255,255,.75)', .9);
+  }
+  // The mouse, peeking over the rim of the cart.
+  function geodeMouse(ctx, x, y, s) {
     ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
-    const ink = '#4a3a44';
-    for (const ex of [-7, 7]) { dot(ctx, ex, -10, 5.4, '#b8a6ac'); ctx.beginPath(); ctx.arc(ex, -10, 5.4, 0, TAU); ctx.strokeStyle = ink; ctx.lineWidth = 1.1; ctx.stroke(); dot(ctx, ex, -9.6, 3.2, '#f4b2c0'); }
+    const line = '#6a4e5a';
+    for (const ex of [-7, 7]) { dot(ctx, ex, -10, 5.6, '#c4b0b8'); ctx.beginPath(); ctx.arc(ex, -10, 5.6, 0, TAU); ctx.strokeStyle = line; ctx.lineWidth = .9; ctx.stroke(); dot(ctx, ex, -9.6, 3.4, '#f4b0c0'); }
     const head = [[-8, 0], [-8.6, -6], [-4, -10], [4, -10], [8.6, -6], [8, 0], [0, 2]];
-    shape(ctx, head, '#c9b7bd', null); cel(ctx, head, '#ad9aa2', -2, 2); shape(ctx, head, null, ink, 1.2);
+    shape(ctx, head, lin(ctx, -6, -10, 6, 2, [[0, '#e2d2d6'], [1, '#a8949e']]), line, 1);
     dot(ctx, -3.2, -4.4, 1.4, '#2a1a24'); dot(ctx, 3.2, -4.4, 1.4, '#2a1a24'); dot(ctx, -3.6, -4.9, .5, '#ffffff'); dot(ctx, 2.8, -4.9, .5, '#ffffff');
     dot(ctx, 0, -1.6, 1.4, '#e98a9c');
-    for (const k of [-1, 1]) for (const d of [-1, 1]) stroke(ctx, [[k * 2.6, -1 + d * .6], [k * 9, -2 + d * 1.6]], 'rgba(74,58,68,.6)', .5);
+    for (const k of [-1, 1]) for (const d of [-1, 1]) stroke(ctx, [[k * 2.6, -1 + d * .6], [k * 9, -2 + d * 1.6]], 'rgba(90,70,80,.55)', .5);
     dot(ctx, -6, -2, 1.4, 'rgba(240,140,160,.45)'); dot(ctx, 6, -2, 1.4, 'rgba(240,140,160,.45)');
-    for (const px of [-5, 5]) { ctx.beginPath(); ctx.ellipse(px, 2.6, 2.2, 1.6, 0, 0, TAU); ctx.fillStyle = '#f4b2c0'; ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = .8; ctx.stroke(); }
+    for (const px of [-5, 5]) { ctx.beginPath(); ctx.ellipse(px, 2.6, 2.2, 1.6, 0, 0, TAU); ctx.fillStyle = '#f4b2c0'; ctx.fill(); ctx.strokeStyle = line; ctx.lineWidth = .7; ctx.stroke(); }
     ctx.restore();
   }
-  function minecart(ctx, x, y, s) {
+  // The minecart: a riveted iron tub heaped with amethyst, the lantern light along its rolled rim.
+  function geodeCart(ctx, x, y, s) {
     ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
-    const ink = '#1e1a26';
-    // Its load first: amethyst and geode halves heaped above the rim.
-    crystalCluster(ctx, -14, -30, .72, VIOLET, 41, .8);
-    crystal(ctx, 30, -30, 9, 20, .5, VIOLET);
-    geode(ctx, -32, -36, 11, 9, 44, -.4);
-    mouse(ctx, 14, -40, 1.2);
+    soft(ctx, () => ctx.ellipse(0, 8, 50, 6, 0, 0, TAU), 'rgba(10,6,18,.6)', 5);
+    geodeHollow(ctx, -26, -36, 11, 9, 44, -.4, .8);
+    geodeCluster(ctx, -6, -32, 16, 41, 5, .9);
+    geodePoint(ctx, 30, -32, 9, 20, .5, .8);
+    geodeMouse(ctx, 14, -38, 1.15);
     const body = [[-44, -34], [44, -34], [36, 4], [-36, 4]];
-    poly(ctx, body, '#6b6478', null);
-    clipTo(ctx, body, () => { ctx.fillStyle = '#4f4860'; ctx.fillRect(14, -40, 40, 50); ctx.fillStyle = '#8a839a'; ctx.fillRect(-50, -34, 100, 5); });
-    poly(ctx, body, null, ink, 1.7);
-    for (const bx of [-30, 0, 30]) stroke(ctx, [[bx, -30], [bx * .86, 2]], 'rgba(30,26,38,.55)', 1.4);
-    for (const [bx, by] of [[-38, -28], [38, -28], [-33, -2], [33, -2], [-4, -28], [4, -28]]) nailHead(ctx, bx, by);
-    poly(ctx, [[-47, -37], [47, -37], [47, -32], [-47, -32]], '#857e94', ink, 1.4);
+    poly(ctx, body, lin(ctx, -44, -34, 30, 10, [[0, '#8a7c88'], [.45, '#5a5068'], [1, '#2e2838']]));
+    clipTo(ctx, body, () => {
+      for (const [bx, w] of [[-30, 5], [0, 5], [30, 5]]) poly(ctx, [[bx - w / 2, -34], [bx + w / 2, -34], [bx * .86 + w / 2, 4], [bx * .86 - w / 2, 4]], 'rgba(20,14,30,.28)');
+      for (const [cx, cy, rr] of [[-24, -10, 6], [20, -20, 5], [8, -4, 4]]) soft(ctx, () => ctx.ellipse(cx, cy, rr * 1.6, rr, .3, 0, TAU), 'rgba(150,70,40,.3)', 4);
+      wash(ctx, lin(ctx, 0, -34, 0, 4, [[0, 'rgba(0,0,0,0)'], [1, 'rgba(10,6,20,.45)']]), null, 1, -50, -34, 100, 40);
+    });
+    for (const [bx, by] of [[-38, -28], [38, -28], [-33, -2], [33, -2], [-4, -28], [4, -28], [-4, -4], [4, -4]]) { dot(ctx, bx, by, 1.4, '#221c2a'); dot(ctx, bx - .4, by - .4, .6, 'rgba(255,220,190,.55)'); }
+    poly(ctx, [[-47, -37], [47, -37], [47, -32], [-47, -32]], lin(ctx, 0, -37, 0, -32, [[0, '#c4aa98'], [1, '#4a4058']]));
     for (const wx of [-24, 24]) {
-      dot(ctx, wx, 6, 8, '#3a3440'); ctx.beginPath(); ctx.arc(wx, 6, 8, 0, TAU); ctx.strokeStyle = ink; ctx.lineWidth = 1.5; ctx.stroke();
-      dot(ctx, wx, 6, 3, '#857e94'); ctx.beginPath(); ctx.arc(wx, 6, 5.6, 3.6, 4.8); ctx.strokeStyle = 'rgba(200,190,220,.6)'; ctx.lineWidth = 1.1; ctx.stroke();
+      dot(ctx, wx, 6, 8.4, '#221c2c');
+      ctx.beginPath(); ctx.arc(wx, 6, 6.6, 3.4, 5.2); ctx.strokeStyle = 'rgba(220,190,170,.5)'; ctx.lineWidth = 1.2; ctx.stroke();
+      dot(ctx, wx, 6, 2.6, '#5a5068'); dot(ctx, wx - .6, 5.2, .9, 'rgba(255,230,200,.6)');
     }
     ctx.restore();
   }
-  function pickaxe(ctx, x, y, len, angle) {
+  function geodePick(ctx, x, y, len, angle) {
     ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
-    poly(ctx, [[-2.4, 0], [2.4, 0], [2, -len], [-2, -len]], '#c99463', '#4a2a1a', 1.2);
-    stroke(ctx, [[-1, -4], [-1, -len + 6]], 'rgba(255,230,190,.6)', 1);
+    soft(ctx, () => ctx.rect(-1, -len, 6, len), 'rgba(10,6,18,.4)', 3);
+    poly(ctx, [[-2.4, 0], [2.4, 0], [2, -len], [-2, -len]], lin(ctx, -2.4, 0, 2.4, 0, [[0, '#e8b47a'], [.5, '#a06a40'], [1, '#5a3a26']]));
+    emberLine(ctx, [[-.8, -4], [-.8, -len + 6]], 'rgba(255,236,200,.5)', .8);
     ctx.beginPath(); ctx.moveTo(-24, -len + 10); ctx.quadraticCurveTo(-10, -len - 6, 0, -len - 4); ctx.quadraticCurveTo(10, -len - 6, 24, -len + 10); ctx.quadraticCurveTo(10, -len - 1, 0, -len + 3); ctx.quadraticCurveTo(-10, -len - 1, -24, -len + 10); ctx.closePath();
-    ctx.fillStyle = '#8f8a9c'; ctx.fill(); ctx.strokeStyle = '#2a2633'; ctx.lineWidth = 1.3; ctx.stroke();
-    stroke(ctx, [[-18, -len + 4], [-8, -len - 3], [0, -len - 2.4]], 'rgba(255,255,255,.6)', 1);
-    poly(ctx, [[-4, -len - 5], [4, -len - 5], [4, -len + 5], [-4, -len + 5]], '#6e687c', '#2a2633', 1.1);
+    ctx.fillStyle = lin(ctx, 0, -len - 6, 0, -len + 6, [[0, '#c8c0d0'], [1, '#4a4458']]); ctx.fill();
+    stroke(ctx, [[-18, -len + 4], [-8, -len - 3], [0, -len - 2.4]], 'rgba(255,250,240,.7)', .9);
+    poly(ctx, [[-4, -len - 5], [4, -len - 5], [4, -len + 5], [-4, -len + 5]], '#3a3448');
     ctx.restore();
   }
-  function cobweb(ctx, x, y, r, flip) {
-    ctx.save(); ctx.translate(x, y); ctx.scale(flip ? -1 : 1, 1);
-    const spokes = [0, .4, .8, 1.2, 1.57];
-    for (const a of spokes) stroke(ctx, [[0, 0], [Math.cos(a) * r, Math.sin(a) * r]], 'rgba(230,220,250,.35)', .6);
-    for (let k = 1; k <= 3; k++) {
+  // A cobweb strung in a corner: spokes and sagging rings, catching the lantern light.
+  function geodeWeb(ctx, x, y, r, a0, a1, seed) {
+    const rr = rng(seed), spokes = [];
+    for (let i = 0; i <= 6; i++) spokes.push(a0 + (a1 - a0) * i / 6 + (i % 6 ? (rr() - .5) * .12 : 0));
+    ctx.save(); ctx.lineCap = 'round';
+    for (const a of spokes) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); ctx.strokeStyle = 'rgba(255,236,214,.34)'; ctx.lineWidth = .5; ctx.stroke(); }
+    for (let k = 1; k <= 5; k++) {
       ctx.beginPath();
-      spokes.forEach((a, i) => { const rr = r * k / 3.4, px = Math.cos(a) * rr, py = Math.sin(a) * rr; if (!i) ctx.moveTo(px, py); else { const m = (a + spokes[i - 1]) / 2; ctx.quadraticCurveTo(Math.cos(m) * rr * .82, Math.sin(m) * rr * .82, px, py); } });
-      ctx.strokeStyle = 'rgba(230,220,250,.32)'; ctx.lineWidth = .6; ctx.stroke();
+      spokes.forEach((a, i) => { const d = r * (k / 5.6) * (.92 + rr() * .1), px = x + Math.cos(a) * d, py = y + Math.sin(a) * d; if (!i) ctx.moveTo(px, py); else { const m = (a + spokes[i - 1]) / 2; ctx.quadraticCurveTo(x + Math.cos(m) * d * .84, y + Math.sin(m) * d * .84, px, py); } });
+      ctx.strokeStyle = `rgba(255,236,214,${(.36 - k * .03).toFixed(3)})`; ctx.lineWidth = .5; ctx.stroke();
     }
     ctx.restore();
   }
   function paintGeode(ctx, framed) {
-    const back = ctx.createLinearGradient(0, 0, 0, 560);
-    back.addColorStop(0, '#3b2f53'); back.addColorStop(.6, '#33284b'); back.addColorStop(1, '#2a213e');
-    ctx.fillStyle = back; ctx.fillRect(0, 0, 420, 560);
-    {
-      const X = (x, k) => 210 + (x - 210) * k, Y = (y, k) => 300 + (y - 300) * k;
-      poly(ctx, [[-10, 462], [430, 462], [X(378, .26), Y(462, .26)], [X(42, .26), Y(462, .26)]], '#2c2343', null);
-      for (const t of [.25, .5, .75]) stroke(ctx, [[-10 + 440 * t, 462], [X(42, .26) + (X(378, .26) - X(42, .26)) * t, Y(462, .26)]], 'rgba(150,120,200,.07)', 1);
+    const F = .17, A = geodeAt;
+    // The drift: ceiling, walls and floor running back to a far end lost in violet dark.
+    wash(ctx, '#1c1630');
+    const near = [44, 50, 376, 466], [l, t, rr, b] = near;
+    const surf = (pts, g) => poly(ctx, pts, g);
+    surf([A(l, t, 1), A(rr, t, 1), A(rr, t, F), A(l, t, F)], lin(ctx, 0, t, 0, A(0, t, F)[1], [[0, '#4a3650'], [.5, '#33264a'], [1, '#221a38']]));
+    surf([A(l, t, 1), A(l, t, F), A(l, b, F), A(l, b, 1)], lin(ctx, l, 0, A(l, 0, F)[0], 0, [[0, '#4e3c62'], [.55, '#352a50'], [1, '#241c3c']]));
+    surf([A(rr, t, 1), A(rr, t, F), A(rr, b, F), A(rr, b, 1)], lin(ctx, rr, 0, A(rr, 0, F)[0], 0, [[0, '#4a3a60'], [.55, '#33284e'], [1, '#241c3c']]));
+    surf([A(l, b, 1), A(rr, b, 1), A(rr, b, F), A(l, b, F)], lin(ctx, 0, b, 0, A(0, b, F)[1], [[0, '#4a3848'], [.6, '#33284a'], [1, '#261e3e']]));
+    // The rock: bedding lines running back toward the far end, and broad soft facets.
+    const r = rng(808);
+    for (const [wall, x0, x1] of [[[A(l, t, 1), A(l, t, F), A(l, b, F), A(l, b, 1)], l, 1], [[A(rr, t, 1), A(rr, t, F), A(rr, b, F), A(rr, b, 1)], rr, 1]]) {
+      void x1;
+      clipTo(ctx, wall, () => {
+        for (let i = 0; i < 7; i++) { const yy = t + 20 + r() * (b - t - 40), k1 = .3 + r() * .5; emberLine(ctx, [A(x0, yy, 1), A(x0, yy + (r() - .5) * 30, k1)], i % 2 ? 'rgba(14,8,26,.35)' : 'rgba(200,180,240,.1)', 1 + r()); }
+        for (let i = 0; i < 6; i++) { const k = .35 + r() * .6, [fx, fy] = A(x0, t + 30 + r() * (b - t - 60), k); soft(ctx, () => ctx.ellipse(fx, fy, 30 * k, 50 * k, 0, 0, TAU), i % 2 ? 'rgba(16,10,30,.3)' : 'rgba(150,130,200,.1)', 14 * k); }
+      });
     }
-    // The drift runs on into the dark through older sets of timber, each one dimmer than the last.
-    for (const [k, a, dark] of [[.66, .32, '#2f2546'], [.42, .2, '#282040'], [.26, .12, '#211a36']]) {
-      const X = x => 210 + (x - 210) * k, Y = y => 300 + (y - 300) * k;
-      poly(ctx, [[X(42), Y(46)], [X(378), Y(46)], [X(378), Y(462)], [X(42), Y(462)]], dark, null);
-      ctx.save(); ctx.globalAlpha = a;
-      for (const pts of [[[X(-4), Y(18)], [X(424), Y(18)], [X(424), Y(46)], [X(-4), Y(46)]], [[X(14), Y(46)], [X(42), Y(46)], [X(42), Y(462)], [X(14), Y(462)]], [[X(378), Y(46)], [X(406), Y(46)], [X(406), Y(462)], [X(378), Y(462)]]]) poly(ctx, pts, '#8a6448', '#2a1a14', 1.2);
-      ctx.restore();
+    clipTo(ctx, [A(l, t, 1), A(rr, t, 1), A(rr, t, F), A(l, t, F)], () => { for (let i = 0; i < 6; i++) { const xx = l + 20 + r() * (rr - l - 40), k1 = .3 + r() * .5; emberLine(ctx, [A(xx, t, 1), A(xx + (r() - .5) * 40, t, k1)], 'rgba(14,8,26,.3)', 1 + r() * 1.4); } });
+    // The far end, and a lantern burning a long way down the drift.
+    const [fx0, fy0] = A(l, t, F), [fx1, fy1] = A(rr, b, F);
+    poly(ctx, [[fx0, fy0], [fx1, fy0], [fx1, fy1], [fx0, fy1]], lin(ctx, 0, fy0, 0, fy1, [[0, '#1a1430'], [1, '#2a1e3a']]));
+    bloom(ctx, 214, 302, 46, '255,180,110', .22);
+    dot(ctx, 214, 302, 1.6, 'rgba(255,214,160,.7)');
+    // The track runs back down the drift from the turntable, on sleepers spaced in perspective.
+    for (let z = 1; z < 7; z += .55 + z * .12) { const k = 1 / z; if (k < F + .02) break; const [sx0, sy] = A(186, b + 4, k), [sx1] = A(234, b + 4, k); poly(ctx, [[sx0, sy - 1.6 * k], [sx1, sy - 1.6 * k], [sx1, sy + 1.6 * k], [sx0, sy + 1.6 * k]], `rgba(30,18,26,${(.25 + k * .3).toFixed(3)})`); }
+    for (const x of [194, 226]) { const [nx0, ny0] = A(x, b + 30, 1), [nx1, ny1] = A(x, b + 4, F + .02); ctx.beginPath(); ctx.moveTo(nx0, ny0); ctx.lineTo(nx1, ny1); ctx.strokeStyle = lin(ctx, 0, ny0, 0, ny1, [[0, 'rgba(210,190,220,.4)'], [1, 'rgba(210,190,220,0)']]); ctx.lineWidth = 1.2; ctx.stroke(); }
+    // Older sets of timber, each further one dimmer, one of them sagging.
+    for (const [k, sag, cap] of [[.3, 0, true], [.44, 2.4, true], [.64, -1.2, true]]) {
+      const fog = Math.min(.92, (1 - k) * 1.5 + .12), haze = '#2a2246', warm = .1 + k * .2, W = 32 * k;
+      const [lx0] = A(12, 0, k), [lx1] = A(44, 0, k), [rx0] = A(376, 0, k), [rx1] = A(408, 0, k), [, cy0] = A(0, 20, k), [, cy1] = A(0, 50, k), [, fy] = A(0, 470, k);
+      soft(ctx, () => { ctx.rect(lx0 - 2, cy0, rx1 - lx0 + 4, (cy1 - cy0) + 4); ctx.rect(lx0 - 2, cy0, lx1 - lx0 + 4, fy - cy0); ctx.rect(rx0 - 2, cy0, rx1 - rx0 + 4, fy - cy0); }, `rgba(10,6,20,${(.5 * k).toFixed(3)})`, 8 * k);
+      geodeBeam(ctx, (lx0 + lx1) / 2, fy, (lx0 + lx1) / 2 + sag * 4, cy0, W, W, -1, 10 + k * 100, { fog, haze, warm, grain: 3 });
+      geodeBeam(ctx, (rx0 + rx1) / 2, fy, (rx0 + rx1) / 2, cy0, W, W, 1, 20 + k * 100, { fog, haze, warm, grain: 3 });
+      if (cap) geodeBeam(ctx, lx0 - 6 * k, (cy0 + cy1) / 2 + sag, rx1 + 6 * k, (cy0 + cy1) / 2 - sag, (cy1 - cy0), (cy1 - cy0), 1, 30 + k * 100, { fog, haze, warm, grain: 3 });
+      else { geodeBeam(ctx, lx0 - 4 * k, (cy0 + cy1) / 2, lx1 + 40 * k, (cy0 + cy1) / 2 + 3, cy1 - cy0, (cy1 - cy0) * .9, 1, 31, { fog, haze, warm, grain: 3 }); geodeBeam(ctx, rx1 + 4 * k, (cy0 + cy1) / 2, rx0 - 60 * k, (cy0 + cy1) / 2 + 6 * k, cy1 - cy0, (cy1 - cy0) * .9, 1, 32, { fog, haze, warm, grain: 3 }); }
     }
-    const rv = rng(808);
-    for (const [x0, y0, len] of [[56, 160, 40], [336, 130, 40], [60, 400, 40], [328, 404, 44]]) {
-      const v = crackPath(x0, y0, len / 6, 3, 6, x0, 4);
-      stroke(ctx, v, 'rgba(180,140,240,.22)', 2.2); stroke(ctx, v, 'rgba(220,200,255,.36)', .8);
-      for (let i = 0; i < 2; i++) { const p = v[1 + Math.floor(rv() * 4)]; sparkle(ctx, p[0], p[1], 2 + rv() * 1.5, 'rgba(230,215,255,.7)'); }
+    // Air down the drift: violet haze thickest toward the far end.
+    ctx.save(); ctx.globalCompositeOperation = 'source-over';
+    wash(ctx, rad(ctx, GEODE_VP[0], GEODE_VP[1], 230, [[0, 'rgba(44,34,74,.55)'], [.45, 'rgba(44,34,74,.25)'], [1, 'rgba(44,34,74,0)']]));
+    ctx.restore();
+    // Geodes in the walls just inside the mouth, half behind the posts, and amethyst breaking out of the rock.
+    geodeHollow(ctx, 70, 250, 22, 30, 51, .1, 1);
+    geodeHollow(ctx, 352, 196, 16, 22, 52, -.1, .9);
+    geodeHollow(ctx, 362, 372, 12, 16, 53, .15, .8);
+    geodeCluster(ctx, 66, 402, 14, 61, 5, .9);
+    geodeCluster(ctx, 352, 300, 11, 62, 4, .8);
+    // The lanterns' light on the near walls, ceiling and floor.
+    for (const [x, y] of GEODE_LAMPS) { bloom(ctx, x + (x < 210 ? 20 : -20), y + 20, 190, '255,166,92', .2); bloom(ctx, x, y + 120, 130, '255,166,92', .1); }
+    // The near set: two posts, the cap and its knee braces, strapped with iron.
+    soft(ctx, () => { ctx.rect(-10, 14, 440, 42); ctx.rect(8, 40, 42, 440); ctx.rect(370, 40, 42, 440); }, 'rgba(8,4,16,.55)', 10);
+    const posts = [[12, 44, 1, 2], [376, 408, -1, 3]];
+    for (const [x0, x1, s] of posts) {
+      const inner = s > 0 ? x1 : x0, [bx] = A(inner, 0, .95), [, by0] = A(0, 50, .95), [, by1] = A(0, 470, .95);
+      poly(ctx, [[inner, 50], [bx, by0], [bx, by1], [inner, 470]], lin(ctx, 0, 60, 0, 470, [[0, '#a06a44'], [.3, '#6a4430'], [1, '#2a1c1e']]));
     }
-    // Geodes set into the walls, and little crystal clusters breaking out of the rock.
-    rockPatch(ctx, 62, 238, 36, 30, 1); geode(ctx, 64, 236, 24, 19, 51, -.2);
-    rockPatch(ctx, 360, 178, 30, 26, 2); geode(ctx, 358, 176, 19, 15, 52, .3);
-    rockPatch(ctx, 364, 364, 22, 18, 3); geode(ctx, 364, 362, 13, 11, 53, -.4);
-    crystalCluster(ctx, 70, 372, .4, VIOLET, 61, .7);
-    crystalCluster(ctx, 346, 260, .34, VIOLET, 62, .7);
-    // The timber set: two posts, a cap across the top and knee braces in the corners.
-    timber(ctx, [[-10, 18], [430, 18], [430, 46], [-10, 46]], 1, false);
-    for (const [x0, x1, sd] of [[14, 42, 2], [378, 406, 3]]) timber(ctx, [[x0, 46], [x1, 46], [x1, 470], [x0, 470]], sd, true);
-    timber(ctx, [[42, 104], [42, 126], [112, 46], [88, 46]], 4, false);
-    timber(ctx, [[378, 104], [378, 126], [308, 46], [332, 46]], 5, false);
-    for (const [bx, by] of [[28, 32], [392, 32], [52, 54], [368, 54], [28, 112], [392, 112], [28, 460], [392, 460]]) nailHead(ctx, bx, by);
-    for (const [x0, y0] of [[14, 40], [378, 40]]) { poly(ctx, [[x0 - 3, y0], [x0 + 31, y0], [x0 + 31, y0 + 14], [x0 - 3, y0 + 14]], 'rgba(58,52,64,.9)', '#1e1a26', 1.1); nailHead(ctx, x0 + 6, y0 + 7); nailHead(ctx, x0 + 22, y0 + 7); }
+    // The knee braces go in first so the posts and cap cover their cut ends.
+    for (const [ax, ay, bx2, by2, sd] of [[44, 140, 124, 50, 4], [376, 172, 290, 50, 5]]) {
+      soft(ctx, () => { ctx.moveTo(ax, ay + 8); ctx.lineTo(bx2, by2 + 8); ctx.lineTo(bx2 + (ax < 210 ? 14 : -14), by2 + 8); ctx.lineTo(ax, ay + 24); ctx.closePath(); }, 'rgba(8,4,16,.45)', 6);
+      geodeBeam(ctx, ax + (ax < 210 ? -14 : 14), ay + 10, bx2 + (ax < 210 ? 8 : -8), by2 - 12, 18, 18, ax < 210 ? -1 : 1, sd, { warm: .9, grain: 5, dim: [[0, .1], [.35, 0], [1, .35]] });
+    }
+    for (const [x0, x1, s, sd] of posts) geodeBeam(ctx, (x0 + x1) / 2, 472, (x0 + x1) / 2, 46, 32, 32, s, sd, { warm: .75, dim: [[0, .62], [.45, .3], [.82, 0], [1, .12]] });
+    poly(ctx, [[44, 50], [376, 50], A(376, 50, .95), A(44, 50, .95)], lin(ctx, 0, 50, 0, 62, [[0, '#b07a4e'], [1, '#6a4430']]));
+    geodeBeam(ctx, -10, 35, 430, 35, 30, 30, -1, 1, { warm: .6, dim: [[0, .3], [.17, 0], [.5, .4], [.83, 0], [1, .3]] });
+    for (const pts of [[[24, 44], [46, 44], [46, 60], [24, 60]], [[374, 44], [396, 44], [396, 60], [374, 60]]]) geodeStrap(ctx, pts, .55);
+    for (const pts of [[[12, 146], [46, 146], [46, 156], [12, 156]], [[374, 178], [408, 178], [408, 188], [374, 188]]]) geodeStrap(ctx, pts, .5);
+    // A cobweb in the top left corner, its spider let down on a thread.
+    geodeWeb(ctx, 45, 51, 52, 0, Math.PI / 2, 7);
+    const [sx, sy] = [84, 84];
+    emberLine(ctx, [[sx, 60], [sx, sy - 4]], 'rgba(255,236,214,.32)', .5);
+    dot(ctx, sx, sy, 2.6, '#2a2032'); dot(ctx, sx, sy - 3.4, 1.8, '#2a2032');
+    for (const k of [-1, 1]) for (const d of [-1, 0, 1]) stroke(ctx, [[sx, sy], [sx + k * 3.4, sy - 1 + d * 2], [sx + k * 4.6, sy + 1 + d * 2.4]], '#2a2032', .6);
+    dot(ctx, sx - .8, sy - 3.8, .5, '#ffffff'); dot(ctx, sx + .8, sy - 3.8, .5, '#ffffff');
+    // The lanterns, hung from the cap near each post.
+    for (const [x, y] of GEODE_LAMPS) {
+      const post = x < 210 ? 44 : 376, d = x < 210 ? 1 : -1, ay = y - 38;
+      poly(ctx, [[post - d * 2, ay - 4], [post + d * 1.5, ay - 4], [post + d * 1.5, ay + 6], [post - d * 2, ay + 6]], '#241e2a');
+      emberLine(ctx, [[post, ay - 1], [x, ay - 1], [x + d * 3, ay - 3.4]], '#2a2430', 2.2);
+      emberLine(ctx, [[post, ay - 1.8], [x, ay - 1.8]], 'rgba(255,214,170,.45)', .7);
+      ctx.beginPath(); ctx.moveTo(post, ay + 12); ctx.quadraticCurveTo(post + d * (x - post) * d * .2, ay + 2, x - d * 2, ay - .5); ctx.strokeStyle = '#2a2430'; ctx.lineWidth = 1.3; ctx.stroke();
+      ctx.beginPath(); ctx.arc(post + d * 6, ay + 4.5, 2.6, 0, TAU); ctx.strokeStyle = '#2a2430'; ctx.lineWidth = 1; ctx.stroke();
+      geodeLantern(ctx, x, y - 26);
+    }
     // A coil of rope hung on a spike in the right post.
-    nailHead(ctx, 392, 300);
-    for (const [rx, ry, a] of [[10, 13, 0], [8.6, 11.4, .1], [7.2, 10, -.05]]) { ctx.beginPath(); ctx.ellipse(392 + a * 10, 314, rx, ry, a, 0, TAU); ctx.strokeStyle = '#4a2a1a'; ctx.lineWidth = 3.4; ctx.stroke(); ctx.strokeStyle = '#d2b07c'; ctx.lineWidth = 2; ctx.stroke(); }
-    stroke(ctx, [[386, 326], [384, 340], [388, 352]], '#4a2a1a', 3.4); stroke(ctx, [[386, 326], [384, 340], [388, 352]], '#d2b07c', 2);
-    cobweb(ctx, 42, 46, 30, false);
-    stroke(ctx, [[60, 64], [60, 76]], 'rgba(230,220,250,.4)', .5);
-    dot(ctx, 60, 78, 2.6, '#2a2236'); dot(ctx, 60, 74.6, 1.8, '#2a2236');
-    for (const k of [-1, 1]) for (const d of [-1, 0, 1]) stroke(ctx, [[60, 78], [60 + k * 3.4, 77 + d * 2], [60 + k * 4.6, 79 + d * 2.4]], '#2a2236', .6);
-    dot(ctx, 59.2, 74.4, .5, '#ffffff'); dot(ctx, 60.8, 74.4, .5, '#ffffff');
-    // Lanterns hung from the cap, warm against the violet.
-    lantern(ctx, 74, 88); lantern(ctx, 346, 88);
-    // Floor, a rail track along it and the props of the working day.
-    band(ctx, ridge(458, 2.4, 91, 32), 560, '#2e2440', '#140e22', 1.8);
-    band(ctx, ridge(500, 2, 92, 50), 560, '#291f3a', null);
+    dot(ctx, 392, 290, 2, '#221c2a');
+    for (const [rx, ry, a] of [[10, 13, 0], [8.6, 11.4, .1], [7.2, 10, -.05]]) { ctx.beginPath(); ctx.ellipse(392 + a * 10, 304, rx, ry, a, 0, TAU); ctx.strokeStyle = '#5a3e2a'; ctx.lineWidth = 3.4; ctx.stroke(); ctx.strokeStyle = '#d2b07c'; ctx.lineWidth = 2; ctx.stroke(); }
+    stroke(ctx, [[386, 316], [384, 330], [388, 344]], '#5a3e2a', 3.4); stroke(ctx, [[386, 316], [384, 330], [388, 344]], '#d2b07c', 2);
+    // The gallery floor across the front, the cross-track and the turntable under the launcher.
+    band(ctx, ridge(468, 1.6, 91, 40), 560, lin(ctx, 0, 466, 0, 560, [[0, '#4a3646'], [.5, '#33263e'], [1, '#1c1428']]), null);
+    soft(ctx, () => ctx.rect(-10, 466, 440, 6), 'rgba(10,6,18,.5)', 5);
+    for (const [x] of GEODE_LAMPS) soft(ctx, () => ctx.ellipse(x + (x < 210 ? 30 : -30), 480, 90, 14, 0, 0, TAU), 'rgba(255,180,110,.16)', 14);
+    for (const x of [28, 392]) soft(ctx, () => ctx.ellipse(x, 472, 30, 5, 0, 0, TAU), 'rgba(8,4,14,.6)', 4);
     const rf = rng(919);
-    for (let i = 0; i < 50; i++) { const x = 10 + rf() * 400, y = 466 + rf() * 90; if (Math.abs(x - 210) < 80 && rf() < .8) continue; dot(ctx, x, y, .7 + rf() * 1.1, rf() < .5 ? 'rgba(10,6,20,.4)' : 'rgba(190,170,230,.25)'); }
-    for (let x = -6; x < 430; x += 24) poly(ctx, [[x - 9, 532], [x + 9, 532], [x + 12, 542], [x - 6, 542]], '#5e4436', '#2a1a14', 1);
-    for (const y of [524, 536]) { poly(ctx, [[-10, y - 2], [430, y - 2], [430, y + 2], [-10, y + 2]], '#6b6478', '#1e1a26', 1.1); stroke(ctx, [[-10, y - 1], [430, y - 1]], 'rgba(220,210,240,.5)', .8); }
-    pickaxe(ctx, 66, 462, 78, -.32);
-    geode(ctx, 48, 516, 30, 22, 71, .15);
-    for (const [x, y, w, h, sd] of [[96, 548, 9, 6, 81], [118, 526, 6, 4, 82], [300, 550, 7, 5, 83]]) pebble(ctx, x, y, w, h, sd, '#6e5f80', '#56496a', '#1e1530');
-    minecart(ctx, 356, 518, 1);
+    for (let i = 0; i < 70; i++) { const x = 10 + rf() * 400, y = 474 + rf() * 84; if (Math.abs(x - 210) < 90 && rf() < .85) continue; dot(ctx, x, y, .6 + rf() * 1.1, rf() < .55 ? 'rgba(10,6,20,.4)' : 'rgba(220,190,200,.18)'); }
+    for (let x = -6; x < 430; x += 22) poly(ctx, [[x - 8, 534], [x + 8, 534], [x + 10, 542], [x - 6, 542]], lin(ctx, 0, 534, 0, 542, [[0, '#6a4a38'], [1, '#2e1e1c']]));
+    for (const y of [473, 482]) poly(ctx, [[184, y - 1.6], [236, y - 1.6], [237, y + 1.8], [183, y + 1.8]], 'rgba(40,24,26,.75)');
+    for (const x of [194, 226]) { emberLine(ctx, [[x, 466], [x + (x - 210) * .04, 492]], '#2a2432', 2.2); emberLine(ctx, [[x, 466], [x + (x - 210) * .04, 492]], 'rgba(220,200,230,.4)', .7); }
+    soft(ctx, () => ctx.ellipse(210, 506, 62, 17, 0, 0, TAU), 'rgba(10,6,18,.55)', 6);
+    ctx.beginPath(); ctx.ellipse(210, 504, 56, 15, 0, 0, TAU); ctx.fillStyle = lin(ctx, 0, 489, 0, 519, [[0, '#6e5048'], [1, '#3a2834']]); ctx.fill();
+    clipTo(ctx, blob(210, 504, 56, 15, 1, 0, 24), () => {
+      for (let k = -4; k <= 4; k++) { emberLine(ctx, [[210 + k * 12.4, 486], [210 + k * 12.4, 522]], 'rgba(30,18,22,.45)', 1); emberLine(ctx, [[211.2 + k * 12.4, 486], [211.2 + k * 12.4, 522]], 'rgba(255,220,180,.08)', .7); }
+      wash(ctx, rad(ctx, 210, 498, 56, [[0, 'rgba(255,206,150,.22)'], [1, 'rgba(255,206,150,0)']]), 'screen');
+    });
+    ctx.beginPath(); ctx.ellipse(210, 504, 56, 15, 0, 0, TAU); ctx.strokeStyle = '#2a2232'; ctx.lineWidth = 2.6; ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(210, 503.2, 56, 15, 0, Math.PI * 1.06, Math.PI * 1.94); ctx.strokeStyle = 'rgba(255,220,190,.32)'; ctx.lineWidth = .9; ctx.stroke();
+    for (const y of [528, 540]) { poly(ctx, [[-10, y - 2], [430, y - 2], [430, y + 2], [-10, y + 2]], lin(ctx, 0, y - 2, 0, y + 2, [[0, '#a898b0'], [1, '#2e2838']])); emberLine(ctx, [[-10, y - 1.2], [430, y - 1.2]], 'rgba(255,236,220,.35)', .7); }
+    // The working corner: a cracked geode by the left post, the pickaxe leant there, the cart on the right.
+    geodePick(ctx, 64, 470, 80, -.32);
+    geodeHollow(ctx, 50, 512, 30, 22, 71, .12, .9);
+    for (const [x, y, w, h, sd] of [[98, 548, 8, 5, 81], [120, 528, 5, 3.6, 82], [296, 552, 7, 4.6, 83]]) { soft(ctx, () => ctx.ellipse(x, y + h * .7, w, h * .4, 0, 0, TAU), 'rgba(10,6,18,.5)', 2); const pts = blob(x, y, w, h, sd, .16, 8); lit(ctx, pts, '#8a7a96', '#3a2e4a'); }
+    geodeCluster(ctx, 134, 548, 9, 63, 3, .7);
+    geodeCart(ctx, 354, 520, 1);
+    // Dust hanging in the lantern light.
+    const rd = rng(55);
+    for (let i = 0; i < 18; i++) { const [lx, ly] = GEODE_LAMPS[i % 2], a = rd() * TAU, d = 20 + rd() * 70; dot(ctx, lx + Math.cos(a) * d * .7, ly + 30 + Math.sin(a) * d, .5 + rd() * .7, `rgba(255,226,180,${(.25 + rd() * .3).toFixed(3)})`); }
+    grade(ctx, 'rgba(255,200,140,.35)', 'rgba(96,74,180,.45)', 'rgba(20,10,36,.6)');
+    grain(ctx, .08);
     if (framed) frame(ctx, '#8664ae', '#f3c98a');
   }
 
   // ---------- Level 9: Briar Vault ----------
-  const STONE = ['#7f8c78', '#66725f', '#525d4d', '#1f2820'];
+  // An old vault far under the roots. Through its great arch a green-gold shaft of daylight falls from some gap high
+  // in the roof, filling the hall beyond with warm air and pooling on the floor at the launcher. The arch and its
+  // pillars stand against that light, cool and mossy and rimmed with it; briars climb them and the roses catch it.
+  // (leafGlyph and leaf stay as they were: the vault rocks in play are carved with them.)
   // A leaf cut into stone: the groove is dark on its upper left edge and catches light on the lower right.
   function leafGlyph(ctx, x, y, s, rot) {
     ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(s, s);
@@ -2654,25 +2886,6 @@
     for (const k of [-1, 1]) for (const yy of [-2, 3]) stroke(ctx, [[0, yy], [k * 3.4, yy - 2.6]], 'rgba(18,26,20,.6)', .9);
     ctx.restore();
   }
-  function stoneBlock(ctx, pts, tone, seed) {
-    const [light, base, shade, ink] = STONE;
-    poly(ctx, pts, [base, '#6b7764', '#616d5b'][tone % 3], null);
-    clipTo(ctx, pts, () => {
-      ctx.beginPath(); smooth(ctx, pts.map(([x, y]) => [x - 4, y - 4]), true); ctx.rect(-50, -50, 520, 660); ctx.fillStyle = shade; ctx.fill('evenodd');
-      const r = rng(seed);
-      for (let i = 0; i < 3; i++) { const p = pts[Math.floor(r() * pts.length)]; dot(ctx, p[0] + (r() - .5) * 20, p[1] + (r() - .5) * 14, .8 + r(), 'rgba(18,26,20,.3)'); }
-    });
-    poly(ctx, pts, null, ink, 1.5);
-    stroke(ctx, [[pts[0][0] + 2, pts[0][1] + 2], [pts[1][0] - 2, pts[1][1] + 2]], light, 1.1);
-  }
-  function mossCap(ctx, x0, x1, y, seed, drip = 0) {
-    const r = rng(seed), pts = [[x0, y + 2]];
-    for (let x = x0; x <= x1; x += 6) pts.push([x, y - 2 - r() * 4]);
-    pts.push([x1, y + 2]);
-    for (let x = x1 - 4; x > x0; x -= 7) pts.push([x, y + 2 + r() * 3 + (r() < drip ? 6 + r() * 6 : 0)]);
-    shape(ctx, pts, '#6f9e50', null); cel(ctx, pts, '#5a8a44', -2, 2.4); shape(ctx, pts, null, '#2c4a26', 1.2);
-    for (let x = x0 + 4; x < x1 - 4; x += 9 + r() * 6) dot(ctx, x, y - 2 - r() * 2, 1.1, 'rgba(220,250,170,.55)');
-  }
   function leaf(ctx, x, y, len, angle) {
     ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
     ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(len * .5, -len * .36, len, 0); ctx.quadraticCurveTo(len * .5, len * .36, 0, 0); ctx.closePath();
@@ -2681,286 +2894,576 @@
     stroke(ctx, [[len * .1, 0], [len * .8, -len * .02]], 'rgba(200,240,170,.55)', .8);
     ctx.restore();
   }
-  function rose(ctx, x, y, r, rot = 0) {
-    ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
-    for (let i = 0; i < 5; i++) { const a = i / 5 * TAU - .3; dot(ctx, Math.cos(a) * r * .55, Math.sin(a) * r * .5, r * .55, '#c8455f'); }
-    for (let i = 0; i < 5; i++) { const a = i / 5 * TAU - .3; ctx.beginPath(); ctx.arc(Math.cos(a) * r * .55, Math.sin(a) * r * .5, r * .55, a - 1.2, a + 1.2); ctx.strokeStyle = '#6a1f36'; ctx.lineWidth = 1; ctx.stroke(); }
-    dot(ctx, 0, 0, r * .55, '#a8344f');
-    ctx.beginPath(); for (let a = 0; a < 2.4 * TAU; a += .3) { const rr = r * .06 + a * r * .035; ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); } ctx.strokeStyle = '#ef8ea2'; ctx.lineWidth = .9; ctx.stroke();
-    ctx.beginPath(); ctx.arc(-r * .3, -r * .32, r * .4, 3.4, 4.6); ctx.strokeStyle = 'rgba(255,214,222,.75)'; ctx.lineWidth = 1; ctx.lineCap = 'round'; ctx.stroke();
+  const BRIAR_ARCH = [210, 204, 158, 190];
+  // The same carving in the new light: a soft groove and a lit lip, no ink.
+  function briarGlyph(ctx, x, y, s, rot, a = 1) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(s, s);
+    const leafPath = (dx, dy) => { ctx.beginPath(); ctx.moveTo(dx, -9 + dy); ctx.quadraticCurveTo(7 + dx, -2 + dy, dx, 9 + dy); ctx.quadraticCurveTo(-7 + dx, -2 + dy, dx, -9 + dy); };
+    ctx.lineCap = 'round';
+    leafPath(.7, .9); ctx.strokeStyle = `rgba(214,232,170,${(.22 * a).toFixed(3)})`; ctx.lineWidth = 1.3; ctx.stroke();
+    leafPath(0, 0); ctx.strokeStyle = `rgba(14,24,20,${(.5 * a).toFixed(3)})`; ctx.lineWidth = 1.3; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, -6); ctx.lineTo(0, 11); ctx.stroke();
     ctx.restore();
   }
-  // A briar: a thorny cane wandering along the stone, leaves and a rose or two where it pleases.
-  function briar(ctx, pts, seed, roses = []) {
-    stroke(ctx, pts, '#24401f', 3.6); stroke(ctx, pts, '#557a3c', 1.8);
-    const r = rng(seed);
+  // A leaf on a briar: lit toward the light on its upper side, deep green beneath, a pale midrib.
+  function briarLeaf(ctx, x, y, len, angle, lit = .5) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(len * .45, -len * .4, len, 0); ctx.quadraticCurveTo(len * .5, len * .34, 0, 0); ctx.closePath();
+    ctx.fillStyle = lin(ctx, 0, -len * .3, 0, len * .3, [[0, emberMix('#3e6a3a', '#a8cc62', lit)], [.55, emberMix('#24442c', '#4e8040', lit)], [1, '#1a3024']]); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(len * .08, 0); ctx.quadraticCurveTo(len * .5, -len * .05, len * .9, 0); ctx.strokeStyle = `rgba(214,240,170,${(.18 + lit * .3).toFixed(3)})`; ctx.lineWidth = .6; ctx.stroke();
+    ctx.restore();
+  }
+  // A rose: back petals in shadow, a cupped bloom whose upper edges take the light, a tight heart.
+  function briarRose(ctx, x, y, r, rot = 0, lit = .6) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
+    ctx.beginPath(); ctx.ellipse(r * .2, r * .5, r * 1.1, r * .55, 0, 0, TAU); ctx.fillStyle = rad(ctx, r * .2, r * .5, r * 1.1, [[0, 'rgba(16,10,14,.4)'], [1, 'rgba(16,10,14,0)']]); ctx.fill();
+    for (let i = 0; i < 5; i++) { const a = i / 5 * TAU - .3; ctx.beginPath(); ctx.ellipse(Math.cos(a) * r * .55, Math.sin(a) * r * .48, r * .58, r * .46, a, 0, TAU); ctx.fillStyle = i < 2 ? '#7a1830' : '#9a2440'; ctx.fill(); }
+    ctx.beginPath(); ctx.ellipse(0, 0, r * .72, r * .62, 0, 0, TAU); ctx.fillStyle = rad(ctx, -r * .25, -r * .3, r, [[0, emberMix('#c8405a', '#ff9aa8', lit)], [.6, '#b0304c'], [1, '#6a142a']]); ctx.fill();
+    for (const [a0, a1, k] of [[3.4, 5.6, .58], [4, 6.2, .38], [2.6, 4.4, .24]]) { ctx.beginPath(); ctx.arc(0, -r * .04, r * k, a0, a1); ctx.strokeStyle = `rgba(255,${Math.round(170 + lit * 50)},${Math.round(180 + lit * 40)},${(.35 + lit * .4).toFixed(3)})`; ctx.lineWidth = r * .14; ctx.lineCap = 'round'; ctx.stroke(); }
+    ctx.beginPath(); for (let a = 0; a < 2.2 * TAU; a += .35) { const rr = r * .05 + a * r * .028; ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr - r * .06); } ctx.strokeStyle = 'rgba(90,14,34,.6)'; ctx.lineWidth = .7; ctx.stroke();
+    ctx.restore();
+  }
+  // A briar cane: a tapering stem wandering where the points lead, thorns along it, leaves where it pleases and a rose
+  // or a bud at the stops listed. `lit` says how much of the light reaches it.
+  function briarCane(ctx, pts, w, seed, roses = [], lit = .5) {
+    const r = rng(seed), outline = ribbon2(pts, w, .7);
+    soft(ctx, () => smooth(ctx, outline.map(([x, y]) => [x + 2, y + 3]), true), 'rgba(10,18,14,.35)', 3);
+    shape(ctx, outline, '#24301e', null);
+    stroke(ctx, pts.map(([x, y]) => [x - w * .18, y - w * .12]), emberMix('#3a4a28', '#7a8a48', lit), w * .32);
     for (let i = 0; i < pts.length - 1; i++) {
-      const [x0, y0] = pts[i], [x1, y1] = pts[i + 1], a = Math.atan2(y1 - y0, x1 - x0), seg = Math.hypot(x1 - x0, y1 - y0);
-      for (let t = .2; t < 1; t += 14 / seg) {
-        const x = x0 + (x1 - x0) * t, y = y0 + (y1 - y0) * t, side = r() < .5 ? -1 : 1;
-        if (r() < .55) { const ta = a + side * 1.2; poly(ctx, [[x + Math.cos(a) * 1.4, y + Math.sin(a) * 1.4], [x + Math.cos(ta) * 4.4, y + Math.sin(ta) * 4.4], [x - Math.cos(a) * 1.4, y - Math.sin(a) * 1.4]], '#7a5a3a', '#24401f', .6); }
-        else leaf(ctx, x, y, 8 + r() * 4, a + side * (.9 + r() * .4));
+      const [x0, y0] = pts[i], [x1, y1] = pts[i + 1], a = Math.atan2(y1 - y0, x1 - x0), seg = Math.hypot(x1 - x0, y1 - y0), ww = w * (1 - i / (pts.length - 1) * .7);
+      for (let t = .15; t < 1; t += 9 / seg) {
+        const x = x0 + (x1 - x0) * t, y = y0 + (y1 - y0) * t, side = r() < .5 ? -1 : 1, ta = a + side * 1.25;
+        if (r() < .5) poly(ctx, [[x + Math.cos(a) * ww * .5, y + Math.sin(a) * ww * .5], [x + Math.cos(ta) * (ww * .5 + 3.4), y + Math.sin(ta) * (ww * .5 + 3.4)], [x - Math.cos(a) * ww * .2, y - Math.sin(a) * ww * .2]], '#5a4a2e');
+        else if (r() < .4) briarSprig(ctx, x, y, 11 + r() * 6, a + side * (.7 + r() * .5), lit * (.6 + r() * .6), seed * 13 + i * 7 + Math.round(t * 50));
       }
     }
-    for (const [i, rr] of roses) { const [x, y] = pts[i]; leaf(ctx, x - 2, y + 2, 9, 2.4); leaf(ctx, x + 2, y + 1, 9, .5); rose(ctx, x, y, rr, r() * 3); }
+    for (const [i, rr, bud] of roses) {
+      const [x, y] = pts[i];
+      briarLeaf(ctx, x - 2, y + 2, 9, 2.5, lit); briarLeaf(ctx, x + 2, y + 1, 9, .4, lit);
+      if (bud) { ctx.beginPath(); ctx.ellipse(x, y - rr * .2, rr * .45, rr * .7, (r() - .5) * .6, 0, TAU); ctx.fillStyle = lin(ctx, x, y - rr, x, y + rr * .4, [[0, '#d8506a'], [1, '#6a142a']]); ctx.fill(); stroke(ctx, [[x - rr * .4, y + rr * .2], [x, y + rr * .5], [x + rr * .4, y + rr * .2]], '#3a5a2a', 1.2); }
+      else briarRose(ctx, x, y, rr, r() * 3, lit);
+    }
   }
-  function rabbitStatue(ctx, x, y, s) {
+  // Moss: a mat lying along a surface, its edge ragged with tiny lumps, dark where it clings and lit only where it
+  // faces up to the light, finely flecked rather than spotted. c(t) runs along the surface, n(t) points out of it.
+  function briarMat(ctx, c, n, len, th, lit, seed, drip = 0) {
+    const r = rng(seed), steps = Math.max(6, Math.round(len / 2.2)), outer = [], inner = [], crown = [], fleck = [];
+    for (let k = 0; k <= steps; k++) {
+      const t = k / steps, [x, y] = c(t), [nx, ny] = n(t), w = th(t), up = Math.max(0, -ny), bump = k % 2 ? r() * 1.5 : -r() * .5;
+      outer.push([x + nx * (w * .6 + bump), y + ny * (w * .6 + bump)]);
+      const tongue = w > 3 && r() < .14 ? w * (.4 + r() * .5) : 0; inner.unshift([x - nx * (w * .4 + r() * 1.1 + tongue), y - ny * (w * .4 + r() * 1.1 + tongue)]);
+      crown.unshift([x + nx * (w * .6 - w * .7 * up), y + ny * (w * .6 - w * .7 * up)]);
+      if (w > 2) for (let q = 0; q < 2; q++) { const d = w * (.6 - Math.pow(r(), .6) * (.3 + .6 * up)); fleck.push([x + nx * d + (r() - .5) * 2, y + ny * d + (r() - .5) * 2, up]); }
+    }
+    const body = outer.concat(inner), pal = briarMossPal(lit);
+    soft(ctx, () => smooth(ctx, body.map(([x, y]) => [x + 1, y + 2.4]), true), 'rgba(8,16,10,.5)', 3);
+    for (let k = 2; k < steps - 1; k += 3) if (r() < drip) { const [x, y] = inner[steps - k]; emberLine(ctx, [[x, y - 1], [x + (r() - .5) * 2, y + 3 + r() * 9]], 'rgba(36,66,40,.85)', .8 + r() * .7); }
+    shape(ctx, body, pal.dark, null);
+    clipTo(ctx, body, () => {
+      shape(ctx, outer.concat(inner.map(([x, y], k) => [(x + crown[k][0]) / 2, (y + crown[k][1]) / 2])), pal.mid, null);
+      soft(ctx, () => smooth(ctx, outer.concat(crown), true), pal.lit, 1.4);
+      ctx.fillStyle = emberMix(pal.lit, '#c8dc80', .25); ctx.globalAlpha = .6;
+      for (const [x, y, up] of fleck) if (r() < .3 + up * .7) { ctx.beginPath(); ctx.arc(x, y, .4 + r() * .35, 0, TAU); ctx.fill(); }
+      ctx.globalAlpha = 1;
+    });
+  }
+  function briarMossPal(lit) { return { dark: emberMix('#1a2e22', '#20382a', lit), mid: emberMix('#28442c', '#36583a', lit), lit: emberMix('#4a6e3a', '#90ae58', lit) }; }
+  function briarMoss(ctx, x0, x1, y, seed, drip = 0, lit = .5) {
+    const r = rng(seed), wob = r() * 9;
+    briarMat(ctx, t => [x0 + (x1 - x0) * t, y - 1], () => [0, -1], x1 - x0, t => 3 + 2.6 * Math.sin(Math.PI * Math.min(1, t * 1.15)) * (.7 + .3 * Math.sin(t * 9 + wob)), lit, seed, drip);
+  }
+  // Ivy hanging in a curtain from a ledge: a few long strands, leaves alternating down them.
+  function briarIvy(ctx, x, y, len, seed, lit = .4) {
+    const r = rng(seed), sway = (r() - .5) * 10, pts = [[x, y], [x + sway * .4, y + len * .4], [x + sway, y + len * .75], [x + sway * .8, y + len]];
+    stroke(ctx, pts, '#2a4428', 1.1);
+    for (let k = 6; k < len; k += 6 + r() * 4) { const [px, py] = bezierAt([x, y], [x + sway * .6, y + len * .5], [x + sway * .8, y + len], k / len); briarLeaf(ctx, px, py, 4.6 + r() * 2.4 - k / len * 2, (k / 6) % 2 ? .9 : 2.2, lit * (1 - k / len * .6)); }
+  }
+  // The stone rabbit: a little shrine figure in the corner, mossy on the head, its back rimmed by the hall light.
+  function briarStatue(ctx, x, y, s) {
     ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
-    const [light, base, shade, ink] = ['#a2ad98', '#8a9682', '#717d6a', '#2a3329'];
-    poly(ctx, [[-22, 0], [22, 0], [22, 18], [-22, 18]], '#6f7b68', ink, 1.4);
-    poly(ctx, [[-25, -5], [25, -5], [25, 1], [-25, 1]], base, ink, 1.4);
-    stroke(ctx, [[-22, -3.4], [22, -3.4]], light, 1);
-    leafGlyph(ctx, 0, 9, .55, Math.PI / 2);
+    soft(ctx, () => ctx.ellipse(4, 18, 32, 5, 0, 0, TAU), 'rgba(8,14,12,.55)', 4);
+    const stoneG = (y0, y1) => lin(ctx, -20, y0, 20, y1, [[0, '#6a7868'], [.55, '#52604f'], [1, '#384438']]);
+    poly(ctx, [[-22, 0], [22, 0], [22, 18], [-22, 18]], stoneG(0, 18));
+    poly(ctx, [[-25, -5], [25, -5], [25, 1], [-25, 1]], lin(ctx, 0, -5, 0, 1, [[0, '#8a9a80'], [1, '#4a5848']]));
+    briarGlyph(ctx, 0, 9, .55, Math.PI / 2, .9);
     for (const [ex, a, h] of [[-4.6, -.2, 26], [5.4, .5, 22]]) {
       ctx.save(); ctx.translate(ex, -38); ctx.rotate(a);
-      ctx.beginPath(); ctx.ellipse(0, -h / 2, 3.9, h / 2, 0, 0, TAU); ctx.fillStyle = base; ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = 1.3; ctx.stroke();
-      ctx.beginPath(); ctx.ellipse(.6, -h / 2 + 1, 1.7, h / 2 - 4.4, 0, 0, TAU); ctx.fillStyle = shade; ctx.fill();
+      ctx.beginPath(); ctx.ellipse(0, -h / 2, 3.9, h / 2, 0, 0, TAU); ctx.fillStyle = stoneG(-h, 0); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(.6, -h / 2 + 1, 1.7, h / 2 - 4.4, 0, 0, TAU); ctx.fillStyle = 'rgba(30,40,34,.45)'; ctx.fill();
       ctx.restore();
     }
     const body = [[-16, -5], [-17, -18], [-10, -28], [2, -30], [12, -24], [16, -12], [14, -5]];
-    shape(ctx, body, base, null); cel(ctx, body, shade, -3, 3); shape(ctx, body, null, ink, 1.4);
+    shape(ctx, body, stoneG(-30, -5), null); rim(ctx, body, 'rgba(226,236,170,.5)', 2, -1.5);
     const head = blob(0, -34, 11, 9.4, 7, .04, 10);
-    shape(ctx, head, base, null); cel(ctx, head, shade, -2, 2.4); shape(ctx, head, null, ink, 1.4);
-    for (const ex of [-4.4, 4.4]) { ctx.beginPath(); ctx.arc(ex, -35, 2.2, .3, Math.PI - .3); ctx.strokeStyle = ink; ctx.lineWidth = 1.1; ctx.stroke(); }
-    dot(ctx, 0, -31.6, 1.2, ink); stroke(ctx, [[-2, -29.4], [0, -28.4], [2, -29.4]], ink, .8);
-    ctx.beginPath(); ctx.ellipse(-12, -6, 5, 3, 0, 0, TAU); ctx.fillStyle = base; ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = 1.1; ctx.stroke();
-    stroke(ctx, [[-7, -40], [-3, -42.6], [1, -41]], light, 1.2);
-    stroke(ctx, [[8, -20], [11, -14], [9, -9]], 'rgba(42,51,41,.5)', .9);
-    for (const [mx, my, mr] of [[-6, -42, 3.4], [-2, -43.4, 2.8], [2, -42.6, 2.4], [-24, -5, 2.6], [-20, -6, 3], [-16, -5.4, 2.4], [20, -4.6, 2.2]]) dot(ctx, mx, my, mr + 1, '#2c4a26');
-    for (const [mx, my, mr] of [[-6, -42, 3.4], [-2, -43.4, 2.8], [2, -42.6, 2.4], [-24, -5, 2.6], [-20, -6, 3], [-16, -5.4, 2.4], [20, -4.6, 2.2]]) dot(ctx, mx, my, mr, '#6f9e50');
-    dot(ctx, -7, -43.4, 1, 'rgba(220,250,170,.6)');
+    shape(ctx, head, stoneG(-44, -24), null); rim(ctx, head, 'rgba(226,236,170,.55)', 1.6, -1.6);
+    for (const ex of [-4.4, 4.4]) { ctx.beginPath(); ctx.arc(ex, -35, 2.2, .3, Math.PI - .3); ctx.strokeStyle = 'rgba(20,28,24,.7)'; ctx.lineWidth = 1.1; ctx.stroke(); }
+    dot(ctx, 0, -31.6, 1.1, 'rgba(20,28,24,.6)'); stroke(ctx, [[-2, -29.4], [0, -28.4], [2, -29.4]], 'rgba(20,28,24,.55)', .8);
+    ctx.beginPath(); ctx.ellipse(-12, -6, 5, 3, 0, 0, TAU); ctx.fillStyle = '#4a5848'; ctx.fill();
+    stroke(ctx, [[8, -20], [11, -14], [9, -9]], 'rgba(20,28,24,.4)', .9);
+    clipTo(ctx, head, () => { shape(ctx, scallop(-3, -45, 8.6, 9, 9, .2), lin(ctx, 0, -44, 0, -37, [[0, '#7a9a4c'], [1, '#2e4a2c']]), null); });
+    briarMoss(ctx, -26, -12, -5, 41, .6, .5); briarMoss(ctx, 15, 24, -5, 42, 0, .55);
     ctx.restore();
   }
-  function toad(ctx, x, y, s) {
+  // The toad, sitting on the fallen drum, its back warmed by the light from the hall.
+  function briarToad(ctx, x, y, s) {
     ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
-    const ink = '#2f4220', skin = '#8fae5e', dark = '#6f8f46';
+    const line = '#3a5a2a', skin = lin(ctx, 0, -18, 0, 2, [[0, '#a8be6a'], [1, '#6a8a44']]), dark = 'rgba(70,96,46,.7)';
+    soft(ctx, () => ctx.ellipse(0, 2, 18, 3, 0, 0, TAU), 'rgba(10,18,12,.5)', 2.5);
     const body = [[-16, 0], [-17, -9], [-10, -16], [10, -16], [17, -9], [16, 0], [0, 2]];
-    shape(ctx, body, skin, null); cel(ctx, body, dark, -3, 3); shape(ctx, body, null, ink, 1.4);
+    shape(ctx, body, skin, line, 1.1); rim(ctx, body, 'rgba(236,244,180,.5)', 1.4, -1.6);
     ctx.beginPath(); ctx.ellipse(0, -4, 9, 4.6, 0, 0, TAU); ctx.fillStyle = '#dcd99c'; ctx.fill();
     for (const [sx, sy, sr] of [[-11, -9, 1.6], [12, -6, 1.3], [7, -12, 1.1], [-6, -13, 1]]) dot(ctx, sx, sy, sr, dark);
     for (const ex of [-8, 8]) {
-      dot(ctx, ex, -15, 5, skin); ctx.beginPath(); ctx.arc(ex, -15, 5, Math.PI * .92, Math.PI * 2.08); ctx.strokeStyle = ink; ctx.lineWidth = 1.3; ctx.stroke();
+      dot(ctx, ex, -15, 5, '#a2b866'); ctx.beginPath(); ctx.arc(ex, -15, 5, Math.PI * .92, Math.PI * 2.08); ctx.strokeStyle = line; ctx.lineWidth = 1.1; ctx.stroke();
       dot(ctx, ex, -14.6, 3.2, '#e8d58a');
       ctx.beginPath(); ctx.ellipse(ex, -14.4, 2.4, 1.2, 0, 0, TAU); ctx.fillStyle = '#2a2a18'; ctx.fill();
-      ctx.beginPath(); ctx.moveTo(ex - 3.6, -16); ctx.quadraticCurveTo(ex, -18.4, ex + 3.6, -16); ctx.lineTo(ex + 3.6, -18); ctx.quadraticCurveTo(ex, -20.4, ex - 3.6, -18); ctx.closePath(); ctx.fillStyle = skin; ctx.fill();
-      ctx.beginPath(); ctx.moveTo(ex - 3.6, -16); ctx.quadraticCurveTo(ex, -18.4, ex + 3.6, -16); ctx.strokeStyle = ink; ctx.lineWidth = 1; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(ex - 3.6, -16); ctx.quadraticCurveTo(ex, -18.4, ex + 3.6, -16); ctx.lineTo(ex + 3.6, -18); ctx.quadraticCurveTo(ex, -20.4, ex - 3.6, -18); ctx.closePath(); ctx.fillStyle = '#a2b866'; ctx.fill();
+      ctx.beginPath(); ctx.moveTo(ex - 3.6, -16); ctx.quadraticCurveTo(ex, -18.4, ex + 3.6, -16); ctx.strokeStyle = line; ctx.lineWidth = .9; ctx.stroke();
       dot(ctx, ex - 1.2, -13.6, .7, '#ffffff');
     }
-    ctx.beginPath(); ctx.moveTo(-8, -8); ctx.quadraticCurveTo(0, -3, 8, -8); ctx.strokeStyle = ink; ctx.lineWidth = 1.1; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-8, -8); ctx.quadraticCurveTo(0, -3, 8, -8); ctx.strokeStyle = line; ctx.lineWidth = 1; ctx.stroke();
     dot(ctx, -11, -6.4, 1.8, 'rgba(240,150,140,.45)'); dot(ctx, 11, -6.4, 1.8, 'rgba(240,150,140,.45)');
-    for (const k of [-1, 1]) { ctx.beginPath(); ctx.ellipse(k * 9, 1, 5, 2.4, 0, 0, TAU); ctx.fillStyle = skin; ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = 1.1; ctx.stroke(); }
+    for (const k of [-1, 1]) { ctx.beginPath(); ctx.ellipse(k * 9, 1, 5, 2.4, 0, 0, TAU); ctx.fillStyle = '#7a9a4e'; ctx.fill(); ctx.strokeStyle = line; ctx.lineWidth = .9; ctx.stroke(); }
     ctx.restore();
   }
+  // Dressed stone laid in courses, each block its own shade, mortar dark between, a cool lip along each top edge.
+  function briarCourses(ctx, x0, y0, x1, y1, h, base, seed, lip = 'rgba(190,214,180,.12)') {
+    const r = rng(seed);
+    ctx.fillStyle = 'rgba(10,18,16,.55)'; ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+    for (let y = y0, row = 0; y < y1; y += h, row++) {
+      for (let x = x0 - (row % 2) * h * 1.1 - r() * 6; x < x1; ) {
+        const w = h * (1.6 + r() * 1.2);
+        poly(ctx, [[x + .8, y + .8], [x + w - .8, y + .8], [x + w - .8, y + h - .8], [x + .8, y + h - .8]], emberMix(base, r() < .5 ? '#1e2a26' : '#5a6a5a', r() * .28));
+        emberLine(ctx, [[x + 1.4, y + 1.4], [x + w - 1.4, y + 1.4]], lip, .8);
+        x += w;
+      }
+    }
+  }
+  // A rose sprig: a stalk with paired leaflets and one at its tip, the way rose leaves grow.
+  function briarSprig(ctx, x, y, len, angle, lit, seed) {
+    const r = rng(seed), ca = Math.cos(angle), sa = Math.sin(angle), bend = (r() - .5) * .3;
+    const at = t => [x + ca * len * t - sa * len * bend * t * t, y + sa * len * t + ca * len * bend * t * t];
+    stroke(ctx, [at(0), at(.5), at(1)], '#2a3a22', 1);
+    const pairs = 2 + (r() < .6), size = len * .36;
+    for (let k = 0; k < pairs; k++) {
+      const t = .32 + k * .26, [px, py] = at(t);
+      for (const side of [-1, 1]) briarLeaf(ctx, px, py, size * (1 - k * .1), angle + bend * t + side * (.85 + r() * .25), lit * (side < 0 ? 1 : .7));
+    }
+    const [tx, ty] = at(.96); briarLeaf(ctx, tx, ty, size * 1.05, angle + bend, lit);
+  }
+  // Briar foliage: sprigs crowding out from a dark heart, the back ones in shadow, the front ones lit.
+  function briarBush(ctx, masses, lit, seed) {
+    const r = rng(seed);
+    for (const [x, y, r0] of masses) soft(ctx, () => ctx.ellipse(x, y + r0 * .15, r0 * .85, r0 * .6, 0, 0, TAU), 'rgba(8,18,12,.55)', r0 * .45);
+    for (const layer of [0, 1]) for (const [x, y, r0] of masses) {
+      const n = layer ? 4 : 5;
+      for (let i = 0; i < n; i++) {
+        const a = -Math.PI / 2 + (i / (n - 1) - .5) * (layer ? 2.4 : 3.6) + (r() - .5) * .4;
+        briarSprig(ctx, x + (r() - .5) * r0 * .3, y + (r() - .5) * r0 * .2, r0 * (layer ? .8 : 1.05) * (.8 + r() * .3), a, lit * (layer ? 1 : .45), seed * 7 + i + layer * 20);
+      }
+    }
+  }
+  // A near cane hanging in front of everything: almost a silhouette, only a cool edge where the hall light finds it.
+  function briarFore(ctx, pts, w, seed) {
+    const r = rng(seed);
+    shape(ctx, ribbon2(pts, w, .75), '#0b140f', null);
+    stroke(ctx, pts.map(([x, y]) => [x + w * .2, y - w * .25]), 'rgba(70,96,74,.35)', w * .22);
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [x0, y0] = pts[i], [x1, y1] = pts[i + 1], a = Math.atan2(y1 - y0, x1 - x0), seg = Math.hypot(x1 - x0, y1 - y0);
+      for (let t = .2; t < 1; t += 8 / seg) {
+        const x = x0 + (x1 - x0) * t, y = y0 + (y1 - y0) * t, side = r() < .5 ? -1 : 1, ww = w * (1 - i / pts.length * .6);
+        if (r() < .55) poly(ctx, [[x + Math.cos(a) * ww * .5, y + Math.sin(a) * ww * .5], [x + Math.cos(a + side * 1.2) * (ww * .5 + 4.5), y + Math.sin(a + side * 1.2) * (ww * .5 + 4.5)], [x - Math.cos(a) * ww * .3, y - Math.sin(a) * ww * .3]], '#0b140f');
+        else {
+          const la = a + side * (.6 + r() * .6), len = 12 + r() * 9;
+          ctx.save(); ctx.translate(x, y); ctx.rotate(la);
+          ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(len * .45, -len * .42, len, 0); ctx.quadraticCurveTo(len * .5, len * .36, 0, 0); ctx.fillStyle = '#0d1812'; ctx.fill();
+          ctx.beginPath(); ctx.moveTo(len * .1, -len * .06); ctx.quadraticCurveTo(len * .45, -len * .4, len * .95, -.4); ctx.strokeStyle = 'rgba(96,130,96,.28)'; ctx.lineWidth = .8; ctx.stroke();
+          ctx.restore();
+        }
+      }
+    }
+  }
   function paintBriar(ctx, framed) {
-    const back = ctx.createLinearGradient(0, 0, 0, 560);
-    back.addColorStop(0, '#2a3a33'); back.addColorStop(.6, '#25332d'); back.addColorStop(1, '#1d2823');
-    ctx.fillStyle = back; ctx.fillRect(0, 0, 420, 560);
-    // The far wall: coursed stone, barely there, and an arcade beyond in the gloom.
-    ctx.save(); ctx.strokeStyle = 'rgba(160,190,150,.07)'; ctx.lineWidth = 1;
-    for (let y = 60, row = 0; y < 456; y += 30, row++) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(420, y); ctx.stroke(); for (let x = (row % 2) * 32; x < 420; x += 64) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 30); ctx.stroke(); } }
-    ctx.restore();
-    for (const [x0, x1, top] of [[64, 152, 262], [152, 268, 232], [268, 356, 262]]) {
-      const cx = (x0 + x1) / 2, rr = (x1 - x0) / 2 - 8;
-      ctx.beginPath(); ctx.moveTo(x0 + 8, 456); ctx.lineTo(x0 + 8, top + rr); ctx.arc(cx, top + rr, rr, Math.PI, 0); ctx.lineTo(x1 - 8, 456); ctx.closePath();
-      ctx.fillStyle = 'rgba(16,24,20,.32)'; ctx.fill(); ctx.strokeStyle = 'rgba(160,190,150,.13)'; ctx.lineWidth = 1.2; ctx.stroke();
+    const [ax, ay, R1, R2] = BRIAR_ARCH, opening = () => { ctx.moveTo(52, 470); ctx.lineTo(52, ay); ctx.arc(ax, ay, R1, Math.PI, 0); ctx.lineTo(368, 470); ctx.closePath(); };
+    // The hall beyond the arch: deep green up in its vault, warming to gold where the light comes down.
+    wash(ctx, lin(ctx, 0, 0, 0, 460, [[0, '#14221e'], [.3, '#1c2e2a'], [.62, '#283c34'], [.86, '#34483a'], [1, '#3c4e3a']]));
+    const rw = rng(12);
+    for (let y = 70; y < 300; y += 38) emberLine(ctx, [[40, y + rw() * 3], [380, y + rw() * 3]], 'rgba(10,18,16,.22)', 1.2);
+    for (const [x, y, w, h, c] of [[120, 150, 70, 50, 'rgba(60,90,60,.16)'], [300, 120, 60, 40, 'rgba(60,90,60,.14)'], [230, 230, 90, 40, 'rgba(10,18,16,.2)']]) soft(ctx, () => ctx.ellipse(x, y, w, h, 0, 0, TAU), c, 20);
+    // Its far arcade: three arches into further dark, the middle one with a glimpse of another lit room.
+    for (const [cx, w, top, glow] of [[124, 52, 300, .3], [210, 64, 282, .8], [296, 52, 300, .3]]) {
+      const path = () => { ctx.beginPath(); ctx.moveTo(cx - w / 2, 440); ctx.lineTo(cx - w / 2, top + w / 2); ctx.arc(cx, top + w / 2, w / 2, Math.PI, 0); ctx.lineTo(cx + w / 2, 440); ctx.closePath(); };
+      path(); ctx.fillStyle = lin(ctx, 0, top, 0, 440, [[0, '#0e1a16'], [1, '#1a2a22']]); ctx.fill();
+      ctx.save(); path(); ctx.clip(); bloom(ctx, cx, 446, w * 1.1, '190,214,150', .2 * glow); ctx.restore();
+      ctx.beginPath(); ctx.arc(cx, top + w / 2, w / 2 + 3.5, Math.PI, 0); ctx.strokeStyle = 'rgba(120,150,110,.14)'; ctx.lineWidth = 7; ctx.stroke();
     }
-    for (const x of [64, 152, 268, 356]) poly(ctx, [[x - 8, 230], [x + 8, 230], [x + 8, 456], [x - 8, 456]], '#2c3b34', 'rgba(160,190,150,.13)', 1.1);
-    // Green-gold daylight finds its way down from somewhere high above.
-    ctx.save(); ctx.globalCompositeOperation = 'screen';
-    for (const [x0, x1, x2, x3, a] of [[120, 176, 300, 200, .07], [150, 166, 250, 214, .06]]) {
-      ctx.beginPath(); ctx.moveTo(x0, 30); ctx.lineTo(x1, 30); ctx.lineTo(x2, 456); ctx.lineTo(x3, 456); ctx.closePath(); ctx.fillStyle = `rgba(220,240,160,${a})`; ctx.fill();
+    for (const x of [82, 167, 253, 338]) poly(ctx, [[x - 8, 296], [x + 8, 296], [x + 8, 440], [x - 8, 440]], lin(ctx, x - 8, 0, x + 8, 0, [[0, '#3a4c3c'], [1, '#26362e']]));
+    // Briar let down in a curtain through the left arch; the right one half choked with fallen blocks.
+    const rc = rng(404); ctx.save(); ctx.globalAlpha = .7;
+    for (const [x, len, sw] of [[103, 64, 3], [110, 100, -2], [117, 40, 4], [129, 84, -3], [143, 52, 2]]) {
+      const pts = [[x, 302], [x + sw, 302 + len * .5], [x + sw * .4, 302 + len]];
+      stroke(ctx, pts, '#1e3226', 1.1);
+      for (let k = 6 + rc() * 6; k < len - 2; k += 6 + rc() * 11) { const [px, py] = bezierAt(pts[0], pts[1], pts[2], k / len); briarLeaf(ctx, px, py, 3.6 + rc() * 2.6, rc() < .5 ? .5 + rc() * .6 : 2.1 + rc() * .6, 0); }
     }
     ctx.restore();
-    // Spandrels: the dark walling the great arch is built into.
-    const spandrel = () => { ctx.beginPath(); ctx.moveTo(-10, -10); ctx.lineTo(430, -10); ctx.lineTo(430, 204); ctx.lineTo(396, 204); ctx.arc(210, 200, 186, 0, Math.PI, true); ctx.lineTo(-10, 204); ctx.closePath(); };
-    spandrel(); ctx.fillStyle = '#2e3a31'; ctx.fill();
-    ctx.save(); spandrel(); ctx.clip();
-    ctx.strokeStyle = 'rgba(12,18,14,.55)'; ctx.lineWidth = 1.2;
-    for (let y = 8, row = 0; y < 210; y += 24, row++) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(420, y); ctx.stroke(); for (let x = (row % 2) * 22 + 6; x < 420; x += 44) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 24); ctx.stroke(); } }
+    for (const [x, y, w, h] of [[276, 424, 22, 16], [298, 428, 18, 12], [288, 412, 16, 12], [314, 432, 12, 8]]) { poly(ctx, [[x, y], [x + w, y + 1], [x + w - 1, y + h], [x + 1, y + h]], lin(ctx, 0, y, 0, y + h, [[0, '#3e5240'], [1, '#22302a']])); emberLine(ctx, [[x + 1, y + .8], [x + w - 1, y + 1.6]], 'rgba(200,220,160,.16)', .9); }
+    band(ctx, [[-20, 438], [440, 438]], 470, lin(ctx, 0, 438, 0, 470, [[0, '#3a4a36'], [1, '#4a5840']]), null);
+    for (const y of [446, 456]) emberLine(ctx, [[40, y], [380, y]], 'rgba(10,20,14,.25)', .8);
+    air(ctx, 40, 470, '74,96,74', .06, .42);
+    bloom(ctx, 238, 450, 160, '236,230,150', .28);
+    // The light itself, falling from a gap high in the vault, through the hall and the arch, to the floor.
+    const rays = () => { for (const [x, a, len, w0, w1, al] of [[112, 1.36, 600, 8, 46, .16], [138, 1.39, 600, 5, 22, .12], [156, 1.405, 590, 9, 40, .15], [184, 1.43, 570, 4, 20, .1], [96, 1.33, 520, 5, 24, .07]]) shaft(ctx, x, -30, a, len, w0, w1, '240,234,160', al); };
+    ctx.save(); ctx.beginPath(); opening(); ctx.rect(-10, 458, 440, 120); ctx.clip(); rays(); ctx.restore();
+    // The near wall the arch is built into, in the cool shade of this side of the vault.
+    ctx.save(); ctx.beginPath(); ctx.rect(-10, -10, 440, 480); opening(); ctx.clip('evenodd');
+    briarCourses(ctx, -10, -6, 430, 470, 24, '#26342e', 21);
+    wash(ctx, rad(ctx, ax, ay, 300, [[0, 'rgba(0,0,0,0)'], [.55, 'rgba(8,14,12,.1)'], [1, 'rgba(8,14,12,.5)']]));
     ctx.restore();
-    // The great arch, stone by stone, the keystone carved with a leaf.
-    const n = 11, r1 = 158, r2 = 188;
+    // The great arch: a soffit lit by the hall, voussoirs in shade, each with a rim of light along its inner edge.
+    soft(ctx, () => { ctx.arc(ax, ay, R2 + 6, Math.PI, 0); ctx.arc(ax, ay, R1 - 4, 0, Math.PI, true); ctx.closePath(); }, 'rgba(6,12,10,.55)', 10);
+    ctx.beginPath(); ctx.arc(ax, ay, R1, Math.PI, 0); ctx.arc(ax + 6, ay + 10, R1 - 10, 0, Math.PI, true); ctx.closePath();
+    ctx.fillStyle = lin(ctx, ax - R1, 0, ax + R1, 0, [[0, '#3e4e40'], [.45, '#7a8660'], [1, '#4e5c48']]); ctx.fill();
+    const n = 11;
     for (let i = 0; i < n; i++) {
-      const key = i === 5, a0 = Math.PI + i * Math.PI / n, a1 = Math.PI + (i + 1) * Math.PI / n, out = key ? r2 + 8 : r2, inn = key ? r1 - 6 : r1;
-      const pts = [];
-      for (let t = 0; t <= 4; t++) { const a = a0 + (a1 - a0) * t / 4; pts.push([210 + Math.cos(a) * out, 200 + Math.sin(a) * out]); }
-      for (let t = 4; t >= 0; t--) { const a = a0 + (a1 - a0) * t / 4; pts.push([210 + Math.cos(a) * inn, 200 + Math.sin(a) * inn]); }
-      poly(ctx, pts, ['#66725f', '#6b7764', '#616d5b'][i % 3], null);
-      clipTo(ctx, pts, () => { ctx.beginPath(); ctx.arc(210, 200, inn + 7, 0, TAU); ctx.fillStyle = '#4b5647'; ctx.fill(); });
-      poly(ctx, pts, null, '#1f2820', 1.5);
-      ctx.beginPath(); ctx.arc(210, 200, out - 2.4, a0 + .02, a1 - .02); ctx.strokeStyle = 'rgba(190,210,170,.35)'; ctx.lineWidth = 1.1; ctx.stroke();
-      if (key) leafGlyph(ctx, 210, 200 - (out + inn) / 2, .95, 0);
+      const key = i === 5, a0 = Math.PI + i * Math.PI / n, a1 = Math.PI + (i + 1) * Math.PI / n, out = key ? R2 + 8 : R2, inn = key ? R1 - 5 : R1, pts = [];
+      for (let t = 0; t <= 4; t++) { const a = a0 + (a1 - a0) * t / 4; pts.push([ax + Math.cos(a) * (out - .9), ay + Math.sin(a) * (out - .9)]); }
+      for (let t = 4; t >= 0; t--) { const a = a0 + (a1 - a0) * t / 4; pts.push([ax + Math.cos(a) * (inn + .5), ay + Math.sin(a) * (inn + .5)]); }
+      const tone = [.1, .3, 0, .22, .05, .35, .12, -.05, .25, .02, .16][i];
+      poly(ctx, pts, rad(ctx, ax, ay, out, [[R1 / out * .97, emberMix('#33443a', '#56685a', tone)], [1, emberMix('#24302a', '#3a4a40', tone)]]));
+      const am = (a0 + a1) / 2;
+      const facing = Math.max(0, Math.cos(am - Math.PI * 1.3));
+      ctx.beginPath(); ctx.arc(ax, ay, inn + 2, a0 + .012, a1 - .012); ctx.strokeStyle = `rgba(226,232,170,${(.08 + .3 * facing).toFixed(3)})`; ctx.lineWidth = 1.6; ctx.stroke();
+      ctx.beginPath(); ctx.arc(ax, ay, out - 2.4, a0 + .02, a1 - .02); ctx.strokeStyle = 'rgba(190,214,170,.1)'; ctx.lineWidth = 1; ctx.stroke();
+      if (key) briarGlyph(ctx, ax, ay - (out + inn) / 2, .95, 0);
     }
-    // Pillars: drums of stone, carved leaves on a few, capitals and plinths.
-    for (const [x0, x1, side] of [[-2, 52, 0], [368, 422, 1]]) {
-      const ys = [224, 262, 304, 342, 386, 432];
-      for (let i = 0; i < ys.length - 1; i++) stoneBlock(ctx, [[x0, ys[i]], [x1, ys[i]], [x1, ys[i + 1]], [x0, ys[i + 1]]], i + side, i * 7 + side);
-      for (const yi of side ? [1, 3] : [2, 4]) leafGlyph(ctx, (x0 + x1) / 2 + (side ? -4 : 4), (ys[yi] + ys[yi + 1]) / 2, 1, side ? .3 : -.3);
-      stoneBlock(ctx, [[x0 - 8, 200], [x1 + 8, 200], [x1 + 4, 214], [x1, 224], [x0, 224], [x0 - 4, 214]], 0, 30 + side);
-      for (let k = 0; k < 3; k++) { const cx = x0 + 10 + k * 17; ctx.beginPath(); ctx.arc(cx, 212, 4.4, Math.PI * .1, Math.PI * 1.9); ctx.strokeStyle = 'rgba(18,26,20,.65)'; ctx.lineWidth = 1.1; ctx.stroke(); }
-      stoneBlock(ctx, [[x0 - 6, 432], [x1 + 6, 432], [x1 + 6, 458], [x0 - 6, 458]], 1, 40 + side);
-      mossCap(ctx, x0 - 6, x1 + 6, 200, 50 + side, .5);
-      mossCap(ctx, x0 - 4, x1 + 4, 432, 60 + side, .3);
-    }
-    // Moss along the top of the arch, and roots of ivy hanging from it.
-    const rmo = rng(313);
-    for (const [a0, a1] of [[3.2, 3.8], [4.52, 4.68], [5.62, 6.2]]) {
-      const top = [], under = [];
-      for (let a = a0; a <= a1 + .001; a += (a1 - a0) / 10) { top.push([210 + Math.cos(a) * (190 + rmo() * 5), 200 + Math.sin(a) * (190 + rmo() * 5)]); under.unshift([210 + Math.cos(a) * (184 - rmo() * 3), 200 + Math.sin(a) * (184 - rmo() * 3)]); }
-      const pts = top.concat(under);
-      shape(ctx, pts, '#6f9e50', null); cel(ctx, pts, '#5a8a44', -2, 2.4); shape(ctx, pts, null, '#2c4a26', 1.2);
-      for (let k = 1; k < top.length - 1; k += 2) dot(ctx, top[k][0], top[k][1] + 1.6, 1.1, 'rgba(220,250,170,.55)');
-    }
-    for (const [a, len] of [[3.5, 30], [3.66, 18], [5.82, 26], [5.96, 40], [4.2, 12], [5.3, 14]]) {
-      const x = 210 + Math.cos(a) * 158, y = 200 + Math.sin(a) * 158;
-      stroke(ctx, [[x, y], [x + 2, y + len * .5], [x - 1, y + len]], '#3f6b37', 1.3);
-      for (let k = 6; k < len; k += 7) leaf(ctx, x + (k % 14 ? 1 : -1), y + k, 5, k % 14 ? .6 : 2.5);
-    }
-    // The briars: up the pillars and over the arch.
-    const arcPts = (a0, a1, rr, wob, seed) => { const r = rng(seed), out = []; for (let a = a0; Math.sign(a1 - a0) * (a1 - a) > 0; a += (a1 - a0) / 9) out.push([210 + Math.cos(a) * (rr + (r() - .5) * wob), 200 + Math.sin(a) * (rr + (r() - .5) * wob)]); return out; };
-    briar(ctx, [[30, 470], [44, 420], [30, 370], [48, 320], [34, 270], [46, 226]].concat(arcPts(3.2, 4.1, 172, 18, 3)), 5, [[3, 6.4], [6, 7], [10, 6]]);
-    briar(ctx, [[392, 466], [378, 410], [396, 350], [380, 290], [392, 236]].concat(arcPts(6.24, 5.5, 174, 16, 4)), 6, [[2, 6.6], [7, 7.2], [11, 5.6]]);
-    // Fireflies and dust in the light.
-    const rm = rng(929);
-    for (let i = 0; i < 26; i++) {
-      const x = rm() < .5 ? 20 + rm() * 70 : 330 + rm() * 70, y = 70 + rm() * 360;
-      dot(ctx, x, y, 3, 'rgba(230,255,150,.12)'); dot(ctx, x, y, 1, 'rgba(240,255,190,.85)');
-    }
-    // The floor: old flagstones, moss in the joints.
-    band(ctx, ridge(458, 1.4, 99, 40), 560, '#38443a', '#141c16', 1.8);
-    ctx.save(); ctx.strokeStyle = 'rgba(14,20,16,.6)'; ctx.lineWidth = 1.2;
-    for (const [y, xs] of [[478, [40, 104, 300, 360]], [504, [72, 140, 280, 344]], [534, [24, 98, 318, 392]]]) {
-      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(420, y); ctx.stroke();
-      for (const x of xs) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 2, y + (y === 534 ? 26 : y === 504 ? 30 : 26)); ctx.stroke(); }
-    }
+    // Weather on the voussoirs: damp streaks run down from their outer edges, pale lichen here and there.
+    ctx.save(); ctx.beginPath(); ctx.arc(ax, ay, R2 + 8, Math.PI, 0); ctx.arc(ax, ay, R1 - 5, 0, Math.PI, true); ctx.closePath(); ctx.clip();
+    const rv = rng(140), streaks = [], lichen = [];
+    for (let k = 0; k < 18; k++) { const aa = Math.PI + .08 + rv() * (Math.PI - .16), l1 = R2 - 8 - rv() * 16; streaks.push([aa, l1]); if (rv() < .45) lichen.push([aa + .04, R1 + 6 + rv() * 20, 4 + rv() * 5]); }
+    soft(ctx, () => { for (const [aa, l1] of streaks) { ctx.moveTo(ax + Math.cos(aa) * (R2 + 2), ay + Math.sin(aa) * (R2 + 2)); ctx.lineTo(ax + Math.cos(aa) * l1, ay + Math.sin(aa) * l1 + 9); ctx.lineTo(ax + Math.cos(aa + .025) * (R2 + 2), ay + Math.sin(aa + .025) * (R2 + 2)); ctx.closePath(); } }, 'rgba(10,18,14,.3)', 3);
+    soft(ctx, () => { for (const [aa, d, rr] of lichen) { ctx.moveTo(ax + Math.cos(aa) * d + rr, ay + Math.sin(aa) * d); ctx.ellipse(ax + Math.cos(aa) * d, ay + Math.sin(aa) * d, rr, rr * .7, aa, 0, TAU); } }, 'rgba(150,176,112,.14)', 3);
     ctx.restore();
-    for (const [x, y] of [[40, 478], [104, 504], [300, 478], [344, 534], [98, 534]]) for (let k = 0; k < 4; k++) dot(ctx, x - 6 + k * 4, y + (k % 2) - .5, 1.8, '#5a8a44');
-    // A stone rabbit keeps watch in one corner; in the other, a toad on a fallen drum among the roses.
-    rabbitStatue(ctx, 94, 506, 1.22);
-    briar(ctx, [[60, 540], [66, 520], [58, 500], [64, 486]], 7, [[3, 5.6]]);
+    // Pillars: drums of stone, their inner faces turned to the hall, capitals and plinths.
+    for (const [x0, x1, side] of [[-4, 52, 0], [368, 424, 1]]) {
+      const inner = side ? x0 : x1, d = side ? 1 : -1, ys = [222, 262, 300, 342, 388, 434];
+      poly(ctx, [[inner, 214], [inner + d * 8, 220], [inner + d * 8, 462], [inner, 468]], lin(ctx, 0, 220, 0, 460, side ? [[0, '#7a8460'], [1, '#46523e']] : [[0, '#3a4a3c'], [1, '#26342c']]));
+      for (let i = 0; i < ys.length - 1; i++) {
+        const blk = [[x0, ys[i] + .8], [x1, ys[i] + .8], [x1, ys[i + 1] - .8], [x0, ys[i + 1] - .8]];
+        poly(ctx, blk, lin(ctx, x0, 0, x1, 0, side ? [[0, '#4a5a4a'], [.5, '#36463a'], [1, '#26322c']] : [[0, '#24302a'], [.6, '#34443a'], [1, '#42524a']]));
+        emberLine(ctx, [[x0 + 1, ys[i] + 1.6], [x1 - 1, ys[i] + 1.6]], 'rgba(190,214,170,.12)', .8);
+        if (i === (side ? 1 : 2)) briarGlyph(ctx, (x0 + x1) / 2 + (side ? -4 : 4), (ys[i] + ys[i + 1]) / 2, 1, side ? .3 : -.3, .9);
+      }
+      wash(ctx, lin(ctx, 0, 300, 0, 470, [[0, 'rgba(6,12,10,0)'], [1, 'rgba(6,12,10,.4)']]), null, 1, x0, 300, x1 - x0, 170);
+      emberLine(ctx, [[inner + d * .8, 224], [inner + d * .8, 432]], lin(ctx, 0, 224, 0, 432, side ? [[0, 'rgba(240,240,180,.6)'], [1, 'rgba(240,240,180,.2)']] : [[0, 'rgba(190,214,170,.22)'], [1, 'rgba(190,214,170,.05)']]), 1.4);
+      poly(ctx, [[x0 - 8, 200], [x1 + 8, 200], [x1 + 4, 212], [x1, 222], [x0, 222], [x0 - 4, 212]], lin(ctx, 0, 200, 0, 222, [[0, '#56664e'], [.4, '#3e4c3e'], [1, '#1e2a24']]));
+      for (let k = 0; k < 3; k++) { const cx = x0 + 10 + k * 17; ctx.beginPath(); ctx.arc(cx, 212, 4.4, Math.PI * .1, Math.PI * 1.9); ctx.strokeStyle = 'rgba(10,18,14,.4)'; ctx.lineWidth = 1.1; ctx.stroke(); }
+      poly(ctx, [[x0 - 6, 434], [x1 + 6, 434], [x1 + 6, 462], [x0 - 6, 462]], lin(ctx, 0, 434, 0, 462, [[0, '#46564a'], [1, '#1e2a24']]));
+      briarMoss(ctx, x0 - 8, x1 + 8, 200, 50 + side, .5, side ? .7 : .45);
+      briarMoss(ctx, x0 - 6, x1 + 6, 434, 60 + side, .3, side ? .55 : .35);
+    }
+    // Moss cushions along the top of the arch, and ivy let down from its inner edge.
+    for (const [a0, a1, sd, lit, big] of [[3.17, 3.78, 1, .4, 10], [4.6, 4.8, 2, .5, 5], [5.6, 6.08, 3, .5, 8]]) {
+      const wob = sd * 2.3, A = t => a0 + (a1 - a0) * t;
+      briarMat(ctx, t => [ax + Math.cos(A(t)) * (R2 - 1), ay + Math.sin(A(t)) * (R2 - 1)], t => [Math.cos(A(t)), Math.sin(A(t))], (a1 - a0) * R2,
+        t => 1.5 + big * Math.pow(Math.sin(Math.PI * t), .7) * (.75 + .25 * Math.sin(t * 13 + wob)), lit, sd * 7, .4);
+    }
+    for (const [a, len, sd] of [[3.5, 34, 1], [3.66, 22, 2], [3.82, 12, 7], [5.76, 28, 3], [5.92, 46, 4], [6.08, 18, 8]]) briarIvy(ctx, ax + Math.cos(a) * (R1 - 2), ay + Math.sin(a) * (R1 - 2), len, sd, .55);
+    // The floor in front of the arch: old flagstones in perspective, moss in the joints, the light pooled at the launcher.
+    band(ctx, ridge(462, 1.2, 99, 40), 560, lin(ctx, 0, 460, 0, 560, [[0, '#34423a'], [1, '#18221e']]), null);
+    soft(ctx, () => ctx.rect(-10, 458, 440, 8), 'rgba(6,12,8,.55)', 5);
+    const rf = rng(77);
+    for (const [y, h, step] of [[466, 12, 44], [478, 16, 52], [494, 20, 60], [514, 24, 70], [538, 30, 82]]) {
+      let x = -10 - rf() * step;
+      emberLine(ctx, [[-10, y], [430, y]], 'rgba(8,14,10,.5)', 1.2);
+      emberLine(ctx, [[-10, y + 1.4], [430, y + 1.4]], 'rgba(200,220,160,.07)', .8);
+      while (x < 430) { const xx = x + step * (.7 + rf() * .6); const lean = (xx - 210) * .14; emberLine(ctx, [[xx, y], [xx + lean, y + h]], 'rgba(8,14,10,.45)', 1.1); x = xx; }
+      for (let k = 0; k < 4; k++) { const mx = rf() * 420, mw = 4 + rf() * 9; if (Math.abs(mx - 210) < 80) continue; soft(ctx, () => ctx.ellipse(mx, y + .5, mw, 1.8, 0, 0, TAU), 'rgba(62,98,50,.5)', 1.6); soft(ctx, () => ctx.ellipse(mx - mw * .2, y - .3, mw * .6, .9, 0, 0, TAU), 'rgba(140,176,90,.3)', 1); }
+    }
+    ctx.save(); ctx.beginPath(); ctx.rect(-10, 458, 440, 120); ctx.clip(); rays(); ctx.restore();
+    soft(ctx, () => ctx.ellipse(222, 500, 100, 26, -.05, 0, TAU), 'rgba(236,228,140,.26)', 18);
+    bloom(ctx, 218, 498, 96, '246,236,170', .2);
+    // Petals fallen from the roses, gathered near the walls.
+    for (const [x, y, a, c] of [[62, 488, .4, '#a02c46'], [140, 532, 2.2, '#b8384e'], [152, 524, 1.1, '#8e2440'], [286, 538, 2.8, '#b03448'], [298, 524, .2, '#a02c46'], [372, 482, 1.8, '#8e2440']]) {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(a);
+      soft(ctx, () => ctx.ellipse(.6, 1.2, 3.2, 1.6, 0, 0, TAU), 'rgba(8,14,10,.4)', 1.2);
+      ctx.beginPath(); ctx.ellipse(0, 0, 3.2, 1.7, 0, 0, TAU); ctx.fillStyle = c; ctx.fill();
+      ctx.beginPath(); ctx.ellipse(-.6, -.5, 1.8, .6, 0, 0, TAU); ctx.fillStyle = 'rgba(255,170,180,.35)'; ctx.fill();
+      ctx.restore();
+    }
+    // A stone rabbit keeps watch in one corner; in the other, a toad sits on a fallen drum among the roses.
+    briarStatue(ctx, 92, 506, 1.2);
+    soft(ctx, () => ctx.ellipse(350, 548, 46, 6, 0, 0, TAU), 'rgba(6,12,8,.6)', 5);
     const drum = [[310, 508], [384, 502], [390, 542], [316, 548]];
-    poly(ctx, drum, '#66725f', null);
-    clipTo(ctx, drum, () => { ctx.fillStyle = '#4b5647'; ctx.fillRect(300, 530, 120, 30); });
-    poly(ctx, drum, null, '#1f2820', 1.5);
-    for (const x of [332, 350, 368]) stroke(ctx, [[x, 506.6], [x + 1, 546]], 'rgba(18,26,20,.4)', 1);
-    ctx.beginPath(); ctx.ellipse(312, 528, 8, 20, -.06, 0, TAU); ctx.fillStyle = '#7f8c78'; ctx.fill(); ctx.strokeStyle = '#1f2820'; ctx.lineWidth = 1.5; ctx.stroke();
-    ctx.beginPath(); ctx.ellipse(312, 528, 4.6, 12, -.06, 0, TAU); ctx.strokeStyle = 'rgba(18,26,20,.5)'; ctx.lineWidth = 1; ctx.stroke();
-    mossCap(ctx, 330, 380, 504, 70, .25);
-    toad(ctx, 352, 502, 1.05);
-    briar(ctx, [[404, 548], [398, 520], [408, 492], [400, 470]], 8, [[2, 6.4]]);
+    poly(ctx, drum, lin(ctx, 0, 504, 0, 546, [[0, '#5e6e54'], [.45, '#3e4e40'], [1, '#1e2a24']]));
+    for (const x of [332, 350, 368]) emberLine(ctx, [[x, 507], [x + 1, 546]], 'rgba(8,14,10,.3)', 1.2);
+    ctx.beginPath(); ctx.ellipse(312, 528, 8, 20, -.06, 0, TAU); ctx.fillStyle = lin(ctx, 304, 0, 320, 0, [[0, '#7a8a68'], [1, '#4e5e4a']]); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(312, 528, 4.6, 12, -.06, 0, TAU); ctx.strokeStyle = 'rgba(8,14,10,.3)'; ctx.lineWidth = 1; ctx.stroke();
+    briarMoss(ctx, 330, 382, 505, 70, .3, .6);
+    briarToad(ctx, 352, 503, 1.05);
+    // The briars: bushes on the capitals and plinths, canes climbing both pillars and over the arch, roses on them.
+    const arcPts = (a0, a1, rr, wob, seed) => { const r = rng(seed), out = []; for (let a = a0; Math.sign(a1 - a0) * (a1 - a) > 0; a += (a1 - a0) / 9) out.push([ax + Math.cos(a) * (rr + (r() - .5) * wob), ay + Math.sin(a) * (rr + (r() - .5) * wob)]); return out; };
+    briarBush(ctx, [[16, 452, 16], [40, 446, 12], [4, 430, 12], [56, 458, 10]], .4, 31);
+    briarBush(ctx, [[406, 448, 16], [384, 452, 12], [416, 426, 12]], .55, 32);
+    briarCane(ctx, [[34, 450], [46, 410], [30, 362], [48, 318], [32, 272], [44, 226]].concat(arcPts(3.2, 4.06, 174, 16, 3)), 5, 5, [[3, 7], [6, 7.6], [9, 6.2, true], [12, 5.8]], .45);
+    briarCane(ctx, [[392, 446], [378, 404], [396, 350], [378, 292], [392, 236]].concat(arcPts(6.24, 5.5, 176, 14, 4)), 5, 6, [[2, 7.2], [7, 7.8], [11, 6, true], [12, 6.6]], .65);
+    briarBush(ctx, [[14, 214, 12], [36, 206, 10], [-2, 196, 10]], .5, 33);
+    briarBush(ctx, [[404, 212, 12], [384, 204, 10], [420, 196, 10]], .65, 34);
+    for (const [x, y, r0, lit] of [[20, 440, 7.4, .4], [44, 434, 6, .5], [398, 438, 7.6, .6], [24, 204, 6.4, .5], [396, 200, 6.8, .7]]) briarRose(ctx, x, y, r0, x * .1, lit);
+    briarCane(ctx, [[60, 548], [70, 526], [62, 504], [70, 486]], 3.4, 7, [[3, 6.2]], .5);
+    briarCane(ctx, [[408, 552], [400, 524], [412, 494], [402, 474]], 3.4, 8, [[2, 6.6]], .6);
+    // Motes drifting in the light, and a few fireflies along the walls.
+    const rm = rng(929);
+    for (let i = 0; i < 16; i++) { const t = rm(), x = 160 + t * 80 + (rm() - .5) * 40, y = 330 + t * 140 + rm() * 30; dot(ctx, x, y, .5 + rm() * .6, `rgba(255,250,210,${(.12 + rm() * .18).toFixed(3)})`); }
+    for (const [x, y] of [[24, 120], [70, 168], [386, 140], [356, 262], [20, 300], [400, 380], [62, 404]]) { bloom(ctx, x, y, 10, '220,255,140', .4); dot(ctx, x, y, 1.1, 'rgba(240,255,190,.95)'); }
+    // Foreground: briar in near silhouette against the light, top left and bottom right.
+    briarFore(ctx, [[-14, 6], [10, 22], [34, 30], [56, 26], [72, 14], [84, -10]], 6, 35);
+    briarFore(ctx, [[18, -10], [24, 14], [20, 40], [26, 62], [22, 80]], 3.6, 36);
+    briarFore(ctx, [[436, 470], [414, 492], [402, 520], [404, 548], [396, 572]], 5.6, 37);
+    grade(ctx, 'rgba(236,226,150,.3)', 'rgba(50,80,104,.45)', 'rgba(8,18,16,.62)');
+    grain(ctx, .08);
     if (framed) frame(ctx, '#5e8a5a', '#d9e9a8');
   }
 
   // ---------- Level 10: Starseed Core ----------
+  // The heart of the world, the bottom of the dig. The starseed lies half sunk in the floor behind the launcher and is
+  // the only light: gold at its opening seam, rose where it spills up the roots, fading into a violet dark where old
+  // stars hang in the dust. Every root of the world comes down the walls and curls in toward it, modelled toward it
+  // and lit along the side that faces it, with a thread of gold running down each one. Two seed sprites keep watch.
   const GOLD = ['#fff4c8', '#ffd27a', '#e0a040', '#7a4a1a'];
-  // A great root: a tapering ribbon of bark with a vein of light running down it toward the seed.
-  // The two edges of a ribbon that tapers along a line of points.
-  function ribbon(pts, width, taper, r) {
-    const left = [], right = [];
-    for (let i = 0; i < pts.length; i++) {
-      const p = pts[i], q = pts[Math.min(pts.length - 1, i + 1)], o = pts[Math.max(0, i - 1)];
-      const dx = q[0] - o[0], dy = q[1] - o[1], len = Math.hypot(dx, dy) || 1, w = width * (1 - i / (pts.length - 1) * taper) / 2 * (.9 + r() * .2);
-      left.push([p[0] - dy / len * w, p[1] + dx / len * w]); right.push([p[0] + dy / len * w, p[1] - dx / len * w]);
-    }
-    return [left, right];
+  const CORE = [210, 540], CORE_AIR = '74,52,118', CORE_WARM = '255,196,124';
+  const CORE_BARK = { dark: '#170e26', mid: '#2e1f46', lit: '#8c5274' };
+  function coreMix(c0, c1, t) {
+    const hex = c => [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16)), a = hex(c0), b = hex(c1), k = Math.max(0, Math.min(1, t));
+    return `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * k)).join(',')})`;
   }
-  function coreRoot(ctx, pts, width, glow = .6) {
-    const r = rng(Math.round(pts[0][0] * 13 + width)), [left, right] = ribbon(pts, width, .72, r);
-    const outline = left.concat(right.slice().reverse());
-    shape(ctx, outline, '#4b2e55', null); cel(ctx, outline, '#3a2245', width * .18, width * .08);
-    // Bark: long grooves that follow the grain, and the odd knot.
-    clipTo(ctx, outline, () => {
-      for (let i = 0; i < pts.length - 1; i++) {
-        const [x0, y0] = pts[i], [x1, y1] = pts[i + 1], dx = x1 - x0, dy = y1 - y0, len = Math.hypot(dx, dy) || 1, nx = -dy / len, ny = dx / len, w = width * (1 - i / (pts.length - 1) * .72) / 2;
-        for (const k of [-.55, .5, -.15]) {
-          const off = k * w + (r() - .5) * 3, t0 = r() * .3, t1 = .55 + r() * .4;
-          stroke(ctx, [[x0 + dx * t0 + nx * off, y0 + dy * t0 + ny * off], [x0 + dx * (t0 + t1) / 2 + nx * (off + 1.5), y0 + dy * (t0 + t1) / 2 + ny * (off + 1.5)], [x0 + dx * t1 + nx * off, y0 + dy * t1 + ny * off]], 'rgba(22,10,32,.42)', 1.1);
-        }
-        if (w > 12 && r() < .35) { const kx = x0 + dx * .5 - nx * w * .4, ky = y0 + dy * .5 - ny * w * .4; ctx.beginPath(); ctx.ellipse(kx, ky, 3.4, 2.2, Math.atan2(dy, dx), 0, TAU); ctx.strokeStyle = 'rgba(22,10,32,.5)'; ctx.lineWidth = 1.1; ctx.stroke(); }
-      }
+  // Points pushed off a line along its normals; `taper` narrows the offset toward the end like the ribbon itself.
+  function coreOffset(pts, off, taper = 0) {
+    return pts.map((p, i) => {
+      const q = pts[Math.min(pts.length - 1, i + 1)], o = pts[Math.max(0, i - 1)], dx = q[0] - o[0], dy = q[1] - o[1], len = Math.hypot(dx, dy) || 1;
+      const k = off * (1 - i / (pts.length - 1) * taper);
+      return [p[0] - dy / len * k, p[1] + dx / len * k];
     });
-    shape(ctx, outline, null, '#1a0d22', 1.7);
-    stroke(ctx, left.slice(1, -1).map(([x, y], i) => [x + (pts[i + 1][0] - x) * .22, y + (pts[i + 1][1] - y) * .22]), 'rgba(200,160,230,.38)', 1.2);
-    for (const [w, c] of [[5, `rgba(255,190,110,${.12 * glow})`], [2.4, `rgba(255,205,130,${.35 * glow})`], [.9, `rgba(255,236,190,${.9 * glow})`]]) stroke(ctx, pts.slice(1), c, w);
+  }
+  // A smooth run of points along a Catmull-Rom curve through `pts`, `per` samples to each span.
+  function coreSpline(pts, per = 6) {
+    const out = [], n = pts.length, at = i => pts[Math.max(0, Math.min(n - 1, i))];
+    for (let i = 0; i < n - 1; i++) {
+      const p0 = at(i - 1), p1 = at(i), p2 = at(i + 1), p3 = at(i + 2);
+      for (let k = 0; k < per; k++) {
+        const t = k / per, t2 = t * t, t3 = t2 * t;
+        out.push([0, 1].map(j => .5 * (2 * p1[j] + (p2[j] - p0[j]) * t + (2 * p0[j] - 5 * p1[j] + 4 * p2[j] - p3[j]) * t2 + (3 * p1[j] - p0[j] - 3 * p2[j] + p3[j]) * t3)));
+      }
+    }
+    out.push(pts[n - 1]);
+    return out;
+  }
+  // The seed's light on an edge or a vein: strong close to it, falling away up the walls.
+  const coreFall = (ctx, rgb, a, reach = 520) => rad(ctx, CORE[0], CORE[1], reach, [[0, rgba(rgb, a)], [.4, rgba(rgb, a * .6)], [1, rgba(rgb, a * .1)]]);
+  // A root of the world: a tapering ribbon of bark, rounded toward the seed, with grooves along the grain, a warm rim
+  // on the side that faces the light and a thread of gold running down it. `fog` sinks it into the violet air.
+  function coreRoot(ctx, pts, width, seed, o = {}) {
+    const fog = o.fog || 0, taper = o.taper ?? .8, glow = (o.glow ?? 1) * (1 - fog * .7), outline = ribbon2(pts, width, taper);
+    const [x0, y0, x1, y1] = bounds(outline), dx = CORE[0] - (x0 + x1) / 2, dy = CORE[1] - (y0 + y1) / 2, d = Math.hypot(dx, dy) || 1, tx = dx / d, ty = dy / d;
+    const tone = c => fog ? coreMix(c, o.haze || '#3c2c5c', fog) : c;
+    if (o.shadow !== false) soft(ctx, () => smooth(ctx, outline.map(([x, y]) => [x - tx * 5, y - ty * 5 + 2]), true), `rgba(12,6,24,${(.55 * (1 - fog)).toFixed(3)})`, 9);
+    shape(ctx, outline, tone(CORE_BARK.dark), null);
+    clipTo(ctx, outline, () => {
+      shape(ctx, ribbon2(pts.map(([x, y]) => [x + tx * width * .12, y + ty * width * .12]), width * .8, taper), tone(CORE_BARK.mid), null);
+      ctx.save(); ctx.globalAlpha = .92 * (1 - fog * .6);
+      shape(ctx, ribbon2(pts.map(([x, y]) => [x + tx * width * .27, y + ty * width * .27]), width * .34, taper), tone(CORE_BARK.lit), null);
+      ctx.restore();
+      if (fog < .6) {
+        const r = rng(seed);
+        for (let k = 0; k < Math.max(4, width / 3.4); k++) {
+          const from = Math.floor(r() * (pts.length - 2)), run = pts.slice(from, from + 2 + Math.floor(r() * 3)), off = (r() - .5) * width * .7;
+          stroke(ctx, coreOffset(run, off * (1 - from / (pts.length - 1) * taper)), k % 3 ? `rgba(14,6,26,${(.4 * (1 - fog)).toFixed(3)})` : `rgba(255,214,190,${(.2 * (1 - fog)).toFixed(3)})`, .8 + r() * 1.2);
+        }
+      }
+      // Nearer the seed the bark warms.
+      bloom(ctx, CORE[0], CORE[1], o.reach || 300, '255,140,110', .34 * (1 - fog));
+    });
+    rim(ctx, outline, coreFall(ctx, '255,196,140', .95 * (1 - fog)), tx * 3, ty * 3);
+    if (glow > .05) {
+      // The vein runs in the groove nearest the light and breaks where the bark closes over it.
+      const cx = pts[pts.length - 1][0] - pts[0][0], cy = pts[pts.length - 1][1] - pts[0][1], vein = coreOffset(coreSpline(pts, 6), (cx * ty - cy * tx > 0 ? 1 : -1) * width * .14, taper);
+      const r = rng(seed + 7), runs = [];
+      for (let i = Math.floor(r() * 3); i < vein.length - 1;) { const len = 4 + Math.floor(r() * 9); runs.push(vein.slice(i, i + len + 1)); i += len + 1 + Math.floor(r() * 3); }
+      for (const [w, a, rgb] of [[6, .22, '255,166,104'], [2.6, .6, '255,212,150'], [1, 1, '255,246,220']]) {
+        const style = coreFall(ctx, rgb, a * glow, 520);
+        for (const run of runs) stroke(ctx, run, style, w);
+      }
+    }
     return outline;
   }
-  function seedSprite(ctx, x, y, s, wave) {
-    ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
-    halo(ctx, 0, -6, 18, '255,220,140', .09);
-    stroke(ctx, [[0, -13], [1, -18]], '#5aa85f', 1.3);
-    ctx.beginPath(); ctx.ellipse(4, -19, 3.6, 1.8, -.4, 0, TAU); ctx.fillStyle = '#8fd67d'; ctx.fill(); ctx.strokeStyle = '#3f8a48'; ctx.lineWidth = .8; ctx.stroke();
-    const body = [[-8, 0], [-9, -7], [-5, -13], [3, -13.4], [8.6, -8], [8, 0], [0, 1.4]];
-    shape(ctx, body, '#fff1c6', null); cel(ctx, body, '#f6d48e', -2, 2); shape(ctx, body, null, '#b47a3a', 1.2);
-    dot(ctx, -3, -6.4, 1.2, '#5a3418'); dot(ctx, 3, -6.4, 1.2, '#5a3418');
-    ctx.beginPath(); ctx.arc(0, -4.6, 1.8, .3, Math.PI - .3); ctx.strokeStyle = '#5a3418'; ctx.lineWidth = .8; ctx.stroke();
-    dot(ctx, -5.4, -4, 1.3, 'rgba(255,150,140,.55)'); dot(ctx, 5.4, -4, 1.3, 'rgba(255,150,140,.55)');
-    if (wave) { stroke(ctx, [[7.6, -6], [12, -10], [13, -14]], '#b47a3a', 2.6); stroke(ctx, [[7.6, -6], [12, -10], [13, -14]], '#fff1c6', 1.3); }
+  // A soft cloud of light: a bloom stretched into an ellipse.
+  function coreHaze(ctx, x, y, rx, ry, rot, rgb, a) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(1, ry / rx); bloom(ctx, 0, 0, rx, rgb, a); ctx.restore();
+  }
+  // Old stars in the dark: thickest along a faint band across the top, faint and tiny wherever flowers can be.
+  function coreStars(ctx, seed) {
+    const r = rng(seed), open = (x, y) => x > 64 && x < 356 && y > 26 && y < 450;
+    const colors = ['255,246,222', '226,210,255', '200,240,236', '255,214,200'];
+    for (let i = 0; i < 300; i++) {
+      let x, y;
+      if (i < 170) { const t = r(), n = (r() + r() + r() - 1.5) * 46; x = -20 + t * 460 - n * .38; y = 34 + t * 176 + n; }
+      else { x = r() * 420; y = 20 + r() * 440; }
+      const calm = open(x, y), a = calm ? .1 + r() * .22 : .3 + r() * .5, size = calm ? .35 + r() * .45 : .45 + r() * .9;
+      dot(ctx, x, y, size, rgba(colors[i % 4], a));
+    }
+    for (const [x, y, s] of [[36, 118, 3.4], [54, 232, 2.4], [384, 92, 3], [396, 214, 2.2], [30, 352, 2.6], [404, 330, 3.2], [46, 60, 2], [372, 46, 2.4]]) {
+      bloom(ctx, x, y, s * 4, '255,236,200', .3);
+      sparkle(ctx, x, y, s, 'rgba(255,248,226,.85)');
+    }
+  }
+  // Gold seed-crystals grown where the light pools: a six-sided point, its facet toward the seed lit, the far one dim.
+  function coreShard(ctx, x, y, w, h, tilt, face) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(tilt); if (face > 0) ctx.scale(-1, 1);
+    const body = [[-w / 2, 0], [-w / 2, -h * .7], [0, -h], [w / 2, -h * .7], [w / 2, 0]];
+    poly(ctx, body, lin(ctx, 0, -h, 0, 0, [[0, '#ffe4a0'], [.55, '#d88a44'], [1, '#6a3424']]));
+    poly(ctx, [[-w / 2, 0], [-w / 2, -h * .7], [0, -h], [-w * .06, 0]], lin(ctx, 0, -h, 0, 0, [[0, '#fffbe6'], [.5, '#ffd27a'], [1, '#c06a30']]));
+    poly(ctx, [[w * .14, 0], [w * .14, -h * .84], [w / 2, -h * .7], [w / 2, 0]], 'rgba(70,24,40,.4)');
+    stroke(ctx, [[-w / 2 + .5, -h * .68], [0, -h + .6]], 'rgba(255,252,236,.85)', .8);
     ctx.restore();
   }
-  function paintCore(ctx, framed) {
-    const back = ctx.createLinearGradient(0, 0, 0, 560);
-    back.addColorStop(0, '#1b1432'); back.addColorStop(.45, '#271a42'); back.addColorStop(.78, '#3a2050'); back.addColorStop(1, '#5a2c5a');
-    ctx.fillStyle = back; ctx.fillRect(0, 0, 420, 560);
-    // Light welling up from the seed below the floor of the world.
-    const well = ctx.createRadialGradient(210, 640, 40, 210, 640, 330);
-    well.addColorStop(0, 'rgba(255,214,140,.55)'); well.addColorStop(.45, 'rgba(255,160,120,.18)'); well.addColorStop(1, 'rgba(255,140,120,0)');
-    ctx.fillStyle = well; ctx.fillRect(0, 300, 420, 260);
-    // Soft rings of light ripple out from it, seen only at the edges.
-    const fade = ctx.createLinearGradient(0, 0, 420, 0);
-    fade.addColorStop(0, 'rgba(255,215,150,.26)'); fade.addColorStop(.24, 'rgba(255,215,150,0)'); fade.addColorStop(.76, 'rgba(255,215,150,0)'); fade.addColorStop(1, 'rgba(255,215,150,.26)');
-    for (const [rr, w] of [[250, 1.4], [318, 1.1], [392, 1.4], [470, 1], [552, 1.2]]) { ctx.beginPath(); ctx.arc(210, 650, rr, Math.PI, TAU); ctx.strokeStyle = fade; ctx.lineWidth = w; ctx.stroke(); }
-    // Faint far roots in the dark, all bending toward the light.
-    const rf = rng(77);
-    for (const [pts, w] of [[[[120, -10], [112, 110], [134, 230], [160, 330], [176, 410]], 22], [[[300, -10], [316, 130], [292, 260], [258, 360], [244, 420]], 24], [[[206, -10], [198, 70], [210, 150], [204, 210]], 12]]) {
-      const [l, rr] = ribbon(pts, w, .9, rf), out = l.concat(rr.reverse());
-      shape(ctx, out, 'rgba(58,36,80,.55)', 'rgba(150,110,190,.12)', 1);
-      stroke(ctx, pts.slice(1), 'rgba(255,200,130,.10)', 1.2);
-    }
-    // The roof of the world, roots pushing down through it.
-    caveWall(ctx, [[-10, -10], [430, -10], [430, 28], [370, 38], [300, 26], [240, 38], [180, 28], [120, 40], [60, 30], [-10, 38]], '#20152f', '#1a1128', '#0e0818');
-    coreRoot(ctx, [[96, -10], [92, 30], [70, 76], [52, 120], [34, 170]], 18, .5);
-    coreRoot(ctx, [[322, -10], [330, 34], [352, 80], [372, 128]], 16, .5);
-    coreRoot(ctx, [[190, 20], [196, 40], [188, 58]], 7, .35);
-    coreRoot(ctx, [[252, 24], [246, 44], [254, 62], [250, 74]], 6, .35);
-    // The two great roots come down the walls and curl in toward the seed.
-    coreRoot(ctx, [[-20, -10], [22, 70], [10, 170], [30, 270], [16, 360], [44, 440], [110, 500], [176, 540], [204, 566]], 64, 1);
-    coreRoot(ctx, [[440, -10], [398, 80], [412, 190], [390, 290], [406, 380], [372, 450], [306, 506], [244, 542], [216, 566]], 60, 1);
-    coreRoot(ctx, [[26, 300], [60, 330], [72, 372], [64, 410]], 12, .7);
-    coreRoot(ctx, [[396, 236], [362, 262], [352, 300]], 11, .7);
-    coreRoot(ctx, [[40, 470], [80, 520], [96, 566]], 22, .8);
-    coreRoot(ctx, [[380, 470], [350, 520], [338, 566]], 20, .8);
-    // The starseed itself, mostly below the world, its seam just starting to open.
-    const seed = [[210, 464], [236, 472], [270, 498], [298, 536], [314, 590], [298, 650], [210, 690], [122, 650], [106, 590], [122, 536], [150, 498], [184, 472]];
-    halo(ctx, 210, 560, 130, '255,206,130', .07);
-    shape(ctx, seed, '#c97868', null);
+  function coreCluster(ctx, x, y, s, seed, n, face) {
+    const r = rng(seed), pts = [];
+    for (let i = 0; i < n; i++) { const t = n === 1 ? .5 : i / (n - 1), big = Math.sin(t * Math.PI); pts.push([x + (t - .5) * s * 1.7 + (r() - .5) * s * .2, (t - .5) * 1.1 + (r() - .5) * .3, s * (.24 + big * .14), s * (.5 + big * .8 + r() * .3)]); }
+    soft(ctx, () => ctx.ellipse(x, y + 1, s * 1.2, s * .22, 0, 0, TAU), 'rgba(18,6,24,.55)', 3);
+    bloom(ctx, x, y - s * .5, s * 2.6, '255,196,110', .3);
+    pts.sort((a, b) => a[3] - b[3]).forEach(([px, a, w, h]) => coreShard(ctx, px, y, w, h, a * .7, face));
+  }
+  // A seed sprite: a little sprouting seed with a face, sat on a root and lit warm from the seed's side. A character,
+  // so it keeps soft colored lines.
+  function coreSprite(ctx, x, y, s, face, wave) {
+    ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+    bloom(ctx, face * 4, -6, 24, CORE_WARM, .2);
+    soft(ctx, () => ctx.ellipse(-face * 2, 1, 10, 2.4, 0, 0, TAU), 'rgba(16,6,26,.6)', 3);
+    stroke(ctx, [[0, -13], [.8, -16.4], [2, -19]], '#4f9a68', 1.4);
+    ctx.beginPath(); ctx.ellipse(5.4, -19.6, 4.2, 2, -.42, 0, TAU); ctx.fillStyle = lin(ctx, 2, -21, 9, -18, [[0, '#a8e8a4'], [1, '#55a070']]); ctx.fill();
+    ctx.strokeStyle = 'rgba(40,104,74,.75)'; ctx.lineWidth = .7; ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(-2.6, -18, 2.6, 1.3, .5, 0, TAU); ctx.fillStyle = '#7cc488'; ctx.fill();
+    const body = [[-8, 0], [-9, -7], [-5, -13], [3, -13.4], [8.6, -8], [8, 0], [0, 1.4]];
+    shape(ctx, body, lin(ctx, face * 9, 0, -face * 8, -13, [[0, '#ffe0a4'], [.45, '#fbeacc'], [1, '#c8b0c4']]), null);
+    rim(ctx, body, 'rgba(255,220,160,.9)', face * 1.6, 1.4);
+    shape(ctx, body, null, 'rgba(146,84,72,.8)', 1);
+    dot(ctx, -3, -6.4, 1.25, '#4a2a22'); dot(ctx, 3, -6.4, 1.25, '#4a2a22');
+    dot(ctx, -2.6, -6.9, .4, 'rgba(255,255,255,.9)'); dot(ctx, 3.4, -6.9, .4, 'rgba(255,255,255,.9)');
+    ctx.beginPath(); ctx.arc(0, -4.6, 1.8, .3, Math.PI - .3); ctx.strokeStyle = '#4a2a22'; ctx.lineWidth = .8; ctx.lineCap = 'round'; ctx.stroke();
+    dot(ctx, -5.4, -4, 1.4, 'rgba(255,140,140,.5)'); dot(ctx, 5.4, -4, 1.4, 'rgba(255,140,140,.5)');
+    if (wave) { const arm = [[7.6, -6], [12, -10], [13, -14]]; stroke(ctx, arm, 'rgba(146,84,72,.8)', 2.8); stroke(ctx, arm, '#fbe6c0', 1.4); }
+    ctx.restore();
+  }
+  // The starseed, mostly below the floor of the world, its husk ribbed like a great seed and its seam opening on light.
+  function coreSeed(ctx) {
+    const seed = [[210, 452], [238, 460], [270, 484], [296, 520], [310, 566], [298, 618], [210, 648], [122, 618], [110, 566], [124, 520], [150, 484], [182, 460]];
+    bloom(ctx, 210, 536, 250, '255,150,110', .38);
+    soft(ctx, () => smooth(ctx, seed.map(([x, y]) => [210 + (x - 210) * 1.05, y - 3]), true), 'rgba(255,176,120,.55)', 16);
+    shape(ctx, seed, rad(ctx, 210, 560, 150, [[0, '#ffd59a'], [.32, '#ee9c6e'], [.68, '#b85f6c'], [1, '#5e2a52']], 210, 530, 8), null);
     clipTo(ctx, seed, () => {
-      ctx.beginPath(); smooth(ctx, seed.map(([x, y]) => [210 + (x - 210) * .72, y + 18]), true); ctx.fillStyle = '#dc9472'; ctx.fill();
-      ctx.beginPath(); smooth(ctx, seed.map(([x, y]) => [210 + (x - 210) * .42, y + 34]), true); ctx.fillStyle = '#eab281'; ctx.fill();
-      for (const k of [-.8, -.5, -.22, .22, .5, .8]) stroke(ctx, [[210 + k * 6, 468], [210 + k * 40, 494], [210 + k * 76, 534], [210 + k * 100, 590]], 'rgba(130,56,74,.32)', 1.3);
-      ctx.beginPath(); smooth(ctx, seed.map(([x, y]) => [x + 9, y + 6]), true); ctx.rect(-50, -50, 520, 660); ctx.fillStyle = 'rgba(130,52,84,.38)'; ctx.fill('evenodd');
+      // The husk turns away from the light inside it, so its flanks sink into plum.
+      wash(ctx, lin(ctx, 110, 0, 310, 0, [[0, 'rgba(60,20,60,.5)'], [.3, 'rgba(60,20,60,0)'], [.7, 'rgba(60,20,60,0)'], [1, 'rgba(60,20,60,.5)']]), 'multiply');
+      for (const k of [-.74, -.4, .4, .74]) {
+        const rib = [[210 + k * 6, 456], [210 + k * 44, 486], [210 + k * 80, 528], [210 + k * 100, 580], [210 + k * 96, 640]];
+        stroke(ctx, rib, 'rgba(96,30,64,.24)', 2.4);
+        stroke(ctx, rib.map(([x, y]) => [x - Math.sign(k) * 1.6, y]), 'rgba(255,224,186,.18)', 1);
+      }
+      soft(ctx, () => ctx.ellipse(210, 470, 30, 11, 0, 0, TAU), 'rgba(255,236,204,.38)', 8);
     });
-    shape(ctx, seed, null, '#6a2844', 2);
-    stroke(ctx, [[164, 494], [186, 476], [204, 469]], 'rgba(255,240,210,.7)', 1.6);
-    const seam = [[210, 468], [208, 486], [212, 504], [209, 524], [212, 544], [210, 564]];
-    for (const [w, c] of [[11, 'rgba(255,230,160,.16)'], [5, 'rgba(255,236,180,.42)'], [1.8, '#fff4d0']]) stroke(ctx, seam, c, w);
-    for (const [x, y] of [[198, 520], [222, 506], [203, 548], [219, 538]]) dot(ctx, x, y, 1, 'rgba(255,240,200,.8)');
-    // Gold crystals and two little seedlings keeping the seed company.
-    crystalCluster(ctx, 44, 556, .7, GOLD, 91, .9);
-    crystalCluster(ctx, 384, 552, .62, GOLD, 92, .9);
-    crystal(ctx, 118, 512, 7, 15, -.4, GOLD); crystal(ctx, 300, 512, 6, 13, .45, GOLD);
-    seedSprite(ctx, 72, 468, 1, true);
-    seedSprite(ctx, 352, 476, .9, false);
-    // Star motes and little rings of light drifting at the edges.
-    const rs = rng(1010);
-    for (let i = 0; i < 40; i++) {
-      const left = i % 2 === 0, x = left ? 12 + rs() * 76 : 332 + rs() * 76, y = 50 + rs() * 400, c = ['rgba(255,226,160,.9)', 'rgba(255,190,200,.85)', 'rgba(255,255,240,.9)'][i % 3];
-      if (rs() < .35) sparkle(ctx, x, y, 2 + rs() * 2.6, c); else dot(ctx, x, y, .8 + rs() * .8, c);
+    rim(ctx, seed, 'rgba(255,220,180,.42)', 0, -1.6);
+    const seam = [[210, 456], [208, 474], [212, 492], [209, 512], [212, 532], [210, 556]];
+    for (const [w, c] of [[16, 'rgba(255,206,140,.13)'], [7, 'rgba(255,224,166,.32)'], [3, 'rgba(255,240,204,.7)'], [1.2, '#fffbea']]) stroke(ctx, seam, c, w);
+    for (const [x, y] of [[198, 520], [223, 504], [203, 546], [219, 536]]) dot(ctx, x, y, .9, 'rgba(255,244,214,.8)');
+  }
+  // Specks of seed-light rising from the core along a curve, fading as they climb.
+  function coreMotes(ctx, a, b, c, count, seed, spread) {
+    const r = rng(seed);
+    for (let i = 0; i < count; i++) {
+      const t = r(), [x, y] = bezierAt(a, b, c, t), px = x + (r() - .5) * spread, py = y + (r() - .5) * spread * .6, s = (.6 + r() * 1.3) * (1 - t * .5), al = (.85 - t * .6) * (.5 + r() * .5);
+      if (s > 1.2) bloom(ctx, px, py, s * 5, CORE_WARM, al * .3);
+      dot(ctx, px, py, s, `rgba(255,${226 + Math.round(r() * 20)},${170 + Math.round(r() * 50)},${al.toFixed(3)})`);
     }
-    for (const [x, y, rr] of [[56, 220, 9], [372, 170, 7], [30, 400, 6], [396, 352, 10], [90, 96, 5], [334, 420, 5]]) {
-      ctx.beginPath(); ctx.arc(x, y, rr, 0, TAU); ctx.strokeStyle = 'rgba(255,220,160,.35)'; ctx.lineWidth = 1; ctx.stroke();
-      dot(ctx, x, y, 1.4, 'rgba(255,240,200,.9)');
+  }
+  function paintCore(ctx, framed) {
+    // Violet dark above, warming through plum to rose where the seed's light reaches.
+    wash(ctx, lin(ctx, 0, 0, 0, 560, [[0, '#18193a'], [.3, '#271f4c'], [.56, '#36275c'], [.78, '#4e2f66'], [.92, '#6c3664'], [1, '#7c3a5c']]));
+    // Dust lit faintly from far below, and a pale band of old stars across the top.
+    coreHaze(ctx, 110, 120, 170, 70, .36, '170,110,200', .16);
+    coreHaze(ctx, 310, 70, 150, 50, .36, '100,190,210', .17);
+    coreHaze(ctx, 120, 300, 150, 60, -.3, '110,140,230', .1);
+    coreHaze(ctx, 200, 140, 260, 46, .36, '210,180,240', .1);
+    coreHaze(ctx, 210, 400, 260, 120, 0, '200,100,150', .14);
+    coreStars(ctx, 1010);
+    // Rings of light rippling out from the seed, seen only toward the walls.
+    const fade = lin(ctx, 0, 0, 420, 0, [[0, 'rgba(255,206,150,.22)'], [.22, 'rgba(255,206,150,0)'], [.78, 'rgba(255,206,150,0)'], [1, 'rgba(255,206,150,.22)']]);
+    for (const [rr, w] of [[230, 1.2], [300, 1], [376, 1.3], [456, .9], [540, 1.1]]) { ctx.beginPath(); ctx.arc(210, 620, rr, Math.PI, TAU); ctx.strokeStyle = fade; ctx.lineWidth = w; ctx.stroke(); }
+    // Far roots hanging down out of the dark, all leaning toward the light, almost lost in the air.
+    for (const [pts, w, sd, fog] of [
+      [[[120, -10], [112, 100], [130, 210], [154, 306], [174, 394], [188, 452]], 22, 1, .8], [[[302, -10], [314, 120], [294, 236], [264, 336], [242, 428]], 24, 2, .8],
+      [[[206, -10], [200, 60], [210, 128], [204, 186]], 11, 3, .72], [[[66, -10], [80, 80], [104, 168]], 14, 4, .7], [[[358, -10], [344, 76], [326, 150]], 13, 5, .7]]) coreRoot(ctx, pts, w, sd, { fog, shadow: false, glow: .22 });
+    air(ctx, 20, 470, CORE_AIR, .2, .06);
+    // The shafts of light fanning up from the seam, kept off the middle of the board.
+    for (const [a, al] of [[-.62, .05], [-.38, .04], [.38, .04], [.62, .05]]) shaft(ctx, 210, 474, -Math.PI / 2 + a, 470, 5, 64, '255,206,150', al);
+    // The walls: dark earth wrapped in roots, the faces toward the seed catching it.
+    for (const [wall, side] of [
+      [[[-20, -10], [44, -10], [56, 70], [42, 150], [60, 238], [48, 326], [64, 404], [56, 472], [-20, 486]], -1],
+      [[[440, -10], [376, -10], [364, 76], [378, 156], [360, 244], [372, 330], [356, 410], [366, 472], [440, 486]], 1]]) {
+      const [x0, , x1] = bounds(wall);
+      soft(ctx, () => smooth(ctx, wall.map(([x, y]) => [x - side * 8, y]), true), 'rgba(10,4,20,.5)', 14);
+      shape(ctx, wall, side < 0 ? lin(ctx, x1, 0, x0, 0, [[0, '#3c2a54'], [.5, '#2a1d42'], [1, '#1a1230']]) : lin(ctx, x0, 0, x1, 0, [[0, '#3c2a54'], [.5, '#2a1d42'], [1, '#1a1230']]), null);
+      clipTo(ctx, wall, () => { bloom(ctx, CORE[0], CORE[1], 340, '255,130,110', .3); grit(ctx, x0, 0, x1 - x0, 480, 70, 40 + side, null); });
+      rim(ctx, wall, 'rgba(255,180,150,.28)', -side * 2, 1.2);
     }
-    for (const [x, y, s] of [[60, 140, 4.4], [366, 96, 3.6], [24, 330, 3.6], [400, 300, 4.2], [108, 452, 3.2], [318, 448, 3.4]]) sparkle(ctx, x, y, s, '#fff6dc');
+    for (const [pts, w, sd] of [
+      [[[30, -10], [44, 90], [30, 196], [48, 296]], 18, 11], [[[-10, 116], [22, 190], [42, 262], [34, 334]], 14, 12], [[[56, -10], [50, 40], [62, 92]], 9, 13],
+      [[[392, -10], [378, 96], [392, 200], [372, 300]], 18, 14], [[[430, 140], [398, 206], [380, 278], [388, 350]], 14, 15], [[[362, -10], [370, 44], [358, 96]], 9, 16]]) coreRoot(ctx, pts, w, sd, { fog: .3, glow: .7 });
+    // The roof of the world, lit from far below along its underside.
+    const roof = [[-10, -10], [430, -10], [430, 26], [372, 34], [300, 24], [240, 36], [180, 26], [118, 38], [58, 28], [-10, 36]];
+    shape(ctx, roof, lin(ctx, 0, 0, 0, 38, [[0, '#120c22'], [1, '#2a1d40']]), null);
+    rim(ctx, roof, 'rgba(255,190,160,.3)', 0, 1.8);
+    coreRoot(ctx, [[96, -10], [92, 30], [72, 72], [56, 114], [40, 164]], 16, 21, { glow: .6 });
+    coreRoot(ctx, [[324, -10], [330, 34], [350, 78], [368, 124]], 15, 22, { glow: .6 });
+    coreRoot(ctx, [[190, 16], [196, 34], [188, 52]], 7, 23, { glow: .4, fog: .2 });
+    coreRoot(ctx, [[252, 20], [246, 40], [254, 58], [250, 70]], 6, 24, { glow: .4, fog: .2 });
+    // The floor of the world: rooty earth dipping toward the seed, its top lit warm in the middle.
+    const ground = [[-20, 458], [30, 466], [80, 482], [124, 498], [166, 508], [210, 512], [254, 508], [296, 498], [340, 482], [390, 466], [440, 458]];
+    soft(ctx, () => { smooth(ctx, ground.map(([x, y]) => [x, y - 4]), false); ctx.lineTo(440, 600); ctx.lineTo(-20, 600); ctx.closePath(); }, 'rgba(12,4,22,.5)', 10);
+    band(ctx, ground, 600, lin(ctx, 0, 456, 0, 560, [[0, '#4a2c56'], [.5, '#352046'], [1, '#22132e']]));
+    rim(ctx, ground.concat([[440, 600], [-20, 600]]), lin(ctx, 0, 0, 420, 0, [[0, 'rgba(255,190,150,.12)'], [.5, 'rgba(255,214,170,.6)'], [1, 'rgba(255,190,150,.12)']]), 0, -2.2);
+    grit(ctx, 0, 462, 420, 100, 90, 1012, (x) => Math.abs(x - 210) > 96);
+    // The seed, and the floor's near lip lying over its lower half.
+    coreSeed(ctx);
+    for (const [a, al] of [[-.18, .05], [.18, .05]]) shaft(ctx, 210, 470, -Math.PI / 2 + a, 150, 4, 26, '255,226,180', al);
+    // The two great roots come down the walls and curl in to cradle the seed.
+    coreRoot(ctx, [[-30, -10], [22, 80], [8, 180], [30, 280], [14, 370], [42, 440], [84, 486], [116, 516], [128, 566]], 64, 31, { taper: .72, reach: 260 });
+    coreRoot(ctx, [[450, -10], [398, 90], [412, 200], [390, 300], [406, 390], [378, 450], [336, 490], [304, 518], [292, 566]], 60, 32, { taper: .72, reach: 260 });
+    coreRoot(ctx, [[26, 300], [60, 330], [72, 372], [64, 410]], 12, 33, { glow: .8 });
+    coreRoot(ctx, [[396, 236], [362, 262], [352, 300]], 11, 34, { glow: .8 });
+    coreRoot(ctx, [[40, 470], [78, 516], [94, 566]], 22, 35, { glow: .8 });
+    coreRoot(ctx, [[380, 470], [350, 516], [336, 566]], 20, 36, { glow: .8 });
+    const lip = [[-20, 538], [60, 534], [120, 542], [164, 550], [210, 554], [256, 550], [300, 542], [360, 534], [440, 538]];
+    soft(ctx, () => { smooth(ctx, lip.map(([x, y]) => [x, y - 3]), false); ctx.lineTo(440, 600); ctx.lineTo(-20, 600); ctx.closePath(); }, 'rgba(255,190,130,.35)', 6);
+    band(ctx, lip, 600, lin(ctx, 0, 534, 0, 560, [[0, '#3a2040'], [1, '#1c0f22']]));
+    rim(ctx, lip.concat([[440, 600], [-20, 600]]), lin(ctx, 0, 0, 420, 0, [[0, 'rgba(255,200,160,0)'], [.5, 'rgba(255,224,180,.7)'], [1, 'rgba(255,200,160,0)']]), 0, -1.8);
+    // Gold seed-crystals where the light pools, and the two seed sprites keeping watch from the great roots.
+    coreShard(ctx, 120, 512, 6.4, 14, -.42, 1); coreShard(ctx, 130, 516, 4, 8, .1, 1);
+    coreShard(ctx, 300, 512, 6, 13, .45, -1);
+    coreSprite(ctx, 74, 466, 1, 1, true);
+    coreSprite(ctx, 350, 474, .9, -1, false);
+    // Seed-light drifting up the walls.
+    coreMotes(ctx, [120, 500], [40, 380], [56, 150], 26, 41, 26);
+    coreMotes(ctx, [300, 500], [384, 380], [366, 170], 22, 42, 24);
+    coreMotes(ctx, [170, 480], [130, 470], [96, 430], 6, 43, 10);
+    // Foreground: two dark roots across the bottom corners, almost silhouettes.
+    for (const [pts, w, side] of [[[[-26, 506], [26, 528], [62, 566]], 40, -1], [[[446, 498], [396, 528], [362, 566]], 36, 1]]) {
+      const out = ribbon2(pts, w, .55);
+      shape(ctx, out, '#140b1e', null);
+      rim(ctx, out, 'rgba(255,170,140,.3)', -side * 1.6, -1.2);
+    }
+    coreCluster(ctx, 38, 550, 16, 91, 5, 1);
+    coreCluster(ctx, 386, 546, 14, 92, 4, -1);
+    grade(ctx, 'rgba(112,100,220,.42)', 'rgba(255,170,104,.42)', 'rgba(16,6,30,.58)');
+    grain(ctx, .08);
     if (framed) frame(ctx, '#c4894a', '#ffe3a8');
   }
 
