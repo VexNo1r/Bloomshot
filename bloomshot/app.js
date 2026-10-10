@@ -918,7 +918,7 @@
   }
   function burst(bud, count = 24, into = game.particles, style = currentKeepsake()) {
     if (!save.settings.motion) return;
-    const colors = { coral: '#ff5d94', gold: '#ffd148', lilac: '#a47dff' };
+    const colors = { coral: '#ff5d94', gold: '#ffd148', lilac: '#a47dff', sky: '#45adff', poppy: '#ff7433' };
     for (let i = 0; i < count; i++) {
       const a = i / count * Math.PI * 2 + Math.random() * .3, speed = 60 + Math.random() * 150, life = .7 + Math.random() * 1.3;
       const kind = i % 5 === 0 ? 'spark' : i % 3 === 0 ? 'pollen' : 'petal';
@@ -946,8 +946,9 @@
   }
   // Game feel: trauma-based screen shake, brief hit-stop on big moments and a
   // soft screen flash. All three are skipped when reduced motion is on.
-  let trauma = 0, freeze = 0, flash = 0, lastBump = 0;
-  const POP_COLORS = { coral: '#e8366f', gold: '#e59a12', lilac: '#7b52e6' };
+  let trauma = 0, freeze = 0, flash = 0, lastBump = 0, kick = 0;
+  const PRAISE = ['Lovely!', 'Blooming!', 'Gorgeous!', 'Dazzling!', 'Magnificent!', 'Legendary!'];
+  const POP_COLORS = { coral: '#e8366f', gold: '#e59a12', lilac: '#7b52e6', sky: '#1f7fe0', poppy: '#e24a14' };
   function jolt(amount, stop = 0, glow = 0) {
     if (!save.settings.motion) return;
     trauma = Math.min(1, trauma + amount); freeze = Math.max(freeze, stop); flash = Math.max(flash, glow);
@@ -960,7 +961,8 @@
     for (const event of game.drainEvents()) {
       if (isTutorial()) tutorial.observe(event);
       BloomSound.play(event.type, event);
-      if (event.type === 'bloom') {
+      if (event.type === 'launch') kick = 1;
+      else if (event.type === 'bloom') {
         const combo = event.combo || 1;
         burst(event.bud, 24 + Math.min(36, combo * 3));
         if (save.settings.motion && event.gain) {
@@ -973,7 +975,9 @@
         if (event.combo % 5 === 0) {
           BloomSound.play('shimmer', event);
           game.floaters = game.floaters.filter(item => item.kind !== 'combo');
-          game.floaters.push({ x: 210, y: 92, text: `${event.combo} chain`, life: .9, maxLife: .9, kind: 'combo' });
+          // Every fifth bloom in a row earns a bigger word, each in a new flower's color.
+          const tier = Math.min(PRAISE.length, event.combo / 5) - 1;
+          game.floaters.push({ x: 210, y: 92, text: PRAISE[tier], label: `${event.combo} in a row`, tier, life: 1.05, maxLife: 1.05, kind: 'combo' });
         }
         if (event.combo % 3 === 1) haptic('tick');
         $('game-hint').textContent = isKoi() ? 'Ride it!' : isMoon() ? 'Nice path!' : isRush() ? game.splitReady ? 'Split is ready!' : isDepth() ? depthHint() : 'Gold rings bloom their neighbors too.' : game.guideCharge > 0 ? 'Drag to steer!' : 'Keep the chain going!';
@@ -1650,11 +1654,11 @@
     if (Math.abs(game.score - displayScore) < 1) displayScore = game.score;
     updateHud(); renderTutorial(); pulseTime += dt;
     if (isRush() && (aiming || game.aim.length)) game.aim = game.trace(Math.cos(angle) * 400, Math.sin(angle) * 400);
-    trauma = Math.max(0, trauma - dt * 1.7); flash = Math.max(0, flash - dt * 3.2);
+    trauma = Math.max(0, trauma - dt * 1.7); flash = Math.max(0, flash - dt * 3.2); kick = Math.max(0, kick - dt * 5);
     const t2 = trauma * trauma, nt = timestamp / 1000;
     const shake = t2 > .001 ? { x: Math.sin(nt * 47.3) * Math.cos(nt * 13.1) * 9 * t2, y: Math.sin(nt * 39.7 + 1.3) * 9 * t2, r: Math.sin(nt * 29.1) * .018 * t2 } : null;
     const worn = currentKeepsake();
-    BloomArt.draw(ctx, game, game.time, { theme, reducedMotion: !save.settings.motion, keepsake: worn.seed ? worn : null, pointer, shake, flash, showAim: isRush() ? aiming || game.aim.length > 0 : game.status === 'aiming', selectedBumper: isRush() ? game.rotateCooldown <= 0 ? game.bumpers[0]?.id : null : game.status === 'aiming' && !game.rotationUsed ? game.bumpers[0]?.id : null });
+    BloomArt.draw(ctx, game, game.time, { theme, reducedMotion: !save.settings.motion, keepsake: worn.seed ? worn : null, pointer, shake, flash, kick, showAim: isRush() ? aiming || game.aim.length > 0 : game.status === 'aiming', selectedBumper: isRush() ? game.rotateCooldown <= 0 ? game.bumpers[0]?.id : null : game.status === 'aiming' && !game.rotationUsed ? game.bumpers[0]?.id : null });
   }
   updateSettings(); persist(); renderMeadow(); renderDaily();
   // The game opens on the level map; an endless Rush board waits behind it until a level is picked.

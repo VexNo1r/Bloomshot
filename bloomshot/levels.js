@@ -68,7 +68,7 @@
     var groups = [], groupCount = Math.ceil(points.length / 5), offset = 0;
     for (var gi = 0; gi < groupCount; gi++) {
       var size = Math.ceil((points.length - offset) / (groupCount - gi));
-      groups.push(group(['gold', 'coral', 'lilac'][(gi + phase) % 3], points.slice(offset, offset + size)));
+      groups.push(group(['gold', 'coral', 'lilac', 'sky', 'poppy'][(gi + phase) % 5], points.slice(offset, offset + size)));
       offset += size;
     }
     var result = garden(id, name, subtitle, description, flowerId, id === 1 ? 1 : 2,

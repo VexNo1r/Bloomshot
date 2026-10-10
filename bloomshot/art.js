@@ -11,8 +11,20 @@
   const FLOWERS = {
     coral: { dark: '#d32871', base: '#fa558b', light: '#ff94b0', tip: '#ffe1ce', heart: '#be526c', seed: '#ffec7e' },
     gold: { dark: '#eea31d', base: '#ffc735', light: '#ffe76b', tip: '#fffec8', heart: '#da8033', seed: '#fffac4' },
-    lilac: { dark: '#7351d2', base: '#a079fa', light: '#cbb0ff', tip: '#ede2ff', heart: '#7363ca', seed: '#eaffaf' }
+    lilac: { dark: '#7351d2', base: '#a079fa', light: '#cbb0ff', tip: '#ede2ff', heart: '#7363ca', seed: '#eaffaf' },
+    // A forget-me-not blue with a sunny eye, and a poppy orange with a dark velvet heart.
+    sky: { dark: '#1d6ad6', base: '#3aa6ff', light: '#8ed2ff', tip: '#e6f7ff', heart: '#f0a01c', seed: '#ffe46a' },
+    poppy: { dark: '#d23c14', base: '#ff6a2a', light: '#ffa45e', tip: '#ffe4c6', heart: '#3a2546', seed: '#6b4a80' }
   };
+  // How each flower opens: petal count, reach and breadth, the petal's outline, and the size of its heart.
+  const OPEN = {
+    gold: { count: 12, reach: 1.52, breadth: .25, shape: 'gold', heart: .49, seeds: 29 },
+    coral: { count: 6, reach: 1.52, breadth: .65, shape: 'coral', heart: .32, seeds: 15 },
+    lilac: { count: 6, reach: 1.62, breadth: .35, shape: 'lilac', heart: .24, seeds: 7 },
+    sky: { count: 5, reach: 1.42, breadth: .66, shape: 'sky', heart: .26, seeds: 8 },
+    poppy: { count: 6, reach: 1.56, breadth: .74, shape: 'coral', heart: .3, seeds: 13 }
+  };
+
   const backdropCache = new Map();
   const flowerCache = new Map();
   const gateCache = new Map();
@@ -297,6 +309,10 @@
       // Sunstar rays have a keen tip and a folded, tapering midrib.
       ctx.bezierCurveTo(-breadth * .88, -radius * .25, -breadth * .68, -radius * .68, 0, -radius);
       ctx.bezierCurveTo(breadth * .32, -radius * .67, breadth * .9, -radius * .33, radius * .08, radius * .12);
+    } else if (shape === 'sky') {
+      // Forget-me-not petals are round fans that nearly touch their neighbours.
+      ctx.bezierCurveTo(-breadth * 1.15, -radius * .28, -breadth * 1.05, -radius * .96, 0, -radius);
+      ctx.bezierCurveTo(breadth * 1.05, -radius * .96, breadth * 1.15, -radius * .28, radius * .08, radius * .12);
     } else if (shape === 'lilac') {
       // Long iris standards curl to one side instead of forming a round daisy.
       ctx.bezierCurveTo(-breadth * .66, -radius * .16, -breadth * 1.1, -radius * .68, -radius * .07, -radius);
@@ -339,6 +355,21 @@
       ctx.bezierCurveTo(-r * .39, r * .82, -r * .88, r * .33, -r * .86, -r * .34);
       ctx.quadraticCurveTo(-r * .61, -r * .46, -r * .54, -r * .77);
       ctx.quadraticCurveTo(-r * .25, -r * .66, 0, -r * 1.02);
+    } else if (type === 'sky') {
+      // A round bell bud, gathered into a soft crown at the top.
+      ctx.moveTo(0, -r * .78);
+      ctx.quadraticCurveTo(r * .16, -r * 1.02, r * .34, -r * .8);
+      ctx.bezierCurveTo(r * .92, -r * .62, r * .98, r * .36, r * .5, r * .74);
+      ctx.bezierCurveTo(r * .22, r * .94, -r * .22, r * .94, -r * .5, r * .74);
+      ctx.bezierCurveTo(-r * .98, r * .36, -r * .92, -r * .62, -r * .34, -r * .8);
+      ctx.quadraticCurveTo(-r * .16, -r * 1.02, 0, -r * .78);
+    } else if (type === 'poppy') {
+      // A poppy bud: a plump teardrop with a twisted point.
+      ctx.moveTo(r * .06, -r * 1.06);
+      ctx.bezierCurveTo(r * .34, -r * .74, r * .9, -r * .36, r * .84, r * .2);
+      ctx.bezierCurveTo(r * .78, r * .7, r * .3, r * .9, 0, r * .9);
+      ctx.bezierCurveTo(-r * .32, r * .9, -r * .8, r * .66, -r * .84, r * .16);
+      ctx.bezierCurveTo(-r * .88, -r * .36, -r * .3, -r * .7, r * .06, -r * 1.06);
     } else if (type === 'lilac') {
       ctx.moveTo(0, -r * 1.08);
       ctx.bezierCurveTo(r * .17, -r * .6, r * .84, -r * .49, r * .8, -r * .02);
@@ -371,8 +402,11 @@
     if (o < .94) {
       const a = 1 - ease(Math.max(0, o - .25) / .69);
       ctx.save(); ctx.globalAlpha *= a;
-      // A fine outer ring makes the unbloomed target's hit area readable.
-      circle(ctx, 0, 0, r + 2.2, 'rgba(255,255,255,.64)', 'rgba(255,255,255,.78)', .9);
+      // A glassy disc in the flower's own color, with a bright rim, marks the hit area and makes each target a jewel of color.
+      const disc = ctx.createRadialGradient(-r * .35, -r * .45, r * .1, 0, 0, r + 2.4);
+      disc.addColorStop(0, 'rgba(255,255,255,.95)'); disc.addColorStop(.45, c.tip); disc.addColorStop(.85, c.light); disc.addColorStop(1, c.base);
+      ctx.save(); ctx.globalAlpha *= .9; circle(ctx, 0, 0, r + 2.4, disc); ctx.restore();
+      circle(ctx, 0, 0, r + 2.4, null, 'rgba(255,255,255,.95)', 1.3);
       ctx.shadowColor = c.dark + '44'; ctx.shadowBlur = r * .5; ctx.shadowOffsetY = r * .15;
       const bud = ctx.createLinearGradient(-r, -r, r, r);
       bud.addColorStop(0, c.tip); bud.addColorStop(.24, c.light); bud.addColorStop(.65, c.base); bud.addColorStop(1, c.dark);
@@ -388,6 +422,13 @@
         ctx.moveTo(0, -r * .87); ctx.quadraticCurveTo(-r * .2, -r * .11, 0, r * .73);
         ctx.moveTo(-r * .53, -r * .6); ctx.quadraticCurveTo(-r * .55, r * .1, 0, r * .73);
         ctx.moveTo(r * .51, -r * .61); ctx.quadraticCurveTo(r * .59, r * .02, 0, r * .73);
+      } else if (type === 'sky') {
+        ctx.moveTo(0, -r * .78); ctx.quadraticCurveTo(-r * .08, 0, 0, r * .86);
+        ctx.moveTo(-r * .34, -r * .8); ctx.quadraticCurveTo(-r * .62, 0, -r * .3, r * .8);
+        ctx.moveTo(r * .34, -r * .8); ctx.quadraticCurveTo(r * .62, 0, r * .3, r * .8);
+      } else if (type === 'poppy') {
+        ctx.moveTo(r * .06, -r * 1.02); ctx.bezierCurveTo(-r * .3, -r * .5, r * .42, -r * .1, -r * .1, r * .84);
+        ctx.moveTo(r * .06, -r * 1.02); ctx.quadraticCurveTo(r * .62, -r * .2, r * .46, r * .7);
       } else {
         ctx.moveTo(0, -r * .95); ctx.bezierCurveTo(-r * .12, -r * .14, r * .29, r * .06, 0, r * .79);
         ctx.moveTo(-r * .68, -r * .21); ctx.quadraticCurveTo(-r * .13, r * .08, 0, r * .65);
@@ -409,11 +450,9 @@
       ctx.globalAlpha *= Math.min(1, o * 3.2);
       ctx.rotate(Math.sin(phase) * .25 + (1 - bloom) * .25);
       ctx.shadowColor = c.dark + '55'; ctx.shadowBlur = r * .48; ctx.shadowOffsetY = r * .15;
-      const count = type === 'gold' ? 12 : type === 'lilac' ? 6 : 6;
-      const pr = r * (type === 'lilac' ? 1.62 : 1.52);
+      const form = OPEN[type], count = form.count, pr = r * form.reach;
       for (let i = 0; i < count; i++) {
-        const breadth = type === 'gold' ? .25 : type === 'lilac' ? .35 : .65;
-        petal(ctx, pr * (1 + Math.sin(i * 7.3 + phase) * .045), pr * breadth, i * TAU / count, c.base, c.light, c.dark, i, type);
+        petal(ctx, pr * (1 + Math.sin(i * 7.3 + phase) * .045), pr * form.breadth, i * TAU / count, c.base, c.light, c.dark, i, form.shape);
       }
       ctx.shadowColor = 'transparent';
       if (type === 'gold') {
@@ -424,15 +463,22 @@
         ctx.save(); ctx.globalAlpha *= .85;
         for (let i = 0; i < 5; i++) petal(ctx, r * .95, r * .46, (i + .34) * TAU / 5, c.base, c.light, c.dark, i, 'coral');
         ctx.restore();
+      } else if (type === 'poppy') {
+        ctx.save(); ctx.globalAlpha *= .9;
+        for (let i = 0; i < 4; i++) petal(ctx, r * 1.0, r * .62, (i + .5) * TAU / 4, c.light, c.tip, c.base, i, 'coral');
+        ctx.restore();
+      } else if (type === 'sky') {
+        // A white ring around the sunny eye, as on a real forget-me-not.
+        circle(ctx, 0, 0, r * .44, 'rgba(255,255,255,.92)');
       } else {
         ctx.save();
         for (let i = 0; i < 3; i++) petal(ctx, r * 1.1, r * .28, (i + .25) * TAU / 3, c.light, c.tip, c.base, i, 'lilac');
         ctx.restore();
       }
-      const heartSize = type === 'gold' ? .49 : type === 'coral' ? .32 : .24;
+      const heartSize = form.heart;
       circle(ctx, 0, 0, r * heartSize, c.heart, 'rgba(255,255,255,.65)', .6);
       circle(ctx, -r * .035, -r * .055, r * (heartSize - .07), c.seed);
-      const seedCount = type === 'gold' ? 29 : type === 'coral' ? 15 : 7;
+      const seedCount = form.seeds;
       for (let i = 0; i < seedCount; i++) {
         const ang = i * 2.39996, dist = Math.sqrt(i / seedCount) * r * (heartSize - .07);
         circle(ctx, Math.cos(ang) * dist, Math.sin(ang) * dist, Math.max(.48, r * .032), i % 3 ? c.heart : c.tip);
@@ -551,17 +597,24 @@
     ctx.restore();
   }
 
-  function drawLauncher(ctx, state, time, colors, style) {
+  function drawLauncher(ctx, state, time, colors, style, kick, reducedMotion) {
     const x = (state.launcher && Number(state.launcher.x)) || 210;
     const y = (state.launcher && Number(state.launcher.y)) || 498;
     const rush = state.mode === 'rush';
     const left = rush ? (state.lives == null ? 3 : state.lives) : state.shotsLeft == null ? 3 : state.shotsLeft;
+    const k = reducedMotion ? 0 : clamp(Number(kick) || 0, 0, 1), next = FLOWERS[state.nextType];
     ctx.save();
+    // A shot pushes the pod down and wide for a blink before it springs back, with a puff of air around it.
+    if (k > 0) {
+      circle(ctx, x, y, 20 + (1 - k) * 18, null, next ? next.light : '#ffffff', 3 * k);
+      ctx.translate(x, y); ctx.scale(1 + .13 * k, 1 - .13 * k); ctx.translate(-x, -y);
+    }
     ctx.shadowColor = '#12bcc199'; ctx.shadowBlur = 16;
     circle(ctx, x, y + 2, 22, 'rgba(5,155,150,.15)');
     circle(ctx, x, y, 19.5, '#50d7bb', '#ffffff', 1.5);
     circle(ctx, x, y, 14.7, '#d6ffee', '#9be9d8', 1);
     ctx.shadowColor = 'transparent';
+    if (next && rush && !state.armed && state.status !== 'lost' && state.status !== 'won') circle(ctx, x, y, 17.1, null, next.base, 2.2);
     if (rush && state.armed && POWER_TINT[state.armed] && state.status !== 'lost' && state.status !== 'won') {
       // An armed powerup sits in the launcher in place of the seed, with a ring that breathes.
       const beat = .5 + Math.sin(time * 5) * .5;
@@ -609,22 +662,40 @@
     ctx.restore();
   }
 
-  function drawRushBoundary(ctx, state, theme) {
+  // How close the lowest open flower is to the line, from 0 (far) to 1 (touching).
+  function threatOf(state, y) {
+    let threat = 0;
+    for (const bud of Array.isArray(state.buds) ? state.buds : []) {
+      if (!bud || bud.bloomed || bud.gift || !Number.isFinite(bud.y)) continue;
+      threat = Math.max(threat, clamp(1 - (y - bud.y - (Number(bud.r) || 11)) / 110, 0, 1));
+    }
+    return threat;
+  }
+  function drawRushBoundary(ctx, state, theme, time, reducedMotion) {
     const y = clamp(Number(state.dangerY) || 448, 100, 510);
     const night = theme === 'moon' || Boolean(root.BloomScenery && root.BloomScenery.dark(theme));
+    const threat = state.status === 'lost' || state.status === 'won' ? 0 : threatOf(state, y);
+    // A heartbeat: two quick swells, then a rest, quicker the closer the flowers are.
+    const beat = reducedMotion ? .5 : Math.pow(Math.max(0, Math.sin((Number(time) || 0) * (5 + threat * 5))), 6);
+    const heat = Math.pow(threat, 1.5) * (.5 + .5 * beat);
     ctx.save();
-    const warning = ctx.createLinearGradient(0, y - 15, 0, y + 33);
-    warning.addColorStop(0, 'rgba(245,109,143,0)'); warning.addColorStop(.34, 'rgba(245,109,143,.08)'); warning.addColorStop(1, 'rgba(245,109,143,0)');
-    ctx.fillStyle = warning; ctx.fillRect(22, y - 15, 376, 48);
+    const reach = 15 + heat * 70;
+    const warning = ctx.createLinearGradient(0, y - reach, 0, y + 33);
+    warning.addColorStop(0, 'rgba(255,60,110,0)'); warning.addColorStop(.34 + heat * .36, `rgba(255,60,110,${.08 + heat * .5})`); warning.addColorStop(1, 'rgba(255,60,110,0)');
+    ctx.fillStyle = warning; ctx.fillRect(22, y - reach, 376, reach + 33);
+    if (heat > .05) { ctx.shadowColor = `rgba(255,50,100,${Math.min(1, heat * 1.3)})`; ctx.shadowBlur = 6 + heat * 14; }
     ctx.beginPath(); ctx.moveTo(24, y + .8); ctx.lineTo(396, y + .8);
-    ctx.strokeStyle = night ? 'rgba(255,234,238,.55)' : 'rgba(255,255,255,.9)'; ctx.lineWidth = 3; ctx.stroke();
+    ctx.strokeStyle = night ? 'rgba(255,234,238,.55)' : 'rgba(255,255,255,.9)'; ctx.lineWidth = 3 + heat * 2.5; ctx.stroke();
     ctx.beginPath(); ctx.moveTo(24, y); ctx.lineTo(396, y);
-    ctx.setLineDash([8, 5]); ctx.strokeStyle = night ? '#ff91b1' : '#e86189'; ctx.lineWidth = 1.6; ctx.stroke(); ctx.setLineDash([]);
+    ctx.setLineDash([8, 5]); ctx.lineDashOffset = reducedMotion ? 0 : -(Number(time) || 0) * (8 + threat * 30);
+    ctx.strokeStyle = heat > .3 ? '#ff3d6e' : night ? '#ff91b1' : '#e86189'; ctx.lineWidth = 1.6 + heat * 1.6; ctx.stroke(); ctx.setLineDash([]); ctx.lineDashOffset = 0;
+    ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
     for (const x of [28, 392]) {
       ctx.beginPath(); ctx.moveTo(x, y - 4); ctx.lineTo(x + 3, y); ctx.lineTo(x, y + 4); ctx.lineTo(x - 3, y); ctx.closePath();
       ctx.fillStyle = night ? '#ffd8e5' : '#e86189'; ctx.fill();
     }
     ctx.font = '600 11px Fredoka, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    if (heat > .05) { ctx.translate(210, y + 15); ctx.scale(1 + heat * .14, 1 + heat * .14); ctx.translate(-210, -y - 15); }
     // Painted level scenes are busy behind the label, so it sits on its own little tag there.
     if (root.BloomScenery && root.BloomScenery.has(theme)) {
       const w = ctx.measureText('Danger line').width + 16;
@@ -910,10 +981,12 @@
     ctx.restore();
   }
 
-  function drawAim(ctx, points, colors) {
+  function drawAim(ctx, points, colors, time, type, reducedMotion) {
     if (!Array.isArray(points) || points.length < 2) return;
     ctx.save(); ctx.lineCap = 'round';
-    let carry = 0, distance = 0, afterGate = Infinity;
+    const tint = FLOWERS[type], dot = tint ? tint.base : colors.track, ring = tint ? tint.dark : colors.track;
+    // The dots drift along the path toward where the seed will go.
+    let carry = reducedMotion ? 0 : (Number(time) || 0) * 26 % 11, distance = 0, afterGate = Infinity;
     for (let i = 1; i < points.length; i++) {
       const prev = points[i - 1], next = points[i];
       if (!prev || !next || !Number.isFinite(prev.x) || !Number.isFinite(prev.y) || !Number.isFinite(next.x) || !Number.isFinite(next.y)) continue;
@@ -924,7 +997,14 @@
       for (let d = carry; d <= len; d += 11) {
         const fade = Math.max(clamp(1 - (distance + d) / 720, .16, .85), afterGate + d < 76 ? .78 - (afterGate + d) * .002 : 0);
         ctx.globalAlpha = fade;
-        circle(ctx, prev.x + dx * d / len, prev.y + dy * d / len, 2, colors.track, '#ffffff', .65);
+        circle(ctx, prev.x + dx * d / len, prev.y + dy * d / len, tint ? 2.7 - Math.min(1.1, (distance + d) / 500) : 2, dot, '#ffffff', tint ? 1 : .65);
+      }
+      // Where the path turns off a petal, rock or wall, a small ring marks the bounce.
+      const after = points[i + 1], ax = after ? after.x - next.x : 0, ay = after ? after.y - next.y : 0;
+      const turn = after && !after.move ? (dx * ax + dy * ay) / (len * (Math.hypot(ax, ay) || 1)) : 1;
+      if (tint && turn < .94 && distance + len < 640) {
+        ctx.globalAlpha = clamp(1 - (distance + len) / 720, .3, .85);
+        circle(ctx, next.x, next.y, 4.2, 'rgba(255,255,255,.55)', ring, 1.6);
       }
       if (prev.move && len > 12) {
         const d = Math.min(29, len - 3), x = prev.x + dx * d / len, y = prev.y + dy * d / len;
@@ -1519,6 +1599,15 @@
     ctx.restore();
   }
 
+  // Callout lettering: gold for numbers and the first praise word, then each bigger word in a new flower's color.
+  const FACES = [
+    { stops: ['#fff8ba', '#ffe984', '#ffc956', '#e99a4d'], under: '#be7e49' },
+    { stops: ['#fff0f4', '#ffb0c8', '#ff6f9a', '#d93c6c'], under: '#a8284f' },
+    { stops: ['#f7f0ff', '#d6c2ff', '#a983ff', '#7550e0'], under: '#523aa6' },
+    { stops: ['#effaff', '#b4e2ff', '#5cb8ff', '#2582e6'], under: '#1c5fae' },
+    { stops: ['#fff3e8', '#ffc59a', '#ff8a45', '#e2531a'], under: '#a63a12' },
+    { stops: ['#fffbe0', '#ffe27a', '#ff9fc4', '#9e7bff'], under: '#7a4fb8' }
+  ];
   function drawCallout(ctx, floater, reducedMotion) {
     const life = Math.max(0, floater.life == null ? 1 : floater.life), duration = floater.maxLife || 1;
     const age = Math.max(0, duration - life), text = String(floater.text || '');
@@ -1526,28 +1615,32 @@
     const bonus = floater.kind === 'bonus' || /BALLS/i.test(text);
     const wave = floater.kind === 'wave';
     const number = text.match(/[+]?\d+/)?.[0] || '';
-    const value = wave ? text : number || text;
+    const praise = combo && floater.label != null, value = wave || praise ? text : number || text;
+    const face = FACES[praise ? Math.max(0, Math.floor(Number(floater.tier) || 0)) % FACES.length : 0];
     const scale = reducedMotion ? 1 : .55 + .45 * (1 - Math.exp(-age * 12) * Math.cos(age * 22));
     const y = combo ? Math.max(118, floater.y) : floater.y;
     const fade = Math.min(1, life / .24) * (reducedMotion ? 1 : Math.min(1, age / .045));
     ctx.save(); ctx.translate(clamp(floater.x, 78, 342), y - (reducedMotion ? 0 : ease(age / duration) * 6));
     ctx.scale(scale, scale); ctx.globalAlpha = fade; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    const size = wave ? 36 : combo ? 43 : bonus ? 31 : 21;
+    const size = wave ? 36 : praise ? (value.length > 10 ? 34 : 40) : combo ? 43 : bonus ? 31 : 21;
     ctx.font = `700 ${size}px Fredoka, system-ui, sans-serif`;
     // A restrained metallic relief gives the number the finish of a small trophy.
-    const face = ctx.createLinearGradient(0, -size * .5, 0, size * .5);
-    face.addColorStop(0, '#fff8ba'); face.addColorStop(.3, '#ffe984'); face.addColorStop(.57, '#ffc956'); face.addColorStop(1, '#e99a4d');
-    ctx.lineJoin = 'round'; ctx.lineWidth = 2.1; ctx.strokeStyle = '#fffce5';
+    const fill = ctx.createLinearGradient(0, -size * .5, 0, size * .5);
+    face.stops.forEach((color, i) => fill.addColorStop([0, .3, .57, 1][i], color));
+    ctx.lineJoin = 'round'; ctx.lineWidth = praise ? 3.2 : 2.1; ctx.strokeStyle = '#fffce5';
     ctx.shadowColor = 'rgba(53,53,89,.45)'; ctx.shadowBlur = 7; ctx.shadowOffsetY = 3;
-    ctx.strokeText(value, 0, 0); ctx.fillStyle = '#be7e49'; ctx.fillText(value, 0, 1.7);
-    ctx.shadowBlur = 0; ctx.shadowOffsetY = 0; ctx.fillStyle = face; ctx.fillText(value, 0, 0);
+    ctx.strokeText(value, 0, 0); ctx.fillStyle = face.under; ctx.fillText(value, 0, 1.7);
+    ctx.shadowBlur = 0; ctx.shadowOffsetY = 0; ctx.fillStyle = fill; ctx.fillText(value, 0, 0);
     if (combo || bonus || wave) {
+      const width = praise ? ctx.measureText(value).width : 0;
       ctx.font = '600 13px Fredoka, system-ui, sans-serif';
-      const label = wave ? String(floater.label || '') : combo ? 'chain!' : 'extra seeds';
+      const label = wave || praise ? String(floater.label || '') : combo ? 'chain!' : 'extra seeds';
       ctx.shadowColor = 'rgba(255,255,255,.95)'; ctx.shadowBlur = 4;
+      // A cream outline keeps the small line readable on the dark caves as well as the bright meadow.
+      ctx.lineWidth = 3.4; ctx.strokeStyle = 'rgba(255,252,236,.92)'; ctx.strokeText(label, 0, size * .62);
       ctx.fillStyle = '#245866'; ctx.fillText(label, 0, size * .62);
       ctx.shadowBlur = 0;
-      const offset = wave ? 124 : combo ? 49 : 43;
+      const offset = wave ? 124 : praise ? width / 2 + 14 : combo ? 49 : 43;
       ctx.globalAlpha *= .86;
       for (const side of [-1, 1]) {
         ctx.beginPath(); ctx.moveTo(side * (offset - 2), 13); ctx.quadraticCurveTo(side * (offset + 7), 0, side * offset, -12);
@@ -1773,7 +1866,7 @@
     if (shake && !options.reducedMotion) { ctx.translate(210 + shake.x, 280 + shake.y); ctx.rotate(shake.r || 0); ctx.translate(-210, -280); }
 
     const buds = Array.isArray(state.buds) ? state.buds : [];
-    if (rush) drawRushBoundary(ctx, state, options.theme);
+    if (rush) drawRushBoundary(ctx, state, options.theme, time, options.reducedMotion);
     else {
       drawLivingFoliage(ctx, time, colors, options.reducedMotion);
       drawVines(ctx, buds, time, colors, options.reducedMotion);
@@ -1883,8 +1976,8 @@
       if (bumper.kind === 'rock' && root.BloomScenery) root.BloomScenery.drawRock(ctx, bumper, options.theme);
       else drawBumper(ctx, bumper, options.selectedBumper === bumper.id, time, colors, options.reducedMotion);
     }
-    if (options.showAim !== false && state.aim && (state.status !== 'flying' || options.showAim === true)) drawAim(ctx, state.aim, colors);
-    drawLauncher(ctx, state, time, colors, options.keepsake);
+    if (options.showAim !== false && state.aim && (state.status !== 'flying' || options.showAim === true)) drawAim(ctx, state.aim, colors, time, state.nextType, options.reducedMotion);
+    drawLauncher(ctx, state, time, colors, options.keepsake, options.kick, options.reducedMotion);
 
     const balls = Array.isArray(state.balls) ? state.balls : state.ball ? [state.ball] : [];
     for (const particle of state.particles || []) drawParticle(ctx, particle, time, options.reducedMotion);

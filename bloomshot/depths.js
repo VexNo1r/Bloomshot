@@ -45,7 +45,7 @@
     // The crown sits on top, so a stack has to be cracked from the bottom or reached around.
     stack: function () { return [[0, -23], [0, 0], [0, 23]]; }
   };
-  var TYPES = ['gold', 'coral', 'lilac'];
+  var TYPES = ['gold', 'coral', 'lilac', 'sky', 'poppy'];
 
   // pace scales every fall speed in a level; it was tuned with qa/depths-bot.cjs so a casual player clears
   // the first level almost every time and the fourth about one try in four.
@@ -204,7 +204,7 @@
         var mix = (k * 5 + number + levelId) % 6, hp = mix < (spec.hp3 || 0) ? 3 : mix < (spec.hp3 || 0) + (spec.hp || 0) ? 2 : 1;
         var x = anchor[0] + offset[0], y = anchor[1] + offset[1];
         var bud = { id: name + '-' + bi, group: name, x: x, y: y, baseX: x, startY: y, r: 11,
-          type: TYPES[(gi + number + levelId) % 3], relay: bi === 0 && !briar, hp: hp, maxHp: hp,
+          type: TYPES[(gi + number + levelId) % TYPES.length], relay: bi === 0 && !briar, hp: hp, maxHp: hp,
           shield: has(spec.cupAll, gi) || (bi > 0 && has(spec.cup, gi)),
           fall: has(spec.fast, gi) ? 1.6 : 1, sway: sway, swayW: 2 * Math.PI * .34, swayPhase: gi * 1.3 };
         // Shells start with their openings spread around and turn in opposite directions cluster to cluster.
@@ -216,7 +216,7 @@
     });
     (spec.geodes || []).forEach(function (spot, i) {
       buds.push({ id: tag + '-geode-' + i, group: tag + '-geode-' + i, x: spot[0], y: spot[1], baseX: spot[0], startY: spot[1], r: 14,
-        type: TYPES[(i + number + levelId) % 3], relay: false, hp: spot[2] || 2, maxHp: spot[2] || 2, geode: true, gems: spot[3] || 3,
+        type: TYPES[(i + number + levelId) % TYPES.length], relay: false, hp: spot[2] || 2, maxHp: spot[2] || 2, geode: true, gems: spot[3] || 3,
         shield: false, fall: 1, sway: 0, swayW: 0, swayPhase: 0 });
     });
     (spec.puffs || []).forEach(function (spot, i) {

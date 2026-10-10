@@ -16,7 +16,7 @@
   const SUN_REACH = 82, FAN = .2, LULLABY = 6, GIFT_CHANCE = .06, GIFT_R = 14;
   const SHOT_POWERS = ['sunburst', 'dandelion', 'beeline'], GIFTS = ['sunburst', 'dandelion', 'beeline', 'lullaby'];
   const open = bud => !bud.bloomed && !bud.gift;
-  const PALETTES = ['gold', 'coral', 'lilac'];
+  const PALETTES = ['gold', 'coral', 'lilac', 'sky', 'poppy'];
   // Tempo: each wave adds a tenth to every score (up to x2 at wave 11) and reloads a little faster
   // (0.65 s down to 0.45 s by wave 9), so the run speeds up for the player as well as against them.
   const tempoFor = wave => Math.min(2, 1 + (wave - 1) * 0.1);
@@ -40,7 +40,7 @@
         const hp = (gi * 3 + bi + wave) % 6 < layeredSixths ? 2 : 1;
         buds.push({ id: 'rush-' + wave + '-' + gi + '-' + bi,
           group: 'rush-' + wave + '-' + gi, x: wave % 2 ? rawX : 420 - rawX,
-          y: anchor[1] + offset[1], r: 11, type: PALETTES[(gi + wave - 1) % 3],
+          y: anchor[1] + offset[1], r: 11, type: PALETTES[(gi + wave - 1) % PALETTES.length],
           relay: bi === 0, hp, maxHp: hp, hitAt: -100, bloomed: false, bloomAt: -100 });
       });
     });
@@ -98,6 +98,8 @@
     get stars() { return this.plan && this.status === 'won' ? Math.max(0, Math.min(3, this.lives)) : 0; }
     get over() { return this.status === 'lost' || this.status === 'won'; }
     get tempo() { return tempoFor(this.wave); }
+    // The flower the next seed will grow into; the aim line and launcher ring wear its color.
+    get nextType() { return PALETTES[this.shotNumber % PALETTES.length]; }
     get splitReady() {
       return this.status === 'flying' && this.splitCharge >= 1 && this.balls.length > 0 && this.balls.length <= CAP - 2;
     }
@@ -257,7 +259,7 @@
       const spots = (bud.gems || 3) === 2 ? [[-20, 6], [20, 6]] : [[-22, 2], [22, 2], [0, 22]];
       return spots.map(([ox, oy], i) => {
         const x = Math.max(44, Math.min(376, bud.x + ox)), y = Math.min(this.dangerY - 40, bud.y + oy);
-        return { id: bud.id + '-gem-' + i, group: bud.group, x, y, baseX: x, startY: y, r: 9, type: PALETTES[i % 3],
+        return { id: bud.id + '-gem-' + i, group: bud.group, x, y, baseX: x, startY: y, r: 9, type: PALETTES[i % PALETTES.length],
           relay: false, hp: 1, maxHp: 1, gem: true, shield: false, fall: bud.fall || 1, sway: 0, swayW: 0, swayPhase: 0,
           hitAt: -100, bloomed: false, bloomAt: -100, spawnAt: this.time };
       });
