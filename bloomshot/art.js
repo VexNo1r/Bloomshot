@@ -750,9 +750,12 @@
     return { determined: health <= .5, sweat: health <= .2 };
   }
   // The shiver: a +/-.04 rad wobble at 6 Hz around the bloom's middle, shared by its leaves, face and crown.
+  // The ring and crown are drawn without the clock, so the face leaves its tilt here for them.
+  const bossTilt = { bud: null, angle: 0 };
   function bossWobble(ctx, bud, time, still) {
-    if (still || !bossMood(bud).sweat) return;
-    ctx.translate(bud.x, bud.y); ctx.rotate(Math.sin(time * TAU * 6) * .04); ctx.translate(-bud.x, -bud.y);
+    const angle = still || !bossMood(bud).sweat ? 0 : Math.sin(time * TAU * 6) * .04;
+    bossTilt.bud = bud; bossTilt.angle = angle;
+    if (angle) { ctx.translate(bud.x, bud.y); ctx.rotate(angle); ctx.translate(-bud.x, -bud.y); }
   }
   function drawBossLeaves(ctx, bud, time, still) {
     const r = Number(bud.r) || 24, sway = still ? 0 : Math.sin(time * 1.6) * .06;
@@ -812,6 +815,7 @@
   function drawBossRing(ctx, bud) {
     const r = (Number(bud.r) || 24) + (bud.shell ? 11 : 7), hp = Math.max(0, Number(bud.hp) || 0), max = Math.max(1, Number(bud.maxHp) || 1), gap = .09;
     ctx.save(); ctx.lineCap = 'round';
+    if (bossTilt.bud === bud && bossTilt.angle) { ctx.translate(bud.x, bud.y); ctx.rotate(bossTilt.angle); ctx.translate(-bud.x, -bud.y); }
     for (let i = 0; i < max; i++) {
       const a0 = -Math.PI / 2 + i * TAU / max + gap / 2, a1 = a0 + TAU / max - gap;
       ctx.beginPath(); ctx.arc(bud.x, bud.y, r, a0, a1); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 5.4; ctx.stroke();
@@ -1952,7 +1956,7 @@
     const still = Boolean(options && options.reducedMotion), cam = options && options.camera;
     ctx.save();
     // The vine and the harvest belong to the HUD, so they hold still while the camera leans in.
-    if (cam && Number(cam.zoom) > 1.001) {
+    if (!still && cam && Number(cam.zoom) > 1.001) {
       const z = Number(cam.zoom), fx = Number.isFinite(cam.fx) ? cam.fx : 210, fy = Number.isFinite(cam.fy) ? cam.fy : 280;
       ctx.translate(fx, fy); ctx.scale(1 / z, 1 / z); ctx.translate(-fx, -fy);
     }
@@ -1982,21 +1986,23 @@
     if (sprite) ctx.drawImage(sprite.surface, x - d / 2, y - d / 2, d, d);
     else circle(ctx, x, y, d * .28, 'rgba(255,240,180,.8)');
   }
-  function orbPoint(orb, u) {
+  // Points along an orb's path go into reused scratch objects, so a full harvest allocates nothing per frame.
+  const ORB_AT = { x: 0, y: 0 }, ORB_AHEAD = { x: 0, y: 0 }, TAIL = new Float64Array(24);
+  function orbPoint(orb, u, out) {
     const p = u * u, q = 1 - p, x0 = orb.x, y0 = orb.y, i = orb.i || 0;
     const x1 = x0 + (HARVEST_TO.x - x0) * .15 + (i % 3 - 1) * 22, y1 = y0 * .45 - (i % 4) * 8;
-    return { x: q * q * x0 + 2 * q * p * x1 + p * p * HARVEST_TO.x, y: q * q * y0 + 2 * q * p * y1 + p * p * HARVEST_TO.y };
+    out.x = q * q * x0 + 2 * q * p * x1 + p * p * HARVEST_TO.x; out.y = q * q * y0 + 2 * q * p * y1 + p * p * HARVEST_TO.y;
+    return out;
   }
-  const TAIL = [];
   function cometTail(ctx, orb, u, tail, width, alpha) {
     for (let j = 0; j <= 5; j++) {
-      const v = u - tail * (1 - j / 5), a = orbPoint(orb, v), b = orbPoint(orb, v + .01);
+      const v = u - tail * (1 - j / 5), a = orbPoint(orb, v, ORB_AT), b = orbPoint(orb, v + .01, ORB_AHEAD);
       const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1, w = width * j / 5;
-      TAIL[j] = [a.x - dy / len * w, a.y + dx / len * w, a.x + dy / len * w, a.y - dx / len * w];
+      TAIL[j * 4] = a.x - dy / len * w; TAIL[j * 4 + 1] = a.y + dx / len * w; TAIL[j * 4 + 2] = a.x + dy / len * w; TAIL[j * 4 + 3] = a.y - dx / len * w;
     }
-    ctx.globalAlpha = alpha; ctx.beginPath(); ctx.moveTo(TAIL[0][0], TAIL[0][1]);
-    for (let j = 1; j <= 5; j++) ctx.lineTo(TAIL[j][0], TAIL[j][1]);
-    for (let j = 5; j >= 0; j--) ctx.lineTo(TAIL[j][2], TAIL[j][3]);
+    ctx.globalAlpha = alpha; ctx.beginPath(); ctx.moveTo(TAIL[0], TAIL[1]);
+    for (let j = 1; j <= 5; j++) ctx.lineTo(TAIL[j * 4], TAIL[j * 4 + 1]);
+    for (let j = 5; j >= 0; j--) ctx.lineTo(TAIL[j * 4 + 2], TAIL[j * 4 + 3]);
     ctx.closePath(); ctx.fill();
   }
   function drawHarvest(ctx, harvest) {
@@ -2014,7 +2020,7 @@
       // A comet tail in the flower's own color: one tapered shape along the path, a faint wide one under a brighter core.
       const tail = Math.min(u, .2);
       if (tail > .01) { ctx.fillStyle = color; cometTail(ctx, orb, u, tail, size * 1.25, .26); cometTail(ctx, orb, u, tail * .7, size * .62, .5); }
-      const at = orbPoint(orb, u);
+      const at = orbPoint(orb, u, ORB_AT);
       ctx.globalAlpha = 1; glowAt(ctx, sprite, at.x, at.y, size * 5.6);
       circle(ctx, at.x, at.y, size, color, '#ffffff', 1.5);
       circle(ctx, at.x - size * .25, at.y - size * .28, size * .38, '#ffffff');
@@ -2067,6 +2073,7 @@
       leaf(c, x, y, length, length * .6, i % 2 ? Math.PI - .8 : .8, i % 2 ? '#3fa957' : '#55c467', '#2a7744');
     }
   }
+  let vineLeavesKey = '';
   function vinePiece(key, paint) {
     return stageSprite(key, VINE.width, VINE.height, c => { c.translate(-VINE.left, -VINE.top); paint(c); });
   }
@@ -2096,7 +2103,10 @@
     vineBlit(ctx, vinePiece(`vine|base|${type}`, paintBase), paintBase, VINE.left, right);
     vineBlit(ctx, vinePiece('vine|lag', paintLag), paintLag, VINE.x - 3, Math.min(right, xLag + 2));
     vineBlit(ctx, vinePiece('vine|live', paintLive), paintLive, VINE.x - 3, Math.min(right, xHp + 2));
-    vineBlit(ctx, vinePiece(`vine|leaves|${max}|${hp}`, paintLeaves), paintLeaves, VINE.left, right);
+    // A boss only ever loses leaves, so the sprite for the count it just left is let go (up to 19 of them a fight).
+    const leavesKey = `vine|leaves|${max}|${hp}`;
+    if (vineLeavesKey !== leavesKey) { if (vineLeavesKey) stageCache.delete(vineLeavesKey); vineLeavesKey = leavesKey; }
+    vineBlit(ctx, vinePiece(leavesKey, paintLeaves), paintLeaves, VINE.left, right);
     // Lost leaves drop off and tumble away.
     const length = vineLeafSize(max);
     for (const fall of vine.fallen || []) {

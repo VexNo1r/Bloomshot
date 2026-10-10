@@ -168,6 +168,21 @@ test('A cleared wave sends at most 24 orbs, latest first, that all land within 1
   const plucks = app.cues('pluck').map(s => s.data.i);
   assert.deepEqual(plucks, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 15, 18, 21], 'every orb of the first 12, then every third');
 });
+test('An orb rides its drifting flower until it lifts off', () => {
+  const app = level(player(), 1), game = app.game(); app.run(1.3);
+  clearWave(app, 30);
+  assert(app.run(3, () => (game.harvest || []).length > 0), 'the wave clears');
+  const orb = game.harvest.at(-1), start = orb.y;
+  assert(orb.delay > .5, 'the last orb waits its turn');
+  app.run(.4);
+  assert(orb.t < orb.delay, 'still waiting');
+  assert(orb.bud.y > start + 1, 'spent flowers keep drifting down');
+  assert.equal(orb.y, orb.bud.y); assert.equal(orb.x, orb.bud.x);
+  app.run(.4);
+  assert(orb.t > orb.delay, 'lifted off');
+  const lifted = orb.y; app.run(.1);
+  assert.equal(orb.y, lifted, 'its path starts where it left the flower');
+});
 test('A finale skips the harvest; without one the same clear harvests', () => {
   for (const finale of [true, false]) {
     const app = level(player(), 1), game = app.game(); app.run(1.3);
@@ -312,6 +327,38 @@ test('The vine is cached per hit count, the curtain is two strips, and reduced m
   const images = calls => calls.filter(c => c === 'drawImage').length;
   assert(images(still) < images(moving) - 24, 'no orbs or curtain with motion off');
   assert(images(still) >= 4, 'the vine still shows');
+});
+
+test('A sweating boss shivers its leaves, face and crown together, and holds still with motion off', () => {
+  const rotations = (hp, reducedMotion) => {
+    const calls = [], boss = { id: 'boss', x: 210, y: 110, r: 26, type: 'gold', boss: true, hp, maxHp: 9, bloomed: false, bloomAt: -100, hitAt: -100 };
+    Art.draw(recordingContext(calls), board({ buds: [boss] }), 5.01, { theme: 'meadow', reducedMotion });
+    return calls.filter(c => c === 'rotate').length;
+  };
+  assert.equal(rotations(1, false) - rotations(9, false), 3, 'leaves, face, ring and crown');
+  assert.equal(rotations(1, true), rotations(9, true), 'no shiver with motion off');
+});
+test('The vine and orbs undo the camera lean only when the camera actually leaned', () => {
+  const inverse = reducedMotion => {
+    const scales = [], calls = [], context = recordingContext(calls);
+    const proxy = new Proxy(context, { get: (target, name) => name === 'scale' ? (x, y) => { scales.push([x, y]); } : target[name], set: (target, name, value) => { target[name] = value; return true; } });
+    const boss = { id: 'boss', x: 210, y: 110, r: 26, type: 'gold', boss: true, hp: 5, maxHp: 9, bloomed: false, bloomAt: -100, hitAt: -100 };
+    const state = board({ buds: [boss], stage: { glow: 0, vine: { bud: boss, name: 'Old Sunny', max: 9, hp: 5, lag: 5, shakeAt: -100, shownAt: 1, fallen: [] } } });
+    Art.draw(proxy, state, 6, { theme: 'meadow', reducedMotion, camera: { zoom: 1.2, fx: 210, fy: 200 } });
+    return scales.filter(([x, y]) => Math.abs(x - 1 / 1.2) < 1e-9 && Math.abs(y - 1 / 1.2) < 1e-9).length;
+  };
+  assert.equal(inverse(false), 1, 'leaning in: the HUD pieces hold still');
+  assert.equal(inverse(true), 0, 'motion off: there is no lean to undo');
+});
+test('A boss only loses leaves, so the vine lets go of the sprite for the count it left', () => {
+  const options = { theme: 'meadow', reducedMotion: false };
+  Art.draw(recordingContext([]), stageBoard(20, 4), 20, options);
+  Art.draw(recordingContext([]), stageBoard(20.2, 3), 20.2, options);
+  const before = surfaces;
+  Art.draw(recordingContext([]), stageBoard(20.4, 3), 20.4, options);
+  assert.equal(surfaces, before, 'the current count stays cached');
+  Art.draw(recordingContext([]), stageBoard(20.6, 4), 20.6, options);
+  assert.equal(surfaces, before + 1, 'the old count was let go');
 });
 
 const report = { passed: results.filter(r => r.passed).length, failed: results.filter(r => !r.passed).length, results };

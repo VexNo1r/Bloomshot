@@ -984,7 +984,7 @@
     if (!blooms.length) return;
     if (!save.settings.motion) { BloomSound.play('pluck', { i: 0, n: 1 }); return; }
     if (!game.stage) game.stage = { glow: 0 };
-    const n = blooms.length, orbs = blooms.map((bud, i) => ({ x: bud.x, y: bud.y, color: ORB_COLORS[bud.type] || ORB_COLORS.gold, delay: i * STAGE.orbGap, dur: STAGE.orbTime, t: 0, i, n }));
+    const n = blooms.length, orbs = blooms.map((bud, i) => ({ x: bud.x, y: bud.y, bud, color: ORB_COLORS[bud.type] || ORB_COLORS.gold, delay: i * STAGE.orbGap, dur: STAGE.orbTime, t: 0, i, n }));
     game.harvest = (game.harvest || []).concat(orbs);
   }
   // Orbs fly on real time, so a slow-motion finale or a hit-stop never strands them mid-air.
@@ -992,6 +992,8 @@
     let kept = 0;
     for (const orb of game.harvest) {
       orb.t += dt;
+      // Spent flowers keep drifting down (fast in a late Rush wave), so an orb sits on its flower until it lifts off.
+      if (orb.t < orb.delay && orb.bud) { orb.x = orb.bud.x; orb.y = orb.bud.y; }
       if (orb.t < orb.delay + orb.dur) { game.harvest[kept++] = orb; continue; }
       bumpScore(); game.stage.glow = Math.min(1, (game.stage.glow || 0) + .35);
       if (orb.i < 12 || (orb.i - 12) % 3 === 0) BloomSound.play('pluck', { i: orb.i, n: orb.n });
