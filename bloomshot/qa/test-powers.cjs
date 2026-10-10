@@ -61,6 +61,28 @@ test('A purchase counts once, even when the store hands the same one over again'
   assert.equal(Powers.spend({ dandelion: 1 }, 'dandelion').counts.dandelion, 0);
   assert.equal(Powers.spend({ dandelion: 0 }, 'dandelion').ok, false);
 });
+test('Packs hold fixed, stated contents: five of one kind, or the bag with three of each', () => {
+  assert.deepEqual(Powers.packs.map(p => p.product), ['bloomshot.pack.sunburst5', 'bloomshot.pack.dandelion5', 'bloomshot.pack.beeline5', 'bloomshot.pack.lullaby5', 'bloomshot.pack.bag12']);
+  for (const p of Powers.list) assert.deepEqual(Powers.contents(`bloomshot.pack.${p.id}5`), { [p.id]: 5 });
+  assert.deepEqual(Powers.contents('bloomshot.pack.bag12'), { sunburst: 3, dandelion: 3, beeline: 3, lullaby: 3 });
+  assert.deepEqual(Powers.contents('bloomshot.power.lullaby'), { lullaby: 1 });
+  assert.equal(Powers.contents('bloomshot.levels.full'), null, 'an unlock is not a powerup');
+  const bag = Powers.contents('bloomshot.pack.bag12'); bag.sunburst = 99;
+  assert.equal(Powers.contents('bloomshot.pack.bag12').sunburst, 3, 'handing out contents never changes the pack');
+});
+test('A bag arrives all at once under one receipt, counts once, and a bad set adds nothing', () => {
+  const start = Powers.normalize({ sunburst: 2, dandelion: 0, beeline: 1, lullaby: 0 });
+  const bag = Powers.grant(start, [], { powers: Powers.contents('bloomshot.pack.bag12'), transaction: 'GPA.9' });
+  assert(bag.ok && !bag.repeat); assert.deepEqual(bag.counts, { sunburst: 5, dandelion: 3, beeline: 4, lullaby: 3 }); assert.deepEqual(bag.receipts, ['GPA.9']);
+  const again = Powers.grant(bag.counts, bag.receipts, { powers: Powers.contents('bloomshot.pack.bag12'), transaction: 'GPA.9' });
+  assert(again.repeat); assert.deepEqual(again.counts, bag.counts);
+  for (const bad of [{ rocket: 3 }, { sunburst: 3, rocket: 1 }, { sunburst: 0 }, { sunburst: 'x' }, {}]) {
+    const result = Powers.grant(start, [], { powers: bad, transaction: 'GPA.10' });
+    assert.equal(result.ok, false, JSON.stringify(bad)); assert.deepEqual(result.counts, start); assert.deepEqual(result.receipts, []);
+  }
+  assert.equal(Powers.grant(start, [], { power: 'sunburst', count: 5, transaction: 'GPA.11' }).counts.sunburst, 7, 'a five-pack names its powerup and count');
+  assert.equal(Powers.grant({ beeline: 998 }, [], { powers: { beeline: 3 } }).counts.beeline, 999, 'still capped');
+});
 test('A shot powerup waits for the next shot, and picking it again puts it back', () => {
   const game = started(1, 1);
   assert.equal(game.arm('sunburst'), true); assert.equal(game.armed, 'sunburst');
