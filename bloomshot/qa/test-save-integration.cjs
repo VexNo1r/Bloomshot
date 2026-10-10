@@ -150,6 +150,36 @@ test('Startup migrates an old save once and preserves all existing progress and 
   assert.equal(Garden.summary(after.garden).totalStages, 0); assert(app.writes.length >= 1);
   assert.deepEqual(boot(after).saved(), after);
 });
+test('Music has its own switch: an old save shows it on, turning it off is saved and survives a reload, and older settings stay the same', () => {
+  const before = legacySave(); const app = boot(before);
+  assert.equal(app.$('toggle-music').checked, true, 'an old save, with no music setting, shows Music on');
+  assert.deepEqual(app.saved().settings, before.settings, 'nothing is added to the settings until the switch is used');
+  const music = []; app.context.BloomSound.setMusic = on => music.push(on);
+  app.$('toggle-music').checked = false; app.$('toggle-music').emit('change');
+  const saved = app.saved();
+  assert.equal(saved.settings.music, false);
+  assert.deepEqual({ ...saved.settings, music: undefined }, { ...before.settings, music: undefined }, 'the other settings are untouched');
+  assert.deepEqual(music, [false]);
+  const reloaded = boot(saved);
+  assert.equal(reloaded.$('toggle-music').checked, false, 'off survives a reload'); assert.deepEqual(reloaded.saved().settings, saved.settings);
+  // The soundtrack plays only with both Sound and Music on.
+  const both = boot({ ...legacySave(), settings: { sound: true, haptics: false, motion: false } }), calls = [];
+  both.context.BloomSound.setMusic = on => calls.push(on);
+  both.$('toggle-music').checked = false; both.$('toggle-music').emit('change');
+  both.$('toggle-music').checked = true; both.$('toggle-music').emit('change');
+  both.$('toggle-sound').checked = false; both.$('toggle-sound').emit('change');
+  assert.deepEqual(calls, [false, true, false]); assert.equal(both.saved().settings.music, true);
+  // The soundtrack hears the board: home in the menus and endless Rush, a level's own groove in that level.
+  const states = []; both.context.BloomSound.music = { frame: state => states.push(state) };
+  both.frame(); assert.equal(states.at(-1).route, 'levels'); assert.equal(states.at(-1).groove, 'home');
+  both.click('levels-rush-btn'); both.frame(200);
+  assert.equal(states.at(-1).route, 'game'); assert.equal(states.at(-1).groove, 'home'); assert.equal(states.at(-1).threat >= 0, true);
+  both.click('rush-btn'); both.frame(200); assert.equal(states.at(-1).route, 'levels'); assert.equal(states.at(-1).groove, 'home');
+  both.click('depth-map', { depth: '1' }); both.frame(200);
+  assert.equal(states.at(-1).route, 'game'); assert.equal(states.at(-1).groove, 'meadow');
+  const count = states.length; both.frame(); assert.equal(states.length, count, 'about ten times a second, not every frame');
+  for (const state of states) for (const key of ['heat', 'threat']) assert(Number.isFinite(state[key]));
+});
 test('Malformed individual daily entries cannot reset valid campaign, Rush, or planted meadow records', () => {
   const before = legacySave(); before.garden = Garden.plant(Garden.normalize(), 'moon').state;
   Object.assign(before.daily, { 'daily-2026-10-02': null, 'daily-2026-10-03': [], 'daily-2026-10-04': false,

@@ -38,7 +38,7 @@
       // The chosen style is kept even while locked (a refund or a restore in progress); play shows Meadow until it is owned.
       if (typeof raw.keepsake === 'string' && Keepsakes.byId[raw.keepsake]) valid.keepsake = raw.keepsake;
       for (const key of ['best', 'bestWave', 'runs', 'blooms']) if (Number.isFinite(raw.rush?.[key]) && raw.rush[key] >= 0) valid.rush[key] = Math.floor(raw.rush[key]);
-      for (const key of ['sound', 'haptics', 'motion']) if (typeof raw.settings?.[key] === 'boolean') valid.settings[key] = raw.settings[key];
+      for (const key of ['sound', 'haptics', 'motion', 'music']) if (typeof raw.settings?.[key] === 'boolean') valid.settings[key] = raw.settings[key];
       if (raw.daily && typeof raw.daily === 'object') for (const [key, value] of Object.entries(raw.daily).slice(-14)) {
         if (!value || typeof value !== 'object' || Array.isArray(value)) continue;
         if (/^daily-\d{4}-\d{2}-\d{2}$/.test(key) && Number.isFinite(value.best) && value.best >= 0 && Number.isInteger(value.stars) && value.stars >= 0 && value.stars <= 3) valid.daily[key] = value;
@@ -1490,6 +1490,7 @@
         }
         if (isRush()) {
           rushRecordBroken = game.score > save.rush.best;
+          if (rushRecordBroken && save.rush.best > 0) BloomSound.play('record', {});
           save.rush.best = Math.max(save.rush.best, game.score);
           save.rush.bestWave = Math.max(save.rush.bestWave, game.wave);
           save.rush.blooms += game.bloomedCount; save.rush.runs++;
@@ -1544,7 +1545,7 @@
   function celebrate(won) {
     endParty();
     if (!save.settings.motion) return;
-    party = { at: null, last: null, score: game.score, stars: $('result-stars').hidden ? 0 : game.stars, chimed: 0, shower: null, dpr: 1 };
+    party = { at: null, last: null, score: game.score, stars: $('result-stars').hidden ? 0 : game.stars, chimed: 0, ticks: 0, shower: null, dpr: 1 };
     if (!won || !Petals || !petalLayer || typeof petalLayer.showPopover !== 'function') return;
     try {
       const dpr = Math.min(2, window.devicePixelRatio || 1), width = innerWidth, height = innerHeight, banner = $('result-eyebrow').getBoundingClientRect();
@@ -1557,12 +1558,70 @@
     if (party?.shower) { try { petalLayer.hidePopover(); } catch (_) {} }
     party = null;
   }
+  // The soundtrack follows the screen about ten times a second, and at once when the screen changes: the groove (a
+  // level's own, or home for the menus and endless Rush), how hot the chain runs, how near the flowers are to the
+  // line, and whether play is paused, over or hidden. sound.js turns that into layers; this only describes the board.
+  let musicAt = -Infinity, musicKey = '', cueWatch = null;
+  function musicFrame(timestamp, force = false) {
+    const music = BloomSound.music;
+    if (!music || typeof music.frame !== 'function') return;
+    const onGame = route === 'game' && Boolean(game);
+    if (onGame) watchCues(); else cueWatch = null;
+    const groove = !onGame ? 'home' : isTutorial() ? 'meadow' : isDepth() ? Depths.level(game.plan.id)?.key || 'home' : 'home';
+    const paused = narrowLandscape.matches || dialogs.some(id => $(id).open), result = $('result-dialog').open;
+    const over = onGame && Boolean(game.over ?? (game.status === 'won' || game.status === 'lost'));
+    const key = `${route}|${groove}|${paused}|${result}|${over}|${document.hidden}`;
+    if (!force && key === musicKey && timestamp - musicAt < 100) return;
+    musicKey = key; musicAt = timestamp;
+    const state = { route: onGame ? 'game' : route, groove, paused, result, over, hidden: document.hidden, heat: 0, threat: 0, superBloom: false, boss: false };
+    if (onGame) {
+      state.superBloom = (Number(game.superBloom ?? game.feverTime) || 0) > 0;
+      state.heat = Math.max((game.combo || 0) / 12, state.superBloom ? 1 : 0) + ((game.balls || []).length >= 2 ? .15 : 0);
+      if (isRush() && !isTutorial()) {
+        let lowest = -Infinity;
+        for (const bud of game.buds) if (!bud.bloomed && bud.y > lowest) lowest = bud.y;
+        state.threat = (Number.isFinite(lowest) ? clamp((lowest - (game.dangerY - 120)) / 120, 0, 1) : 0) + (game.lives === 1 ? .3 : 0);
+      }
+      state.boss = Boolean(game.bossWave);
+    }
+    music.frame(state);
+  }
+  // Small cues the board never sends as events: Split charged (once per charge), the lullaby's last three seconds
+  // and its wake-up, and a briar patch counting down its last two seconds before it grows back.
+  function watchCues() {
+    if (!isRush()) { cueWatch = null; return; }
+    if (!cueWatch || cueWatch.game !== game) cueWatch = { game, split: Boolean(game.splitReady), told: Boolean(game.splitReady), lullaby: Number(game.lullaby) || 0, briar: new Map() };
+    const watch = cueWatch, split = Boolean(game.splitReady), lullaby = Number(game.lullaby) || 0;
+    if (split && !watch.split && !watch.told) { BloomSound.play('splitReady', {}); watch.told = true; }
+    if ((game.splitCharge || 0) < 1) watch.told = false;
+    watch.split = split;
+    if (lullaby < watch.lullaby) {
+      const mark = [1, 2, 3].find(n => watch.lullaby > n && lullaby <= n && lullaby > 0);
+      if (mark) BloomSound.play('lullabyTick', { left: mark });
+      else if (lullaby <= 0 && !game.over) BloomSound.play('lullabyWake', {});
+    }
+    watch.lullaby = lullaby;
+    if (!(game.briarTimers instanceof Map)) return;
+    for (const [group, at] of game.briarTimers) {
+      const left = at - game.time;
+      if (!(left > 0 && left < 2)) continue;
+      const slot = Math.ceil(left * 2) / 2;
+      if (watch.briar.has(group) && watch.briar.get(group) <= slot) continue;
+      watch.briar.set(group, slot);
+      let x = 0, count = 0;
+      for (const bud of game.buds) if (bud.group === group) { x += bud.x; count++; }
+      BloomSound.play('briarTick', { left: slot, x: count ? x / count : 210 });
+    }
+    for (const group of watch.briar.keys()) if (!game.briarTimers.has(group)) watch.briar.delete(group);
+  }
   function partyFrame(timestamp) {
     if (!party) return;
     if (!$('result-dialog').open) { endParty(); return; }
     if (party.at === null) party.at = party.last = timestamp;
     const t = (timestamp - party.at) / 1000, k = clamp((t - .2) / .9, 0, 1);
     $('result-score').textContent = fmt(party.score * (1 - Math.pow(1 - k, 3)));
+    // The count-up ticks along: thirteen small rising notes, one every 70 ms, and never a backlog after a stall.
+    if (party.score > 0 && party.ticks < 13 && t >= .2 + party.ticks * .07) { const due = Math.min(12, Math.floor((t - .2) / .07)); party.ticks = due + 1; BloomSound.play('tally', { i: due, n: 13 }); }
     while (party.chimed < party.stars && t >= .4 + party.chimed * .17) BloomSound.play('star', { index: party.chimed++ });
     if (party.shower) {
       const dt = Math.min(.05, (timestamp - party.last) / 1000), alive = Petals.step(party.shower, dt), layer = petalLayer.getContext('2d');
@@ -2001,7 +2060,10 @@
   });
   function updateSettings() {
     BloomSound.setEnabled(save.settings.sound);
+    // Music has no default in the save: a missing value means on, so older saves keep their exact settings.
+    if (typeof BloomSound.setMusic === 'function') BloomSound.setMusic(save.settings.sound && save.settings.music !== false);
     $('toggle-sound').checked = save.settings.sound; $('toggle-haptics').checked = save.settings.haptics; $('toggle-motion').checked = save.settings.motion;
+    $('toggle-music').checked = save.settings.music !== false;
     $('sound-btn').setAttribute('aria-pressed', String(save.settings.sound)); $('sound-btn').setAttribute('aria-label', save.settings.sound ? 'Mute sound' : 'Enable sound');
     $('sound-btn').classList.toggle('muted', !save.settings.sound);
     document.body.classList.toggle('reduce-motion', !save.settings.motion);
@@ -2013,7 +2075,7 @@
   $('tutorial-replay').addEventListener('click', () => { closeDialogs(); BloomSound.wake(); startTutorial(); });
   $('tutorial-skip').addEventListener('click', () => { BloomSound.wake(); endTutorial(false); });
   $('tutorial-go').addEventListener('click', () => { BloomSound.wake(); endTutorial(!save.depths[1]?.stars); });
-  for (const key of ['sound', 'haptics', 'motion']) $(`toggle-${key}`).addEventListener('change', event => { save.settings[key] = event.target.checked; BloomSound.wake(); updateSettings(); persist(); });
+  for (const key of ['sound', 'haptics', 'motion', 'music']) $(`toggle-${key}`).addEventListener('change', event => { save.settings[key] = event.target.checked; BloomSound.wake(); updateSettings(); persist(); });
   $('sound-btn').addEventListener('click', () => { save.settings.sound = !save.settings.sound; BloomSound.wake(); updateSettings(); persist(); toast(save.settings.sound ? 'Sound on' : 'Sound off'); });
   for (const key of ['settings', 'help', 'world']) $(`close-${key}`).addEventListener('click', () => closeDialog(`${key}-dialog`));
   dialogs.forEach(id => $(id).addEventListener('click', event => { if (event.target === $(id)) { const r = $(id).getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) closeDialog(id); } }));
@@ -2027,10 +2089,11 @@
     meadowCtx.setTransform(dpr, 0, 0, dpr, 0, 0); meadowDirty = true;
   }
   window.addEventListener('resize', resize);
-  document.addEventListener('visibilitychange', () => { lastFrame = 0; accumulator = 0; cancelInteraction(); });
+  document.addEventListener('visibilitychange', () => { lastFrame = 0; accumulator = 0; cancelInteraction(); musicFrame(performance.now(), true); });
   function frame(timestamp) {
     requestAnimationFrame(frame);
     partyFrame(timestamp);
+    musicFrame(timestamp);
     if (!document.hidden && route === 'collection') drawShowcase(timestamp);
     if (!document.hidden && route === 'garden' && (meadowDirty || save.settings.motion && timestamp - meadowFrame >= 1000 / 30)) drawMeadow(timestamp);
     if (document.hidden || route !== 'game') { lastFrame = timestamp; return; }
