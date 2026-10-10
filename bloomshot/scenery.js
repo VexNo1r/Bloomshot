@@ -1020,6 +1020,7 @@
   }
 
   // ---------- Level 4: Crystal Caves ----------
+  // The old outlined crystals, still used by the rocks and the deeper levels.
   function crystal(ctx, x, y, w, h, tilt, palette) {
     const [light, mid, dark, line] = palette;
     ctx.save(); ctx.translate(x, y); ctx.rotate(tilt);
@@ -1038,81 +1039,206 @@
     const r = rng(seed), parts = [[0, 1, 0], [-.55, .7, -.38], [.6, .62, .42], [-.95, .45, -.7], [.95, .42, .75]];
     for (const [dx, k, tilt] of parts.slice().reverse()) crystal(ctx, x + dx * 14 * scale * spread, y, 13 * scale * (.75 + r() * .3), 46 * scale * k * (.85 + r() * .3), tilt * .55, palette);
   }
-  function spike(ctx, x, y, w, h, down, fill, shade, line) {
-    const s = down ? 1 : -1;
-    const pts = [[x - w / 2, y], [x - w * .18, y + s * h * .55], [x, y + s * h], [x + w * .2, y + s * h * .5], [x + w / 2, y]];
-    ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); smooth(ctx, pts, false); ctx.lineTo(x + w / 2, y); ctx.closePath();
-    ctx.fillStyle = fill; ctx.fill();
-    ctx.beginPath(); ctx.moveTo(x + w * .05, y); ctx.lineTo(x, y + s * h); ctx.lineTo(x + w / 2, y); ctx.closePath(); ctx.fillStyle = shade; ctx.fill();
-    ctx.beginPath(); smooth(ctx, pts, false); ctx.strokeStyle = line; ctx.lineWidth = 1.5; ctx.stroke();
-  }
   const BLUE = ['#b9f6ff', '#5fd0ec', '#2e93c4', '#123a5c'], VIOLET = ['#e3d5ff', '#a98cf5', '#6f52cc', '#2a1f5c'];
-  function glowCluster(ctx, x, y, scale, palette, seed, spread, glow) {
-    dot(ctx, x, y - 20 * scale, 62 * scale, glow + '14'); dot(ctx, x, y - 20 * scale, 40 * scale, glow + '1c');
-    crystalCluster(ctx, x, y, scale, palette, seed, spread);
-  }
-  function caveFish(ctx, x, y, s) {
-    ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
-    ctx.beginPath(); ctx.moveTo(-10, 0); ctx.quadraticCurveTo(-2, -6, 8, -1); ctx.quadraticCurveTo(-2, 5, -10, 0); ctx.closePath();
-    ctx.fillStyle = '#d9fbff'; ctx.fill(); ctx.strokeStyle = '#2f6f9a'; ctx.lineWidth = 1; ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(-10, 0); ctx.lineTo(-15, -4); ctx.lineTo(-15, 4); ctx.closePath(); ctx.fillStyle = '#9fe9ff'; ctx.fill(); ctx.stroke();
-    dot(ctx, 4, -1.4, .9, '#123a5c');
+
+  // The new caves: deep blue rock, crystals that glow from within. The key light is a great cyan cluster hanging from
+  // the upper left; its light breaks into soft cyan and violet shafts that cross the cave to the pool in the lower
+  // right. Giant crystal pillars stand far back in the haze.
+  const CRYSTAL_KEY = [44, 92];
+  const CRYSTAL_CYAN = { hi: '#effdff', light: '#a6ecff', mid: '#55bdea', dark: '#22659f', deep: '#143e74', glow: '124,228,255' };
+  const CRYSTAL_VIOLET = { hi: '#f6eeff', light: '#cdb6ff', mid: '#8c6ce8', dark: '#4c36a8', deep: '#2a1e6c', glow: '178,148,255' };
+  const CRYSTAL_ICE = { hi: '#e2fbff', light: '#78d0f2', mid: '#3488c6', dark: '#1d5294', deep: '#12306c', glow: '110,214,255' };
+  const CRYSTAL_AMETHYST = { hi: '#f2e8ff', light: '#b49cf4', mid: '#7356cc', dark: '#43309a', deep: '#261a66', glow: '170,136,255' };
+  const CRYSTAL_FAR = { hi: '#4e7cba', light: '#3c68a8', mid: '#2f5894', dark: '#294c88', deep: '#24447c', glow: '120,190,255' };
+  // One crystal: a six-sided prism with a faceted point, glowing from inside. (x, y) is its foot, angle 0 points up;
+  // side is the face turned to the light (-1 left, 1 right); edges sets how strongly the facet edges catch light.
+  function crystalPrism(ctx, x, y, w, h, angle, pal, side = -1, glow = .45, edges = 1) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
+    const sh = -h + w * .85, tx = w * .04 * -side;
+    const L = [-w / 2, sh], ML = [-w * .14, sh + w * .14], MR = [w * .18, sh + w * .12], R = [w / 2, sh], T = [tx, -h];
+    const faces = [
+      [[[-w / 2, 2], L, ML, [-w * .14, 2]], side < 0 ? [pal.mid, pal.light] : [pal.deep, pal.dark]],
+      [[[-w * .14, 2], ML, MR, [w * .18, 2]], [pal.deep, pal.mid]],
+      [[[w * .18, 2], MR, R, [w / 2, 2]], side > 0 ? [pal.mid, pal.light] : [pal.deep, pal.dark]]
+    ];
+    ctx.globalAlpha = .92;
+    for (const [pts, [c0, c1]] of faces) poly(ctx, pts, lin(ctx, 0, 0, 0, sh, [[0, c0], [1, c1]]), null);
+    poly(ctx, [L, T, ML], side < 0 ? pal.hi : pal.mid);
+    poly(ctx, [ML, T, MR], pal.light);
+    poly(ctx, [MR, T, R], side > 0 ? pal.hi : pal.mid);
+    ctx.globalAlpha = 1;
+    const body = [[-w / 2, 2], L, T, R, [w / 2, 2]];
+    ctx.save(); poly(ctx, body, null); ctx.clip();
+    // The core: a column of light up the middle, brightest just under the point.
+    if (glow) {
+      wash(ctx, lin(ctx, -w / 2, 0, w / 2, 0, [[0, rgba(pal.glow, 0)], [.45, rgba(pal.glow, glow)], [1, rgba(pal.glow, 0)]]), 'screen', 1, -w, -h, w * 2, h + 4);
+      wash(ctx, rad(ctx, 0, sh, w * 1.2, [[0, rgba(pal.glow, glow)], [1, rgba(pal.glow, 0)]]), 'screen', 1, -w, -h, w * 2, h + 4);
+    }
+    // Reflections caught inside the stone: two faint slanted bands.
+    if (h > 40 && edges > .5) for (const [t, k] of [[.42, .12], [.6, .07]]) poly(ctx, [[-w / 2, -h * t], [w / 2, -h * t - w * .5], [w / 2, -h * t - w * .5 - h * .05], [-w / 2, -h * t - h * .05]], `rgba(255,255,255,${k})`, null);
+    const foot = Math.min(h * .45, 34);
+    wash(ctx, lin(ctx, 0, 2, 0, -foot, [[0, 'rgba(8,8,36,.75)'], [1, 'rgba(8,8,36,0)']]), null, 1, -w, -foot, w * 2, foot + 4);
     ctx.restore();
+    if (edges) {
+      ctx.lineCap = 'round';
+      for (const [a, b, al] of [[[-w * .14, -foot * .6], ML, .3], [ML, T, .5], [side < 0 ? L : R, T, .75], [[side < 0 ? -w / 2 : w / 2, -foot * .6], side < 0 ? L : R, .35]]) {
+        ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.strokeStyle = `rgba(255,255,255,${al * edges})`; ctx.lineWidth = Math.max(.6, w * .045); ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+  // A cluster: crystals fanned out of one lump of host rock, the small ones behind, the big one in front, with soft
+  // light around it. angle is where the cluster points (0 up), spread how far it fans.
+  function crystalBloomCluster(ctx, x, y, size, angle, spread, pal, seed, side = -1, light = .3, n = 6, matrix = false) {
+    const r = rng(seed), parts = [], ux = Math.sin(angle), uy = -Math.cos(angle), px = -uy, py = ux;
+    for (let i = 0; i < n; i++) {
+      const t = i === 0 ? 0 : (i % 2 ? -1 : 1) * Math.ceil(i / 2) / Math.ceil((n - 1) / 2), k = i === 0 ? 1 : .3 + r() * .45 * (1 - Math.abs(t) * .4);
+      parts.push([angle + t * spread + (r() - .5) * .16, k, t * size * .3 + (r() - .5) * size * .1]);
+    }
+    if (light) { bloom(ctx, x + ux * size * .5, y + uy * size * .5, size * 2.8, pal.glow, light * .8); bloom(ctx, x + ux * size * .45, y + uy * size * .45, size * 1.1, pal.glow, light); }
+    for (const [a, k, off] of parts.sort((p, q) => p[1] - q[1])) {
+      const h = size * k * (.92 + r() * .16), w = Math.max(4, h * (.24 + r() * .08));
+      crystalPrism(ctx, x + px * off - ux * size * .06, y + py * off - uy * size * .06, w, h, a, pal, side);
+    }
+    if (matrix) {
+      const rock = blob(x - ux * size * .04, y - uy * size * .04 + 2, size * .3, size * .1, seed + 1, .2, 9);
+      shape(ctx, rock, lin(ctx, 0, y - size * .1, 0, y + size * .1, [[0, '#1c2c5c'], [1, '#0c1434']]), null);
+      rim(ctx, rock, rgba(pal.glow, .35), 0, -1.4);
+    }
+  }
+  // A pale, blind cave fish, nosing round the pool.
+  function crystalFish(ctx, x, y, s, flip) {
+    ctx.save(); ctx.translate(x, y); ctx.scale(flip ? -s : s, s);
+    const body = [[-11, 0], [-4, -5.4], [5, -4.6], [11, -1], [11.6, .6], [5, 4], [-4, 4.4]];
+    soft(ctx, () => ctx.ellipse(0, 7, 13, 2.4, 0, 0, TAU), 'rgba(4,12,30,.4)', 3);
+    poly(ctx, [[-10, 0], [-17, -5], [-15.6, 0], [-17, 5]], 'rgba(214,240,255,.75)', null);
+    shape(ctx, body, lin(ctx, 0, -5, 0, 5, [[0, '#f4fbff'], [.6, '#cfe8f6'], [1, '#9cc4e0']]), 'rgba(70,120,170,.55)', .8);
+    ctx.beginPath(); ctx.moveTo(-2, -4.6); ctx.quadraticCurveTo(1, -8.4, 4, -4.4); ctx.fillStyle = 'rgba(214,240,255,.8)'; ctx.fill();
+    stroke(ctx, [[1, -2], [2.4, 0], [1, 2]], 'rgba(255,170,190,.7)', .9);
+    dot(ctx, 7, -1.2, .9, 'rgba(60,90,140,.7)');
+    stroke(ctx, [[-6, -2.6], [3, -3.4]], 'rgba(255,255,255,.8)', .8);
+    ctx.restore();
+  }
+  function crystalSparkle(ctx, x, y, s, rgb) {
+    bloom(ctx, x, y, s * 3, rgb, .4);
+    sparkle(ctx, x, y, s, 'rgba(255,255,255,.95)');
+    sparkle(ctx, x, y, s * .45, 'rgba(255,255,255,1)');
+  }
+  // A cliff of cleaved blue stone: straight cut edges, each cut face lit or shaded by where it faces the light.
+  function crystalCliff(ctx, pts, side, lx, ly, rgb, seed) {
+    soft(ctx, () => poly(ctx, pts.map(([x, y]) => [x - side * 6, y + 5]), null), 'rgba(4,6,26,.45)', 12);
+    const [x0, , x1] = bounds(pts), outer = side < 0 ? x0 : x1, inner = side < 0 ? x1 : x0;
+    poly(ctx, pts, lin(ctx, outer, 0, inner, 0, [[0, '#070b24'], [.55, '#0e1838'], [1, '#172a56']]), null);
+    ctx.save(); poly(ctx, pts, null); ctx.clip();
+    const r = rng(seed);
+    // Cut faces along the inner edge.
+    for (let i = 1; i < pts.length - 2; i++) {
+      const [ax, ay] = pts[i], [bx, by] = pts[i + 1], nx = by - ay, ny = -(bx - ax), len = Math.hypot(nx, ny) || 1, d = 12 + r() * 14;
+      const face = [[ax, ay], [bx, by], [bx + side * d * .9, by + 4], [ax + side * d * 1.1, ay - 3]];
+      const tl = Math.hypot(lx - ax, ly - ay), facing = ((lx - ax) * nx * -side + (ly - ay) * ny * -side) / (tl * len);
+      poly(ctx, face, facing > .1 ? rgba(rgb, Math.min(.12, .04 + facing * .1) * Math.max(0, 1 - tl / 420)) : 'rgba(2,4,18,.22)', null);
+    }
+    wash(ctx, rad(ctx, lx, ly, 240, [[0, rgba(rgb, .34)], [.45, rgba(rgb, .1)], [1, rgba(rgb, 0)]]), 'screen');
+    wash(ctx, lin(ctx, 0, 20, 0, 140, [[0, 'rgba(4,6,22,.7)'], [1, 'rgba(4,6,22,0)']]), null, 1, -10, 20, 440, 120);
+    ctx.restore();
+    // A thin catch of light along the cut edges that face the light, and only those.
+    for (let i = 1; i < pts.length - 2; i++) {
+      const [ax, ay] = pts[i], [bx, by] = pts[i + 1], nx = by - ay, ny = -(bx - ax), len = Math.hypot(nx, ny) || 1;
+      const mx = (ax + bx) / 2, my = (ay + by) / 2, tl = Math.hypot(lx - mx, ly - my), facing = ((lx - mx) * nx * -side + (ly - my) * ny * -side) / (tl * len);
+      if (facing > .15) stroke(ctx, [[ax, ay], [bx, by]], rgba(rgb, Math.min(.4, facing * .6) * Math.max(0, 1 - tl / 380)), 1.1);
+    }
+  }
+  // A stand of tall crystals rising together from one base, each with a soft glow along its length.
+  function crystalTower(ctx, parts, pal, side, halo = .22) {
+    for (const [x, y, w, h, a] of parts) {
+      const cx = x + Math.sin(a) * h * .5, cy = y - Math.cos(a) * h * .5;
+      soft(ctx, () => ctx.ellipse(cx, cy, w * .9, h * .52, a, 0, TAU), rgba(pal.glow, halo), 16);
+    }
+    for (const [x, y, w, h, a] of parts) crystalPrism(ctx, x, y, w, h, a, pal, side, .5);
   }
   function paintCrystal(ctx, framed) {
-    const back = ctx.createLinearGradient(0, 0, 0, 560);
-    back.addColorStop(0, '#233f69'); back.addColorStop(.6, '#1b3357'); back.addColorStop(1, '#13243d');
-    ctx.fillStyle = back; ctx.fillRect(0, 0, 420, 560);
-    // Giant crystals far back in the dark, pale and quiet.
-    for (const [x, y, w, h, t] of [[96, 470, 64, 360, -.18], [330, 470, 54, 300, .2], [210, 470, 40, 200, .04]]) {
-      ctx.save(); ctx.globalAlpha = .42; crystal(ctx, x, y, w, h, t, ['#3d6e9e', '#2d5784', '#244a73', '#2a5584']); ctx.restore();
-    }
-    // Faceted rock planes on the back wall.
-    const facets = [[[20, 60], [140, 40], [120, 170], [30, 200]], [[290, 60], [400, 50], [400, 210], [250, 150]],
-      [[24, 330], [110, 300], [130, 440], [20, 440]], [[310, 280], [396, 320], [400, 440], [290, 440]]];
-    facets.forEach((f, i) => {
-      ctx.beginPath(); ctx.moveTo(f[0][0], f[0][1]); for (const q of f.slice(1)) ctx.lineTo(q[0], q[1]); ctx.closePath();
-      ctx.fillStyle = ['#21416b', '#234670', '#1c375c', '#1a3458'][i]; ctx.fill(); ctx.strokeStyle = 'rgba(80,140,200,.30)'; ctx.lineWidth = 1; ctx.stroke();
-    });
-    // Two cold light beams slant down from crystals in the ceiling.
-    ctx.save(); ctx.globalCompositeOperation = 'screen';
-    for (const [x0, x1, x2] of [[120, 150, 260], [300, 318, 380]]) {
-      ctx.beginPath(); ctx.moveTo(x0, 40); ctx.lineTo(x1, 40); ctx.lineTo(x2 + 50, 452); ctx.lineTo(x2 - 40, 452); ctx.closePath();
-      ctx.fillStyle = 'rgba(150,220,255,.07)'; ctx.fill();
-    }
+    const [kx, ky] = CRYSTAL_KEY, CYAN = CRYSTAL_CYAN.glow, VIO = CRYSTAL_VIOLET.glow, AIR = '78,100,190';
+    // Deep indigo cave air, lighter in the middle where the far hall gathers the glow.
+    wash(ctx, lin(ctx, 0, 0, 0, 560, [[0, '#090c2c'], [.22, '#121c48'], [.55, '#1c3064'], [.78, '#223c74'], [1, '#0c1434']]));
+    bloom(ctx, 230, 380, 300, '96,136,232', .3);
+    // Giant crystal pillars far back in the haze.
+    ctx.save(); ctx.globalAlpha = .55;
+    crystalPrism(ctx, 150, 470, 66, 500, .14, CRYSTAL_FAR, 1, .1, .1);
+    crystalPrism(ctx, 300, 470, 50, 360, -.12, CRYSTAL_FAR, -1, .1, .1);
+    crystalPrism(ctx, 232, 466, 28, 170, .04, CRYSTAL_FAR, -1, .1, .1);
     ctx.restore();
-    // Ceiling with stalactites tipped in crystal.
-    caveWall(ctx, [[-10, -10], [430, -10], [430, 30], [360, 40], [300, 30], [240, 44], [170, 32], [100, 44], [40, 34], [-10, 40]], '#142640', '#0f1d33', '#0a1424');
-    for (const [x, w, h, c] of [[52, 26, 62, 1], [96, 16, 34, 0], [178, 20, 42, 1], [262, 14, 28, 0], [318, 24, 58, 1], [370, 18, 40, 0]]) {
-      spike(ctx, x, 36, w, h, true, '#2a4d75', '#1f3c5f', '#0d1a2c');
-      if (c) { ctx.save(); ctx.translate(x, 36 + h - 6); ctx.rotate(Math.PI); crystal(ctx, 0, 0, 7, 14, 0, BLUE); ctx.restore(); }
+    air(ctx, 0, 470, AIR, .34, .3);
+    // The far floor, with clusters standing on it like a far forest.
+    band(ctx, ridge(426, 5, 41, 50), 560, lin(ctx, 0, 416, 0, 470, [[0, '#26427a'], [1, '#182c5a']]), null);
+    for (const [x, sz, pal] of [[110, 26, CRYSTAL_CYAN], [168, 16, CRYSTAL_VIOLET], [270, 20, CRYSTAL_CYAN], [318, 28, CRYSTAL_VIOLET], [214, 12, CRYSTAL_CYAN]]) crystalBloomCluster(ctx, x, 430, sz, 0, .6, pal, x, 1, .12, 4);
+    air(ctx, 330, 470, AIR, .1, .34);
+    // The key light: a great cluster hanging from the upper left; its light breaks into soft colored shafts.
+    bloom(ctx, kx + 30, ky, 300, CYAN, .3);
+    for (const [a, len, w, rgb, al] of [[.6, 640, 70, CYAN, .07], [.8, 600, 54, '196,170,255', .06], [.98, 560, 44, CYAN, .05], [.44, 600, 40, '255,196,232', .035], [1.16, 480, 32, '196,170,255', .04]]) shaft(ctx, kx + 22, ky - 4, a, len, 10, w, rgb, al);
+    // Dust turning in the light near its source.
+    const dr = rng(404);
+    for (let i = 0; i < 9; i++) { const a = .45 + dr() * .7, d = 30 + Math.pow(dr(), 1.6) * 130, x = kx + 22 + Math.cos(a) * d, y = ky - 4 + Math.sin(a) * d; bloom(ctx, x, y, 4, '210,245,255', .45 * (1 - d / 180)); dot(ctx, x, y, .7, `rgba(235,250,255,${(.7 * (1 - d / 180)).toFixed(2)})`); }
+    // A few far glints where the hall's crystals catch the light.
+    for (const [x, y] of [[132, 300], [292, 214], [246, 370], [176, 402]]) { bloom(ctx, x, y, 10, '180,220,255', .22); dot(ctx, x, y, .8, 'rgba(220,240,255,.5)'); }
+    // Near walls and the roof, dark cleaved stone.
+    const left = [[-30, -10], [36, -10], [44, 40], [52, 96], [40, 150], [50, 204], [36, 258], [30, 306], [42, 356], [32, 414], [40, 470], [-30, 490]];
+    const right = [[450, -10], [386, -10], [376, 44], [366, 98], [380, 150], [368, 206], [382, 258], [390, 304], [378, 356], [392, 412], [382, 470], [450, 490]];
+    crystalCliff(ctx, left, -1, kx + 40, ky + 30, CYAN, 1);
+    crystalCliff(ctx, right, 1, 380, 230, VIO, 2);
+    const roof = [[-20, -20], [440, -20], [440, 28], [396, 38], [350, 30], [300, 42], [252, 32], [206, 40], [160, 30], [112, 42], [64, 32], [-20, 38]];
+    soft(ctx, () => poly(ctx, roof.map(([x, y]) => [x, y + 7]), null), 'rgba(4,6,24,.6)', 10);
+    poly(ctx, roof, lin(ctx, 0, 0, 0, 42, [[0, '#050822'], [1, '#101a44']]), null);
+    for (const [x, w, h, c] of [[118, 12, 20, 1], [300, 10, 16, 0], [346, 16, 30, 1], [252, 8, 12, 0]]) {
+      const pts = [[x - w / 2, 32], [x - w * .2, 32 + h * .55], [x + w * .04, 32 + h], [x + w * .2, 32 + h * .5], [x + w / 2, 32]];
+      poly(ctx, pts, lin(ctx, x - w / 2, 0, x + w / 2, 0, [[0, '#1a2a5c'], [1, '#0b1434']]), null);
+      if (c) crystalPrism(ctx, x + 1, 30 + h * .8, w * .55, h * .7, Math.PI + .05, x < 210 ? CRYSTAL_CYAN : CRYSTAL_VIOLET, 1, .4);
     }
-    crystal(ctx, 135, 38, 12, 22, Math.PI, VIOLET); crystal(ctx, 309, 34, 10, 18, Math.PI, BLUE);
-    // Side walls with crystal ledges.
-    caveWall(ctx, [[-10, 30], [40, 40], [34, 150], [58, 196], [30, 260], [46, 360], [28, 450], [-10, 460]], '#142640', '#0f1d33', '#0a1424');
-    caveWall(ctx, [[430, 30], [380, 40], [390, 120], [366, 170], [388, 250], [376, 340], [394, 450], [430, 460]], '#142640', '#0f1d33', '#0a1424');
-    glowCluster(ctx, 42, 204, .82, VIOLET, 3, .75, '#b49cff');
-    glowCluster(ctx, 380, 178, .76, BLUE, 4, .75, '#8fe9ff');
-    glowCluster(ctx, 32, 366, .66, BLUE, 5, .75, '#8fe9ff');
-    glowCluster(ctx, 386, 348, .7, VIOLET, 6, .75, '#b49cff');
-    // Floor: dark rock, stalagmites, a still pool with a little cave fish, and big crystals in the corners.
-    band(ctx, ridge(452, 4, 81, 36), 560, '#13243d', '#0a1424', 1.8);
-    for (const [x, w, h] of [[110, 18, 26], [150, 12, 14], [290, 16, 22], [262, 10, 12]]) spike(ctx, x, 456, w, h, false, '#203f68', '#183255', '#0a1424');
-    const pool = [[262, 512], [300, 500], [350, 504], [372, 520], [340, 536], [288, 534]];
-    shape(ctx, pool, '#2f6f9a', '#0a1424', 1.6);
-    shape(ctx, pool.map(([x, y]) => [x + (x - 316) * -.18, y + (y - 518) * -.3]), '#3b85b0', null);
-    for (const [x, y, w] of [[296, 514, 14], [330, 524, 10], [318, 508, 8]]) stroke(ctx, [[x - w / 2, y], [x + w / 2, y]], 'rgba(190,240,255,.6)', 1.2);
-    caveFish(ctx, 318, 520, .8);
-    glowCluster(ctx, 54, 558, 1.3, BLUE, 7, 1, '#8fe9ff');
-    glowCluster(ctx, 374, 558, 1.18, VIOLET, 8, 1, '#b49cff');
-    crystalCluster(ctx, 136, 552, .45, VIOLET, 9, .9);
-    const rs = rng(808);
-    for (let i = 0; i < 18; i++) {
-      const x = 28 + rs() * 364, y = 50 + rs() * 380;
-      if (Math.abs(x - 210) < 120) continue;
-      sparkle(ctx, x, y, 2 + rs() * 2.5, i % 3 ? 'rgba(210,248,255,.85)' : 'rgba(225,210,255,.85)');
-    }
-    for (const [x, y, s] of [[44, 150, 4], [380, 120, 3.4], [70, 500, 5], [362, 494, 4.4]]) sparkle(ctx, x, y, s, '#ffffff');
+    // A small cluster on each wall, then the key cluster hanging out of the upper left corner.
+    crystalBloomCluster(ctx, 388, 222, 40, -.7, .6, CRYSTAL_VIOLET, 21, -1, .22, 5);
+    crystalBloomCluster(ctx, 34, 214, 26, .7, .6, CRYSTAL_CYAN, 22, 1, .16, 4);
+    crystalBloomCluster(ctx, 386, 96, 30, -2.5, .6, CRYSTAL_VIOLET, 23, -1, .16, 4);
+    crystalBloomCluster(ctx, 8, 90, 66, 2.0, .7, CRYSTAL_CYAN, 24, 1, .32, 7);
+    crystalBloomCluster(ctx, 52, 24, 34, 2.7, .6, CRYSTAL_CYAN, 25, 1, .16, 4);
+    // The floor: dark cut stone, the fish pool, a slab for the launcher.
+    const floor = [[-20, 456], [40, 450], [96, 456], [150, 449], [214, 454], [270, 448], [330, 455], [380, 449], [440, 454], [440, 600], [-20, 600]];
+    soft(ctx, () => poly(ctx, floor.map(([x, y]) => [x, y - 8]), null), 'rgba(4,6,26,.4)', 12);
+    poly(ctx, floor, lin(ctx, 0, 446, 0, 560, [[0, '#1a2c5e'], [.35, '#101c46'], [1, '#060a24']]), null);
+    for (let i = 0; i < 8; i++) stroke(ctx, [floor[i], floor[i + 1]], i % 2 ? 'rgba(150,200,255,.28)' : 'rgba(150,200,255,.14)', 1);
+    ctx.save(); poly(ctx, floor, null); ctx.clip();
+    wash(ctx, rad(ctx, 70, 520, 200, [[0, rgba(CYAN, .3)], [1, rgba(CYAN, 0)]]), 'screen');
+    wash(ctx, rad(ctx, 350, 520, 180, [[0, rgba(VIO, .26)], [1, rgba(VIO, 0)]]), 'screen');
+    const fr = rng(55);
+    for (let i = 0; i < 9; i++) { const x = 20 + fr() * 380, y = 466 + fr() * 76, w = 20 + fr() * 40; poly(ctx, [[x, y], [x + w, y - 3], [x + w * .8, y + 8], [x + w * .1, y + 10]], fr() < .5 ? 'rgba(120,170,255,.06)' : 'rgba(0,0,16,.2)', null); }
+    ctx.restore();
+    const pool = [[244, 520], [268, 508], [310, 505], [334, 514], [326, 532], [282, 541], [250, 534]];
+    soft(ctx, () => smooth(ctx, pool.map(([x, y]) => [x, y - 1.5]), true), 'rgba(150,200,255,.4)', 4);
+    shape(ctx, pool, lin(ctx, 0, 504, 0, 540, [[0, '#2a64a8'], [1, '#162c6c']]), null);
+    clipTo(ctx, pool, () => {
+      bloom(ctx, 330, 518, 52, VIO, .45); bloom(ctx, 276, 528, 44, CYAN, .3);
+      for (const [x, y, w] of [[284, 513, 24], [270, 525, 14], [306, 530, 12]]) stroke(ctx, [[x - w / 2, y], [x + w / 2, y]], 'rgba(210,240,255,.35)', .9);
+    });
+    crystalFish(ctx, 288, 522, .78, false);
+    bloom(ctx, 206, 500, 70, '140,190,255', .14);
+    soft(ctx, () => ctx.ellipse(210, 520, 58, 8, 0, 0, TAU), 'rgba(2,4,20,.6)', 6);
+    const slab = [[154, 512], [160, 500], [184, 492], [212, 489], [240, 492], [260, 500], [266, 511], [244, 520], [208, 523], [170, 520]];
+    poly(ctx, slab, lin(ctx, 0, 488, 0, 524, [[0, '#3e5c98'], [.35, '#253f78'], [1, '#111e48']]), null);
+    poly(ctx, [[160, 500], [184, 492], [212, 489], [240, 492], [260, 500], [236, 503], [206, 505], [176, 504]], lin(ctx, 150, 488, 270, 506, [[0, '#7aa6dc'], [1, '#4c74b4']]), null);
+    stroke(ctx, [[160, 500], [184, 492], [212, 489], [240, 492], [260, 500]], 'rgba(220,240,255,.55)', 1);
+    // The great stands of crystal rising in the bottom corners.
+    crystalTower(ctx, [[2, 530, 26, 190, -.08], [88, 556, 16, 70, .44], [60, 558, 22, 120, .24], [28, 550, 36, 236, .08], [-8, 566, 20, 100, -.3]], CRYSTAL_ICE, -1, .16);
+    crystalTower(ctx, [[424, 526, 26, 180, .08], [340, 560, 14, 60, -.46], [362, 560, 20, 110, -.24], [394, 550, 34, 220, -.08], [432, 566, 18, 90, .3]], CRYSTAL_AMETHYST, 1, .16);
+    crystalBloomCluster(ctx, 128, 556, 22, .35, .6, CRYSTAL_VIOLET, 33, -1, .12, 3);
+    for (const [x, y, w, h, a, pal] of [[106, 560, 9, 30, .7, CRYSTAL_ICE], [118, 562, 7, 20, .2, CRYSTAL_ICE], [314, 562, 9, 28, -.7, CRYSTAL_AMETHYST], [300, 564, 6, 16, -.2, CRYSTAL_AMETHYST]]) crystalPrism(ctx, x, y, w, h, a, pal, a < 0 ? 1 : -1, .4);
+    // A dark lip of stone across the bottom hides where they root.
+    const lip = [[-20, 600], [-20, 532], [30, 538], [80, 548], [116, 562], [120, 600]];
+    const lipR = [[440, 600], [440, 528], [400, 540], [350, 552], [318, 566], [314, 600]];
+    for (const pts of [lip, lipR]) { poly(ctx, pts, '#060a22', null); stroke(ctx, pts.slice(1, -1), 'rgba(150,200,255,.25)', 1); }
+    // A hanging point of crystal in the top right corner, near and almost in silhouette.
+    for (const [x, y, w, h, a] of [[430, 6, 24, 96, -2.75], [410, 0, 14, 54, -2.95]]) crystalPrism(ctx, x, y, w, h, a, { hi: '#3a4c8c', light: '#2a3a74', mid: '#1c285a', dark: '#141c46', deep: '#0c1232', glow: '120,140,255' }, -1, .15, .25);
+    // A few glints on the brightest crystals.
+    for (const [x, y, s, rgb] of [[84, 134, 4.4, CYAN], [62, 322, 3.6, CYAN], [362, 336, 3.4, VIO]]) crystalSparkle(ctx, x, y, s, rgb);
+    grade(ctx, 'rgba(120,180,255,.3)', 'rgba(70,40,150,.5)', 'rgba(4,6,30,.6)');
+    grain(ctx, .08);
     if (framed) frame(ctx, '#4b84b8', '#a8dcff');
   }
 
