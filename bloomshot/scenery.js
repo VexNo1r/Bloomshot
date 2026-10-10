@@ -1287,218 +1287,312 @@
   }
 
   // ---------- Level 5: Glowworm Lake ----------
-  // A glowworm's fishing line: a silk thread strung with sticky beads that catch the light.
-  function silk(ctx, x, y, len, seed) {
+  // A still lake under a roof strung with glowworm lines like a sky full of stars. The roof's teal light is the key,
+  // gathering into a glow where the lake runs off into the far dark; the water holds all of it softly upside down.
+  // A warm lantern on the mooring post is the one warm note.
+  const LAKE_WATER = 336, LAKE_GLOW = '120,255,214', LAKE_WARM = '255,190,112';
+  // A glowworm's fishing line: a silk thread strung with sticky beads, the lowest one glowing.
+  function lakeSilk(ctx, x, y, len, seed, a = 1) {
     const r = rng(seed), sway = (r() - .5) * 5, p0 = [x, y], p1 = [x + sway, y + len * .5], p2 = [x + sway * .3, y + len];
     ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(p1[0], p1[1], p2[0], p2[1]);
-    ctx.strokeStyle = 'rgba(170,245,230,.24)'; ctx.lineWidth = .6; ctx.lineCap = 'round'; ctx.stroke();
-    const beads = Math.max(1, Math.round(len / 13));
+    ctx.strokeStyle = `rgba(160,240,226,${(.2 * a).toFixed(3)})`; ctx.lineWidth = .55; ctx.lineCap = 'round'; ctx.stroke();
+    const beads = Math.max(1, Math.round(len / 12));
     for (let i = 1; i <= beads; i++) {
       const [bx, by] = bezierAt(p0, p1, p2, Math.min(1, i / beads + (r() - .5) * .06));
-      if (i === beads) { dot(ctx, bx, by, 3.2, 'rgba(130,255,215,.12)'); dot(ctx, bx, by, 1.25, '#c4ffea'); }
-      else dot(ctx, bx, by, .55 + r() * .4, 'rgba(190,255,236,.55)');
+      if (i === beads) { bloom(ctx, bx, by, 6, LAKE_GLOW, .5 * a); dot(ctx, bx, by, 1.15, `rgba(214,255,240,${(.95 * a).toFixed(3)})`); }
+      else dot(ctx, bx, by, .45 + r() * .4, `rgba(190,255,236,${(.5 * a).toFixed(3)})`);
     }
   }
-  function glowSpeck(ctx, x, y, s) { dot(ctx, x, y, s * 2.6, 'rgba(120,255,210,.09)'); dot(ctx, x, y, s * .8, '#a8ffdf'); }
-  // The glowworm herself: a soft grub on a ledge with a lantern for a tail, letting down her line.
-  function glowworm(ctx, x, y, s) {
+  // A glowworm herself: a soft grub on a ledge with a lantern for a tail, letting down her line.
+  function lakeGlowworm(ctx, x, y, s) {
     ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
-    dot(ctx, -14, -2.4, 13, 'rgba(140,255,215,.08)'); dot(ctx, -14, -2.4, 8.5, 'rgba(140,255,215,.12)');
+    bloom(ctx, -14, -2.4, 18, LAKE_GLOW, .5);
     const segs = [[-14, -2.4, 4.4], [-9.4, -3.4, 4.8], [-4.6, -4, 5.1], [.4, -4.2, 5.3]];
-    for (const [sx, sy, sr] of segs) dot(ctx, sx, sy, sr + 1.2, '#2b625f');
+    for (const [sx, sy, sr] of segs) dot(ctx, sx, sy, sr + .9, 'rgba(40,96,92,.8)');
     segs.forEach(([sx, sy, sr], i) => {
-      dot(ctx, sx, sy, sr, i ? '#ddf1ea' : '#b8ffe3');
-      ctx.beginPath(); ctx.arc(sx + .8, sy + .9, sr - .4, -.2, 1.9); ctx.strokeStyle = i ? '#b9d6cf' : '#7fe8c8'; ctx.lineWidth = 1.4; ctx.stroke();
+      dot(ctx, sx, sy, sr, i ? '#ddf1ea' : '#c4ffe8');
+      ctx.beginPath(); ctx.arc(sx + .8, sy + .9, sr - .4, -.2, 1.9); ctx.strokeStyle = i ? 'rgba(150,190,184,.8)' : 'rgba(110,230,196,.8)'; ctx.lineWidth = 1.3; ctx.stroke();
     });
     dot(ctx, -14.6, -3.6, 1.2, '#ffffff');
-    ctx.beginPath(); ctx.ellipse(6.4, -5.6, 6.2, 5.6, 0, 0, TAU); ctx.fillStyle = '#eaf7f2'; ctx.fill(); ctx.strokeStyle = '#2b625f'; ctx.lineWidth = 1.2; ctx.stroke();
-    stroke(ctx, [[8, -10.8], [9.5, -14.2]], '#2b625f', .9); stroke(ctx, [[5, -11], [5.4, -14.6]], '#2b625f', .9);
+    ctx.beginPath(); ctx.ellipse(6.4, -5.6, 6.2, 5.6, 0, 0, TAU); ctx.fillStyle = '#eaf7f2'; ctx.fill(); ctx.strokeStyle = 'rgba(40,96,92,.8)'; ctx.lineWidth = 1.1; ctx.stroke();
+    stroke(ctx, [[8, -10.8], [9.5, -14.2]], 'rgba(40,96,92,.9)', .9); stroke(ctx, [[5, -11], [5.4, -14.6]], 'rgba(40,96,92,.9)', .9);
     dot(ctx, 9.6, -14.4, .9, '#2b625f'); dot(ctx, 5.4, -14.8, .9, '#2b625f');
     dot(ctx, 5, -6.4, 1.1, '#1d3a3a'); dot(ctx, 9.4, -6.2, 1.1, '#1d3a3a');
     ctx.beginPath(); ctx.arc(7.3, -4.6, 1.8, .4, Math.PI - .4); ctx.strokeStyle = '#1d3a3a'; ctx.lineWidth = .8; ctx.stroke();
     dot(ctx, 3.4, -4, 1.2, 'rgba(255,160,180,.5)'); dot(ctx, 11, -3.8, 1.2, 'rgba(255,160,180,.5)');
     ctx.restore();
   }
-  function lilyPad(ctx, x, y, rx, notch, seed) {
-    const ry = rx * .4, outline = () => { ctx.beginPath(); ctx.moveTo(x, y); ctx.ellipse(x, y, rx, ry, 0, notch + .28, notch - .28 + TAU); ctx.closePath(); };
-    outline(); ctx.fillStyle = '#3d8a76'; ctx.fill();
-    ctx.save(); outline(); ctx.clip(); ctx.beginPath(); ctx.ellipse(x - rx * .16, y - ry * .3, rx, ry, 0, 0, TAU); ctx.rect(x - rx * 2, y - ry * 3, rx * 4, ry * 6); ctx.fillStyle = '#2e7062'; ctx.fill('evenodd'); ctx.restore();
-    outline(); ctx.strokeStyle = '#123d38'; ctx.lineWidth = 1.3; ctx.lineJoin = 'round'; ctx.stroke();
+  // A lily pad lying flat on the water: lit along its far rim, its veins faint, a soft shadow on the water.
+  function lakePad(ctx, x, y, rx, notch, seed) {
+    const ry = rx * .38, outline = () => { ctx.beginPath(); ctx.moveTo(x, y); ctx.ellipse(x, y, rx, ry, 0, notch + .3, notch - .3 + TAU); ctx.closePath(); };
+    soft(ctx, () => ctx.ellipse(x + 1, y + 2, rx * 1.02, ry * 1.05, 0, 0, TAU), 'rgba(2,14,22,.5)', 3);
+    outline(); ctx.fillStyle = lin(ctx, 0, y - ry, 0, y + ry, [[0, '#5fae8c'], [.5, '#357e6c'], [1, '#225a52']]); ctx.fill();
     const r = rng(seed);
-    for (let i = 0; i < 4; i++) { const a = notch + .9 + i * 1.25 + r() * .2; stroke(ctx, [[x, y], [x + Math.cos(a) * rx * .7, y + Math.sin(a) * ry * .7]], 'rgba(170,235,205,.32)', .9); }
-    ctx.beginPath(); ctx.ellipse(x, y, rx - 2.5, ry - 1.4, 0, 3.4, 4.5); ctx.strokeStyle = 'rgba(200,255,225,.45)'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.save(); outline(); ctx.clip();
+    for (let i = 0; i < 5; i++) { const a = notch + .8 + i * 1.05 + r() * .2; stroke(ctx, [[x, y], [x + Math.cos(a) * rx, y + Math.sin(a) * ry]], 'rgba(170,240,205,.22)', .8); }
+    ctx.beginPath(); ctx.ellipse(x, y + ry * .3, rx, ry, 0, 0, TAU); ctx.rect(x - rx * 2, y - ry * 3, rx * 4, ry * 6); ctx.fillStyle = 'rgba(190,255,225,.28)'; ctx.fill('evenodd');
+    ctx.restore();
+    ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, Math.PI + .2, TAU - .2); ctx.strokeStyle = 'rgba(200,255,230,.35)'; ctx.lineWidth = .9; ctx.stroke();
   }
-  function waterLily(ctx, x, y, s) {
+  function lakeLily(ctx, x, y, s) {
     ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
-    for (const [a, l, c] of [[-2.6, 7, '#d9c6f6'], [-.55, 7, '#d9c6f6'], [-2.1, 8.4, '#efe6ff'], [-1.05, 8.4, '#efe6ff'], [-1.57, 9, '#f8f4ff']]) {
+    bloom(ctx, 0, -3, 14, '230,210,255', .25);
+    for (const [a, l, c] of [[-2.6, 7, '#cdb8f0'], [-.55, 7, '#cdb8f0'], [-2.1, 8.4, '#e8defd'], [-1.05, 8.4, '#e8defd'], [-1.57, 9, '#f8f4ff']]) {
       ctx.save(); ctx.rotate(a + Math.PI / 2); ctx.beginPath(); ctx.moveTo(-2.6, 0); ctx.quadraticCurveTo(-3, -l * .6, 0, -l); ctx.quadraticCurveTo(3, -l * .6, 2.6, 0); ctx.closePath();
-      ctx.fillStyle = c; ctx.fill(); ctx.strokeStyle = '#7a62a8'; ctx.lineWidth = .9; ctx.stroke(); ctx.restore();
+      ctx.fillStyle = c; ctx.fill(); ctx.strokeStyle = 'rgba(122,98,168,.6)'; ctx.lineWidth = .8; ctx.stroke(); ctx.restore();
     }
-    ctx.beginPath(); ctx.ellipse(0, .5, 3.4, 1.6, 0, 0, TAU); ctx.fillStyle = '#ffd36b'; ctx.fill(); ctx.strokeStyle = '#b8862e'; ctx.lineWidth = .8; ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(0, .5, 3.4, 1.6, 0, 0, TAU); ctx.fillStyle = '#ffd36b'; ctx.fill();
     ctx.restore();
   }
   // An axolotl surfacing at the edge of the pads, chin on her hands.
-  function axolotl(ctx, x, y, s) {
+  function lakeAxolotl(ctx, x, y, s) {
     ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
-    const ink = '#99406a';
+    const ink = 'rgba(160,64,108,.75)';
     for (const side of [-1, 1]) {
       [[-.85, 9.5], [-.38, 10.5], [.08, 8.6]].forEach(([a, len], i) => {
         ctx.save(); ctx.translate(side * 11, -14 + i * 3.6); ctx.rotate(side > 0 ? a : Math.PI - a);
-        ctx.beginPath(); ctx.ellipse(len * .5, 0, len * .55, 2.5, 0, 0, TAU); ctx.fillStyle = '#ef80a7'; ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = 1; ctx.stroke();
-        for (let k = 1; k < 4; k++) { const fx = len * (.18 + k * .2); stroke(ctx, [[fx - 1.2, -2.6], [fx + .6, 0], [fx - 1.2, 2.6]], 'rgba(255,220,232,.8)', .7); }
+        ctx.beginPath(); ctx.ellipse(len * .5, 0, len * .55, 2.5, 0, 0, TAU); ctx.fillStyle = lin(ctx, 0, 0, len, 0, [[0, '#e86f9a'], [1, '#ffa6c4']]); ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = .9; ctx.stroke();
+        for (let k = 1; k < 4; k++) { const fx = len * (.18 + k * .2); stroke(ctx, [[fx - 1.2, -2.6], [fx + .6, 0], [fx - 1.2, 2.6]], 'rgba(255,224,236,.8)', .7); }
         ctx.restore();
       });
     }
     const head = [[-14.4, -2], [-13.6, -10.4], [-7, -16.6], [0, -17.8], [7, -16.6], [13.6, -10.4], [14.4, -2], [0, .6]];
-    shape(ctx, head, '#f9c6d6', null); cel(ctx, head, '#eda5bd', -3, 2.4); shape(ctx, head, null, ink, 1.3);
+    shape(ctx, head, lin(ctx, 0, -18, 0, 1, [[0, '#ffd8e4'], [1, '#eaa0ba']]), ink, 1.1);
     ctx.beginPath(); ctx.arc(-6, -12.4, 4.2, 3.5, 4.5); ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = 1.2; ctx.lineCap = 'round'; ctx.stroke();
     for (const ex of [-5.8, 5.8]) { dot(ctx, ex, -9.4, 1.9, '#331427'); dot(ctx, ex - .6, -10.1, .65, '#ffffff'); }
     ctx.beginPath(); ctx.moveTo(-4.6, -5.4); ctx.quadraticCurveTo(0, -2.2, 4.6, -5.4); ctx.strokeStyle = '#331427'; ctx.lineWidth = 1; ctx.stroke();
     dot(ctx, -9.6, -6, 2, 'rgba(240,110,150,.45)'); dot(ctx, 9.6, -6, 2, 'rgba(240,110,150,.45)');
     for (const side of [-1, 1]) {
-      ctx.beginPath(); ctx.ellipse(side * 7.8, .6, 3.8, 2.4, side * .2, 0, TAU); ctx.fillStyle = '#f9c6d6'; ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = 1; ctx.stroke();
-      for (const k of [-1.2, 0, 1.2]) dot(ctx, side * 7.8 + k * 1.3, -1.1, .55, ink);
+      ctx.beginPath(); ctx.ellipse(side * 7.8, .6, 3.8, 2.4, side * .2, 0, TAU); ctx.fillStyle = '#f6bcd0'; ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = .9; ctx.stroke();
+      for (const k of [-1.2, 0, 1.2]) dot(ctx, side * 7.8 + k * 1.3, -1.1, .5, ink);
     }
     ctx.restore();
   }
-  // A little rowboat, seen a touch from above so its seat and the far rim show.
-  function rowboat(ctx, x, y, s) {
+  // A little rowboat, seen a touch from above so its seat and the far rim show; a jar of glowworms on the stern seat.
+  function lakeBoat(ctx, x, y, s) {
     ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
-    const ink = '#3a2318';
-    ctx.beginPath(); ctx.ellipse(2, 4, 50, 6, 0, 0, TAU); ctx.fillStyle = 'rgba(4,10,24,.35)'; ctx.fill();
-    // The far rim and the dark well of the boat.
+    const line = 'rgba(58,32,20,.55)';
+    soft(ctx, () => ctx.ellipse(2, 5, 50, 6, 0, 0, TAU), 'rgba(2,10,20,.55)', 4);
     ctx.beginPath(); ctx.moveTo(-46, -15); ctx.quadraticCurveTo(-4, -24, 50, -24); ctx.quadraticCurveTo(0, -6, -46, -15); ctx.closePath();
-    ctx.fillStyle = '#5a3824'; ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = 1.3; ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(-44, -16.4); ctx.quadraticCurveTo(-4, -24.4, 47, -23.4); ctx.strokeStyle = '#b07d50'; ctx.lineWidth = 1.4; ctx.stroke();
-    poly(ctx, [[-4, -21.6], [3, -22], [5, -11], [-2, -10.6]], '#b9875a', ink, 1);
-    poly(ctx, [[-36, -18.6], [-26, -19.6], [-24, -13], [-34, -12.4]], '#b9875a', ink, 1);
-    // A jam jar of glowworms on the stern seat: someone's night light.
-    dot(ctx, -30, -24, 17, 'rgba(140,255,215,.07)'); dot(ctx, -30, -24, 10, 'rgba(140,255,215,.11)');
-    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(-35.5, -31, 11, 14, 3.5) : ctx.rect(-35.5, -31, 11, 14); ctx.fillStyle = 'rgba(150,240,225,.30)'; ctx.fill(); ctx.strokeStyle = '#a9e3dc'; ctx.lineWidth = 1.1; ctx.stroke();
-    for (const [gx, gy] of [[-31.6, -21], [-27.4, -24], [-30.4, -27], [-27.2, -19.6]]) glowSpeck(ctx, gx, gy, 1.3);
+    ctx.fillStyle = lin(ctx, 0, -24, 0, -10, [[0, '#3c2416'], [1, '#5e3a24']]); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-44, -16.4); ctx.quadraticCurveTo(-4, -24.4, 47, -23.4); ctx.strokeStyle = 'rgba(214,170,120,.8)'; ctx.lineWidth = 1.3; ctx.stroke();
+    poly(ctx, [[-4, -21.6], [3, -22], [5, -11], [-2, -10.6]], lin(ctx, 0, -22, 0, -11, [[0, '#c9966a'], [1, '#8a5c3a']]), null);
+    poly(ctx, [[-36, -18.6], [-26, -19.6], [-24, -13], [-34, -12.4]], lin(ctx, 0, -20, 0, -12, [[0, '#c9966a'], [1, '#8a5c3a']]), null);
+    // The jar of glowworms: someone's night light.
+    bloom(ctx, -30, -24, 26, LAKE_GLOW, .45);
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(-35.5, -31, 11, 14, 3.5) : ctx.rect(-35.5, -31, 11, 14); ctx.fillStyle = 'rgba(150,240,225,.32)'; ctx.fill(); ctx.strokeStyle = 'rgba(190,240,232,.8)'; ctx.lineWidth = .9; ctx.stroke();
+    for (const [gx, gy] of [[-31.6, -21], [-27.4, -24], [-30.4, -27], [-27.2, -19.6]]) { bloom(ctx, gx, gy, 3.4, LAKE_GLOW, .6); dot(ctx, gx, gy, 1, '#c8ffec'); }
     stroke(ctx, [[-33.2, -28.6], [-33.2, -21]], 'rgba(255,255,255,.55)', .9);
-    poly(ctx, [[-35, -34], [-25, -34], [-25.6, -31], [-34.4, -31]], '#c99a64', '#5a3a24', 1);
-    // The near side of the hull, planked, darker toward the water.
+    poly(ctx, [[-35, -34], [-25, -34], [-25.6, -31], [-34.4, -31]], '#b88a58', null);
+    // The near side of the hull, planked, darker toward the water, lit along the gunwale by the jar.
     const hull = () => { ctx.beginPath(); ctx.moveTo(-46, -15); ctx.quadraticCurveTo(0, -6, 50, -24); ctx.quadraticCurveTo(44, 2, 18, 6); ctx.lineTo(-28, 6); ctx.quadraticCurveTo(-43, 3, -46, -15); ctx.closePath(); };
-    hull(); ctx.fillStyle = '#9b6942'; ctx.fill();
+    hull(); ctx.fillStyle = lin(ctx, 0, -20, 0, 6, [[0, '#a06c44'], [.55, '#7a4e30'], [1, '#4a2c1a']]); ctx.fill();
     ctx.save(); hull(); ctx.clip();
-    ctx.fillStyle = '#7d5133'; ctx.fillRect(-50, -1.5, 110, 12);
-    for (const k of [6, 11]) { ctx.beginPath(); ctx.moveTo(-46, -15 + k); ctx.quadraticCurveTo(0, -6 + k, 50, -24 + k); ctx.strokeStyle = 'rgba(58,35,24,.5)'; ctx.lineWidth = 1; ctx.stroke(); }
+    for (const k of [6, 11]) { ctx.beginPath(); ctx.moveTo(-46, -15 + k); ctx.quadraticCurveTo(0, -6 + k, 50, -24 + k); ctx.strokeStyle = 'rgba(40,20,10,.35)'; ctx.lineWidth = 1; ctx.stroke(); }
+    wash(ctx, rad(ctx, -30, -14, 40, [[0, rgba(LAKE_GLOW, .25)], [1, rgba(LAKE_GLOW, 0)]]), 'screen', 1, -60, -30, 120, 40);
     ctx.restore();
-    hull(); ctx.strokeStyle = ink; ctx.lineWidth = 1.6; ctx.lineJoin = 'round'; ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(-43, -13); ctx.quadraticCurveTo(0, -4.4, 46, -21.4); ctx.strokeStyle = '#d7a877'; ctx.lineWidth = 1.6; ctx.lineCap = 'round'; ctx.stroke();
-    for (const bx of [-30, 4, 32]) dot(ctx, bx, bx > 20 ? -10.8 : bx > 0 ? -6.6 : -8.2, .95, ink);
-    ctx.beginPath(); ctx.arc(46, -15, 2.4, 0, TAU); ctx.strokeStyle = '#9a948e'; ctx.lineWidth = 1.2; ctx.stroke();
+    hull(); ctx.strokeStyle = line; ctx.lineWidth = 1; ctx.lineJoin = 'round'; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-43, -13); ctx.quadraticCurveTo(0, -4.4, 46, -21.4); ctx.strokeStyle = 'rgba(232,190,140,.85)'; ctx.lineWidth = 1.5; ctx.lineCap = 'round'; ctx.stroke();
+    for (const bx of [-30, 4, 32]) dot(ctx, bx, bx > 20 ? -10.8 : bx > 0 ? -6.6 : -8.2, .9, 'rgba(40,20,10,.6)');
+    ctx.beginPath(); ctx.arc(46, -15, 2.4, 0, TAU); ctx.strokeStyle = 'rgba(170,166,160,.8)'; ctx.lineWidth = 1.1; ctx.stroke();
     // An oar shipped over the side, its blade resting on the water.
-    poly(ctx, [[-14, -28], [-11.6, -29.6], [34, -1], [31.6, .6]], '#c49766', ink, 1.1);
-    ctx.beginPath(); ctx.ellipse(38, 2.6, 7.6, 2.8, .45, 0, TAU); ctx.fillStyle = '#c49766'; ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = 1.1; ctx.stroke();
+    poly(ctx, [[-14, -28], [-11.6, -29.6], [34, -1], [31.6, .6]], lin(ctx, -14, -28, 34, 0, [[0, '#d0a474'], [1, '#9a7048']]), null);
+    ctx.beginPath(); ctx.ellipse(38, 2.6, 7.6, 2.8, .45, 0, TAU); ctx.fillStyle = '#b88a5c'; ctx.fill(); ctx.strokeStyle = line; ctx.lineWidth = .8; ctx.stroke();
     ctx.restore();
+  }
+  // A cushion of moss on stone, lit along its top by the far glow.
+  function lakeMoss(ctx, x, y, w, seed) {
+    const r = rng(seed), n = Math.max(5, Math.round(w / 2.4));
+    for (let i = 0; i < n; i++) { const px = x + (r() - .5) * w, py = y + (r() - .5) * w * .22, k = 1 - Math.abs(px - x) / w; ctx.beginPath(); ctx.ellipse(px, py, 2.4 + r() * 2.4 * k, 1.6 + r() * 1.8 * k, 0, 0, TAU); ctx.fillStyle = 'rgba(52,104,80,.75)'; ctx.fill(); }
+    for (let i = 0; i < n; i++) { const px = x + (r() - .5) * w * .8, py = y - 1.4 + (r() - .5) * w * .16; ctx.beginPath(); ctx.ellipse(px, py, 1.4 + r() * 1.6, .9 + r(), 0, 0, TAU); ctx.fillStyle = 'rgba(120,196,146,.42)'; ctx.fill(); }
+  }
+  // Rings spreading where a drip has fallen.
+  function lakeRings(ctx, x, y, k, a = 1) {
+    for (const [w, al] of [[7, .4], [14, .22], [22, .1]]) { ctx.beginPath(); ctx.ellipse(x, y, w * k, w * k * .26, 0, 0, TAU); ctx.strokeStyle = `rgba(190,250,240,${(al * a).toFixed(3)})`; ctx.lineWidth = .9; ctx.stroke(); }
+  }
+  // Mirror a shape in the water, fading with depth and cut into slices by the faint ripples.
+  function lakeMirror(ctx, pts, fill, alpha, seed) {
+    const W = LAKE_WATER, flipped = pts.map(([x, y]) => [x, W + (W - y) * .9]);
+    ctx.save(); ctx.beginPath(); ctx.rect(-20, W, 460, 300); ctx.clip();
+    ctx.globalAlpha = alpha; shape(ctx, flipped, fill, null); ctx.globalAlpha = 1;
+    ctx.restore();
+    void seed;
   }
   function paintLake(ctx, framed) {
-    const water = 352;
-    const back = ctx.createLinearGradient(0, 0, 0, water);
-    back.addColorStop(0, '#1a2248'); back.addColorStop(.6, '#193452'); back.addColorStop(1, '#1d4c5c');
-    ctx.fillStyle = back; ctx.fillRect(0, 0, 420, water);
-    // Far back: curtains of flowstone hang from the roof, pale with distance and lit by their own far glowworms.
-    const rf = rng(303);
-    for (const [x0, x1, depth, seed] of [[-20, 170, 150, 1], [120, 300, 70, 2], [250, 440, 170, 3]]) {
-      const r = rng(seed), pts = [[x0, 0]];
-      for (let i = 0; i <= 9; i++) { const t = i / 9; pts.push([x0 + (x1 - x0) * t, 30 + depth * Math.sin(t * Math.PI) * (.62 + r() * .38)]); }
-      pts.push([x1, 0]);
-      shape(ctx, pts, '#1c2e50', 'rgba(110,170,215,.18)', 1.1);
-      for (let i = 1; i < 9; i += 2) { const p = pts[i + 1]; stroke(ctx, [[p[0], 34], [p[0] + 2, (34 + p[1]) / 2], [p[0], p[1] - 6]], 'rgba(10,18,40,.22)', 1.2); }
-      for (let i = 0; i < 16; i++) { const x = x0 + 10 + rf() * (x1 - x0 - 20), y = 40 + rf() * depth * .5; if (Math.abs(x - 210) > 90 || y < 70) dot(ctx, x, y, .5 + rf() * .5, 'rgba(150,255,220,.35)'); }
+    const W = LAKE_WATER, G = LAKE_GLOW, AIR = '40,110,120';
+    // The cave air: near-black teal under the roof, opening to a misty teal glow over the far water.
+    wash(ctx, lin(ctx, 0, 0, 0, W, [[0, '#07131e'], [.35, '#0d2433'], [.75, '#164050'], [1, '#2a6a70']]));
+    bloom(ctx, 236, W - 10, 260, '90,210,190', .32);
+    // Far back: the end wall of the cavern, and an arch where the lake runs on into a glowing tunnel. That glow is
+    // the brightest thing in the cave air; everything else is lit by the roof.
+    // The end wall: one dark face with a ragged opening where the lake runs on into a tunnel that bends away right.
+    const hole = [[186, W + 2], [188, 306], [192, 282], [200, 260], [213, 244], [229, 237], [246, 239], [261, 249], [273, 266], [281, 290], [285, W + 2]];
+    const inside = () => { ctx.beginPath(); smooth(ctx, hole, true); };
+    inside(); ctx.fillStyle = lin(ctx, 0, 236, 0, W, [[0, '#2c7a74'], [.5, '#56b6a2'], [1, '#9cecd4']]); ctx.fill();
+    ctx.save(); inside(); ctx.clip();
+    bloom(ctx, 226, W - 4, 74, '210,255,238', .6);
+    // The tunnel's far wall turning across from the right, and the reveal: the wall's own thickness in shadow.
+    const bend = [[300, 236], [262, 250], [250, 272], [254, 298], [246, 318], [252, W + 4], [300, W + 4]];
+    shape(ctx, bend, lin(ctx, 244, 0, 290, 0, [[0, '#327e76'], [1, '#1c5258']]), null);
+    rim(ctx, bend, 'rgba(200,255,238,.22)', -1.2, 0);
+    ctx.beginPath(); ctx.rect(150, 200, 180, 160); smooth(ctx, hole.map(([x, y]) => [x + 6, y + 7]), true);
+    ctx.fillStyle = lin(ctx, 0, 236, 0, W, [[0, 'rgba(12,40,48,.8)'], [.7, 'rgba(12,40,48,.35)'], [1, 'rgba(12,40,48,0)']]); ctx.fill('evenodd');
+    ctx.restore();
+    const wall = () => { ctx.beginPath(); ctx.rect(-20, 96, 460, W + 2 - 96); smooth(ctx, hole, true); };
+    wall(); ctx.fillStyle = lin(ctx, 0, 96, 0, W, [[0, 'rgba(10,30,42,0)'], [.14, '#0b202c'], [.6, '#123440'], [1, '#1c4c54']]); ctx.fill('evenodd');
+    ctx.save(); wall(); ctx.clip('evenodd');
+    wash(ctx, rad(ctx, 236, 330, 120, [[0, 'rgba(150,255,226,.22)'], [.45, 'rgba(150,255,226,.06)'], [1, 'rgba(150,255,226,0)']]), 'screen');
+    const ws = rng(17);
+    for (let i = 0; i < 7; i++) {
+      const x = 30 + ws() * 360; if (Math.abs(x - 236) < 74) continue; const y = 150 + ws() * 90, len = 50 + ws() * 70;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + (ws() - .5) * 8, y + len * .5, x + (ws() - .5) * 4, y + len);
+      ctx.strokeStyle = lin(ctx, 0, y, 0, y + len, [[0, 'rgba(4,14,22,0)'], [.5, 'rgba(4,14,22,.18)'], [1, 'rgba(4,14,22,0)']]); ctx.lineWidth = 5 + ws() * 6; ctx.lineCap = 'round'; ctx.stroke();
     }
-    // The far shore, low and quiet, a few stalagmites standing in the shallows.
-    const shore = [[-20, water + 1], [-20, water - 16], [24, water - 20], [64, water - 9], [110, water - 5], [170, water - 2], [250, water - 3], [310, water - 8], [356, water - 18], [440, water - 14], [440, water + 1]];
-    shape(ctx, shore, '#1a3c55', 'rgba(130,210,220,.36)', 1.1);
-    for (const [x, w, h] of [[30, 14, 24], [48, 9, 12], [348, 10, 14], [366, 16, 26]]) {
-      const b = water - 10, stack = [[x - w / 2, b], [x - w * .42, b - h * .5], [x - w * .2, b - h], [x + w * .14, b - h * .96], [x + w * .4, b - h * .45], [x + w / 2, b]];
-      shape(ctx, stack, '#1d4058', null); cel(ctx, stack, '#18354b', -w * .25, 0); shape(ctx, stack, null, 'rgba(130,190,225,.4)', 1.1);
+    ctx.restore();
+    air(ctx, 80, W, AIR, 0, .3);
+    // Curtains of flowstone hanging from the roof between us and the end wall, threaded with far glowworms.
+    const far = rng(303);
+    for (const [x0, x1, depth, seed] of [[-20, 150, 190, 1], [126, 316, 110, 2], [270, 440, 200, 3]]) {
+      const r = rng(seed), pts = [[x0, -10]];
+      for (let i = 0; i <= 9; i++) { const t = i / 9; pts.push([x0 + (x1 - x0) * t, 20 + depth * Math.sin(t * Math.PI) * (.55 + r() * .45)]); }
+      pts.push([x1, -10]);
+      shape(ctx, pts, lin(ctx, 0, 0, 0, depth + 30, [[0, '#08141e'], [.7, '#10303c'], [1, '#1a4450']]), null);
+      for (let i = 2; i < 9; i += 2) { const p = pts[i]; stroke(ctx, [[p[0], 30], [p[0] + 2, (30 + p[1]) / 2], [p[0], p[1] - 8]], 'rgba(4,12,20,.35)', 1.6); }
+      for (let i = 0; i < 26; i++) { const x = x0 + 10 + far() * (x1 - x0 - 20), y = 24 + far() * depth * .7; if (Math.abs(x - 210) > 70 || y < 80) dot(ctx, x, y, .5 + far() * .5, `rgba(150,255,220,${(.2 + far() * .25).toFixed(2)})`); }
     }
-    // Still water. Reflections go in first, then the light falls off into the deep.
-    ctx.fillStyle = '#15384b'; ctx.fillRect(0, water, 420, 560 - water);
-    const left = [[-10, 30], [44, 44], [58, 94], [40, 138], [64, 196], [48, 256], [34, 296], [56, 330], [44, water + 1], [-10, water + 1]];
-    const right = [[430, 30], [380, 46], [366, 102], [386, 150], [362, 212], [382, 268], [394, 314], [370, water + 1], [430, water + 1]];
-    reflect(ctx, shore, water, '#183a50', '#15384b', 11);
-    for (const wall of [left, right]) reflect(ctx, wall, water, '#0e1d30', '#15384b', wall[1][0]);
-    const deep = ctx.createLinearGradient(0, water, 0, 560); deep.addColorStop(0, 'rgba(40,86,110,.4)'); deep.addColorStop(.3, 'rgba(15,32,57,0)'); deep.addColorStop(1, 'rgba(8,18,36,.55)');
-    ctx.fillStyle = deep; ctx.fillRect(0, water, 420, 560 - water);
-    stroke(ctx, [[60, water + .5], [360, water + .5]], 'rgba(160,230,240,.22)', 1);
-    // Ceiling, thick with glowworms.
-    const ceiling = [[-10, -10], [430, -10], [430, 40], [392, 52], [350, 40], [300, 54], [256, 42], [214, 50], [168, 40], [120, 54], [70, 44], [30, 56], [-10, 48]];
-    caveWall(ctx, ceiling, '#131d38', '#0f182f', '#08101f');
-    for (const [x, w, h] of [[66, 20, 30], [148, 12, 16], [278, 14, 22], [326, 18, 32], [198, 9, 10]]) {
-      const top = edgeAt(ceiling.slice(2).reverse(), x) - 6;
-      ctx.beginPath(); ctx.moveTo(x - w / 2, top); ctx.quadraticCurveTo(x - w * .25, top + h * .7, x, top + h); ctx.quadraticCurveTo(x + w * .3, top + h * .6, x + w / 2, top); ctx.closePath();
-      ctx.fillStyle = '#131d38'; ctx.fill(); ctx.strokeStyle = '#08101f'; ctx.lineWidth = 1.4; ctx.stroke();
-      ctx.fillStyle = '#131d38'; ctx.fillRect(x - w / 2 + 1, top - 3, w - 2, 4);
-      stroke(ctx, [[x - w * .26, top + 4], [x - w * .1, top + h * .6]], 'rgba(120,190,220,.30)', 1);
+    air(ctx, 60, W, AIR, .04, .26);
+    // The far shore, low and quiet, with stalagmites standing in the shallows.
+    const shore = [[-20, W + 1], [-20, W - 18], [26, W - 22], [66, W - 10], [112, W - 6], [170, W - 3], [200, W - 1], [272, W - 1], [310, W - 9], [356, W - 20], [440, W - 16], [440, W + 1]];
+    shape(ctx, shore, lin(ctx, 0, W - 22, 0, W, [[0, '#1a4652'], [1, '#26605e']]), null);
+    rim(ctx, shore, 'rgba(160,255,230,.22)', 0, -1.2);
+    const stacks = [];
+    for (const [x, w, h] of [[34, 14, 26], [52, 9, 14], [342, 10, 16], [362, 16, 30]]) {
+      const b = W - 10, st = [[x - w / 2, b], [x - w * .42, b - h * .5], [x - w * .2, b - h], [x + w * .14, b - h * .96], [x + w * .4, b - h * .45], [x + w / 2, b]];
+      shape(ctx, st, lin(ctx, 0, b - h, 0, b, [[0, '#18404c'], [1, '#22585c']]), null); rim(ctx, st, 'rgba(160,255,230,.24)', x < 210 ? 1 : -1, -.6); stacks.push(st);
     }
-    const rs = rng(505);
-    for (let i = 0; i < 90; i++) { const x = 6 + rs() * 408, y = 6 + rs() * 36; if (y < edgeAt(ceiling.slice(2).reverse(), x) - 3) glowSpeck(ctx, x, y, .5 + rs() * .7); }
-    // Lines let down from the roof in little colonies: long ones by the walls, short ones over the middle.
-    const lines = [[44, 112], [50, 78], [57, 134], [63, 92], [72, 60], [86, 40], [100, 66], [140, 24], [146, 40], [153, 20], [161, 30], [200, 12], [214, 18], [234, 10],
-      [266, 22], [274, 34], [282, 18], [294, 28], [322, 46], [330, 84], [338, 54], [350, 120], [358, 88], [368, 144], [378, 62]];
-    for (const [x, len] of lines) {
-      const top = edgeAt(ceiling.slice(2).reverse(), x) - 1;
-      glowSpeck(ctx, x, top, 1.1); silk(ctx, x, top, len, x);
-    }
-    // Side walls drop into the lake and show again upside down in it.
-    caveWall(ctx, left, '#131d38', '#0f182f', '#08101f');
-    caveWall(ctx, right, '#131d38', '#0f182f', '#08101f');
-    for (const wall of [left, right]) for (let i = 2; i < wall.length - 3; i++) {
-      const [x, y] = wall[i], k = wall === left ? 1 : -1;
-      stroke(ctx, [[x - k * 10, y + 8], [x - k * 4, y + 18], [x - k * 12, y + 30]], 'rgba(100,150,200,.22)', 1.1);
-    }
-    for (const [x, y] of [[14, 80], [24, 120], [12, 200], [30, 236], [10, 300], [404, 90], [396, 180], [410, 240], [400, 300], [20, 330], [406, 130]]) glowSpeck(ctx, x, y, .9);
-    // A ledge on the left wall where a glowworm sits fishing.
-    shape(ctx, [[24, 152], [68, 146], [82, 151], [70, 160], [26, 164]], '#1a2a48', '#08101f', 1.4);
-    stroke(ctx, [[32, 151], [70, 148]], 'rgba(140,210,230,.32)', 1);
-    glowworm(ctx, 54, 149, .9);
-    silk(ctx, 63, 145, 96, 77);
-    // Drips from the roof ring the water by the walls.
-    for (const [x, y, k] of [[70, water + 30, 1], [356, water + 56, .8], [92, water + 96, .7]]) {
-      for (const [w, a] of [[7, .42], [14, .24], [22, .12]]) { ctx.beginPath(); ctx.ellipse(x, y, w * k, w * k * .26, 0, 0, TAU); ctx.strokeStyle = `rgba(190,245,250,${a})`; ctx.lineWidth = 1; ctx.stroke(); }
-      dot(ctx, x, y - 7 * k, 1.1, 'rgba(210,250,255,.7)');
-    }
-    // Glowworm light lying on the water: short dashes, gathered under the walls, barely there in the middle.
+    air(ctx, W - 50, W + 2, '120,230,210', 0, .26);
+    // The lake. It holds the glow of the far water and the dark of the roof, darkening toward us.
+    wash(ctx, lin(ctx, 0, W, 0, 560, [[0, '#3a8a86'], [.08, '#25646c'], [.4, '#123848'], [1, '#081a28']]), null, 1, -10, W, 440, 600 - W);
+    lakeMirror(ctx, shore, '#1a4a56', .8, 1);
+    for (const st of stacks) lakeMirror(ctx, st, '#1a4a56', .6, 2);
+    // The far glow lying on the water as a long soft column, broken into ripples.
+    ctx.save(); ctx.beginPath(); ctx.rect(-20, W, 460, 300); ctx.clip();
+    wash(ctx, lin(ctx, 180, 0, 292, 0, [[0, rgba(G, 0)], [.5, rgba(G, .3)], [1, rgba(G, 0)]]), 'screen', 1, 170, W, 132, 200);
     const rw = rng(606);
-    for (let i = 0; i < 26; i++) {
-      const side = i % 2, x = side ? 322 + rw() * 80 : 18 + rw() * 80, y = water + 6 + Math.pow(rw(), 1.6) * 100, w = 2 + rw() * 7;
-      stroke(ctx, [[x - w / 2, y], [x + w / 2, y]], `rgba(160,255,225,${.16 + rw() * .2})`, 1);
-      if (rw() < .4) dot(ctx, x, y, 2.4, 'rgba(140,255,220,.08)');
+    for (let i = 0; i < 40; i++) {
+      const t = Math.pow(rw(), 1.7), y = W + 3 + t * 200, x = 236 + (rw() - .5) * (40 + t * 120), w = (6 + rw() * 24) * (1 - t * .5);
+      stroke(ctx, [[x - w / 2, y], [x + w / 2, y]], rgba(G, (.3 - t * .24) * (.5 + rw() * .5)), .9 + t);
     }
-    for (const [x, y, w] of [[120, 376, 70], [300, 388, 60], [180, 410, 46], [250, 430, 30]]) stroke(ctx, [[x - w / 2, y], [x + w / 2, y]], 'rgba(150,220,235,.08)', 1.2);
-    for (const [x, y, w] of [[60, water - 4, 90], [360, water - 6, 100], [210, water - 2, 120]]) { ctx.beginPath(); ctx.ellipse(x, y, w, 5, 0, 0, TAU); ctx.fillStyle = 'rgba(170,220,240,.05)'; ctx.fill(); }
-    // The near shore: flat stones stepping out into the lake, the launcher standing on the biggest.
-    const front = [[104, 584], [108, 496], [128, 507], [166, 514], [214, 516], [262, 513], [304, 506], [322, 494], [328, 584]];
-    shape(ctx, front, '#1d3a50', null); cel(ctx, front, '#183145', -14, 0);
-    clipTo(ctx, front, () => { ctx.fillStyle = 'rgba(20,58,76,.72)'; ctx.fillRect(90, 536, 250, 40); stroke(ctx, [[96, 536], [330, 536]], 'rgba(170,240,240,.3)', 1.2); });
-    shape(ctx, front, null, '#0a1526', 1.8);
-    const top = [[108, 494], [120, 479], [150, 470], [188, 463], [224, 462], [260, 466], [292, 473], [314, 484], [320, 495], [302, 504], [262, 511], [214, 514], [166, 512], [128, 505]];
-    shape(ctx, top, '#2a4b62', null); cel(ctx, top, '#24425a', -12, -7); shape(ctx, top, null, '#0a1526', 1.6);
-    stroke(ctx, [[118, 486], [134, 474], [170, 467], [206, 464.6], [246, 466], [282, 472]], 'rgba(160,230,238,.36)', 1.2);
-    for (const pts of [[[238, 515], [246, 524], [242, 534]], [[128, 512], [150, 520], [176, 523]], [[284, 510], [300, 514]], [[136, 488], [158, 494], [176, 490]], [[252, 492], [272, 497], [288, 494]]]) stroke(ctx, pts, 'rgba(6,12,26,.5)', 1.1);
-    for (const [x, y, w] of [[126, 478, 7], [300, 478, 6], [182, 466, 5]]) for (const [dx, dy, rr] of [[-w * .6, 1, w * .55], [0, -1, w * .7], [w * .6, 1, w * .5]]) dot(ctx, x + dx, y + dy, rr, '#2f6a66');
-    for (const [x, y, w] of [[126, 478, 7], [300, 478, 6], [182, 466, 5]]) { ctx.beginPath(); ctx.arc(x - 1, y - 1, w * .5, 3.5, 4.8); ctx.strokeStyle = 'rgba(170,240,220,.5)'; ctx.lineWidth = 1; ctx.stroke(); }
-    for (const [x, y] of [[120, 532], [140, 556], [300, 540], [316, 520]]) glowSpeck(ctx, x, y, .8);
-    // The mooring post and the little rowboat tied up to it.
-    rowboat(ctx, 58, 506, .9);
-    stroke(ctx, [[100, 492], [112, 497], [122, 488]], '#d9c5a0', 1);
-    poly(ctx, [[118, 496], [118, 470], [128, 470], [128, 496]], '#8a5a3a', '#3a2318', 1.3);
-    poly(ctx, [[123, 470], [128, 470], [128, 496], [123, 496]], '#6e4529', null);
-    ctx.beginPath(); ctx.ellipse(123, 470, 5.6, 2, 0, 0, TAU); ctx.fillStyle = '#c49766'; ctx.fill(); ctx.strokeStyle = '#3a2318'; ctx.lineWidth = 1.2; ctx.stroke();
-    stroke(ctx, [[117.5, 479], [128.5, 477.5]], '#d9c5a0', 1.4); stroke(ctx, [[117.5, 483], [128.5, 481.5]], '#d9c5a0', 1.4);
-    for (const [x, y, w] of [[54, 516, 46], [40, 530, 24], [86, 528, 18]]) stroke(ctx, [[x - w / 2, y], [x + w / 2, y]], 'rgba(170,240,240,.24)', 1);
+    for (let i = 0; i < 22; i++) { const y = W + 6 + Math.pow(rw(), 1.4) * 190, x = rw() * 420, w = 30 + rw() * 90; stroke(ctx, [[x, y], [x + w, y]], 'rgba(150,230,220,.06)', 1); }
+    ctx.restore();
+    // The roof, thick with glowworms, and their lines let down in colonies: long by the walls, short in the middle.
+    const roof = [[-10, -10], [430, -10], [430, 36], [392, 46], [350, 36], [300, 48], [256, 38], [214, 44], [168, 36], [120, 48], [70, 40], [30, 50], [-10, 44]];
+    soft(ctx, () => smooth(ctx, roof.map(([x, y]) => [x, y + 8]), true), 'rgba(2,8,14,.55)', 10);
+    shape(ctx, roof, lin(ctx, 0, 0, 0, 50, [[0, '#04090f'], [1, '#0c1c26']]), null);
+    const roofAt = x => edgeAt(roof.slice(2).reverse(), x);
+    const rs = rng(505);
+    for (let i = 0; i < 150; i++) {
+      const x = 4 + rs() * 412, y = 4 + rs() * 42;
+      if (y < roofAt(x) - 2) { const s = .4 + rs() * .8; if (rs() < .25) bloom(ctx, x, y, s * 6, G, .3); dot(ctx, x, y, s, `rgba(190,255,232,${(.45 + rs() * .5).toFixed(2)})`); }
+    }
+    bloom(ctx, 120, 30, 160, G, .14); bloom(ctx, 320, 34, 140, G, .12);
+    const lines = [[40, 150], [48, 104], [56, 176], [64, 120], [72, 80], [86, 54], [98, 72], [112, 36], [140, 24], [148, 40], [156, 20], [164, 30], [196, 14], [214, 20], [232, 12],
+      [262, 24], [272, 36], [280, 18], [292, 30], [318, 50], [330, 88], [338, 58], [348, 124], [358, 92], [368, 160], [378, 64], [386, 130]];
+    for (const [x, len] of lines) { const top = roofAt(x) - 1; lakeSilk(ctx, x, top, len, x); }
+    // Side walls drop into the lake and show again upside down in it.
+    const left = [[-20, 30], [36, 42], [52, 92], [40, 138], [60, 196], [46, 252], [32, 292], [52, 318], [44, W + 1], [-20, W + 1]];
+    const right = [[440, 30], [384, 44], [368, 100], [386, 150], [364, 210], [380, 266], [392, 304], [372, W + 1], [440, W + 1]];
+    for (const wall of [left, right]) {
+      lakeMirror(ctx, wall, '#061420', .7, 3);
+      soft(ctx, () => smooth(ctx, wall.map(([x, y]) => [x + (wall === left ? 6 : -6), y + 4]), true), 'rgba(2,8,16,.5)', 10);
+      shape(ctx, wall, lin(ctx, wall === left ? -20 : 440, 0, wall === left ? 60 : 360, 0, [[0, '#050d16'], [1, '#0f2430']]), null);
+      clipTo(ctx, wall, () => wash(ctx, lin(ctx, 0, 40, 0, 200, [[0, 'rgba(120,255,214,.1)'], [1, 'rgba(120,255,214,0)']]), 'screen'));
+      rim(ctx, wall, 'rgba(130,240,214,.22)', wall === left ? 1.6 : -1.6, -.4);
+    }
+    // Glowworms all along the walls, and long lines hanging off them.
+    for (const [x, y] of [[14, 80], [24, 120], [12, 200], [30, 236], [10, 300], [404, 90], [396, 180], [410, 240], [400, 300], [20, 330], [406, 130], [26, 160], [414, 210]]) { bloom(ctx, x, y, 7, G, .4); dot(ctx, x, y, .9, '#c8ffec'); }
+    // A ledge on the left wall where a glowworm sits fishing.
+    const ledge = [[22, 152], [66, 146], [80, 151], [70, 160], [26, 164]];
+    soft(ctx, () => ctx.ellipse(52, 164, 30, 5, 0, 0, TAU), 'rgba(2,8,16,.6)', 5);
+    shape(ctx, ledge, lin(ctx, 0, 146, 0, 164, [[0, '#24505a'], [1, '#0c1e28']]), null);
+    rim(ctx, ledge, 'rgba(160,255,230,.4)', 0, -1.4);
+    lakeGlowworm(ctx, 52, 149, .9);
+    lakeSilk(ctx, 62, 146, 110, 77);
+    // Drips from the roof ring the water by the walls.
+    for (const [x, y, k] of [[74, W + 26, .9], [352, W + 50, .8], [96, W + 92, .7]]) { lakeRings(ctx, x, y, k); dot(ctx, x, y - 7 * k, 1, 'rgba(210,255,250,.7)'); }
+    // Glowworm light mirrored on the water under the walls: soft, short dashes, gathered at the edges.
+    const rm = rng(707);
+    for (let i = 0; i < 30; i++) {
+      const side = i % 2, x = side ? 330 + rm() * 80 : 12 + rm() * 80, y = W + 6 + Math.pow(rm(), 1.5) * 110, w = 2 + rm() * 6;
+      stroke(ctx, [[x - w / 2, y], [x + w / 2, y]], rgba(G, .14 + rm() * .22), 1);
+    }
+    // The near shore: a low shelf of stone out in the water with the launcher on it, and a lower slab stepping down
+    // into the lake at its right end. The tunnel glow is behind it, so the tops catch the light and the faces are dark.
+    const top = [[108, 494], [114, 484], [130, 474], [156, 467], [188, 462], [222, 460], [250, 462], [272, 468], [286, 478], [290, 488], [282, 496], [256, 502], [222, 505], [184, 505], [150, 503], [124, 500]];
+    const face = [[108, 494], [106, 513], [130, 523], [176, 527], [222, 527], [262, 522], [286, 512], [290, 488]];
+    const top2 = [[266, 500], [274, 491], [292, 486], [312, 486], [326, 492], [329, 500], [318, 506], [294, 509], [276, 507]];
+    const face2 = [[266, 500], [266, 511], [290, 517], [316, 515], [329, 506], [329, 500]];
+    ctx.save(); ctx.beginPath(); ctx.rect(-20, 512, 460, 80); ctx.clip(); ctx.globalAlpha = .5;
+    shape(ctx, face.map(([x, y]) => [x, 1046 - y]), '#06141e', null); shape(ctx, face2.map(([x, y]) => [x, 1028 - y]), '#06141e', null);
+    ctx.globalAlpha = 1; ctx.restore();
+    soft(ctx, () => ctx.ellipse(210, 523, 116, 8, 0, 0, TAU), 'rgba(140,240,220,.16)', 8);
+    for (const [f, t, y0, y1] of [[face2, top2, 486, 516], [face, top, 460, 527]]) {
+      shape(ctx, f, lin(ctx, 0, y0 + 14, 0, y1, [[0, '#1d4250'], [1, '#0a1c28']]), null);
+      clipTo(ctx, f, () => {
+        for (const k of [.45, .75]) stroke(ctx, f.slice(1, -1).map(([x, y]) => [x, y0 + (y - y0) * k + 4]), 'rgba(140,230,220,.07)', 1.4);
+        wash(ctx, lin(ctx, 0, y1 - 6, 0, y1, [[0, 'rgba(140,240,220,0)'], [1, 'rgba(140,240,220,.22)']]), 'screen', 1, 90, y1 - 8, 260, 10);
+      });
+      shape(ctx, t, lin(ctx, 0, y0, 0, y0 + 46, [[0, '#4e8c88'], [.5, '#33686c'], [1, '#22484f']]), null);
+      clipTo(ctx, t, () => soft(ctx, () => ctx.ellipse(220, y0 + 10, 70, 10, 0, 0, TAU), 'rgba(170,255,236,.14)', 10));
+      rim(ctx, t, 'rgba(190,255,236,.34)', 0, -1.4);
+    }
+    // Cracks and moss on the shelf, kept to its ends so the middle stays a quiet stage for the launcher.
+    clipTo(ctx, top, () => { stroke(ctx, [[150, 480], [162, 487], [158, 497]], 'rgba(10,30,36,.16)', 1.4); stroke(ctx, [[151, 481.4], [163, 488.4], [159, 498]], 'rgba(170,240,226,.1)', .8); });
+    for (const [pts, cx, cy, rx] of [
+      [[[134, 476], [138, 462], [150, 454], [166, 452], [178, 458], [182, 470], [170, 476]], 158, 476, 26],
+      [[[244, 470], [248, 458], [262, 450], [276, 452], [286, 462], [288, 476], [266, 478]], 266, 476, 24],
+      [[[278, 470], [284, 462], [296, 460], [302, 468], [298, 476], [286, 478]], 292, 477, 12]]) {
+      soft(ctx, () => ctx.ellipse(cx, cy, rx, 4, 0, 0, TAU), 'rgba(6,20,28,.5)', 4);
+      shape(ctx, pts, lin(ctx, 0, cy - 26, 0, cy, [[0, '#4a8682'], [.5, '#2c5c62'], [1, '#183a46']]), null);
+      rim(ctx, pts, 'rgba(190,255,236,.3)', 0, -1.4);
+    }
+    lakeMoss(ctx, 150, 457, 20, 11); lakeMoss(ctx, 122, 482, 18, 14); lakeMoss(ctx, 268, 455, 18, 12); lakeMoss(ctx, 306, 489, 16, 13);
+    for (const [x, y, w] of [[96, 520, 5], [104, 524, 3.4], [336, 512, 4]]) { ctx.beginPath(); ctx.ellipse(x, y, w, w * .55, 0, 0, TAU); ctx.fillStyle = lin(ctx, 0, y - w, 0, y + w, [[0, '#3e7678'], [1, '#10283a']]); ctx.fill(); }
+    // Broken light along the waterline.
+    const wl = rng(808);
+    for (let i = 0; i < 10; i++) { const x = 112 + wl() * 210, y = 524 + wl() * 6, w = 4 + wl() * 10; stroke(ctx, [[x, y], [x + w, y]], 'rgba(170,255,240,.18)', .9); }
+    // The mooring post with its lantern, and the rowboat tied up to it.
+    ctx.save(); ctx.beginPath(); ctx.rect(-20, 511, 200, 60); ctx.clip(); ctx.globalAlpha = .35; ctx.translate(0, 1022); ctx.scale(1, -1); lakeBoat(ctx, 58, 506, .9); ctx.restore();
+    lakeRings(ctx, 60, 512, 2.6, .45);
+    lakeBoat(ctx, 58, 506, .9);
+    stroke(ctx, [[100, 492], [112, 497], [122, 488]], 'rgba(220,200,160,.8)', 1);
+    bloom(ctx, 123, 456, 70, LAKE_WARM, .32);
+    poly(ctx, [[118, 498], [118, 470], [128, 470], [128, 498]], lin(ctx, 118, 0, 128, 0, [[0, '#c48a5a'], [1, '#5e3a24']]), null);
+    ctx.beginPath(); ctx.ellipse(123, 470, 5.6, 2, 0, 0, TAU); ctx.fillStyle = '#d8a876'; ctx.fill();
+    stroke(ctx, [[117.5, 480], [128.5, 478.5]], 'rgba(230,214,176,.8)', 1.3); stroke(ctx, [[117.5, 484], [128.5, 482.5]], 'rgba(230,214,176,.8)', 1.3);
+    // The lantern hung from a crook on the post.
+    stroke(ctx, [[123, 470], [123, 452], [131, 448]], '#4a3020', 1.4);
+    stroke(ctx, [[131, 448], [131, 452]], '#4a3020', .8);
+    poly(ctx, [[127, 452], [135, 452], [136, 463], [126, 463]], 'rgba(255,214,140,.9)', null);
+    poly(ctx, [[126, 452], [136, 452], [134, 449.6], [128, 449.6]], '#3a2618', null); poly(ctx, [[125.6, 463], [136.4, 463], [135, 465], [127, 465]], '#3a2618', null);
+    bloom(ctx, 131, 458, 16, LAKE_WARM, .8); dot(ctx, 131, 458, 1.8, '#fff6d8');
+    // Its light on the water.
+    ctx.save(); ctx.beginPath(); ctx.rect(-20, 500, 460, 80); ctx.clip();
+    for (let i = 0; i < 8; i++) { const y = 532 + i * 3.4, w = 14 - i; stroke(ctx, [[131 - w / 2 + (i % 2) * 2, y], [131 + w / 2, y]], rgba(LAKE_WARM, .32 - i * .03), 1); }
+    ctx.restore();
     // Pads gathered in the right corner, a water lily, and an axolotl come up to see.
-    lilyPad(ctx, 392, 472, 20, 2.6, 1); lilyPad(ctx, 350, 490, 13, .4, 2); lilyPad(ctx, 410, 506, 16, 3.3, 3);
-    waterLily(ctx, 394, 468, .9);
-    for (const [w, a] of [[26, .3], [36, .16]]) { ctx.beginPath(); ctx.ellipse(366, 534, w, w * .24, 0, 0, TAU); ctx.strokeStyle = `rgba(190,245,250,${a})`; ctx.lineWidth = 1; ctx.stroke(); }
-    lilyPad(ctx, 366, 542, 22, 4.5, 4);
-    axolotl(ctx, 366, 536, 1.05);
-    lilyPad(ctx, 332, 552, 10, 1, 5);
-    for (const [x, y, s] of [[30, 90, 2.4], [392, 106, 2], [60, 300, 2.2], [404, 332, 2]]) sparkle(ctx, x, y, s, 'rgba(200,255,240,.8)');
+    lakePad(ctx, 392, 472, 20, 2.6, 1); lakePad(ctx, 350, 490, 13, .4, 2); lakePad(ctx, 410, 506, 16, 3.3, 3);
+    lakeLily(ctx, 394, 468, .9);
+    lakeRings(ctx, 366, 534, 1.3, .8);
+    lakePad(ctx, 366, 542, 22, 4.5, 4);
+    lakeAxolotl(ctx, 366, 536, 1.05);
+    lakePad(ctx, 330, 552, 10, 1, 5);
+    // Foreground: the dark lip of the roof overhanging the top corners.
+    for (const [pts, dx] of [[[[-20, -20], [90, -20], [70, 10], [40, 30], [10, 60], [-20, 80]], 1], [[[440, -20], [330, -20], [356, 12], [390, 28], [420, 56], [440, 70]], -1]]) {
+      shape(ctx, pts, '#03070c', null); rim(ctx, pts, 'rgba(120,240,210,.25)', dx, 1.6);
+    }
+    grade(ctx, 'rgba(120,230,210,.3)', 'rgba(30,50,110,.5)', 'rgba(2,10,20,.55)');
+    grain(ctx, .08);
     if (framed) frame(ctx, '#3c8c98', '#a8f5e0');
   }
 
