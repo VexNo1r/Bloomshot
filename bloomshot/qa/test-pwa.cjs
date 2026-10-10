@@ -9,7 +9,7 @@ const vm = require('node:vm');
 const swPath = path.resolve(process.argv[2] || path.join(__dirname, '../sw.js'));
 const PREFIX = 'bloomshot-shell-';
 const ASSETS = ['./', './index.html', './styles.css', './store-config.js', './store.js', './levels.js', './moon.js', './koi.js', './keepsakes.js', './garden.js', './goals.js', './depths.js', './powers.js', './engine.js', './rush.js',
-  './tutorial.js', './scenery.js', './art.js', './meadow.js', './petals.js', './sound.js', './native.js', './app.js', './store-ui.js', './pwa.js', './manifest.webmanifest', './icons/icon.svg',
+  './tutorial.js', './feel.js', './scenery.js', './art.js', './meadow.js', './petals.js', './sound.js', './native.js', './app.js', './store-ui.js', './pwa.js', './manifest.webmanifest', './icons/icon.svg',
   './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png', './icons/apple-touch-icon.png', './assets/fonts/fredoka.woff2', './assets/fonts/nunito.woff2', './assets/ui/lock.svg'];
 const results = [];
 
