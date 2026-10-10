@@ -67,13 +67,18 @@
     }
     ctx.restore();
   }
-  function bedPath(ctx, p, expand) {
+  function bedCurves(p, expand) {
     const rx = p.rx + (expand || 0), ry = p.ry + (expand || 0) * .65;
-    ctx.beginPath(); ctx.moveTo(-rx * .95, -ry * .06);
-    ctx.bezierCurveTo(-rx * 1.11, -ry * .70, -rx * .52, -ry * 1.13, -rx * .05, -ry * .97);
-    ctx.bezierCurveTo(rx * .36, -ry * 1.15, rx * .93, -ry * .68, rx, -ry * .18);
-    ctx.bezierCurveTo(rx * 1.09, ry * .40, rx * .53, ry * 1.09, rx * .09, ry * .92);
-    ctx.bezierCurveTo(-rx * .39, ry * 1.08, -rx * .86, ry * .70, -rx * .95, -ry * .06);
+    return [[-rx * .95, -ry * .06], [
+      [-rx * 1.11, -ry * .70, -rx * .52, -ry * 1.13, -rx * .05, -ry * .97],
+      [rx * .36, -ry * 1.15, rx * .93, -ry * .68, rx, -ry * .18],
+      [rx * 1.09, ry * .40, rx * .53, ry * 1.09, rx * .09, ry * .92],
+      [-rx * .39, ry * 1.08, -rx * .86, ry * .70, -rx * .95, -ry * .06]]];
+  }
+  function bedPath(ctx, p, expand) {
+    const [[x, y], curves] = bedCurves(p, expand);
+    ctx.beginPath(); ctx.moveTo(x, y);
+    for (const c of curves) ctx.bezierCurveTo(c[0], c[1], c[2], c[3], c[4], c[5]);
     ctx.closePath();
   }
   function surface(width, height) {
@@ -82,125 +87,308 @@
     else if (typeof document !== 'undefined') { canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height; }
     return canvas && canvas.getContext('2d') ? canvas : null;
   }
-  function stone(ctx, x, y, r, angle) {
-    ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
-    ellipse(ctx, 0, 2.1, r * 1.08, r * .62, 0, 'rgba(35,105,82,.14)');
-    const g = ctx.createLinearGradient(-r, -r, r, r);
-    g.addColorStop(0, '#f5f1d6'); g.addColorStop(.55, '#d2d5b4'); g.addColorStop(1, '#98b69e');
-    ellipse(ctx, 0, 0, r, r * .58, 0, g, '#9ebfa4', .55);
-    ctx.beginPath(); ctx.ellipse(0, -.7, r * .73, r * .40, 0, Math.PI * 1.07, Math.PI * 1.85);
-    ctx.strokeStyle = 'rgba(255,255,228,.8)'; ctx.lineWidth = .7; ctx.stroke(); ctx.restore();
+  // ---------- The painted map ----------
+  // The map is painted once, like the level scenes: sun from the upper right, soft shadows, no outlines on the
+  // ground, and tree canopies from beyond the edges framing the corners. It borrows brushes from the scene
+  // painter's kit when that is loaded; without it the soft shapes fall back to plain fills.
+  const PATH = [[202, 350], [[205, 305, 143, 302, 153, 264], [156, 230, 237, 237, 242, 186], [248, 144, 257, 118, 235, 99], [209, 80, 171, 65, 187, 33], [195, 15, 215, 3, 221, -18]]];
+  const BRANCHES = [[184, 46, 150, 46, 128, 75], [246, 114, 267, 105, 280, 88], [246, 158, 223, 150, 215, 144], [156, 252, 144, 220, 118, 220], [236, 213, 263, 211, 280, 197], [159, 277, 182, 274, 189, 273]]
+    .map(([x, y, cx, cy, ex, ey]) => [[x, y], [[cx, cy, ex, ey]]]);
+  const POND = [[-38, -7], [[-27, -34, 12, -28, 30, -17], [54, 0, 28, 23, 6, 22], [-20, 27, -45, 13, -38, -7]]];
+  const scaled = ([[x, y], curves], k) => [[x * k, y * k], curves.map(c => c.map(n => n * k))];
+  function trace(ctx, [[x, y], curves], close) {
+    ctx.moveTo(x, y);
+    for (const c of curves) c.length === 6 ? ctx.bezierCurveTo(c[0], c[1], c[2], c[3], c[4], c[5]) : ctx.quadraticCurveTo(c[0], c[1], c[2], c[3]);
+    if (close) ctx.closePath();
   }
-  function path(ctx) {
-    ctx.beginPath(); ctx.moveTo(202, 350);
-    ctx.bezierCurveTo(205, 305, 143, 302, 153, 264);
-    ctx.bezierCurveTo(156, 230, 237, 237, 242, 186);
-    ctx.bezierCurveTo(248, 144, 257, 118, 235, 99);
-    ctx.bezierCurveTo(209, 80, 171, 65, 187, 33);
-    ctx.bezierCurveTo(195, 15, 215, 3, 221, -18);
+  // Evenly spaced points along a run of curves, each with its unit normal: [x, y, nx, ny].
+  function along([start, curves], spacing) {
+    const pts = [start];
+    let [x0, y0] = start;
+    for (const c of curves) {
+      for (let i = 1; i <= 40; i++) {
+        const t = i / 40, u = 1 - t;
+        pts.push(c.length === 6
+          ? [u * u * u * x0 + 3 * u * u * t * c[0] + 3 * u * t * t * c[2] + t * t * t * c[4], u * u * u * y0 + 3 * u * u * t * c[1] + 3 * u * t * t * c[3] + t * t * t * c[5]]
+          : [u * u * x0 + 2 * u * t * c[0] + t * t * c[2], u * u * y0 + 2 * u * t * c[1] + t * t * c[3]]);
+      }
+      x0 = c[c.length - 2]; y0 = c[c.length - 1];
+    }
+    const out = [];
+    let next = 0, run = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const [ax, ay] = pts[i - 1], [bx, by] = pts[i], d = Math.hypot(bx - ax, by - ay);
+      if (!d) continue;
+      for (; next <= run + d; next += spacing) { const k = (next - run) / d; out.push([ax + (bx - ax) * k, ay + (by - ay) * k, (ay - by) / d, (bx - ax) / d]); }
+      run += d;
+    }
+    return out;
   }
-  function pathBranch(ctx, x, y, cx, cy, ex, ey) {
-    ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(cx, cy, ex, ey);
-    ctx.strokeStyle = '#a7cca5'; ctx.lineWidth = 11; ctx.stroke();
-    ctx.strokeStyle = '#f5edc9'; ctx.lineWidth = 8.5; ctx.stroke();
-    ctx.strokeStyle = 'rgba(255,253,225,.7)'; ctx.lineWidth = 2; ctx.stroke();
+  function cover(ctx, style, mode, alpha = 1) {
+    ctx.save(); if (mode) ctx.globalCompositeOperation = mode; ctx.globalAlpha = alpha; ctx.fillStyle = style; ctx.fillRect(0, 0, W, H); ctx.restore();
   }
-  function fern(ctx, x, y, size, lean, shade) {
-    ctx.save(); ctx.translate(x, y); ctx.rotate(lean);
-    ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(size * .2, -size * .5, size * .11, -size);
-    ctx.lineWidth = 1; ctx.strokeStyle = '#258f78'; ctx.stroke();
-    for (let i = 0; i < 5; i++) {
-      const yy = -size * (i * .145 + .13), xx = size * .12 * Math.sin(i * .45);
-      const len = size * (.40 - i * .052);
-      leaf(ctx, xx, yy, len, len * .27, -.90, shade || '#55b997', '#94dfac');
-      leaf(ctx, xx, yy, len * .9, len * .24, .98, i % 2 ? '#84cf99' : '#3daf8c', '#d0ebac');
+  // A soft-edged stroke: the line is drawn far off the canvas and only its blurred shadow lands in place.
+  function softLine(ctx, draw, color, width, blur) {
+    const m = ctx.getTransform ? ctx.getTransform() : null, far = 3000;
+    ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = width;
+    if (m) {
+      ctx.shadowColor = color; ctx.shadowBlur = blur * (Math.hypot(m.a, m.b) || 1); ctx.shadowOffsetX = far * m.a; ctx.shadowOffsetY = far * m.b;
+      ctx.translate(-far, 0); ctx.strokeStyle = '#000';
+    } else ctx.strokeStyle = color;
+    ctx.beginPath(); draw(); ctx.stroke(); ctx.restore();
+  }
+  // A rounded, slightly irregular stone outline around (x, y), turned to `angle`.
+  function pebble(ctx, x, y, rx, ry, angle, r) {
+    const c = Math.cos(angle), s = Math.sin(angle), pts = [];
+    for (let i = 0; i < 7; i++) {
+      const a = (i + r() * .4) / 7 * TAU, k = .84 + r() * .26, px = Math.cos(a) * rx * k, py = Math.sin(a) * ry * k;
+      pts.push([x + px * c - py * s, y + px * s + py * c]);
+    }
+    const mid = i => [(pts[i][0] + pts[(i + 1) % 7][0]) / 2, (pts[i][1] + pts[(i + 1) % 7][1]) / 2];
+    const [mx, my] = mid(6); ctx.moveTo(mx, my);
+    for (let i = 0; i < 7; i++) { const [nx, ny] = mid(i); ctx.quadraticCurveTo(pts[i][0], pts[i][1], nx, ny); }
+    ctx.closePath();
+  }
+  // A ring of fieldstones along an edge: no two alike, a gap here and there, contact shadows, three weathered
+  // tones, sunlit tops, and moss on the shady side of some.
+  function cobbles(ctx, pts, seed, size) {
+    const r = rng(seed), stones = [];
+    for (const [x, y, nx, ny] of pts) {
+      if (r() < .07) continue;
+      const k = .62 + r() * .72, slide = (r() - .5) * 1.6, sink = (r() - .5) * 1.1;
+      stones.push([x + ny * slide + nx * sink, y - nx * slide + ny * sink, size * k * (1 + r() * .25), size * k * (.62 + r() * .2), Math.atan2(ny, nx) + Math.PI / 2 + (r() - .5) * .7, r()]);
+    }
+    ctx.beginPath(); stones.forEach(([x, y, rx, ry, a]) => { ctx.moveTo(x - .7 + rx * 1.12, y + 1.4); ctx.ellipse(x - .7, y + 1.4, rx * 1.12, ry * 1.15, a, 0, TAU); });
+    ctx.fillStyle = 'rgba(34,40,24,.42)'; ctx.fill();
+    ['#9d9580', '#b0a78f', '#c2b9a0'].forEach((tone, t) => {
+      ctx.beginPath(); stones.forEach(([x, y, rx, ry, a, pick], i) => { if (Math.floor(pick * 3) === t) pebble(ctx, x, y, rx, ry, a, rng(seed + i)); });
+      ctx.fillStyle = tone; ctx.fill();
+    });
+    ctx.beginPath(); stones.forEach(([x, y, rx, ry, a]) => { const ox = .22 * rx, oy = -.3 * ry; ctx.moveTo(x + ox + rx * .55, y + oy); ctx.ellipse(x + ox, y + oy, rx * .55, ry * .42, a, 0, TAU); });
+    ctx.fillStyle = 'rgba(250,246,228,.4)'; ctx.fill();
+    ctx.beginPath(); stones.forEach(([x, y, rx, ry, a, pick]) => { if (pick > .6) { ctx.moveTo(x - .3 * rx + rx * .5, y + .35 * ry); ctx.ellipse(x - .3 * rx, y + .35 * ry, rx * .5, ry * .4, a, 0, TAU); } });
+    ctx.fillStyle = 'rgba(96,150,72,.62)'; ctx.fill();
+  }
+  // Grass blades rooted at `half` out from a line, leaning in over it, in a shaded and a lit tone.
+  function fringe(ctx, pts, half, seed, keep = .7) {
+    const r = rng(seed), blades = [[], []];
+    for (const [x, y, nx, ny] of pts) {
+      if (r() > keep) continue;
+      const bx = x - nx * half, by = y - ny * half, reach = 2 + r() * 2.8;
+      blades[r() < .6 ? 0 : 1].push([bx, by, bx + nx * reach + (r() - .5) * 1.6, by + ny * reach - 1.3]);
+    }
+    ['rgba(56,128,76,.85)', 'rgba(150,204,110,.9)'].forEach((tone, t) => {
+      ctx.beginPath(); blades[t].forEach(([x, y, tx, ty]) => { ctx.moveTo(x - .9, y + .3); ctx.lineTo(tx, ty); ctx.lineTo(x + .9, y - .3); });
+      ctx.fillStyle = tone; ctx.fill();
+    });
+  }
+  function paintLawn(ctx, soft) {
+    const lawn = ctx.createLinearGradient(400, 0, 40, 330);
+    lawn.addColorStop(0, '#c9e897'); lawn.addColorStop(.45, '#a0d585'); lawn.addColorStop(1, '#66b47e');
+    cover(ctx, lawn);
+    const r = rng(71043);
+    // Broad, uneven patches so the grass never reads as one flat fill.
+    for (let i = 0; i < 16; i++) {
+      const x = r() * W, y = r() * H, s = 30 + r() * 50, rgb = i % 3 ? '42,124,84' : '244,252,186', a = i % 3 ? .12 : .2;
+      ctx.save(); ctx.translate(x, y); ctx.rotate(-.45); ctx.scale(1.5, 1);
+      const g = ctx.createRadialGradient(0, 0, 0, 0, 0, s);
+      g.addColorStop(0, `rgba(${rgb},${a})`); g.addColorStop(.6, `rgba(${rgb},${a * .5})`); g.addColorStop(1, `rgba(${rgb},0)`);
+      ctx.fillStyle = g; ctx.fillRect(-s, -s, s * 2, s * 2); ctx.restore();
+    }
+    // Mown stripes: wide, soft bands on the diagonal, the way a lawn looks after the mower.
+    const stripes = ctx.createLinearGradient(0, 0, 260, 424), n = 14;
+    for (let i = 0; i < n; i++) {
+      const tone = i % 2 ? 'rgba(255,255,226,.085)' : 'rgba(22,92,62,.06)';
+      stripes.addColorStop(i / n + .012, tone); stripes.addColorStop((i + 1) / n - .012, tone);
+    }
+    cover(ctx, stripes);
+    // Grass: tufts gathered in loose drifts rather than sprinkled evenly, darker at the root and lit at the tips.
+    const tufts = [];
+    for (let i = 0; i < 90; i++) {
+      const cx = r() * W, cy = r() * H, spread = 8 + r() * 16, many = 2 + Math.floor(r() * 7);
+      for (let j = 0; j < many; j++) tufts.push([cx + (r() - .5) * spread * 2, cy + (r() - .5) * spread, .55 + r() * .9, r()]);
+    }
+    for (let i = 0; i < 160; i++) tufts.push([r() * W, r() * H, .45 + r() * .3, r()]);
+    for (const [tone, from, count] of [['rgba(34,110,70,.24)', 0, 4], ['rgba(232,248,176,.32)', .5, 3]]) {
+      ctx.beginPath();
+      for (const [x, y, k, j] of tufts) for (let b = 0; b < count; b++) {
+        const bx = x + (b - count / 2) * 1.2 * k, h = (2.3 + ((b + Math.floor(j * 3)) % 3) * .9) * k, lean = (b - count / 2) * .6 + .5, by = y - h * from;
+        ctx.moveTo(bx - .55 * (1 - from), by); ctx.lineTo(bx + lean, y - h); ctx.lineTo(bx + .55 * (1 - from), by);
+      }
+      ctx.fillStyle = tone; ctx.fill();
+    }
+    // Warm light pooling in from the upper right.
+    ctx.save(); ctx.globalCompositeOperation = 'screen';
+    const sun = ctx.createRadialGradient(410, -30, 10, 410, -30, 320);
+    sun.addColorStop(0, 'rgba(255,238,180,.5)'); sun.addColorStop(.5, 'rgba(255,238,180,.12)'); sun.addColorStop(1, 'rgba(255,238,180,0)');
+    ctx.fillStyle = sun; ctx.fillRect(0, 0, W, H); ctx.restore();
+  }
+  function paintPaths(ctx) {
+    const main = () => trace(ctx, PATH), branches = () => BRANCHES.forEach(b => trace(ctx, b));
+    // The path is worn a little into the lawn: a soft dip, damp edges, the sandy middle, a paler trodden line.
+    softLine(ctx, main, 'rgba(30,88,56,.42)', 27, 4); softLine(ctx, branches, 'rgba(30,88,56,.4)', 15, 3);
+    ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    for (const [tone, wMain, wBranch] of [['#a88d60', 22.5, 12], ['#d6bd8c', 19.5, 9.6], ['rgba(250,234,196,.55)', 10, 4.2]]) {
+      ctx.strokeStyle = tone;
+      ctx.beginPath(); main(); ctx.lineWidth = wMain; ctx.stroke();
+      ctx.beginPath(); branches(); ctx.lineWidth = wBranch; ctx.stroke();
     }
     ctx.restore();
+    // Gravel in three tones, scattered across the path's width.
+    const r = rng(5531), grit = [[], [], []];
+    for (const [pts, half] of [[along(PATH, 1.5), 8.5], ...BRANCHES.map(b => [along(b, 2), 4])]) {
+      for (const [x, y, nx, ny] of pts) { const o = (r() - .5) * 2 * half; grit[Math.floor(r() * 3)].push([x + nx * o, y + ny * o, .45 + r() * .8, r() * TAU]); }
+    }
+    ['rgba(128,98,62,.5)', 'rgba(255,248,226,.7)', 'rgba(176,144,98,.55)'].forEach((tone, t) => {
+      ctx.beginPath(); grit[t].forEach(([x, y, s, a]) => { ctx.moveTo(x + s, y); ctx.ellipse(x, y, s, s * .7, a, 0, TAU); });
+      ctx.fillStyle = tone; ctx.fill();
+    });
+    // Flat stepping slabs set flush into the gravel, alternating a little from side to side: a flat face with a
+    // thin sunlit edge and a thin shaded one, so they read as laid stone rather than domes.
+    const slabs = along(PATH, 22).filter(([, y]) => y < H + 6 && y > -6).map(([x, y, nx, ny], i) => {
+      const o = i % 2 ? 2.4 : -2.4, rr = rng(900 + i), a = Math.atan2(ny, nx) + (rr() - .5) * .5, c = Math.cos(a), s = Math.sin(a), pts = [];
+      const rx = 7 + rr() * 1.6, ry = 5 + rr() * 1;
+      for (let k = 0; k < 6; k++) { const t = (k + (rr() - .5) * .5) / 6 * TAU, px = Math.cos(t) * rx * (.86 + rr() * .2), py = Math.sin(t) * ry * (.86 + rr() * .2); pts.push([x + nx * o + px * c - py * s, y + ny * o + px * s + py * c]); }
+      return pts;
+    });
+    const slab = (dx, dy) => { ctx.beginPath(); slabs.forEach(pts => pts.forEach(([x, y], k) => k ? ctx.lineTo(x + dx, y + dy) : ctx.moveTo(x + dx, y + dy))); };
+    ctx.save(); ctx.lineJoin = 'round'; ctx.lineWidth = 2.2;
+    for (const [dx, dy, tone] of [[-.9, 1.5, 'rgba(84,62,34,.34)'], [.55, -.55, '#efe7d2'], [-.35, .45, '#9f9174'], [0, 0, '#d3c7aa']]) {
+      slab(dx, dy); ctx.fillStyle = tone; ctx.strokeStyle = tone; ctx.fill(); ctx.stroke();
+    }
+    ctx.restore();
+    // Grass leaning in over the path's edges, so it sits in the lawn rather than on it.
+    [[along(PATH, 2.4), 10.4], ...BRANCHES.map(b => [along(b, 2.6), 5.6])].forEach(([pts, half], i) => {
+      fringe(ctx, pts, half, 61 + i); fringe(ctx, pts.map(([x, y, nx, ny]) => [x, y, -nx, -ny]), half, 83 + i);
+    });
   }
-  function paintPond(ctx) {
-    ctx.save(); ctx.translate(355, 285); ctx.rotate(-.22);
-    const shape = () => {
-      ctx.beginPath(); ctx.moveTo(-38, -7); ctx.bezierCurveTo(-27, -34, 12, -28, 30, -17);
-      ctx.bezierCurveTo(54, 0, 28, 23, 6, 22); ctx.bezierCurveTo(-20, 27, -45, 13, -38, -7); ctx.closePath();
+  function paintBedGround(ctx, p, soft) {
+    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.angle);
+    // The raised bed's shadow falls on the lawn away from the sun.
+    soft(ctx, () => { ctx.save(); ctx.translate(-2.4, 4.6); bedPath(ctx, p, 4.5); ctx.restore(); }, 'rgba(24,70,46,.45)', 7);
+    // Damp dark earth under the edging, so the gaps between the cobbles read as soil.
+    bedPath(ctx, p, 4.4); ctx.fillStyle = '#5a3f2c'; ctx.fill();
+    // Rich soil, shaded under the far rim and warmer toward the near side.
+    const soil = ctx.createLinearGradient(0, -p.ry, p.rx * .3, p.ry);
+    soil.addColorStop(0, '#80593a'); soil.addColorStop(.4, '#9d754b'); soil.addColorStop(1, '#b58d5c');
+    bedPath(ctx, p, 1); ctx.fillStyle = soil; ctx.fill();
+    ctx.save(); bedPath(ctx, p, 1); ctx.clip();
+    // Tilled rows: a shaded furrow with a lit ridge just above it.
+    // Each row fades out toward its ends, so the rows look hoed by hand rather than ruled across the bed.
+    const fade = (rgb, a, span) => {
+      const g = ctx.createLinearGradient(-span, 0, span, 0);
+      g.addColorStop(0, `rgba(${rgb},0)`); g.addColorStop(.22, `rgba(${rgb},${a})`); g.addColorStop(.78, `rgba(${rgb},${a})`); g.addColorStop(1, `rgba(${rgb},0)`);
+      return g;
     };
-    shape(); ctx.strokeStyle = '#5ebf9b'; ctx.lineWidth = 9; ctx.stroke();
-    ctx.strokeStyle = '#dbdfb4'; ctx.lineWidth = 4.5; ctx.stroke();
-    const water = ctx.createLinearGradient(-12, -24, 22, 26);
-    water.addColorStop(0, '#319ba9'); water.addColorStop(.4, '#61cece'); water.addColorStop(1, '#b6eee0');
-    shape(); ctx.fillStyle = water; ctx.fill();
-    ctx.save(); shape(); ctx.clip();
-    for (let i = 0; i < 4; i++) ellipse(ctx, 3 + i * 2, 4, 13 + i * 9, 3.1 + i * 2.6, 0, null, 'rgba(235,255,226,.42)', .8);
-    ctx.beginPath(); ctx.moveTo(-23, -13); ctx.bezierCurveTo(-14, -19, 4, -22, 16, -16);
-    ctx.strokeStyle = 'rgba(227,255,232,.63)'; ctx.lineWidth = 1.7; ctx.stroke();
-    ctx.restore();
-    ellipse(ctx, -16, 6, 9, 4.8, -.4, '#4ab684', '#168c7c', .6);
-    ctx.beginPath(); ctx.moveTo(-16, 6); ctx.lineTo(-8, 2.5); ctx.lineTo(-8, 6); ctx.fillStyle = '#83d6cb'; ctx.fill();
-    ellipse(ctx, 19, -9, 6, 3.6, -.25, '#7bcc92', '#3aa387', .5);
-    ctx.restore();
-    [[322,274,5.1,-.6],[325,306,6.8,.2],[382,296,5,.5],[384,267,6.3,-.2]].forEach(p => stone(ctx, ...p));
-    fern(ctx, 395, 294, 33, .3); fern(ctx, 322, 309, 19, -.55, '#6bbf91');
-  }
-  function paintBackground(ctx) {
-    const sky = ctx.createLinearGradient(0, 0, 420, 330);
-    sky.addColorStop(0, '#bef0d6'); sky.addColorStop(.35, '#ccecbf'); sky.addColorStop(.70, '#9dddaf'); sky.addColorStop(1, '#80cbae');
-    ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
-    const sun = ctx.createRadialGradient(141, 51, 8, 168, 108, 283);
-    sun.addColorStop(0, 'rgba(255,253,211,.75)'); sun.addColorStop(.7, 'rgba(255,249,209,.08)'); sun.addColorStop(1, 'rgba(247,255,205,0)');
-    ctx.fillStyle = sun; ctx.fillRect(0, 0, W, H);
-    const random = rng(71043);
-    for (let i = 0; i < 175; i++) {
-      const x = random() * W, y = random() * H, r = 1.2 + random() * 4;
-      ellipse(ctx, x, y, r * 2, r, -.4, i % 3 ? 'rgba(59,154,108,.045)' : 'rgba(252,255,211,.13)');
+    ctx.lineCap = 'round';
+    for (let row = -1.5; row <= 1.5; row++) {
+      const y = row * p.ry * .44 + 1.5, span = p.rx * (.92 - Math.abs(row) * .14), lean = row * 1.4;
+      const furrow = () => { ctx.beginPath(); ctx.moveTo(-span, y + 2 - lean); ctx.bezierCurveTo(-span * .4, y - 2.5, span * .4, y + 3.5, span, y - 1 + lean); };
+      furrow(); ctx.strokeStyle = fade('64,38,18', .3, span); ctx.lineWidth = 4.2; ctx.stroke();
+      furrow(); ctx.strokeStyle = fade('56,32,14', .38, span); ctx.lineWidth = 1.7; ctx.stroke();
+      ctx.save(); ctx.translate(.3, -2.5); furrow(); ctx.strokeStyle = fade('236,196,140', .3, span); ctx.lineWidth = 1.4; ctx.stroke(); ctx.restore();
     }
-    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    path(ctx); ctx.strokeStyle = 'rgba(77,143,101,.2)'; ctx.lineWidth = 28; ctx.stroke();
-    ctx.strokeStyle = '#b5cda3'; ctx.lineWidth = 25; ctx.stroke();
-    ctx.strokeStyle = '#f3e8bf'; ctx.lineWidth = 21; ctx.stroke();
-    ctx.strokeStyle = 'rgba(255,250,218,.6)'; ctx.lineWidth = 14; ctx.stroke();
-    pathBranch(ctx, 184, 46, 150, 46, 128, 75);
-    pathBranch(ctx, 246, 114, 267, 105, 280, 88);
-    pathBranch(ctx, 246, 158, 223, 150, 215, 144);
-    pathBranch(ctx, 156, 252, 144, 220, 118, 220);
-    pathBranch(ctx, 236, 213, 263, 211, 280, 197);
-    pathBranch(ctx, 159, 277, 182, 274, 189, 273);
-    // Pebble seams and a little bridge make the garden feel tended by hand.
-    [[188,36,3.5,.2],[243,175,3,-.1],[164,250,3.1,.6],[178,307,4,.3],[231,94,2.4,.1]].forEach(p => stone(ctx, ...p));
-    paintPond(ctx);
-    PLOTS.forEach(p => {
-      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.angle);
-      ctx.save(); ctx.translate(0, 3); bedPath(ctx, p, 5); ctx.fillStyle = 'rgba(28,106,77,.17)'; ctx.fill(); ctx.restore();
-      bedPath(ctx, p, 4.2); ctx.fillStyle = '#62b991'; ctx.fill();
-      bedPath(ctx, p, 1.7); ctx.fillStyle = '#abd69c'; ctx.fill();
-      const soil = ctx.createLinearGradient(0, -p.ry, 4, p.ry);
-      soil.addColorStop(0, '#abac79'); soil.addColorStop(.33, '#bcbc85'); soil.addColorStop(1, '#dbd09a');
-      bedPath(ctx, p); ctx.fillStyle = soil; ctx.fill();
-      ctx.save(); bedPath(ctx, p); ctx.clip();
-      const soilNoise = rng(p.seed);
-      for (let i = 0; i < 38; i++) {
-        const xx = (soilNoise() - .5) * p.rx * 2, yy = (soilNoise() - .5) * p.ry * 2;
-        ellipse(ctx, xx, yy, .45 + soilNoise() * 1.5, .4, -.4, i % 2 ? 'rgba(93,99,59,.15)' : 'rgba(255,242,195,.40)');
-      }
-      for (let row = -1; row <= 1; row++) {
-        ctx.beginPath(); ctx.moveTo(-p.rx * .7, row * 12 + 3);
-        ctx.bezierCurveTo(-p.rx * .3, row * 12 - 4, p.rx * .3, row * 12 + 5, p.rx * .72, row * 12 - 2);
-        ctx.strokeStyle = 'rgba(103,122,71,.19)'; ctx.lineWidth = 1.6; ctx.stroke();
-        ctx.strokeStyle = 'rgba(241,228,168,.43)'; ctx.lineWidth = .55; ctx.stroke();
-      }
-      ctx.restore();
-      ctx.beginPath(); ctx.ellipse(-p.rx * .37, p.ry * .79, p.rx * .18, 2.2, .08, Math.PI * .12, Math.PI * .85);
-      ctx.strokeStyle = '#7ab883'; ctx.lineWidth = 2; ctx.stroke();
+    // Clods of earth, each lit on top.
+    const r = rng(p.seed), clods = [];
+    for (let i = 0; i < 44; i++) clods.push([(r() - .5) * p.rx * 1.9, (r() - .5) * p.ry * 1.9, .55 + r() * 1.25]);
+    ctx.beginPath(); clods.forEach(([x, y, s]) => { ctx.moveTo(x + s * 1.2, y + .5); ctx.ellipse(x, y + .5, s * 1.2, s * .8, 0, 0, TAU); });
+    ctx.fillStyle = 'rgba(62,38,20,.5)'; ctx.fill();
+    ctx.beginPath(); clods.forEach(([x, y, s]) => { ctx.moveTo(x + .2 + s * .8, y - .35); ctx.ellipse(x + .2, y - .35, s * .8, s * .48, 0, 0, TAU); });
+    ctx.fillStyle = 'rgba(226,182,124,.55)'; ctx.fill();
+    // The rim's shadow on the soil along the far edge.
+    softLine(ctx, () => { ctx.save(); ctx.translate(-.8, -3.4); bedPath(ctx, p, 1); ctx.restore(); }, 'rgba(38,20,8,.6)', 6, 4);
+    ctx.restore();
+    cobbles(ctx, along(bedCurves(p, 2.7), 5.2), p.seed, 3.1);
+    fringe(ctx, along(bedCurves(p, 2.7), 2.4), 4.2, p.seed + 5, .55);
+    ctx.restore();
+  }
+  function paintPond(ctx, soft) {
+    ctx.save(); ctx.translate(355, 285); ctx.rotate(-.22);
+    const shape = k => trace(ctx, scaled(POND, k), true);
+    soft(ctx, () => { ctx.save(); ctx.translate(-2, 4); shape(1.18); ctx.restore(); }, 'rgba(22,68,48,.42)', 7);
+    ctx.beginPath(); shape(1.12); ctx.fillStyle = '#4f5136'; ctx.fill();
+    const water = ctx.createRadialGradient(-4, 6, 2, 0, 2, 50);
+    water.addColorStop(0, '#125a6a'); water.addColorStop(.55, '#278a96'); water.addColorStop(1, '#5fbdb9');
+    ctx.beginPath(); shape(1); ctx.fillStyle = water; ctx.fill();
+    ctx.save(); ctx.beginPath(); shape(1); ctx.clip();
+    // The sky in the water, the bank's shadow under the far edge, and a few slow rings.
+    soft(ctx, () => ctx.ellipse(8, -9, 30, 6.5, -.12, 0, TAU), 'rgba(214,248,242,.42)', 6);
+    softLine(ctx, () => { ctx.save(); ctx.translate(-.6, -3.4); shape(1); ctx.restore(); }, 'rgba(6,36,44,.6)', 7, 5);
+    for (let i = 0; i < 3; i++) ellipse(ctx, 6 + i * 2, 6, 9 + i * 8, 2.4 + i * 2, 0, null, 'rgba(226,255,246,' + (.26 - i * .06) + ')', .7);
+    ellipse(ctx, 22, -10, 5.6, 3.3, -.25, '#5aa86a'); ellipse(ctx, 21.4, -10.6, 4.4, 2.4, -.25, '#86c47c');
+    ctx.restore();
+    cobbles(ctx, along(scaled(POND, 1.1), 6), 3301, 3.6);
+    fringe(ctx, along(scaled(POND, 1.1), 2.4), 4.6, 3307, .6);
+    ctx.restore();
+    // Reeds and cattails at the far end of the pond.
+    const r = rng(4409), reeds = [];
+    for (let i = 0; i < 9; i++) reeds.push([392 + r() * 18, 276 + r() * 6, 18 + r() * 14, (r() - .4) * 7]);
+    soft(ctx, () => ctx.ellipse(398, 281, 15, 4, 0, 0, TAU), 'rgba(22,66,46,.38)', 4);
+    for (const [tone, w] of [['#3f7d4c', 1.5], ['#7cbf6a', .7]]) {
+      ctx.beginPath(); reeds.forEach(([x, y, h, lean]) => { ctx.moveTo(x, y); ctx.quadraticCurveTo(x + lean * .2, y - h * .6, x + lean + (w < 1 ? .4 : 0), y - h); });
+      ctx.strokeStyle = tone; ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.stroke();
+    }
+    reeds.filter((_, i) => i % 3 === 0).forEach(([x, y, h, lean]) => {
+      ctx.save(); ctx.translate(x + lean * .9, y - h * .92); ctx.rotate(lean * .03);
+      ellipse(ctx, 0, 0, 1.6, 4, 0, '#7a4a2a'); ellipse(ctx, .5, -.8, .7, 2.6, 0, 'rgba(214,150,96,.6)');
       ctx.restore();
     });
-    // Border plants remain decorative, leaving the six planting islands readable.
-    [[8,92,49,.16],[9,169,35,-.28],[3,281,47,.45],[28,332,43,-.5],[104,331,25,.52],[402,115,47,-.24],[422,225,35,-.3],[364,20,30,.74],[34,14,26,-.54],[273,338,26,.55]].forEach(p => fern(ctx, ...p));
-    [[26,119,5.7,-.2],[20,150,4,.1],[391,141,5.3,.6],[133,31,4,-.4],[54,289,5.4,.2]].forEach(p => stone(ctx, ...p));
-    for (const [x,y] of [[20,46],[30,263],[387,42],[396,240],[120,302]]) {
-      for (let i = 0; i < 4; i++) leaf(ctx, x + i * 2, y, 6 + i * 1.3, 2.2, (i - 1.5) * .43, '#65b782', '#c5e39c');
-      ellipse(ctx, x + 3, y - 5, 1.4, 1.3, 0, '#fff1a2');
+  }
+  // Little clumps of wildflowers on open grass.
+  function paintTufts(ctx, soft) {
+    for (const [x, y, petal] of [[24, 228, '#fff1a2'], [30, 263, '#ffffff'], [387, 46, '#f9c8da'], [396, 240, '#fff1a2'], [120, 304, '#ffffff'], [312, 236, '#f9c8da'], [150, 96, '#ffffff']]) {
+      soft(ctx, () => ctx.ellipse(x + 2, y + 1.5, 8, 2.6, 0, 0, TAU), 'rgba(26,84,52,.3)', 3);
+      for (let i = 0; i < 5; i++) leaf(ctx, x - 2 + i * 1.8, y + 1, 6 + (i % 3) * 1.6, 2.2, (i - 2) * .42, i % 2 ? '#4e9a5e' : '#79b96c');
+      for (const [dx, dy] of [[-1.5, -6], [3.5, -8], [7, -4.5]]) {
+        for (let k = 0; k < 5; k++) { const a = k / 5 * TAU; ellipse(ctx, x + dx + Math.cos(a) * 1.25, y + dy + Math.sin(a) * 1.25, 1.1, .8, a, petal); }
+        ellipse(ctx, x + dx, y + dy, .7, .7, 0, '#f2b33f');
+      }
     }
-    const edge = ctx.createLinearGradient(0, H - 29, 0, H);
-    edge.addColorStop(0, 'rgba(19,110,92,0)'); edge.addColorStop(1, 'rgba(19,110,92,.10)');
-    ctx.fillStyle = edge; ctx.fillRect(0, H - 29, W, 29);
+  }
+  // Tree canopies from beyond the edges, and low shrubs, each casting a soft shadow down and to the left.
+  function paintCanopies(ctx, kit, soft) {
+    const leafy = { dark: '#2a6046', mid: '#4b9358', lit: '#a3d27a', glint: '#dcf2a4' };
+    const shrub = { dark: '#2f6a4a', mid: '#58a061', lit: '#b2dc84', glint: '#e4f6b0' };
+    const groups = [
+      [leafy, [[-14, -10, 42], [36, -18, 28], [-22, 42, 26]]],
+      [leafy, [[430, -14, 40], [392, -24, 26], [438, 34, 22]]],
+      [shrub, [[-12, 172, 24]]], [shrub, [[436, 238, 26]]],
+      [shrub, [[-8, 324, 30], [26, 346, 18]]], [shrub, [[432, 330, 24]]]
+    ];
+    for (const [pal, parts] of groups) {
+      soft(ctx, () => parts.forEach(([x, y, s]) => { ctx.moveTo(x - 9 + s * 1.05, y + 13); ctx.arc(x - 9, y + 13, s * 1.05, 0, TAU); }), 'rgba(18,62,48,.36)', 14);
+      parts.forEach(([x, y, s], i) => {
+        if (kit) kit.clump(ctx, x, y, s, pal, .62, -.78, Math.round(x * 7 + y * 3) + i);
+        else ellipse(ctx, x, y, s, s, 0, pal.mid);
+      });
+    }
+    // Blossom on the low shrubs, on their sunny side.
+    const r = rng(2207);
+    for (const [x, y, s, petal] of [[-12, 172, 24, '#f6c1d4'], [-8, 324, 30, '#fff4d8'], [436, 238, 26, '#f6c1d4'], [432, 330, 24, '#fff4d8']]) {
+      for (let i = 0; i < 7; i++) {
+        const a = -1.3 + r() * 1.9, d = s * (.35 + r() * .5), fx = x + Math.cos(a) * d, fy = y + Math.sin(a) * d;
+        ellipse(ctx, fx - .4, fy + .6, 2.2, 1.7, 0, 'rgba(40,80,50,.3)');
+        ellipse(ctx, fx, fy, 2.1, 1.8, 0, petal); ellipse(ctx, fx + .5, fy - .5, 1, .8, 0, 'rgba(255,255,255,.8)');
+      }
+    }
+  }
+  function paintBackground(ctx) {
+    const kit = root.BloomScenery && root.BloomScenery.kit;
+    const soft = kit ? kit.soft : (c, draw, color) => { c.beginPath(); draw(); c.fillStyle = color; c.fill(); };
+    paintLawn(ctx, soft);
+    paintPaths(ctx);
+    PLOTS.forEach(p => paintBedGround(ctx, p, soft));
+    paintPond(ctx, soft);
+    paintTufts(ctx, soft);
+    paintCanopies(ctx, kit, soft);
+    // The grade: warm where the sun comes in, cooler in the far corner, a gentle vignette, then paper tooth.
+    const grade = ctx.createLinearGradient(420, 0, 0, 330);
+    grade.addColorStop(0, 'rgba(255,222,150,.5)'); grade.addColorStop(1, 'rgba(60,100,150,.42)');
+    cover(ctx, grade, 'soft-light');
+    const vignette = ctx.createRadialGradient(215, 160, 150, 210, 165, 290);
+    vignette.addColorStop(0, 'rgba(30,60,50,0)'); vignette.addColorStop(1, 'rgba(30,60,50,.24)');
+    cover(ctx, vignette, 'multiply');
+    if (kit) kit.grain(ctx, .06);
   }
   function plants(p) {
     if (plantData.has(p.id)) return plantData.get(p.id);

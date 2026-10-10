@@ -2563,5 +2563,7 @@
   const GARDENS = { meadow: paintGardenMeadow, moon: paintGardenMoon, koi: paintGardenKoi };
   const garden = theme => Object.prototype.hasOwnProperty.call(GARDENS, theme);
   function paintGarden(ctx, theme, rush, framed = true) { if (garden(theme)) GARDENS[theme](ctx, Boolean(rush), framed); }
-  root.BloomScenery = Object.freeze({ has, paint, garden, paintGarden, drawRock, dark: theme => has(theme) && SCENES[theme].dark, ink: theme => has(theme) ? SCENES[theme].ink : null, themes: Object.keys(SCENES) });
+  // A few brushes from the painter's kit, for the other painted screens (the Garden tab's map).
+  const kit = Object.freeze({ lin, rad, rgba, soft, bloom, grain, clump, scallop, shape, smooth, clipTo });
+  root.BloomScenery = Object.freeze({ has, paint, garden, paintGarden, drawRock, kit, dark: theme => has(theme) && SCENES[theme].dark, ink: theme => has(theme) ? SCENES[theme].ink : null, themes: Object.keys(SCENES) });
 })(typeof window !== 'undefined' ? window : globalThis);
