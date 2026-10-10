@@ -607,8 +607,12 @@
         note(step(root + 11), 0.32, 0.6, 0.05, 0, 'bell', 2);
       }
     }
-    // The harvest: orbs land as rising glass plucks.
-    else if (type === 'pluck' && allowed('pluck', 0.03)) note(pent(5 + clamp(Math.floor(num(data.i)), 0, 8)), 0, 0.24, 0.05, 0.25, 'glass', 1);
+    // The harvest: orbs land as rising glass plucks. Past the ninth (a big harvest) they twinkle on the top notes
+    // instead of ringing one pitch over and over.
+    else if (type === 'pluck' && allowed('pluck', 0.03)) {
+      const i = Math.max(0, Math.floor(num(data.i))), k = i <= 8 ? i : 8 - [1, 0, 2, 0][(i - 9) % 4];
+      note(pent(5 + k), 0, 0.24, 0.05, 0.25, 'glass', 1);
+    }
     // New flowers plop into place.
     else if (type === 'plop' && allowed('plop', 0.035)) note(pent([0, 2, 4, 1, 3][Math.abs(Math.floor(num(data.i))) % 5]), 0, 0.14, 0.055, pan, 'drop', 1);
     // A boss lands: a low drum under a soft minor chord.
@@ -1044,7 +1048,8 @@
     track.points.push([time, value, exponential]);
   }
 
-  let musicOn = true, asleep = false, mixer = null, band = null, warm = { heat: 0, threat: 0, at: 0 };
+  // broken: the engine threw once (see giveUp); the music then stays off for the session.
+  let musicOn = true, asleep = false, broken = false, mixer = null, band = null, warm = { heat: 0, threat: 0, at: 0 };
   const leaving = new Set(), cache = new Map(), queue = [], failed = new Set();
   let cacheBytes = 0, renderingKey = null;
   function resetMusic() {
@@ -1105,7 +1110,10 @@
       Promise.resolve(promise).then(buffer => {
         if (context !== owner) return;
         renderingKey = null;
-        if (buffer) { store(job.key, buffer); if (band && band.name === job.name) attachReady(band); }
+        if (buffer) {
+          store(job.key, buffer);
+          if (band && band.name === job.name) { try { attachReady(band); } catch (_) { giveUp(); return; } }
+        }
         else failed.add(job.key);
         pump();
       }, () => { if (context !== owner) return; renderingKey = null; failed.add(job.key); pump(); });
@@ -1171,6 +1179,13 @@
     if (!playing.live) finish(playing);
   }
   function finish(playing) { leaving.delete(playing); try { playing.gain.disconnect(); } catch (_) {} evict(); }
+  // The engine threw (an odd browser): the music goes quiet for the session, so play and the cues never stall on it.
+  // The playing groove fades out, or failing that is cut from the mix, so no loop is left running.
+  function giveUp() {
+    const playing = band;
+    broken = true; queue.length = 0; band = null;
+    try { leave(playing, 0.1); } catch (_) { try { playing.gain.disconnect(); } catch (__) {} }
+  }
   function stopMusic(seconds = 0.4) {
     queue.length = 0;
     if (band) { leave(band, seconds); band = null; }
@@ -1230,7 +1245,7 @@
   function musicFrame(state) {
     state = state && typeof state === 'object' ? state : {};
     if (typeof state.hidden === 'boolean') sleep(state.hidden);
-    if (state.hidden || !context || context.state === 'closed' || !(root.OfflineAudioContext || root.webkitOfflineAudioContext)) return snapshot();
+    if (state.hidden || broken || !context || context.state === 'closed' || !(root.OfflineAudioContext || root.webkitOfflineAudioContext)) return snapshot();
     if (!musicOn || !enabled) { stopMusic(0.4); return snapshot(); }
     if (context.state !== 'running') return snapshot();
     ensureMixer();
@@ -1291,9 +1306,15 @@
       if (!context || !mixer || context.state !== 'running') return;
       const depth = clamp(num(amount), 0, 1), hold = clamp(num(seconds), 0, 4);
       mixer.muffle = { until: context.currentTime + 0.08 + hold, low: OPEN_CUTOFF * (1 - depth) + 300 };
-      planFilter(0.08);
+      try { planFilter(0.08); } catch (_) { /* The filter sweep is decoration. */ }
     },
-    music: { frame: musicFrame, stop() { if (context && context.state !== 'closed') stopMusic(0.4); return snapshot(); } },
+    // The app calls frame every frame, before the board steps, so a music failure must never escape it.
+    music: {
+      frame(state) {
+        try { return musicFrame(state); } catch (_) { giveUp(); return snapshot(); }
+      },
+      stop() { if (context && context.state !== 'closed') stopMusic(0.4); return snapshot(); }
+    },
     play
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

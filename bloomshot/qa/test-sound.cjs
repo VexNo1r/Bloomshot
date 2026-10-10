@@ -707,6 +707,9 @@ async function main() {
     check('sweep', climb('sweep', Array.from({ length: 10 }, (_, i) => ({ i, n: 10, type: 'gold' }))));
     climb('sweep', Array.from({ length: 10 }, (_, i) => ({ i, n: 10 }))).forEach(f => assert([0, 2, 4, 7, 9].includes(pitchClass(f)), 'the sweep is pentatonic'));
     check('pluck', climb('pluck', Array.from({ length: 9 }, (_, i) => ({ i, n: 24 }))));
+    // A big harvest twinkles on the top notes after the ninth orb: never one pitch over and over, never above the run.
+    const plucks = climb('pluck', Array.from({ length: 24 }, (_, i) => ({ i, n: 24 }))), tail = plucks.slice(9);
+    tail.forEach((f, k) => { assert(f >= plucks[6] - 1e-6 && f <= plucks[8] + 1e-6, 'pluck stays on the top notes'); if (k) assert(f !== tail[k - 1], 'no stuck note'); });
     check('tally', climb('tally', [0, 2, 4, 6, 8, 10, 13].map(i => ({ i, n: 14 }))));
     check('sunPetal', climb('sunPetal', Array.from({ length: 8 }, (_, petal) => ({ petal, of: 8 }))));
     check('mult', climb('mult', [2, 3, 4, 5].map(mult => ({ mult }))));

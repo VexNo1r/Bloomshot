@@ -58,6 +58,8 @@ function fixture(options = {}) {
   class Audio extends Base {
     constructor() {
       super(48000); this.state = 'running'; this.currentTime = 0; this.suspendCalls = 0; this.resumeCalls = 0; contexts.push(this);
+      // options.brokenSources: the live context refuses to start loops, the way an odd browser might.
+      if (options.brokenSources) this.createBufferSource = () => { throw new Error('InvalidStateError'); };
     }
     createStereoPanner() { const n = new Node(this, 'pan'); n.pan = new Parameter(0); return n; }
     createWaveShaper() { return new Node(this, 'ceiling'); }
@@ -434,6 +436,28 @@ async function main() {
     assert.equal(h.sources().length, 0); h.sound.muffle(0.75, 0.5); h.sound.music.stop();
     h.sound.play('finale', { x: 210 }); h.sound.play('bloom', { combo: 1, seedStep: 2 });
     assert(h.context.nodes.some(n => n.kind === 'oscillator'), 'cues still play');
+  });
+
+  await test('A music failure never reaches the game: frame() stays safe, the music goes quiet and cues carry on', async () => {
+    const h = fixture({ brokenSources: true }); h.sound.wake(); h.tick(1);
+    const state = { route: 'game', groove: 'meadow', heat: 1, threat: 1 };
+    let snap = null;
+    assert.doesNotThrow(() => { snap = h.frame(state); });
+    await settle(); h.tick(0.1);
+    // The bed is rendered and the live context throws while starting it: the frame still returns a snapshot.
+    for (let i = 0; i < 5; i++) assert.doesNotThrow(() => { snap = h.frame({ ...state, heat: i / 4 }); h.tick(0.1); });
+    assert.equal(snap.playing, false); assert.equal(snap.groove, null); assert.equal(snap.queued, 0);
+    assert.doesNotThrow(() => { h.sound.muffle(0.75, 0.5); h.sound.music.stop(); h.frame({ hidden: true }); h.frame({ hidden: false }); });
+    const before = h.context.nodes.length; h.sound.play('bloom', { combo: 1, seedStep: 2 });
+    assert(h.context.nodes.slice(before).some(n => n.kind === 'oscillator'), 'cues still play');
+    // The same failure inside frame() itself (cached loops attach there when a groove comes back) is caught too.
+    const { h: back } = await playing('meadow'); back.frame({ route: 'levels' }); await settle(); back.tick(0.1);
+    assert(back.frame({ route: 'levels' }).playing, 'a healthy context plays');
+    back.context.createBufferSource = () => { throw new Error('InvalidStateError'); };
+    let again = null;
+    assert.doesNotThrow(() => { again = back.frame({ route: 'game', groove: 'meadow', heat: 1 }); });
+    assert.equal(again.playing, false); assert.equal(back.frame({ route: 'game', groove: 'meadow' }).playing, false, 'and it stays quiet');
+    back.tick(1); assert.equal(back.playing().length, 0, 'no loop is left running');
   });
 
   await test('Blooms climb the chord the music is playing right now', async () => {
