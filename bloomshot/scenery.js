@@ -522,6 +522,353 @@
     if (framed) frame(ctx, '#5aa9c9', '#ffffff');
   }
 
+  // ---------- The three garden worlds: the Meadow garden, the Moon Garden and the Koi Pond ----------
+  // These sit behind the classic puzzles, Meadow Rush, the daily garden and the Moon and Koi worlds. Rush keeps its
+  // side lanes clear, so the framing pulls further out to the edges there.
+  // A small bloom seen from the front: petals shaded by which way they face the light, then the heart.
+  function gardenBloom(ctx, x, y, r, pal, lx, ly, seed, count = 6) {
+    const rr = rng(seed), turn = rr() * TAU;
+    for (let i = 0; i < count; i++) {
+      const a = turn + i / count * TAU, px = x + Math.cos(a) * r * .55, py = y + Math.sin(a) * r * .5;
+      const facing = Math.cos(a) * lx + Math.sin(a) * ly;
+      ctx.beginPath(); ctx.ellipse(px, py, r * .58, r * .4, a, 0, TAU);
+      ctx.fillStyle = facing > .25 ? pal[2] : facing < -.35 ? pal[0] : pal[1]; ctx.fill();
+    }
+    dot(ctx, x, y, r * .32, pal[3]); dot(ctx, x + lx * r * .1, y + ly * r * .1, r * .16, pal[4] || 'rgba(255,255,255,.5)');
+  }
+  // A tall flower spike (foxglove, lupin, lavender): bells along a stem, shrinking toward the tip.
+  function gardenSpike(ctx, x, y, h, pal, lean, seed) {
+    const rr = rng(seed), tiers = Math.round(h / 3.2);
+    stroke(ctx, [[x, y], [x + lean * .4, y - h * .5], [x + lean, y - h]], pal[3], 1.8);
+    for (const [side, dy] of [[-1, 18], [1, 30]]) { ctx.save(); ctx.translate(x + side * 3, y - dy); ctx.rotate(side * .9); ctx.beginPath(); ctx.ellipse(0, -7, 2.6, 8, 0, 0, TAU); ctx.fillStyle = pal[3]; ctx.fill(); ctx.restore(); }
+    // Florets packed in tiers up a tapering cone, lit on the sun side, tiny buds at the tip.
+    for (let i = 0; i < tiers; i++) {
+      const t = i / tiers, cx = x + lean * t * t, cy = y - h * (.3 + t * .7), w = h * .062 * (1 - t * .75) + .8;
+      for (const k of [-1, 1]) {
+        if (rr() < .12) continue;
+        const fx = cx + k * w * .7, fy = cy + w * .2;
+        ctx.beginPath(); ctx.ellipse(fx, fy, w * .62, w * .46, k * .6, 0, TAU);
+        ctx.fillStyle = k > 0 ? pal[2] : pal[0]; ctx.fill();
+        dot(ctx, fx + k * w * .1, fy - w * .12, w * .26, pal[1]);
+      }
+    }
+  }
+  // A big cosmos-like flower for the corners: two rings of broad, notched petals with a lit face and a deep heart.
+  function gardenCosmos(ctx, x, y, r, pal, tilt, seed) {
+    const rr = rng(seed);
+    ctx.save(); ctx.translate(x, y); ctx.rotate(tilt); ctx.scale(1, .82);
+    for (const ring of [0, 1]) {
+      const n = 8, k = ring ? .78 : 1;
+      for (let i = 0; i < n; i++) {
+        const a = (i + ring * .5) / n * TAU + rr() * .1;
+        ctx.save(); ctx.rotate(a);
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.bezierCurveTo(r * .34 * k, -r * .18, r * .2 * k, -r * k, 0, -r * k * .96);
+        ctx.bezierCurveTo(-r * .2 * k, -r * k, -r * .34 * k, -r * .18, 0, 0);
+        ctx.fillStyle = lin(ctx, 0, 0, 0, -r * k, ring ? [[0, pal[0]], [1, pal[2]]] : [[0, pal[0]], [.6, pal[1]], [1, pal[1]]]); ctx.fill();
+        stroke(ctx, [[0, -r * .2 * k], [0, -r * .8 * k]], 'rgba(255,255,255,.18)', 1);
+        ctx.restore();
+      }
+    }
+    dot(ctx, 0, 0, r * .24, pal[3]); dot(ctx, -r * .05, -r * .07, r * .13, pal[4]);
+    ctx.restore();
+  }
+  // A flowering branch reaching in from a corner: dark wood, leaves, and blossom clusters lit from the sun.
+  function gardenBranch(ctx, pts, width, pal, lx, ly, seed) {
+    const r = rng(seed), outline = ribbon2(pts, width, .9);
+    soft(ctx, () => smooth(ctx, outline.map(([x, y]) => [x + 4, y + 7]), true), 'rgba(40,40,60,.25)', 8);
+    shape(ctx, outline, lin(ctx, 0, pts[0][1] - width, 0, pts[0][1] + width, [[0, '#8e6248'], [1, '#4a3024']]), null);
+    rim(ctx, outline, 'rgba(255,226,196,.6)', lx * 2, ly * 2);
+    for (let i = 1; i < pts.length; i++) {
+      const [x, y] = pts[i], twig = [[x, y], [x + (r() - .3) * 26, y + 10 + r() * 16]];
+      stroke(ctx, twig, '#5a3a2a', 1.6);
+      for (let k = 0; k < 4; k++) {
+        const a = r() * TAU, d = 5 + r() * 12, bx = twig[1][0] + Math.cos(a) * d, by = twig[1][1] + Math.sin(a) * d * .7;
+        ctx.save(); ctx.translate(bx, by); ctx.rotate(a); ctx.beginPath(); ctx.ellipse(0, 0, 6, 2.6, 0, 0, TAU); ctx.fillStyle = k % 2 ? pal.leaf : pal.leafLit; ctx.fill(); ctx.restore();
+      }
+      for (let k = 0; k < 5; k++) gardenBloom(ctx, x + (r() - .5) * 30, y + (r() - .3) * 22, 5 + r() * 3, pal.bloom, lx, ly, seed + i * 13 + k, 5);
+    }
+  }
+  // A field of wildflowers in perspective: dabs of color in drifts, small and hazy far off, bigger close by.
+  function flowerField(ctx, y0, y1, colors, greens, seed, skip) {
+    const r = rng(seed);
+    for (let row = 0; row < 56; row++) {
+      const t = row / 55, y = y0 + (y1 - y0) * t * t, size = .6 + t * 3, n = Math.round(46 - t * 22);
+      ctx.globalAlpha = .45 + t * .55;
+      for (let i = 0; i < n; i++) {
+        const x = r() * 440 - 10;
+        if (skip && skip(x, y)) continue;
+        // Flowers grow in drifts: where the drift is strong there are blooms of that patch's color, elsewhere grass.
+        const drift = Math.sin(x * .021 + row * .23 + seed) * .6 + Math.sin(x * .0061 - row * .11 + seed * 2) * .6;
+        const bloom = drift > .35 && r() < .75, patch = Math.floor(x / 70 + row / 18 + seed) % colors.length;
+        const color = bloom ? colors[(patch + colors.length) % colors.length] : greens[Math.floor(r() * greens.length)];
+        const s = size * (bloom ? 1 : 1.3) * (.8 + r() * .5);
+        ctx.beginPath(); ctx.ellipse(x, y + r() * 3, s, s * (bloom ? .72 : .5), 0, 0, TAU); ctx.fillStyle = color; ctx.fill();
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+  function paintGardenMeadow(ctx, rush) {
+    const [lx, ly] = SUNWARD, sun = [338, 84], edge = rush ? 16 : 0;
+    // Morning sky, brightest around the sun.
+    wash(ctx, lin(ctx, 0, 0, 0, 380, [[0, '#4ea5e2'], [.45, '#93d1f0'], [.8, '#dff1ef'], [1, '#fbf1d6']]));
+    bloom(ctx, sun[0], sun[1], 320, '255,228,170', .5);
+    bloom(ctx, sun[0], sun[1], 110, '255,248,222', .95);
+    dot(ctx, sun[0], sun[1], 21, '#fffcf0'); bloom(ctx, sun[0], sun[1], 42, '255,255,240', .9);
+    for (const [x, y, w, a] of [[150, 70, 150, .4], [90, 116, 90, .3], [230, 40, 80, .25]]) soft(ctx, () => ctx.ellipse(x, y, w / 2, 4.5, .04, 0, TAU), `rgba(255,255,255,${a})`, 7);
+    const puff = { halo: 'rgba(255,255,255,.3)', body: '#f8f6f2', shade: '#d9dbea', lit: '#fffcf0', belly: 'rgba(218,220,236,.75)' };
+    cumulus(ctx, 150, 314, 380, 30, 31, puff, 9); cumulus(ctx, 360, 312, 200, 40, 32, puff, 6);
+    air(ctx, 250, 324, '250,244,224', 0, .82);
+    cumulus(ctx, 120, 176, 116, 42, 33, puff);
+    // Two far ridges, blue-green with distance, with copses along them.
+    const far = [[-20, 318], [50, 304], [120, 312], [190, 300], [260, 310], [330, 296], [400, 306], [440, 302]];
+    band(ctx, far, 560, lin(ctx, 0, 296, 0, 360, [[0, '#9dbfdc'], [1, '#b2d2d8']]), null);
+    rim(ctx, far.concat([[440, 380], [-20, 380]]), 'rgba(226,238,246,.75)', 2.5, -1.6);
+    air(ctx, 296, 350, '246,242,222', .05, .45);
+    const near = [[-20, 342], [60, 332], [140, 338], [220, 330], [300, 336], [380, 326], [440, 332]];
+    band(ctx, near, 560, lin(ctx, 0, 326, 0, 400, [[0, '#a8d39a'], [1, '#86bb7e']]), null);
+    rim(ctx, near.concat([[440, 400], [-20, 400]]), 'rgba(232,248,196,.7)', 2, -1.5);
+    const farPal = { dark: '#73a487', mid: '#88b996', lit: '#b0d8a6', trunk: '#7f9484' };
+    for (const [x, w, h, s] of [[40, 54, 18, 41], [134, 30, 14, 42], [262, 60, 18, 43], [380, 44, 16, 44]]) copse(ctx, x, 336 + Math.sin(x * .03) * 2, w, h, farPal, s);
+    air(ctx, 326, 380, '246,242,222', .05, .3);
+    // The wildflower meadow, rolling toward us in drifts of color.
+    const meadowTop = ridge(366, 3, 37, 60);
+    band(ctx, meadowTop, 560, lin(ctx, 0, 362, 0, 560, [[0, '#9ccf72'], [.4, '#6fb35a'], [1, '#3e8a44']]), null);
+    clipTo(ctx, meadowTop.concat([[440, 600], [-20, 600]]), () => {
+      for (const [x, y, w, h] of [[110, 400, 120, 16], [330, 430, 110, 18]]) soft(ctx, () => ctx.ellipse(x, y, w, h, 0, 0, TAU), 'rgba(40,96,70,.18)', 14);
+      flowerField(ctx, 370, 476, ['#fff6ea', '#ffd45c', '#ff9fbd', '#b9a0f0', '#f6c140', '#ff8f8f'], ['#7cbf5e', '#5ea852', '#9ad06c', '#4f9a4c'], 5, (x, y) => Math.abs(x - 210) < 14 + (y - 370) * .3);
+    });
+    // A worn path through the flowers to where the launcher stands.
+    const lane = [[214, 366], [208, 390], [218, 420], [206, 452], [210, 490], [210, 560]], laneL = [], laneR = [];
+    lane.forEach(([x, y], i) => { const w = 1.5 + i * 5; laneL.push([x - w, y]); laneR.push([x + w, y]); });
+    const lanePts = laneL.concat(laneR.reverse());
+    shape(ctx, lanePts, lin(ctx, 0, 366, 0, 560, [[0, '#e2d3a2'], [1, '#bb9a66']]), null);
+    rim(ctx, lanePts, 'rgba(140,110,64,.45)', -2, 2);
+    clipTo(ctx, lanePts, () => { const pr = rng(54); for (let i = 0; i < 40; i++) dot(ctx, 190 + pr() * 40, 380 + pr() * 180, .6 + pr(), 'rgba(120,90,50,.35)'); });
+    sward(ctx, -10, 430, 476, 16, ['#2f7a3d', '#4c9c4b', '#7cc35c', '#b4e07c'], 51, 2.6, x => Math.abs(x - 210) < 20);
+    // Foreground: tall spikes and big cosmos flowers in the bottom corners, out of the way of play.
+    const coral = ['#c63a5e', '#ef6585', '#ffa1b8', '#ffd17a', '#fff2d2'], lilac = ['#6a4fc4', '#9a7ef2', '#c8b4ff', '#ffe08a', '#f4eeff'];
+    const white = ['#cfc8bd', '#f3efe6', '#ffffff', '#f2b83a', '#fffdf6'];
+    for (const [x, h, pal, lean, sd] of [[22, 96, lilac, 4, 1], [40, 120, coral, -2, 2], [62, 84, white, 3, 3], [356, 90, white, -3, 4], [378, 124, coral, 2, 5], [398, 98, lilac, -3, 6]]) {
+      gardenSpike(ctx, x + (x < 210 ? -edge : edge), 492, h, [pal[0], pal[1], pal[2], '#3f7a3a'], lean, sd);
+    }
+    const leaf = { dark: '#1f5a36', mid: '#3a8644', lit: '#73b856', glint: '#a8d877' };
+    for (const [x, y, r0, s] of [[-6, 520, 34, 1], [44, 548, 30, 2], [96, 572, 26, 3], [428, 516, 36, 4], [376, 546, 30, 5], [322, 574, 24, 6]]) {
+      const cx = x + (x < 210 ? -edge : edge); clump(ctx, cx, y, r0, leaf, lx, ly, 800 + s);
+      const br = rng(810 + s), pal = [coral, lilac, white][s % 3];
+      for (let i = 0; i < 5; i++) gardenBloom(ctx, cx + (br() - .5) * r0 * 1.4, y - r0 * .3 + (br() - .5) * r0 * .8, 4.5 + br() * 2.5, pal, lx, ly, 820 + s * 9 + i);
+    }
+    sward(ctx, -10, 120, 506, 30, ['#24663a', '#3d8a45', '#62ad55', '#9bd270'], 52, 3);
+    sward(ctx, 300, 430, 506, 30, ['#24663a', '#3d8a45', '#62ad55', '#9bd270'], 53, 3);
+    gardenCosmos(ctx, 26 - edge, 540, 30, ['#c63a72', '#f27aa6', '#ffd1e2', '#f2b33a', '#fff3c4'], .3, 61);
+    gardenCosmos(ctx, 84 - edge, 566, 22, ['#e09a16', '#fbcb3c', '#fff0a8', '#b8561c', '#ffe9b0'], -.2, 62);
+    gardenCosmos(ctx, 392 + edge, 548, 32, ['#6a4fc4', '#a687f6', '#e2d6ff', '#f2b33a', '#fff3c4'], -.4, 63);
+    gardenCosmos(ctx, 340 + edge, 572, 20, ['#c63a72', '#f27aa6', '#ffd1e2', '#f2b33a', '#fff3c4'], .2, 64);
+    // A blossoming branch reaches in over the top-left corner.
+    gardenBranch(ctx, [[-30, 96 - edge], [10, 76 - edge], [48, 64 - edge], [86, 48 - edge], [114, 30 - edge]], 16,
+      { leaf: '#4f8f4a', leafLit: '#8ac463', bloom: ['#e07f9c', '#f7b2c6', '#ffe4ec', '#f2b33a', '#fffaf0'] }, lx, ly, 71);
+    for (const [a, len, w, al] of [[2.32, 560, 30, .1], [2.16, 520, 22, .08], [2.5, 480, 18, .07]]) shaft(ctx, sun[0], sun[1], a, len, 10, w * 2.4, '255,244,206', al);
+    grade(ctx, 'rgba(255,228,176,.5)', 'rgba(80,100,150,.45)', 'rgba(60,70,90,.32)');
+    grain(ctx, .06);
+    frame(ctx, '#4fb3a6', '#ffffff');
+  }
+
+  // The Moon Garden: a walled garden at night under a full moon. Cool moonlight from the upper right rims the
+  // topiary and the glasshouse; a lantern and the glasshouse windows are the only warm light.
+  function moonDisc(ctx, x, y, r) {
+    bloom(ctx, x, y, r * 7, '170,170,255', .35); bloom(ctx, x, y, r * 2.6, '235,235,255', .6);
+    dot(ctx, x, y, r, '#f4f1ff');
+    clipTo(ctx, blob(x, y, r, r, 3, 0, 16), () => {
+      for (const [cx, cy, cr, a] of [[-.3, -.2, .28, .16], [.28, .22, .22, .14], [.1, -.45, .14, .12], [-.38, .38, .16, .1], [.45, -.12, .1, .1]]) soft(ctx, () => ctx.arc(x + cx * r, y + cy * r, cr * r, 0, TAU), `rgba(150,150,205,${a})`, 2);
+      soft(ctx, () => ctx.arc(x - r * .5, y + r * .45, r * 1.05, 0, TAU), 'rgba(120,120,190,.22)', 8);
+    });
+  }
+  function moonTopiary(ctx, x, base, w, h, kind, seed) {
+    const pal = { dark: '#161a45', mid: '#232a62', lit: '#3d4a92', glint: '#7f8fd8' };
+    soft(ctx, () => ctx.ellipse(x - w * .2, base, w * .7, 4, 0, 0, TAU), 'rgba(8,8,30,.6)', 5);
+    ctx.fillStyle = '#1a1438'; ctx.fillRect(x - 2, base - h * .25, 4, h * .25);
+    if (kind === 'cone') {
+      const pts = [[x, base - h], [x + w * .5, base - h * .22], [x + w * .3, base - h * .12], [x - w * .3, base - h * .12], [x - w * .5, base - h * .22]];
+      shape(ctx, pts, lin(ctx, x + w, 0, x - w, 0, [[0, pal.lit], [.5, pal.mid], [1, pal.dark]]), null);
+      rim(ctx, pts, 'rgba(170,190,255,.55)', 2, -1.5);
+    } else {
+      for (const [k, dy] of kind === 'stack' ? [[.42, .3], [.32, .66]] : [[.5, .45]]) clump(ctx, x, base - h * dy, w * k, pal, SUNWARD[0], SUNWARD[1], seed + k * 10);
+    }
+  }
+  function moonflower(ctx, x, y, r, seed) {
+    bloom(ctx, x, y, r * 4, '200,220,255', .3);
+    gardenBloom(ctx, x, y, r, ['#b9c4ee', '#e4e9ff', '#ffffff', '#f6e7a8', '#ffffff'], SUNWARD[0], SUNWARD[1], seed, 5);
+  }
+  function paintGardenMoon(ctx, rush) {
+    const moon = [344, 92], edge = rush ? 14 : 0;
+    wash(ctx, lin(ctx, 0, 0, 0, 430, [[0, '#0f1440'], [.45, '#1f2566'], [.8, '#3a3486'], [1, '#5b4a9c']]));
+    bloom(ctx, 210, 450, 330, '200,130,230', .25);
+    // A faint band of the galaxy, then stars: fine dust in the band, a few bright ones, the middle kept quiet.
+    ctx.save(); ctx.translate(210, 210); ctx.rotate(-.55);
+    soft(ctx, () => ctx.ellipse(0, 0, 340, 46, 0, 0, TAU), 'rgba(170,150,255,.12)', 30);
+    soft(ctx, () => ctx.ellipse(-30, 6, 220, 20, 0, 0, TAU), 'rgba(220,200,255,.08)', 16);
+    ctx.restore();
+    const sr = rng(5101);
+    for (let i = 0; i < 260; i++) {
+      const x = sr() * 420, y = sr() * 400, band = Math.abs((y - 210) + (x - 210) * .62) < 50, inMiddle = x > 90 && x < 330 && y > 120 && y < 360;
+      if (!band && sr() < .5) continue;
+      if (inMiddle && sr() < .6) continue;
+      dot(ctx, x, y, .35 + sr() * (band ? .6 : .9), `rgba(236,232,255,${.25 + sr() * .55})`);
+    }
+    for (const [x, y, s] of [[40, 60, 3], [118, 34, 2.4], [262, 50, 2.2], [396, 190, 2.6], [30, 236, 2.2], [210, 22, 2]]) { bloom(ctx, x, y, s * 5, '220,220,255', .45); sparkle(ctx, x, y, s, '#f4f0ff'); }
+    moonDisc(ctx, moon[0], moon[1], 26);
+    for (const [x, y, w] of [[300, 128, 150], [372, 150, 90]]) {
+      soft(ctx, () => ctx.ellipse(x, y, w / 2, 6, -.05, 0, TAU), 'rgba(150,150,220,.35)', 6);
+      soft(ctx, () => ctx.ellipse(x + 6, y - 3, w * .4, 2.5, -.05, 0, TAU), 'rgba(230,230,255,.35)', 3);
+    }
+    // Far hills, then the garden wall with the glasshouse glowing behind it.
+    const far = [[-20, 392], [60, 378], [140, 386], [220, 370], [300, 382], [380, 366], [440, 374]];
+    band(ctx, far, 560, lin(ctx, 0, 366, 0, 430, [[0, '#3b3d86'], [1, '#2c2d6c']]), null);
+    rim(ctx, far.concat([[440, 440], [-20, 440]]), 'rgba(180,190,255,.45)', 2, -1.5);
+    air(ctx, 366, 420, '90,76,160', .05, .4);
+    // The glasshouse: a domed frame of panes, lamplit from inside, plants dark against the glow.
+    const gx = 84, gy = 410, gw = 40, gh = 38;
+    ctx.save(); ctx.beginPath(); ctx.moveTo(gx - gw, gy); ctx.lineTo(gx - gw, gy - gh * .45); ctx.quadraticCurveTo(gx - gw, gy - gh, gx, gy - gh); ctx.quadraticCurveTo(gx + gw, gy - gh, gx + gw, gy - gh * .45); ctx.lineTo(gx + gw, gy); ctx.closePath();
+    ctx.fillStyle = rad(ctx, gx, gy - 8, gw * 1.2, [[0, '#ffd690'], [.6, '#e89a5a'], [1, '#7a4a6a']]); ctx.fill(); ctx.clip();
+    for (const [x, y, r0] of [[gx - 22, gy - 6, 10], [gx - 8, gy - 2, 8], [gx + 16, gy - 8, 12], [gx + 30, gy - 2, 7]]) dot(ctx, x, y, r0, 'rgba(70,40,60,.7)');
+    ctx.strokeStyle = 'rgba(40,34,80,.85)'; ctx.lineWidth = 1.4;
+    for (let k = -gw; k <= gw; k += 10) { ctx.beginPath(); ctx.moveTo(gx + k, gy); ctx.quadraticCurveTo(gx + k * 1.02, gy - gh * .8, gx + k * .25, gy - gh); ctx.stroke(); }
+    for (const t of [.25, .55, .8]) { ctx.beginPath(); ctx.moveTo(gx - gw, gy - gh * t * .6); ctx.quadraticCurveTo(gx, gy - gh * t * .6 - 6 - t * 18, gx + gw, gy - gh * t * .6); ctx.stroke(); }
+    ctx.restore();
+    ctx.fillStyle = '#25285e'; ctx.fillRect(gx - gw - 2, gy - 2, gw * 2 + 4, 4);
+    bloom(ctx, gx, gy - 16, 80, '255,190,110', .32);
+    const wall = ridge(418, 1.5, 61, 40);
+    soft(ctx, () => { smooth(ctx, wall.map(([x, y]) => [x, y - 3]), false); ctx.lineTo(440, 600); ctx.lineTo(-20, 600); ctx.closePath(); }, 'rgba(8,8,30,.4)', 8);
+    band(ctx, wall, 560, lin(ctx, 0, 414, 0, 470, [[0, '#2b2c66'], [1, '#1a1a46']]), null);
+    rim(ctx, wall.concat([[440, 600], [-20, 600]]), 'rgba(170,180,255,.4)', 0, -2);
+    for (const [x, w, h, kind, s] of [[30, 30, 70, 'cone', 1], [150, 30, 44, 'ball', 2], [276, 34, 52, 'stack', 3], [392, 32, 76, 'cone', 4], [344, 24, 38, 'ball', 5]]) moonTopiary(ctx, x + (x < 210 ? -edge : edge), 424, w, h, kind, s);
+    // The lawn and a pale stone path to the launcher, silvered by the moon.
+    const lawn = ridge(440, 2, 62, 50);
+    band(ctx, lawn, 560, lin(ctx, 0, 436, 0, 560, [[0, '#2f3f7a'], [1, '#161a40']]), null);
+    rim(ctx, lawn.concat([[440, 600], [-20, 600]]), 'rgba(150,170,255,.35)', 0, -2);
+    for (const [x, y, w, h, s] of [[212, 452, 12, 4, 1], [206, 468, 16, 5, 2], [216, 486, 20, 6, 3], [208, 512, 30, 10, 4], [214, 544, 28, 9, 5]]) {
+      soft(ctx, () => ctx.ellipse(x - 2, y + h * .5, w * 1.05, h * .6, 0, 0, TAU), 'rgba(6,6,24,.5)', 3);
+      const pts = blob(x, y, w, h, s, .1, 10);
+      lit(ctx, pts, '#a9aede', '#555a96'); rim(ctx, pts, 'rgba(230,236,255,.7)', 1.4, -1.6);
+    }
+    // Night flowers along the beds, glowing softly, and a lantern on a post for one warm note.
+    const leaf = { dark: '#121640', mid: '#1f2a5e', lit: '#35478a', glint: '#5d72c0' };
+    for (const [x, y, r0, s] of [[-4, 514, 34, 1], [46, 540, 28, 2], [104, 566, 24, 3], [424, 510, 36, 4], [372, 538, 30, 5], [318, 568, 24, 6]]) clump(ctx, x + (x < 210 ? -edge : edge), y, r0, leaf, SUNWARD[0], SUNWARD[1], 900 + s);
+    const fr = rng(66);
+    for (let i = 0; i < 14; i++) {
+      const left = i % 2 === 0, x = left ? 6 + fr() * 100 - edge : 314 + fr() * 100 + edge, y = 494 + fr() * 50;
+      moonflower(ctx, x, y, 4 + fr() * 3, 70 + i);
+    }
+    for (const [x, h, lean, s] of [[58, 80, 3, 1], [364, 86, -3, 2]]) gardenSpike(ctx, x + (x < 210 ? -edge : edge), 500, h, ['#5a63c8', '#8d9cf0', '#c4d0ff', '#2a3a6a'], lean, 300 + s);
+    const lp = [96 - edge, 446];
+    ctx.fillStyle = lin(ctx, lp[0] - 2, 0, lp[0] + 2, 0, [[0, '#14122e'], [1, '#3a3768']]); ctx.fillRect(lp[0] - 2, lp[1], 4, 60);
+    bloom(ctx, lp[0], lp[1] - 4, 90, '255,190,110', .5);
+    shape(ctx, [[lp[0] - 6, lp[1] - 12], [lp[0] + 6, lp[1] - 12], [lp[0] + 5, lp[1]], [lp[0] - 5, lp[1]]], '#ffd58a', null);
+    ctx.fillStyle = '#2a2448'; ctx.fillRect(lp[0] - 8, lp[1] - 15, 16, 3.5); ctx.fillRect(lp[0] - 7, lp[1], 14, 2.5);
+    bloom(ctx, lp[0], lp[1] - 6, 22, '255,236,180', .9);
+    // Fireflies low in the garden.
+    for (const [x, y] of [[40, 470], [130, 432], [300, 458], [384, 428], [250, 520], [160, 506]]) { bloom(ctx, x, y, 12, '220,255,150', .5); dot(ctx, x, y, 1.2, '#f6ffd0'); }
+    grade(ctx, 'rgba(140,130,255,.35)', 'rgba(30,20,80,.5)', 'rgba(10,8,40,.45)');
+    grain(ctx, .07);
+    frame(ctx, '#8f7fe8', '#e9e2ff');
+  }
+
+  // The Koi Pond, seen from above: clear green-blue water over a pebbled floor, sunlight netting the shallows, lily
+  // pads drifting at the edges and a little wooden jetty at the bottom where the launcher stands.
+  function koiPad(ctx, x, y, r, rot, seed, depth = 1) {
+    soft(ctx, () => ctx.arc(x + 7 * depth, y + 9 * depth, r, 0, TAU), 'rgba(10,60,60,.32)', 6);
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
+    const notch = .32;
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, r, notch, TAU - notch * .3); ctx.closePath();
+    ctx.fillStyle = rad(ctx, -r * .3, -r * .35, r * 1.2, [[0, '#9fdc7a'], [.6, '#4fa85a'], [1, '#2c7d48']]); ctx.fill();
+    ctx.strokeStyle = 'rgba(230,255,200,.35)'; ctx.lineWidth = 1;
+    for (let k = 0; k < 7; k++) { const a = notch + (k + .5) / 7 * (TAU - notch * 1.3); ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(Math.cos(a - .1) * r * .5, Math.sin(a - .1) * r * .5, Math.cos(a) * r * .88, Math.sin(a) * r * .88); ctx.stroke(); }
+    ctx.beginPath(); ctx.arc(0, 0, r - 1, Math.PI * .9, Math.PI * 1.5); ctx.strokeStyle = 'rgba(240,255,220,.6)'; ctx.lineWidth = 1.4; ctx.stroke();
+    ctx.restore();
+  }
+  function koiLily(ctx, x, y, r, pal, seed) {
+    soft(ctx, () => ctx.arc(x + 5, y + 7, r * .9, 0, TAU), 'rgba(10,60,60,.3)', 4);
+    for (const [k, n, turn] of [[1, 8, 0], [.7, 6, .4], [.42, 5, .9]]) {
+      for (let i = 0; i < n; i++) {
+        const a = turn + i / n * TAU;
+        ctx.save(); ctx.translate(x, y); ctx.rotate(a);
+        ctx.beginPath(); ctx.ellipse(0, -r * k * .55, r * k * .24, r * k * .52, 0, 0, TAU);
+        ctx.fillStyle = lin(ctx, 0, 0, 0, -r * k, [[0, pal[0]], [1, k < .5 ? pal[2] : pal[1]]]); ctx.fill(); ctx.restore();
+      }
+    }
+    dot(ctx, x, y, r * .16, '#f5c64a');
+  }
+  function paintGardenKoi(ctx, rush) {
+    const edge = rush ? 14 : 0;
+    // Deep water in the middle, shallower and brighter toward the banks, with the sky's glare at the top.
+    wash(ctx, rad(ctx, 210, 250, 380, [[0, '#2aa2a1'], [.6, '#3fb4a8'], [1, '#6cc9b0']]));
+    wash(ctx, lin(ctx, 0, 0, 0, 260, [[0, 'rgba(230,252,255,.35)'], [1, 'rgba(230,252,255,0)']]));
+    // The pond floor: pebbles and sand seen through the water, softened by depth.
+    const fr = rng(21);
+    for (let i = 0; i < 60; i++) {
+      const x = fr() * 420, y = fr() * 470, r0 = 4 + fr() * 12, mid = Math.abs(x - 210) < 140 && y < 420;
+      soft(ctx, () => ctx.ellipse(x, y, r0, r0 * .7, fr() * 3, 0, TAU), mid ? `rgba(20,90,90,${.08 + fr() * .08})` : `rgba(200,240,210,${.08 + fr() * .1})`, 6);
+    }
+    for (const [x, y, w, h] of [[60, 120, 70, 120], [360, 300, 70, 140]]) soft(ctx, () => ctx.ellipse(x, y, w, h, .3, 0, TAU), 'rgba(240,236,190,.12)', 24);
+    // Sunlight netting through the ripples: loose rings around a jittered grid, brightest in the shallows.
+    ctx.save(); ctx.globalCompositeOperation = 'screen';
+    const cr = rng(31);
+    for (let row = 0; row < 18; row++) {
+      for (let col = 0; col < 12; col++) {
+        const cx = col * 38 + (row % 2) * 19 + (cr() - .5) * 12 - 10, cy = row * 32 + (cr() - .5) * 10 - 10;
+        const pts = []; for (let k = 0; k < 6; k++) { const a = k / 6 * TAU + cr() * .5; pts.push([cx + Math.cos(a) * (15 + cr() * 6), cy + Math.sin(a) * (13 + cr() * 6)]); }
+        const shallow = Math.min(1, Math.hypot(cx - 210, (cy - 250) * .8) / 260);
+        if (cr() < .25) continue;
+        stroke(ctx, pts, `rgba(210,255,240,${.025 + shallow * .07})`, .8 + cr() * 1.2, true);
+      }
+    }
+    ctx.restore();
+    for (const [a, len, w, al] of [[1.1, 620, 40, .1], [1.2, 600, 26, .08]]) shaft(ctx, 40, -20, a, len, 20, w * 2, '240,255,230', al);
+    // Lily pads and two water lilies at the edges, ripples around them.
+    for (const [x, y, r0, rot, s] of [[22, 150, 26, .4, 1], [58, 196, 16, 2.2, 2], [400, 110, 28, 1.6, 3], [370, 152, 15, 4.1, 4], [24, 380, 22, 3.2, 5], [398, 344, 24, .9, 6], [52, 432, 14, 5.2, 7], [376, 410, 16, 2.6, 8], [300, 24, 18, .3, 9], [120, 20, 14, 2.8, 10]]) {
+      koiPad(ctx, x + (x < 210 ? -edge : edge), y, r0, rot, s);
+    }
+    koiLily(ctx, 26 - edge, 150, 12, ['#f7c0d0', '#ffe7ef', '#ffffff'], 1);
+    koiLily(ctx, 398 + edge, 344, 11, ['#f4f0e4', '#ffffff', '#fffbe8'], 2);
+    ctx.save(); ctx.globalAlpha = .3; ctx.strokeStyle = '#eafffa'; ctx.lineWidth = 1.1;
+    for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.ellipse(70, 240, 18 + i * 13, 10 + i * 7, .2, 0, TAU); ctx.stroke(); ctx.beginPath(); ctx.ellipse(350, 210, 16 + i * 12, 9 + i * 6.5, -.2, 0, TAU); ctx.stroke(); }
+    ctx.restore();
+    // The bank along the bottom: mossy stones either side of a wooden jetty that runs out to the launcher.
+    const bank = ridge(478, 6, 71, 34);
+    soft(ctx, () => { smooth(ctx, bank.map(([x, y]) => [x, y - 6]), false); ctx.lineTo(440, 600); ctx.lineTo(-20, 600); ctx.closePath(); }, 'rgba(10,60,60,.4)', 10);
+    band(ctx, bank, 560, lin(ctx, 0, 470, 0, 560, [[0, '#7aa86a'], [1, '#3f6e44']]), null);
+    const stones = rng(72);
+    for (let i = 0; i < 16; i++) {
+      const x = i < 8 ? 8 + i * 22 + stones() * 8 : 268 + (i - 8) * 22 + stones() * 8, y = 482 + stones() * 16, w = 12 + stones() * 9, h = 9 + stones() * 6;
+      if (Math.abs(x - 210) < 46) continue;
+      soft(ctx, () => ctx.ellipse(x + 4, y + 6, w, h * .8, 0, 0, TAU), 'rgba(10,40,30,.45)', 4);
+      const pts = blob(x, y, w, h, 700 + i, .14, 9);
+      lit(ctx, pts, '#d9dccb', '#7f8a7a', 'other'); rim(ctx, pts, 'rgba(255,255,240,.6)', -1.5, -1.5);
+      clipTo(ctx, pts, () => soft(ctx, () => ctx.ellipse(x - w * .2, y - h * .5, w * .6, h * .4, 0, 0, TAU), 'rgba(110,170,80,.55)', 3));
+    }
+    const plank = (x, y, w, h, tone) => { ctx.fillStyle = tone; ctx.fillRect(x, y, w, h); ctx.fillStyle = 'rgba(255,240,210,.35)'; ctx.fillRect(x, y, w, 1.4); ctx.fillStyle = 'rgba(60,34,18,.35)'; ctx.fillRect(x, y + h - 1.2, w, 1.2); };
+    soft(ctx, () => ctx.rect(176 + 6, 448 + 8, 68, 120), 'rgba(10,50,50,.45)', 6);
+    for (let k = 0; k < 12; k++) plank(176, 448 + k * 10, 68, 9.4, ['#b88a5c', '#a87a4e', '#c39466'][k % 3]);
+    for (const [x, y] of [[180, 452], [236, 452], [180, 512], [236, 512]]) { dot(ctx, x, y, 3.2, '#5e4028'); dot(ctx, x - .6, y - .6, 1.6, '#8c6a48'); }
+    // A maple branch hangs over the top-right corner, its shadow falling on the water.
+    const leaves = [[396, 20, 22], [420, 52, 20], [372, -4, 18], [350, 18, 13], [410, 86, 14]];
+    for (const [x, y, r0] of leaves) soft(ctx, () => ctx.arc(x - 18 + edge, y + 26, r0, 0, TAU), 'rgba(10,60,60,.25)', 10);
+    // Maple leaves: five pointed lobes, a lit half and a dark half either side of the midrib.
+    const mr = rng(95);
+    for (let i = 0; i < 16; i++) {
+      const [bx, by, br] = leaves[i % leaves.length], a = mr() * TAU, d = mr() * br * .8, x = bx + edge + Math.cos(a) * d, y = by + Math.sin(a) * d, s = 9 + mr() * 6;
+      ctx.save(); ctx.translate(x, y); ctx.rotate(mr() * TAU);
+      const lobes = []; for (let k = 0; k < 10; k++) { const ang = k / 10 * TAU - Math.PI / 2, rr = k % 2 ? s * .45 : s * (k === 0 ? 1 : .85); lobes.push([Math.cos(ang) * rr, Math.sin(ang) * rr]); }
+      ctx.beginPath(); lobes.forEach(([px, py], k) => k ? ctx.lineTo(px, py) : ctx.moveTo(px, py)); ctx.closePath();
+      ctx.fillStyle = ['#b8401f', '#d9602a', '#e9883a', '#a8321c'][i % 4]; ctx.fill();
+      ctx.save(); ctx.clip(); ctx.fillStyle = 'rgba(255,220,140,.3)'; ctx.fillRect(0, -s, s, s * 2); ctx.restore();
+      ctx.strokeStyle = 'rgba(90,24,10,.5)'; ctx.lineWidth = .8; for (let k = 0; k < 5; k++) { const ang = k / 5 * TAU - Math.PI / 2; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(ang) * s * .7, Math.sin(ang) * s * .7); ctx.stroke(); }
+      ctx.restore();
+    }
+    grade(ctx, 'rgba(220,255,240,.35)', 'rgba(20,70,90,.45)', 'rgba(10,50,60,.35)');
+    grain(ctx, .06);
+    frame(ctx, '#3badc6', '#e6fffb');
+  }
+
   // ---------- Level 2: Root Tunnels ----------
   // Just under the meadow. Daylight pours down through the burrow we came in by, so the soil is warm and bright at
   // the top and sinks to deep umber below; the old tree's roots come down both sides, lit on the side facing the hole.
@@ -2207,5 +2554,9 @@
   function has(theme) { return Object.prototype.hasOwnProperty.call(SCENES, theme); }
   // The board keeps its painted frame; a level card shows the same scene without it.
   function paint(ctx, theme, options) { if (has(theme)) SCENES[theme].paint(ctx, !(options && options.frame === false)); }
-  root.BloomScenery = Object.freeze({ has, paint, drawRock, dark: theme => has(theme) && SCENES[theme].dark, ink: theme => has(theme) ? SCENES[theme].ink : null, themes: Object.keys(SCENES) });
+  // The garden worlds share the kit but not the level behaviours (burrows, cave water), so they have their own entry.
+  const GARDENS = { meadow: paintGardenMeadow, moon: paintGardenMoon, koi: paintGardenKoi };
+  const garden = theme => Object.prototype.hasOwnProperty.call(GARDENS, theme);
+  function paintGarden(ctx, theme, rush) { if (garden(theme)) GARDENS[theme](ctx, Boolean(rush)); }
+  root.BloomScenery = Object.freeze({ has, paint, garden, paintGarden, drawRock, dark: theme => has(theme) && SCENES[theme].dark, ink: theme => has(theme) ? SCENES[theme].ink : null, themes: Object.keys(SCENES) });
 })(typeof window !== 'undefined' ? window : globalThis);
