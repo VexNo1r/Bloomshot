@@ -31,11 +31,12 @@ function legacySave() {
 const FUTURE = { id: 'orchard', name: 'Night Orchard', tagline: 'Soon.', description: 'A future garden.', price: null, theme: 'moon', available: false, mechanic: 'Planned.' };
 const BUNDLE = 'bloomshot.bundle.launch1';
 // Mirrors store.js: a product grants one or more entitlements; owned means all of them, partial means some.
-function fakeStore({ owned = [], live = false, available = false, price = '$4.99', stylePrice = '$1.99', bundlePrice = '$5.99', amounts = [4.99, 1.99, 5.99], currency = 'USD', mode = 'native' } = {}) {
+function fakeStore({ owned = [], live = false, available = false, price = '$4.99', stylePrice = '$1.99', bundlePrice = '$5.99', levelsPrice = '$2.99', amounts = [4.99, 1.99, 5.99], currency = 'USD', mode = 'native' } = {}) {
   const have = new Set(owned), listeners = [], purchases = [];
   const catalog = [{ id: Koi.product, entitlements: [Koi.entitlement], kind: 'world', price, amount: amounts[0], currency },
     { id: Keepsakes.product, entitlements: [Keepsakes.entitlement], kind: 'style', price: stylePrice, amount: amounts[1], currency },
-    { id: BUNDLE, entitlements: [Koi.entitlement, Keepsakes.entitlement], kind: 'bundle', price: bundlePrice, amount: amounts[2], currency }];
+    { id: BUNDLE, entitlements: [Koi.entitlement, Keepsakes.entitlement], kind: 'bundle', price: bundlePrice, amount: amounts[2], currency },
+    { id: Depths.product, entitlements: [Depths.entitlement], kind: 'levels', price: levelsPrice, amount: 2.99, currency }];
   const held = item => item.entitlements.filter(e => have.has(e)).length;
   return { mode, busy: false, purchases, isLive: () => live, owns: id => have.has(id), revoke: id => have.delete(id),
     products: () => catalog.map(item => ({ ...item, entitlement: item.entitlements[0], available, owned: held(item) === item.entitlements.length, partial: held(item) > 0 && held(item) < item.entitlements.length })),
@@ -63,7 +64,7 @@ function boot(raw, { storageFails = false, search = '', otherSave, store, native
   function element(id = '') {
     const handlers = new Map(), childrenBySelector = new Map(), classes = new Set();
     const node = { id, dataset: {}, children: [], style: { setProperty: noop }, attributes: {}, nextElementSibling: { textContent: '' },
-      hidden: false, disabled: false, open: false, checked: false, textContent: '', width: 0, height: 0,
+      hidden: false, disabled: false, open: false, checked: false, textContent: '', width: 0, height: 0, scrolled: 0, scrollIntoView: () => { node.scrolled++; },
       classList: { add: (...names) => names.forEach(n => classes.add(n)), remove: (...names) => names.forEach(n => classes.delete(n)),
         toggle: (name, force) => { const active = force === undefined ? !classes.has(name) : force; active ? classes.add(name) : classes.delete(name); return active; }, contains: name => classes.has(name) },
       setAttribute: (name, value) => { node.attributes[name] = value; }, getAttribute: name => node.attributes[name],
@@ -572,11 +573,16 @@ test('The game opens on the level map: level 1 is open, the rest wait their turn
   assert.equal(app.context.bloomshotState.route, 'levels'); assert.equal(app.$('levels-view').hidden, false); assert.equal(app.$('game-view').hidden, true);
   assert(app.$('rush-btn').classList.contains('active'), 'Play is the active tab');
   const map = app.$('depth-map').innerHTML;
-  for (const id of [1, 2, 3, 4]) assert.match(map, new RegExp(`data-depth="${id}"`));
+  for (let id = 1; id <= 10; id++) assert.match(map, new RegExp(`data-depth="${id}"`));
   assert.match(map, /class="depth-card next" type="button" data-depth="1"/); assert.match(map, /class="depth-card locked" type="button" data-depth="2"/);
-  assert.match(map, /Sunny Meadow/); assert.match(map, /Crystal Caves/); assert.match(map, /Clear level 3 to open/); assert.match(map, /6 more levels are on the way/);
+  assert.match(map, /Sunny Meadow/); assert.match(map, /Crystal Caves/); assert.match(map, /Clear level 3 to open/);
+  assert.match(map, /class="depth-card locked paid" type="button" data-depth="5"/); assert.match(map, /Starseed Core/);
+  assert(map.indexOf('id="depth-unlock"') > map.indexOf('data-depth="4"') && map.indexOf('id="depth-unlock"') < map.indexOf('data-depth="5"'), 'the unlock sits between level 4 and level 5');
+  assert.match(map, /Levels 5 to 10 unlock in the Bloomshot app/); assert(!map.includes('data-buy'), 'the web build sells nothing');
   const started = app.games.length;
   app.click('depth-map', { depth: '2' }); assert.equal(app.games.length, started); assert.equal(app.$('toast').textContent, 'Clear level 1 to open Root Tunnels.');
+  app.click('depth-map', { depth: '5' }); assert.equal(app.games.length, started); assert.equal(app.$('toast').textContent, 'Glowworm Lake is part of levels 5 to 10.');
+  assert.equal(app.$('depth-unlock').scrolled, 1, 'and the map shows what the unlock holds');
   app.click('depth-map', { depth: '1' }); const game = depthGame(app);
   assert.equal(game.plan.id, 1); assert.equal(app.context.bloomshotState.theme, 'depth-meadow'); assert.equal(app.context.bloomshotState.route, 'game');
   app.frame(); assert.equal(app.$('level-label').textContent, 'Level 1 · Wave 1/10'); assert.equal(app.$('level-name').textContent, 'Sunny Meadow');
@@ -619,6 +625,41 @@ test('Back goes to the level map, and an unfinished level resumes from its card 
   app.click('rush-btn'); app.click('depth-map', { depth: '1' }); assert.equal(app.games.length, count); assert.equal(app.games.at(-1), game);
   app.click('restart-btn'); assert.equal(app.games.length, count + 1); assert.equal(depthGame(app).plan.id, 1);
   app.click('rush-btn'); app.click('levels-rush-btn'); assert.equal(app.games.at(-1).plan, null, 'Meadow Rush is endless');
+});
+const cleared = (...ids) => { const save = legacySave(); save.depths = Object.fromEntries(ids.map(id => [id, { stars: 2, best: 1000, wave: 10 }])); return save; };
+test('The levels unlock says what it holds and what it costs, buys only through the store, and opens level 5', () => {
+  const offSale = boot(cleared(1, 2, 3, 4), { store: fakeStore({ live: true, available: false }) });
+  assert.match(offSale.$('depth-map').innerHTML, /Not on sale yet\. Levels 1 to 4 are free to play now\./); assert(!offSale.$('depth-map').innerHTML.includes('data-buy'));
+  const store = fakeStore({ live: true, available: true }), app = boot(cleared(1, 2, 3, 4), { store });
+  const map = app.$('depth-map').innerHTML;
+  assert.match(map, /data-buy="bloomshot\.levels\.full">Unlock levels 5 to 10 · \$2\.99</); assert.match(map, /6 deeper levels/);
+  assert.match(map, /One-time purchase, no ads/); assert.match(map, /One payment\. Restore it any time in Settings\./);
+  assert.match(map, /class="depth-card locked paid" type="button" data-depth="5"/);
+  const count = app.games.length;
+  app.click('depth-map', { depth: '5' }); assert.equal(app.games.length, count, 'a paid level never starts before the unlock');
+  app.click('depth-map', { buy: Depths.product }); assert.deepEqual(store.purchases, [Depths.product]);
+  const after = app.$('depth-map').innerHTML;
+  assert(!after.includes('depth-unlock'), 'the offer is gone once owned'); assert.match(after, /class="depth-card next" type="button" data-depth="5"/);
+  assert.match(after, /class="depth-card locked" type="button" data-depth="6"/, 'deeper levels still open in order');
+  app.click('depth-map', { depth: '5' }); const game = depthGame(app);
+  assert.equal(game.plan.id, 5); assert.equal(app.context.bloomshotState.theme, 'depth-lake'); assert(game.currents.length > 0, 'the lake brings its currents');
+  assert.deepEqual(app.saved().depths, cleared(1, 2, 3, 4).depths, 'buying changes no progress');
+});
+test('Clearing level 4 points to the unlock once, gently; with it owned, Next goes straight to level 5', () => {
+  const free = boot(cleared(1, 2, 3)); free.click('depth-map', { depth: '4' });
+  let game = depthGame(free); game.started = true; game.wave = 10; game.lives = 3; game._clearLevel(); settleLevel(free);
+  assert.equal(free.$('result-eyebrow').textContent, 'Level 4 clear!');
+  assert.equal(free.$('result-message').textContent, 'Glowworm Lake and the levels below it come with a one-time unlock.');
+  assert.equal(free.$('next-btn').hidden, false); assert.equal(free.$('next-btn').textContent, 'See levels 5 to 10');
+  assert(free.$('retry-btn').classList.contains('primary'), 'replaying stays the main button');
+  assert(free.$('next-btn').classList.contains('button-secondary') && !free.$('next-btn').classList.contains('button-primary'), 'the pointer to the unlock is the quiet button');
+  free.click('next-btn'); assert.equal(free.context.bloomshotState.route, 'levels'); assert.equal(free.games.at(-1), game, 'nothing new started');
+  assert.equal(free.$('depth-unlock').scrolled, 1);
+  const owner = boot(cleared(1, 2, 3), { store: fakeStore({ owned: [Depths.entitlement] }) }); owner.click('depth-map', { depth: '4' });
+  game = depthGame(owner); game.started = true; game.wave = 10; game.lives = 3; game._clearLevel(); settleLevel(owner);
+  assert.match(owner.$('result-message').textContent, /Level 5, Glowworm Lake, is open!/); assert.equal(owner.$('next-btn').textContent, 'Level 5');
+  assert(owner.$('next-btn').classList.contains('button-primary'));
+  owner.click('next-btn'); assert.equal(depthGame(owner).plan.id, 5);
 });
 test('Level records are cleaned on load and a cleared level opens the next one', () => {
   const before = legacySave(); before.depths = { 1: { stars: 9, best: -5, wave: 3 }, 2: 'bad', 3: [], 12: { stars: 1, best: 1, wave: 1 } };

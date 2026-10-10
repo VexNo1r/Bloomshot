@@ -12,18 +12,28 @@ function rng(seed) {
 }
 function plan(id) { const level = Depths.level(id); return { id, name: level.name, waves: Depths.waveCount, wave: n => Depths.wave(id, n) }; }
 
-// Follows one shot until it first touches a bud (or gives up), bouncing off walls, the leaf and rocks.
+// Follows one shot until it first touches a bud (or gives up), bouncing off walls, the leaf and rocks, bending
+// in currents and passing through tunnels the way the game does.
 function trace(game, angle, bounces = 3) {
-  const p = { x: game.launcher.x, y: game.launcher.y }, dt = 1 / 60;
+  const p = { x: game.launcher.x, y: game.launcher.y, gateCooldown: 0, gateHops: 0 }, dt = 1 / 60;
   let vx = Math.cos(angle) * game.speed, vy = Math.sin(angle) * game.speed;
-  const state = { bumpers: game.bumpers, buds: game.buds.filter(bud => !bud.bloomed), gates: [] };
+  const state = { bumpers: game.bumpers, buds: game.buds.filter(bud => !bud.bloomed), gates: game.gates || [] };
+  const currents = game.currents || [];
   for (let step = 0; step < 90; step++) {
+    const lane = currents.length && Engine.laneAt(currents, p.x, p.y);
+    if (lane) { const v = Engine.steer(vx, vy, lane, dt); vx = v.x; vy = v.y; }
     let remaining = dt;
     for (let i = 0; i < 4 && remaining > 1e-7; i++) {
       const d = { x: vx * remaining, y: vy * remaining }, hit = Engine.earliest(state, p, d);
-      if (!hit) { p.x += d.x; p.y += d.y; break; }
+      if (!hit) { p.x += d.x; p.y += d.y; p.gateCooldown = Math.max(0, p.gateCooldown - remaining); break; }
       p.x += d.x * hit.t; p.y += d.y * hit.t;
-      if (hit.kind === 'bud') return { bud: hit.item, ny: hit.ny, time: step * dt };
+      if (hit.kind === 'bud') return { bud: hit.item, nx: hit.nx, ny: hit.ny, time: step * dt };
+      if (hit.kind === 'gate') {
+        const transfer = Engine.gateTransfer(state.gates, hit.item, vx, vy);
+        if (!transfer) return null;
+        p.x = transfer.x; p.y = transfer.y; vx = transfer.vx; vy = transfer.vy; p.gateCooldown = Engine.GATE_COOLDOWN; p.gateHops++;
+        remaining *= Math.max(0, 1 - hit.t); continue;
+      }
       if (--bounces < 0) return null;
       const dot = vx * hit.nx + vy * hit.ny; vx -= 2 * dot * hit.nx; vy -= 2 * dot * hit.ny;
       p.x += hit.nx * .08; p.y += hit.ny * .08; remaining *= Math.max(0, 1 - hit.t);
@@ -32,11 +42,16 @@ function trace(game, angle, bounces = 3) {
   }
   return null;
 }
-function value(game, hit) {
+function value(game, hit, timing) {
   const bud = hit.bud;
   if (bud.shield && hit.ny > .28) return -1;
+  // A shell keeps turning while the shot flies, so check where its opening will be on arrival.
+  if (bud.shell) {
+    const a = bud.shellAngle + bud.shellSpin * (hit.time + .03);
+    if (hit.nx * Math.cos(a) + hit.ny * Math.sin(a) < .34 + timing) return -1;
+  }
   const danger = (bud.y + bud.r) / game.dangerY * (bud.fall || 1);
-  return danger * 100 + (bud.relay ? 30 : 0) + (bud.puff ? 45 : 0) + (bud.boss ? 25 : 0) - hit.time * 20;
+  return danger * 100 + (bud.relay ? 30 : 0) + (bud.puff ? 45 : 0) + (bud.boss ? 25 : 0) + (bud.regrowAt ? 40 : 0) + (bud.gem ? 15 : 0) - hit.time * 20;
 }
 function play(levelId, options = {}) {
   const random = rng(options.seed || 1), noise = options.noise ?? 1.4;
@@ -51,7 +66,7 @@ function play(levelId, options = {}) {
       for (let deg = -170; deg <= -10; deg += 2.5) {
         const angle = deg * Math.PI / 180, hit = trace(game, angle, options.bounces ?? 3);
         if (!hit) continue;
-        const score = value(game, hit);
+        const score = value(game, hit, options.timing ?? .1);
         if (score > 0 && (!best || score > best.score)) best = { angle, score };
       }
       const angle = (best ? best.angle : -Math.PI / 2) + gauss() * noise * Math.PI / 180;

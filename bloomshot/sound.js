@@ -189,6 +189,8 @@
     else if (type === 'shield' && allowed('shield', 0.09)) { note(1318.51, 0, 0.06, 0.045, pan, 'wood', 0); note(987.77, 0.035, 0.08, 0.035, pan, 'wood', 0); }
     else if (type === 'boss' && allowed('boss', 0.8)) phrase([261.63, 329.63, 392, 523.25, 659.25, 783.99], 0.07, 0.9, 0.11);
     else if (type === 'drop' && allowed('drop', 0.5)) { note(440, 0, 0.09, 0.045, 0, 'drop'); note(329.63, 0.08, 0.11, 0.04, 0, 'drop'); }
+    else if (type === 'geode' && allowed('geode', 0.12)) { note(1567.98, 0, 0.12, 0.045, pan, 'bell'); note(2093, 0.05, 0.16, 0.035, pan, 'bell'); note(2637.02, 0.1, 0.2, 0.028, pan, 'bell'); }
+    else if (type === 'regrow' && allowed('regrow', 0.3)) { note(220, 0, 0.14, 0.05, pan, 'wood'); note(174.61, 0.08, 0.18, 0.045, pan, 'wood'); }
     else if (type === 'fever' && allowed('fever', 1.0)) phrase([261.63, 329.63, 392], 0.04, 0.52, 0.085);
     else if (type === 'lost' && allowed('lost', 0.6)) phrase([329.63, 261.63, 220], 0.115, 0.40, 0.105);
   }

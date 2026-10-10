@@ -87,7 +87,8 @@
   const isRush = () => game?.mode === 'rush';
   // The levels run on the Rush engine with a plan of ten waves each. Levels past the free ones wait for the full unlock.
   const isDepth = () => isRush() && Boolean(game.plan);
-  const depthsOwned = () => false;
+  const depthsOwned = () => Boolean(store && store.owns(Depths.entitlement));
+  const depthPaid = id => id <= Depths.free || depthsOwned();
   const depthOpen = id => Depths.unlocked(save.depths, id, depthsOwned());
   const depthTheme = id => `depth-${Depths.level(id).key}`;
   function depthPlan(id) { const level = Depths.level(id); return { id, name: level.name, waves: Depths.waveCount, wave: n => Depths.wave(id, n) }; }
@@ -159,7 +160,7 @@
     if (!isRush()) for (const key of ['wave', 'lives', 'elapsed', 'splitReady']) delete canvas.dataset[key];
     $('split-btn').hidden = !isRush();
     angle = -Math.PI / 2; pointer = null; aiming = false; guiding = false; resultAt = Infinity; resultShown = false;
-    displayScore = 0; hudKey = ''; newFlower = null; newKeepsake = null; accumulator = 0; rushRecordBroken = false; depthNews = null; game.shieldSeen = false;
+    displayScore = 0; hudKey = ''; newFlower = null; newKeepsake = null; accumulator = 0; rushRecordBroken = false; depthNews = null; game.shieldSeen = false; game.shellSeen = false; game.geodeSeen = false;
     runId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`; runAward = 0; runBouquet = null; runGoals = null;
     if (!preview && typeof level.id === 'number') { save.lastLevel = level.id; persist(); }
     $('level-name').textContent = level.name;
@@ -347,7 +348,7 @@
     const summary = $('garden-summary'); if (summary) summary.textContent = `${completed}/${levels.length} · ${total} ★`;
   }
   // The level map on Play: a card per level showing a slice of its own scene, stacked the way the levels go down.
-  const SCENE_SLICE = { meadow: 240, roots: 0, grotto: 46, crystal: 40 };
+  const SCENE_SLICE = { meadow: 240, roots: 0, grotto: 46, crystal: 40, lake: 390, fossil: 390, ember: 390, geode: 14, briar: 10, core: 390 };
   const sceneSlices = new Map();
   function sceneSlice(level) {
     if (!sceneSlices.has(level.key)) {
@@ -372,18 +373,31 @@
       $('resume-title').textContent = isDepth() ? `Resume level ${game.plan.id}` : 'Resume Meadow Rush';
       $('resume-sub').textContent = isDepth() ? `${Depths.level(game.plan.id).name} · wave ${game.wave} of ${game.finalWave}` : `Wave ${game.wave} · ${fmt(game.score)} points`;
     }
+    const owned = depthsOwned();
     $('depth-map').innerHTML = list.map(level => {
-      const data = save.depths[level.id], open = depthOpen(level.id), done = data?.stars || 0, next = open && !done && level.id === suggested;
-      const state = !open ? `Clear level ${level.id - 1} to open` : done ? `${done} of 3 stars` : data?.wave ? `Best: wave ${data.wave} of ${Depths.waveCount}` : 'Ready to play';
+      const data = save.depths[level.id], open = depthOpen(level.id), paid = depthPaid(level.id), done = data?.stars || 0, next = open && !done && level.id === suggested;
+      const state = !paid ? `Part of levels ${Depths.free + 1} to ${Depths.total}` : !open ? `Clear level ${level.id - 1} to open` : done ? `${done} of 3 stars` : data?.wave ? `Best: wave ${data.wave} of ${Depths.waveCount}` : 'Ready to play';
       const art = sceneSlice(level);
-      return `<li class="depth-stop"><button class="depth-card${open ? '' : ' locked'}${done ? ' cleared' : ''}${next ? ' next' : ''}" type="button" data-depth="${level.id}" aria-label="Level ${level.id}, ${escape(level.name)}. ${escape(level.twist)}. ${state}.">`
+      return `<li class="depth-stop"><button class="depth-card${open ? '' : ' locked'}${paid ? '' : ' paid'}${done ? ' cleared' : ''}${next ? ' next' : ''}" type="button" data-depth="${level.id}" aria-label="Level ${level.id}, ${escape(level.name)}. ${escape(level.twist)}. ${state}.">`
         + `<span class="depth-window" aria-hidden="true">${art ? `<img class="depth-scene" src="${art}" alt="">` : ''}<span class="depth-badge">${level.id}</span>${open ? '' : '<span class="depth-lock"><i class="level-lock"></i></span>'}</span>`
-        + `<span class="depth-foot" aria-hidden="true"><span class="depth-copy"><strong>${escape(level.name)}</strong><span>${escape(open ? data?.wave && !done ? state : level.twist : state)}</span></span>`
-        + (next ? '<span class="depth-go">Play</span>' : open ? `<span class="depth-stars">${starHTML(done)}</span>` : '') + '</span></button></li>';
-    }).join('') + (list.length < Depths.total ? `<li class="depth-stop depth-more"><span class="depth-more-art" aria-hidden="true">${DEEPER}</span><span class="depth-more-copy"><strong>Deeper down</strong><span>${Depths.total - list.length} more levels are on the way.</span></span></li>` : '');
+        + `<span class="depth-foot" aria-hidden="true"><span class="depth-copy"><strong>${escape(level.name)}</strong><span>${escape(open || !paid ? data?.wave && !done ? state : level.twist : state)}</span></span>`
+        + (next ? '<span class="depth-go">Play</span>' : open ? `<span class="depth-stars">${starHTML(done)}</span>` : '') + '</span></button></li>'
+        + (level.id === Depths.free && !owned ? depthUnlockCard() : '');
+    }).join('');
     $('levels-rush-best').textContent = save.rush.runs ? `Best ${fmt(save.rush.best)} · wave ${save.rush.bestWave}` : 'Endless waves. How far can you go?';
   }
-  // Below the open levels: rock layers, a fossil and a few crystals, drawn as flat shapes like the scenes.
+  // The unlock is described exactly: what it contains, the price the store reports, and that it is one payment.
+  // It sits on the map between the free levels and the deeper ones, and nowhere interrupts play.
+  function depthUnlockCard() {
+    const offer = offerFor(Depths.product), deeper = Depths.levels.filter(level => level.id > Depths.free), range = `${Depths.free + 1} to ${Depths.total}`;
+    let action;
+    if (offer.live && offer.available) action = `<button class="button-primary unlock-btn" type="button" data-buy="${Depths.product}">Unlock levels ${range}${offer.price ? ` · ${escape(offer.price)}` : ''}</button><p class="unlock-fine">${offer.mode === 'mock' ? 'Test mode: nothing is charged.' : 'One payment. Restore it any time in Settings.'}</p>`;
+    else if (offer.live) action = `<p class="unlock-fine">Not on sale yet. Levels 1 to ${Depths.free} are free to play now.</p>`;
+    else action = `<p class="unlock-fine">Levels ${range} unlock in the Bloomshot app for iPhone, iPad and Android.</p>`;
+    return `<li class="depth-stop depth-more depth-unlock" id="depth-unlock"><span class="depth-more-art" aria-hidden="true">${DEEPER}</span><div class="depth-more-copy"><span class="card-tag gold">Levels ${range}</span><strong>${deeper.length} deeper levels</strong>`
+      + `<p>From ${escape(deeper[0].name)} down to the ${escape(deeper.at(-1).name)}. Currents, turning shells, tunnels, geodes and briars, ten waves each. One-time purchase, no ads.</p>${action}</div></li>`;
+  }
+  // Under the free levels: rock layers, a fossil and a few crystals, drawn as flat shapes like the scenes.
   const DEEPER = '<svg viewBox="0 0 380 120" preserveAspectRatio="xMidYMid slice"><rect width="380" height="120" fill="#3a2b3d"/>'
     + '<path d="M0 0H380V30C330 22 300 38 250 33S170 22 120 30 40 38 0 28Z" fill="#6b4a36"/><path d="M0 28C40 38 80 30 120 30S170 22 250 33 330 22 380 30V36C330 30 300 44 250 40S170 30 120 37 40 44 0 35Z" fill="#4f3832"/>'
     + '<path d="M0 120V82C50 74 90 88 150 82S260 70 310 80 360 86 380 80V120Z" fill="#2a2036"/>'
@@ -739,7 +753,8 @@
   const PURCHASES = {
     [BloomKoi.product]: { thanks: 'Koi Conservatory unlocked! Six new pools.' },
     [Keepsakes.product]: { thanks: 'Keepsake Collection unlocked! Three new styles.' },
-    [BUNDLE]: { thanks: 'Bundle unlocked! Koi pools and seed styles are yours.' }
+    [BUNDLE]: { thanks: 'Bundle unlocked! Koi pools and seed styles are yours.' },
+    [Depths.product]: { thanks: () => `Levels ${Depths.free + 1} to ${Depths.total} unlocked! ${depthOpen(Depths.free + 1) ? `${Depths.level(Depths.free + 1).name} is open.` : `Clear level ${Depths.free} to head down.`}` }
   };
   async function buyProduct(button) {
     const id = button.dataset.buy, item = PURCHASES[id];
@@ -749,7 +764,7 @@
     let result;
     try { result = await store.purchase(id); } catch (_) { result = { ok: false }; }
     if (result.ok) {
-      BloomSound.wake(); BloomSound.play('won'); toast(item.thanks);
+      BloomSound.wake(); BloomSound.play('won'); toast(typeof item.thanks === 'function' ? item.thanks() : item.thanks);
       // Buying while previewing a style puts that style on the seed straight away.
       if ((id === Keepsakes.product || id === BUNDLE) && keepsakePreview && keepsakeOpen(keepsakePreview)) { save.keepsake = keepsakePreview; persist(); }
     } else toast(result.cancelled ? 'Purchase cancelled. Nothing was charged.' : "Purchase didn't go through. Nothing was charged.");
@@ -758,6 +773,7 @@
   function refreshStoreViews() {
     if (route === 'worlds') renderWorlds();
     if (route === 'collection') renderKeepsakes();
+    if (route === 'levels') renderLevels();
     if (currentWorld && chapters[currentWorld.id] && $('world-dialog').open) renderChapter(currentWorld);
   }
   if (store) store.subscribe(refreshStoreViews);
@@ -833,10 +849,11 @@
       } else if (event.type === 'gate') {
         burst({ x: event.entry.x, y: event.entry.y, type: 'lilac' }, 12);
         burst({ x: event.exit.x, y: event.exit.y, type: 'gold' }, 16);
-        $('game-hint').textContent = 'Through the gate!';
+        // In a level the wave's tip stays up; the burst at both holes already shows where the shot went.
+        if (!isDepth()) $('game-hint').textContent = 'Through the gate!';
       } else if (event.type === 'current') {
         ripple(event);
-        $('game-hint').textContent = 'Caught the current!';
+        if (!isDepth()) $('game-hint').textContent = 'Caught the current!';
       } else if (event.type === 'split') {
         burst(game.ball || game.launcher, 25);
         game.floaters = game.floaters.filter(item => item.kind !== 'bonus');
@@ -863,7 +880,14 @@
         $('game-hint').textContent = event.count ? `Puff! ${event.count} ${event.count === 1 ? 'flower' : 'flowers'} caught the spores.` : 'Puff!';
       } else if (event.type === 'shield') {
         burst({ x: event.x, y: event.y, type: 'gold', r: 6 }, 6); haptic('tick');
-        if (!game.shieldSeen) { game.shieldSeen = true; $('game-hint').textContent = 'Cups block shots from below. Hit them from the side.'; }
+        if (event.shell && !game.shellSeen) { game.shellSeen = true; $('game-hint').textContent = 'Shells only open on one side. Wait for the gap.'; }
+        else if (!event.shell && !game.shieldSeen) { game.shieldSeen = true; $('game-hint').textContent = 'Cups block shots from below. Hit them from the side.'; }
+      } else if (event.type === 'geode') {
+        burst(event.bud, 30); burst({ x: event.bud.x, y: event.bud.y, type: 'lilac', r: 10 }, 18); jolt(.16, .04, .2);
+        if (!game.geodeSeen) { game.geodeSeen = true; $('game-hint').textContent = `${event.count} gems! Bloom them before they fall.`; }
+      } else if (event.type === 'regrow') {
+        burst({ x: event.x, y: event.y, type: 'coral', r: 8 }, 14); haptic('tick');
+        $('game-hint').textContent = 'The briars grew back! Bloom the whole patch fast.';
       } else if (event.type === 'boss') {
         burst(event.bud, 80); burst({ x: 110, y: 200, type: 'gold' }, 40); burst({ x: 310, y: 200, type: 'lilac' }, 40);
         jolt(.5, .12, 1); haptic('surge');
@@ -942,6 +966,7 @@
   }
   function showResult() {
     resultShown = true; const won = game.status === 'won';
+    $('next-btn').classList.add('button-primary'); $('next-btn').classList.remove('button-secondary');
     $('garden-reward').hidden = preview || runAward <= 0;
     $('reward-seeds').textContent = `+${runAward} ${runAward === 1 ? 'seed' : 'seeds'}`;
     $('reward-goal').textContent = nextGoal();
@@ -952,16 +977,18 @@
     $('result-dialog').classList.toggle('lost', isDepth() ? !won : isRush() ? !rushRecordBroken : !won);
     $('result-garden-btn').textContent = isRush() ? 'All levels' : 'Back to the meadow';
     if (isDepth()) {
-      const id = game.plan.id, next = Depths.level(id + 1), nextOpen = Boolean(next && depthOpen(id + 1));
+      const id = game.plan.id, next = Depths.level(id + 1), nextOpen = Boolean(next && depthOpen(id + 1)), nextPaid = Boolean(next && depthPaid(id + 1));
       $('result-eyebrow').textContent = won ? `Level ${id} clear!` : 'Out of lives';
       $('result-title').textContent = won ? ['Cleared!', 'Cleared!', 'Great!', 'Perfect!'][game.stars] : `Wave ${game.wave} of ${game.finalWave}`;
       $('result-message').textContent = won
-        ? depthNews?.opened ? `Level ${id + 1}, ${next.name}, is open!` : !next ? `${game.bloomedCount} blooms. That's every level so far!` : game.stars < 3 ? `${game.bloomedCount} blooms. Keep all 3 lives for ★★★.` : `${game.bloomedCount} blooms · best chain ${game.bestCombo}`
+        ? depthNews?.opened ? `Level ${id + 1}, ${next.name}, is open!` : !next ? `${game.bloomedCount} blooms. You reached the Starseed Core!` : !nextPaid ? `${next.name} and the levels below it come with a one-time unlock.` : game.stars < 3 ? `${game.bloomedCount} blooms. Keep all 3 lives for ★★★.` : `${game.bloomedCount} blooms · best chain ${game.bestCombo}`
         : `${game.bloomedCount} blooms. ${game.wave >= game.finalWave - 2 ? 'So close!' : 'Try a new angle.'}`;
       $('result-stars').innerHTML = starHTML(game.stars); $('result-stars').setAttribute('aria-label', `${game.stars} of 3 stars`);
       $('result-score').textContent = fmt(game.score);
       $('reward-flower').hidden = true;
-      $('next-btn').hidden = !won || !nextOpen; $('next-btn').textContent = `Level ${id + 1}`;
+      $('next-btn').hidden = !won || !(nextOpen || next && !nextPaid); $('next-btn').textContent = nextPaid ? `Level ${id + 1}` : `See levels ${Depths.free + 1} to ${Depths.total}`;
+      // Pointing at the unlock is a quiet button under Replay, never the big one.
+      $('next-btn').classList.toggle('button-primary', nextPaid); $('next-btn').classList.toggle('button-secondary', !nextPaid);
       $('retry-btn').textContent = won ? 'Replay' : 'Try again'; $('retry-btn').classList.toggle('primary', !won || !nextOpen);
       showDialog('result-dialog'); return;
     }
@@ -1074,15 +1101,18 @@
   rotateButton.addEventListener('click', () => { if (game.bumpers[0]) rotateNearest(game.bumpers[0]); });
   function openRush() { if (preview) exitPreview(); if (isRush() && !isDepth() && !game.over) { closeDialogs(); setRoute('game'); } else startLevel({ id: 'rush', name: 'Meadow Rush' }); }
   function openLevels() { if (preview) exitPreview(); closeDialogs(); setRoute('levels'); }
+  function showUnlock() { const card = $('depth-unlock'); if (card) card.scrollIntoView({ behavior: save.settings.motion ? 'smooth' : 'auto', block: 'center' }); }
   function startDepth(id) { if (preview) exitPreview(); startLevel({ id: 'rush', depth: id, name: Depths.level(id).name }, { theme: depthTheme(id) }); }
   function replay() { if (isDepth()) startDepth(game.plan.id); else startLevel(game.level, { preview, theme }); }
   $('rush-btn').addEventListener('click', openLevels);
   $('levels-rush-btn').addEventListener('click', openRush);
   $('resume-btn').addEventListener('click', () => { if (inProgress()) setRoute('game'); else renderLevels(); });
   $('depth-map').addEventListener('click', event => {
+    const buy = event.target.closest('[data-buy]'); if (buy) { buyProduct(buy); return; }
     const card = event.target.closest('[data-depth]'); if (!card) return;
     const id = Number(card.dataset.depth), level = Depths.level(id); if (!level) return;
     BloomSound.wake();
+    if (!depthPaid(id)) { BloomSound.play('tap'); toast(`${level.name} is part of levels ${Depths.free + 1} to ${Depths.total}.`); showUnlock(); return; }
     if (!depthOpen(id)) { BloomSound.play('tap'); toast(`Clear level ${id - 1} to open ${level.name}.`); return; }
     // Tapping the level already being played picks it up where it was.
     if (inProgress() && isDepth() && game.plan.id === id) setRoute('game'); else startDepth(id);
@@ -1175,7 +1205,11 @@
   $('result-garden-btn').addEventListener('click', () => { closeDialogs(); if (preview) exitPreview(); else setRoute(isRush() ? 'levels' : 'garden'); });
   $('next-btn').addEventListener('click', () => {
     closeDialogs(); if (preview) { exitPreview(); return; }
-    if (isDepth()) { const id = game.plan.id + 1; if (Depths.level(id) && depthOpen(id)) startDepth(id); else setRoute('levels'); return; }
+    if (isDepth()) {
+      const id = game.plan.id + 1;
+      if (Depths.level(id) && depthOpen(id)) startDepth(id); else { setRoute('levels'); if (Depths.level(id) && !depthPaid(id)) showUnlock(); }
+      return;
+    }
     const next = isChapter() ? nextTrial(game.level) : levels.find(l => l.id === game.level.id + 1);
     if (isChapter() && (!next || !trialPaid(game.level.worldId, next))) { const world = game.level.worldId; setRoute('worlds'); openWorld(world); }
     else if (next) startLevel(next); else setRoute('garden');

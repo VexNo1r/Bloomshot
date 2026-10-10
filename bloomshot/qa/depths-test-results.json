@@ -1,18 +1,30 @@
 {
-  "passed": 13,
+  "passed": 19,
   "failed": 0,
   "observations": {
     "bossHp": [
       6,
       8,
       9,
-      12
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18
     ],
     "budsPerLevel": [
       343,
       370,
       400,
-      463
+      463,
+      371,
+      353,
+      358,
+      401,
+      364,
+      411
     ],
     "fallSpeed": [
       [
@@ -30,13 +42,43 @@
       [
         16.5,
         19.8
+      ],
+      [
+        17.2,
+        22.1
+      ],
+      [
+        12.4,
+        15.9
+      ],
+      [
+        16.8,
+        21.6
+      ],
+      [
+        14.7,
+        18.9
+      ],
+      [
+        18.7,
+        24
+      ],
+      [
+        16.7,
+        20.5
       ]
     ],
     "averagePlayerLivesLost": [
       0,
       0,
       1,
-      1
+      1,
+      4,
+      2,
+      5,
+      2,
+      2,
+      4
     ]
   },
   "results": [
@@ -45,7 +87,7 @@
       "passed": true
     },
     {
-      "name": "Ten levels in all, the first four free, and each of these has ten waves",
+      "name": "Ten levels of ten waves, the first four free, the rest one product",
       "passed": true
     },
     {
@@ -54,6 +96,10 @@
     },
     {
       "name": "Rocks and the leaf sit between the flowers and the launcher, clear of every opening bud",
+      "passed": true
+    },
+    {
+      "name": "Currents and tunnels are valid, and sit clear of the launcher and the opening buds",
       "passed": true
     },
     {
@@ -89,7 +135,27 @@
       "passed": true
     },
     {
-      "name": "A practice bot clears every free level, and the levels get harder in order",
+      "name": "Currents bend a shot without changing its speed",
+      "passed": true
+    },
+    {
+      "name": "A tunnel sends a straight shot out of its partner at the exit heading",
+      "passed": true
+    },
+    {
+      "name": "A shell only lets a shot in through its opening, and a crown chain blooms shelled buds anyway",
+      "passed": true
+    },
+    {
+      "name": "A geode cracks into gems that must bloom before the wave clears, unless a big bloom takes it",
+      "passed": true
+    },
+    {
+      "name": "Briars grow back unless the whole patch blooms in time",
+      "passed": true
+    },
+    {
+      "name": "A practice bot clears every level, and the levels get harder",
       "passed": true
     }
   ]

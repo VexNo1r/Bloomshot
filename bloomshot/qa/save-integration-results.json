@@ -1,5 +1,5 @@
 {
-  "passed": 42,
+  "passed": 44,
   "failed": 0,
   "methodology": "Executes the complete current app.js in an isolated Node VM using real garden/level/engine modules, fake localStorage, and DOM/canvas adapters. Completion fixtures exercise actual engine completion events and app handlers. No real browser or user saves are read or changed.",
   "limitations": [
@@ -169,6 +169,14 @@
     },
     {
       "name": "Back goes to the level map, and an unfinished level resumes from its card or the resume card without restarting",
+      "passed": true
+    },
+    {
+      "name": "The levels unlock says what it holds and what it costs, buys only through the store, and opens level 5",
+      "passed": true
+    },
+    {
+      "name": "Clearing level 4 points to the unlock once, gently; with it owned, Next goes straight to level 5",
       "passed": true
     },
     {

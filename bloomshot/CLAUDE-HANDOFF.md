@@ -1,96 +1,88 @@
 # BLOOMSHOT — handoff to Codex
 
-Updated October 4, 2026 by Claude after passes 5 to 8 and the Storybook redesign. This replaces the October 3 handoff. Read all of "Start here" before touching files.
+Updated October 9, 2026 by Claude after passes 9 to 11 and the level campaign (levels 1 to 10 and their unlock). This replaces the October 4 handoff. Read all of "Start here" before touching files.
 
 ## Start here
 
 Trevor wants a beautiful, vibrant, fast mobile game that people love enough to pay for optional extras, live on iPhone, iPad and Android and earning money. Players should feel in control and feel they are progressing. Code and art are AI-assisted; never claim a human team made them.
 
-**The design bar.** Trevor's words: the UI and text must look "made by a team of humans, not AI". On October 3 he said the old parchment-and-brass interface still looked AI-made, and he chose the "Storybook game" direction for the redesign. Every later pass must hold the rules in "Storybook rules" below, including store listing copy and the web page.
+**The design bar.** Trevor's words: the UI and text must look "made by a team of humans, not AI", and the scenery and sprites should look like the work of "a very successful and professional indie company that makes 2D art games", and be creative. He chose the "Storybook game" direction on October 3. Every later pass must hold the rules in "Storybook rules" below, including store listing copy and the web page.
 
-Keep purchases honest: exact contents and price shown, no fake scarcity, no misleading timers, no paid randomness, no frustration designed to sell relief. The app stores reject the rest anyway.
+Keep purchases honest: exact contents and price shown, no fake scarcity, no misleading timers, no paid randomness, no frustration designed to sell relief, no pressure aimed at children. The app stores reject the rest anyway. The game is meant to appeal to all ages but is not listed in a kids category.
 
 **Which copy is authoritative.** The GitHub repository, not any older zip or workspace copy:
 
-- GitHub: https://github.com/VexNo1r/Bloomshot. Work on a branch and open every pull request against `main`. Do not stack pull requests on each other: Trevor merges from his phone, and on October 3 three stacked PRs merged into a feature branch instead of `main`. Never force-push `main`.
-- Layout: `bloomshot/` is the game, `native/` the Capacitor Android/iOS shell, `docs/` release and store notes, `.github/workflows/` CI, cloud builds and the GitHub Pages deploy.
+- GitHub: https://github.com/VexNo1r/Bloomshot. Work on a branch and open every pull request against `main`. Do not stack pull requests on each other: Trevor merges from his phone, and on October 3 three stacked PRs merged into a feature branch instead of `main`. A branch built on an unmerged PR still targets `main` and says "merge #N first". Never force-push `main`.
+- Layout: `bloomshot/` is the game, `native/` the Capacitor Android/iOS shell, `docs/` release and store notes, `.github/workflows/` CI, cloud builds, the Android release bundle and the GitHub Pages deploy.
 - Web build: `.github/workflows/pages.yml` publishes `bloomshot/` to https://vexno1r.github.io/Bloomshot/ once Pages is enabled with Source set to GitHub Actions (a setting only Trevor can change).
 - `VexNo1r/harborline` is Trevor's separate lead-recovery product. The game never goes there.
 
 ## Saves (never reset)
 
-Normal save `bloomshot.save.v1`; `?qa` uses `bloomshot.qa.v1`. Trevor plays in both. New fields are always additive and old saves load unchanged. Fields added since the last handoff: `keepsake` (the worn seed style, default `meadow`), `daily` (per-day records, latest 14), `garden.dailyBest` (stars per daily garden, latest 21), `garden.bouquets` (weeks already paid, latest 8), `rush.bestWave`. In the native app `native.js` mirrors every save to Capacitor Preferences and restores it if the OS wipes web storage.
+Normal save `bloomshot.save.v1`; `?qa` uses `bloomshot.qa.v1`. Trevor plays in both. New fields are always additive and old saves load unchanged. Fields added since the last handoff: `garden.decor` (decorations built), `goals` (today's goals and progress, today only), `depths` (level campaign: `{ [levelId]: { stars, best, wave } }`, levels 1 to 10, cleaned on load) and `garden.depthBest` (stars per level, for seed rewards). In the native app `native.js` mirrors every save to Capacitor Preferences and restores it if the OS wipes web storage.
 
-## What changed, passes 5 to 8
+## What changed since October 4
 
-**Pass 5, Garden Keepsakes.** Seed styles that change the seed, its trail and bloom particles, never physics. Meadow is free, Moonlit is earned by clearing all six Moon trials and never sold, and Sakura Breeze, Firefly Night and Gilded Leaf come together as the Keepsake Collection (`bloomshot.style.collection1`, entitlement `style_collection1`). Every style previews in motion on the Collection screen before it is earned or bought. A locked or refunded choice shows Meadow without erasing the saved choice. Code: `keepsakes.js` (catalog and unlock rules), `art.js` (styled seeds, trails, four particle kinds), `app.js` (shelf, preview, Moonlit reward, one `buyProduct` for every product).
+**Pass 9, decorations.** Six things to build in the meadow once the beds are growing (bench, birdhouse, water lilies, beehive, lantern path, apple tree with swing), 20 to 100 seeds each, 320 in all. Built once, in any order. `garden.js` and `meadow.js`.
 
-**Pass 6, Rush tempo.** Each cleared wave raises the tempo by ×0.1, up to ×2: flowers descend faster, reload is quicker, and every bloom scores more. Clearing a wave shows a golden "Wave clear!" moment with the next tempo, and pressure keeps climbing the longer a run lasts. `rush.js` holds the numbers; `qa/test-rush.cjs` checks them.
+**Pass 10, today's goals.** Three goals a day, the same for everyone (one in Rush or the levels, one puzzle, one to explore). Each pays 4 seeds once and all three pay a 6-seed bonus. A missed day costs nothing and nothing counts down. `goals.js` (catalog and progress, `qa/test-goals.cjs`), paid by `garden.js`.
 
-**Pass 7, Launch Bundle offer.** `bloomshot.bundle.launch1` grants Koi and the Keepsake Collection in one purchase. It is shown only to a player who owns neither part, only when the store says it is on sale, with its price and the exact saving when the store reports comparable amounts (otherwise it says "less than buying both" with no number). Owning one part offers only the other part.
+**Pass 11, meadow friends.** Each decoration brings a friend to tap (Biscuit the cat, Pip the bluebird, Hopper the frog, Buzz the bee, Glimmer the firefly, Nutmeg the squirrel). Looks and sound only; a Meadow friends shelf in the Collection.
 
-**Pass 8, the daily garden pays.** A daily garden's first clear pays 6, 8 or 10 seeds by stars, and each later new star pays 2. Any four daily clears in a Monday-to-Sunday week pay a 12-seed bouquet once. A missed day takes nothing away and nothing counts down. Every seed reward on the result screen names the next thing to plant or grow. Logic in `garden.js` (`grant` with `mode: 'daily'`, `week`).
+**The level campaign.** Trevor's brief on October 9: the waves alone were not enough. He asked for ten levels of ten waves, each wave harder in a different way (a fast tactical puzzle, not just faster falling), the layout changing from wave to wave, a new background per level going down through underground layers, level 4 "somewhat difficult", levels 1 to 4 free and levels 5 to 10 behind one $2.99 purchase.
 
-**Native bridge (shipping thread).** `native.js`: real haptics through Capacitor Haptics (iPhone ignores `navigator.vibrate`), and the Preferences save mirror described above. `app.js` calls `haptic(kind)` for every buzz; any new buzz must call `haptic()` too, never `navigator.vibrate`, or iPhone stays silent. Neither haptics nor the save mirror has been tested on a real phone yet.
+- Play now opens a level map (`levels` route): a card per level with a slice of its own scene, stacked the way the levels go down, a resume card, and Meadow Rush (endless) under "Endless".
+- `depths.js` (`BloomDepths`) holds all 100 authored waves: formations, cluster shapes, fall speed, armor, sway, fast clusters, acorn cups, puffcaps, rocks (some sliding), the leaf, drops (reinforcements that arrive when there is room) and a big bloom boss on every wave 10. Deeper levels add water currents (5, Glowworm Lake), turning fossil shells (6, Fossil Beds), tunnels (7, Ember Hollows), geodes that crack into gems (8, Geode Mine), briars that grow back unless the whole patch blooms in time (9, Briar Vault), and everything together with a shelled final boss (10, Starseed Core). Stars are the lives kept.
+- `rush.js` runs a level as a plan of ten waves on the Rush engine; without a plan it is endless Meadow Rush as before. Currents and tunnels reuse the engine's Koi and Moon physics (`laneAt`, `steer`, `gateTransfer`, exported from `engine.js`), so the aim line bends and jumps exactly like the shot.
+- `scenery.js` (`BloomScenery`) paints the ten level scenes and their rock styles as procedural Canvas illustration. `art.js` draws the board pieces (cups, puffcaps, the big bloom, shells, geodes, gems, briar vines with a regrow ring, tunnel holes, themed water).
+- Difficulty is tuned with `qa/depths-bot.cjs`, a practice player that traces shots through the board with aim error. A good bot clears every level; an average bot loses more lives as levels go deeper. `qa/test-depths.cjs` checks layout safety, every mechanic and the difficulty order.
+- Rewards: `garden.js` mode `depths` pays seeds for blooms and waves (capped per run) and a first-clear bonus by stars.
+- The unlock: levels 5 to 10 need entitlement `levels_full` from product `bloomshot.levels.full` ($2.99, `available: false` until a sandbox purchase works). The map shows the paid levels with their art and a lock, and one card between level 4 and level 5 says exactly what the unlock holds and its store price (or "not on sale yet", or "in the app" on the web). Clearing level 4 without it shows one quiet cream "See levels 5 to 10" button, with Replay staying the main green button. Nothing interrupts play to sell.
 
-## Storybook redesign
-
-The October 4 redesign replaced the whole interface. Rules for every later pass:
+## Storybook rules
 
 - **Type.** Two self-hosted open-source fonts in `assets/fonts/` (SIL Open Font License): Fredoka for titles, buttons, tags and canvas text, Nunito for body text. No system-ui on canvas, no other fonts.
 - **No tracked uppercase.** No small spaced-out capital "eyebrow" labels and no letter-spaced canvas text. Tags are pill `.card-tag`s in sentence case.
-- **Short game labels.** "Garden clear!", "Perfect!", "Wave 3 · ×1.2", "Get all three · $1.99". Cut any sentence that explains a feeling ("Beautiful chaos", "Room to grow"). Hints are a few words. Prices and what a purchase contains stay exact.
-- **Chunky tactile UI.** Pill buttons with a solid darker bottom edge that presses down (green primary, gold for purchases, cream secondary), cream panels with an inked edge, ribbon titles with notched tails, filled tab icons. Colors are tokens at the top of `styles.css` (`--green*`, `--gold*`, `--pink*`, `--sky*`, `--cream`, `--edge`, `--ink`).
-- **No AI-generated raster art in the UI.** The two image-generator PNGs were removed. Interface graphics are CSS and inline SVG; `assets/ui/lock.svg` is the padlock. `ART-PROVENANCE.md` records this honestly; keep it accurate.
+- **Short game labels.** "Level 4 clear!", "Wave 3 of 10", "Unlock levels 5 to 10 · $2.99". Hints are a few words and fit one line (wave hints at most about 50 characters). Prices and what a purchase contains stay exact.
+- **Chunky tactile UI.** Pill buttons with a solid darker bottom edge that presses down (green primary, gold for purchases, cream secondary), cream panels with an inked edge, ribbon titles with notched tails, filled tab icons. Colors are tokens at the top of `styles.css`; each level also tints the page (`body[data-theme="depth-…"]`).
+- **Scene art.** Flat shapes with a colored ink outline (never black), one cel-shade cut toward the lower right with light from the upper left, small hand-placed creatures with personality, seeded randomness so a scene is identical every time, and busy detail kept to the edges, top band and bottom corners so falling flowers read instantly.
+- **No AI-generated raster art.** Interface graphics are CSS and inline SVG; scenes and sprites are Canvas paths. `ART-PROVENANCE.md` records this honestly; keep it accurate.
 
-Screenshots of every screen, and before/after sheets, are in `docs/screenshots/storybook/`.
+Screenshots: `docs/screenshots/storybook/` (interface), `docs/screenshots/levels/` (levels 1 to 4 and the map), `docs/screenshots/levels-deep/` (levels 5 to 10 and the unlock).
 
 ## Code map
 
 | File | Responsibility |
 |---|---|
-| keepsakes.js | Seed style catalog, unlock rules, product and entitlement ids |
-| koi.js | Eight Koi boards, product and entitlement ids, free-board count |
-| garden.js | Seeds, plots, rewards for every mode, daily and weekly bouquet |
-| engine.js / rush.js | Puzzle physics with currents and gates; endless Rush with tempo |
-| art.js | All canvas art: scenery, flowers, seeds and styles, particles, callouts |
-| app.js | Screens, HUD, results, offers, chapters, keepsake shelf, game feel |
+| depths.js | The ten levels and their waves, progress records, unlock rule, product ids |
+| rush.js | Endless Rush with tempo, and the level runner: waves, drops, bosses, shells, geodes, briars |
+| engine.js | Puzzle physics, currents and gates (shared with the levels) |
+| scenery.js | The ten painted level scenes and their rocks |
+| art.js | All other canvas art: flowers, board pieces, seeds and styles, particles, callouts |
+| garden.js / meadow.js | Seeds, plots, decorations, friends, rewards for every mode |
+| goals.js | Today's three goals |
+| keepsakes.js / koi.js / moon.js / levels.js | Seed styles; Koi boards; Moon trials; garden puzzles and worlds |
+| app.js | Screens, level map, HUD, results, offers, chapters, game feel |
+| sound.js | Every sound, synthesized |
 | native.js | Haptics and the native save mirror (shipping thread) |
 | store*.js | Purchases (shipping thread; send requests instead of editing) |
 
-Script order: store-config → store → levels → moon → koi → keepsakes → garden → engine → rush → art → meadow → sound → native → app → store-ui → pwa. `sw.js` ASSETS lists every shipped file, including the two fonts and `lock.svg`; bump `VERSION` whenever an asset changes (the Pages build replaces it with a content hash). The native copy step derives its file list from ASSETS.
+Script order: store-config → store → levels → moon → koi → keepsakes → garden → goals → depths → engine → rush → scenery → art → meadow → sound → native → app → store-ui → pwa. `sw.js` ASSETS lists every shipped file; bump `VERSION` whenever an asset changes (the Pages build replaces it with a content hash). The native copy step derives its file list from ASSETS.
+
+Every new buzz goes through `haptic(kind)` in `app.js`, never `navigator.vibrate`, or iPhone stays silent.
 
 ## Verification
 
-From `bloomshot/`, every suite must exit 0 (CI runs the same list in `.github/workflows/web-tests.yml`):
-
-```text
-node qa/test-engine.cjs
-node qa/test-rush.cjs
-node qa/test-pwa.cjs
-node qa/test-sound.cjs
-node qa/test-garden.cjs
-node qa/test-save-integration.cjs
-node qa/test-moon-engine.cjs
-node qa/test-moon-levels.cjs
-node qa/test-precache-streams.cjs
-node qa/test-store.cjs
-node qa/test-native.cjs
-node qa/check-moon-pointer.cjs
-node qa/test-koi-levels.cjs
-node qa/test-keepsakes.cjs
-```
-
-Then in `native/`: `npm ci && npm run sync && npm run check`. Running the suites rewrites several `qa/*-results.json` files with new timestamps; commit only the ones your change actually affects. None of this is physical-device proof.
+From `bloomshot/`, every suite must exit 0 (CI runs the same list in `.github/workflows/web-tests.yml`): every `node qa/test-*.cjs` (15 suites, including `test-depths`, `test-goals` and `test-keepsakes`) and `node qa/check-moon-pointer.cjs`. Then in `native/`: `npm ci && npm run sync && npm run check`. Running the suites rewrites several `qa/*-results.json` files with new timestamps; commit only the ones your change actually affects. None of this is physical-device proof.
 
 ## Store state
 
-Koi (`bloomshot.world.koi`, $4.99), Keepsake Collection (`bloomshot.style.collection1`, $1.99) and Launch Bundle (`bloomshot.bundle.launch1`, $5.99) are all `available: false` in `store-config.js`. Flip one only after a sandbox purchase and restore work for it. RevenueCat keys stay empty until Trevor's store accounts exist; he cannot pay the Apple ($99/yr) or Google ($25) fees until his next paycheck. Read `docs/STORES.md` and `docs/MOBILE-RELEASE.md`.
+Koi (`bloomshot.world.koi`, $4.99), Keepsake Collection (`bloomshot.style.collection1`, $1.99), Launch Bundle (`bloomshot.bundle.launch1`, $5.99) and Levels 5 to 10 (`bloomshot.levels.full`, $2.99) are all `available: false` in `store-config.js`. Flip one only after a sandbox purchase and restore work for it. Trevor is setting up Google Play first (the Android release bundle workflow and `docs/PLAY-LAUNCH.md` are on `main`); Apple waits. Read `docs/STORES.md` and `docs/MOBILE-RELEASE.md`.
 
 ## What to do next
 
-1. Get Trevor playing the redesigned build on his phone through GitHub Pages and ask what feels slow, unfair or flat.
-2. When store accounts exist: products, RevenueCat entitlements, sandbox buy, cancel, restore and refund, then flip products to available one at a time.
-3. More content in the order of the monetization plan: new earnable keepsakes and worlds; boosters only if earnable in play and never sold as relief from designed frustration.
-4. Keep every new screen and line of text to the Storybook rules above.
+1. Get Trevor playing the levels on his phone and ask which waves feel unfair, slow or flat; retune `depths.js` with the practice bot rather than by feel alone.
+2. Google Play: products, RevenueCat entitlements, sandbox buy, cancel, restore and refund for each product, then flip products to available one at a time.
+3. After the levels: decorations and goals keep the meadow fresh; new earnable keepsakes; boosters only if earnable in play and never sold as relief from designed frustration.
+4. Keep every new screen, scene and line of text to the Storybook rules above.
 5. Update this file at the end of every fourth pass.
