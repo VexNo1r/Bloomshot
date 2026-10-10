@@ -1,5 +1,5 @@
 {
-  "passed": 52,
+  "passed": 60,
   "failed": 0,
   "methodology": "Executes the complete current app.js in an isolated Node VM using real garden/level/engine modules, fake localStorage, and DOM/canvas adapters. Completion fixtures exercise actual engine completion events and app handlers. No real browser or user saves are read or changed.",
   "limitations": [
@@ -76,11 +76,11 @@
       "passed": true
     },
     {
-      "name": "The Launch Bundle states its price and saving, buys both parts at once, and then disappears",
+      "name": "The Complete Garden states its price and exact saving everywhere it is offered, buys all three at once, and then disappears",
       "passed": true
     },
     {
-      "name": "Owning either part offers only the other part, never the bundle",
+      "name": "Owning any part offers only the parts still missing, never the Complete Garden",
       "passed": true
     },
     {
@@ -180,7 +180,7 @@
       "passed": true
     },
     {
-      "name": "Clearing level 4 points to the unlock once, gently; with it owned, Next goes straight to level 5",
+      "name": "Clearing level 4 offers a free taste of level 5; with the levels owned, Next goes straight to level 5",
       "passed": true
     },
     {
@@ -212,7 +212,39 @@
       "passed": true
     },
     {
+      "name": "Packs on the shelf: five of one kind or the bag with three of each, shown in full, each counted once",
+      "passed": true
+    },
+    {
+      "name": "The free taste plays the first three waves of level 5, records no progress, and pays only for its blooms",
+      "passed": true
+    },
+    {
+      "name": "Bought from the taste card, the unlock gives way to the full level 5",
+      "passed": true
+    },
+    {
+      "name": "No taste before level 4 is cleared or once the levels are owned",
+      "passed": true
+    },
+    {
       "name": "Level records are cleaned on load and a cleared level opens the next one",
+      "passed": true
+    },
+    {
+      "name": "Buying says exactly what arrived: one, five, or the bag",
+      "passed": true
+    },
+    {
+      "name": "A level clear shares a short note and the web link through the phone's share sheet",
+      "passed": true
+    },
+    {
+      "name": "A new Meadow Rush best can be shared; without a share sheet the note is copied for pasting",
+      "passed": true
+    },
+    {
+      "name": "The daily garden shares its number, stars and a tiny picture of each shot, like a word-game grid",
       "passed": true
     }
   ]

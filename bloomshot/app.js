@@ -62,6 +62,8 @@
   let meadowDirty = true, meadowFrame = 0, growth = null, bubbleTimer = 0;
   const friendPokes = {};
   let runId = '', runAward = 0, runBouquet = null, runGoals = null, depthNews = null;
+  // How many flowers each shot of a garden bloomed, for the shared daily result.
+  let shotTrail = [], trailTotal = 0;
   // A level just opened by a first clear: its card greets the player on the map until they play it.
   let freshDepth = 0, freshShown = false;
   let game, route = 'game', theme = 'meadow', preview = false, returnSession = null;
@@ -84,6 +86,8 @@
     cancelInteraction();
     const dialog = $(id);
     if (!dialog.open) dialog.showModal();
+    // The result card starts on its main button, never on Share or an offer.
+    if (id === 'result-dialog') { const main = $('next-btn').hidden ? $('retry-btn') : $('next-btn'); if (main.focus) main.focus(); }
   }
   function closeDialog(id) { if ($(id).open) $(id).close(); }
   function closeDialogs() { dialogs.forEach(closeDialog); }
@@ -96,7 +100,12 @@
   const depthPaid = id => id <= Depths.free || depthsOwned();
   const depthOpen = id => Depths.unlocked(save.depths, id, depthsOwned());
   const depthTheme = id => `depth-${Depths.level(id).key}`;
-  function depthPlan(id) { const level = Depths.level(id); return { id, name: level.name, waves: Depths.waveCount, wave: n => Depths.wave(id, n) }; }
+  // A free taste: once level 4 is cleared, anyone can play the first three waves of level 5. It records no
+  // progress; when it is played through, the unlock is offered on the result card, never during play.
+  const TASTE = Object.freeze({ level: Depths.free + 1, waves: Math.min(3, Depths.waveCount) });
+  const tasteOpen = () => !depthsOwned() && Boolean(Depths.level(TASTE.level)) && (save.depths[TASTE.level - 1]?.stars || 0) > 0;
+  const isTaste = () => isDepth() && Boolean(game.plan.taste);
+  function depthPlan(id, taste) { const level = Depths.level(id); return { id, name: level.name, waves: taste ? TASTE.waves : Depths.waveCount, wave: n => Depths.wave(id, n), taste: Boolean(taste) }; }
   // The level the map points at: the first open one without stars, otherwise the deepest open one.
   function nextDepth() { const open = Depths.levels.filter(level => depthOpen(level.id)); return (open.find(level => !save.depths[level.id]?.stars) || open.at(-1) || Depths.levels[0]).id; }
   // In a level the wave's own tip stays up while playing; waves without one keep the basic reminder.
@@ -117,22 +126,22 @@
     const product = productInfo(productId);
     return { live: Boolean(store && store.isLive()), available: Boolean(product && product.available), price: product?.price || '', mode: store?.mode || 'web' };
   }
-  // The Launch Bundle is one store product that grants both Koi and the Keepsake Collection. It is offered
-  // only to a player who owns neither: owning one part means only the other part is offered, never the bundle.
-  const BUNDLE = 'bloomshot.bundle.launch1';
+  // The Complete Garden is one store product that grants levels 5 to 10, the Koi Conservatory and the Keepsake
+  // Collection. It is offered only to a player who owns none of the three, so nobody pays twice for a part.
+  const BUNDLE = 'bloomshot.bundle.complete1';
   function bundleOffer() {
     const bundle = productInfo(BUNDLE);
     if (!store || !store.isLive() || !bundle || !bundle.available || bundle.owned || bundle.partial) return '';
-    const koi = productInfo(BloomKoi.product), style = productInfo(Keepsakes.product);
-    if (!koi || !style || koi.owned || style.owned) return '';
+    const parts = [Depths.product, BloomKoi.product, Keepsakes.product].map(productInfo);
+    if (parts.some(part => !part || part.owned)) return '';
     // The exact saving is shown only when the store gives comparable amounts; otherwise the wording names no number.
-    let saving = 'Less than buying both';
-    if ([bundle, koi, style].every(p => Number.isFinite(p.amount) && p.currency && p.currency === bundle.currency)) {
-      const amount = Math.round((koi.amount + style.amount - bundle.amount) * 100) / 100;
-      if (amount > 0) try { saving = `${new Intl.NumberFormat(undefined, { style: 'currency', currency: bundle.currency }).format(amount)} less than buying both`; } catch (_) { /* keep the plain wording */ }
+    let saving = 'Less than buying all three';
+    if ([bundle, ...parts].every(p => Number.isFinite(p.amount) && p.currency && p.currency === bundle.currency)) {
+      const amount = Math.round((parts.reduce((sum, p) => sum + p.amount, 0) - bundle.amount) * 100) / 100;
+      if (amount > 0) try { saving = `${new Intl.NumberFormat(undefined, { style: 'currency', currency: bundle.currency }).format(amount)} less than buying all three`; } catch (_) { /* keep the plain wording */ }
     }
-    const separately = koi.price && style.price ? ` (${koi.price} + ${style.price})` : '';
-    return `<div class="bundle-offer"><span class="card-tag gold">Bundle</span><strong>Koi pools + seed styles</strong><p>${escape(saving + separately)}.</p><button class="button-secondary bundle-btn" type="button" data-buy="${BUNDLE}">Get both${bundle.price ? ` · ${escape(bundle.price)}` : ''}</button></div>`;
+    const separately = parts.every(p => p.price) ? ` (${parts.map(p => p.price).join(' + ')})` : '';
+    return `<div class="bundle-offer"><span class="card-tag gold">Complete Garden</span><strong>Levels ${Depths.free + 1} to ${Depths.total}, Koi pools and seed styles</strong><p>${escape(saving + separately)}.</p><button class="button-secondary bundle-btn" type="button" data-buy="${BUNDLE}">Get everything${bundle.price ? ` · ${escape(bundle.price)}` : ''}</button></div>`;
   }
   // Keepsakes: Meadow is free, Moonlit is earned in the Moon Garden, the rest come with the collection.
   const keepsakeContext = () => ({ moon: save.moon, moonLevels: BloomMoon.levels, owns: entitlement => Boolean(store && store.owns(entitlement)) });
@@ -157,7 +166,7 @@
   }
   function startLevel(level, options = {}) {
     closeDialogs();
-    game = level.depth ? new BloomRush.RushGame({ plan: depthPlan(level.depth), random: Math.random }) : level.id === 'rush' ? new BloomRush.RushGame({ random: Math.random }) : new Game(level); game.particles = []; game.floaters = [];
+    game = level.depth ? new BloomRush.RushGame({ plan: depthPlan(level.depth, level.taste), random: Math.random }) : level.id === 'rush' ? new BloomRush.RushGame({ random: Math.random }) : new Game(level); game.particles = []; game.floaters = [];
     preview = Boolean(options.preview); theme = options.theme || (isChapter() ? game.level.worldId : 'meadow');
     document.body.dataset.theme = theme;
     document.body.dataset.mode = isRush() ? 'rush' : 'campaign';
@@ -166,7 +175,7 @@
     $('split-btn').hidden = !isRush();
     angle = -Math.PI / 2; pointer = null; aiming = false; guiding = false; resultAt = Infinity; resultShown = false;
     displayScore = 0; hudKey = ''; newFlower = null; newKeepsake = null; accumulator = 0; rushRecordBroken = false; depthNews = null; game.shieldSeen = false; game.shellSeen = false; game.geodeSeen = false;
-    runId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`; runAward = 0; runBouquet = null; runGoals = null;
+    runId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`; runAward = 0; runBouquet = null; runGoals = null; shotTrail = []; trailTotal = 0;
     if (!preview && typeof level.id === 'number') { save.lastLevel = level.id; persist(); }
     $('level-name').textContent = level.name;
     $('level-label').textContent = preview ? 'Preview' : typeof level.id === 'number' ? `Garden ${level.id}/${levels.length}` : 'Daily garden';
@@ -181,7 +190,7 @@
       const depth = Depths.level(game.plan.id);
       $('level-name').textContent = depth.name;
       $('game-hint').textContent = game.waveHint || depth.twist;
-      canvas.setAttribute('aria-label', `Level ${depth.id}, ${depth.name}. Ten waves of flowers. Keep them above the line: three clusters over it ends the level. Arrow keys aim, Space fires, S splits after six direct hits, R turns the leaf.`);
+      canvas.setAttribute('aria-label', `Level ${depth.id}, ${depth.name}. ${isTaste() ? `The first ${TASTE.waves} waves, free to try.` : 'Ten waves of flowers.'} Keep them above the line: three clusters over it ends the level. Arrow keys aim, Space fires, S splits after six direct hits, R turns the leaf.`);
     }
     $('back-btn').querySelector('span').textContent = isRush() ? 'Levels' : 'Meadow';
     if (isChapter()) {
@@ -382,14 +391,15 @@
     }
     const owned = depthsOwned();
     $('depth-map').innerHTML = list.map(level => {
-      const data = save.depths[level.id], open = depthOpen(level.id), paid = depthPaid(level.id), done = data?.stars || 0, next = open && !done && level.id === suggested, fresh = open && !done && level.id === freshDepth;
-      const state = !paid ? `Part of levels ${Depths.free + 1} to ${Depths.total}` : !open ? `Clear level ${level.id - 1} to open` : done ? `${done} of 3 stars` : data?.wave ? `Best: wave ${data.wave} of ${Depths.waveCount}` : 'Ready to play';
+      const data = save.depths[level.id], open = depthOpen(level.id), paid = depthPaid(level.id), done = data?.stars || 0, next = open && !done && level.id === suggested;
+      const taste = !paid && level.id === TASTE.level && tasteOpen(), fresh = (open || taste) && !done && level.id === freshDepth;
+      const state = taste ? `First ${TASTE.waves} waves free` : !paid ? level.id === TASTE.level ? `Clear level ${level.id - 1} to try it free` : `Part of levels ${Depths.free + 1} to ${Depths.total}` : !open ? `Clear level ${level.id - 1} to open` : done ? `${done} of 3 stars` : data?.wave ? `Best: wave ${data.wave} of ${Depths.waveCount}` : 'Ready to play';
       const art = sceneSlice(level);
-      return `<li class="depth-stop"><button class="depth-card${open ? '' : ' locked'}${paid ? '' : ' paid'}${done ? ' cleared' : ''}${next ? ' next' : ''}${fresh ? ' fresh' : ''}" type="button" data-depth="${level.id}" aria-label="Level ${level.id}, ${escape(level.name)}. ${escape(level.twist)}. ${state}.">`
-        + `<span class="depth-window" aria-hidden="true">${art ? `<img class="depth-scene" src="${art}" alt="">` : ''}<span class="depth-badge">${level.id}</span>${fresh ? '<span class="depth-new">New!</span>' : ''}${open ? '' : '<span class="depth-lock"><i class="level-lock"></i></span>'}</span>`
-        + `<span class="depth-foot" aria-hidden="true"><span class="depth-copy"><strong>${escape(level.name)}</strong><span>${escape(open || !paid ? data?.wave && !done ? state : level.twist : state)}</span></span>`
-        + (next ? '<span class="depth-go">Play</span>' : open ? `<span class="depth-stars">${starHTML(done)}</span>` : '') + '</span></button></li>'
-        + (level.id === Depths.free && !owned ? depthUnlockCard() : '');
+      return `<li class="depth-stop"><button class="depth-card${open || taste ? '' : ' locked'}${paid ? '' : ' paid'}${taste ? ' taste' : ''}${done ? ' cleared' : ''}${next || taste ? ' next' : ''}${fresh ? ' fresh' : ''}" type="button" data-depth="${level.id}" aria-label="Level ${level.id}, ${escape(level.name)}. ${escape(level.twist)}. ${state}.">`
+        + `<span class="depth-window" aria-hidden="true">${art ? `<img class="depth-scene" src="${art}" alt="">` : ''}<span class="depth-badge">${level.id}</span>${fresh ? '<span class="depth-new">New!</span>' : ''}${open || taste ? '' : '<span class="depth-lock"><i class="level-lock"></i></span>'}</span>`
+        + `<span class="depth-foot" aria-hidden="true"><span class="depth-copy"><strong>${escape(level.name)}</strong><span>${escape(taste ? state : open || !paid ? data?.wave && !done ? state : level.twist : state)}</span></span>`
+        + (taste ? '<span class="depth-go">Try it</span>' : next ? '<span class="depth-go">Play</span>' : open ? `<span class="depth-stars">${starHTML(done)}</span>` : '') + '</span></button></li>'
+        + (level.id === TASTE.level && !owned ? depthUnlockCard() : '');
     }).join('');
     // The first time the map shows a newly opened level, it brings that card into view.
     const freshCard = freshDepth && !freshShown && route === 'levels' ? $('depth-map').querySelector?.('.depth-card.fresh') : null;
@@ -436,28 +446,41 @@
     if (!game.started) { BloomSound.play('tap'); toast('Fire your first seed, then use Lullaby.'); return; }
     if (game.lull()) { processEvents(); renderTray(); }
   }
-  // The shelf says what each powerup does and how many you have. Once one is on sale in the app, a tap buys
-  // exactly one of the one you picked, at the price the store shows. Nothing here appears during play.
+  // The shelf says what each powerup does and how many you have. Once they are on sale in the app, each button
+  // says exactly what it buys (one, five of that kind, or the bag with three of each) at the price the store
+  // shows. Nothing is random, and nothing here appears during play.
   function renderPowerShelf() {
     const total = Powers.ids.reduce((n, id) => n + save.powers[id], 0);
     $('power-total').textContent = `${total} in your bag`;
     let selling = false;
+    const buy = (product, label, aria, classes) => {
+      const offer = offerFor(product);
+      if (!offer.live || !offer.available) return '';
+      selling = true;
+      return `<button class="${classes}" type="button" data-buy="${product}" aria-label="${escape(aria)}${offer.price ? ` for ${escape(offer.price)}` : ''}">${label}${offer.price ? ` · ${escape(offer.price)}` : ''}</button>`;
+    };
     const tiles = Powers.list.map(def => {
-      const offer = offerFor(def.product), buy = offer.live && offer.available;
-      if (buy) selling = true;
+      const five = Powers.packs.find(pack => pack.single === def.id);
       return `<div class="power-tile panel"><img src="${powerIcon(def.id)}" alt=""><strong>${escape(def.name)}</strong><p>${escape(def.text)}</p><span class="power-have">You have ${save.powers[def.id]}</span>`
-        + (buy ? `<button class="unlock-btn power-buy" type="button" data-buy="${def.product}" aria-label="Buy one ${escape(def.name)}${offer.price ? ` for ${escape(offer.price)}` : ''}">Get 1${offer.price ? ` · ${escape(offer.price)}` : ''}</button>` : '') + '</div>';
+        + buy(def.product, 'Get 1', `Buy one ${def.name}`, 'unlock-btn power-buy')
+        + (five ? buy(five.product, 'Get 5', `Buy five ${def.name}`, 'button-secondary power-buy power-five') : '') + '</div>';
     }).join('');
+    const bag = Powers.packs.find(pack => !pack.single), each = bag && bag.contents[Powers.ids[0]];
+    const bagBuy = bag ? buy(bag.product, 'Get the bag', `Buy the ${bag.name}: ${each} of each powerup`, 'unlock-btn power-buy') : '';
+    const bagTile = bagBuy ? `<div class="power-bag panel"><span class="power-bag-icons" aria-hidden="true">${Powers.ids.map(id => `<img src="${powerIcon(id)}" alt="">`).join('')}</span>`
+      + `<span class="power-bag-copy"><strong>${escape(bag.name)}</strong><span>${each} of each, ${Object.values(bag.contents).reduce((n, c) => n + c, 0)} in all.</span></span>${bagBuy}</div>` : '';
     const live = Boolean(store && store.isLive()), mode = store?.mode || 'web';
-    const note = selling ? mode === 'mock' ? 'Test mode: nothing is charged.' : 'Each tap buys one powerup, the one you picked.' : live ? 'Not on sale yet.' : 'You can buy more in the Bloomshot app.';
-    $('power-shelf').innerHTML = `${tiles}<p class="power-note">${escape(note)} Gift bubbles in the waves hold more, free.</p>`;
+    const note = selling ? mode === 'mock' ? 'Test mode: nothing is charged.' : 'Each button buys exactly what it says.' : live ? 'Not on sale yet.' : 'You can buy more in the Bloomshot app.';
+    $('power-shelf').innerHTML = `${tiles}${bagTile}<p class="power-note">${escape(note)} Gift bubbles in the waves hold more, free.</p>`;
   }
   // The store hands every powerup purchase here. It keeps the grant waiting in its own ledger until this returns
   // true (the store itself finishes the payment straight away), so a crash before saving is offered again next
   // launch. A purchase that comes back again is recognized by its transaction id and adds nothing.
+  // A pack arrives as a set of powerups (`powers`), or as just its product id; either is added all together.
   function grantPower(info) {
+    const set = info && !info.power ? info.powers || (Powers.byProduct[info.productId] ? null : Powers.contents(info.productId)) : null;
     const power = info && (info.power || Powers.byProduct[info.productId]?.id);
-    const result = Powers.grant(save.powers, save.powerReceipts, { power, count: info && info.count, transaction: info && info.transaction });
+    const result = Powers.grant(save.powers, save.powerReceipts, set ? { powers: set, transaction: info.transaction } : { power, count: info && info.count, transaction: info && info.transaction });
     if (!result.ok) return false;
     if (!result.repeat) { save.powers = result.counts; save.powerReceipts = result.receipts; persist(); trayKey = ''; if (route === 'levels') renderPowerShelf(); }
     return storageAvailable;
@@ -466,26 +489,31 @@
   // not-granted: the store saw a payment it could not match yet. It keeps it waiting and grants it on the next launch.
   const notBought = result => result.cancelled ? 'Purchase cancelled. Nothing was charged.' : result.reason === 'not-granted' ? 'Your purchase is being confirmed. It arrives the next time you open Bloomshot.' : "Purchase didn't go through. Nothing was charged.";
   async function buyPower(button) {
-    const def = Powers.byProduct[button.dataset.buy], product = def && productInfo(def.product);
-    if (!def || !store || store.busy || !product || !product.available) return;
+    const id = button.dataset.buy, contents = Powers.contents(id), product = contents && productInfo(id);
+    if (!contents || !store || store.busy || !product || !product.available) return;
+    const kinds = Object.keys(contents), count = kinds.reduce((n, kind) => n + contents[kind], 0), one = kinds.length === 1 ? Powers.byId[kinds[0]] : null;
     button.disabled = true; button.textContent = 'Opening the store…';
-    const before = save.powers[def.id];
+    const before = Powers.ids.map(kind => save.powers[kind]).join();
     let result;
-    try { result = await store.purchase(def.product); } catch (_) { result = { ok: false }; }
+    try { result = await store.purchase(id); } catch (_) { result = { ok: false }; }
     // A store that only reports the purchase (without handing it over first) still gets it counted, once.
-    if (result.ok && save.powers[def.id] === before) grantPower({ power: def.id, count: result.count || 1, transaction: result.transaction });
-    if (result.ok) { BloomSound.wake(); BloomSound.play('gift'); toast(`+1 ${def.name}! You have ${save.powers[def.id]}.`); }
-    else toast(result.pending ? `Your payment is waiting to clear. The ${def.name} arrives as soon as it does.` : notBought(result));
+    if (result.ok && Powers.ids.map(kind => save.powers[kind]).join() === before) grantPower({ productId: id, powers: contents, transaction: result.transaction });
+    if (result.ok) { BloomSound.wake(); BloomSound.play('gift'); toast(one ? `+${count} ${one.name}! You have ${save.powers[one.id]}.` : `+${count} powerups! ${contents[kinds[0]]} of each.`); }
+    else toast(result.pending ? `Your payment is waiting to clear. ${count === 1 ? `The ${one.name} arrives` : 'Your powerups arrive'} as soon as it does.` : notBought(result));
     renderPowerShelf();
   }
   // The unlock is described exactly: what it contains, the price the store reports, and that it is one payment.
   // It sits on the map between the free levels and the deeper ones, and nowhere interrupts play.
-  function depthUnlockCard() {
-    const offer = offerFor(Depths.product), deeper = Depths.levels.filter(level => level.id > Depths.free), range = `${Depths.free + 1} to ${Depths.total}`;
+  function depthUnlockAction() {
+    const offer = offerFor(Depths.product), range = `${Depths.free + 1} to ${Depths.total}`;
     let action;
-    if (offer.live && offer.available) action = `<button class="button-primary unlock-btn" type="button" data-buy="${Depths.product}">Unlock levels ${range}${offer.price ? ` · ${escape(offer.price)}` : ''}</button><p class="unlock-fine">${offer.mode === 'mock' ? 'Test mode: nothing is charged.' : 'One payment. Restore it any time in Settings.'}</p>`;
+    if (offer.live && offer.available) action = `<button class="button-primary unlock-btn" type="button" data-buy="${Depths.product}">Unlock levels ${range}${offer.price ? ` · ${escape(offer.price)}` : ''}</button>${bundleOffer()}<p class="unlock-fine">${offer.mode === 'mock' ? 'Test mode: nothing is charged.' : 'One payment. Restore it any time in Settings.'}</p>`;
     else if (offer.live) action = `<p class="unlock-fine">Not on sale yet. Levels 1 to ${Depths.free} are free to play now.</p>`;
     else action = `<p class="unlock-fine">Levels ${range} unlock in the Bloomshot app for iPhone, iPad and Android.</p>`;
+    return action;
+  }
+  function depthUnlockCard() {
+    const deeper = Depths.levels.filter(level => level.id > Depths.free), range = `${Depths.free + 1} to ${Depths.total}`, action = depthUnlockAction();
     return `<li class="depth-stop depth-more depth-unlock" id="depth-unlock"><span class="depth-more-art" aria-hidden="true">${DEEPER}</span><div class="depth-more-copy"><span class="card-tag gold">Levels ${range}</span><strong>${deeper.length} deeper levels</strong>`
       + `<p>From ${escape(deeper[0].name)} down to the ${escape(deeper.at(-1).name)}. Currents, turning shells, tunnels, geodes and briars, ten waves each. One-time purchase, no ads.</p>${action}</div></li>`;
   }
@@ -845,11 +873,11 @@
   const PURCHASES = {
     [BloomKoi.product]: { thanks: 'Koi Conservatory unlocked! Six new pools.' },
     [Keepsakes.product]: { thanks: 'Keepsake Collection unlocked! Three new styles.' },
-    [BUNDLE]: { thanks: 'Bundle unlocked! Koi pools and seed styles are yours.' },
+    [BUNDLE]: { thanks: () => `Complete Garden unlocked! Levels ${Depths.free + 1} to ${Depths.total}, Koi pools and seed styles are yours.` },
     [Depths.product]: { thanks: () => `Levels ${Depths.free + 1} to ${Depths.total} unlocked! ${depthOpen(Depths.free + 1) ? `${Depths.level(Depths.free + 1).name} is open.` : `Clear level ${Depths.free} to head down.`}` }
   };
   async function buyProduct(button) {
-    if (Powers.byProduct[button.dataset.buy]) { buyPower(button); return; }
+    if (Powers.contents(button.dataset.buy)) { buyPower(button); return; }
     const id = button.dataset.buy, item = PURCHASES[id];
     const product = productInfo(id);
     if (!item || !store || store.busy || !product || product.owned || product.partial) return;
@@ -868,6 +896,7 @@
     if (route === 'collection') renderKeepsakes();
     if (route === 'levels') renderLevels();
     if (currentWorld && chapters[currentWorld.id] && $('world-dialog').open) renderChapter(currentWorld);
+    if (game && isTaste() && $('result-dialog').open) renderTasteOffer(game.status === 'won');
   }
   if (store) store.subscribe(refreshStoreViews);
   // Entering a current: a soft ripple and a few droplets thrown along the flow.
@@ -1036,17 +1065,30 @@
       } else if (event.type === 'crack') {
         burst(event.bud, 12); jolt(.05);
       } else if (event.type === 'ready') {
+        if (!isRush()) { shotTrail.push(game.bloomedCount - trailTotal); trailTotal = game.bloomedCount; }
         $('game-hint').textContent = isChapter() ? `${game.shotsLeft} ${game.shotsLeft === 1 ? 'seed' : 'seeds'} left. ${game.level.hint || (isKoi() ? 'Watch where the water goes.' : 'Check the gate exit first.')}` : event.blooms ? 'Turn a petal or line up your next shot.' : 'Missed! Try turning a petal.';
         say(`${game.bloomedCount} of ${game.buds.length} bloomed. ${game.shotsLeft} ${isChapter() ? 'seeds' : 'shots'} left.`);
       } else if (event.type === 'won' || event.type === 'lost') {
+        if (!isRush() && game.bloomedCount > trailTotal) { shotTrail.push(game.bloomedCount - trailTotal); trailTotal = game.bloomedCount; }
         if (event.type === 'won') { burst({ x: 110, y: 210, type: 'coral' }, 70); burst({ x: 310, y: 210, type: 'gold' }, 70); burst({ x: 210, y: 150, type: 'lilac' }, 60); jolt(.45, .14, 1); }
         resultAt = game.time + (save.settings.motion ? 1.45 : .4); resultShown = false;
+        if (isTaste()) {
+          // A taste records no progress and earns no stars; its blooms pay seeds like any finished level run.
+          const id = game.plan.id, won = event.type === 'won';
+          awardSeeds({ mode: 'depths', levelId: id, stars: 0, blooms: game.bloomedCount, wave: game.wave });
+          runGoals = trackGoals({ type: 'rush', blooms: game.bloomedCount, wave: game.wave, chain: game.bestCombo }); runAward += runGoals.paid;
+          persist(); hudKey = '';
+          $('game-hint').textContent = won ? `That was the first ${TASTE.waves} waves!` : 'Out of lives. Try a new angle.';
+          say(won ? `You played the first ${TASTE.waves} waves of level ${id}. ${game.score} points.` : `Out of lives on wave ${game.wave} of ${game.finalWave}. ${game.bloomedCount} blooms.`);
+          continue;
+        }
         if (isDepth()) {
           const id = game.plan.id, won = event.type === 'won', previousStars = save.depths[id]?.stars || 0;
           const recorded = Depths.record(save.depths, id, { won, lives: game.lives, score: game.score, wave: game.wave });
           save.depths = recorded.progress;
           depthNews = { firstClear: recorded.firstClear, newStars: recorded.newStars, opened: recorded.firstClear && Depths.level(id + 1) && depthOpen(id + 1) ? id + 1 : null };
           if (depthNews.opened) { freshDepth = depthNews.opened; freshShown = false; }
+          else if (recorded.firstClear && id + 1 === TASTE.level && tasteOpen()) { freshDepth = TASTE.level; freshShown = false; }
           awardSeeds({ mode: 'depths', levelId: id, stars: won ? game.stars : 0, previousStars, blooms: game.bloomedCount, wave: game.wave });
           runGoals = trackGoals({ type: 'rush', blooms: game.bloomedCount, wave: game.wave, chain: game.bestCombo }); runAward += runGoals.paid;
           persist(); hudKey = '';
@@ -1134,6 +1176,7 @@
   function showResult() {
     resultShown = true; const won = game.status === 'won';
     $('next-btn').classList.add('button-primary'); $('next-btn').classList.remove('button-secondary');
+    $('result-offer').hidden = true; $('share-btn').hidden = !canShare(won);
     $('garden-reward').hidden = preview || runAward <= 0;
     $('reward-seeds').textContent = `+${runAward} ${runAward === 1 ? 'seed' : 'seeds'}`;
     $('reward-goal').textContent = nextGoal();
@@ -1143,20 +1186,22 @@
     $('result-stars').hidden = isRush() && !(isDepth() && won);
     $('result-dialog').classList.toggle('lost', isDepth() ? !won : isRush() ? !rushRecordBroken : !won);
     $('result-garden-btn').textContent = isRush() ? 'All levels' : 'Back to the meadow';
+    if (isTaste()) { showTasteResult(won); return; }
     if (isDepth()) {
       const id = game.plan.id, next = Depths.level(id + 1), nextOpen = Boolean(next && depthOpen(id + 1)), nextPaid = Boolean(next && depthPaid(id + 1));
+      const taste = Boolean(won && next && !nextPaid && next.id === TASTE.level && tasteOpen());
       $('result-eyebrow').textContent = won ? `Level ${id} clear!` : 'Out of lives';
       $('result-title').textContent = won ? ['Cleared!', 'Cleared!', 'Great!', 'Perfect!'][game.stars] : `Wave ${game.wave} of ${game.finalWave}`;
       $('result-message').textContent = won
-        ? depthNews?.opened ? `Level ${id + 1}, ${next.name}, is open!` : !next ? `${game.bloomedCount} blooms. You reached the Starseed Core!` : !nextPaid ? `${next.name} and the levels below it come with a one-time unlock.` : game.stars < 3 ? `${game.bloomedCount} blooms. Keep all 3 lives for ★★★.` : `${game.bloomedCount} blooms${chainNote()}`
+        ? depthNews?.opened ? `Level ${id + 1}, ${next.name}, is open!` : !next ? `${game.bloomedCount} blooms. You reached the Starseed Core!` : taste ? `Try the first ${TASTE.waves} waves of level ${next.id}, ${next.name}, free!` : !nextPaid ? `${next.name} and the levels below it come with a one-time unlock.` : game.stars < 3 ? `${game.bloomedCount} blooms. Keep all 3 lives for ★★★.` : `${game.bloomedCount} blooms${chainNote()}`
         : `${game.bloomedCount} blooms. ${game.wave >= game.finalWave - 2 ? 'So close!' : 'Try a new angle.'}`;
       $('result-stars').innerHTML = resultStars(game.stars); $('result-stars').setAttribute('aria-label', `${game.stars} of 3 stars`);
       $('result-score').textContent = fmt(game.score);
       $('reward-flower').hidden = true;
-      $('next-btn').hidden = !won || !(nextOpen || next && !nextPaid); $('next-btn').textContent = nextPaid ? `Level ${id + 1}` : `See levels ${Depths.free + 1} to ${Depths.total}`;
-      // Pointing at the unlock is a quiet button under Replay, never the big one.
-      $('next-btn').classList.toggle('button-primary', nextPaid); $('next-btn').classList.toggle('button-secondary', !nextPaid);
-      $('retry-btn').textContent = won ? 'Replay' : 'Try again'; $('retry-btn').classList.toggle('primary', !won || !nextOpen);
+      $('next-btn').hidden = !won || !(nextOpen || next && !nextPaid); $('next-btn').textContent = nextPaid ? `Level ${id + 1}` : taste ? 'Try it free' : `See levels ${Depths.free + 1} to ${Depths.total}`;
+      // Pointing at the unlock is a quiet button under Replay, never the big one. The free taste is play, so it can be.
+      $('next-btn').classList.toggle('button-primary', nextPaid || taste); $('next-btn').classList.toggle('button-secondary', !nextPaid && !taste);
+      $('retry-btn').textContent = won ? 'Replay' : 'Try again'; $('retry-btn').classList.toggle('primary', !won || !nextOpen && !taste);
       showDialog('result-dialog'); celebrate(won); return;
     }
     if (isRush()) {
@@ -1187,6 +1232,60 @@
     $('retry-btn').textContent = won ? 'Replay' : 'Try again';
     $('retry-btn').classList.toggle('primary', !won);
     showDialog('result-dialog'); celebrate(won);
+  }
+  // The end of a free taste. Played through, the card says what the unlock adds and offers it; a run that ends
+  // early only gets another try, never an offer.
+  function showTasteResult(won) {
+    const level = Depths.level(game.plan.id);
+    $('result-eyebrow').textContent = won ? 'Free taste done!' : 'Out of lives';
+    $('result-title').textContent = won ? 'Nice!' : `Wave ${game.wave} of ${game.finalWave}`;
+    $('result-message').textContent = won
+      ? `Waves ${TASTE.waves + 1} to ${Depths.waveCount} of ${level.name}, and the ${Depths.total - level.id} levels below it, come with the one-time unlock.`
+      : `${game.bloomedCount} blooms. The first ${TASTE.waves} waves of ${level.name} are free to try.`;
+    $('result-stars').hidden = true;
+    $('result-score').textContent = fmt(game.score);
+    $('reward-flower').hidden = true;
+    renderTasteOffer(won);
+    $('retry-btn').textContent = won ? 'Play again' : 'Try again'; $('retry-btn').classList.toggle('primary', !won);
+    showDialog('result-dialog'); celebrate(won);
+  }
+  // Bought from the card, the offer gives way to the full level.
+  function renderTasteOffer(won) {
+    const owned = depthsOwned(), level = Depths.level(game.plan.id);
+    $('result-offer').hidden = !won || owned;
+    $('result-offer').innerHTML = won && !owned ? `<span class="card-tag gold">Levels ${Depths.free + 1} to ${Depths.total}</span>${depthUnlockAction()}` : '';
+    $('next-btn').hidden = !(won && owned && depthOpen(level.id)); $('next-btn').textContent = `Play ${level.name}`;
+  }
+  // Sharing: a short note with no spoilers and the link to the free web game. On a phone the share sheet opens;
+  // elsewhere the note is copied, ready to paste. The daily garden shares a tiny picture of each shot, like a
+  // word-game grid: a leaf for a miss, then a sprout, a tulip or a bouquet as more of the garden bloomed.
+  const SHARE_URL = 'https://vexno1r.github.io/Bloomshot/';
+  const DAILY_FIRST = Date.UTC(2026, 9, 1);
+  function canShare(won) {
+    if (preview) return false;
+    if (isTaste()) return false;
+    if (isDepth() || isDaily()) return won;
+    return isRush() && rushRecordBroken;
+  }
+  function shareNote() {
+    const stars = n => `${'⭐'.repeat(n)} ${n}/3`;
+    if (isDaily()) {
+      const day = Math.round((Date.parse(`${game.level.id.slice(6)}T00:00:00Z`) - DAILY_FIRST) / 864e5) + 1, total = game.buds.length || 1;
+      const shots = shotTrail.map(n => !n ? '🍂' : n / total < .25 ? '🌱' : n / total < .5 ? '🌷' : '💐').join('');
+      return `Bloomshot daily garden #${day}\n${stars(game.stars)}\n${shots}`;
+    }
+    if (isDepth()) { const level = Depths.level(game.plan.id); return `Bloomshot · Level ${level.id}, ${level.name} 🌸\n${stars(game.stars)} · ${fmt(game.score)} points`; }
+    return `Bloomshot · Meadow Rush 🌼\nNew best: wave ${game.wave} · ${fmt(game.score)} points`;
+  }
+  async function shareResult() {
+    const text = shareNote(), payload = { title: 'Bloomshot', text, url: SHARE_URL };
+    BloomSound.wake(); BloomSound.play('tap');
+    try {
+      if (native && typeof native.share === 'function') { const result = await native.share(payload); if (!result || result.ok !== false || result.cancelled) return; }
+      else if (navigator.share) { await navigator.share(payload); return; }
+    } catch (error) { if (error && error.name === 'AbortError') return; }
+    try { await navigator.clipboard.writeText(`${text}\n${SHARE_URL}`); toast('Copied! Paste it in a chat.'); }
+    catch (_) { toast('Sharing is not available here.'); }
   }
   function rotateNearest(point) {
     const near = game.bumpers.find(b => b.kind !== 'rock' && Math.hypot(b.x - point.x, b.y - point.y) <= b.length / 2 + 14);
@@ -1270,8 +1369,8 @@
   function openRush() { if (preview) exitPreview(); if (isRush() && !isDepth() && !game.over) { closeDialogs(); setRoute('game'); } else startLevel({ id: 'rush', name: 'Meadow Rush' }); }
   function openLevels() { if (preview) exitPreview(); closeDialogs(); setRoute('levels'); }
   function showUnlock() { const card = $('depth-unlock'); if (card) card.scrollIntoView({ behavior: save.settings.motion ? 'smooth' : 'auto', block: 'center' }); }
-  function startDepth(id) { if (id === freshDepth) freshDepth = 0; if (preview) exitPreview(); startLevel({ id: 'rush', depth: id, name: Depths.level(id).name }, { theme: depthTheme(id) }); }
-  function replay() { if (isDepth()) startDepth(game.plan.id); else startLevel(game.level, { preview, theme }); }
+  function startDepth(id, taste) { if (id === freshDepth) freshDepth = 0; if (preview) exitPreview(); startLevel({ id: 'rush', depth: id, name: Depths.level(id).name, taste: Boolean(taste) }, { theme: depthTheme(id) }); }
+  function replay() { if (isDepth()) startDepth(game.plan.id, isTaste()); else startLevel(game.level, { preview, theme }); }
   $('rush-btn').addEventListener('click', openLevels);
   $('levels-rush-btn').addEventListener('click', openRush);
   $('resume-btn').addEventListener('click', () => { if (inProgress()) setRoute('game'); else renderLevels(); });
@@ -1280,7 +1379,8 @@
     const card = event.target.closest('[data-depth]'); if (!card) return;
     const id = Number(card.dataset.depth), level = Depths.level(id); if (!level) return;
     BloomSound.wake();
-    if (!depthPaid(id)) { BloomSound.play('tap'); toast(`${level.name} is part of levels ${Depths.free + 1} to ${Depths.total}.`); showUnlock(); return; }
+    if (!depthPaid(id) && id === TASTE.level && tasteOpen()) { if (inProgress() && isTaste()) setRoute('game'); else startDepth(id, true); return; }
+    if (!depthPaid(id)) { BloomSound.play('tap'); toast(id === TASTE.level ? `Clear level ${id - 1} to try ${level.name} free.` : `${level.name} is part of levels ${Depths.free + 1} to ${Depths.total}.`); showUnlock(); return; }
     if (!depthOpen(id)) { BloomSound.play('tap'); toast(`Clear level ${id - 1} to open ${level.name}.`); return; }
     // Tapping the level already being played picks it up where it was.
     if (inProgress() && isDepth() && game.plan.id === id) setRoute('game'); else startDepth(id);
@@ -1372,12 +1472,16 @@
   });
   $('daily-btn').addEventListener('click', () => startLevel(BloomLevels.dailyLevel(localDate())));
   $('retry-btn').addEventListener('click', replay);
+  $('share-btn').addEventListener('click', shareResult);
+  $('result-offer').addEventListener('click', event => { const buy = event.target.closest('[data-buy]'); if (buy) buyProduct(buy); });
   $('result-garden-btn').addEventListener('click', () => { closeDialogs(); if (preview) exitPreview(); else setRoute(isRush() ? 'levels' : 'garden'); });
   $('next-btn').addEventListener('click', () => {
     closeDialogs(); if (preview) { exitPreview(); return; }
     if (isDepth()) {
-      const id = game.plan.id + 1;
-      if (Depths.level(id) && depthOpen(id)) startDepth(id); else { setRoute('levels'); if (Depths.level(id) && !depthPaid(id)) showUnlock(); }
+      const id = isTaste() ? game.plan.id : game.plan.id + 1;
+      if (Depths.level(id) && depthOpen(id)) startDepth(id);
+      else if (id === TASTE.level && tasteOpen()) startDepth(id, true);
+      else { setRoute('levels'); if (Depths.level(id) && !depthPaid(id)) showUnlock(); }
       return;
     }
     const next = isChapter() ? nextTrial(game.level) : levels.find(l => l.id === game.level.id + 1);

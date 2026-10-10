@@ -23,6 +23,20 @@
   var BY_ID = {}, BY_PRODUCT = {};
   LIST.forEach(function (p) { BY_ID[p.id] = p; BY_PRODUCT[p.product] = p; });
   var MAX = 999, STARTER = 1, KEEP_RECEIPTS = 50;
+  // Packs hold fixed contents, always shown before buying, and nothing in them is random: five of one kind,
+  // or the bag with three of each. Like the singles, they are sold only on the shelf.
+  var PACKS = LIST.map(function (p) {
+    var contents = {}; contents[p.id] = 5;
+    return { id: p.id + '5', product: p.product + '5', name: '5 ' + p.name, contents: contents, single: p.id };
+  }).concat([{ id: 'bag', product: 'bloomshot.power.bag1', name: 'Powerup Bag', single: null,
+    contents: IDS.reduce(function (all, id) { all[id] = 3; return all; }, {}) }]);
+  var PACK_BY_PRODUCT = {};
+  PACKS.forEach(function (p) { PACK_BY_PRODUCT[p.product] = p; });
+  // What a product gives, as { powerId: count }, or null for a product that is not a powerup.
+  function contents(product) {
+    if (BY_PRODUCT[product]) { var one = {}; one[BY_PRODUCT[product].id] = 1; return one; }
+    return PACK_BY_PRODUCT[product] ? Object.assign({}, PACK_BY_PRODUCT[product].contents) : null;
+  }
 
   // Counts are whole numbers from 0 to 999. A save from before powerups gets the starter set: one of each.
   function normalize(raw) {
@@ -38,16 +52,23 @@
     return Array.isArray(raw) ? raw.filter(function (r) { return typeof r === 'string' && r.length > 0 && r.length <= 200; }).slice(-KEEP_RECEIPTS) : [];
   }
   // A purchase adds its powerups once: a store transaction that comes back again (a replay after a crash or
-  // a restart) is recognized by its id and adds nothing.
+  // a restart) is recognized by its id and adds nothing. A grant names one powerup and a count, or a whole
+  // set as `powers: { id: count }` (the bag), which is added all together under the one transaction.
   function grant(counts, list, grantInfo) {
-    var power = grantInfo && BY_ID[grantInfo.power], amount = Math.floor(Number(grantInfo && grantInfo.count) || 1);
+    var adds = {}, valid = true;
+    if (grantInfo && grantInfo.powers && typeof grantInfo.powers === 'object' && !grantInfo.power) {
+      Object.keys(grantInfo.powers).forEach(function (key) {
+        var n = Math.floor(Number(grantInfo.powers[key]));
+        if (!BY_ID[key] || !(n >= 1)) valid = false; else adds[key] = n;
+      });
+    } else if (grantInfo && BY_ID[grantInfo.power]) adds[grantInfo.power] = Math.floor(Number(grantInfo.count) || 1);
     var id = grantInfo && grantInfo.transaction ? String(grantInfo.transaction) : '';
-    var next = normalize(counts), kept = receipts(list);
-    if (!power || amount < 1) return { ok: false, counts: next, receipts: kept };
+    var next = normalize(counts), kept = receipts(list), keys = Object.keys(adds);
+    if (!valid || !keys.length || keys.some(function (key) { return adds[key] < 1; })) return { ok: false, counts: next, receipts: kept };
     if (id && kept.indexOf(id) >= 0) return { ok: true, repeat: true, counts: next, receipts: kept };
-    next[power.id] = Math.min(MAX, next[power.id] + amount);
+    keys.forEach(function (key) { next[key] = Math.min(MAX, next[key] + adds[key]); });
     if (id) kept = kept.concat(id).slice(-KEEP_RECEIPTS);
-    return { ok: true, counts: next, receipts: kept };
+    return { ok: true, counts: next, receipts: kept, added: adds };
   }
   function add(counts, id, amount) {
     var next = normalize(counts);
@@ -61,6 +82,6 @@
     return { ok: true, counts: next };
   }
 
-  return Object.freeze({ list: LIST, ids: IDS, byId: BY_ID, byProduct: BY_PRODUCT, max: MAX, starter: STARTER,
-    normalize: normalize, receipts: receipts, grant: grant, add: add, spend: spend });
+  return Object.freeze({ list: LIST, ids: IDS, byId: BY_ID, byProduct: BY_PRODUCT, packs: PACKS, packByProduct: PACK_BY_PRODUCT, max: MAX, starter: STARTER,
+    contents: contents, normalize: normalize, receipts: receipts, grant: grant, add: add, spend: spend });
 });
