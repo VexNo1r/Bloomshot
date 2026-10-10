@@ -27,8 +27,8 @@
   // or the bag with three of each. Like the singles, they are sold only on the shelf.
   var PACKS = LIST.map(function (p) {
     var contents = {}; contents[p.id] = 5;
-    return { id: p.id + '5', product: p.product + '5', name: '5 ' + p.name, contents: contents, single: p.id };
-  }).concat([{ id: 'bag', product: 'bloomshot.power.bag1', name: 'Powerup Bag', single: null,
+    return { id: p.id + '5', product: 'bloomshot.pack.' + p.id + '5', name: '5 ' + p.name, contents: contents, single: p.id };
+  }).concat([{ id: 'bag', product: 'bloomshot.pack.bag12', name: 'Powerup Bag', single: null,
     contents: IDS.reduce(function (all, id) { all[id] = 3; return all; }, {}) }]);
   var PACK_BY_PRODUCT = {};
   PACKS.forEach(function (p) { PACK_BY_PRODUCT[p.product] = p; });

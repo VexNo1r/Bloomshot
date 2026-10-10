@@ -476,9 +476,11 @@
   // The store hands every powerup purchase here. It keeps the grant waiting in its own ledger until this returns
   // true (the store itself finishes the payment straight away), so a crash before saving is offered again next
   // launch. A purchase that comes back again is recognized by its transaction id and adds nothing.
-  // A pack arrives as a set of powerups (`powers`), or as just its product id; either is added all together.
+  // A pack arrives as the store's list of items ([{ power, count }]), a set of powerups (`powers`), or just its
+  // product id; whichever it is, everything in it is added together.
+  const itemSet = items => Array.isArray(items) && items.length > 1 ? items.reduce((all, it) => ({ ...all, [it && it.power]: it && it.count }), {}) : null;
   function grantPower(info) {
-    const set = info && !info.power ? info.powers || (Powers.byProduct[info.productId] ? null : Powers.contents(info.productId)) : null;
+    const set = info && !info.power ? itemSet(info.items) || info.powers || (Powers.byProduct[info.productId] ? null : Powers.contents(info.productId)) : null;
     const power = info && (info.power || Powers.byProduct[info.productId]?.id);
     const result = Powers.grant(save.powers, save.powerReceipts, set ? { powers: set, transaction: info.transaction } : { power, count: info && info.count, transaction: info && info.transaction });
     if (!result.ok) return false;
@@ -1277,14 +1279,22 @@
     if (isDepth()) { const level = Depths.level(game.plan.id); return `Bloomshot · Level ${level.id}, ${level.name} 🌸\n${stars(game.stars)} · ${fmt(game.score)} points`; }
     return `Bloomshot · Meadow Rush 🌼\nNew best: wave ${game.wave} · ${fmt(game.score)} points`;
   }
+  // The app's share helper picks the phone's sheet, the browser's, or the clipboard, and the link (the Play Store
+  // page from the Android app). Without it, the browser's own sheet or the clipboard is used here.
   async function shareResult() {
-    const text = shareNote(), payload = { title: 'Bloomshot', text, url: SHARE_URL };
+    const url = native?.link || SHARE_URL, text = shareNote(), payload = { title: 'Bloomshot', text, url };
     BloomSound.wake(); BloomSound.play('tap');
-    try {
-      if (native && typeof native.share === 'function') { const result = await native.share(payload); if (!result || result.ok !== false || result.cancelled) return; }
-      else if (navigator.share) { await navigator.share(payload); return; }
-    } catch (error) { if (error && error.name === 'AbortError') return; }
-    try { await navigator.clipboard.writeText(`${text}\n${SHARE_URL}`); toast('Copied! Paste it in a chat.'); }
+    if (native && typeof native.share === 'function') {
+      let result;
+      try { result = await native.share(payload); } catch (_) { result = { ok: false }; }
+      if (result && result.cancelled) return;
+      if (!result || !result.ok) toast('Sharing is not available here.');
+      else if (result.via === 'copied') toast('Copied! Paste it in a chat.');
+      return;
+    }
+    try { if (navigator.share) { await navigator.share(payload); return; } }
+    catch (error) { if (error && error.name === 'AbortError') return; }
+    try { await navigator.clipboard.writeText(`${text}\n${url}`); toast('Copied! Paste it in a chat.'); }
     catch (_) { toast('Sharing is not available here.'); }
   }
   function rotateNearest(point) {

@@ -36,18 +36,18 @@ function legacySave() {
 const FUTURE = { id: 'orchard', name: 'Night Orchard', tagline: 'Soon.', description: 'A future garden.', price: null, theme: 'moon', available: false, mechanic: 'Planned.' };
 const BUNDLE = 'bloomshot.bundle.complete1';
 // Mirrors store.js: a product grants one or more entitlements; owned means all of them, partial means some.
-// Powerups are consumables: the store hands each purchase to the game's grant handler, then reports it. A pack
-// of five names its powerup and a count; the bag hands over its whole set as `powers`.
+// Powerups are consumables: the store hands each purchase to the game's grant handler, then reports it, in the
+// real store's shape: `items` lists [{ power, count }]; `power` is set only for one kind, and `count` is the total.
 function fakeStore({ owned = [], live = false, available = false, price = '$4.99', stylePrice = '$1.99', bundlePrice = '$6.99', levelsPrice = '$2.99', amounts = [4.99, 1.99, 6.99, 2.99], currency = 'USD', mode = 'native', powers = false, powerPrice = '$0.25' } = {}) {
   const have = new Set(owned), listeners = [], purchases = [];
   let grant = null, serial = 0;
   const consumables = powers ? [...Powers.list.map(p => ({ id: p.product, entitlements: [], kind: 'power', consumable: true, power: p.id, count: 1, price: powerPrice, amount: .25, currency })),
-    ...Powers.packs.map(p => ({ id: p.product, entitlements: [], kind: 'power', consumable: true, ...(p.single ? { power: p.single, count: 5 } : { powers: p.contents }), price: p.single ? '$0.99' : '$1.99', amount: p.single ? .99 : 1.99, currency }))] : [];
+    ...Powers.packs.map(p => ({ id: p.product, entitlements: [], kind: 'power', consumable: true, power: p.single, count: Object.values(p.contents).reduce((n, c) => n + c, 0), items: Object.entries(p.contents).map(([power, count]) => ({ power, count })), price: p.single ? '$0.99' : '$1.99', amount: p.single ? .99 : 1.99, currency }))] : [];
   const catalog = [...consumables, { id: Koi.product, entitlements: [Koi.entitlement], kind: 'world', price, amount: amounts[0], currency },
     { id: Keepsakes.product, entitlements: [Keepsakes.entitlement], kind: 'style', price: stylePrice, amount: amounts[1], currency },
     { id: BUNDLE, entitlements: [Depths.entitlement, Koi.entitlement, Keepsakes.entitlement], kind: 'bundle', price: bundlePrice, amount: amounts[2], currency },
     { id: Depths.product, entitlements: [Depths.entitlement], kind: 'levels', price: levelsPrice, amount: amounts[3], currency }];
-  const handOver = (item, transaction) => grant({ productId: item.id, power: item.power, count: item.count, powers: item.powers, transaction });
+  const handOver = (item, transaction) => grant({ productId: item.id, power: item.power, count: item.count, items: item.items || [{ power: item.power, count: item.count }], transaction });
   const held = item => item.entitlements.filter(e => have.has(e)).length;
   return { mode, busy: false, purchases, isLive: () => live, owns: id => have.has(id), revoke: id => have.delete(id),
     products: () => catalog.map(item => ({ ...item, entitlement: item.entitlements[0], available, owned: !item.consumable && held(item) === item.entitlements.length, partial: held(item) > 0 && held(item) < item.entitlements.length })),
@@ -785,18 +785,18 @@ test('Packs on the shelf: five of one kind or the bag with three of each, shown 
   assert(!offSale.$('power-shelf').innerHTML.includes('Get 5') && !offSale.$('power-shelf').innerHTML.includes('Powerup Bag'));
   const store = fakeStore({ live: true, available: true, powers: true }), app = boot(legacySave(), { store }); app.click('rush-btn');
   const shelf = app.$('power-shelf').innerHTML;
-  for (const p of Powers.list) assert.match(shelf, new RegExp(`data-buy="${p.product}5"[^>]*>Get 5 · \\$0\\.99<`));
-  assert.match(shelf, /Powerup Bag/); assert.match(shelf, /3 of each, 12 in all\./); assert.match(shelf, /data-buy="bloomshot\.power\.bag1"[^>]*>Get the bag · \$1\.99</);
-  app.click('power-shelf', { buy: 'bloomshot.power.sunburst5' });
+  for (const p of Powers.list) assert.match(shelf, new RegExp(`data-buy="bloomshot\\.pack\\.${p.id}5"[^>]*>Get 5 · \\$0\\.99<`));
+  assert.match(shelf, /Powerup Bag/); assert.match(shelf, /3 of each, 12 in all\./); assert.match(shelf, /data-buy="bloomshot\.pack\.bag12"[^>]*>Get the bag · \$1\.99</);
+  app.click('power-shelf', { buy: 'bloomshot.pack.sunburst5' });
   assert.equal(app.saved().powers.sunburst, 6);
   assert.deepEqual(['dandelion', 'beeline', 'lullaby'].map(id => app.saved().powers[id]), [1, 1, 1]);
-  app.click('power-shelf', { buy: 'bloomshot.power.bag1' });
+  app.click('power-shelf', { buy: 'bloomshot.pack.bag12' });
   assert.deepEqual(app.saved().powers, { sunburst: 9, dandelion: 4, beeline: 4, lullaby: 4 });
   assert.deepEqual(app.saved().powerReceipts, ['T1', 'T2']);
-  assert.equal(store.replay('bloomshot.power.bag1', 'T2'), true); assert.equal(store.replay('bloomshot.power.sunburst5', 'T1'), true);
+  assert.equal(store.replay('bloomshot.pack.bag12', 'T2'), true); assert.equal(store.replay('bloomshot.pack.sunburst5', 'T1'), true);
   assert.deepEqual(app.saved().powers, { sunburst: 9, dandelion: 4, beeline: 4, lullaby: 4 }, 'a pack handed over again adds nothing');
-  store.replay('bloomshot.power.bag1', 'T7'); assert.deepEqual(app.saved().powers, { sunburst: 12, dandelion: 7, beeline: 7, lullaby: 7 }, 'a bag finished after a restart still arrives whole');
-  assert.deepEqual(store.purchases, ['bloomshot.power.sunburst5', 'bloomshot.power.bag1']);
+  store.replay('bloomshot.pack.bag12', 'T7'); assert.deepEqual(app.saved().powers, { sunburst: 12, dandelion: 7, beeline: 7, lullaby: 7 }, 'a bag finished after a restart still arrives whole');
+  assert.deepEqual(store.purchases, ['bloomshot.pack.sunburst5', 'bloomshot.pack.bag12']);
 });
 const tasteReady = (store) => { const app = boot(cleared(1, 2, 3, 4), store ? { store } : {}); app.click('depth-map', { depth: '5' }); return { app, game: depthGame(app) }; };
 test('The free taste plays the first three waves of level 5, records no progress, and pays only for its blooms', () => {
@@ -841,18 +841,19 @@ test('Level records are cleaned on load and a cleared level opens the next one',
 testAsync('Buying says exactly what arrived: one, five, or the bag', async () => {
   const store = fakeStore({ live: true, available: true, powers: true }), app = boot(legacySave(), { store }); app.click('rush-btn');
   app.click('power-shelf', { buy: 'bloomshot.power.dandelion' }); await settled(); assert.equal(app.$('toast').textContent, '+1 Dandelion! You have 2.');
-  app.click('power-shelf', { buy: 'bloomshot.power.sunburst5' }); await settled(); assert.equal(app.$('toast').textContent, '+5 Sunburst! You have 6.');
-  app.click('power-shelf', { buy: 'bloomshot.power.bag1' }); await settled(); assert.equal(app.$('toast').textContent, '+12 powerups! 3 of each.');
+  app.click('power-shelf', { buy: 'bloomshot.pack.sunburst5' }); await settled(); assert.equal(app.$('toast').textContent, '+5 Sunburst! You have 6.');
+  app.click('power-shelf', { buy: 'bloomshot.pack.bag12' }); await settled(); assert.equal(app.$('toast').textContent, '+12 powerups! 3 of each.');
   app.click('depth-map', { buy: BUNDLE }); await settled();
   assert.equal(app.$('toast').textContent, 'Complete Garden unlocked! Levels 5 to 10, Koi pools and seed styles are yours.');
 });
 const clearDepth = (app, id, lives = 3) => { app.click('depth-map', { depth: String(id) }); const game = depthGame(app); game.started = true; game.wave = 10; game.lives = lives; game.score = 5400; game._clearLevel(); settleLevel(app); return game; };
 testAsync('A level clear shares a short note and the web link through the phone\'s share sheet', async () => {
-  const shared = [], bridge = { ...fakeNative(), share: async payload => { shared.push(payload); return { ok: true }; } };
+  const shared = [], play = 'https://play.google.com/store/apps/details?id=dev.bloomshot.game';
+  const bridge = { ...fakeNative(), link: play, share: async payload => { shared.push(payload); return { ok: true, via: 'sheet' }; } };
   const app = boot(cleared(1, 2, 3, 4), { native: bridge, store: fakeStore({ owned: [Depths.entitlement] }) });
   clearDepth(app, 5, 2); assert.equal(app.$('share-btn').hidden, false);
   app.click('share-btn'); await settled();
-  assert.equal(shared.length, 1); assert.equal(shared[0].url, 'https://vexno1r.github.io/Bloomshot/');
+  assert.equal(shared.length, 1); assert.equal(shared[0].url, play, 'the app shares the link it was given (the Play Store page on Android)');
   assert.equal(shared[0].text, 'Bloomshot · Level 5, Glowworm Lake 🌸\n⭐⭐ 2/3 · 5,400 points');
   const lost = boot(cleared(1)); lost.click('depth-map', { depth: '2' }); const game = depthGame(lost); game.started = true; game.wave = 4; game._lose(); settleLevel(lost);
   assert.equal(lost.$('share-btn').hidden, true, 'a lost level has nothing to share');
@@ -883,6 +884,12 @@ testAsync('The daily garden shares its number, stars and a tiny picture of each 
   const cancelled = { ...fakeNative(), share: async () => ({ ok: false, cancelled: true }) }, quiet = boot(legacySave(), { today: SATURDAY, native: cancelled });
   quiet.click('garden-btn'); quiet.click('daily-btn'); finishDaily(quiet); quiet.click('share-btn'); await settled();
   assert.notEqual(quiet.$('toast').textContent, 'Sharing is not available here.', 'closing the share sheet is not an error');
+  const copier = { ...fakeNative(), share: async () => ({ ok: true, via: 'copied' }) }, copy = boot(legacySave(), { today: SATURDAY, native: copier });
+  copy.click('garden-btn'); copy.click('daily-btn'); finishDaily(copy); copy.click('share-btn'); await settled();
+  assert.equal(copy.$('toast').textContent, 'Copied! Paste it in a chat.', 'a share that fell back to the clipboard says so');
+  const none = { ...fakeNative(), share: async () => ({ ok: false }) }, stuck = boot(legacySave(), { today: SATURDAY, native: none });
+  stuck.click('garden-btn'); stuck.click('daily-btn'); finishDaily(stuck); stuck.click('share-btn'); await settled();
+  assert.equal(stuck.$('toast').textContent, 'Sharing is not available here.');
 });
 (async () => {
 for (const { name, fn } of later) {
