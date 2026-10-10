@@ -33,7 +33,7 @@
     for (let i = 0; i < 6; i++) spots.push([Math.cos((i + .5) * Math.PI / 3) * 40, Math.sin((i + .5) * Math.PI / 3) * 40]);
     return spots.map(([dx, dy], i) => bud(game, `${tag}-${i}`, `${tag}-${i}`, cx + dx, cy + dy, TYPES[i % 3]));
   }
-  const leaf = degrees => ({ id: 'petal', x: 210, y: 330, length: 64, angle: degrees * Math.PI / 180 });
+  const leaf = degrees => ({ id: 'petal', x: 210, y: 330, length: 64, angle: degrees * Math.PI / 180, oneWay: true });
 
   // Each step: what it is called, what it sets on the board, the prompts in order (what to say, what to light up,
   // which input is open, and when it is done), what counts as it working, and the line shown while it plays out.
@@ -43,11 +43,11 @@
       setup: game => [...bunch(game, 't1-a', 282, 196, 'crown', 'coral'), ...bunch(game, 't1-b', 136, 168, 'crown', 'gold')],
       prompts: [{ text: 'Drag up from the seed to aim, then let go.', target: 'board', finger: [282, 214], allow: ['fire'], until: (g, s) => s.launch > 0 }],
       works: s => s.bloom > 0, retry: 0, show: 1.1, done: 'A crowned flower blooms its whole bunch.' },
-    { id: 'petal', title: 'Turn the petal', leaf: 45,
-      setup: game => bunch(game, 't2-a', 344, 330, 'line', 'lilac'),
+    { id: 'petal', title: 'Turn the petal', leaf: 135,
+      setup: game => bunch(game, 't2-a', 344, 298, 'line', 'lilac'),
       prompts: [
-        { text: 'Seeds bounce off this petal. Tap it or Turn petal to swing it.', target: 'petal', also: 'rotate-btn', allow: ['rotate'], until: (g, s) => s.rotate > 0 },
-        { text: 'Now fire straight at the petal.', target: 'board', finger: [210, 342], allow: ['fire'], until: (g, s) => s.launch > 0 }],
+        { text: 'Seeds fly up through this petal, and it bounces falling ones back. Tap Turn petal to swing it.', target: 'petal', also: 'rotate-btn', allow: ['rotate'], until: (g, s) => s.rotate > 0 },
+        { text: 'Now fire straight up. The petal catches it on the way down.', target: 'board', finger: [210, 200], allow: ['fire'], until: (g, s) => s.launch > 0 }],
       works: s => s.bloom > 0, retry: 1, show: 1.1, done: 'Rocks and walls bounce seeds too.' },
     { id: 'split', title: 'Split', charge: true,
       setup: game => [...bunch(game, 't3-a', 140, 154, 'line', 'gold'), ...bunch(game, 't3-b', 280, 154, 'line', 'coral'), ...bunch(game, 't3-c', 210, 96, 'crown', 'lilac')],

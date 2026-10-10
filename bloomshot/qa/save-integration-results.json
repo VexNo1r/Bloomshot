@@ -1,5 +1,5 @@
 {
-  "passed": 60,
+  "passed": 65,
   "failed": 0,
   "methodology": "Executes the complete current app.js in an isolated Node VM using real garden/level/engine modules, fake localStorage, and DOM/canvas adapters. Completion fixtures exercise actual engine completion events and app handlers. No real browser or user saves are read or changed.",
   "limitations": [
@@ -157,6 +157,26 @@
     },
     {
       "name": "The game opens on the level map: level 1 is open, the rest wait their turn, and a locked card never starts",
+      "passed": true
+    },
+    {
+      "name": "A brand-new player starts in the tutorial; a returning player goes straight to the levels",
+      "passed": true
+    },
+    {
+      "name": "Played through on the real board, the tutorial finishes in under 46 seconds, spends none of the player's powerups and records nothing",
+      "passed": true
+    },
+    {
+      "name": "While a card waits, only the control it names works; anything else just nudges the card",
+      "passed": true
+    },
+    {
+      "name": "The petal card lights the petal on the board and the Turn petal button; touching the petal never turns it, the button does",
+      "passed": true
+    },
+    {
+      "name": "Skip ends it for good, and How to play can start it again",
       "passed": true
     },
     {

@@ -56,7 +56,7 @@
       super({ id: 'rush', name: plan ? plan.name : 'Meadow Rush', subtitle: 'Keep the glasshouse growing.',
         description: 'Tap to launch. Keep flowers above the line. Hit six buds to charge a manual split.',
         flowerId: null, par: 0, buds: first ? first.buds : waveBuds(1),
-        bumpers: first ? first.bumpers : [{ id: 'petal', x: 210, y: 350, length: 64, angle: Math.PI / 4 }],
+        bumpers: first ? first.bumpers : [{ id: 'petal', x: 210, y: 350, length: 64, angle: Math.PI / 4, oneWay: true }],
         launcher: { x: 210, y: 498 } });
       this.plan = plan; this.finalWave = plan ? plan.waves : Infinity; this.waveStart = 0;
       this.mode = 'rush'; this.wave = 1; this.lives = 3; this.dangerY = 448;
@@ -433,7 +433,7 @@
           // An acorn cup turns away any shot that meets it from below; a shell, any shot that misses its opening.
           if (hit.kind === 'bud' && this._guarded(hit.item, hit)) this.event('shield', { bud: hit.item, x: ball.x, y: ball.y, shell: Boolean(hit.item.shell) });
           else if (hit.kind === 'bud') this.strike(hit.item);
-          else this.event('bounce', { kind: hit.item && hit.item.kind === 'rock' ? 'rock' : hit.kind, x: ball.x, y: ball.y });
+          else this.event('bounce', { kind: hit.item && hit.item.kind === 'rock' ? 'rock' : hit.kind, x: ball.x, y: ball.y, caught: Boolean(hit.item && hit.item.oneWay) });
           const dot = ball.vx * hit.nx + ball.vy * hit.ny;
           ball.vx -= 2 * dot * hit.nx; ball.vy -= 2 * dot * hit.ny;
           ball.x += hit.nx * 0.08; ball.y += hit.ny * 0.08;

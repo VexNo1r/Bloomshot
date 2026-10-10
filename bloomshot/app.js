@@ -962,6 +962,12 @@
       if (isTutorial()) tutorial.observe(event);
       BloomSound.play(event.type, event);
       if (event.type === 'launch') kick = 1;
+      else if (event.type === 'bounce' && event.caught) {
+        // The petal saved a falling seed: a bright little ring and a pop of sparks so the save reads.
+        burst({ x: event.x, y: event.y, type: 'gold', r: 6 }, 10);
+        if (save.settings.motion) game.particles.push({ x: event.x, y: event.y, vx: 0, vy: 0, life: .45, maxLife: .45, kind: 'ring', color: '#9ff0c8', size: 6, grow: 26, gravity: 0, drag: 0 });
+        haptic('tick');
+      }
       else if (event.type === 'bloom') {
         const combo = event.combo || 1;
         burst(event.bud, 24 + Math.min(36, combo * 3));
@@ -1348,7 +1354,9 @@
     event.preventDefault(); BloomSound.wake(); canvas.focus({ preventScroll: true });
     const point = coordinates(event);
     if (!isRush() && game.status === 'flying') { guiding = true; pointer = point; activePointer = event.pointerId; canvas.setPointerCapture(event.pointerId); game.guide(point); return; }
-    if (rotateNearest(point)) return;
+    // In Rush and the levels a touch on the board always aims; only Turn petal (or R) turns the petal there, so aiming
+    // past it in a hurry never turns it by accident. The calm puzzle boards still turn it with a tap.
+    if (!isRush() && rotateNearest(point)) return;
     if (point.y > game.launcher.y + 24) { toast('Aim above the seed, then let go.'); return; }
     aiming = true; activePointer = event.pointerId; canvas.setPointerCapture(event.pointerId); aimAt(point);
     $('game-hint').textContent = 'Let go to fire.';

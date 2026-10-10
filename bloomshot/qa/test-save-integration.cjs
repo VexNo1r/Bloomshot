@@ -301,7 +301,9 @@ test('The Koi unlock names its contents and store price and buys only through th
 test('Clearing a Rush wave shows the next tempo, and the HUD and result carry the tempo reached', () => {
   const app = boot(legacySave()); app.click('levels-rush-btn'); const game = app.games.at(-1);
   assert(game.fire(0, -1)); app.frame();
+  // The opening seed flies up through the petal now, so it is cleared away before it can reach wave 2.
   for (const bud of game.buds) while (!bud.bloomed) game.strike(bud, true);
+  game.balls = [];
   app.frame(20); app.frame(20);
   const banner = game.floaters.find(f => f.kind === 'wave');
   assert(banner, 'a wave-clear banner is shown'); assert.equal(banner.text, 'Wave clear!'); assert.equal(banner.label, 'next ×1.1');
@@ -674,7 +676,7 @@ test('While a card waits, only the control it names works; anything else just nu
   assert.equal(game.balls.length, 0); assert.deepEqual(app.saved().powers, before);
   tapTutorial(app, 'fire', Tutorial.steps[0].prompts[0].finger); assert.equal(game.balls.length, 1, 'the shot on the card fires');
 });
-test('The petal card lights the petal on the board and the Turn petal button, and tapping the petal itself turns it', () => {
+test('The petal card lights the petal on the board and the Turn petal button; touching the petal never turns it, the button does', () => {
   const app = boot(undefined), box = app.$('tutorial');
   let seconds = 0;
   // Play the first card, then wait for the petal card.
@@ -691,7 +693,10 @@ test('The petal card lights the petal on the board and the Turn petal button, an
   const before = petal.angle, canvas = app.$('game-canvas');
   canvas.emit('pointerdown', { isPrimary: true, pointerId: 1, clientX: petal.x + 12, clientY: petal.y - 12 });
   canvas.emit('pointerup', { pointerId: 1, clientX: petal.x + 12, clientY: petal.y - 12 });
-  assert.notEqual(app.games.at(-1).bumpers[0].angle, before, 'tapping the petal turned it');
+  assert.equal(app.games.at(-1).bumpers[0].angle, before, 'a touch on the board aims and never turns the petal');
+  assert.equal(app.$('tutorial-text').textContent, Tutorial.steps[1].prompts[0].text, 'the card still waits for Turn petal');
+  app.click('rotate-btn');
+  assert.notEqual(app.games.at(-1).bumpers[0].angle, before, 'Turn petal turned it');
   for (let i = 0; i < 6; i++) app.frame(17);
   assert.equal(app.$('tutorial-text').textContent, Tutorial.steps[1].prompts[1].text); assert.equal(app.$('tutorial-spot-2').hidden, true);
 });
