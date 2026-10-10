@@ -1946,7 +1946,10 @@
   }
 
   // ---------- Level 9: Briar Vault ----------
-  const STONE = ['#7f8c78', '#66725f', '#525d4d', '#1f2820'];
+  // An old vault far under the roots. Through its great arch a green-gold shaft of daylight falls from some gap high
+  // in the roof, filling the hall beyond with warm air and pooling on the floor at the launcher. The arch and its
+  // pillars stand against that light, cool and mossy and rimmed with it; briars climb them and the roses catch it.
+  // (leafGlyph and leaf stay as they were: the vault rocks in play are carved with them.)
   // A leaf cut into stone: the groove is dark on its upper left edge and catches light on the lower right.
   function leafGlyph(ctx, x, y, s, rot) {
     ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(s, s);
@@ -1957,25 +1960,6 @@
     for (const k of [-1, 1]) for (const yy of [-2, 3]) stroke(ctx, [[0, yy], [k * 3.4, yy - 2.6]], 'rgba(18,26,20,.6)', .9);
     ctx.restore();
   }
-  function stoneBlock(ctx, pts, tone, seed) {
-    const [light, base, shade, ink] = STONE;
-    poly(ctx, pts, [base, '#6b7764', '#616d5b'][tone % 3], null);
-    clipTo(ctx, pts, () => {
-      ctx.beginPath(); smooth(ctx, pts.map(([x, y]) => [x - 4, y - 4]), true); ctx.rect(-50, -50, 520, 660); ctx.fillStyle = shade; ctx.fill('evenodd');
-      const r = rng(seed);
-      for (let i = 0; i < 3; i++) { const p = pts[Math.floor(r() * pts.length)]; dot(ctx, p[0] + (r() - .5) * 20, p[1] + (r() - .5) * 14, .8 + r(), 'rgba(18,26,20,.3)'); }
-    });
-    poly(ctx, pts, null, ink, 1.5);
-    stroke(ctx, [[pts[0][0] + 2, pts[0][1] + 2], [pts[1][0] - 2, pts[1][1] + 2]], light, 1.1);
-  }
-  function mossCap(ctx, x0, x1, y, seed, drip = 0) {
-    const r = rng(seed), pts = [[x0, y + 2]];
-    for (let x = x0; x <= x1; x += 6) pts.push([x, y - 2 - r() * 4]);
-    pts.push([x1, y + 2]);
-    for (let x = x1 - 4; x > x0; x -= 7) pts.push([x, y + 2 + r() * 3 + (r() < drip ? 6 + r() * 6 : 0)]);
-    shape(ctx, pts, '#6f9e50', null); cel(ctx, pts, '#5a8a44', -2, 2.4); shape(ctx, pts, null, '#2c4a26', 1.2);
-    for (let x = x0 + 4; x < x1 - 4; x += 9 + r() * 6) dot(ctx, x, y - 2 - r() * 2, 1.1, 'rgba(220,250,170,.55)');
-  }
   function leaf(ctx, x, y, len, angle) {
     ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
     ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(len * .5, -len * .36, len, 0); ctx.quadraticCurveTo(len * .5, len * .36, 0, 0); ctx.closePath();
@@ -1984,173 +1968,334 @@
     stroke(ctx, [[len * .1, 0], [len * .8, -len * .02]], 'rgba(200,240,170,.55)', .8);
     ctx.restore();
   }
-  function rose(ctx, x, y, r, rot = 0) {
-    ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
-    for (let i = 0; i < 5; i++) { const a = i / 5 * TAU - .3; dot(ctx, Math.cos(a) * r * .55, Math.sin(a) * r * .5, r * .55, '#c8455f'); }
-    for (let i = 0; i < 5; i++) { const a = i / 5 * TAU - .3; ctx.beginPath(); ctx.arc(Math.cos(a) * r * .55, Math.sin(a) * r * .5, r * .55, a - 1.2, a + 1.2); ctx.strokeStyle = '#6a1f36'; ctx.lineWidth = 1; ctx.stroke(); }
-    dot(ctx, 0, 0, r * .55, '#a8344f');
-    ctx.beginPath(); for (let a = 0; a < 2.4 * TAU; a += .3) { const rr = r * .06 + a * r * .035; ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); } ctx.strokeStyle = '#ef8ea2'; ctx.lineWidth = .9; ctx.stroke();
-    ctx.beginPath(); ctx.arc(-r * .3, -r * .32, r * .4, 3.4, 4.6); ctx.strokeStyle = 'rgba(255,214,222,.75)'; ctx.lineWidth = 1; ctx.lineCap = 'round'; ctx.stroke();
+  const BRIAR_ARCH = [210, 204, 158, 190];
+  // The same carving in the new light: a soft groove and a lit lip, no ink.
+  function briarGlyph(ctx, x, y, s, rot, a = 1) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(s, s);
+    const leafPath = (dx, dy) => { ctx.beginPath(); ctx.moveTo(dx, -9 + dy); ctx.quadraticCurveTo(7 + dx, -2 + dy, dx, 9 + dy); ctx.quadraticCurveTo(-7 + dx, -2 + dy, dx, -9 + dy); };
+    ctx.lineCap = 'round';
+    leafPath(.7, .9); ctx.strokeStyle = `rgba(214,232,170,${(.22 * a).toFixed(3)})`; ctx.lineWidth = 1.3; ctx.stroke();
+    leafPath(0, 0); ctx.strokeStyle = `rgba(14,24,20,${(.5 * a).toFixed(3)})`; ctx.lineWidth = 1.3; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, -6); ctx.lineTo(0, 11); ctx.stroke();
     ctx.restore();
   }
-  // A briar: a thorny cane wandering along the stone, leaves and a rose or two where it pleases.
-  function briar(ctx, pts, seed, roses = []) {
-    stroke(ctx, pts, '#24401f', 3.6); stroke(ctx, pts, '#557a3c', 1.8);
-    const r = rng(seed);
+  // A leaf on a briar: lit toward the light on its upper side, deep green beneath, a pale midrib.
+  function briarLeaf(ctx, x, y, len, angle, lit = .5) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(len * .45, -len * .4, len, 0); ctx.quadraticCurveTo(len * .5, len * .34, 0, 0); ctx.closePath();
+    ctx.fillStyle = lin(ctx, 0, -len * .3, 0, len * .3, [[0, emberMix('#3e6a3a', '#a8cc62', lit)], [.55, emberMix('#24442c', '#4e8040', lit)], [1, '#1a3024']]); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(len * .08, 0); ctx.quadraticCurveTo(len * .5, -len * .05, len * .9, 0); ctx.strokeStyle = `rgba(214,240,170,${(.18 + lit * .3).toFixed(3)})`; ctx.lineWidth = .6; ctx.stroke();
+    ctx.restore();
+  }
+  // A rose: back petals in shadow, a cupped bloom whose upper edges take the light, a tight heart.
+  function briarRose(ctx, x, y, r, rot = 0, lit = .6) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
+    ctx.beginPath(); ctx.ellipse(r * .2, r * .5, r * 1.1, r * .55, 0, 0, TAU); ctx.fillStyle = rad(ctx, r * .2, r * .5, r * 1.1, [[0, 'rgba(16,10,14,.4)'], [1, 'rgba(16,10,14,0)']]); ctx.fill();
+    for (let i = 0; i < 5; i++) { const a = i / 5 * TAU - .3; ctx.beginPath(); ctx.ellipse(Math.cos(a) * r * .55, Math.sin(a) * r * .48, r * .58, r * .46, a, 0, TAU); ctx.fillStyle = i < 2 ? '#7a1830' : '#9a2440'; ctx.fill(); }
+    ctx.beginPath(); ctx.ellipse(0, 0, r * .72, r * .62, 0, 0, TAU); ctx.fillStyle = rad(ctx, -r * .25, -r * .3, r, [[0, emberMix('#c8405a', '#ff9aa8', lit)], [.6, '#b0304c'], [1, '#6a142a']]); ctx.fill();
+    for (const [a0, a1, k] of [[3.4, 5.6, .58], [4, 6.2, .38], [2.6, 4.4, .24]]) { ctx.beginPath(); ctx.arc(0, -r * .04, r * k, a0, a1); ctx.strokeStyle = `rgba(255,${Math.round(170 + lit * 50)},${Math.round(180 + lit * 40)},${(.35 + lit * .4).toFixed(3)})`; ctx.lineWidth = r * .14; ctx.lineCap = 'round'; ctx.stroke(); }
+    ctx.beginPath(); for (let a = 0; a < 2.2 * TAU; a += .35) { const rr = r * .05 + a * r * .028; ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr - r * .06); } ctx.strokeStyle = 'rgba(90,14,34,.6)'; ctx.lineWidth = .7; ctx.stroke();
+    ctx.restore();
+  }
+  // A briar cane: a tapering stem wandering where the points lead, thorns along it, leaves where it pleases and a rose
+  // or a bud at the stops listed. `lit` says how much of the light reaches it.
+  function briarCane(ctx, pts, w, seed, roses = [], lit = .5) {
+    const r = rng(seed), outline = ribbon2(pts, w, .7);
+    soft(ctx, () => smooth(ctx, outline.map(([x, y]) => [x + 2, y + 3]), true), 'rgba(10,18,14,.35)', 3);
+    shape(ctx, outline, '#24301e', null);
+    stroke(ctx, pts.map(([x, y]) => [x - w * .18, y - w * .12]), emberMix('#3a4a28', '#7a8a48', lit), w * .32);
     for (let i = 0; i < pts.length - 1; i++) {
-      const [x0, y0] = pts[i], [x1, y1] = pts[i + 1], a = Math.atan2(y1 - y0, x1 - x0), seg = Math.hypot(x1 - x0, y1 - y0);
-      for (let t = .2; t < 1; t += 14 / seg) {
-        const x = x0 + (x1 - x0) * t, y = y0 + (y1 - y0) * t, side = r() < .5 ? -1 : 1;
-        if (r() < .55) { const ta = a + side * 1.2; poly(ctx, [[x + Math.cos(a) * 1.4, y + Math.sin(a) * 1.4], [x + Math.cos(ta) * 4.4, y + Math.sin(ta) * 4.4], [x - Math.cos(a) * 1.4, y - Math.sin(a) * 1.4]], '#7a5a3a', '#24401f', .6); }
-        else leaf(ctx, x, y, 8 + r() * 4, a + side * (.9 + r() * .4));
+      const [x0, y0] = pts[i], [x1, y1] = pts[i + 1], a = Math.atan2(y1 - y0, x1 - x0), seg = Math.hypot(x1 - x0, y1 - y0), ww = w * (1 - i / (pts.length - 1) * .7);
+      for (let t = .15; t < 1; t += 9 / seg) {
+        const x = x0 + (x1 - x0) * t, y = y0 + (y1 - y0) * t, side = r() < .5 ? -1 : 1, ta = a + side * 1.25;
+        if (r() < .5) poly(ctx, [[x + Math.cos(a) * ww * .5, y + Math.sin(a) * ww * .5], [x + Math.cos(ta) * (ww * .5 + 3.4), y + Math.sin(ta) * (ww * .5 + 3.4)], [x - Math.cos(a) * ww * .2, y - Math.sin(a) * ww * .2]], '#5a4a2e');
+        else if (r() < .4) briarSprig(ctx, x, y, 11 + r() * 6, a + side * (.7 + r() * .5), lit * (.6 + r() * .6), seed * 13 + i * 7 + Math.round(t * 50));
       }
     }
-    for (const [i, rr] of roses) { const [x, y] = pts[i]; leaf(ctx, x - 2, y + 2, 9, 2.4); leaf(ctx, x + 2, y + 1, 9, .5); rose(ctx, x, y, rr, r() * 3); }
+    for (const [i, rr, bud] of roses) {
+      const [x, y] = pts[i];
+      briarLeaf(ctx, x - 2, y + 2, 9, 2.5, lit); briarLeaf(ctx, x + 2, y + 1, 9, .4, lit);
+      if (bud) { ctx.beginPath(); ctx.ellipse(x, y - rr * .2, rr * .45, rr * .7, (r() - .5) * .6, 0, TAU); ctx.fillStyle = lin(ctx, x, y - rr, x, y + rr * .4, [[0, '#d8506a'], [1, '#6a142a']]); ctx.fill(); stroke(ctx, [[x - rr * .4, y + rr * .2], [x, y + rr * .5], [x + rr * .4, y + rr * .2]], '#3a5a2a', 1.2); }
+      else briarRose(ctx, x, y, rr, r() * 3, lit);
+    }
   }
-  function rabbitStatue(ctx, x, y, s) {
+  // Moss: a mat lying along a surface, its edge ragged with tiny lumps, dark where it clings and lit only where it
+  // faces up to the light, finely flecked rather than spotted. c(t) runs along the surface, n(t) points out of it.
+  function briarMat(ctx, c, n, len, th, lit, seed, drip = 0) {
+    const r = rng(seed), steps = Math.max(6, Math.round(len / 2.2)), outer = [], inner = [], crown = [], fleck = [];
+    for (let k = 0; k <= steps; k++) {
+      const t = k / steps, [x, y] = c(t), [nx, ny] = n(t), w = th(t), up = Math.max(0, -ny), bump = k % 2 ? r() * 1.5 : -r() * .5;
+      outer.push([x + nx * (w * .6 + bump), y + ny * (w * .6 + bump)]);
+      const tongue = w > 3 && r() < .14 ? w * (.4 + r() * .5) : 0; inner.unshift([x - nx * (w * .4 + r() * 1.1 + tongue), y - ny * (w * .4 + r() * 1.1 + tongue)]);
+      crown.unshift([x + nx * (w * .6 - w * .7 * up), y + ny * (w * .6 - w * .7 * up)]);
+      if (w > 2) for (let q = 0; q < 2; q++) { const d = w * (.6 - Math.pow(r(), .6) * (.3 + .6 * up)); fleck.push([x + nx * d + (r() - .5) * 2, y + ny * d + (r() - .5) * 2, up]); }
+    }
+    const body = outer.concat(inner), pal = briarMossPal(lit);
+    soft(ctx, () => smooth(ctx, body.map(([x, y]) => [x + 1, y + 2.4]), true), 'rgba(8,16,10,.5)', 3);
+    for (let k = 2; k < steps - 1; k += 3) if (r() < drip) { const [x, y] = inner[steps - k]; emberLine(ctx, [[x, y - 1], [x + (r() - .5) * 2, y + 3 + r() * 9]], 'rgba(36,66,40,.85)', .8 + r() * .7); }
+    shape(ctx, body, pal.dark, null);
+    clipTo(ctx, body, () => {
+      shape(ctx, outer.concat(inner.map(([x, y], k) => [(x + crown[k][0]) / 2, (y + crown[k][1]) / 2])), pal.mid, null);
+      soft(ctx, () => smooth(ctx, outer.concat(crown), true), pal.lit, 1.4);
+      ctx.fillStyle = emberMix(pal.lit, '#c8dc80', .25); ctx.globalAlpha = .6;
+      for (const [x, y, up] of fleck) if (r() < .3 + up * .7) { ctx.beginPath(); ctx.arc(x, y, .4 + r() * .35, 0, TAU); ctx.fill(); }
+      ctx.globalAlpha = 1;
+    });
+  }
+  function briarMossPal(lit) { return { dark: emberMix('#1a2e22', '#20382a', lit), mid: emberMix('#28442c', '#36583a', lit), lit: emberMix('#4a6e3a', '#90ae58', lit) }; }
+  function briarMoss(ctx, x0, x1, y, seed, drip = 0, lit = .5) {
+    const r = rng(seed), wob = r() * 9;
+    briarMat(ctx, t => [x0 + (x1 - x0) * t, y - 1], () => [0, -1], x1 - x0, t => 3 + 2.6 * Math.sin(Math.PI * Math.min(1, t * 1.15)) * (.7 + .3 * Math.sin(t * 9 + wob)), lit, seed, drip);
+  }
+  // Ivy hanging in a curtain from a ledge: a few long strands, leaves alternating down them.
+  function briarIvy(ctx, x, y, len, seed, lit = .4) {
+    const r = rng(seed), sway = (r() - .5) * 10, pts = [[x, y], [x + sway * .4, y + len * .4], [x + sway, y + len * .75], [x + sway * .8, y + len]];
+    stroke(ctx, pts, '#2a4428', 1.1);
+    for (let k = 6; k < len; k += 6 + r() * 4) { const [px, py] = bezierAt([x, y], [x + sway * .6, y + len * .5], [x + sway * .8, y + len], k / len); briarLeaf(ctx, px, py, 4.6 + r() * 2.4 - k / len * 2, (k / 6) % 2 ? .9 : 2.2, lit * (1 - k / len * .6)); }
+  }
+  // The stone rabbit: a little shrine figure in the corner, mossy on the head, its back rimmed by the hall light.
+  function briarStatue(ctx, x, y, s) {
     ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
-    const [light, base, shade, ink] = ['#a2ad98', '#8a9682', '#717d6a', '#2a3329'];
-    poly(ctx, [[-22, 0], [22, 0], [22, 18], [-22, 18]], '#6f7b68', ink, 1.4);
-    poly(ctx, [[-25, -5], [25, -5], [25, 1], [-25, 1]], base, ink, 1.4);
-    stroke(ctx, [[-22, -3.4], [22, -3.4]], light, 1);
-    leafGlyph(ctx, 0, 9, .55, Math.PI / 2);
+    soft(ctx, () => ctx.ellipse(4, 18, 32, 5, 0, 0, TAU), 'rgba(8,14,12,.55)', 4);
+    const stoneG = (y0, y1) => lin(ctx, -20, y0, 20, y1, [[0, '#6a7868'], [.55, '#52604f'], [1, '#384438']]);
+    poly(ctx, [[-22, 0], [22, 0], [22, 18], [-22, 18]], stoneG(0, 18));
+    poly(ctx, [[-25, -5], [25, -5], [25, 1], [-25, 1]], lin(ctx, 0, -5, 0, 1, [[0, '#8a9a80'], [1, '#4a5848']]));
+    briarGlyph(ctx, 0, 9, .55, Math.PI / 2, .9);
     for (const [ex, a, h] of [[-4.6, -.2, 26], [5.4, .5, 22]]) {
       ctx.save(); ctx.translate(ex, -38); ctx.rotate(a);
-      ctx.beginPath(); ctx.ellipse(0, -h / 2, 3.9, h / 2, 0, 0, TAU); ctx.fillStyle = base; ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = 1.3; ctx.stroke();
-      ctx.beginPath(); ctx.ellipse(.6, -h / 2 + 1, 1.7, h / 2 - 4.4, 0, 0, TAU); ctx.fillStyle = shade; ctx.fill();
+      ctx.beginPath(); ctx.ellipse(0, -h / 2, 3.9, h / 2, 0, 0, TAU); ctx.fillStyle = stoneG(-h, 0); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(.6, -h / 2 + 1, 1.7, h / 2 - 4.4, 0, 0, TAU); ctx.fillStyle = 'rgba(30,40,34,.45)'; ctx.fill();
       ctx.restore();
     }
     const body = [[-16, -5], [-17, -18], [-10, -28], [2, -30], [12, -24], [16, -12], [14, -5]];
-    shape(ctx, body, base, null); cel(ctx, body, shade, -3, 3); shape(ctx, body, null, ink, 1.4);
+    shape(ctx, body, stoneG(-30, -5), null); rim(ctx, body, 'rgba(226,236,170,.5)', 2, -1.5);
     const head = blob(0, -34, 11, 9.4, 7, .04, 10);
-    shape(ctx, head, base, null); cel(ctx, head, shade, -2, 2.4); shape(ctx, head, null, ink, 1.4);
-    for (const ex of [-4.4, 4.4]) { ctx.beginPath(); ctx.arc(ex, -35, 2.2, .3, Math.PI - .3); ctx.strokeStyle = ink; ctx.lineWidth = 1.1; ctx.stroke(); }
-    dot(ctx, 0, -31.6, 1.2, ink); stroke(ctx, [[-2, -29.4], [0, -28.4], [2, -29.4]], ink, .8);
-    ctx.beginPath(); ctx.ellipse(-12, -6, 5, 3, 0, 0, TAU); ctx.fillStyle = base; ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = 1.1; ctx.stroke();
-    stroke(ctx, [[-7, -40], [-3, -42.6], [1, -41]], light, 1.2);
-    stroke(ctx, [[8, -20], [11, -14], [9, -9]], 'rgba(42,51,41,.5)', .9);
-    for (const [mx, my, mr] of [[-6, -42, 3.4], [-2, -43.4, 2.8], [2, -42.6, 2.4], [-24, -5, 2.6], [-20, -6, 3], [-16, -5.4, 2.4], [20, -4.6, 2.2]]) dot(ctx, mx, my, mr + 1, '#2c4a26');
-    for (const [mx, my, mr] of [[-6, -42, 3.4], [-2, -43.4, 2.8], [2, -42.6, 2.4], [-24, -5, 2.6], [-20, -6, 3], [-16, -5.4, 2.4], [20, -4.6, 2.2]]) dot(ctx, mx, my, mr, '#6f9e50');
-    dot(ctx, -7, -43.4, 1, 'rgba(220,250,170,.6)');
+    shape(ctx, head, stoneG(-44, -24), null); rim(ctx, head, 'rgba(226,236,170,.55)', 1.6, -1.6);
+    for (const ex of [-4.4, 4.4]) { ctx.beginPath(); ctx.arc(ex, -35, 2.2, .3, Math.PI - .3); ctx.strokeStyle = 'rgba(20,28,24,.7)'; ctx.lineWidth = 1.1; ctx.stroke(); }
+    dot(ctx, 0, -31.6, 1.1, 'rgba(20,28,24,.6)'); stroke(ctx, [[-2, -29.4], [0, -28.4], [2, -29.4]], 'rgba(20,28,24,.55)', .8);
+    ctx.beginPath(); ctx.ellipse(-12, -6, 5, 3, 0, 0, TAU); ctx.fillStyle = '#4a5848'; ctx.fill();
+    stroke(ctx, [[8, -20], [11, -14], [9, -9]], 'rgba(20,28,24,.4)', .9);
+    clipTo(ctx, head, () => { shape(ctx, scallop(-3, -45, 8.6, 9, 9, .2), lin(ctx, 0, -44, 0, -37, [[0, '#7a9a4c'], [1, '#2e4a2c']]), null); });
+    briarMoss(ctx, -26, -12, -5, 41, .6, .5); briarMoss(ctx, 15, 24, -5, 42, 0, .55);
     ctx.restore();
   }
-  function toad(ctx, x, y, s) {
+  // The toad, sitting on the fallen drum, its back warmed by the light from the hall.
+  function briarToad(ctx, x, y, s) {
     ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
-    const ink = '#2f4220', skin = '#8fae5e', dark = '#6f8f46';
+    const line = '#3a5a2a', skin = lin(ctx, 0, -18, 0, 2, [[0, '#a8be6a'], [1, '#6a8a44']]), dark = 'rgba(70,96,46,.7)';
+    soft(ctx, () => ctx.ellipse(0, 2, 18, 3, 0, 0, TAU), 'rgba(10,18,12,.5)', 2.5);
     const body = [[-16, 0], [-17, -9], [-10, -16], [10, -16], [17, -9], [16, 0], [0, 2]];
-    shape(ctx, body, skin, null); cel(ctx, body, dark, -3, 3); shape(ctx, body, null, ink, 1.4);
+    shape(ctx, body, skin, line, 1.1); rim(ctx, body, 'rgba(236,244,180,.5)', 1.4, -1.6);
     ctx.beginPath(); ctx.ellipse(0, -4, 9, 4.6, 0, 0, TAU); ctx.fillStyle = '#dcd99c'; ctx.fill();
     for (const [sx, sy, sr] of [[-11, -9, 1.6], [12, -6, 1.3], [7, -12, 1.1], [-6, -13, 1]]) dot(ctx, sx, sy, sr, dark);
     for (const ex of [-8, 8]) {
-      dot(ctx, ex, -15, 5, skin); ctx.beginPath(); ctx.arc(ex, -15, 5, Math.PI * .92, Math.PI * 2.08); ctx.strokeStyle = ink; ctx.lineWidth = 1.3; ctx.stroke();
+      dot(ctx, ex, -15, 5, '#a2b866'); ctx.beginPath(); ctx.arc(ex, -15, 5, Math.PI * .92, Math.PI * 2.08); ctx.strokeStyle = line; ctx.lineWidth = 1.1; ctx.stroke();
       dot(ctx, ex, -14.6, 3.2, '#e8d58a');
       ctx.beginPath(); ctx.ellipse(ex, -14.4, 2.4, 1.2, 0, 0, TAU); ctx.fillStyle = '#2a2a18'; ctx.fill();
-      ctx.beginPath(); ctx.moveTo(ex - 3.6, -16); ctx.quadraticCurveTo(ex, -18.4, ex + 3.6, -16); ctx.lineTo(ex + 3.6, -18); ctx.quadraticCurveTo(ex, -20.4, ex - 3.6, -18); ctx.closePath(); ctx.fillStyle = skin; ctx.fill();
-      ctx.beginPath(); ctx.moveTo(ex - 3.6, -16); ctx.quadraticCurveTo(ex, -18.4, ex + 3.6, -16); ctx.strokeStyle = ink; ctx.lineWidth = 1; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(ex - 3.6, -16); ctx.quadraticCurveTo(ex, -18.4, ex + 3.6, -16); ctx.lineTo(ex + 3.6, -18); ctx.quadraticCurveTo(ex, -20.4, ex - 3.6, -18); ctx.closePath(); ctx.fillStyle = '#a2b866'; ctx.fill();
+      ctx.beginPath(); ctx.moveTo(ex - 3.6, -16); ctx.quadraticCurveTo(ex, -18.4, ex + 3.6, -16); ctx.strokeStyle = line; ctx.lineWidth = .9; ctx.stroke();
       dot(ctx, ex - 1.2, -13.6, .7, '#ffffff');
     }
-    ctx.beginPath(); ctx.moveTo(-8, -8); ctx.quadraticCurveTo(0, -3, 8, -8); ctx.strokeStyle = ink; ctx.lineWidth = 1.1; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-8, -8); ctx.quadraticCurveTo(0, -3, 8, -8); ctx.strokeStyle = line; ctx.lineWidth = 1; ctx.stroke();
     dot(ctx, -11, -6.4, 1.8, 'rgba(240,150,140,.45)'); dot(ctx, 11, -6.4, 1.8, 'rgba(240,150,140,.45)');
-    for (const k of [-1, 1]) { ctx.beginPath(); ctx.ellipse(k * 9, 1, 5, 2.4, 0, 0, TAU); ctx.fillStyle = skin; ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = 1.1; ctx.stroke(); }
+    for (const k of [-1, 1]) { ctx.beginPath(); ctx.ellipse(k * 9, 1, 5, 2.4, 0, 0, TAU); ctx.fillStyle = '#7a9a4e'; ctx.fill(); ctx.strokeStyle = line; ctx.lineWidth = .9; ctx.stroke(); }
     ctx.restore();
   }
+  // Dressed stone laid in courses, each block its own shade, mortar dark between, a cool lip along each top edge.
+  function briarCourses(ctx, x0, y0, x1, y1, h, base, seed, lip = 'rgba(190,214,180,.12)') {
+    const r = rng(seed);
+    ctx.fillStyle = 'rgba(10,18,16,.55)'; ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+    for (let y = y0, row = 0; y < y1; y += h, row++) {
+      for (let x = x0 - (row % 2) * h * 1.1 - r() * 6; x < x1; ) {
+        const w = h * (1.6 + r() * 1.2);
+        poly(ctx, [[x + .8, y + .8], [x + w - .8, y + .8], [x + w - .8, y + h - .8], [x + .8, y + h - .8]], emberMix(base, r() < .5 ? '#1e2a26' : '#5a6a5a', r() * .28));
+        emberLine(ctx, [[x + 1.4, y + 1.4], [x + w - 1.4, y + 1.4]], lip, .8);
+        x += w;
+      }
+    }
+  }
+  // A rose sprig: a stalk with paired leaflets and one at its tip, the way rose leaves grow.
+  function briarSprig(ctx, x, y, len, angle, lit, seed) {
+    const r = rng(seed), ca = Math.cos(angle), sa = Math.sin(angle), bend = (r() - .5) * .3;
+    const at = t => [x + ca * len * t - sa * len * bend * t * t, y + sa * len * t + ca * len * bend * t * t];
+    stroke(ctx, [at(0), at(.5), at(1)], '#2a3a22', 1);
+    const pairs = 2 + (r() < .6), size = len * .36;
+    for (let k = 0; k < pairs; k++) {
+      const t = .32 + k * .26, [px, py] = at(t);
+      for (const side of [-1, 1]) briarLeaf(ctx, px, py, size * (1 - k * .1), angle + bend * t + side * (.85 + r() * .25), lit * (side < 0 ? 1 : .7));
+    }
+    const [tx, ty] = at(.96); briarLeaf(ctx, tx, ty, size * 1.05, angle + bend, lit);
+  }
+  // Briar foliage: sprigs crowding out from a dark heart, the back ones in shadow, the front ones lit.
+  function briarBush(ctx, masses, lit, seed) {
+    const r = rng(seed);
+    for (const [x, y, r0] of masses) soft(ctx, () => ctx.ellipse(x, y + r0 * .15, r0 * .85, r0 * .6, 0, 0, TAU), 'rgba(8,18,12,.55)', r0 * .45);
+    for (const layer of [0, 1]) for (const [x, y, r0] of masses) {
+      const n = layer ? 4 : 5;
+      for (let i = 0; i < n; i++) {
+        const a = -Math.PI / 2 + (i / (n - 1) - .5) * (layer ? 2.4 : 3.6) + (r() - .5) * .4;
+        briarSprig(ctx, x + (r() - .5) * r0 * .3, y + (r() - .5) * r0 * .2, r0 * (layer ? .8 : 1.05) * (.8 + r() * .3), a, lit * (layer ? 1 : .45), seed * 7 + i + layer * 20);
+      }
+    }
+  }
+  // A near cane hanging in front of everything: almost a silhouette, only a cool edge where the hall light finds it.
+  function briarFore(ctx, pts, w, seed) {
+    const r = rng(seed);
+    shape(ctx, ribbon2(pts, w, .75), '#0b140f', null);
+    stroke(ctx, pts.map(([x, y]) => [x + w * .2, y - w * .25]), 'rgba(70,96,74,.35)', w * .22);
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [x0, y0] = pts[i], [x1, y1] = pts[i + 1], a = Math.atan2(y1 - y0, x1 - x0), seg = Math.hypot(x1 - x0, y1 - y0);
+      for (let t = .2; t < 1; t += 8 / seg) {
+        const x = x0 + (x1 - x0) * t, y = y0 + (y1 - y0) * t, side = r() < .5 ? -1 : 1, ww = w * (1 - i / pts.length * .6);
+        if (r() < .55) poly(ctx, [[x + Math.cos(a) * ww * .5, y + Math.sin(a) * ww * .5], [x + Math.cos(a + side * 1.2) * (ww * .5 + 4.5), y + Math.sin(a + side * 1.2) * (ww * .5 + 4.5)], [x - Math.cos(a) * ww * .3, y - Math.sin(a) * ww * .3]], '#0b140f');
+        else {
+          const la = a + side * (.6 + r() * .6), len = 12 + r() * 9;
+          ctx.save(); ctx.translate(x, y); ctx.rotate(la);
+          ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(len * .45, -len * .42, len, 0); ctx.quadraticCurveTo(len * .5, len * .36, 0, 0); ctx.fillStyle = '#0d1812'; ctx.fill();
+          ctx.beginPath(); ctx.moveTo(len * .1, -len * .06); ctx.quadraticCurveTo(len * .45, -len * .4, len * .95, -.4); ctx.strokeStyle = 'rgba(96,130,96,.28)'; ctx.lineWidth = .8; ctx.stroke();
+          ctx.restore();
+        }
+      }
+    }
+  }
   function paintBriar(ctx, framed) {
-    const back = ctx.createLinearGradient(0, 0, 0, 560);
-    back.addColorStop(0, '#2a3a33'); back.addColorStop(.6, '#25332d'); back.addColorStop(1, '#1d2823');
-    ctx.fillStyle = back; ctx.fillRect(0, 0, 420, 560);
-    // The far wall: coursed stone, barely there, and an arcade beyond in the gloom.
-    ctx.save(); ctx.strokeStyle = 'rgba(160,190,150,.07)'; ctx.lineWidth = 1;
-    for (let y = 60, row = 0; y < 456; y += 30, row++) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(420, y); ctx.stroke(); for (let x = (row % 2) * 32; x < 420; x += 64) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 30); ctx.stroke(); } }
-    ctx.restore();
-    for (const [x0, x1, top] of [[64, 152, 262], [152, 268, 232], [268, 356, 262]]) {
-      const cx = (x0 + x1) / 2, rr = (x1 - x0) / 2 - 8;
-      ctx.beginPath(); ctx.moveTo(x0 + 8, 456); ctx.lineTo(x0 + 8, top + rr); ctx.arc(cx, top + rr, rr, Math.PI, 0); ctx.lineTo(x1 - 8, 456); ctx.closePath();
-      ctx.fillStyle = 'rgba(16,24,20,.32)'; ctx.fill(); ctx.strokeStyle = 'rgba(160,190,150,.13)'; ctx.lineWidth = 1.2; ctx.stroke();
+    const [ax, ay, R1, R2] = BRIAR_ARCH, opening = () => { ctx.moveTo(52, 470); ctx.lineTo(52, ay); ctx.arc(ax, ay, R1, Math.PI, 0); ctx.lineTo(368, 470); ctx.closePath(); };
+    // The hall beyond the arch: deep green up in its vault, warming to gold where the light comes down.
+    wash(ctx, lin(ctx, 0, 0, 0, 460, [[0, '#14221e'], [.3, '#1c2e2a'], [.62, '#283c34'], [.86, '#34483a'], [1, '#3c4e3a']]));
+    const rw = rng(12);
+    for (let y = 70; y < 300; y += 38) emberLine(ctx, [[40, y + rw() * 3], [380, y + rw() * 3]], 'rgba(10,18,16,.22)', 1.2);
+    for (const [x, y, w, h, c] of [[120, 150, 70, 50, 'rgba(60,90,60,.16)'], [300, 120, 60, 40, 'rgba(60,90,60,.14)'], [230, 230, 90, 40, 'rgba(10,18,16,.2)']]) soft(ctx, () => ctx.ellipse(x, y, w, h, 0, 0, TAU), c, 20);
+    // Its far arcade: three arches into further dark, the middle one with a glimpse of another lit room.
+    for (const [cx, w, top, glow] of [[124, 52, 300, .3], [210, 64, 282, .8], [296, 52, 300, .3]]) {
+      const path = () => { ctx.beginPath(); ctx.moveTo(cx - w / 2, 440); ctx.lineTo(cx - w / 2, top + w / 2); ctx.arc(cx, top + w / 2, w / 2, Math.PI, 0); ctx.lineTo(cx + w / 2, 440); ctx.closePath(); };
+      path(); ctx.fillStyle = lin(ctx, 0, top, 0, 440, [[0, '#0e1a16'], [1, '#1a2a22']]); ctx.fill();
+      ctx.save(); path(); ctx.clip(); bloom(ctx, cx, 446, w * 1.1, '190,214,150', .2 * glow); ctx.restore();
+      ctx.beginPath(); ctx.arc(cx, top + w / 2, w / 2 + 3.5, Math.PI, 0); ctx.strokeStyle = 'rgba(120,150,110,.14)'; ctx.lineWidth = 7; ctx.stroke();
     }
-    for (const x of [64, 152, 268, 356]) poly(ctx, [[x - 8, 230], [x + 8, 230], [x + 8, 456], [x - 8, 456]], '#2c3b34', 'rgba(160,190,150,.13)', 1.1);
-    // Green-gold daylight finds its way down from somewhere high above.
-    ctx.save(); ctx.globalCompositeOperation = 'screen';
-    for (const [x0, x1, x2, x3, a] of [[120, 176, 300, 200, .07], [150, 166, 250, 214, .06]]) {
-      ctx.beginPath(); ctx.moveTo(x0, 30); ctx.lineTo(x1, 30); ctx.lineTo(x2, 456); ctx.lineTo(x3, 456); ctx.closePath(); ctx.fillStyle = `rgba(220,240,160,${a})`; ctx.fill();
+    for (const x of [82, 167, 253, 338]) poly(ctx, [[x - 8, 296], [x + 8, 296], [x + 8, 440], [x - 8, 440]], lin(ctx, x - 8, 0, x + 8, 0, [[0, '#3a4c3c'], [1, '#26362e']]));
+    // Briar let down in a curtain through the left arch; the right one half choked with fallen blocks.
+    const rc = rng(404); ctx.save(); ctx.globalAlpha = .7;
+    for (const [x, len, sw] of [[103, 64, 3], [110, 100, -2], [117, 40, 4], [129, 84, -3], [143, 52, 2]]) {
+      const pts = [[x, 302], [x + sw, 302 + len * .5], [x + sw * .4, 302 + len]];
+      stroke(ctx, pts, '#1e3226', 1.1);
+      for (let k = 6 + rc() * 6; k < len - 2; k += 6 + rc() * 11) { const [px, py] = bezierAt(pts[0], pts[1], pts[2], k / len); briarLeaf(ctx, px, py, 3.6 + rc() * 2.6, rc() < .5 ? .5 + rc() * .6 : 2.1 + rc() * .6, 0); }
     }
     ctx.restore();
-    // Spandrels: the dark walling the great arch is built into.
-    const spandrel = () => { ctx.beginPath(); ctx.moveTo(-10, -10); ctx.lineTo(430, -10); ctx.lineTo(430, 204); ctx.lineTo(396, 204); ctx.arc(210, 200, 186, 0, Math.PI, true); ctx.lineTo(-10, 204); ctx.closePath(); };
-    spandrel(); ctx.fillStyle = '#2e3a31'; ctx.fill();
-    ctx.save(); spandrel(); ctx.clip();
-    ctx.strokeStyle = 'rgba(12,18,14,.55)'; ctx.lineWidth = 1.2;
-    for (let y = 8, row = 0; y < 210; y += 24, row++) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(420, y); ctx.stroke(); for (let x = (row % 2) * 22 + 6; x < 420; x += 44) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 24); ctx.stroke(); } }
+    for (const [x, y, w, h] of [[276, 424, 22, 16], [298, 428, 18, 12], [288, 412, 16, 12], [314, 432, 12, 8]]) { poly(ctx, [[x, y], [x + w, y + 1], [x + w - 1, y + h], [x + 1, y + h]], lin(ctx, 0, y, 0, y + h, [[0, '#3e5240'], [1, '#22302a']])); emberLine(ctx, [[x + 1, y + .8], [x + w - 1, y + 1.6]], 'rgba(200,220,160,.16)', .9); }
+    band(ctx, [[-20, 438], [440, 438]], 470, lin(ctx, 0, 438, 0, 470, [[0, '#3a4a36'], [1, '#4a5840']]), null);
+    for (const y of [446, 456]) emberLine(ctx, [[40, y], [380, y]], 'rgba(10,20,14,.25)', .8);
+    air(ctx, 40, 470, '74,96,74', .06, .42);
+    bloom(ctx, 238, 450, 160, '236,230,150', .28);
+    // The light itself, falling from a gap high in the vault, through the hall and the arch, to the floor.
+    const rays = () => { for (const [x, a, len, w0, w1, al] of [[112, 1.36, 600, 8, 46, .16], [138, 1.39, 600, 5, 22, .12], [156, 1.405, 590, 9, 40, .15], [184, 1.43, 570, 4, 20, .1], [96, 1.33, 520, 5, 24, .07]]) shaft(ctx, x, -30, a, len, w0, w1, '240,234,160', al); };
+    ctx.save(); ctx.beginPath(); opening(); ctx.rect(-10, 458, 440, 120); ctx.clip(); rays(); ctx.restore();
+    // The near wall the arch is built into, in the cool shade of this side of the vault.
+    ctx.save(); ctx.beginPath(); ctx.rect(-10, -10, 440, 480); opening(); ctx.clip('evenodd');
+    briarCourses(ctx, -10, -6, 430, 470, 24, '#26342e', 21);
+    wash(ctx, rad(ctx, ax, ay, 300, [[0, 'rgba(0,0,0,0)'], [.55, 'rgba(8,14,12,.1)'], [1, 'rgba(8,14,12,.5)']]));
     ctx.restore();
-    // The great arch, stone by stone, the keystone carved with a leaf.
-    const n = 11, r1 = 158, r2 = 188;
+    // The great arch: a soffit lit by the hall, voussoirs in shade, each with a rim of light along its inner edge.
+    soft(ctx, () => { ctx.arc(ax, ay, R2 + 6, Math.PI, 0); ctx.arc(ax, ay, R1 - 4, 0, Math.PI, true); ctx.closePath(); }, 'rgba(6,12,10,.55)', 10);
+    ctx.beginPath(); ctx.arc(ax, ay, R1, Math.PI, 0); ctx.arc(ax + 6, ay + 10, R1 - 10, 0, Math.PI, true); ctx.closePath();
+    ctx.fillStyle = lin(ctx, ax - R1, 0, ax + R1, 0, [[0, '#3e4e40'], [.45, '#7a8660'], [1, '#4e5c48']]); ctx.fill();
+    const n = 11;
     for (let i = 0; i < n; i++) {
-      const key = i === 5, a0 = Math.PI + i * Math.PI / n, a1 = Math.PI + (i + 1) * Math.PI / n, out = key ? r2 + 8 : r2, inn = key ? r1 - 6 : r1;
-      const pts = [];
-      for (let t = 0; t <= 4; t++) { const a = a0 + (a1 - a0) * t / 4; pts.push([210 + Math.cos(a) * out, 200 + Math.sin(a) * out]); }
-      for (let t = 4; t >= 0; t--) { const a = a0 + (a1 - a0) * t / 4; pts.push([210 + Math.cos(a) * inn, 200 + Math.sin(a) * inn]); }
-      poly(ctx, pts, ['#66725f', '#6b7764', '#616d5b'][i % 3], null);
-      clipTo(ctx, pts, () => { ctx.beginPath(); ctx.arc(210, 200, inn + 7, 0, TAU); ctx.fillStyle = '#4b5647'; ctx.fill(); });
-      poly(ctx, pts, null, '#1f2820', 1.5);
-      ctx.beginPath(); ctx.arc(210, 200, out - 2.4, a0 + .02, a1 - .02); ctx.strokeStyle = 'rgba(190,210,170,.35)'; ctx.lineWidth = 1.1; ctx.stroke();
-      if (key) leafGlyph(ctx, 210, 200 - (out + inn) / 2, .95, 0);
+      const key = i === 5, a0 = Math.PI + i * Math.PI / n, a1 = Math.PI + (i + 1) * Math.PI / n, out = key ? R2 + 8 : R2, inn = key ? R1 - 5 : R1, pts = [];
+      for (let t = 0; t <= 4; t++) { const a = a0 + (a1 - a0) * t / 4; pts.push([ax + Math.cos(a) * (out - .9), ay + Math.sin(a) * (out - .9)]); }
+      for (let t = 4; t >= 0; t--) { const a = a0 + (a1 - a0) * t / 4; pts.push([ax + Math.cos(a) * (inn + .5), ay + Math.sin(a) * (inn + .5)]); }
+      const tone = [.1, .3, 0, .22, .05, .35, .12, -.05, .25, .02, .16][i];
+      poly(ctx, pts, rad(ctx, ax, ay, out, [[R1 / out * .97, emberMix('#33443a', '#56685a', tone)], [1, emberMix('#24302a', '#3a4a40', tone)]]));
+      const am = (a0 + a1) / 2;
+      const facing = Math.max(0, Math.cos(am - Math.PI * 1.3));
+      ctx.beginPath(); ctx.arc(ax, ay, inn + 2, a0 + .012, a1 - .012); ctx.strokeStyle = `rgba(226,232,170,${(.08 + .3 * facing).toFixed(3)})`; ctx.lineWidth = 1.6; ctx.stroke();
+      ctx.beginPath(); ctx.arc(ax, ay, out - 2.4, a0 + .02, a1 - .02); ctx.strokeStyle = 'rgba(190,214,170,.1)'; ctx.lineWidth = 1; ctx.stroke();
+      if (key) briarGlyph(ctx, ax, ay - (out + inn) / 2, .95, 0);
     }
-    // Pillars: drums of stone, carved leaves on a few, capitals and plinths.
-    for (const [x0, x1, side] of [[-2, 52, 0], [368, 422, 1]]) {
-      const ys = [224, 262, 304, 342, 386, 432];
-      for (let i = 0; i < ys.length - 1; i++) stoneBlock(ctx, [[x0, ys[i]], [x1, ys[i]], [x1, ys[i + 1]], [x0, ys[i + 1]]], i + side, i * 7 + side);
-      for (const yi of side ? [1, 3] : [2, 4]) leafGlyph(ctx, (x0 + x1) / 2 + (side ? -4 : 4), (ys[yi] + ys[yi + 1]) / 2, 1, side ? .3 : -.3);
-      stoneBlock(ctx, [[x0 - 8, 200], [x1 + 8, 200], [x1 + 4, 214], [x1, 224], [x0, 224], [x0 - 4, 214]], 0, 30 + side);
-      for (let k = 0; k < 3; k++) { const cx = x0 + 10 + k * 17; ctx.beginPath(); ctx.arc(cx, 212, 4.4, Math.PI * .1, Math.PI * 1.9); ctx.strokeStyle = 'rgba(18,26,20,.65)'; ctx.lineWidth = 1.1; ctx.stroke(); }
-      stoneBlock(ctx, [[x0 - 6, 432], [x1 + 6, 432], [x1 + 6, 458], [x0 - 6, 458]], 1, 40 + side);
-      mossCap(ctx, x0 - 6, x1 + 6, 200, 50 + side, .5);
-      mossCap(ctx, x0 - 4, x1 + 4, 432, 60 + side, .3);
-    }
-    // Moss along the top of the arch, and roots of ivy hanging from it.
-    const rmo = rng(313);
-    for (const [a0, a1] of [[3.2, 3.8], [4.52, 4.68], [5.62, 6.2]]) {
-      const top = [], under = [];
-      for (let a = a0; a <= a1 + .001; a += (a1 - a0) / 10) { top.push([210 + Math.cos(a) * (190 + rmo() * 5), 200 + Math.sin(a) * (190 + rmo() * 5)]); under.unshift([210 + Math.cos(a) * (184 - rmo() * 3), 200 + Math.sin(a) * (184 - rmo() * 3)]); }
-      const pts = top.concat(under);
-      shape(ctx, pts, '#6f9e50', null); cel(ctx, pts, '#5a8a44', -2, 2.4); shape(ctx, pts, null, '#2c4a26', 1.2);
-      for (let k = 1; k < top.length - 1; k += 2) dot(ctx, top[k][0], top[k][1] + 1.6, 1.1, 'rgba(220,250,170,.55)');
-    }
-    for (const [a, len] of [[3.5, 30], [3.66, 18], [5.82, 26], [5.96, 40], [4.2, 12], [5.3, 14]]) {
-      const x = 210 + Math.cos(a) * 158, y = 200 + Math.sin(a) * 158;
-      stroke(ctx, [[x, y], [x + 2, y + len * .5], [x - 1, y + len]], '#3f6b37', 1.3);
-      for (let k = 6; k < len; k += 7) leaf(ctx, x + (k % 14 ? 1 : -1), y + k, 5, k % 14 ? .6 : 2.5);
-    }
-    // The briars: up the pillars and over the arch.
-    const arcPts = (a0, a1, rr, wob, seed) => { const r = rng(seed), out = []; for (let a = a0; Math.sign(a1 - a0) * (a1 - a) > 0; a += (a1 - a0) / 9) out.push([210 + Math.cos(a) * (rr + (r() - .5) * wob), 200 + Math.sin(a) * (rr + (r() - .5) * wob)]); return out; };
-    briar(ctx, [[30, 470], [44, 420], [30, 370], [48, 320], [34, 270], [46, 226]].concat(arcPts(3.2, 4.1, 172, 18, 3)), 5, [[3, 6.4], [6, 7], [10, 6]]);
-    briar(ctx, [[392, 466], [378, 410], [396, 350], [380, 290], [392, 236]].concat(arcPts(6.24, 5.5, 174, 16, 4)), 6, [[2, 6.6], [7, 7.2], [11, 5.6]]);
-    // Fireflies and dust in the light.
-    const rm = rng(929);
-    for (let i = 0; i < 26; i++) {
-      const x = rm() < .5 ? 20 + rm() * 70 : 330 + rm() * 70, y = 70 + rm() * 360;
-      dot(ctx, x, y, 3, 'rgba(230,255,150,.12)'); dot(ctx, x, y, 1, 'rgba(240,255,190,.85)');
-    }
-    // The floor: old flagstones, moss in the joints.
-    band(ctx, ridge(458, 1.4, 99, 40), 560, '#38443a', '#141c16', 1.8);
-    ctx.save(); ctx.strokeStyle = 'rgba(14,20,16,.6)'; ctx.lineWidth = 1.2;
-    for (const [y, xs] of [[478, [40, 104, 300, 360]], [504, [72, 140, 280, 344]], [534, [24, 98, 318, 392]]]) {
-      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(420, y); ctx.stroke();
-      for (const x of xs) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 2, y + (y === 534 ? 26 : y === 504 ? 30 : 26)); ctx.stroke(); }
-    }
+    // Weather on the voussoirs: damp streaks run down from their outer edges, pale lichen here and there.
+    ctx.save(); ctx.beginPath(); ctx.arc(ax, ay, R2 + 8, Math.PI, 0); ctx.arc(ax, ay, R1 - 5, 0, Math.PI, true); ctx.closePath(); ctx.clip();
+    const rv = rng(140), streaks = [], lichen = [];
+    for (let k = 0; k < 18; k++) { const aa = Math.PI + .08 + rv() * (Math.PI - .16), l1 = R2 - 8 - rv() * 16; streaks.push([aa, l1]); if (rv() < .45) lichen.push([aa + .04, R1 + 6 + rv() * 20, 4 + rv() * 5]); }
+    soft(ctx, () => { for (const [aa, l1] of streaks) { ctx.moveTo(ax + Math.cos(aa) * (R2 + 2), ay + Math.sin(aa) * (R2 + 2)); ctx.lineTo(ax + Math.cos(aa) * l1, ay + Math.sin(aa) * l1 + 9); ctx.lineTo(ax + Math.cos(aa + .025) * (R2 + 2), ay + Math.sin(aa + .025) * (R2 + 2)); ctx.closePath(); } }, 'rgba(10,18,14,.3)', 3);
+    soft(ctx, () => { for (const [aa, d, rr] of lichen) { ctx.moveTo(ax + Math.cos(aa) * d + rr, ay + Math.sin(aa) * d); ctx.ellipse(ax + Math.cos(aa) * d, ay + Math.sin(aa) * d, rr, rr * .7, aa, 0, TAU); } }, 'rgba(150,176,112,.14)', 3);
     ctx.restore();
-    for (const [x, y] of [[40, 478], [104, 504], [300, 478], [344, 534], [98, 534]]) for (let k = 0; k < 4; k++) dot(ctx, x - 6 + k * 4, y + (k % 2) - .5, 1.8, '#5a8a44');
-    // A stone rabbit keeps watch in one corner; in the other, a toad on a fallen drum among the roses.
-    rabbitStatue(ctx, 94, 506, 1.22);
-    briar(ctx, [[60, 540], [66, 520], [58, 500], [64, 486]], 7, [[3, 5.6]]);
+    // Pillars: drums of stone, their inner faces turned to the hall, capitals and plinths.
+    for (const [x0, x1, side] of [[-4, 52, 0], [368, 424, 1]]) {
+      const inner = side ? x0 : x1, d = side ? 1 : -1, ys = [222, 262, 300, 342, 388, 434];
+      poly(ctx, [[inner, 214], [inner + d * 8, 220], [inner + d * 8, 462], [inner, 468]], lin(ctx, 0, 220, 0, 460, side ? [[0, '#7a8460'], [1, '#46523e']] : [[0, '#3a4a3c'], [1, '#26342c']]));
+      for (let i = 0; i < ys.length - 1; i++) {
+        const blk = [[x0, ys[i] + .8], [x1, ys[i] + .8], [x1, ys[i + 1] - .8], [x0, ys[i + 1] - .8]];
+        poly(ctx, blk, lin(ctx, x0, 0, x1, 0, side ? [[0, '#4a5a4a'], [.5, '#36463a'], [1, '#26322c']] : [[0, '#24302a'], [.6, '#34443a'], [1, '#42524a']]));
+        emberLine(ctx, [[x0 + 1, ys[i] + 1.6], [x1 - 1, ys[i] + 1.6]], 'rgba(190,214,170,.12)', .8);
+        if (i === (side ? 1 : 2)) briarGlyph(ctx, (x0 + x1) / 2 + (side ? -4 : 4), (ys[i] + ys[i + 1]) / 2, 1, side ? .3 : -.3, .9);
+      }
+      wash(ctx, lin(ctx, 0, 300, 0, 470, [[0, 'rgba(6,12,10,0)'], [1, 'rgba(6,12,10,.4)']]), null, 1, x0, 300, x1 - x0, 170);
+      emberLine(ctx, [[inner + d * .8, 224], [inner + d * .8, 432]], lin(ctx, 0, 224, 0, 432, side ? [[0, 'rgba(240,240,180,.6)'], [1, 'rgba(240,240,180,.2)']] : [[0, 'rgba(190,214,170,.22)'], [1, 'rgba(190,214,170,.05)']]), 1.4);
+      poly(ctx, [[x0 - 8, 200], [x1 + 8, 200], [x1 + 4, 212], [x1, 222], [x0, 222], [x0 - 4, 212]], lin(ctx, 0, 200, 0, 222, [[0, '#56664e'], [.4, '#3e4c3e'], [1, '#1e2a24']]));
+      for (let k = 0; k < 3; k++) { const cx = x0 + 10 + k * 17; ctx.beginPath(); ctx.arc(cx, 212, 4.4, Math.PI * .1, Math.PI * 1.9); ctx.strokeStyle = 'rgba(10,18,14,.4)'; ctx.lineWidth = 1.1; ctx.stroke(); }
+      poly(ctx, [[x0 - 6, 434], [x1 + 6, 434], [x1 + 6, 462], [x0 - 6, 462]], lin(ctx, 0, 434, 0, 462, [[0, '#46564a'], [1, '#1e2a24']]));
+      briarMoss(ctx, x0 - 8, x1 + 8, 200, 50 + side, .5, side ? .7 : .45);
+      briarMoss(ctx, x0 - 6, x1 + 6, 434, 60 + side, .3, side ? .55 : .35);
+    }
+    // Moss cushions along the top of the arch, and ivy let down from its inner edge.
+    for (const [a0, a1, sd, lit, big] of [[3.17, 3.78, 1, .4, 10], [4.6, 4.8, 2, .5, 5], [5.6, 6.08, 3, .5, 8]]) {
+      const wob = sd * 2.3, A = t => a0 + (a1 - a0) * t;
+      briarMat(ctx, t => [ax + Math.cos(A(t)) * (R2 - 1), ay + Math.sin(A(t)) * (R2 - 1)], t => [Math.cos(A(t)), Math.sin(A(t))], (a1 - a0) * R2,
+        t => 1.5 + big * Math.pow(Math.sin(Math.PI * t), .7) * (.75 + .25 * Math.sin(t * 13 + wob)), lit, sd * 7, .4);
+    }
+    for (const [a, len, sd] of [[3.5, 34, 1], [3.66, 22, 2], [3.82, 12, 7], [5.76, 28, 3], [5.92, 46, 4], [6.08, 18, 8]]) briarIvy(ctx, ax + Math.cos(a) * (R1 - 2), ay + Math.sin(a) * (R1 - 2), len, sd, .55);
+    // The floor in front of the arch: old flagstones in perspective, moss in the joints, the light pooled at the launcher.
+    band(ctx, ridge(462, 1.2, 99, 40), 560, lin(ctx, 0, 460, 0, 560, [[0, '#34423a'], [1, '#18221e']]), null);
+    soft(ctx, () => ctx.rect(-10, 458, 440, 8), 'rgba(6,12,8,.55)', 5);
+    const rf = rng(77);
+    for (const [y, h, step] of [[466, 12, 44], [478, 16, 52], [494, 20, 60], [514, 24, 70], [538, 30, 82]]) {
+      let x = -10 - rf() * step;
+      emberLine(ctx, [[-10, y], [430, y]], 'rgba(8,14,10,.5)', 1.2);
+      emberLine(ctx, [[-10, y + 1.4], [430, y + 1.4]], 'rgba(200,220,160,.07)', .8);
+      while (x < 430) { const xx = x + step * (.7 + rf() * .6); const lean = (xx - 210) * .14; emberLine(ctx, [[xx, y], [xx + lean, y + h]], 'rgba(8,14,10,.45)', 1.1); x = xx; }
+      for (let k = 0; k < 4; k++) { const mx = rf() * 420, mw = 4 + rf() * 9; if (Math.abs(mx - 210) < 80) continue; soft(ctx, () => ctx.ellipse(mx, y + .5, mw, 1.8, 0, 0, TAU), 'rgba(62,98,50,.5)', 1.6); soft(ctx, () => ctx.ellipse(mx - mw * .2, y - .3, mw * .6, .9, 0, 0, TAU), 'rgba(140,176,90,.3)', 1); }
+    }
+    ctx.save(); ctx.beginPath(); ctx.rect(-10, 458, 440, 120); ctx.clip(); rays(); ctx.restore();
+    soft(ctx, () => ctx.ellipse(222, 500, 100, 26, -.05, 0, TAU), 'rgba(236,228,140,.26)', 18);
+    bloom(ctx, 218, 498, 96, '246,236,170', .2);
+    // Petals fallen from the roses, gathered near the walls.
+    for (const [x, y, a, c] of [[62, 488, .4, '#a02c46'], [140, 532, 2.2, '#b8384e'], [152, 524, 1.1, '#8e2440'], [286, 538, 2.8, '#b03448'], [298, 524, .2, '#a02c46'], [372, 482, 1.8, '#8e2440']]) {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(a);
+      soft(ctx, () => ctx.ellipse(.6, 1.2, 3.2, 1.6, 0, 0, TAU), 'rgba(8,14,10,.4)', 1.2);
+      ctx.beginPath(); ctx.ellipse(0, 0, 3.2, 1.7, 0, 0, TAU); ctx.fillStyle = c; ctx.fill();
+      ctx.beginPath(); ctx.ellipse(-.6, -.5, 1.8, .6, 0, 0, TAU); ctx.fillStyle = 'rgba(255,170,180,.35)'; ctx.fill();
+      ctx.restore();
+    }
+    // A stone rabbit keeps watch in one corner; in the other, a toad sits on a fallen drum among the roses.
+    briarStatue(ctx, 92, 506, 1.2);
+    soft(ctx, () => ctx.ellipse(350, 548, 46, 6, 0, 0, TAU), 'rgba(6,12,8,.6)', 5);
     const drum = [[310, 508], [384, 502], [390, 542], [316, 548]];
-    poly(ctx, drum, '#66725f', null);
-    clipTo(ctx, drum, () => { ctx.fillStyle = '#4b5647'; ctx.fillRect(300, 530, 120, 30); });
-    poly(ctx, drum, null, '#1f2820', 1.5);
-    for (const x of [332, 350, 368]) stroke(ctx, [[x, 506.6], [x + 1, 546]], 'rgba(18,26,20,.4)', 1);
-    ctx.beginPath(); ctx.ellipse(312, 528, 8, 20, -.06, 0, TAU); ctx.fillStyle = '#7f8c78'; ctx.fill(); ctx.strokeStyle = '#1f2820'; ctx.lineWidth = 1.5; ctx.stroke();
-    ctx.beginPath(); ctx.ellipse(312, 528, 4.6, 12, -.06, 0, TAU); ctx.strokeStyle = 'rgba(18,26,20,.5)'; ctx.lineWidth = 1; ctx.stroke();
-    mossCap(ctx, 330, 380, 504, 70, .25);
-    toad(ctx, 352, 502, 1.05);
-    briar(ctx, [[404, 548], [398, 520], [408, 492], [400, 470]], 8, [[2, 6.4]]);
+    poly(ctx, drum, lin(ctx, 0, 504, 0, 546, [[0, '#5e6e54'], [.45, '#3e4e40'], [1, '#1e2a24']]));
+    for (const x of [332, 350, 368]) emberLine(ctx, [[x, 507], [x + 1, 546]], 'rgba(8,14,10,.3)', 1.2);
+    ctx.beginPath(); ctx.ellipse(312, 528, 8, 20, -.06, 0, TAU); ctx.fillStyle = lin(ctx, 304, 0, 320, 0, [[0, '#7a8a68'], [1, '#4e5e4a']]); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(312, 528, 4.6, 12, -.06, 0, TAU); ctx.strokeStyle = 'rgba(8,14,10,.3)'; ctx.lineWidth = 1; ctx.stroke();
+    briarMoss(ctx, 330, 382, 505, 70, .3, .6);
+    briarToad(ctx, 352, 503, 1.05);
+    // The briars: bushes on the capitals and plinths, canes climbing both pillars and over the arch, roses on them.
+    const arcPts = (a0, a1, rr, wob, seed) => { const r = rng(seed), out = []; for (let a = a0; Math.sign(a1 - a0) * (a1 - a) > 0; a += (a1 - a0) / 9) out.push([ax + Math.cos(a) * (rr + (r() - .5) * wob), ay + Math.sin(a) * (rr + (r() - .5) * wob)]); return out; };
+    briarBush(ctx, [[16, 452, 16], [40, 446, 12], [4, 430, 12], [56, 458, 10]], .4, 31);
+    briarBush(ctx, [[406, 448, 16], [384, 452, 12], [416, 426, 12]], .55, 32);
+    briarCane(ctx, [[34, 450], [46, 410], [30, 362], [48, 318], [32, 272], [44, 226]].concat(arcPts(3.2, 4.06, 174, 16, 3)), 5, 5, [[3, 7], [6, 7.6], [9, 6.2, true], [12, 5.8]], .45);
+    briarCane(ctx, [[392, 446], [378, 404], [396, 350], [378, 292], [392, 236]].concat(arcPts(6.24, 5.5, 176, 14, 4)), 5, 6, [[2, 7.2], [7, 7.8], [11, 6, true], [12, 6.6]], .65);
+    briarBush(ctx, [[14, 214, 12], [36, 206, 10], [-2, 196, 10]], .5, 33);
+    briarBush(ctx, [[404, 212, 12], [384, 204, 10], [420, 196, 10]], .65, 34);
+    for (const [x, y, r0, lit] of [[20, 440, 7.4, .4], [44, 434, 6, .5], [398, 438, 7.6, .6], [24, 204, 6.4, .5], [396, 200, 6.8, .7]]) briarRose(ctx, x, y, r0, x * .1, lit);
+    briarCane(ctx, [[60, 548], [70, 526], [62, 504], [70, 486]], 3.4, 7, [[3, 6.2]], .5);
+    briarCane(ctx, [[408, 552], [400, 524], [412, 494], [402, 474]], 3.4, 8, [[2, 6.6]], .6);
+    // Motes drifting in the light, and a few fireflies along the walls.
+    const rm = rng(929);
+    for (let i = 0; i < 16; i++) { const t = rm(), x = 160 + t * 80 + (rm() - .5) * 40, y = 330 + t * 140 + rm() * 30; dot(ctx, x, y, .5 + rm() * .6, `rgba(255,250,210,${(.12 + rm() * .18).toFixed(3)})`); }
+    for (const [x, y] of [[24, 120], [70, 168], [386, 140], [356, 262], [20, 300], [400, 380], [62, 404]]) { bloom(ctx, x, y, 10, '220,255,140', .4); dot(ctx, x, y, 1.1, 'rgba(240,255,190,.95)'); }
+    // Foreground: briar in near silhouette against the light, top left and bottom right.
+    briarFore(ctx, [[-14, 6], [10, 22], [34, 30], [56, 26], [72, 14], [84, -10]], 6, 35);
+    briarFore(ctx, [[18, -10], [24, 14], [20, 40], [26, 62], [22, 80]], 3.6, 36);
+    briarFore(ctx, [[436, 470], [414, 492], [402, 520], [404, 548], [396, 572]], 5.6, 37);
+    grade(ctx, 'rgba(236,226,150,.3)', 'rgba(50,80,104,.45)', 'rgba(8,18,16,.62)');
+    grain(ctx, .08);
     if (framed) frame(ctx, '#5e8a5a', '#d9e9a8');
   }
 
