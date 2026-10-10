@@ -111,6 +111,13 @@ test('Hit-stop grants at most .09 s per request and per rolling second', () => {
     assert(total <= .09 + 1e-9, `${total} s of hit-stop in the second before ${at}`);
   }
   assert.equal(cascade.request(0, 99), 0); assert.equal(cascade.request(-1, 99), 0);
+  // The finale's impact asks with priority: still capped per request, never cut short by the stops just before it,
+  // and it counts against the ones after it.
+  const finale = Feel.createHitStop();
+  assert.equal(finale.request(.05, 10), .05);
+  assert(Math.abs(finale.request(.09, 10.5) - .04) < 1e-9, 'an ordinary stop gets what is left');
+  assert.equal(finale.request(.2, 10.6, true), .09, 'a priority stop gets its full .09 s');
+  assert.equal(finale.request(.04, 10.9), 0, 'and the next ordinary stop waits its turn');
 });
 
 test('The quality governor steps up after two slow seconds and never steps back down', () => {
@@ -150,6 +157,16 @@ test('predictHit finds the target a fifth of a second ahead and only when it is 
   assert.equal(Feel.predictHit(Engine, { bumpers: [], buds: [target, other] }, ball, target, .2), null, 'another flower is in the way');
   assert(Feel.predictHit(Engine, { bumpers: [], buds: [target, { ...other, bloomed: true }] }, ball, target, .2), 'bloomed flowers do not block');
   assert.equal(Feel.predictHit(Engine, game, { ...ball, vy: 500 }, target, .2), null, 'flying away');
+  // A swaying target is led: a seed reaches its row in about .12 s, while it drifts 60 px/s to the right.
+  const drift = { vx: 60, vy: 0 };
+  const ahead = { ...ball, x: 234 }, behind = { ...ball, x: 196 };
+  assert.equal(Feel.predictHit(Engine, game, ahead, target, .2), null, 'where it is now, the seed would pass it');
+  const led = Feel.predictHit(Engine, game, ahead, target, .2, drift);
+  assert(led && led.t > .1 && led.t < .14 && led.nx > 0, `a shot at where it will be is a hit: ${JSON.stringify(led)}`);
+  assert(Feel.predictHit(Engine, game, behind, target, .2), 'a shot at where it is now looks like a hit');
+  assert.equal(Feel.predictHit(Engine, game, behind, target, .2, drift), null, 'but it will have drifted away');
+  assert.equal(Feel.predictHit(Engine, { bumpers: [], buds: [target, { ...other, x: 234 }] }, ahead, target, .2, drift), null, 'a flower in the way still blocks');
+  assert(Feel.predictHit(Engine, game, ball, target, .2, { vx: 0, vy: 0 }), 'a still target needs no lead');
 });
 
 // ---- art.js: seeds and veils draw from cached sprites ----
@@ -335,6 +352,83 @@ test('The last bloom of a level plays one finale: the roll, a slow lean-in, the 
   assert(game.particles.length > 0 || marks.openAt, 'blossoms fell');
 });
 
+test('The finale leads a swaying boss: a shot that will meet it builds early, one it will drift away from never builds', () => {
+  // The boss swings right through the middle of its sway (about 69 px/s) as a seed climbs straight up toward its row.
+  const shotAt = (offset, below) => {
+    const app = boot({ motion: true }), { game, boss } = bossShot(app);
+    game.balls = []; boss.sway = 50; boss.swayPhase = 0; boss.baseX = boss.x = 210; game.waveStart = game.time;
+    game.spawnBall({ x: 210 + offset, y: boss.y + below, angle: -Math.PI / 2, type: 'gold' }, true);
+    let rollAt = null, bloomAt = null;
+    for (let i = 0; i < 240 && bloomAt === null; i++) {
+      app.frame();
+      if (rollAt === null && app.cues.some(c => c.type === 'roll')) rollAt = game.time;
+      if (bloomAt === null && boss.bloomed) bloomAt = game.time;
+    }
+    return { rollAt, bloomAt };
+  };
+  // Aimed just past its right edge: it swings into the seed.
+  const into = shotAt(36, 130);
+  assert(into.bloomAt !== null, 'the boss swings into the seed');
+  assert(into.rollAt !== null && into.bloomAt - into.rollAt > .15, `the build starts a full beat ahead: ${JSON.stringify(into)}`);
+  // Aimed inside its left edge: by the time the seed arrives the boss has swung clear.
+  const clear = shotAt(-24, 110);
+  assert.equal(clear.bloomAt, null, 'the seed misses');
+  assert.equal(clear.rollAt, null, 'so no drumroll for a miss');
+});
+
+test('The sweep notes climb one at a time even where mirrored flowers flare together', () => {
+  const app = boot({ motion: true }), { game, boss } = bossShot(app);
+  // A boss wave's formation is mirrored about the boss, so pairs of flowers sit at exactly the same distance.
+  game.buds = game.buds.filter(bud => bud === boss);
+  [[80, 178], [340, 178], [118, 248], [302, 248], [150, 300], [270, 300]].forEach(([x, y], i) =>
+    game.buds.push({ id: 'mirror-' + i, group: 'mirror', x, y, baseX: x, r: 11, type: ['coral', 'sky', 'lilac'][i >> 1], hp: 1, maxHp: 1, bloomed: true, bloomAt: game.time - 3, hitAt: -100, sway: 0 }));
+  boss.x = boss.baseX = 210;
+  playOut(app, game);
+  const notes = app.cues.filter(c => c.type === 'sweep');
+  assert.equal(notes.length, 7, 'one note per bloomed flower');
+  notes.forEach((c, i) => assert.equal(c.detail.i, i));
+  for (let i = 1; i < notes.length; i++) assert(notes[i].at - notes[i - 1].at >= 55, `notes ${i - 1} and ${i} are ${notes[i].at - notes[i - 1].at} ms apart`);
+});
+
+test('Nothing freezes the finale glide, and the impact still gets its full frozen blink', () => {
+  const app = boot({ motion: true }), { game } = bossShot(app);
+  for (let i = 0; i < 60 && !app.cues.some(c => c.type === 'roll'); i++) app.frame();
+  assert(app.cues.some(c => c.type === 'roll'), 'the finale is building');
+  app.frame();
+  // A puffcap goes off elsewhere mid-glide: its hit-stop would stutter the slow motion and spend the impact's.
+  game.event('puff', { bud: { x: 90, y: 140, type: 'gold', r: 10 }, count: 0 });
+  const before = game.time; app.frame(); app.frame();
+  assert(game.time > before, 'the glide never stops for another hit');
+  let impact = false, frozen = 0, last = game.time;
+  for (let i = 0; i < 120 && frozen < 20; i++) {
+    app.frame();
+    if (!impact) { impact = app.cues.some(c => c.type === 'finale'); last = game.time; continue; }
+    if (game.time !== last) break;
+    frozen++;
+  }
+  assert(impact, 'the boss bloomed');
+  assert(frozen >= 6, `the impact froze for ${frozen} frames (.09 s is six frames)`);
+});
+
+test('The last ring cracked a moment before still leaves the impact its full frozen blink', () => {
+  const app = boot({ motion: true }), { game, boss } = bossShot(app);
+  // Two seeds in a line: the first cracks the boss to its last ring (a hit-stop of its own), the second blooms it.
+  boss.hp = 2; game.balls = [];
+  game.spawnBall({ x: boss.x, y: boss.y + boss.r + Engine.RADIUS + 20, angle: -Math.PI / 2, type: 'gold' }, true);
+  game.spawnBall({ x: boss.x, y: boss.y + boss.r + Engine.RADIUS + 110, angle: -Math.PI / 2, type: 'coral' }, true);
+  let cracked = false, impact = false, frozen = 0, last = game.time;
+  for (let i = 0; i < 240 && frozen < 20; i++) {
+    app.frame();
+    cracked = cracked || app.cues.some(c => c.type === 'crack');
+    if (!impact) { impact = app.cues.some(c => c.type === 'finale'); last = game.time; continue; }
+    if (game.time !== last) break;
+    frozen++;
+  }
+  assert(cracked && impact, JSON.stringify({ cracked, impact }));
+  assert(app.cues.some(c => c.type === 'roll'), 'the second seed got the build');
+  assert(frozen >= 6, `the impact froze for ${frozen} frames (.09 s is six frames)`);
+});
+
 test('A tap during the sweep skips straight to the result', () => {
   const app = boot({ motion: true }), { game } = bossShot(app);
   let tappedAt = null;
@@ -369,12 +463,17 @@ test('Endless Rush: the flower that clears every fifth wave gets the finale, and
   game.bumpers = game.bumpers.filter(item => item.y > 330 || item.y < 140);
   game.balls = []; game.status = 'flying';
   game.spawnBall({ x: 210, y: 200 + (last.r || 11) + Engine.RADIUS + 40, angle: -Math.PI / 2, type: 'gold' }, true);
-  let cleared = null, sweeping = false;
+  let cleared = null, sweeping = false, struck = null, frozen = 0, still = true;
   for (let i = 0; i < 4 * 60; i++) {
     app.frame();
     cleared = cleared || app.cues.find(c => c.type === 'cleared');
     if (game.feel && game.feel.sweeping) sweeping = true;
+    // The impact's frozen blink (no boss branch here to add one of its own).
+    if (struck === null) { if (app.cues.some(c => c.type === 'finale')) struck = game.time; }
+    else if (still && game.time === struck) frozen++;
+    else still = false;
   }
+  assert(frozen >= 6, `the impact froze for ${frozen} frames (.09 s is six frames)`);
   const count = type => app.cues.filter(c => c.type === type).length;
   assert.equal(count('roll'), 1); assert.equal(count('finale'), 1);
   const bloom = app.cues.find(c => c.type === 'bloom' && c.detail.bud === last);
@@ -421,6 +520,25 @@ test('Losing a life breaks a heart, flashes red and leaves wilted ghosts; the la
   assert.equal(app.draws.at(-1).danger.redFlash, 0, 'the flash fades within .35 s');
   game.lives = 1; app.frame();
   assert.equal(app.draws.at(-1).danger.lastLife, true);
+});
+
+test('On the last life the heartbeat sounds while a flower hangs near the line, with Animations off too', () => {
+  for (const motion of [true, false]) {
+    const app = boot({ motion });
+    app.click('depth-map', { depth: '1' });
+    const game = app.games.at(-1);
+    for (let i = 0; i < 20; i++) app.frame();
+    game.started = true; game.lives = 1;
+    const low = game.buds.find(bud => !bud.bloomed && !bud.gift);
+    for (const bud of game.buds) bud.y = Math.min(bud.y, 200);
+    for (let i = 0; i < 60; i++) app.frame();
+    assert.equal(app.cues.filter(c => c.type === 'heartbeat').length, 0, `no heartbeat while the flowers are high (motion ${motion})`);
+    low.y = game.dangerY - (low.r || 11) - 40;
+    for (let i = 0; i < 120; i++) app.frame();
+    const beats = app.cues.filter(c => c.type === 'heartbeat');
+    assert(beats.length >= 2 && beats.length <= 3, `${beats.length} heartbeats in 2 s (motion ${motion})`);
+    for (let i = 1; i < beats.length; i++) assert(beats[i].at - beats[i - 1].at >= 830 - 1e-6);
+  }
 });
 
 for (const result of results) console.log(`${result.passed ? 'ok  ' : 'FAIL'} ${result.name}${result.passed ? '' : '\n' + result.error}`);

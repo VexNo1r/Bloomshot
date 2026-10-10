@@ -156,15 +156,17 @@
 
   // Hit-stop: a frozen blink on a big hit. Each request gets at most .09 s, and all of them together at most .09 s
   // in any rolling second, so a cascade of hits never stutters. Callable directly or as .request().
+  // A priority request (the finale's impact, once per wave) still gets at most .09 s but is not cut short by the
+  // smaller stops just before it, such as the crack that left a boss on its last ring; it counts against later ones.
   function createHitStop() {
     const grants = [];
-    function request(seconds, nowSeconds) {
+    function request(seconds, nowSeconds, priority) {
       const want = Number(seconds) || 0, now = Number(nowSeconds) || 0;
       if (!(want > 0)) return 0;
       while (grants.length && grants[0].at <= now - STOP_WINDOW) grants.shift();
       let used = 0;
       for (const grant of grants) used += grant.seconds;
-      const granted = Math.max(0, Math.min(want, STOP_MAX, STOP_MAX - used));
+      const granted = Math.max(0, Math.min(want, STOP_MAX, priority === true ? STOP_MAX : STOP_MAX - used));
       if (granted > 1e-6) grants.push({ at: now, seconds: granted });
       return granted > 1e-6 ? granted : 0;
     }
@@ -195,18 +197,31 @@
   // Where a flying seed meets the target within the horizon (seconds of game time), using the same collision
   // query the Rush engine runs: walls, petals and open flowers, without tunnels or currents. Returns null unless
   // the first thing it meets is the target. The scratch world is reused so a frame allocates nothing extra.
-  const world = { bumpers: [], gates: [], buds: [] }, from = { x: 0, y: 0 }, travel = { x: 0, y: 0 };
-  function predictHit(Engine, game, ball, target, horizon) {
+  // lead ({ vx, vy }, optional) is the target's own velocity: a boss sways 40 px/s or more, so the seed is swept
+  // against it in its moving frame, or a shot at its edge would build a finale and then miss (or hit unannounced).
+  const world = { bumpers: [], gates: [], buds: [] }, from = { x: 0, y: 0 }, travel = { x: 0, y: 0 }, relative = { x: 0, y: 0 };
+  function predictHit(Engine, game, ball, target, horizon, lead) {
     if (!Engine || typeof Engine.earliest !== 'function' || !game || !ball || !target) return null;
     const h = Number(horizon) > 0 ? Number(horizon) : .2;
+    const lx = lead ? Number(lead.vx) || 0 : 0, ly = lead ? Number(lead.vy) || 0 : 0;
+    const moving = (lx || ly) && typeof Engine.circleHit === 'function' && Number.isFinite(Engine.RADIUS);
     world.bumpers = Array.isArray(game.bumpers) ? game.bumpers : [];
     world.buds.length = 0;
-    for (const bud of Array.isArray(game.buds) ? game.buds : []) if (!bud.bloomed && !bud.gift) world.buds.push(bud);
+    for (const bud of Array.isArray(game.buds) ? game.buds : []) if (!bud.bloomed && !bud.gift && !(moving && bud === target)) world.buds.push(bud);
     from.x = ball.x; from.y = ball.y; travel.x = (ball.vx || 0) * h; travel.y = (ball.vy || 0) * h;
-    const hit = Engine.earliest(world, from, travel);
+    let result = null;
+    if (moving) {
+      relative.x = travel.x - lx * h; relative.y = travel.y - ly * h;
+      const own = Engine.circleHit(from, relative, target, Engine.RADIUS + (Number(target.r) || 0));
+      // Anything else the seed meets first (a wall, a petal, another flower) takes the shot.
+      const other = own ? Engine.earliest(world, from, travel) : null;
+      if (own && !(other && other.t < own.t)) result = { t: own.t * h, x: from.x + travel.x * own.t, y: from.y + travel.y * own.t, nx: own.nx, ny: own.ny };
+    } else {
+      const hit = Engine.earliest(world, from, travel);
+      if (hit && hit.kind === 'bud' && hit.item === target) result = { t: hit.t * h, x: from.x + travel.x * hit.t, y: from.y + travel.y * hit.t, nx: hit.nx, ny: hit.ny };
+    }
     world.buds.length = 0; world.bumpers = [];
-    if (!hit || hit.kind !== 'bud' || hit.item !== target) return null;
-    return { t: hit.t * h, x: from.x + travel.x * hit.t, y: from.y + travel.y * hit.t, nx: hit.nx, ny: hit.ny };
+    return result;
   }
 
   return { create, toBoard, toScreen, createHitStop, createGovernor, predictHit, ease: EASE,

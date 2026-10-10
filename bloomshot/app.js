@@ -955,7 +955,8 @@
     if (!save.settings.motion) return;
     trauma = Math.min(1, trauma + amount); flash = Math.max(flash, glow);
     // Hit-stops share one budget (feel.js): at most .09 s each and .09 s in any second, so cascades never stutter.
-    if (stop > 0) freeze = Math.max(freeze, hitStop ? hitStop.request(stop, performance.now() / 1000) : stop);
+    // While the finale's slow motion holds, other hits never freeze it (a stutter mid-glide) or spend the impact's stop.
+    if (stop > 0 && !(feel && feel.out.phase === 'finale')) freeze = Math.max(freeze, hitStop ? hitStop.request(stop, performance.now() / 1000) : stop);
   }
   function bumpScore() {
     const now = performance.now(); if (now - lastBump < 90) return; lastBump = now;
@@ -972,7 +973,7 @@
   const danger = { redFlash: 0, mintFlash: 0, lastLife: false };
   let redFlash = 0, mintFlash = 0, feelGame = null, beatAt = 0, aimNotch = null, aimTickAt = -1, aimBuzzAt = -1, aimTarget = null;
   const feelState = () => game.feel || (game.feel = { finaleWave: 0, sweeping: false, dipWave: 0, impactWave: 0, armed: false, at: 0,
-    impact: null, sweep: null, sounds: null, sounded: 0, sweepWave: 0, sweepEnd: 0, waiting: false, wonFor: 0 });
+    impact: null, sweep: null, sounds: null, sounded: 0, noteAt: 0, sweepWave: 0, sweepEnd: 0, waiting: false, wonFor: 0 });
   // The final beat: a level's last wave, or every fifth wave of endless Rush. Never the tutorial or the calm boards.
   const finaleWave = () => isRush() && !isTutorial() && !preview && (isDepth() ? game.wave === game.finalWave : game.wave % 5 === 0);
   // The flower whose bloom ends the wave: the boss on its last ring, otherwise the only open flower left (one hit
@@ -1000,15 +1001,31 @@
     if (bud.boss) return true;
     return !game.pending.length && !game.buds.some(other => !other.bloomed && !other.gift);
   }
+  // The final flower's own motion (a boss sways 40 px/s or more), measured frame to frame in game time so the
+  // prediction leads it; a jump (a boss climbing back up) counts as standing still. Until a new target has been
+  // seen move once (a frame or two) there is no prediction, so a guess never starts a drumroll for a miss.
+  const feelLead = { vx: 0, vy: 0 };
+  let leadBud = null, leadX = 0, leadY = 0, leadT = 0, leadReady = false;
+  function trackLead(bud) {
+    const dt = game.time - leadT;
+    if (bud !== leadBud || dt < 0 || dt > .25) { leadReady = false; leadBud = bud; leadX = bud.x; leadY = bud.y; leadT = game.time; return null; }
+    if (dt > 1e-6) {
+      const vx = (bud.x - leadX) / dt, vy = (bud.y - leadY) / dt, jump = Math.hypot(vx, vy) > 400;
+      feelLead.vx = jump ? 0 : vx; feelLead.vy = jump ? 0 : vy; leadX = bud.x; leadY = bud.y; leadT = game.time; leadReady = true;
+    }
+    return leadReady ? feelLead : null;
+  }
   // Up to five seeds in flight are checked a fifth of a second ahead, and only while a final flower is waiting.
   function finaleWatch() {
-    if (!isRush() || isTutorial() || preview || game.over || !game.balls || !game.balls.length) return;
+    if (!isRush() || isTutorial() || preview || game.over || !game.balls) return;
     const f = feelState(), final = finaleWave();
     if (final ? f.finaleWave === game.wave : f.dipWave === game.wave) return;
     const target = finaleTarget();
     if (!target) return;
+    const lead = trackLead(target);
+    if (!lead) return;
     for (let i = 0; i < Math.min(5, game.balls.length); i++) {
-      const hit = Feel.predictHit(BloomEngine, game, game.balls[i], target, .2);
+      const hit = Feel.predictHit(BloomEngine, game, game.balls[i], target, .2, lead);
       if (!hit || guardedHit(target, hit)) continue;
       if (!final) { f.dipWave = game.wave; feel.request('dip', hit); return; }
       f.finaleWave = game.wave; f.sweeping = false;
@@ -1027,8 +1044,12 @@
     BloomSound.play('finale', { x: bud.x, type: bud.type });
     haptic('surge');
     if (!save.settings.motion) return;
-    jolt(.5, .09, 1);
-    feel.request('impact');
+    // A predicted finale is already framed on the hit; one that a chain finished kicks in about the bloom itself.
+    // The impact ends the slow-motion hold first; its frozen blink is a priority stop, so the crack that left a boss
+    // on its last ring a moment earlier never cuts it short.
+    feel.request('impact', feel.out.zoom > 1.001 ? null : bud);
+    jolt(.5, 0, 1);
+    freeze = Math.max(freeze, hitStop.request(.09, performance.now() / 1000, true));
     // Tier 2 still gets a 36-piece burst (burst() scales by the tier, so ask for the count that lands there).
     burst(bud, (game.quality || 0) === 2 ? 36 / .35 : 72);
     game.particles.push({ x: bud.x, y: bud.y, vx: 0, vy: 0, rotation: 0, life: .6, maxLife: .6, kind: 'ring', color: '#ffd148', size: 20, grow: 170, gravity: 0, drag: 0 },
@@ -1071,7 +1092,7 @@
     const list = game.buds.filter(bud => bud.bloomed && !bud.gift).map(bud => ({ bud, d: Math.hypot(bud.x - origin.x, bud.y - origin.y) })).sort((a, b) => a.d - b.d);
     for (const item of list) item.bud.flareAt = game.time + .08 + (rush ? Math.min(.6, item.d / 900) : item.d / 650);
     const n = Math.min(10, list.length);
-    f.sounds = Array.from({ length: n }, (_, k) => list[Math.floor(k * list.length / n)].bud); f.sounded = 0;
+    f.sounds = Array.from({ length: n }, (_, k) => list[Math.floor(k * list.length / n)].bud); f.sounded = 0; f.noteAt = -Infinity;
     f.sweep = list.map(item => item.bud);
     f.sweepEnd = (list.length ? list.at(-1).bud.flareAt : game.time) + .35;
     f.sweeping = true; f.waiting = game.status === 'won'; f.wonFor = 0;
@@ -1108,18 +1129,20 @@
     if (motion) finaleWatch();
     if (f && f.armed && game.time - f.at > .6) { f.armed = false; feel.request('release'); }
     if (f && f.sweeping) {
-      while (f.sounded < f.sounds.length && game.time >= f.sounds[f.sounded].flareAt) {
-        BloomSound.play('sweep', { i: f.sounded, n: f.sounds.length, type: f.sounds[f.sounded].type }); f.sounded++;
+      // Flowers the same distance out (a boss wave's formation is mirrored) flare together, but their notes still
+      // climb one at a time, at least 60 ms apart, instead of landing as one chord.
+      if (f.sounded < f.sounds.length && game.time >= f.sounds[f.sounded].flareAt && game.time >= f.noteAt + .06) {
+        BloomSound.play('sweep', { i: f.sounded, n: f.sounds.length, type: f.sounds[f.sounded].type }); f.sounded++; f.noteAt = game.time;
       }
-      if (game.time >= f.sweepEnd || f.sweepWave !== game.wave) f.sweeping = false;
+      if ((game.time >= f.sweepEnd && f.sounded >= f.sounds.length) || f.sweepWave !== game.wave) f.sweeping = false;
     }
     if (f && f.waiting && !resultShown) {
       f.wonFor += dt;
       if (!motion || f.wonFor > 4) { f.waiting = false; f.sweeping = false; resultAt = Math.min(resultAt, game.time + (motion ? 0 : .4)); }
       else if (!f.sweeping && !feel.out.busy) { f.waiting = false; resultAt = game.time + 1.25; }
     }
-    // On the last life the heart beats while a flower hangs close over the line.
-    if (danger.lastLife && motion && game.started) {
+    // On the last life the heart beats while a flower hangs close over the line (a sound, so Animations off keeps it).
+    if (danger.lastLife && game.started) {
       let low = -Infinity;
       for (const bud of game.buds) if (!bud.bloomed && !bud.gift) low = Math.max(low, bud.y + (bud.r || 11));
       const now = performance.now() / 1000;
