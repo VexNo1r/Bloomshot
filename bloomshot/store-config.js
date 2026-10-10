@@ -17,14 +17,22 @@
       // A bundle is its own store product that grants several entitlements: in RevenueCat, attach this one product
       // to every entitlement listed here. Keep its price below the sum of the items, or it is not a bundle.
       // Never offer it to a player who already owns one of its items (the store refuses it as 'partly-owned').
-      { id: 'bloomshot.bundle.launch1', entitlements: ['world_koi', 'style_collection1'], kind: 'bundle', title: 'Launch Bundle', priceHint: '$5.99', available: false },
-      // Powerups: consumables, bought again and again, one powerup per purchase. They grant `count` of `power` into the
-      // player's save through BloomStore.onConsumable and are attached to no entitlement. $0.25 on Google Play; Apple's
+      // The Complete Garden is everything paid in one purchase: $6.99 against $9.97 for the three bought separately.
+      { id: 'bloomshot.bundle.complete1', entitlements: ['levels_full', 'world_koi', 'style_collection1'], kind: 'bundle', title: 'Complete Garden', priceHint: '$6.99', available: false },
+      // Powerups: consumables, bought again and again. A single grants `count` of `power` into the player's save through
+      // BloomStore.onConsumable and is attached to no entitlement. $0.25 on Google Play; Apple's
       // lowest price is $0.29, so that is the App Store price. The game always shows the store's own price.
       { id: 'bloomshot.power.sunburst', consumable: true, power: 'sunburst', count: 1, kind: 'power', title: 'Sunburst', priceHint: '$0.25', available: false },
       { id: 'bloomshot.power.lullaby', consumable: true, power: 'lullaby', count: 1, kind: 'power', title: 'Lullaby', priceHint: '$0.25', available: false },
       { id: 'bloomshot.power.dandelion', consumable: true, power: 'dandelion', count: 1, kind: 'power', title: 'Dandelion', priceHint: '$0.25', available: false },
-      { id: 'bloomshot.power.beeline', consumable: true, power: 'beeline', count: 1, kind: 'power', title: 'Bee Line', priceHint: '$0.25', available: false }
+      { id: 'bloomshot.power.beeline', consumable: true, power: 'beeline', count: 1, kind: 'power', title: 'Bee Line', priceHint: '$0.25', available: false },
+      // Powerup packs: fixed contents, always shown, nothing random. Five of one kind for $0.99, or the bag with three
+      // of each (twelve) for $1.99. Each purchase is one grant: the game adds all of it under one transaction.
+      { id: 'bloomshot.pack.sunburst5', consumable: true, power: 'sunburst', count: 5, kind: 'power', title: '5 Sunbursts', priceHint: '$0.99', available: false },
+      { id: 'bloomshot.pack.lullaby5', consumable: true, power: 'lullaby', count: 5, kind: 'power', title: '5 Lullabies', priceHint: '$0.99', available: false },
+      { id: 'bloomshot.pack.dandelion5', consumable: true, power: 'dandelion', count: 5, kind: 'power', title: '5 Dandelions', priceHint: '$0.99', available: false },
+      { id: 'bloomshot.pack.beeline5', consumable: true, power: 'beeline', count: 5, kind: 'power', title: '5 Bee Lines', priceHint: '$0.99', available: false },
+      { id: 'bloomshot.pack.bag12', consumable: true, powers: { sunburst: 3, lullaby: 3, dandelion: 3, beeline: 3 }, kind: 'power', title: 'Powerup Bag', priceHint: '$1.99', available: false }
     ]
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

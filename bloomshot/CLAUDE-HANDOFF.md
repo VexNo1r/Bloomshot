@@ -43,13 +43,26 @@ Normal save `bloomshot.save.v1`; `?qa` uses `bloomshot.qa.v1`. Trevor plays in b
 
 **Look and sound pass (October 9).** Trevor asked for the game to be as visually appealing and its sound effects as pleasing as possible. A won result now unfurls its banner, pops its stars in one at a time (each with a rising chime, the `star` cue) and counts the score up; a win also sends a short shower of inked petals, leaves and blossoms over the card (`petals.js`, `BloomPetals`, drawn on `#petal-layer`, a manual popover so it can sit above the modal dialog; browsers without popovers skip the petals). All of it runs off the main frame loop and is skipped when Animations is off. Each screen settles in when it opens. A level opened by a first clear greets the player on the map (the card pops, its scene brightens out of the locked look, a pink "New!" tag) until it is played. The sound effects were rebuilt in `sound.js`: see that file's header for the instruments and the shared room echo.
 
+**Background redo (October 10).** Trevor's verdict after playing: very good and almost ready to deploy, but first every background should look "much more professionally done, like it was made by a big budget indie studio". All ten level scenes, the three garden boards (Meadow, Moon Garden, Koi Pond), the world cards drawn from them and the Garden tab map were repainted in light and air instead of ink outlines:
+
+- `scenery.js` opens with a painter's kit (`lin`, `rad`, `rgba`, `wash`, `air`, `bloom`, `shaft`, `soft`, `rim`, `lit`, `grain`, `grade`, `scallop`, `clump`, `leafFlecks`, `blade`, `sward`). `soft` draws a blurred fill with the shadow trick; `grade` is the last pass of every scene (soft-light color wash and vignette), then `grain`.
+- Each scene has one key light and paints back to front: far layers, a band of the scene's air, nearer layers modelled toward the light with a rim and a soft contact shadow, a dark foreground frame in a corner, then the grade. Helpers that belong to one scene carry its prefix (`grotto…`, `fossil…`, `ember…`, `geode…`, `core…`).
+- Readability rules still hold: the play area (x 30 to 390, y 30 to 445) stays calm and mid-valued, busy detail lives at the edges and below the danger line, and the launcher keeps a calm lit spot behind it.
+- `BloomScenery.kit` hands a few brushes to `meadow.js`, whose Garden tab map now has a painted lawn, gravel path with stepping slabs, cobble-edged beds of hoed soil, a pond with reeds, and corner canopies. Its first paint takes about 120 to 200 ms once, then it is cached.
+- The level map cards take their slice of each scene from `SCENE_SLICE` in `app.js`; retune it if a scene's best band moves.
+- Each scene paints in about 7 to 21 ms in headless Chromium, once per level start. `qa/test-scenery.cjs` checks that every scene, garden board and rock paints without error or `Math.random`, the same way every time, with save and restore balanced.
+
+Before and after pictures: `docs/screenshots/backgrounds/`.
+
+**Growth changes (October 10).** Trevor picked the top five of a growth review. The game side (the Complete Garden on the unlock card, powerup packs on the shelf, the first three waves of level 5 free, a Share button and the daily garden result) is PR #23; the store side (products, the share sheet, the listing) is PR #22.
+
 ## Storybook rules
 
 - **Type.** Two self-hosted open-source fonts in `assets/fonts/` (SIL Open Font License): Fredoka for titles, buttons, tags and canvas text, Nunito for body text. No system-ui on canvas, no other fonts.
 - **No tracked uppercase.** No small spaced-out capital "eyebrow" labels and no letter-spaced canvas text. Tags are pill `.card-tag`s in sentence case.
 - **Short game labels.** "Level 4 clear!", "Wave 3 of 10", "Unlock levels 5 to 10 · $2.99". Hints are a few words and fit one line (wave hints at most about 50 characters). Prices and what a purchase contains stay exact.
 - **Chunky tactile UI.** Pill buttons with a solid darker bottom edge that presses down (green primary, gold for purchases, cream secondary), cream panels with an inked edge, ribbon titles with notched tails, filled tab icons. Colors are tokens at the top of `styles.css`; each level also tints the page (`body[data-theme="depth-…"]`).
-- **Scene art.** Flat shapes with a colored ink outline (never black), one cel-shade cut toward the lower right with light from the upper left, small hand-placed creatures with personality, seeded randomness so a scene is identical every time, and busy detail kept to the edges, top band and bottom corners so falling flowers read instantly.
+- **Scene art.** Painted in light and air with the kit in `scenery.js`: one key light per scene, shapes modelled toward it with gradients and a lit rim, soft shadows, far layers sinking into haze, a final grade and paper grain. No ink outlines on scenery (those belong to the pieces in play); small hand-placed creatures keep soft colored lines and their personality. Seeded randomness so a scene is identical every time, and busy detail kept to the edges and below the danger line so falling flowers read instantly.
 - **No AI-generated raster art.** Interface graphics are CSS and inline SVG; scenes and sprites are Canvas paths. `ART-PROVENANCE.md` records this honestly; keep it accurate.
 
 Screenshots: `docs/screenshots/storybook/` (interface), `docs/screenshots/levels/` (levels 1 to 4 and the map), `docs/screenshots/levels-deep/` (levels 5 to 10 and the unlock).
@@ -63,7 +76,7 @@ Screenshots: `docs/screenshots/storybook/` (interface), `docs/screenshots/levels
 | petals.js | The petal shower over a won result (create, step, draw) |
 | rush.js | Endless Rush with tempo, and the level runner: waves, drops, bosses, shells, geodes, briars, powerups and gift bubbles |
 | engine.js | Puzzle physics, currents and gates (shared with the levels) |
-| scenery.js | The ten painted level scenes and their rocks |
+| scenery.js | The painter's kit, the ten painted level scenes, the garden boards and the rocks |
 | art.js | All other canvas art: flowers, board pieces, seeds and styles, particles, callouts |
 | garden.js / meadow.js | Seeds, plots, decorations, friends, rewards for every mode |
 | goals.js | Today's three goals |
@@ -79,7 +92,7 @@ Every new buzz goes through `haptic(kind)` in `app.js`, never `navigator.vibrate
 
 ## Verification
 
-From `bloomshot/`, every suite must exit 0 (CI runs the same list in `.github/workflows/web-tests.yml`): every `node qa/test-*.cjs` (17 suites, including `test-depths`, `test-powers`, `test-petals`, `test-goals` and `test-keepsakes`) and `node qa/check-moon-pointer.cjs`. Then in `native/`: `npm ci && npm run sync && npm run check`. Running the suites rewrites several `qa/*-results.json` files with new timestamps; commit only the ones your change actually affects. None of this is physical-device proof.
+From `bloomshot/`, every suite must exit 0 (CI runs the same list in `.github/workflows/web-tests.yml`): every `node qa/test-*.cjs` (18 suites, including `test-depths`, `test-powers`, `test-petals`, `test-scenery`, `test-goals` and `test-keepsakes`) and `node qa/check-moon-pointer.cjs`. Then in `native/`: `npm ci && npm run sync && npm run check`. Running the suites rewrites several `qa/*-results.json` files with new timestamps; commit only the ones your change actually affects. None of this is physical-device proof.
 
 ## Store state
 
@@ -90,5 +103,5 @@ Koi (`bloomshot.world.koi`, $4.99), Keepsake Collection (`bloomshot.style.collec
 1. Get Trevor playing the levels on his phone and ask which waves feel unfair, slow or flat; retune `depths.js` with the practice bot rather than by feel alone.
 2. Google Play: products, RevenueCat entitlements, sandbox buy, cancel, restore and refund for each product, then flip products to available one at a time.
 3. After the levels: decorations and goals keep the meadow fresh; new earnable keepsakes; boosters only if earnable in play and never sold as relief from designed frustration.
-4. Keep every new screen, scene and line of text to the Storybook rules above.
+4. Keep every new screen, scene and line of text to the Storybook rules above. New scenes start from the painter's kit and a frame-by-frame look at Sunny Meadow and Root Tunnels.
 5. Update this file at the end of every fourth pass.

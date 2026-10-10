@@ -1,5 +1,5 @@
 {
-  "passed": 41,
+  "passed": 44,
   "failed": 0,
   "results": [
     {
@@ -96,6 +96,18 @@
     },
     {
       "name": "powerups: a consumable is sold only with a valid grant and no entitlements, and is never owned",
+      "passed": true
+    },
+    {
+      "name": "powerups: a mixed pack is sold only when every item is a positive whole count of a named power",
+      "passed": true
+    },
+    {
+      "name": "powerups: a mixed pack is one grant with all its items, delivered whole or not at all, and never again",
+      "passed": true
+    },
+    {
+      "name": "powerups: a waiting grant saved before packs existed still loads as one item; a damaged one is dropped",
       "passed": true
     },
     {

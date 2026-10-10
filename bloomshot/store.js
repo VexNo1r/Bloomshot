@@ -12,7 +12,7 @@
   //   web:    the website sells nothing, so owns() is always false.
   //
   // Consumables (powerups) are bought again and again and are never "owned". A purchase becomes a grant
-  // ({ transaction, productId, power, count }) that waits in a small ledger until the game takes it, so a
+  // ({ transaction, productId, power, count, items }) that waits in a small ledger until the game takes it, so a
   // paid powerup survives the app closing mid-purchase and is never handed over twice. The ledger lists every
   // consumable transaction this install has already dealt with. A transaction it has not seen is granted only
   // if this install had started buying that product and not yet settled it; anything else (bought before a
@@ -23,6 +23,20 @@
   var MOCK_GRANTS_KEY = 'bloomshot.mockgrants.v1';
   var INFLIGHT_DAYS = 7; // Google Play lets a slow payment method stay pending for a few days
 
+  // A consumable's items, or [] when any part of its definition is not a positive whole count of a named power.
+  function itemsOf(p) {
+    var good = function (power, count) { return typeof power === 'string' && power !== '' && Number.isInteger(count) && count > 0; };
+    if (p.powers != null) {
+      if (typeof p.powers !== 'object' || Array.isArray(p.powers) || p.power != null) return [];
+      var names = Object.keys(p.powers);
+      var items = names.map(function (name) { return { power: name, count: p.powers[name] }; });
+      return items.length && items.every(function (it) { return good(it.power, it.count); }) ? items : [];
+    }
+    return good(p.power, p.count) ? [{ power: p.power, count: p.count }] : [];
+  }
+  function total(items) { return items.reduce(function (sum, it) { return sum + it.count; }, 0); }
+  function copyItems(items) { return items.map(function (it) { return { power: it.power, count: it.count }; }); }
+
   function create(env) {
     env = env || {};
     var config = env.config || {};
@@ -31,14 +45,18 @@
     // A product grants one or more entitlements: `entitlement: 'x'` for a single item, or
     // `entitlements: ['x', 'y']` for a bundle (one store product attached to several RevenueCat entitlements).
     // `entitlement` is always the first of them. A product that grants nothing can never be sold.
-    // A consumable (a powerup) grants `count` of `power` instead, and no entitlements at all.
+    // A consumable (a powerup) grants items instead, and no entitlements at all: `count` of one `power`, or
+    // `powers: { name: count, ... }` for a mixed pack. `items` always lists them as [{ power, count }];
+    // `power` is set only when there is exactly one kind, and `count` is the total.
     var catalog = (config.products || []).map(function (p) {
       var list = Array.isArray(p.entitlements) ? p.entitlements : p.entitlement != null ? [p.entitlement] : [];
       var granted = list.map(String).filter(function (id, i, all) { return id && all.indexOf(id) === i; });
       var consumable = p.consumable === true;
-      var power = consumable && typeof p.power === 'string' && p.power && Number.isInteger(p.count) && p.count > 0 ? p.power : null;
-      var sellable = consumable ? Boolean(power) && granted.length === 0 : granted.length > 0;
-      return { id: String(p.id), entitlements: consumable ? [] : granted, entitlement: consumable ? '' : granted[0] || '', consumable: consumable, power: power, count: power ? p.count : null, kind: p.kind || 'item', title: String(p.title || p.id), priceHint: p.priceHint || '', available: p.available === true && sellable };
+      var items = consumable ? itemsOf(p) : [];
+      var sellable = consumable ? items.length > 0 && granted.length === 0 : granted.length > 0;
+      return { id: String(p.id), entitlements: consumable ? [] : granted, entitlement: consumable ? '' : granted[0] || '', consumable: consumable,
+        power: items.length === 1 ? items[0].power : null, count: items.length ? total(items) : null, items: items,
+        kind: p.kind || 'item', title: String(p.title || p.id), priceHint: p.priceHint || '', available: p.available === true && sellable };
     });
     var byId = {};
     catalog.forEach(function (p) { byId[p.id] = p; });
@@ -118,7 +136,7 @@
         baseline: saved.baseline === true,
         seen: Array.isArray(saved.seen) ? saved.seen.filter(function (id) { return typeof id === 'string'; }) : [],
         inflight: Array.isArray(saved.inflight) ? saved.inflight.filter(function (f) { return f && byId[f.product] && byId[f.product].consumable && f.at >= oldest; }) : [],
-        owed: Array.isArray(saved.owed) ? saved.owed.filter(function (g) { return g && typeof g.transaction === 'string' && typeof g.power === 'string' && Number.isInteger(g.count) && g.count > 0; }) : []
+        owed: Array.isArray(saved.owed) ? saved.owed.map(readGrant).filter(Boolean) : []
       };
     }
     function saveLedger() { write(grantsKey, { v: 1, baseline: ledger.baseline, seen: ledger.seen, inflight: ledger.inflight, owed: ledger.owed }); }
@@ -128,8 +146,15 @@
       ledger.inflight.forEach(function (f, i) { if (f.product === p.id) at = i; }); // the newest one: the purchase that just settled
       if (at >= 0) ledger.inflight.splice(at, 1);
     }
+    // A stored grant, checked. One saved before mixed packs existed has only power and count: that is its one item.
+    function readGrant(g) {
+      if (!g || typeof g.transaction !== 'string' || !g.transaction) return null;
+      var items = itemsOf(Array.isArray(g.items) ? { powers: g.items.reduce(function (all, it) { if (it && typeof it.power === 'string') all[it.power] = it.count; return all; }, {}) } : g);
+      if (!items.length || (Array.isArray(g.items) && items.length !== g.items.length)) return null;
+      return { transaction: g.transaction, productId: String(g.productId || ''), power: items.length === 1 ? items[0].power : null, count: total(items), items: items };
+    }
     function owe(id, p) {
-      var grant = { transaction: id, productId: p.id, power: p.power, count: p.count };
+      var grant = { transaction: id, productId: p.id, power: p.power, count: p.count, items: copyItems(p.items) };
       ledger.seen.push(id); ledger.owed.push(grant);
       return grant;
     }
@@ -225,7 +250,7 @@
         // owned: everything this product grants is already the player's. partial: some of it is, which means
         // buying it would charge for something they have (a bundle after one of its items), so it is refused.
         // A consumable is never owned or partial: it can always be bought again.
-        return { id: p.id, entitlement: p.entitlement, entitlements: p.entitlements.slice(), consumable: p.consumable, power: p.power, count: p.count,
+        return { id: p.id, entitlement: p.entitlement, entitlements: p.entitlements.slice(), consumable: p.consumable, power: p.power, count: p.count, items: copyItems(p.items),
           kind: p.kind, title: p.title, available: p.available,
           owned: p.entitlements.length > 0 && held === p.entitlements.length, partial: held > 0 && held < p.entitlements.length,
           price: state.prices[p.id] || p.priceHint,
@@ -275,12 +300,12 @@
       }
     }
 
-    function copyGrant(g) { return { transaction: g.transaction, productId: g.productId, power: g.power, count: g.count }; }
-    // A successful buy answers { ok: true, consumable: true, power, count, transaction, delivered }. delivered: the
-    // game's handler has already taken it; otherwise it waits in the ledger for onConsumable or deliver.
+    function copyGrant(g) { return { transaction: g.transaction, productId: g.productId, power: g.power, count: g.count, items: copyItems(g.items) }; }
+    // A successful buy answers { ok: true, consumable: true, power, count, items, transaction, delivered }. delivered:
+    // the game's handler has already taken it; otherwise it waits in the ledger for onConsumable or deliver.
     function bought(grant) {
       var waiting = ledger.owed.some(function (g) { return g.transaction === grant.transaction; });
-      return { ok: true, consumable: true, power: grant.power, count: grant.count, transaction: grant.transaction, delivered: !waiting };
+      return { ok: true, consumable: true, power: grant.power, count: grant.count, items: copyItems(grant.items), transaction: grant.transaction, delivered: !waiting };
     }
 
     async function buyConsumable(p) {
@@ -332,8 +357,9 @@
     }
 
     function pendingGrants() { return ledger.owed.map(copyGrant); }
-    // fn(grant) must add grant.count of grant.power to the player's save, write the save, and return true. Only then is
-    // the grant marked delivered; anything else (false, a throw) leaves it waiting for the next call.
+    // fn(grant) must add every one of grant.items (each { power, count }) to the player's save under the one
+    // grant.transaction, write the save, and return true. Only then is the grant marked delivered; anything else
+    // (false, a throw) leaves the whole grant waiting for the next call, so a pack is never half delivered.
     function deliver(fn) {
       if (typeof fn !== 'function' || mode === 'web') return 0;
       var done = 0;
