@@ -216,7 +216,9 @@ test('Restarting an unfinished run does not grant rewards', () => {
   app.click('restart-btn');
   assert.equal(app.games.length, 1, 'one tap does not wipe the run'); assert(app.$('restart-btn').classList.contains('armed'));
   assert.equal(app.$('restart-btn').attributes['aria-label'], 'Tap again to restart');
+  assert.equal(app.context.document.body.dataset.restart, 'armed', 'the hint line steps back while the tip shows');
   app.click('restart-btn');
+  assert.equal(app.context.document.body.dataset.restart, '', 'and comes back');
   // The restarted board is the first one played, so it shows the powerups tip once; nothing else changes.
   assert.equal(app.games.length, 2); assert.deepEqual({ ...app.saved(), powersMet: false }, before);
   assert.equal(app.$('restart-btn').classList.contains('armed'), false);
@@ -1114,6 +1116,13 @@ test('Super Bloom, trick shots and long chains reach the board, the hint line an
   assert(!game.floaters.some(f => f.kind === 'wave' && f.text === 'Super Bloom!'), 'later ones keep the board clear');
   assert.equal(app.$('fever-banner').hidden, false); assert(app.$('fever-banner').classList.contains('soon'), 'the banner comes at once');
   assert.equal(app.$('game-hint').textContent, 'Super Bloom! Double points.');
+  // A new wave's ribbon rides the same top edge as the banner: the banner steps aside while the ribbon shows.
+  const body = app.context.document.body;
+  assert.equal(body.dataset.ribbon, '', 'no ribbon yet');
+  game.floaters.push({ kind: 'title', size: 'small', x: 210, y: 32, life: .9, maxLife: .9, text: 'Wave 2 of 10', label: '' }); app.frame();
+  assert.equal(body.dataset.ribbon, 'on', 'the banner makes way for "Wave 2 of 10"');
+  game.floaters = game.floaters.filter(f => !(f.kind === 'title' && f.size === 'small')); app.frame();
+  assert.equal(body.dataset.ribbon, '', 'and comes back once it has gone');
   const bud = game.buds.find(b => !b.bloomed); game._trick('bank', bud, 1, false); app.frame();
   const stamp = game.floaters.find(f => f.kind === 'trick');
   assert.deepEqual({ trick: stamp.trick, text: stamp.text, label: stamp.label }, { trick: 'bank', text: 'Bank shot!', label: '+300' });

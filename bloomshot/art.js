@@ -525,6 +525,7 @@
         if (typeof OffscreenCanvas !== 'undefined') surface = new OffscreenCanvas(pixels, pixels);
         else if (typeof document !== 'undefined') { surface = document.createElement('canvas'); surface.width = pixels; surface.height = pixels; }
         if (surface) {
+          warmMark(surface);
           const context = surface.getContext('2d'); context.scale(3, 3);
           paintFlower(context, size / 2, size / 2, r, type, o, time, phase);
           sprite = { surface, size };
@@ -578,12 +579,18 @@
   }
   function makeSurface(w, h) {
     w = Math.max(1, Math.ceil(w)); h = Math.max(1, Math.ceil(h));
-    if (typeof OffscreenCanvas !== 'undefined') { try { return new OffscreenCanvas(w, h); } catch (error) { /* fall back below */ } }
+    if (typeof OffscreenCanvas !== 'undefined') { try { return warmMark(new OffscreenCanvas(w, h)); } catch (error) { /* fall back below */ } }
     if (typeof document !== 'undefined' && document && typeof document.createElement === 'function') {
-      const surface = document.createElement('canvas'); surface.width = w; surface.height = h; return surface;
+      const surface = document.createElement('canvas'); surface.width = w; surface.height = h; return warmMark(surface);
     }
     return null;
   }
+  // Painting into a sprite's canvas only records the strokes: the browser does the real work (and hands the result
+  // to the GPU) the first time the sprite is drawn somewhere. While the warm-up runs, every canvas it paints into is
+  // noted here, and the warm-up then draws each one once onto the board, nearly invisibly, so that cost lands in the
+  // level's intro instead of on a bloom's first frame in play.
+  let warmDirty = null;
+  function warmMark(surface) { if (warmDirty && surface) warmDirty.add(surface); return surface; }
   // A sprite painted once at 3x inside the box (x0, y0)-(x1, y1) around its own origin. Null where there is no canvas
   // (node), and callers then draw plain paths.
   function atlasSprite(key, x0, y0, x1, y1, paint) {
@@ -832,8 +839,9 @@
   // new bloom goes petal by petal, so boards that mix sizes (gems, geodes) never make sheets churn. Bosses are not
   // cached at all, so they never push a sheet out.
   const SHEET_COLS = 6, SHEET_SCALE = 2.25, SHEET_MAX = 16, SHEET_IDLE = 180;
-  const sheets = new Map();
+  const sheets = new Map(), sheetOf = new WeakMap();
   let sheetClock = 0;
+  const sheetDone = sheet => { for (let k = 1; k < sheet.frames; k++) if (!sheet.baked[k]) return false; return true; };
   function sheetFor(layer, type, r) {
     const form = OPEN[type], outer = layer === 'outer';
     if (!(r <= 16) || (!outer && form.inner.ring)) return null;
@@ -851,7 +859,7 @@
     const surface = makeSurface(cell * SHEET_COLS, cell * Math.ceil(frames / SHEET_COLS)), g = surface && surface.getContext('2d');
     if (!g) return null;
     sheet = { surface, g, type, outer, cell, half: cell / SHEET_SCALE / 2, frames, from: outer ? .03 : .12, step: outer ? .5 / 23 : .02, baked: new Uint8Array(frames), used: sheetClock };
-    sheets.set(key, sheet);
+    sheets.set(key, sheet); sheetOf.set(surface, sheet);
     return sheet;
   }
   // The frame nearest this age, painted now if it never has been. Petals open in order from the lead (0, 1, -1, 2,
@@ -861,7 +869,7 @@
     const k = clamp(Math.round((age - sheet.from) / sheet.step), 0, sheet.frames - 1);
     // Frame 0 is the layer before it starts to open: never drawn, so never painted.
     if (k === 0 || sheet.baked[k]) return k;
-    sheet.baked[k] = 1; painted++;
+    sheet.baked[k] = 1; painted++; warmMark(sheet.surface);
     const g = sheet.g, cell = sheet.cell, h = sheet.half, form = OPEN[sheet.type], outer = sheet.outer, t = sheet.from + k * sheet.step;
     const n = outer ? form.count : form.inner.count, delay = outer ? .03 : .12, stagger = (outer ? .3 : .16) / n, span = outer ? .22 : .2;
     const twist = form.twist * (outer ? 1 : .6), wide = outer ? .5 : .55;
@@ -901,16 +909,18 @@
     const impact = Number.isFinite(bud.impactAngle) ? bud.impactAngle : -Math.PI / 2, seed = seedOf(bud);
     const sprites = spritesFor(bud, type, r);
     ctx.save();
+    // A boss gets no white frame: its hit is held long (hit-stop and slow motion), so its own bud cracks instead.
+    const white = !still && age < FLASH && !bud.boss;
     if (!sprites.ready || !readBase(ctx)) {
       // No canvas to paint sprites into (node): the white frame, then the plain crossfade, with shards as paths.
-      if (!still && age < FLASH) drawSilhouette(ctx, x, y, r, type, 1.08);
+      if (white) drawSilhouette(ctx, x, y, r, type, 1.08);
       else drawFlower(ctx, x, y, r, type, age / UNFURL, time, variant);
       ctx.restore();
       if (!still) { ctx.save(); drawShards(ctx, x, y, r, type, impact, seed, age, quality); ctx.restore(); }
       return;
     }
     const alpha = ctx.globalAlpha, op = ctx.globalCompositeOperation;
-    if (!still && age < FLASH) {
+    if (white) {
       // The hit frame: the whole bud in white, a touch larger.
       setFrame(x, y, 0); stamp(ctx, sprites.white, 0, 0, 0, r / Math.max(4, Math.round(r)) * 1.08, r / Math.max(4, Math.round(r)) * 1.08);
       ctx.setTransform(BASE[0], BASE[1], BASE[2], BASE[3], BASE[4], BASE[5]);
@@ -1018,7 +1028,8 @@
   function trembles(bud) { return trembleKey !== null && !bud.bloomed && !bud.gift && !bud.puff && (bud.group == null ? bud : bud.group) === trembleKey; }
   // The finale sweep: each bloomed flower flares with gold light and a white glint as feel's wave passes it. The glows
   // are added in one 'lighter' pass; the glints, which grow and shrink as they twinkle, are one path and one fill.
-  function drawFlares(ctx, buds, time, options) {
+  // A flower that has sunk out of sight past the danger line gets no flare (its light would hang on the soil).
+  function drawFlares(ctx, buds, time, options, line = Infinity) {
     if (options.reducedMotion) return;
     const glints = !((Number(options.quality) || 0) >= 1);
     let started = false, glow = null, alpha = 1, op = 'source-over', shine = 0;
@@ -1029,8 +1040,10 @@
       if (!(age >= 0 && age < .5)) continue;
       if (!started) { started = true; ctx.save(); alpha = ctx.globalAlpha; op = ctx.globalCompositeOperation; ctx.globalCompositeOperation = 'lighter'; glow = goldSprite(); }
       if (age >= .35) continue;
+      const seen = sinkAlpha(bud, time, line, false);
+      if (!(seen > 0)) continue;
       const q = age / .35, r = Number(bud.r) || 13, x = Number(bud.x) || 0, y = Number(bud.y) || 0, radius = r * (2.6 + q * .9);
-      ctx.globalAlpha = alpha * (1 - q);
+      ctx.globalAlpha = alpha * (1 - q) * seen;
       if (glow) dab(ctx, glow, x, y, radius / 40);
       else circle(ctx, x, y, radius * .55, 'rgba(255,236,170,.6)');
       if (glints && q < 2 / 3) shine++;
@@ -1041,10 +1054,10 @@
     ctx.strokeStyle = '#ffe08a';
     for (const bud of buds) {
       if (!bud || typeof bud.flareAt !== 'number') continue;
-      const q = (time - bud.flareAt) / .5;
-      if (!(q >= 0 && q < 1)) continue;
+      const q = (time - bud.flareAt) / .5, seen = q >= 0 && q < 1 ? sinkAlpha(bud, time, line, false) : 0;
+      if (!(seen > 0)) continue;
       const r = Number(bud.r) || 13;
-      ctx.globalAlpha = alpha * (1 - q) * .9; ctx.lineWidth = 2.6 * (1 - q) + .6;
+      ctx.globalAlpha = alpha * (1 - q) * .9 * seen; ctx.lineWidth = 2.6 * (1 - q) + .6;
       ctx.beginPath(); ctx.arc(Number(bud.x) || 0, Number(bud.y) || 0, r * (1.2 + ease(q) * 1.6), 0, TAU); ctx.stroke();
     }
     ctx.globalAlpha = alpha;
@@ -1054,7 +1067,7 @@
       for (const bud of buds) {
         if (!bud || typeof bud.flareAt !== 'number') continue;
         const q = (time - bud.flareAt) / .35, r = Number(bud.r) || 13;
-        if (!(q >= 0 && q < 2 / 3)) continue;
+        if (!(q >= 0 && q < 2 / 3) || !(sinkAlpha(bud, time, line, false) > 0)) continue;
         const twinkle = Math.sin(Math.PI * q * 1.5);
         if (twinkle > .02) starPath(ctx, (Number(bud.x) || 0) + r * .42, (Number(bud.y) || 0) - r * .46, r * .95 * twinkle, q * .9);
       }
@@ -1292,9 +1305,9 @@
   // Squash, lean and ring timings follow the real clock, so the tutorial's slow motion never makes them sluggish.
   const feelClock = time => feelOpts && Number.isFinite(feelOpts.realTime) ? feelOpts.realTime : Number(time) || 0;
   function feelSurface(w, h) {
-    if (typeof OffscreenCanvas !== 'undefined') return new OffscreenCanvas(w, h);
+    if (typeof OffscreenCanvas !== 'undefined') return warmMark(new OffscreenCanvas(w, h));
     if (typeof document !== 'undefined' && document && typeof document.createElement === 'function') {
-      const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h; return canvas;
+      const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h; return warmMark(canvas);
     }
     return null;
   }
@@ -1685,7 +1698,7 @@
     ctx.restore();
   }
   function drawBossFace(ctx, bud, time, still) {
-    const r = Number(bud.r) || 24, blink = still ? 1 : (time % 3.4 < .12 ? .15 : 1), hurt = typeof bud.hitAt === 'number' && time - bud.hitAt < .3;
+    const r = Number(bud.r) || 24, blink = still ? 1 : (time % 3.4 < .12 ? .15 : 1), hurt = Boolean(bud.bloomed) || (typeof bud.hitAt === 'number' && time - bud.hitAt < .3);
     const mood = bossMood(bud), ink = '#4a2340';
     ctx.save(); bossWobble(ctx, bud, time, still); ctx.translate(bud.x, bud.y + r * .12);
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
@@ -1736,12 +1749,27 @@
       ctx.beginPath(); ctx.arc(bud.x, bud.y, r, a0, a1); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 5.4; ctx.stroke();
       ctx.beginPath(); ctx.arc(bud.x, bud.y, r, a0, a1); ctx.strokeStyle = i < hp ? (FLOWERS[bud.type] || FLOWERS.coral).dark : 'rgba(120,120,140,.35)'; ctx.lineWidth = 3; ctx.stroke();
     }
-    const crownY = bud.y - (Number(bud.r) || 24) - 14;
-    ctx.beginPath(); ctx.moveTo(bud.x - 10, crownY + 6); ctx.lineTo(bud.x - 12, crownY - 4); ctx.lineTo(bud.x - 5, crownY + 1); ctx.lineTo(bud.x, crownY - 8);
-    ctx.lineTo(bud.x + 5, crownY + 1); ctx.lineTo(bud.x + 12, crownY - 4); ctx.lineTo(bud.x + 10, crownY + 6); ctx.closePath();
-    ctx.fillStyle = '#ffd64f'; ctx.fill(); ctx.strokeStyle = '#a8701f'; ctx.lineWidth = 1.4; ctx.lineJoin = 'round'; ctx.stroke();
-    circle(ctx, bud.x, crownY + 1.5, 1.8, '#ef5a7d');
+    drawBossCrown(ctx, bud.x, bud.y - (Number(bud.r) || 24) - 14);
     ctx.restore();
+  }
+  function drawBossCrown(ctx, x, crownY) {
+    ctx.beginPath(); ctx.moveTo(x - 10, crownY + 6); ctx.lineTo(x - 12, crownY - 4); ctx.lineTo(x - 5, crownY + 1); ctx.lineTo(x, crownY - 8);
+    ctx.lineTo(x + 5, crownY + 1); ctx.lineTo(x + 12, crownY - 4); ctx.lineTo(x + 10, crownY + 6); ctx.closePath();
+    ctx.fillStyle = '#ffd64f'; ctx.fill(); ctx.strokeStyle = '#a8701f'; ctx.lineWidth = 1.4; ctx.lineJoin = 'round'; ctx.stroke();
+    circle(ctx, x, crownY + 1.5, 1.8, '#ef5a7d');
+  }
+  // The boss's last hit is the level's hero frame, so it never turns into a white disc: through the crack (the
+  // first .125 s of its bloom, held by the hit-stop and the slow motion) its leaves stay behind it and its face
+  // squeezes shut on top, fading as the casing pops, while the crown is knocked up and away. 0 when not cracking.
+  function bossCrack(bud, age, still) {
+    if (!bud.boss || !bud.bloomed || still || !(age >= 0) || age >= .125) return 0;
+    const burst = (age - .065) / .06;
+    return burst <= 0 ? 1 : 1 - Math.pow(clamp(burst, 0, 1), 1.6);
+  }
+  function drawBossCrownFlying(ctx, bud, age) {
+    const r = Number(bud.r) || 24, k = clamp(age / .125, 0, 1), side = (Number(bud.impactAngle) || 0) > -Math.PI / 2 ? -1 : 1;
+    ctx.save(); ctx.translate(bud.x + side * k * r * .7, bud.y - r - 14 - ease(k) * r * .9); ctx.rotate(side * k * .9);
+    drawBossCrown(ctx, 0, 0); ctx.restore();
   }
 
   // A fossil shell turns around its bud. Shots only get in through the open side, so the gap is drawn wide and
@@ -1831,13 +1859,36 @@
     sparkle(ctx, -r * .34, -r * .52, 2.6, '#ffffff', .3);
     ctx.restore();
   }
+  // How much of a spent flower still shows: it fades as it sinks to the danger line once it has finished opening,
+  // gone 26 px past it (and the tutorial fades a step's flowers out with bud.fade).
+  function sinkAlpha(bud, time, line, still) {
+    let sink = 1;
+    if (bud.bloomed && line < Infinity) {
+      const over = bud.y + (bud.r || 16) - (line - 8), age = typeof bud.bloomAt === 'number' ? time - bud.bloomAt : Infinity;
+      if (over > 0) sink = 1 - clamp(over / 26, 0, 1) * (still ? 1 : clamp((age - UNFURL) / .25, 0, 1));
+    }
+    if (typeof bud.fade === 'number') sink *= clamp(bud.fade, 0, 1);
+    return Math.max(0, sink);
+  }
   // Briar patches: a thorny vine ties each patch together, so the player can see which three must bloom together.
-  function drawBriars(ctx, buds) {
+  // Once a whole patch has bloomed for good the vine has done its job and withers away; it also sinks out with its
+  // flowers, so no bare bramble is left lying on the danger line.
+  function drawBriars(ctx, buds, time, line, still) {
     const patches = new Map();
     for (const bud of buds) if (bud.briar) { if (!patches.has(bud.group)) patches.set(bud.group, []); patches.get(bud.group).push(bud); }
     ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    const base = ctx.globalAlpha;
     for (const patch of patches.values()) {
       if (patch.length < 2) continue;
+      let alpha = 1, done = true, last = -Infinity;
+      for (const bud of patch) {
+        alpha = Math.min(alpha, sinkAlpha(bud, time, line, still));
+        if (!bud.bloomed || bud.regrowAt) done = false;
+        else if (typeof bud.bloomAt === 'number') last = Math.max(last, bud.bloomAt);
+      }
+      if (done) alpha *= still ? 0 : 1 - clamp((time - last - .2) / .45, 0, 1);
+      if (alpha <= .01) continue;
+      ctx.globalAlpha = base * alpha;
       const pts = patch.slice().sort((a, b) => a.x - b.x || a.y - b.y);
       // A pale halo first, so the bramble reads on dark stone as well as on light sand.
       for (const [width, color] of [[7, 'rgba(255,241,214,.55)'], [4.4, '#5e3324'], [2, '#a4643c']]) {
@@ -2335,7 +2386,7 @@
     else if (typeof document !== 'undefined' && document.createElement) { surface = document.createElement('canvas'); surface.width = Math.ceil(w * k); surface.height = Math.ceil(h * k); }
     const c = surface && surface.getContext('2d');
     const sprite = c ? { surface, w, h } : null;
-    if (c) { c.scale(k, k); paint(c); painted++; }
+    if (c) { c.scale(k, k); paint(c); painted++; warmMark(surface); }
     hudCache.set(key, sprite);
     return sprite;
   }
@@ -2509,25 +2560,36 @@
     ctx.fillStyle = color; ctx.fill(); ctx.restore();
   }
 
-  // Super Bloom turns the sky gold: a warm wash with a lit rim, and a soft band of light rising through it. Both
-  // are painted once; a frame draws them with an alpha that fades in over .35 s and out over the last .6 s.
+  // Super Bloom gilds the frame, never the play area: a warm glow along the edges and a lit rim, painted once, and a
+  // thin shimmer of light that climbs through the garden. Gold laid over a teal lake or a blue cave greys it, so the
+  // middle of the board keeps its own colors. A frame draws both with an alpha that fades in over .35 s and out over
+  // the last .6 s.
   function paintGoldSky(c) {
-    // Warm at the top and bottom edges, nearly clear through the middle, so a teal lake or blue cave keeps its colors.
-    const wash = c.createLinearGradient(0, 0, 0, 560);
-    wash.addColorStop(0, 'rgba(255,196,64,.4)'); wash.addColorStop(.3, 'rgba(255,220,120,.12)');
-    wash.addColorStop(.7, 'rgba(255,214,110,.05)'); wash.addColorStop(1, 'rgba(255,184,60,.22)');
-    c.fillStyle = wash; c.fillRect(0, 0, 420, 560);
-    c.save(); c.shadowColor = '#ffb21e'; c.shadowBlur = 7; c.strokeStyle = '#ffe28a'; c.lineWidth = 3; c.globalAlpha = .85;
+    // Narrow and rich rather than wide and pale: a thin strong glow stays gold, a wide faint one only greys.
+    const edge = (x0, y0, x1, y1, a) => {
+      const g = c.createLinearGradient(x0, y0, x1, y1);
+      g.addColorStop(0, `rgba(255,186,40,${a})`); g.addColorStop(.5, `rgba(255,200,70,${a * .32})`); g.addColorStop(1, 'rgba(255,210,90,0)');
+      return g;
+    };
+    // Inside the rim only, so the board's dark frame keeps its own color instead of going muddy.
+    c.save(); roundRect(c, 18, 18, 384, 524, 25); c.clip();
+    c.fillStyle = edge(0, 18, 0, 52, .7); c.fillRect(18, 18, 384, 34);
+    c.fillStyle = edge(0, 542, 0, 512, .6); c.fillRect(18, 512, 384, 30);
+    c.fillStyle = edge(18, 0, 38, 0, .6); c.fillRect(18, 18, 20, 524);
+    c.fillStyle = edge(402, 0, 382, 0, .6); c.fillRect(382, 18, 20, 524);
+    c.restore();
+    c.save(); c.shadowColor = '#ffa810'; c.shadowBlur = 8; c.strokeStyle = '#ffd95c'; c.lineWidth = 3.4; c.globalAlpha = .95;
     roundRect(c, 18, 18, 384, 524, 25); c.stroke(); c.restore();
-    c.strokeStyle = 'rgba(255,253,236,.7)'; c.lineWidth = 1.2; roundRect(c, 18, 18, 384, 524, 25); c.stroke();
+    c.strokeStyle = 'rgba(255,253,236,.8)'; c.lineWidth = 1.2; roundRect(c, 18, 18, 384, 524, 25); c.stroke();
   }
   function paintGoldBand(c) {
-    for (const [x, y, rx, ry, color] of [[120, 120, 240, 70, '255,214,96'], [310, 150, 210, 60, '255,190,120'], [210, 100, 300, 44, '255,240,170']]) {
-      c.save(); c.translate(x, y); c.rotate(-.18); c.scale(1, ry / rx);
-      const g = c.createRadialGradient(0, 0, 0, 0, 0, rx);
-      g.addColorStop(0, `rgba(${color},.42)`); g.addColorStop(.6, `rgba(${color},.16)`); g.addColorStop(1, `rgba(${color},0)`);
-      c.fillStyle = g; c.fillRect(-rx, -rx, rx * 2, rx * 2); c.restore();
-    }
+    // A slim tilted ribbon of warm light, brightest along its spine, with a hairline of white through the middle.
+    c.save(); c.translate(210, 120); c.rotate(-.16);
+    const g = c.createLinearGradient(0, -24, 0, 24);
+    g.addColorStop(0, 'rgba(255,214,110,0)'); g.addColorStop(.4, 'rgba(255,214,110,.18)'); g.addColorStop(.5, 'rgba(255,244,200,.32)');
+    g.addColorStop(.6, 'rgba(255,214,110,.18)'); g.addColorStop(1, 'rgba(255,214,110,0)');
+    c.fillStyle = g; c.fillRect(-260, -24, 520, 48);
+    c.restore();
   }
   function drawGoldSky(ctx, state, time, still) {
     const left = Number(state.superBloom) || 0, fade = Math.min(1, (6 - left) / .35, left / .6);
@@ -2535,7 +2597,7 @@
     const sky = hudSprite('sky:gold', 420, 560, paintGoldSky, 1), band = hudSprite('sky:band', 420, 240, paintGoldBand, 1);
     ctx.save(); ctx.globalAlpha = fade;
     if (sky) ctx.drawImage(sky.surface, 0, 0, 420, 560);
-    else { ctx.fillStyle = 'rgba(255,214,110,.16)'; ctx.fillRect(15, 15, 390, 530); }
+    else { ctx.strokeStyle = '#ffe28a'; ctx.lineWidth = 3.2; roundRect(ctx, 18, 18, 384, 524, 25); ctx.stroke(); }
     if (band) {
       // The band climbs from below the pod to above the top in about five seconds, then starts again.
       const y = still ? 120 : 560 - ((time * 150) % 800);
@@ -2907,7 +2969,7 @@
     if (typeof OffscreenCanvas !== 'undefined') surface = new OffscreenCanvas(pw, ph);
     else if (typeof document !== 'undefined' && document.createElement) { surface = document.createElement('canvas'); surface.width = pw; surface.height = ph; }
     if (!surface) return null;
-    const c = surface.getContext('2d'); c.scale(k, k); paint(c); painted++;
+    const c = surface.getContext('2d'); c.scale(k, k); paint(c); painted++; warmMark(surface);
     const sprite = { surface, w, h, k };
     if (stageCache.size >= 64) stageCache.delete(stageCache.keys().next().value);
     stageCache.set(key, sprite);
@@ -3100,16 +3162,18 @@
   function drawStamp(ctx, floater, reducedMotion) {
     const life = Math.max(0, floater.life == null ? 1 : floater.life), duration = floater.maxLife || 1.1, age = Math.max(0, duration - life);
     const S = layoutOf(ctx, floater, 'stamp', stampLayout);
-    let scale = 1, alpha = Math.min(1, life / .22);
+    // A stamp in the pod's lane (lane) is a little smaller and sits square, like a tag on the score. It drops onto
+    // its place at its own size instead of shrinking down from a giant, so even mid-drop it never reaches over the
+    // pod, the seed or the sun fan beside it, nor past the board's edge.
+    const lane = Boolean(floater.lane), size = lane ? .8 : 1;
+    let scale = 1, alpha = Math.min(1, life / .22), drop = 0;
     if (!reducedMotion) {
       // Stamped on: it drops from above the page, squashes once and lifts away as it fades.
-      if (age < .11) { const k = age / .11; scale = 1.75 - .75 * k * k; alpha *= k; }
+      if (age < .11) { const k = age / .11; if (lane) drop = -18 * (1 - k * k); else scale = 1.75 - .75 * k * k; alpha *= k; }
       else if (age < .3) scale = 1 - .07 * Math.sin((age - .11) / .19 * Math.PI);
       if (life < .22) scale *= 1 + (1 - life / .22) * .08;
     }
-    // A stamp in the pod's lane (lane) is a little smaller and sits square, like a tag on the score.
-    const lane = Boolean(floater.lane), size = lane ? .8 : 1;
-    ctx.save(); ctx.translate(lane ? clamp(Number(floater.x) || 104, 22 + S.w * size / 2, 398 - S.w * size / 2) : onBoard(floater.x, S.w), Number(floater.y) || 200);
+    ctx.save(); ctx.translate(lane ? clamp(Number(floater.x) || 104, 22 + S.w * size / 2, 398 - S.w * size / 2) : onBoard(floater.x, S.w), (Number(floater.y) || 200) + drop);
     ctx.rotate((lane ? -3 : -6) * Math.PI / 180); ctx.scale(scale * size, scale * size);
     ctx.globalAlpha *= alpha;
     const key = `trick|${S.kind}|${S.text}`;
@@ -3117,10 +3181,11 @@
     if (sprite) { paintStampTag(ctx, S); ctx.drawImage(sprite.surface, -S.w / 2, -S.h / 2, S.w, S.h); } else paintStamp(ctx, S);
     if (!reducedMotion && age >= .1 && age < .38) {
       // Ink flicks out from the edge as it lands.
-      const k = (age - .1) / .28, rx = S.bw / 2 + 18 + k * 16, ry = S.bh / 2 + 12 + k * 14;
+      // In the lane they stay tight to the stamp, clear of the pod.
+      const k = (age - .1) / .28, rx = S.bw / 2 + (lane ? 4 + k * 8 : 18 + k * 16), ry = S.bh / 2 + (lane ? 6 + k * 8 : 12 + k * 14), fl = lane ? 6 : 9;
       ctx.globalAlpha *= 1 - k; ctx.strokeStyle = S.color; ctx.lineWidth = .8 + 2.4 * (1 - k); ctx.lineCap = 'round';
       ctx.beginPath();
-      for (let i = 0; i < 10; i++) { const a = i / 10 * TAU + .3, c = Math.cos(a), s = Math.sin(a); ctx.moveTo(c * rx, s * ry); ctx.lineTo(c * (rx + 9), s * (ry + 7)); }
+      for (let i = 0; i < 10; i++) { const a = i / 10 * TAU + .3, c = Math.cos(a), s = Math.sin(a); ctx.moveTo(c * rx, s * ry); ctx.lineTo(c * (rx + fl), s * (ry + fl * .78)); }
       ctx.stroke();
     }
     ctx.restore();
@@ -3184,12 +3249,14 @@
 
   // Harvest orbs: each bloom's light lifts off its flower and arcs into the score at the top right, quicker as
   // it goes. They all share one glow sprite; the colored core is the flower's own.
-  // Where the orbs fly: the score readout's place in board space (it sits above the board, so y can be negative).
-  // The app sets it from the page layout; the glow that greets them sits just inside the board's top edge.
-  const HARVEST_TO = { x: 392, y: 10 };
+  // Where the orbs fly: the board's top edge right under the score readout (the app gives the readout's place in
+  // board space, above the board, so y is negative). They leave the board there and the app carries each one on to
+  // the score as a spark on the page; the glow that sees them off sits just inside the edge. Returns the exit point.
+  const HARVEST_TO = { x: 392, y: -6 };
   function setHarvestTarget(x, y) {
     if (Number.isFinite(x)) HARVEST_TO.x = clamp(x, 30, 390);
-    if (Number.isFinite(y)) HARVEST_TO.y = clamp(y, -60, 10);
+    if (Number.isFinite(y)) HARVEST_TO.y = clamp(y, -6, 10);
+    return { x: HARVEST_TO.x, y: HARVEST_TO.y };
   }
   function orbSprite() {
     return stageSprite('orb', 32, 32, c => {
@@ -3616,7 +3683,7 @@
     drawCurrents(ctx, state.currents, time, options.reducedMotion, options.theme);
     if (scenery(options.theme)) drawBurrows(ctx, state.gates, time, options.reducedMotion, options.theme);
     else drawGates(ctx, state.gates, time, options.reducedMotion);
-    drawBriars(ctx, buds);
+    drawBriars(ctx, buds, time, rush ? Number(state.dangerY) || 448 : Infinity, options.reducedMotion);
     if (rush) drawLullaby(ctx, state, time, options.reducedMotion, buds, false);
     // Bloom rings are drawn under the flowers, never on top of aiming feedback.
     for (const bud of buds) {
@@ -3655,6 +3722,8 @@
         }
       }
     }
+    // The finale's light glows under the flowers, so it gilds the garden around the last bloom and never bleaches it.
+    for (const particle of state.particles || []) if (particle.kind === 'light') drawParticle(ctx, particle, time, options.reducedMotion);
     const unfurling = pickUnfurls(buds, time, options), line = rush ? Number(state.dangerY) || 448 : Infinity;
     unfurlOptions.time = time; unfurlOptions.reducedMotion = Boolean(options.reducedMotion); unfurlOptions.quality = Number(options.quality) || 0;
     findTremble(state);
@@ -3665,14 +3734,9 @@
       const openness = bud.bloomed ? (options.reducedMotion || typeof bud.bloomAt !== 'number' ? 1 : clamp(age / UNFURL, 0, 1)) : 0;
       const hp = Math.max(1, Number(bud.hp) || 1), maxHp = Math.max(hp, Number(bud.maxHp) || 1), radius = bud.r || 16;
       // A spent flower that has finished opening fades as it sinks to the danger line, gone 26 px past it.
-      let sink = 1;
-      if (bud.bloomed && line < Infinity) {
-        const over = bud.y + radius - (line - 8);
-        if (over > 0) sink = 1 - clamp(over / 26, 0, 1) * (options.reducedMotion ? 1 : clamp((age - UNFURL) / .25, 0, 1));
-        if (sink <= 0) continue;
-      }
       // The tutorial fades the last step's flowers out (bud.fade, 1 to 0 in real time) as the next card comes up.
-      if (typeof bud.fade === 'number') { sink *= clamp(bud.fade, 0, 1); if (sink <= 0) continue; }
+      const sink = sinkAlpha(bud, time, line, options.reducedMotion);
+      if (sink <= 0) continue;
       ctx.save();
       if (sink < 1) ctx.globalAlpha *= sink;
       // A wave tumbles in from above (stage sets enterAt): a ghost waits in place, then the bud drops onto it.
@@ -3739,18 +3803,21 @@
         }
         ctx.translate(bud.x, bud.y); ctx.rotate(sway); ctx.scale(breathe, breathe); ctx.translate(-bud.x, -bud.y);
       }
+      const crack = bossCrack(bud, age, options.reducedMotion);
       if (bud.boss && !bud.bloomed) drawBossLeaves(ctx, bud, time, options.reducedMotion);
+      else if (crack > 0) { const a = ctx.globalAlpha; ctx.globalAlpha = a * crack; drawBossLeaves(ctx, bud, time, false); ctx.globalAlpha = a; }
       if (bud.briar && !bud.bloomed) drawThorns(ctx, bud);
       if (bud.puff) { if (!bud.bloomed) drawPuffcap(ctx, bud, time, options.reducedMotion); }
       else if (bud.geode && !bud.bloomed) drawGeode(ctx, bud, time);
       else if (bud.gem && !bud.bloomed) drawGem(ctx, bud, time, options.reducedMotion);
       else if (bud.bloomed && unfurling.has(bud)) drawUnfurl(ctx, bud, age, unfurlOptions);
-      else if (!options.reducedMotion && (bud.bloomed ? age >= 0 && age < FLASH : time - bud.hitAt >= 0 && time - bud.hitAt < FLASH)) drawSilhouette(ctx, bud.x, bud.y, radius, bud.type, 1.08);
+      else if (!options.reducedMotion && !bud.boss && (bud.bloomed ? age >= 0 && age < FLASH : time - bud.hitAt >= 0 && time - bud.hitAt < FLASH)) drawSilhouette(ctx, bud.x, bud.y, radius, bud.type, 1.08);
       else drawFlower(ctx, bud.x, bud.y, radius, bud.type, openness, time, flowerVariants.get(bud));
       if (bud.briar && bud.bloomed && bud.regrowAt) drawRegrow(ctx, bud, time);
       if (bud.shield && !bud.bloomed) drawCup(ctx, bud);
       if (bud.shell && !bud.bloomed) drawShell(ctx, bud);
       if (bud.boss && !bud.bloomed) { drawBossFace(ctx, bud, time, options.reducedMotion); drawBossRing(ctx, bud); }
+      else if (crack > 0) { const a = ctx.globalAlpha; ctx.globalAlpha = a * crack; drawBossFace(ctx, bud, time, false); drawBossCrownFlying(ctx, bud, age); ctx.globalAlpha = a; }
       if (bud.relay && !bud.bloomed) drawRelayCrown(ctx, bud);
       if (!bud.bloomed && (bud.power || bud.burst || bud.kind === 'burst')) {
         ctx.save(); ctx.shadowColor = '#fff17a'; ctx.shadowBlur = options.reducedMotion ? 0 : 12;
@@ -3767,7 +3834,7 @@
       if (shaking && options.reducedMotion) circle(ctx, bud.x, bud.y + radius + (maxHp > 1 && !bud.boss ? 17 : 10), 2.5, '#ff3d6e', '#ffffff', 1);
       ctx.restore();
     }
-    drawFlares(ctx, buds, time, options);
+    drawFlares(ctx, buds, time, options, line);
     if (rush) drawLullaby(ctx, state, time, options.reducedMotion, buds, true);
     for (const bumper of state.bumpers || []) {
       if (bumper.kind === 'rock' && root.BloomScenery) root.BloomScenery.drawRock(ctx, bumper, options.theme);
@@ -3778,7 +3845,7 @@
 
     const balls = Array.isArray(state.balls) ? state.balls : state.ball ? [state.ball] : [];
     if (rush) drawChainHud(ctx, state, time, options);
-    for (const particle of state.particles || []) drawParticle(ctx, particle, time, options.reducedMotion);
+    for (const particle of state.particles || []) if (particle.kind !== 'light') drawParticle(ctx, particle, time, options.reducedMotion);
     if (!rush) drawGuide(ctx, state, balls, time, options.reducedMotion);
     drawChainLinks(ctx, state, time, options);
     balls.forEach((ball, index) => drawProjectile(ctx, ball, index, time, options.reducedMotion, state.feverTime > 0, options.keepsake));
@@ -3820,7 +3887,8 @@
   }
   function prewarm(plan) {
     plan = plan || {};
-    const jobs = [], scratch = makeSurface(4, 4), sctx = scratch && scratch.getContext('2d'), add = fn => jobs.push(fn);
+    const jobs = [], scratch = makeSurface(4, 4), sctx = scratch && scratch.getContext('2d', { willReadFrequently: true }), add = fn => jobs.push(fn);
+    let next = 0;
     // The HUD: the gold sky and its band, the sun fan at every count, the turning wheel, the badges.
     add(() => hudSprite('sky:gold', 420, 560, paintGoldSky, 1)); add(() => hudSprite('sky:band', 420, 240, paintGoldBand, 1));
     add(litPetalSprite);
@@ -3830,6 +3898,12 @@
     // Light: the finale's gold, each color's bloom flash and glow motes, the orbs, the veils and the curtains.
     add(goldSprite); add(headSprite); add(orbSprite);
     for (const type of Object.keys(FLOWERS)) { add(() => flashSprite(type)); add(() => glowMote(FLOWERS[type].base.slice(0, 7))); }
+    // Each color's seed (its glow and its halo, plain and in Super Bloom) and the wilted ghost a lost life leaves.
+    for (const type of Object.keys(FLOWERS)) {
+      const c = FLOWERS[type];
+      add(() => { feelGlow(`seed|${c.light}`, 5.5 * 4.2, [[0, c.light + 'aa'], [1, c.light + '00']]); seedHalo(c.base, 5.5, 12); seedHalo(c.base, 5.5, 19); });
+      add(() => wiltSprite(type));
+    }
     for (const hex of ['#ff5d94', '#ffd148', '#a47dff', '#45adff', '#ff7433']) add(() => glowMote(hex));
     for (const rgb of VEILS) add(() => veilSprite(rgb));
     add(() => curtainSprite('top')); add(() => curtainSprite('bottom'));
@@ -3844,31 +3918,60 @@
     // Flowers: every sprite a bloom needs for each kind and size, then every frame of its unfurl sheets, and the
     // open flower in each of its seven variations (a wave that has not come down yet blooms into any of them; the
     // boss always wears the first).
+    // The kinds on the board right now go first, each with its unfurl sheets right behind it, so the first blooms
+    // of the level are ready soonest.
     const kinds = (plan.flowers || []).filter(f => FLOWERS[f.type] && Number(f.r) > 0);
-    for (const { type, r } of kinds) for (let v = 0; v < 7; v++) add(() => drawFlower(sctx, 0, 0, r, type, 1, 0, v));
-    if (plan.boss && FLOWERS[plan.boss.type]) { const boss = { type: plan.boss.type, r: Number(plan.boss.r) || 24 }; kinds.push(boss); add(() => drawFlower(sctx, 0, 0, boss.r, boss.type, 1, 0, 0)); }
-    for (const { type, r } of kinds) {
+    const onBoard = new Set((plan.board || []).map(bud => bud && `${bud.type}:${Number(bud.r) || 11}`));
+    kinds.sort((a, b) => Number(onBoard.has(`${b.type}:${b.r}`)) - Number(onBoard.has(`${a.type}:${a.r}`)));
+    if (plan.boss && FLOWERS[plan.boss.type]) kinds.push({ type: plan.boss.type, r: Number(plan.boss.r) || 24, boss: true });
+    for (const { type, r, boss } of kinds) {
       add(() => {
         const set = spritesFor({ id: `warm:${type}:${r}` }, type, r);
         if (!set.ready) return;
+        const frames = [];
         for (const [sheet, sprite] of [[set.sheet, set.outer], [set.innerSheet, set.innerPetal]]) {
           if (!sheet || !sprite) continue;
-          for (let k = 1; k < sheet.frames; k++) jobs.push(() => { sheetFrame(sheet, sprite, sheet.from + k * sheet.step); sheet.used = sheetClock; });
+          for (let k = 1; k < sheet.frames; k++) frames.push(() => { sheetFrame(sheet, sprite, sheet.from + k * sheet.step); sheet.used = sheetClock; });
         }
+        jobs.splice(next, 0, ...frames);
       });
       add(() => drawFlower(sctx, 0, 0, r, type, 0, 0, 0));
+      for (let v = 0; v < (boss ? 1 : 7); v++) add(() => drawFlower(sctx, 0, 0, r, type, 1, 0, v));
     }
     // The flowers on the board now, resting open, as each one will look once it blooms.
     for (const bud of (plan.board || []).slice(0, 40)) {
       if (!bud || !FLOWERS[bud.type]) continue;
       add(() => drawFlower(sctx, Number(bud.x) || 0, Number(bud.y) || 0, Number(bud.r) || 11, bud.type, 1, 0, ((Math.floor(Number(bud.x) || 0) * 31 + Math.floor(Number(bud.y) || 0) * 17) % 7 + 7) % 7));
     }
-    let next = 0;
+    const dirty = new Set();
+    // Each canvas a job painted into is drawn once into a single pixel of the target (the board, drawn over in full
+    // on the next frame) at an alpha no one can see: that makes the browser rasterize it, and upload it where the
+    // board lives on the GPU, now. Without a target the scratch canvas takes the draws. An unfurl sheet still being
+    // baked frame by frame goes through the scratch canvas instead, read back at once so nothing keeps hold of its
+    // pixels: each frame is rasterized as it is baked, and the next one bakes in place rather than into a copy.
+    function dab1(ctx, surface) {
+      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = .004; ctx.shadowBlur = 0;
+      try { ctx.drawImage(surface, 0, 0, 1, 1); } catch (error) { /* drawn when first needed */ }
+      ctx.restore();
+    }
+    function touch(target) {
+      if (!dirty.size) return;
+      const ctx = target && typeof target.drawImage === 'function' ? target : sctx;
+      for (const surface of dirty) {
+        const sheet = sheetOf.get(surface);
+        if (sheet && !sheetDone(sheet)) { if (sctx) { dab1(sctx, surface); try { sctx.getImageData(0, 0, 1, 1); } catch (error) { /* flushed when first drawn */ } } }
+        else if (ctx) dab1(ctx, surface);
+      }
+      dirty.clear();
+    }
     return {
-      step(ms) {
+      step(ms, target) {
         const end = warmClock() + (Number(ms) > 0 ? Number(ms) : 3);
         while (next < jobs.length) {
+          warmDirty = dirty;
           try { jobs[next++](); } catch (error) { /* a sprite that cannot be painted ahead is painted when first drawn */ }
+          warmDirty = null;
+          touch(target);
           if (warmClock() >= end) break;
         }
         return next >= jobs.length;

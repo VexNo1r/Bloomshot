@@ -281,6 +281,16 @@ test('Finale flares: gold light from 2.6r to 3.5r fading out over .35 s, a gold 
   const glint = q => { const { ctx, fills } = recorder(); Art.draw(ctx, rush([b]), 5.12, { showAim: false, quality: q }); return fills.filter(f => f.style === '#ffffff' && centered(f)); };
   assert.equal(glint(0).length, 1, 'a glint on the upper right petal');
   assert.equal(glint(1).length, 0, 'tier 1 drops the glint');
+  // A flower that has sunk out of sight past the danger line (448) flares no light, ring or glint on the soil.
+  const sunk = bud({ type: 'coral', r: 12, bloomed: true, bloomAt: 1, flareAt: 5, y: 480 });
+  const { ctx, images, fills, arcs } = recorder(); Art.draw(ctx, rush([sunk]), 5.12, { showAim: false });
+  assert.equal(images.filter(i => i.op === 'lighter').length, 0, 'no light');
+  assert.equal(arcs.filter(a => near(a.x, sunk.x, .01) && near(a.y, sunk.y, .01)).length, 0, 'no ring');
+  const sunkSpot = [sunk.x + 12 * .42, sunk.y - 12 * .46], onSpot = f => {
+    const xs = f.points.map(p => p[0]), ys = f.points.map(p => p[1]);
+    return xs.length >= 5 && Math.hypot((Math.min(...xs) + Math.max(...xs)) / 2 - sunkSpot[0], (Math.min(...ys) + Math.max(...ys)) / 2 - sunkSpot[1]) < 1.5;
+  };
+  assert.equal(fills.filter(f => f.style === '#ffffff' && onSpot(f)).length, 0, 'no glint');
 });
 test('Tumble-in: a ghost waits in place at .25, the bud drops in from above, then sits exactly where it lives', () => {
   const closed = closedSurface(11, 'gold');
@@ -419,6 +429,79 @@ test('Warmed up for a level, its flowers open in every variation and the boss bl
   const fresh = bud({ type: 'gold', r: 11, bloomed: true, bloomAt: 0 });
   for (const age of [.05, .1, .125]) Fresh.drawUnfurl(recorder().ctx, fresh, age, { time: age });
   assert.equal(Fresh.paints(), paints, 'frame 0 of a sheet is never painted');
+});
+test('The warm-up draws every canvas it paints onto the board once, invisibly, and an unfurl sheet only when complete', () => {
+  const Fresh = loadArt(true), board = recorder(), before = totals.surfaces;
+  const warm = Fresh.prewarm({ flowers: [{ type: 'lilac', r: 13 }], board: [{ type: 'lilac', r: 13, x: 100, y: 100 }] });
+  for (let guard = 0; guard < 2000 && !warm.step(1000, board.ctx); guard++);
+  assert.equal(warm.left, 0, 'every warm-up job ran');
+  const touched = board.images.filter(i => i.w === 1 && near(i.cx, .5) && near(i.cy, .5));
+  assert(touched.length > 20, `sprites were drawn onto the board (${touched.length})`);
+  assert(touched.every(i => near(i.alpha, .004) && i.op === 'source-over'), 'at an alpha nobody can see');
+  assert.equal(board.images.length, touched.length, 'and nothing else');
+  const ids = touched.map(i => i.img.id);
+  assert.equal(new Set(ids).size, ids.length, 'each canvas once');
+  // The sprites a lilac bloom draws from were all rasterized ahead, its sheets once they were complete.
+  const { ctx, images } = recorder();
+  Fresh.drawUnfurl(ctx, bud({ type: 'lilac', r: 13, bloomed: true, bloomAt: 0 }), .2, { time: .2 });
+  assert(images.length >= 3);
+  for (const image of images) assert(ids.includes(image.img.id), `the unfurl's ${image.cut ? 'sheet' : 'sprite'} was warmed on the board`);
+  assert.equal(totals.surfaces - before >= new Set(ids).size, true);
+});
+test("A boss's last hit cracks its own bud: no white disc, its face and leaves hold through the crack, the crown flies", () => {
+  const LEAF = '#52b86a', CROWN = '#ffd64f';
+  const boss = bud({ type: 'gold', r: 24, boss: true, hp: 0, maxHp: 6, bloomed: true, bloomAt: 3, impactAngle: -1.4, x: 210, y: 120 });
+  const at = (time, options = {}) => { const rec = recorder(); Art.draw(rec.ctx, rush([boss]), time, { showAim: false, ...options }); return rec; };
+  const early = at(3.01);
+  assert(!early.images.some(i => i.img.silhouette), 'no white silhouette for a boss');
+  const unfurl = recorder(); Art.drawUnfurl(unfurl.ctx, boss, .01, { time: 3.01 });
+  assert(!unfurl.images.some(i => i.img.silhouette), 'nor in its unfurl');
+  assert(unfurl.images.some(i => !i.img.silhouette && !i.cut), 'its own bud is drawn');
+  const leaves = early.fills.filter(f => f.style === LEAF), crown = early.fills.filter(f => f.style === CROWN);
+  assert.equal(leaves.length, 2, 'both leaves at .01 s'); assert(leaves.every(f => f.alpha > .95));
+  assert.equal(crown.length, 1, 'the crown'); assert(crown[0].y < boss.y - boss.r - 14, 'knocked up off its head');
+  const late = at(3.11), fading = late.fills.filter(f => f.style === LEAF);
+  assert.equal(fading.length, 2); assert(fading.every(f => f.alpha < .95 && f.alpha > 0), 'fading as the casing pops at .11 s');
+  const open = at(3.2);
+  assert(!open.fills.some(f => f.style === LEAF || f.style === CROWN), 'gone once the petals are out');
+  assert(!at(3.01, { reducedMotion: true }).fills.some(f => f.style === CROWN), 'animations off: no crack, the flower is simply open');
+  // A regular bud keeps its one-frame white hit.
+  const plain = bud({ type: 'gold', bloomed: true, bloomAt: 3 }), rec = recorder();
+  Art.draw(rec.ctx, rush([plain]), 3.01, { showAim: false });
+  assert(rec.images.some(i => i.img.silhouette), 'a regular bud still flashes white');
+});
+test("The finale's light glows under the flowers, never over them", () => {
+  const flower = bud({ type: 'gold', x: 300, y: 200 });
+  const light = { x: 120, y: 200, vx: 0, vy: 0, rotation: 0, life: .5, maxLife: .55, kind: 'light', color: '#ffd148', size: 50, grow: 70, gravity: 0, drag: 0 };
+  const { ctx, images } = recorder();
+  Art.draw(ctx, rush([flower], { particles: [light] }), 4, { showAim: false });
+  const glow = images.findIndex(i => near(i.cx, light.x, .5) && near(i.cy, light.y, .5) && i.op === 'lighter');
+  const bloom = images.findIndex(i => near(i.cx, flower.x, 2) && Math.abs(i.cy - flower.y) < 20 && i.op === 'source-over');
+  assert(glow >= 0 && bloom >= 0, `both drawn (${glow}, ${bloom})`);
+  assert(glow < bloom, 'the light is laid down before the flowers');
+  assert.equal(images.filter(i => near(i.cx, light.x, .5) && near(i.cy, light.y, .5) && i.op === 'lighter').length, 1, 'and only once');
+});
+test('Briar vines wither once their patch has bloomed for good, and sink out with spent flowers', () => {
+  const THORN = '#4a261b';
+  const patch = extra => [0, 1, 2].map(i => bud({ briar: true, group: 'briar-a', x: 150 + i * 30, y: 200, ...extra(i) }));
+  const vine = (buds, time) => { const { ctx, fills } = recorder(); Art.draw(ctx, rush(buds), time, { showAim: false }); return fills.filter(f => f.style === THORN); };
+  assert(vine(patch(() => ({})), 10).length > 0, 'an open patch is tied by its vine');
+  assert(vine(patch(i => i ? {} : { bloomed: true, bloomAt: 9, regrowAt: 13, regrowSpan: 4 }), 10).length > 0, 'a patch on its clock keeps it');
+  const done = patch(() => ({ bloomed: true, bloomAt: 9.9, regrowAt: null }));
+  const fresh = vine(done, 10), going = vine(done, 10.4), gone = vine(done, 11);
+  assert(fresh.length > 0 && fresh.every(f => f.alpha > .95), 'a patch that just bloomed for good still shows it');
+  assert(going.length > 0 && going.every(f => f.alpha < .95), 'then it withers');
+  assert.equal(gone.length, 0, 'and is gone');
+  const { ctx, fills } = recorder();
+  Art.draw(ctx, rush(done), 10, { showAim: false, reducedMotion: true });
+  assert.equal(fills.filter(f => f.style === THORN).length, 0, 'with animations off it goes at once');
+  const sunk = patch(() => ({ bloomed: true, bloomAt: 5, regrowAt: 13, regrowSpan: 4, y: 470 }));
+  assert.equal(vine(sunk, 10).length, 0, 'a spent patch past the danger line takes its vine with it');
+});
+test('The harvest leaves the board at its top edge under the score, wherever the score sits above it', () => {
+  const Fresh = loadArt(true);
+  assert.deepEqual({ ...Fresh.setHarvestTarget(318, -169) }, { x: 318, y: -6 }, 'clamped to the edge, not lost above it');
+  assert.deepEqual({ ...Fresh.setHarvestTarget(500, 4) }, { x: 390, y: 4 });
 });
 test("The puff's spore cloud ends exactly at the puff's reach", () => {
   const target = bud({ x: 250, y: 220 }), from = { x: 200, y: 200 };

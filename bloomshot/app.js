@@ -254,6 +254,8 @@
     putData(canvas, 'world', isChapter() ? game.level.worldId : 'meadow');
     putData(canvas, 'gatePasses', game.gatePasses || 0);
     putData(document.body, 'boss', rush && game.bossWave && !game.over ? 'on' : '');
+    // A new wave's number rides the top edge where the Super Bloom banner sits; the banner steps aside while it shows.
+    putData(document.body, 'ribbon', rush && game.floaters.some(item => item.kind === 'title' && item.size === 'small' && item.life > 0) ? 'on' : '');
     if (!isChapter() && $('combo-meter').getAttribute('aria-valuetext') !== null) $('combo-meter').removeAttribute('aria-valuetext');
     if (isKoi()) {
       const rides = game.currentRides || 0, words = `${rides} ${rides === 1 ? 'current' : 'currents'} ridden`;
@@ -1033,6 +1035,7 @@
     const blooms = game.buds.filter(bud => bud.bloomed && !bud.gift).sort((a, b) => b.bloomAt - a.bloomAt).slice(0, STAGE.harvest);
     if (!blooms.length) return;
     if (!save.settings.motion) { BloomSound.play('pluck', { i: 0, n: 1 }); return; }
+    aimHarvest();
     if (!game.stage) game.stage = { glow: 0 };
     const n = blooms.length, orbs = blooms.map((bud, i) => ({ x: bud.x, y: bud.y, bud, color: ORB_COLORS[bud.type] || ORB_COLORS.gold, delay: i * STAGE.orbGap, dur: STAGE.orbTime, t: 0, i, n }));
     game.harvest = (game.harvest || []).concat(orbs);
@@ -1045,10 +1048,41 @@
       // Spent flowers keep drifting down (fast in a late Rush wave), so an orb sits on its flower until it lifts off.
       if (orb.t < orb.delay && orb.bud) { orb.x = orb.bud.x; orb.y = orb.bud.y; }
       if (orb.t < orb.delay + orb.dur) { game.harvest[kept++] = orb; continue; }
-      bumpScore(); game.stage.glow = Math.min(1, (game.stage.glow || 0) + .35);
-      if (orb.i < 12 || (orb.i - 12) % 3 === 0) BloomSound.play('pluck', { i: orb.i, n: orb.n });
+      game.stage.glow = Math.min(1, (game.stage.glow || 0) + .35);
+      const pluck = orb.i < 12 || (orb.i - 12) % 3 === 0, data = { i: orb.i, n: orb.n };
+      const landed = () => { bumpScore(true); if (pluck && route === 'game') BloomSound.play('pluck', data); };
+      if (!harvestSpark(orb, landed)) landed();
     }
     game.harvest.length = kept;
+  }
+  // The board ends at its top edge, but the score sits above it: an orb that leaves the board there carries on as a
+  // spark on the page (a pooled element the compositor moves), lands on the score readout, and the score pulses gold
+  // with its pluck. Without element animation (or a layout to measure) the orb lands at the edge, as before.
+  const sparks = [];
+  let harvestExit = { x: 392, y: -6 };
+  function harvestSpark(orb, done) {
+    if (!canvas.getBoundingClientRect || !document.body || typeof document.body.appendChild !== 'function') return false;
+    let spark = sparks.find(item => !item.busy);
+    if (!spark) {
+      if (sparks.length >= 10) return false;
+      const el = document.createElement('div');
+      if (typeof el.animate !== 'function') return false;
+      el.className = 'harvest-spark'; el.setAttribute('aria-hidden', 'true'); document.body.appendChild(el);
+      spark = { el, busy: false }; sparks.push(spark);
+    }
+    const board = canvas.getBoundingClientRect(), score = $('score-value').getBoundingClientRect();
+    if (!(board.width > 40) || !(score.width > 0)) return false;
+    const x0 = board.left + harvestExit.x / 420 * board.width, y0 = board.top + harvestExit.y / 560 * board.height;
+    const x1 = score.left + score.width * (.35 + (orb.i % 4) * .1), y1 = score.top + score.height * .55;
+    spark.busy = true; spark.el.style.setProperty('--spark', orb.color || '#ffd148');
+    const flight = spark.el.animate([
+      { transform: `translate(${x0}px, ${y0}px) scale(.9)`, opacity: 1 },
+      { transform: `translate(${(x0 + x1) / 2 + (orb.i % 3 - 1) * 10}px, ${(y0 + y1) / 2}px) scale(.8)`, opacity: 1, offset: .5 },
+      { transform: `translate(${x1}px, ${y1}px) scale(.45)`, opacity: .85 }
+    ], { duration: 240, easing: 'cubic-bezier(.45,0,.85,.55)' });
+    const finish = () => { if (!spark.busy) return; spark.busy = false; done(); };
+    flight.onfinish = finish; flight.oncancel = finish;
+    return true;
   }
   // A big bloom drops in from high above, lands with a thud, and its name card and health vine come up.
   function bossIntro(event) {
@@ -1172,9 +1206,10 @@
     // While the finale's slow motion holds, other hits never freeze it (a stutter mid-glide) or spend the impact's stop.
     if (stop > 0 && !(feel && feel.out.phase === 'finale')) freeze = Math.max(freeze, hitStop ? hitStop.request(stop, performance.now() / 1000) : stop);
   }
-  function bumpScore() {
+  // A harvest landing makes the score glow gold as it bounces.
+  function bumpScore(gold = false) {
     const now = performance.now(); if (now - lastBump < 90) return; lastBump = now;
-    const el = $('score-value'); el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
+    const el = $('score-value'); el.classList.remove('bump'); el.classList.toggle('gold', gold); void el.offsetWidth; el.classList.add('bump');
   }
   // Camera, time and the shot (feel.js). The flower that ends a level goes into slow motion with a drumroll while
   // the camera leans in; the hit freezes for a blink and a gold wave flares across the garden before the result.
@@ -1293,8 +1328,10 @@
     feel.request('impact', feel.out.zoom > 1.001 ? null : { x: bud.x, y: bud.y, cold: true });
     jolt(.4, 0, 0);
     freeze = Math.max(freeze, hitStop.request(.09, performance.now() / 1000, true));
+    // Glow motes left by the hits before this one would pile up white over the flower's face through the held frames.
+    game.particles = game.particles.filter(p => !(p.kind === 'glow' && Math.hypot(p.x - bud.x, p.y - bud.y) < r * 1.3));
     game.particles.push({ x: bud.x, y: bud.y, vx: 0, vy: 0, rotation: 0, life: .55, maxLife: .55, kind: 'light', color: '#ffd148', size: r * 2.2, grow: r * 3.2, gravity: 0, drag: 0 },
-      { x: bud.x, y: bud.y, vx: 0, vy: 0, rotation: 0, life: .6, maxLife: .6, kind: 'ring', color: '#ffd148', size: r * .9, grow: 170, gravity: 0, drag: 0 });
+      { x: bud.x, y: bud.y, vx: 0, vy: 0, rotation: 0, life: .6, maxLife: .6, kind: 'ring', color: '#ffd148', size: r * 1.2, grow: 170, gravity: 0, drag: 0 });
     after(.12, () => {
       // Tier 2 still gets 16 pieces (burst() scales by the tier, so ask for the count that lands there).
       burst(bud, (game.quality || 0) === 2 ? 16 / .35 : 26, game.particles, currentKeepsake(), false);
@@ -1450,7 +1487,7 @@
           headline({ x: 210, y: 92, text: PRAISE[tier], label: `${event.combo} in a row`, tier, life: 1.05, maxLife: 1.05, kind: 'combo' });
         }
         if (event.combo % 3 === 1) haptic('tick');
-        $('game-hint').textContent = isKoi() ? 'Ride it!' : isMoon() ? 'Nice path!' : isRush() ? isDepth() ? game.splitReady ? 'Split is ready!' : depthHint() : game.superBloom > 0 || game.splitReady ? rushHint() : 'Gold rings bloom their neighbors too.' : game.guideCharge > 0 ? 'Drag to steer!' : 'Keep the chain going!';
+        $('game-hint').textContent = isKoi() ? 'Ride it!' : isMoon() ? 'Nice path!' : isRush() ? isDepth() ? game.splitReady ? 'Split is ready!' : depthHint() : game.superBloom > 0 || game.splitReady ? rushHint() : 'Crowns bloom their whole bunch.' : game.guideCharge > 0 ? 'Drag to steer!' : 'Keep the chain going!';
       } else if (event.type === 'gate') {
         burst({ x: event.entry.x, y: event.entry.y, type: 'lilac' }, 12);
         burst({ x: event.exit.x, y: event.exit.y, type: 'gold' }, 16);
@@ -2010,6 +2047,8 @@
     restartArmed = on ? performance.now() : null;
     const button = $('restart-btn'), label = button.querySelector ? button.querySelector('span') : null;
     button.classList.toggle('armed', on);
+    // The 'Tap again' tip sits over the end of the hint line, so the hint steps back while it shows.
+    if (document.body && document.body.dataset) document.body.dataset.restart = on ? 'armed' : '';
     if (label) label.textContent = on ? 'Tap again' : 'Restart';
     button.setAttribute('aria-label', on ? 'Tap again to restart' : 'Restart this game');
   }
@@ -2247,10 +2286,10 @@
   dialogs.forEach(id => $(id).addEventListener('click', event => { if (event.target === $(id)) { const r = $(id).getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) closeDialog(id); } }));
   function resize() {
     cancelInteraction();
-    // The board's backing store matches the pixels it is shown at (a small phone shows it well under 420 css px
-    // wide), so no full-board layer is painted at three times the pixels anyone can see.
+    // The board's backing store matches the device pixels it is shown at (a small phone shows it well under 420 css
+    // px wide, so the scale comes first and the 2.5 cap after it): one board pixel per screen pixel, never more.
     const shown = canvas.getBoundingClientRect ? canvas.getBoundingClientRect() : null, cssWidth = shown && shown.width > 40 ? shown.width : 420;
-    const dpr = clamp(Math.min(devicePixelRatio || 1, 2.5) * Math.min(1, cssWidth / 420), 1, 2.5);
+    const dpr = clamp((devicePixelRatio || 1) * Math.min(1, cssWidth / 420), 1, 2.5);
     const width = Math.round(420 * dpr), height = Math.round(560 * dpr);
     if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -2265,7 +2304,8 @@
     if (typeof BloomArt.setHarvestTarget !== 'function' || !canvas.getBoundingClientRect) return;
     const board = canvas.getBoundingClientRect(), score = $('score-value').getBoundingClientRect ? $('score-value').getBoundingClientRect() : null;
     if (!board || !(board.width > 40) || !score || !(score.width > 0)) return;
-    BloomArt.setHarvestTarget((score.left + score.width / 2 - board.left) / board.width * 420, (score.top + score.height / 2 - board.top) / board.height * 560);
+    const exit = BloomArt.setHarvestTarget((score.left + score.width / 2 - board.left) / board.width * 420, (score.top + score.height / 2 - board.top) / board.height * 560);
+    if (exit && Number.isFinite(exit.x) && Number.isFinite(exit.y)) harvestExit = exit;
   }
   window.addEventListener('resize', resize);
   document.addEventListener('visibilitychange', () => { lastFrame = 0; accumulator = 0; cancelInteraction(); musicFrame(performance.now(), true); });
@@ -2310,8 +2350,10 @@
     BloomArt.draw(ctx, game, game.time, { theme, reducedMotion: !save.settings.motion, keepsake: worn.seed ? worn : null, pointer, shake, flash, kick, showAim: isRush() ? aiming || game.aim.length > 0 : game.status === 'aiming', selectedBumper: isRush() ? game.rotateCooldown <= 0 ? game.bumpers[0]?.id : null : game.status === 'aiming' && !game.rotationUsed ? game.bumpers[0]?.id : null,
       camera: view && view.zoom > 1.001 ? view : null, vignette: view ? view.vignette : 0, quality: game.quality || 0, ahead: view && view.scale < .99 ? accumulator : 0, danger, realTime: nt });
     if (governor) game.quality = !paused && dt > 0 && artPaints() === paintsFrom ? governor.sample((performance.now() - workFrom) / 1000, dt) : governor.tier;
-    // A few ms of warm-up a frame until everything the level can need is painted.
-    if (warm && !paused && warm.step(3)) warm = null;
+    // Warm-up a frame at a time until everything the level can need is painted (and rasterized on the board's own
+    // context, so the first bloom that uses a sprite does not pay for it): what is left of about 12 ms after this
+    // frame's own work, never less than 3 ms nor more than 8.
+    if (warm && !paused && warm.step(clamp(12 - (performance.now() - workFrom), 3, 8), ctx)) warm = null;
   }
   const artPaints = () => typeof BloomArt.paints === 'function' ? BloomArt.paints() : 0;
   updateSettings(); persist(); renderMeadow(); renderDaily();
