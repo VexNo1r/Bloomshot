@@ -65,6 +65,9 @@ button svg{flex-shrink:0}
 
 .app-content{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
 .view{min-height:0}
+/* Each screen settles in as it opens, so moving between tabs feels like turning a page. */
+.view:not([hidden]){animation:view-in .3s cubic-bezier(.2,.8,.3,1)}
+@keyframes view-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 
 /* ---------- Buttons ---------- */
 .button-primary,.button-secondary,.turn-petal-btn,.plant-button,.unlock-btn,.bundle-btn,.split-button,.keepsake-wear{
@@ -355,6 +358,15 @@ button.resume-card:active{box-shadow:inset 0 0 0 2px var(--gold-edge),0 1px 0 va
   font:700 18px/1 var(--display);box-shadow:inset 0 0 0 2px var(--gold-edge),0 4px 0 var(--gold-edge);animation:depth-bob 1.7s ease-in-out infinite}
 @keyframes depth-bob{50%{transform:translateY(-3px)}}
 .depth-card.next{box-shadow:inset 0 0 0 2.5px var(--gold),0 5px 0 var(--gold-edge)}
+/* A level that just opened: its card pops as the map arrives, its scene brightens out of the locked look, and a
+   pink "New!" tag sits on the window until the level is played. */
+.depth-card.fresh{animation:fresh-card .7s var(--press) .3s both}
+.depth-card.fresh .depth-scene{animation:fresh-scene 1s ease-out .3s both}
+.depth-new{position:absolute;right:10px;top:10px;padding:5px 12px 6px;border-radius:999px;background:linear-gradient(180deg,#ff94b2,var(--pink));color:#fff;
+  font:700 15px/1 var(--display);text-shadow:0 1px 0 var(--pink-edge);box-shadow:inset 0 0 0 2px var(--pink-edge),0 3px 0 var(--pink-edge);animation:fresh-tag .6s var(--press) .75s both}
+@keyframes fresh-card{0%{transform:scale(.95)}55%{transform:scale(1.035)}100%{transform:none}}
+@keyframes fresh-scene{from{filter:saturate(.35) brightness(.82)}to{filter:none}}
+@keyframes fresh-tag{from{opacity:0;transform:scale(.4) rotate(-12deg)}to{opacity:1;transform:rotate(3deg)}}
 .depth-card.locked{background:var(--cream-2)}
 .depth-card.locked .depth-scene{filter:saturate(.35) brightness(.82)}
 .depth-card.locked .depth-badge{color:#8f8574;box-shadow:inset 0 0 0 2.5px #b7ac97,0 3px 0 #8f8574}
@@ -464,6 +476,19 @@ dialog[open]{animation:dialog-in .34s var(--press)}
 .result-dialog h2{margin:16px 0 4px;font:700 36px/1.05 var(--display)}
 .result-stars{margin:4px 0 6px;font:700 46px/1 var(--display);letter-spacing:4px;color:#ffc21f;text-shadow:0 3px 0 var(--gold-edge)}
 .result-stars .off{text-shadow:0 3px 0 #d2c4a3}
+/* The banner unfurls, then each star pops in after the one before it, with a ring of light as it lands. */
+.result-stars span{position:relative;display:inline-block}
+.result-dialog[open] .result-banner{animation:banner-in .5s var(--press) .08s both}
+.result-dialog[open] .result-stars span{animation:star-in .52s var(--press) both;animation-delay:calc(.26s + var(--i,0) * .17s)}
+.result-dialog[open] .result-stars .off{animation-name:star-off}
+.result-dialog[open] .result-stars .on::after{content:"";position:absolute;left:50%;top:52%;width:58px;height:58px;margin:-29px 0 0 -29px;border-radius:50%;border:3px solid #ffd45c;opacity:0;pointer-events:none;
+  animation:star-ring .55s ease-out both;animation-delay:calc(.4s + var(--i,0) * .17s)}
+@keyframes banner-in{from{opacity:0;transform:scale(.55,.8) rotate(-3deg)}to{opacity:1;transform:none}}
+@keyframes star-in{0%{opacity:0;transform:scale(.2) rotate(-50deg)}60%{opacity:1;transform:scale(1.3) rotate(10deg)}100%{opacity:1;transform:none}}
+@keyframes star-off{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:none}}
+@keyframes star-ring{0%{opacity:.95;transform:scale(.3)}100%{opacity:0;transform:scale(1.25)}}
+/* The petal shower: a see-through layer over everything, shown as a popover so it can sit above the result card. */
+.petal-layer{position:fixed;inset:0;width:100vw;height:100vh;margin:0;padding:0;border:0;background:transparent;pointer-events:none;overflow:hidden}
 .result-dialog .dialog-copy{margin:4px 6px 0}
 .result-score-box{display:inline-flex;flex-direction:column;align-items:center;gap:2px;min-width:180px;margin:14px auto 4px;padding:8px 24px 10px;border-radius:18px;background:#fff;box-shadow:inset 0 0 0 2px var(--edge)}
 .score-label{font:600 12.5px/1 var(--display);color:var(--ink-soft)}
