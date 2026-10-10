@@ -27,6 +27,7 @@
   <script src="powers.js" defer></script>
   <script src="engine.js" defer></script>
   <script src="rush.js" defer></script>
+  <script src="tutorial.js" defer></script>
   <script src="scenery.js" defer></script>
   <script src="art.js" defer></script>
   <script src="meadow.js" defer></script>
@@ -276,6 +277,7 @@
       <ol class="help-steps"><li><span class="help-number">1</span><div><h3>Read the water</h3><p>Currents turn your seed the way they flow. The aim line bends with them.</p></div></li><li><span class="help-number">2</span><div><h3>Ride a lane</h3><p>Currents never change speed, only direction. A longer ride turns further.</p></div></li><li><span class="help-number">3</span><div><h3>Five seeds</h3><p>No steering in flight. Turn a leaf between shots for a new angle.</p></div></li></ol>
       <p class="help-tip">Pools 1 and 2 are free. Pools 3 to 8 come with the Koi Conservatory.</p>
     </details>
+    <button id="tutorial-replay" class="button-secondary" type="button">Play the tutorial</button>
     <p class="settings-footnote">Keyboard: arrow keys to aim, Space to shoot.</p>
   </dialog>
 
@@ -286,6 +288,16 @@
   </dialog>
 
   <canvas id="petal-layer" class="petal-layer" popover="manual" aria-hidden="true"></canvas>
+  <div id="tutorial" class="tutorial" role="region" aria-label="Tutorial" hidden>
+    <div id="tutorial-spot" class="tutorial-spot" hidden></div>
+    <div id="tutorial-finger" class="tutorial-finger" aria-hidden="true" hidden></div>
+    <div id="tutorial-card" class="tutorial-card">
+      <div class="tutorial-head"><span id="tutorial-step" class="tutorial-step">1 of 7</span><button id="tutorial-skip" class="text-button tutorial-skip" type="button">Skip</button></div>
+      <h2 id="tutorial-title" class="tutorial-title">Aim and fire</h2>
+      <p id="tutorial-text" class="tutorial-text"></p>
+      <button id="tutorial-go" class="button-primary" type="button" hidden>Play level 1</button>
+    </div>
+  </div>
   <div id="toast" class="toast" role="status"></div>
   <div id="announcement" class="sr-only" aria-live="polite" aria-atomic="true"></div>
   <div id="orientation-note" role="status"><span aria-hidden="true">↻</span><strong>Turn your phone upright</strong><p>Your game is paused.</p></div>
