@@ -54,6 +54,8 @@ test('Every card points at something the player can find: the board, a button on
   const page = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8') + fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
   const Powers = require('../powers.js');
   for (const step of Tutorial.steps) for (const prompt of step.prompts) {
+    if (prompt.also) assert(page.includes(`id="${prompt.also}"`) || page.includes(`id = '${prompt.also}'`), `${prompt.also} is on the page`);
+    if (prompt.target === 'petal') { assert.equal(step.id, 'petal', 'only the petal step lights the petal'); assert(prompt.allow.includes('rotate')); continue; }
     if (prompt.target === 'board') { assert(prompt.allow.includes('fire'), `${step.id}: a board card asks for a shot`); assert(prompt.finger, `${step.id}: and shows where to drag`); continue; }
     if (prompt.target.startsWith('power:')) { assert(Powers.ids.includes(prompt.target.slice(6)), prompt.target); assert(prompt.allow.includes(prompt.target), `${step.id}: the highlighted powerup works`); continue; }
     assert(page.includes(`id="${prompt.target}"`) || page.includes(`id = '${prompt.target}'`), `${prompt.target} is on the page`);

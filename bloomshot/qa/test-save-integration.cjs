@@ -674,6 +674,27 @@ test('While a card waits, only the control it names works; anything else just nu
   assert.equal(game.balls.length, 0); assert.deepEqual(app.saved().powers, before);
   tapTutorial(app, 'fire', Tutorial.steps[0].prompts[0].finger); assert.equal(game.balls.length, 1, 'the shot on the card fires');
 });
+test('The petal card lights the petal on the board and the Turn petal button, and tapping the petal itself turns it', () => {
+  const app = boot(undefined), box = app.$('tutorial');
+  let seconds = 0;
+  // Play the first card, then wait for the petal card.
+  while (!(box.dataset.phase === 'prompt' && app.$('tutorial-step').textContent === '1 of 7') && seconds < 5) { app.frame(17); seconds += .017; }
+  tapTutorial(app, 'fire', Tutorial.steps[0].prompts[0].finger);
+  while (!(box.dataset.phase === 'prompt' && app.$('tutorial-step').textContent === '2 of 7') && seconds < 15) { app.frame(17); seconds += .017; }
+  app.frame(17);
+  assert.equal(app.$('tutorial-text').textContent, Tutorial.steps[1].prompts[0].text);
+  assert.equal(app.$('tutorial-spot').hidden, false); assert.equal(app.$('tutorial-spot-2').hidden, false); assert.equal(app.$('tutorial-dim').hidden, false);
+  const hole = app.$('tutorial-hole-1').attributes, petal = app.games.at(-1).bumpers[0];
+  // The test board fills 420 x 560 at the origin, so the hole is centred on the petal itself.
+  assert.equal(hole.x + hole.width / 2, petal.x); assert.equal(hole.y + hole.height / 2, petal.y); assert.equal(hole.rx, hole.width / 2);
+  assert(app.$('tutorial-hole-2').attributes.width > 0, 'the Turn petal button has its own hole');
+  const before = petal.angle, canvas = app.$('game-canvas');
+  canvas.emit('pointerdown', { isPrimary: true, pointerId: 1, clientX: petal.x + 12, clientY: petal.y - 12 });
+  canvas.emit('pointerup', { pointerId: 1, clientX: petal.x + 12, clientY: petal.y - 12 });
+  assert.notEqual(app.games.at(-1).bumpers[0].angle, before, 'tapping the petal turned it');
+  for (let i = 0; i < 6; i++) app.frame(17);
+  assert.equal(app.$('tutorial-text').textContent, Tutorial.steps[1].prompts[1].text); assert.equal(app.$('tutorial-spot-2').hidden, true);
+});
 test('Skip ends it for good, and How to play can start it again', () => {
   const app = boot(undefined); app.frame(); app.click('tutorial-skip');
   assert.equal(app.context.bloomshotState.route, 'levels'); assert.equal(app.saved().tutorial, true); assert.equal(app.$('tutorial').hidden, true);

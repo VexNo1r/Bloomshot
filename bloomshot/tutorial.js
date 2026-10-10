@@ -46,7 +46,7 @@
     { id: 'petal', title: 'Turn the petal', leaf: 45,
       setup: game => bunch(game, 't2-a', 344, 330, 'line', 'lilac'),
       prompts: [
-        { text: 'Petals bounce your seeds. Tap Turn petal to swing it.', target: 'rotate-btn', allow: ['rotate'], until: (g, s) => s.rotate > 0 },
+        { text: 'Seeds bounce off this petal. Tap it or Turn petal to swing it.', target: 'petal', also: 'rotate-btn', allow: ['rotate'], until: (g, s) => s.rotate > 0 },
         { text: 'Now fire straight at the petal.', target: 'board', finger: [210, 342], allow: ['fire'], until: (g, s) => s.launch > 0 }],
       works: s => s.bloom > 0, retry: 1, show: 1.1, done: 'Rocks and walls bounce seeds too.' },
     { id: 'split', title: 'Split', charge: true,
@@ -164,12 +164,12 @@
         const p = step.prompts[this.prompt];
         const text = this.phase === 'show' ? step.done : this.phase === 'watch' ? 'Watch it go…' : p.text;
         return { phase: this.phase, number: this.index + 1, total: STEPS.length, title: step.title, text,
-          target: this.phase === 'prompt' ? p.target : null, finger: this.phase === 'prompt' ? p.finger || null : null };
+          target: this.phase === 'prompt' ? p.target : null, also: this.phase === 'prompt' ? p.also || null : null, finger: this.phase === 'prompt' ? p.finger || null : null };
       }
     };
     return t;
   }
 
   return Object.freeze({ create, steps: STEPS.map(s => ({ id: s.id, title: s.title, power: s.power || null,
-    prompts: s.prompts.map(p => ({ text: p.text, target: p.target, allow: [...p.allow], finger: p.finger || null })) })), launcher: LAUNCHER, SLOW, CREEP });
+    prompts: s.prompts.map(p => ({ text: p.text, target: p.target, also: p.also || null, allow: [...p.allow], finger: p.finger || null })) })), launcher: LAUNCHER, SLOW, CREEP });
 });

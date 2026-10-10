@@ -493,34 +493,49 @@
       a = bumper.fromAngle + delta * progress;
     }
     ctx.save(); ctx.translate(x, y);
+    const half = length / 2 + 4.5;
+    // A soft cream halo sits behind the petal so it reads on every scene, light or dark; while it can be turned it
+    // breathes slowly, which is the cue that it is something to tap.
+    const breathe = selected && !reducedMotion ? .5 + Math.sin(time * 2.6) * .5 : .5;
+    const halo = ctx.createRadialGradient(0, 0, 4, 0, 0, half + 12);
+    halo.addColorStop(0, `rgba(255,250,232,${.42 + breathe * .2})`); halo.addColorStop(.62, `rgba(255,248,226,${.18 + breathe * .12})`); halo.addColorStop(1, 'rgba(255,248,226,0)');
+    ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(0, 0, half + 12, 0, TAU); ctx.fill();
     if (selected) {
-      ctx.save(); ctx.strokeStyle = 'rgba(12,138,166,.5)'; ctx.lineWidth = 1.5;
-      ctx.setLineDash([3, 5]); circle(ctx, 0, 0, length * .62, null, 'rgba(12,138,166,.42)', 1.2); ctx.setLineDash([]);
-      const aa = a - .55;
-      ctx.rotate(aa); ctx.beginPath(); ctx.moveTo(length * .62 - 3, -5); ctx.lineTo(length * .62 + 1, 0); ctx.lineTo(length * .62 + 5, -5);
-      ctx.strokeStyle = colors.ink; ctx.stroke(); ctx.restore();
+      // The turn ring: cream dashes over a darker shadow, and an arrow showing which way it swings.
+      ctx.save(); ctx.lineCap = 'round'; ctx.setLineDash([4, 5]);
+      ctx.beginPath(); ctx.arc(0, .8, length * .62, 0, TAU); ctx.strokeStyle = 'rgba(16,52,44,.38)'; ctx.lineWidth = 3.2; ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 0, length * .62, 0, TAU); ctx.strokeStyle = 'rgba(255,250,236,.95)'; ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]);
+      ctx.rotate(a - .55);
+      const r = length * .62;
+      ctx.beginPath(); ctx.moveTo(r - 5, -6); ctx.lineTo(r, 0); ctx.lineTo(r + 5, -6);
+      ctx.strokeStyle = 'rgba(16,52,44,.5)'; ctx.lineWidth = 4.2; ctx.lineJoin = 'round'; ctx.stroke();
+      ctx.strokeStyle = '#fffaf0'; ctx.lineWidth = 2.2; ctx.stroke(); ctx.restore();
     }
     ctx.rotate(a);
-    const half = length / 2 + 4.5;
-    ctx.shadowColor = 'rgba(6,92,79,.26)'; ctx.shadowBlur = 7; ctx.shadowOffsetY = 3;
-    const jade = ctx.createLinearGradient(-half * .3, -8, half * .25, 8);
-    jade.addColorStop(0, '#d0fff0'); jade.addColorStop(.25, '#83e1c1'); jade.addColorStop(.5, '#2cc39a'); jade.addColorStop(1, '#159b80');
-    // Two leaf lobes retain the same paddle span while giving it a made object identity.
-    ctx.beginPath(); ctx.moveTo(-half, 0);
-    ctx.bezierCurveTo(-half * .8, -6.8, -half * .23, -8.8, 0, -5.7);
-    ctx.bezierCurveTo(half * .31, -8.1, half * .84, -6.2, half, 0);
-    ctx.bezierCurveTo(half * .7, 6.9, half * .25, 7.9, 0, 5.7);
-    ctx.bezierCurveTo(-half * .32, 8.2, -half * .87, 6.5, -half, 0); ctx.closePath();
-    ctx.fillStyle = jade; ctx.fill(); ctx.shadowColor = 'transparent';
-    ctx.strokeStyle = '#197f71'; ctx.lineWidth = .9; ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(-half + 3, -.8);
-    ctx.bezierCurveTo(-half * .62, -5.5, -half * .27, -6.8, -9, -4.8);
-    ctx.moveTo(9, -4.8); ctx.bezierCurveTo(half * .37, -6.3, half * .74, -5.1, half - 3, -.7);
-    ctx.strokeStyle = 'rgba(239,255,241,.86)'; ctx.lineWidth = 1; ctx.stroke();
+    const jade = ctx.createLinearGradient(-half * .3, -9, half * .25, 9);
+    jade.addColorStop(0, '#e2fff3'); jade.addColorStop(.24, '#8ef0cd'); jade.addColorStop(.52, '#2fcc9f'); jade.addColorStop(1, '#0f8c72');
+    // Two leaf lobes retain the same paddle span while giving it a made object identity. The drawn leaf is a little
+    // fuller than its bounce line, the way a sticker is; the bounce itself is unchanged.
+    const lobes = () => {
+      ctx.beginPath(); ctx.moveTo(-half, 0);
+      ctx.bezierCurveTo(-half * .8, -8.2, -half * .23, -10.6, 0, -6.9);
+      ctx.bezierCurveTo(half * .31, -9.7, half * .84, -7.4, half, 0);
+      ctx.bezierCurveTo(half * .7, 8.3, half * .25, 9.5, 0, 6.9);
+      ctx.bezierCurveTo(-half * .32, 9.8, -half * .87, 7.8, -half, 0); ctx.closePath();
+    };
+    // A cream sticker edge with a soft contact shadow lifts it off the scene.
+    lobes(); ctx.shadowColor = 'rgba(14,44,36,.5)'; ctx.shadowBlur = 8; ctx.shadowOffsetY = 3;
+    ctx.lineJoin = 'round'; ctx.strokeStyle = '#fffaf0'; ctx.lineWidth = 5.4; ctx.stroke(); ctx.shadowColor = 'transparent';
+    lobes(); ctx.fillStyle = jade; ctx.fill();
+    ctx.strokeStyle = '#0d6a5c'; ctx.lineWidth = 1.3; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-half + 3, -1);
+    ctx.bezierCurveTo(-half * .62, -6.6, -half * .27, -8.1, -9, -5.8);
+    ctx.moveTo(9, -5.8); ctx.bezierCurveTo(half * .37, -7.6, half * .74, -6.1, half - 3, -.9);
+    ctx.strokeStyle = 'rgba(239,255,241,.9)'; ctx.lineWidth = 1.2; ctx.stroke();
     // Incised veins angle toward each leaf tip from a fine brass central rib.
     for (const side of [-1, 1]) for (let i = 0; i < 4; i++) {
       const p = side * (10 + i * (half - 17) / 4);
-      const height = (1 - Math.abs(p) / half) * 5.9 + .5;
+      const height = (1 - Math.abs(p) / half) * 7 + .5;
       ctx.beginPath(); ctx.moveTo(p, -.4); ctx.quadraticCurveTo(p + side * 3, -height * .62, p + side * 6, -height);
       ctx.moveTo(p, .6); ctx.quadraticCurveTo(p + side * 3, height * .65, p + side * 6, height);
       ctx.strokeStyle = 'rgba(4,122,105,.48)'; ctx.lineWidth = .6; ctx.stroke();

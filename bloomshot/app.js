@@ -1409,6 +1409,12 @@
   // The card, the spotlight on the control it names, and a ghost finger showing the drag for a shot.
   function tutorialRect(target) {
     if (target === 'board') return canvas.getBoundingClientRect();
+    // The petal is lit where it sits on the board, with room for its turn ring.
+    if (target === 'petal') {
+      const petal = game.bumpers.find(b => b.id === 'petal'); if (!petal) return null;
+      const board = canvas.getBoundingClientRect(), sx = board.width / 420, sy = board.height / 560, r = (petal.length * .62 + 8) * sx;
+      return { left: board.left + petal.x * sx - r, top: board.top + petal.y * sy - r, width: r * 2, height: r * 2 };
+    }
     const el = target.startsWith('power:') ? $(Object.keys(TRAY).find(group => TRAY[group].includes(target.slice(6)))).querySelector(`[data-power="${target.slice(6)}"]`) : $(target);
     return el ? el.getBoundingClientRect() : null;
   }
@@ -1427,15 +1433,23 @@
       $('tutorial-go').textContent = save.depths[1]?.stars ? 'Back to the levels' : 'Play level 1';
       box.dataset.phase = v.phase; document.body.dataset.tutorialPhase = v.phase;
       box.dataset.place = v.target && v.target.startsWith('power:') ? 'low' : 'high';
-      box.dataset.target = v.target === 'board' ? 'board' : v.target ? 'button' : '';
-      $('tutorial-spot').hidden = !v.target; $('tutorial-finger').hidden = !v.finger || !save.settings.motion;
+      $('tutorial-dim').hidden = $('tutorial-spot').hidden = !v.target; $('tutorial-spot-2').hidden = !v.also;
+      $('tutorial-finger').hidden = !v.finger || !save.settings.motion;
       if (fresh) { say(`${v.title}. ${v.text}`); if (tutorial.index > 0 || tutorial.prompt > 0) BloomSound.play('tap'); }
       if (v.phase === 'show') BloomSound.play('shimmer', { combo: 5 });
     }
     if (!v.target) return;
-    const rect = tutorialRect(v.target); if (!rect) return;
-    const pad = v.target === 'board' ? 4 : v.target.startsWith('power:') ? 4 : 8, spot = $('tutorial-spot').style;
-    spot.left = `${rect.left - pad}px`; spot.top = `${rect.top - pad}px`; spot.width = `${rect.width + pad * 2}px`; spot.height = `${rect.height + pad * 2}px`;
+    // Everything dims except a hole around each thing the card names, and each gets its own ring.
+    [[v.target, 'tutorial-spot', 'tutorial-hole-1'], [v.also, 'tutorial-spot-2', 'tutorial-hole-2']].forEach(([target, ring, hole]) => {
+      const rect = target && tutorialRect(target);
+      if (!rect) { $(hole).setAttribute('width', 0); $(hole).setAttribute('height', 0); return; }
+      const pad = target === 'board' || target.startsWith('power:') ? 4 : target === 'petal' ? 0 : 8;
+      const left = rect.left - pad, top = rect.top - pad, width = rect.width + pad * 2, height = rect.height + pad * 2;
+      const shape = target === 'board' ? 'board' : 'round', spot = $(ring).style;
+      $(ring).dataset.shape = shape;
+      spot.left = `${left}px`; spot.top = `${top}px`; spot.width = `${width}px`; spot.height = `${height}px`;
+      for (const [name, value] of Object.entries({ x: left, y: top, width, height, rx: shape === 'board' ? 22 : Math.min(width, height) / 2 })) $(hole).setAttribute(name, value);
+    });
     if (v.finger) {
       const board = canvas.getBoundingClientRect(), sx = board.width / 420, sy = board.height / 560, finger = $('tutorial-finger').style;
       finger.left = `${board.left + Tutorial.launcher.x * sx}px`; finger.top = `${board.top + (Tutorial.launcher.y - 26) * sy}px`;
