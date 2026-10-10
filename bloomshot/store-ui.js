@@ -38,7 +38,7 @@
         status.dataset.auto = '0';
         status.textContent = 'Simulating purchase…';
         var result = await store.purchase(product.id);
-        status.textContent = result.ok ? product.title + ' unlocked in test mode.' : result.cancelled ? 'Purchase cancelled.' : 'That purchase did not go through. Nothing was charged.';
+        status.textContent = result.ok ? product.title + (product.consumable ? ' bought in test mode.' : ' unlocked in test mode.') : result.cancelled ? 'Purchase cancelled.' : result.pending ? 'Payment pending. It arrives once the store confirms it.' : 'That purchase did not go through. Nothing was charged.';
       });
       list.appendChild(button);
     });
