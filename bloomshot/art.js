@@ -744,8 +744,19 @@
     ctx.restore();
   }
   // A boss bloom sits on two big leaves, wears a crown and shows its hits left as a ring of segments.
+  // Its mood follows its health: determined brows and gritted teeth at half, then sweat and a shiver near the end.
+  function bossMood(bud) {
+    const max = Math.max(1, Number(bud.maxHp) || 1), health = clamp((Number(bud.hp) || 0) / max, 0, 1);
+    return { determined: health <= .5, sweat: health <= .2 };
+  }
+  // The shiver: a +/-.04 rad wobble at 6 Hz around the bloom's middle, shared by its leaves, face and crown.
+  function bossWobble(ctx, bud, time, still) {
+    if (still || !bossMood(bud).sweat) return;
+    ctx.translate(bud.x, bud.y); ctx.rotate(Math.sin(time * TAU * 6) * .04); ctx.translate(-bud.x, -bud.y);
+  }
   function drawBossLeaves(ctx, bud, time, still) {
     const r = Number(bud.r) || 24, sway = still ? 0 : Math.sin(time * 1.6) * .06;
+    ctx.save(); bossWobble(ctx, bud, time, still);
     for (const side of [-1, 1]) {
       ctx.save(); ctx.translate(bud.x + side * r * .35, bud.y + r * .55); ctx.rotate(side * (1.05 + sway));
       ctx.beginPath(); ctx.moveTo(0, 0); ctx.bezierCurveTo(-r * .45, -r * .35, -r * .35, -r * 1.05, 0, -r * 1.25); ctx.bezierCurveTo(r * .38, -r * 1.02, r * .45, -r * .35, 0, 0);
@@ -753,18 +764,49 @@
       ctx.beginPath(); ctx.moveTo(0, -2); ctx.quadraticCurveTo(r * .05, -r * .6, 0, -r * 1.1); ctx.strokeStyle = 'rgba(220,255,210,.7)'; ctx.lineWidth = 1.1; ctx.stroke();
       ctx.restore();
     }
+    ctx.restore();
   }
   function drawBossFace(ctx, bud, time, still) {
     const r = Number(bud.r) || 24, blink = still ? 1 : (time % 3.4 < .12 ? .15 : 1), hurt = typeof bud.hitAt === 'number' && time - bud.hitAt < .3;
-    ctx.save(); ctx.translate(bud.x, bud.y + r * .12);
+    const mood = bossMood(bud), ink = '#4a2340';
+    ctx.save(); bossWobble(ctx, bud, time, still); ctx.translate(bud.x, bud.y + r * .12);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     for (const side of [-1, 1]) {
-      ctx.save(); ctx.translate(side * r * .26, 0); ctx.scale(1, hurt ? .2 : blink);
-      ctx.beginPath(); ctx.ellipse(0, 0, r * .13, r * .17, 0, 0, TAU); ctx.fillStyle = '#ffffff'; ctx.fill(); ctx.strokeStyle = '#4a2340'; ctx.lineWidth = 1.2; ctx.stroke();
+      // Eyes narrow once it means business; a hit squeezes them shut.
+      ctx.save(); ctx.translate(side * r * .26, 0); ctx.scale(1, hurt ? .2 : blink * (mood.determined ? .82 : 1));
+      ctx.beginPath(); ctx.ellipse(0, 0, r * .13, r * .17, 0, 0, TAU); ctx.fillStyle = '#ffffff'; ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = 1.2; ctx.stroke();
       circle(ctx, side * -r * .02, r * .03, r * .075, '#2d1630'); circle(ctx, side * -r * .04, -r * .03, r * .028, '#ffffff');
       ctx.restore();
-      ctx.beginPath(); ctx.moveTo(side * r * .4, -r * .26); ctx.lineTo(side * r * .14, -r * .18); ctx.strokeStyle = '#4a2340'; ctx.lineWidth = 1.6; ctx.lineCap = 'round'; ctx.stroke();
+      ctx.beginPath();
+      if (mood.determined) { ctx.moveTo(side * r * .43, -r * .31); ctx.lineTo(side * r * .1, -r * .13); ctx.lineWidth = 2.5; }
+      else { ctx.moveTo(side * r * .4, -r * .26); ctx.lineTo(side * r * .14, -r * .18); ctx.lineWidth = 1.6; }
+      ctx.strokeStyle = ink; ctx.stroke();
     }
-    ctx.beginPath(); ctx.arc(0, r * .3, r * .1, hurt ? Math.PI + .3 : .3, hurt ? -.3 : Math.PI - .3); ctx.strokeStyle = '#4a2340'; ctx.lineWidth = 1.4; ctx.stroke();
+    if (mood.determined && !hurt) {
+      // Gritted teeth: a little white bar with two tooth lines.
+      const w = r * .36, h = r * .15, y = r * .26;
+      roundRect(ctx, -w / 2, y, w, h, h * .45); ctx.fillStyle = '#ffffff'; ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = 1.3; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-w / 2 + 2, y + h / 2); ctx.lineTo(w / 2 - 2, y + h / 2);
+      for (const tx of [-w / 6, w / 6]) { ctx.moveTo(tx, y + 1); ctx.lineTo(tx, y + h - 1); }
+      ctx.lineWidth = .8; ctx.stroke();
+    } else {
+      ctx.beginPath(); ctx.arc(0, r * .3, r * .1, hurt ? Math.PI + .3 : .3, hurt ? -.3 : Math.PI - .3); ctx.strokeStyle = ink; ctx.lineWidth = 1.4; ctx.stroke();
+    }
+    if (mood.sweat) {
+      // A drop of sweat runs down its brow and starts again, with a smaller one on the other side.
+      for (const [side, phase, size] of [[1, 0, 1], [-1, .55, .7]]) {
+        const k = still ? .3 : (time * .9 + phase) % 1, s = r * .1 * size;
+        const x = side * r * .58, y = -r * .5 + k * r * .22;
+        ctx.save(); ctx.globalAlpha *= still ? 1 : Math.min(1, (1 - k) * 4) * Math.min(1, k * 8);
+        ctx.beginPath(); ctx.moveTo(x, y - s * 1.9);
+        ctx.bezierCurveTo(x + s * .25, y - s * 1.1, x + s, y - s * .3, x + s, y + s * .2);
+        ctx.arc(x, y + s * .2, s, 0, Math.PI);
+        ctx.bezierCurveTo(x - s, y - s * .3, x - s * .25, y - s * 1.1, x, y - s * 1.9); ctx.closePath();
+        ctx.fillStyle = '#9fdcff'; ctx.fill(); ctx.strokeStyle = '#3f8fd2'; ctx.lineWidth = 1; ctx.stroke();
+        circle(ctx, x - s * .35, y, s * .28, 'rgba(255,255,255,.9)');
+        ctx.restore();
+      }
+    }
     ctx.restore();
   }
   function drawBossRing(ctx, bud) {
@@ -1609,6 +1651,10 @@
     { stops: ['#fffbe0', '#ffe27a', '#ff9fc4', '#9e7bff'], under: '#7a4fb8' }
   ];
   function drawCallout(ctx, floater, reducedMotion) {
+    // Stage pieces: a ribbon title, a trick stamp and the lost-life band.
+    if (floater.kind === 'title') { drawTitle(ctx, floater, reducedMotion); return; }
+    if (floater.kind === 'trick') { drawStamp(ctx, floater, reducedMotion); return; }
+    if (floater.kind === 'life') { drawLifeBand(ctx, floater, reducedMotion); return; }
     const life = Math.max(0, floater.life == null ? 1 : floater.life), duration = floater.maxLife || 1;
     const age = Math.max(0, duration - life), text = String(floater.text || '');
     const combo = floater.kind === 'combo' || /CHAIN|in bloom|BLOOM CHAIN/i.test(text);
@@ -1622,8 +1668,11 @@
     const fade = Math.min(1, life / .24) * (reducedMotion ? 1 : Math.min(1, age / .045));
     ctx.save(); ctx.translate(clamp(floater.x, 78, 342), y - (reducedMotion ? 0 : ease(age / duration) * 6));
     ctx.scale(scale, scale); ctx.globalAlpha = fade; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    const size = wave ? 36 : praise ? (value.length > 10 ? 34 : 40) : combo ? 43 : bonus ? 31 : 21;
+    let size = wave ? 36 : praise ? (value.length > 10 ? 34 : 40) : combo ? 43 : bonus ? 31 : 21;
     ctx.font = `700 ${size}px Fredoka, system-ui, sans-serif`;
+    // A long banner (a boss's name) shrinks to fit the board.
+    const wide = wave ? Number(ctx.measureText(value).width) || 0 : 0;
+    if (wide > 330) { size = Math.max(22, Math.floor(size * 330 / wide)); ctx.font = `700 ${size}px Fredoka, system-ui, sans-serif`; }
     // A restrained metallic relief gives the number the finish of a small trophy.
     const fill = ctx.createLinearGradient(0, -size * .5, 0, size * .5);
     face.stops.forEach((color, i) => fill.addColorStop([0, .3, .57, 1][i], color));
@@ -1640,7 +1689,7 @@
       ctx.lineWidth = 3.4; ctx.strokeStyle = 'rgba(255,252,236,.92)'; ctx.strokeText(label, 0, size * .62);
       ctx.fillStyle = '#245866'; ctx.fillText(label, 0, size * .62);
       ctx.shadowBlur = 0;
-      const offset = wave ? 124 : praise ? width / 2 + 14 : combo ? 49 : 43;
+      const offset = wave ? clamp(Math.min(wide, 330) / 2 + 16, 124, 182) : praise ? width / 2 + 14 : combo ? 49 : 43;
       ctx.globalAlpha *= .86;
       for (const side of [-1, 1]) {
         ctx.beginPath(); ctx.moveTo(side * (offset - 2), 13); ctx.quadraticCurveTo(side * (offset + 7), 0, side * offset, -12);
@@ -1654,6 +1703,465 @@
       }
     }
     ctx.restore();
+  }
+
+  // The stage: ribbon titles, trick stamps, the lost-life band, the level curtain, the harvest orbs and the
+  // boss's health vine. Each piece is painted once into a 3x sprite and reused; without a canvas (in node) there
+  // is no sprite and the same painter draws live paths instead.
+  const stageCache = new Map();
+  function stageSprite(key, w, h, paint, scale) {
+    if (stageCache.has(key)) { const hit = stageCache.get(key); stageCache.delete(key); stageCache.set(key, hit); return hit; }
+    const k = scale || 3, pw = Math.max(1, Math.ceil(w * k)), ph = Math.max(1, Math.ceil(h * k));
+    let surface = null;
+    if (typeof OffscreenCanvas !== 'undefined') surface = new OffscreenCanvas(pw, ph);
+    else if (typeof document !== 'undefined' && document.createElement) { surface = document.createElement('canvas'); surface.width = pw; surface.height = ph; }
+    if (!surface) return null;
+    const c = surface.getContext('2d'); c.scale(k, k); paint(c);
+    const sprite = { surface, w, h, k };
+    if (stageCache.size >= 64) stageCache.delete(stageCache.keys().next().value);
+    stageCache.set(key, sprite);
+    return sprite;
+  }
+  // Lettering is only cached once the font has arrived, so a sprite never keeps a fallback face.
+  function fontReady(font) {
+    const fonts = typeof document !== 'undefined' && document.fonts;
+    return !fonts || typeof fonts.check !== 'function' || fonts.check(font);
+  }
+  function measure(ctx, font, text) { ctx.font = font; return Number(ctx.measureText(String(text)).width) || 0; }
+  function shade(hex, amount) {
+    const n = parseInt(String(hex).slice(1), 16) || 0, to = amount < 0 ? 255 : 0, a = Math.min(1, Math.abs(amount));
+    const ch = shift => Math.round(((n >> shift) & 255) * (1 - a) + to * a);
+    return `rgb(${ch(16)},${ch(8)},${ch(0)})`;
+  }
+  const backOut = (k, s) => { k = clamp(k, 0, 1) - 1; return 1 + (s + 1) * k * k * k + s * k * k; };
+  // Keeps a piece of width w on the board.
+  const onBoard = (x, w) => w >= 376 ? 210 : clamp(Number(x) || 210, 22 + w / 2, 398 - w / 2);
+
+  // Ribbon titles: 'Level 4' over the level's name, 'Wave 3 of 10', a boss's name card and 'Level 4 clear!'.
+  // A cream band with an arched edge and a sprig of leaves at each end; a boss gets a berry band, dark leaves
+  // and gold lettering.
+  const TITLE = { big: { title: 26, label: 14, pad: 30, h: 58, bare: 40, min: 168, leaf: 1 }, small: { title: 18, label: 12, pad: 22, h: 42, bare: 30, min: 118, leaf: .72 } };
+  function titleLayout(ctx, floater) {
+    const look = floater.size === 'small' ? TITLE.small : TITLE.big, text = String(floater.text || ''), label = floater.label ? String(floater.label) : '';
+    const tf = `700 ${look.title}px Fredoka, system-ui, sans-serif`, lf = `600 ${look.label}px Fredoka, system-ui, sans-serif`;
+    ctx.save(); const wide = Math.max(measure(ctx, tf, text), label ? measure(ctx, lf, label) : 0); ctx.restore();
+    const bw = Math.min(330, Math.max(look.min, wide + look.pad * 2)), bh = label ? look.h : look.bare, boss = Boolean(floater.boss);
+    return { look, text, label, tf, lf, bw, bh, boss, w: Math.ceil(bw + 64 * look.leaf + 8), h: Math.ceil(bh + 40) };
+  }
+  function ribbonPath(c, hw, hh, sag, rr) {
+    c.beginPath(); c.moveTo(-hw + rr, -hh);
+    c.quadraticCurveTo(0, -hh - sag * 2, hw - rr, -hh); c.quadraticCurveTo(hw, -hh, hw, -hh + rr);
+    c.lineTo(hw, hh - rr); c.quadraticCurveTo(hw, hh, hw - rr, hh);
+    c.quadraticCurveTo(0, hh - sag * 2, -hw + rr, hh); c.quadraticCurveTo(-hw, hh, -hw, hh - rr);
+    c.lineTo(-hw, -hh + rr); c.quadraticCurveTo(-hw, -hh, -hw + rr, -hh); c.closePath();
+  }
+  function paintTitle(c, L) {
+    const hw = L.bw / 2, hh = L.bh / 2, s = L.look.leaf, boss = L.boss, sag = L.bh * .07, rr = Math.min(14, L.bh * .3);
+    const greens = boss ? ['#2f6a3e', '#45844f', '#24512f'] : ['#47b462', '#7bd57b', '#36985a'], vein = boss ? '#183a22' : '#2a7744';
+    c.save(); c.lineCap = 'round'; c.lineJoin = 'round';
+    for (const side of [-1, 1]) {
+      c.save(); c.translate(side * (hw - 7), 2); c.scale(s, s);
+      c.beginPath(); c.moveTo(side * 2, -7); c.bezierCurveTo(side * 10, -19, side * 25, -17, side * 25, -9); c.bezierCurveTo(side * 25, -3, side * 18, -3, side * 18, -8);
+      c.strokeStyle = greens[0]; c.lineWidth = 1.6; c.stroke();
+      leaf(c, 0, 1, 23, 12, side * (Math.PI / 2 + .62), greens[2], vein);
+      leaf(c, 0, 0, 29, 14, side * (Math.PI / 2 - .04), greens[0], vein);
+      leaf(c, 0, -2, 21, 11, side * (Math.PI / 2 - .72), greens[1], vein);
+      c.restore();
+    }
+    c.save(); c.shadowColor = boss ? 'rgba(46,8,44,.5)' : 'rgba(96,64,22,.34)'; c.shadowBlur = 9; c.shadowOffsetY = 3.5;
+    ribbonPath(c, hw, hh, sag, rr);
+    const band = c.createLinearGradient(0, -hh, 0, hh);
+    if (boss) { band.addColorStop(0, '#94417f'); band.addColorStop(1, '#561f50'); } else { band.addColorStop(0, '#fffbf1'); band.addColorStop(1, '#f6e3b9'); }
+    c.fillStyle = band; c.fill(); c.restore();
+    ribbonPath(c, hw, hh, sag, rr); c.strokeStyle = boss ? '#f6c754' : '#d9ac5c'; c.lineWidth = 2.2; c.stroke();
+    ribbonPath(c, hw - 3.6, hh - 3.6, sag, Math.max(2, rr - 3.6)); c.strokeStyle = boss ? 'rgba(255,214,120,.5)' : 'rgba(255,255,255,.85)'; c.lineWidth = 1.1; c.stroke();
+    if (boss) {
+      // Gold studs at the ends, like a storybook villain's title plate.
+      for (const side of [-1, 1]) { circle(c, side * (hw - 9), 0, 3.4, '#ffd64f', '#a8701f', 1.1); circle(c, side * (hw - 9) - .9, -.9, 1.1, '#fff6c8'); }
+    } else {
+      blossom(c, -hw + 3, hh * .42, 7.5 * s, '#ff86ac', .4);
+      blossom(c, hw - 3, hh * .42, 7.5 * s, '#a98bff', -.3);
+    }
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    const ty = L.label ? -L.bh * .14 : 1, ly = L.bh * .25, size = L.look.title;
+    c.font = L.tf;
+    if (boss) {
+      c.fillStyle = '#2a0a26'; c.fillText(L.text, 0, ty + 2);
+      const gold = c.createLinearGradient(0, ty - size / 2, 0, ty + size / 2);
+      gold.addColorStop(0, '#fffbe0'); gold.addColorStop(.45, '#ffe07a'); gold.addColorStop(1, '#f5a623');
+      c.fillStyle = gold; c.fillText(L.text, 0, ty);
+    } else {
+      c.fillStyle = '#ffffff'; c.fillText(L.text, 0, ty + 1.4);
+      c.fillStyle = '#1f5546'; c.fillText(L.text, 0, ty);
+    }
+    if (L.label) { c.font = L.lf; c.fillStyle = boss ? '#ffcbe3' : '#9c6a2c'; c.fillText(L.label, 0, ly); }
+    c.restore();
+  }
+  function drawTitle(ctx, floater, reducedMotion) {
+    const life = Math.max(0, floater.life == null ? 1 : floater.life), duration = floater.maxLife || 1.2, age = Math.max(0, duration - life);
+    const L = titleLayout(ctx, floater);
+    let scale = 1, alpha = Math.min(1, life / .26);
+    if (!reducedMotion) {
+      // A boss's card slams down; every other title springs up and then floats.
+      if (L.boss) { const k = clamp(age / .16, 0, 1); scale = 1 + .55 * (1 - k) * (1 - k); alpha *= Math.min(1, age / .07); }
+      else { scale = age < .18 ? .3 + .7 * backOut(age / .18, 2.4) : 1; alpha *= Math.min(1, age / .05); }
+    }
+    ctx.save();
+    // A boss's card holds its place under the boss instead of drifting up into it.
+    const hold = L.boss ? age * 12 : 0;
+    ctx.translate(onBoard(floater.x, L.w - 8), (Number(floater.y) || 210) + hold + (reducedMotion ? 0 : Math.sin(age * 3.4) * 1.6));
+    if (!reducedMotion) ctx.rotate(Math.sin(age * 2.3 + .6) * .012);
+    ctx.scale(scale, scale); ctx.globalAlpha *= alpha;
+    const key = `title|${L.boss ? 'boss' : floater.size === 'small' ? 'small' : 'big'}|${L.text}|${L.label}`;
+    const sprite = fontReady(L.tf) ? stageSprite(key, L.w, L.h, c => { c.translate(L.w / 2, L.h / 2); paintTitle(c, L); }) : null;
+    if (sprite) ctx.drawImage(sprite.surface, -L.w / 2, -L.h / 2, L.w, L.h); else paintTitle(ctx, L);
+    if (!reducedMotion && age < .75) {
+      const k = age / .75, hw = L.bw / 2, hh = L.bh / 2;
+      ctx.globalAlpha *= Math.sin(k * Math.PI);
+      sparkle(ctx, -hw + 10 - k * 8, -hh - 6 - k * 10, 4.2, '#fffbe0', k * 2);
+      sparkle(ctx, hw - 16 + k * 9, -hh - 2 - k * 12, 3.2, '#fffbe0', -k * 2);
+      sparkle(ctx, hw - 4 + k * 6, hh + 4 + k * 6, 2.6, '#fffbe0', k);
+    }
+    ctx.restore();
+  }
+
+  // Trick stamps: a colored band stamped on at -6 degrees, a medallion with the trick's own mark, and the bonus
+  // on a cream tag tucked under it.
+  const STAMPS = { slam: ['#ff5d94', 'star'], hat: ['#a47dff', 'hat'], trick: ['#ffb534', 'swirl'], close: ['#3ccf9a', 'heart'], tunnel: ['#45adff', 'arch'], rebound: ['#ff7433', 'arrow'], bank: ['#7b8cff', 'chevrons'] };
+  function stampLayout(ctx, floater) {
+    const kind = STAMPS[floater.trick] ? floater.trick : 'trick', [color, glyph] = STAMPS[kind];
+    const text = String(floater.text || ''), label = floater.label ? String(floater.label) : '';
+    const tf = '700 19px Fredoka, system-ui, sans-serif', lf = '700 13px Fredoka, system-ui, sans-serif';
+    ctx.save(); const tw = measure(ctx, tf, text), lw = label ? measure(ctx, lf, label) : 0; ctx.restore();
+    const medal = 19, bw = Math.min(300, Math.max(112, tw + 36 + medal)), bh = 32;
+    return { kind, color, glyph, text, label, tf, lf, lw, medal, bw, bh, w: Math.ceil(bw + medal + 22), h: 86 };
+  }
+  function stampGlyph(c, glyph, deep) {
+    c.fillStyle = '#ffffff'; c.strokeStyle = '#ffffff'; c.lineCap = 'round'; c.lineJoin = 'round';
+    if (glyph === 'star') {
+      c.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 4.7 : 10.6; c.lineTo(Math.cos(a) * r, Math.sin(a) * r + .9); }
+      c.closePath(); c.lineWidth = 1.8; c.fill(); c.stroke();
+    } else if (glyph === 'hat') {
+      roundRect(c, -6.6, -10.5, 13.2, 13, 2.2); c.fill();
+      c.beginPath(); c.ellipse(0, 2.8, 11.2, 3.2, 0, 0, TAU); c.fill();
+      c.fillStyle = deep; c.fillRect(-6.6, -1.9, 13.2, 2.9);
+      circle(c, -3.6, -7.6, 1.1, 'rgba(255,255,255,.9)');
+    } else if (glyph === 'swirl') {
+      c.beginPath(); for (let i = 0; i <= 44; i++) { const t = i / 44, a = t * TAU * 1.8 - 1, r = .8 + t * 9.6; c.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
+      c.lineWidth = 2.7; c.stroke();
+    } else if (glyph === 'heart') {
+      c.beginPath(); c.moveTo(0, 9.5); c.bezierCurveTo(-14, .5, -8.5, -11.5, 0, -4.2); c.bezierCurveTo(8.5, -11.5, 14, .5, 0, 9.5); c.fill();
+      circle(c, -4.6, -4.2, 1.6, deep);
+    } else if (glyph === 'arch') {
+      c.beginPath(); c.moveTo(-10.5, 8.5); c.lineTo(-10.5, 0); c.arc(0, 0, 10.5, Math.PI, 0); c.lineTo(10.5, 8.5); c.lineTo(5, 8.5); c.lineTo(5, 0);
+      c.arc(0, 0, 5, 0, Math.PI, true); c.lineTo(-5, 8.5); c.closePath(); c.fill();
+    } else if (glyph === 'arrow') {
+      c.beginPath(); c.moveTo(7.5, 9); c.lineTo(7.5, -1); c.arc(1.5, -1, 6, 0, Math.PI, true); c.lineTo(-4.5, 2.5); c.lineWidth = 3; c.stroke();
+      c.beginPath(); c.moveTo(-9.5, 1.5); c.lineTo(.5, 1.5); c.lineTo(-4.5, 9.5); c.closePath(); c.fill();
+    } else {
+      c.beginPath(); c.moveTo(-8, -7.5); c.lineTo(-1.5, 0); c.lineTo(-8, 7.5); c.moveTo(.5, -7.5); c.lineTo(7, 0); c.lineTo(.5, 7.5);
+      c.lineWidth = 3.2; c.stroke();
+    }
+  }
+  function paintStamp(c, S) {
+    const deep = shade(S.color, .42), dark = shade(S.color, .2), hw = S.bw / 2, hh = S.bh / 2, mx = -hw, tx = S.medal / 2;
+    c.save(); c.translate(S.medal / 2 - 2, 0); c.lineJoin = 'round';
+    if (S.label) {
+      const w = S.lw + 18, x = hw - w - 10;
+      c.save(); c.shadowColor = 'rgba(40,30,60,.25)'; c.shadowBlur = 4; c.shadowOffsetY = 2;
+      roundRect(c, x, hh - 8, w, 25, 9); c.fillStyle = '#fffaf0'; c.fill(); c.restore();
+      roundRect(c, x, hh - 8, w, 25, 9); c.strokeStyle = dark; c.lineWidth = 1.6; c.stroke();
+      c.font = S.lf; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = deep; c.fillText(S.label, x + w / 2, hh + 8.5);
+    }
+    c.save(); c.shadowColor = 'rgba(40,30,60,.35)'; c.shadowBlur = 7; c.shadowOffsetY = 3;
+    roundRect(c, -hw, -hh, S.bw, S.bh, hh); c.fillStyle = S.color; c.fill(); c.restore();
+    c.save(); roundRect(c, -hw, -hh, S.bw, S.bh, hh); c.clip();
+    c.fillStyle = 'rgba(255,255,255,.24)'; c.fillRect(-hw, -hh, S.bw, S.bh * .36);
+    c.fillStyle = 'rgba(40,10,40,.12)'; c.fillRect(-hw, hh * .3, S.bw, S.bh);
+    c.restore();
+    roundRect(c, -hw, -hh, S.bw, S.bh, hh); c.strokeStyle = '#ffffff'; c.lineWidth = 2.6; c.stroke();
+    c.setLineDash([3.2, 3]); roundRect(c, -hw + 4.5, -hh + 4.5, S.bw - 9, S.bh - 9, hh - 4.5); c.strokeStyle = 'rgba(255,255,255,.62)'; c.lineWidth = 1.1; c.stroke(); c.setLineDash([]);
+    c.save(); c.shadowColor = 'rgba(40,30,60,.35)'; c.shadowBlur = 6; c.shadowOffsetY = 2.5; circle(c, mx, 0, S.medal, dark); c.restore();
+    circle(c, mx, 0, S.medal, null, '#ffffff', 2.8); circle(c, mx, 0, S.medal - 4.2, null, 'rgba(255,255,255,.5)', 1);
+    c.save(); c.translate(mx, 0); stampGlyph(c, S.glyph, deep); c.restore();
+    c.font = S.tf; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.lineWidth = 3.6; c.strokeStyle = deep; c.strokeText(S.text, tx, .5); c.fillStyle = '#ffffff'; c.fillText(S.text, tx, 0);
+    c.restore();
+  }
+  function drawStamp(ctx, floater, reducedMotion) {
+    const life = Math.max(0, floater.life == null ? 1 : floater.life), duration = floater.maxLife || 1.1, age = Math.max(0, duration - life);
+    const S = stampLayout(ctx, floater);
+    let scale = 1, alpha = Math.min(1, life / .22);
+    if (!reducedMotion) {
+      // Stamped on: it drops from above the page, squashes once and lifts away as it fades.
+      if (age < .11) { const k = age / .11; scale = 1.75 - .75 * k * k; alpha *= k; }
+      else if (age < .3) scale = 1 - .07 * Math.sin((age - .11) / .19 * Math.PI);
+      if (life < .22) scale *= 1 + (1 - life / .22) * .08;
+    }
+    ctx.save(); ctx.translate(onBoard(floater.x, S.w), Number(floater.y) || 200); ctx.rotate(-6 * Math.PI / 180); ctx.scale(scale, scale);
+    ctx.globalAlpha *= alpha;
+    const key = `trick|${S.kind}|${S.text}|${S.label}`;
+    const sprite = fontReady(S.tf) ? stageSprite(key, S.w, S.h, c => { c.translate(S.w / 2, S.h / 2); paintStamp(c, S); }) : null;
+    if (sprite) ctx.drawImage(sprite.surface, -S.w / 2, -S.h / 2, S.w, S.h); else paintStamp(ctx, S);
+    if (!reducedMotion && age >= .1 && age < .38) {
+      // Ink flicks out from the edge as it lands.
+      const k = (age - .1) / .28, rx = S.bw / 2 + 18 + k * 16, ry = S.bh / 2 + 12 + k * 14;
+      ctx.globalAlpha *= 1 - k; ctx.strokeStyle = S.color; ctx.lineWidth = .8 + 2.4 * (1 - k); ctx.lineCap = 'round';
+      ctx.beginPath();
+      for (let i = 0; i < 10; i++) { const a = i / 10 * TAU + .3, c = Math.cos(a), s = Math.sin(a); ctx.moveTo(c * rx, s * ry); ctx.lineTo(c * (rx + 9), s * (ry + 7)); }
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // The lost-life band: soft red, white lettering, a cracked heart, and a shudder as it lands.
+  function paintLifeBand(c, L) {
+    const hw = L.bw / 2, hh = L.bh / 2;
+    c.save(); c.shadowColor = 'rgba(120,20,50,.35)'; c.shadowBlur = 7; c.shadowOffsetY = 3;
+    roundRect(c, -hw, -hh, L.bw, L.bh, hh);
+    const band = c.createLinearGradient(0, -hh, 0, hh); band.addColorStop(0, '#ff8a9c'); band.addColorStop(1, '#e8506e');
+    c.fillStyle = band; c.fill(); c.restore();
+    c.save(); roundRect(c, -hw, -hh, L.bw, L.bh, hh); c.clip(); c.fillStyle = 'rgba(255,255,255,.2)'; c.fillRect(-hw, -hh, L.bw, L.bh * .34); c.restore();
+    roundRect(c, -hw, -hh, L.bw, L.bh, hh); c.strokeStyle = '#ffffff'; c.lineWidth = 2.2; c.stroke();
+    const hx = -hw + 18;
+    c.beginPath(); c.moveTo(hx, 7); c.bezierCurveTo(hx - 11, 0, hx - 7, -9.5, hx, -3.6); c.bezierCurveTo(hx + 7, -9.5, hx + 11, 0, hx, 7);
+    c.fillStyle = '#ffffff'; c.fill();
+    c.beginPath(); c.moveTo(hx + .5, -3.4); c.lineTo(hx - 1.6, -.4); c.lineTo(hx + 1.4, 1.6); c.lineTo(hx - .4, 5.2);
+    c.strokeStyle = '#e8506e'; c.lineWidth = 1.3; c.lineCap = 'round'; c.lineJoin = 'round'; c.stroke();
+    c.font = L.tf; c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineJoin = 'round';
+    c.lineWidth = 3.2; c.strokeStyle = '#c23a5a'; c.strokeText(L.text, 9, .5); c.fillStyle = '#ffffff'; c.fillText(L.text, 9, 0);
+  }
+  function drawLifeBand(ctx, floater, reducedMotion) {
+    const life = Math.max(0, floater.life == null ? 1 : floater.life), duration = floater.maxLife || 1.1, age = Math.max(0, duration - life);
+    const text = String(floater.text || ''), tf = '700 16px Fredoka, system-ui, sans-serif';
+    ctx.save(); const tw = measure(ctx, tf, text); ctx.restore();
+    const L = { text, tf, bw: Math.min(300, Math.max(124, tw + 54)), bh: 30 };
+    L.w = Math.ceil(L.bw + 16); L.h = 46;
+    let scale = 1, dx = 0, alpha = Math.min(1, life / .25);
+    if (!reducedMotion) { scale = age < .2 ? .55 + .45 * backOut(age / .2, 2) : 1; if (age < .4) dx = Math.sin(age * 58) * 5 * (1 - age / .4); alpha *= Math.min(1, age / .05); }
+    ctx.save(); ctx.translate(onBoard(floater.x, L.w) + dx, Number(floater.y) || 380); ctx.scale(scale, scale); ctx.globalAlpha *= alpha;
+    const sprite = fontReady(tf) ? stageSprite(`life|${text}`, L.w, L.h, c => { c.translate(L.w / 2, L.h / 2); paintLifeBand(c, L); }) : null;
+    if (sprite) ctx.drawImage(sprite.surface, -L.w / 2, -L.h / 2, L.w, L.h); else paintLifeBand(ctx, L);
+    ctx.restore();
+  }
+
+  // Everything the stage draws over the board: the boss's vine, the harvest, then the opening curtain on top.
+  function drawStage(ctx, state, time, options) {
+    const stage = state.stage, harvest = Array.isArray(state.harvest) ? state.harvest : null;
+    if (!stage && !(harvest && harvest.length)) return;
+    const still = Boolean(options && options.reducedMotion), cam = options && options.camera;
+    ctx.save();
+    // The vine and the harvest belong to the HUD, so they hold still while the camera leans in.
+    if (cam && Number(cam.zoom) > 1.001) {
+      const z = Number(cam.zoom), fx = Number.isFinite(cam.fx) ? cam.fx : 210, fy = Number.isFinite(cam.fy) ? cam.fy : 280;
+      ctx.translate(fx, fy); ctx.scale(1 / z, 1 / z); ctx.translate(-fx, -fy);
+    }
+    if (stage && stage.vine) drawBossVine(ctx, stage.vine, time, still);
+    if (!still && harvest && harvest.length) drawHarvest(ctx, harvest);
+    if (!still && stage && stage.glow > 0) {
+      // Where the orbs land, the corner flares a little more with each one.
+      const g = clamp(stage.glow, 0, 1), sprite = orbSprite();
+      ctx.globalAlpha = g; glowAt(ctx, sprite, HARVEST_TO.x, HARVEST_TO.y, 34 + g * 60);
+      sparkle(ctx, HARVEST_TO.x - 6, HARVEST_TO.y + 8, 4 + g * 9, '#ffffff', time * 2);
+    }
+    ctx.restore();
+    if (!still && stage && typeof stage.introAt === 'number') drawCurtain(ctx, time - stage.introAt);
+  }
+
+  // Harvest orbs: each bloom's light lifts off its flower and arcs into the score at the top right, quicker as
+  // it goes. They all share one glow sprite; the colored core is the flower's own.
+  const HARVEST_TO = { x: 392, y: 10 };
+  function orbSprite() {
+    return stageSprite('orb', 32, 32, c => {
+      const g = c.createRadialGradient(16, 16, 0, 16, 16, 16);
+      g.addColorStop(0, 'rgba(255,255,250,1)'); g.addColorStop(.2, 'rgba(255,248,200,.95)'); g.addColorStop(.48, 'rgba(255,214,112,.42)'); g.addColorStop(1, 'rgba(255,190,80,0)');
+      c.fillStyle = g; c.fillRect(0, 0, 32, 32);
+    });
+  }
+  function glowAt(ctx, sprite, x, y, d) {
+    if (sprite) ctx.drawImage(sprite.surface, x - d / 2, y - d / 2, d, d);
+    else circle(ctx, x, y, d * .28, 'rgba(255,240,180,.8)');
+  }
+  function orbPoint(orb, u) {
+    const p = u * u, q = 1 - p, x0 = orb.x, y0 = orb.y, i = orb.i || 0;
+    const x1 = x0 + (HARVEST_TO.x - x0) * .15 + (i % 3 - 1) * 22, y1 = y0 * .45 - (i % 4) * 8;
+    return { x: q * q * x0 + 2 * q * p * x1 + p * p * HARVEST_TO.x, y: q * q * y0 + 2 * q * p * y1 + p * p * HARVEST_TO.y };
+  }
+  const TAIL = [];
+  function cometTail(ctx, orb, u, tail, width, alpha) {
+    for (let j = 0; j <= 5; j++) {
+      const v = u - tail * (1 - j / 5), a = orbPoint(orb, v), b = orbPoint(orb, v + .01);
+      const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1, w = width * j / 5;
+      TAIL[j] = [a.x - dy / len * w, a.y + dx / len * w, a.x + dy / len * w, a.y - dx / len * w];
+    }
+    ctx.globalAlpha = alpha; ctx.beginPath(); ctx.moveTo(TAIL[0][0], TAIL[0][1]);
+    for (let j = 1; j <= 5; j++) ctx.lineTo(TAIL[j][0], TAIL[j][1]);
+    for (let j = 5; j >= 0; j--) ctx.lineTo(TAIL[j][2], TAIL[j][3]);
+    ctx.closePath(); ctx.fill();
+  }
+  function drawHarvest(ctx, harvest) {
+    const sprite = orbSprite();
+    ctx.save(); ctx.lineCap = 'round';
+    for (const orb of harvest) {
+      const dur = orb.dur || .55, u = ((Number(orb.t) || 0) - (orb.delay || 0)) / dur, color = orb.color || '#ffd148';
+      if (!(u >= -.3 && u < 1)) continue;
+      if (u < 0) {
+        // The light gathers on the flower before it lifts off.
+        const k = 1 + u / .3; ctx.globalAlpha = k; glowAt(ctx, sprite, orb.x, orb.y, 10 + k * 22);
+        circle(ctx, orb.x, orb.y, 1.5 + k * 3, color, '#ffffff', 1.2); continue;
+      }
+      const size = 6.2 * Math.min(1, .55 + u / .1 * .45) * (1 - .25 * u);
+      // A comet tail in the flower's own color: one tapered shape along the path, a faint wide one under a brighter core.
+      const tail = Math.min(u, .2);
+      if (tail > .01) { ctx.fillStyle = color; cometTail(ctx, orb, u, tail, size * 1.25, .26); cometTail(ctx, orb, u, tail * .7, size * .62, .5); }
+      const at = orbPoint(orb, u);
+      ctx.globalAlpha = 1; glowAt(ctx, sprite, at.x, at.y, size * 5.6);
+      circle(ctx, at.x, at.y, size, color, '#ffffff', 1.5);
+      circle(ctx, at.x - size * .25, at.y - size * .28, size * .38, '#ffffff');
+    }
+    ctx.restore();
+  }
+
+  // The boss's health vine across the top: one leaf per hit left. A lost leaf falls, a pale stretch of stem shows
+  // the damage and shrinks, and a hit shakes the vine. Stems are cached once and cropped; leaves are cached per
+  // hit count.
+  const VINE = { x: 90, y: 26, w: 240, left: 56, top: 4, width: 308, height: 44 };
+  const vineY = x => VINE.y + Math.sin((x - VINE.x) / VINE.w * TAU * 1.5) * 1.6;
+  function vineStem(c, from, to) {
+    c.beginPath();
+    for (let x = from; x <= to + .01; x += 6) { if (x === from) c.moveTo(x, vineY(x)); else c.lineTo(x, vineY(x)); }
+  }
+  function paintVineBase(c, type) {
+    const tone = FLOWERS[type] || FLOWERS.coral;
+    c.save(); c.lineCap = 'round'; c.lineJoin = 'round';
+    c.save(); c.shadowColor = 'rgba(40,30,20,.28)'; c.shadowBlur = 5; c.shadowOffsetY = 2;
+    roundRect(c, VINE.x - 30, VINE.y - 13, VINE.w + 54, 26, 13); c.fillStyle = 'rgba(255,248,228,.9)'; c.fill(); c.restore();
+    roundRect(c, VINE.x - 30, VINE.y - 13, VINE.w + 54, 26, 13); c.strokeStyle = '#e2c287'; c.lineWidth = 1.4; c.stroke();
+    roundRect(c, VINE.x - 27.5, VINE.y - 10.5, VINE.w + 49, 21, 10.5); c.strokeStyle = 'rgba(255,255,255,.9)'; c.lineWidth = 1; c.stroke();
+    vineStem(c, VINE.x, VINE.x + VINE.w); c.strokeStyle = 'rgba(120,96,58,.45)'; c.lineWidth = 3.2; c.stroke();
+    vineStem(c, VINE.x, VINE.x + VINE.w); c.strokeStyle = '#c8b083'; c.lineWidth = 1.8; c.stroke();
+    // A curl at the far end, and the boss's own little crowned bloom at the near end.
+    const ex = VINE.x + VINE.w, ey = vineY(ex);
+    c.beginPath(); c.moveTo(ex, ey); c.bezierCurveTo(ex + 8, ey - 2, ex + 13, ey - 9, ex + 8, ey - 11); c.bezierCurveTo(ex + 4, ey - 12, ex + 3, ey - 7, ex + 7, ey - 6);
+    c.strokeStyle = '#4aa45c'; c.lineWidth = 1.6; c.stroke();
+    const bx = VINE.x - 13, by = VINE.y;
+    for (let i = 0; i < 6; i++) { const a = i * TAU / 6; circle(c, bx + Math.cos(a) * 5, by + Math.sin(a) * 5, 4.2, tone.base); }
+    circle(c, bx, by, 4.6, tone.seed || '#fff3a0', tone.dark, 1.1);
+    c.beginPath(); c.moveTo(bx - 5, by - 8); c.lineTo(bx - 6, by - 13); c.lineTo(bx - 2.5, by - 10.5); c.lineTo(bx, by - 14.5); c.lineTo(bx + 2.5, by - 10.5); c.lineTo(bx + 6, by - 13); c.lineTo(bx + 5, by - 8); c.closePath();
+    c.fillStyle = '#ffd64f'; c.fill(); c.strokeStyle = '#a8701f'; c.lineWidth = 1; c.stroke();
+    c.restore();
+  }
+  function paintVineStem(c, color, light) {
+    c.save(); c.lineCap = 'round'; c.lineJoin = 'round';
+    vineStem(c, VINE.x, VINE.x + VINE.w); c.strokeStyle = color; c.lineWidth = 4.4; c.stroke();
+    c.translate(0, -1); vineStem(c, VINE.x, VINE.x + VINE.w); c.strokeStyle = light; c.lineWidth = 1.3; c.stroke();
+    c.restore();
+  }
+  const vineSlot = (i, max) => VINE.x + VINE.w * (i + .5) / max;
+  const vineLeafSize = max => clamp(VINE.w / max * 1.15, 11, 18);
+  function paintVineLeaves(c, max, hp) {
+    const length = vineLeafSize(max);
+    for (let i = 0; i < max; i++) {
+      const x = vineSlot(i, max), y = vineY(x);
+      if (i >= hp) { circle(c, x, y, 1.7, '#a3845a'); continue; }
+      leaf(c, x, y, length, length * .6, i % 2 ? Math.PI - .8 : .8, i % 2 ? '#3fa957' : '#55c467', '#2a7744');
+    }
+  }
+  function vinePiece(key, paint) {
+    return stageSprite(key, VINE.width, VINE.height, c => { c.translate(-VINE.left, -VINE.top); paint(c); });
+  }
+  // Draws the board-x range [from, to] of a vine sprite (or paints it live, clipped, without one).
+  function vineBlit(ctx, sprite, paint, from, to) {
+    if (!(to > from)) return;
+    if (sprite) {
+      const k = sprite.k, sx = (from - VINE.left) * k, sw = (to - from) * k;
+      ctx.drawImage(sprite.surface, sx, 0, sw, sprite.surface.height, from, VINE.top, to - from, sprite.surface.height / k);
+      return;
+    }
+    ctx.save(); ctx.beginPath(); ctx.rect(from, VINE.top, to - from, VINE.height); ctx.clip(); paint(ctx); ctx.restore();
+  }
+  function drawBossVine(ctx, vine, time, still) {
+    const bud = vine.bud;
+    if (!bud || vine.shownAt == null || time < vine.shownAt) return;
+    let alpha = 1;
+    if (bud.bloomed) { const after = time - (Number(bud.bloomAt) || time); if (after > .45) return; alpha = 1 - clamp(after / .45, 0, 1); }
+    const max = Math.max(1, Math.round(Number(vine.max) || 1)), hp = bud.bloomed ? 0 : clamp(Math.round(Number(bud.hp) || 0), 0, max);
+    const reveal = still ? 1 : ease((time - vine.shownAt) / .45), right = VINE.left + (VINE.width - 4) * reveal;
+    const since = time - (Number(vine.shakeAt) || -100), shake = !still && since >= 0 && since < .2 ? Math.sin(since * 95) * 3 * (1 - since / .2) : 0;
+    const xHp = VINE.x + VINE.w * hp / max, xLag = VINE.x + VINE.w * clamp(Math.max(hp, Number(vine.lag) || 0), 0, max) / max;
+    ctx.save(); ctx.globalAlpha *= alpha; ctx.translate(shake, 0);
+    const type = FLOWERS[bud.type] ? bud.type : 'coral';
+    const paintBase = c => paintVineBase(c, type), paintLag = c => paintVineStem(c, '#ffe58a', '#fffbe6'), paintLive = c => paintVineStem(c, '#3c9a50', '#9de58f');
+    const paintLeaves = c => paintVineLeaves(c, max, hp);
+    vineBlit(ctx, vinePiece(`vine|base|${type}`, paintBase), paintBase, VINE.left, right);
+    vineBlit(ctx, vinePiece('vine|lag', paintLag), paintLag, VINE.x - 3, Math.min(right, xLag + 2));
+    vineBlit(ctx, vinePiece('vine|live', paintLive), paintLive, VINE.x - 3, Math.min(right, xHp + 2));
+    vineBlit(ctx, vinePiece(`vine|leaves|${max}|${hp}`, paintLeaves), paintLeaves, VINE.left, right);
+    // Lost leaves drop off and tumble away.
+    const length = vineLeafSize(max);
+    for (const fall of vine.fallen || []) {
+      const age = time - fall.at;
+      if (still || age < 0 || age > .9 || fall.i >= max) continue;
+      const x0 = vineSlot(fall.i, max), spin = fall.spin || 1;
+      ctx.save(); ctx.globalAlpha *= 1 - age / .9;
+      leaf(ctx, x0 + spin * age * 24, vineY(x0) + age * 26 + age * age * 150, length, length * .6, (fall.i % 2 ? Math.PI - .8 : .8) + spin * age * 6, '#6cc274', '#2a7744');
+      ctx.restore();
+    }
+    if (vine.name && reveal > .6) {
+      ctx.globalAlpha *= clamp((reveal - .6) / .4, 0, 1);
+      ctx.font = '600 11px Fredoka, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,250,236,.95)'; ctx.strokeText(vine.name, VINE.x + VINE.w / 2, VINE.y + 18);
+      ctx.fillStyle = (FLOWERS[type] || FLOWERS.coral).dark; ctx.fillText(vine.name, VINE.x + VINE.w / 2, VINE.y + 18);
+    }
+    ctx.restore();
+  }
+
+  // The opening curtain: two leafy borders, cached once, part off the top and bottom over .6 s.
+  const CURTAIN = { top: 190, bottom: 300 };
+  function paintCurtain(c, h, seed) {
+    const rand = rng(seed), edge = h - 50;
+    const body = c.createLinearGradient(0, 0, 0, edge);
+    body.addColorStop(0, '#153d2b'); body.addColorStop(.7, '#1f5638'); body.addColorStop(1, '#286a42');
+    c.fillStyle = body; c.fillRect(0, 0, 420, edge + 2);
+    const tones = ['#1b4d34', '#235f3e', '#2c6f48', '#18462f', '#2f7a4d'];
+    for (let i = 0; i < 100; i++) { const y = rand() * (edge + 4); leaf(c, rand() * 440 - 10, y, 18 + rand() * 20, 10 + rand() * 8, rand() * TAU, tones[y > edge * .6 && i % 3 === 0 ? 4 : i % 4], i % 6 === 0 ? '#1a4a31' : null); }
+    c.save(); c.shadowColor = 'rgba(6,32,20,.55)'; c.shadowBlur = 10; c.shadowOffsetY = 7;
+    for (let x = -8; x < 432; x += 12) leaf(c, x + rand() * 6, edge - 6, 27 + rand() * 13, 14 + rand() * 5, Math.PI + (rand() - .5) * .8, rand() < .5 ? '#27673f' : '#30774a', null);
+    c.restore();
+    const fronts = ['#3d8d53', '#4ea862', '#5cbb6b', '#46a05c'];
+    for (let x = -4; x < 432; x += 17) leaf(c, x + rand() * 8, edge - 9 + rand() * 4, 19 + rand() * 14, 11 + rand() * 4, Math.PI + (rand() - .5) * 1.2, fronts[Math.floor(rand() * 4)], '#286a42');
+    c.save(); c.lineCap = 'round'; c.lineJoin = 'round';
+    const vy = x => edge - 11 + Math.sin(x * .045 + seed) * 4;
+    c.beginPath(); for (let x = -10; x <= 430; x += 10) { if (x === -10) c.moveTo(x, vy(x)); else c.lineTo(x, vy(x)); }
+    c.strokeStyle = '#5e4126'; c.lineWidth = 4.2; c.stroke(); c.strokeStyle = 'rgba(176,132,82,.8)'; c.lineWidth = 1.3; c.stroke();
+    // Tendrils curl off the vine, and little flowers sit along it.
+    for (let x = 30 + rand() * 20; x < 400; x += 70 + rand() * 40) {
+      const y = vy(x), d = rand() < .5 ? 1 : -1;
+      c.beginPath(); c.moveTo(x, y); c.bezierCurveTo(x + d * 6, y + 10, x + d * 16, y + 12, x + d * 15, y + 5); c.bezierCurveTo(x + d * 14, y + 1, x + d * 9, y + 3, x + d * 11, y + 6);
+      c.strokeStyle = '#6cc070'; c.lineWidth = 1.4; c.stroke();
+    }
+    const petals = ['#ff86ac', '#ffd148', '#a98bff', '#6cc4ff', '#ff9a5c'];
+    for (let i = 0, x = 16 + rand() * 12; x < 412; i++, x += 36 + rand() * 24) {
+      leaf(c, x - 4, vy(x) + 1, 11, 6, Math.PI + .9, '#5cbb6b', null);
+      blossom(c, x, vy(x) + 1, 7.5 + rand() * 3, petals[i % petals.length], rand() * TAU);
+    }
+    c.restore();
+  }
+  function curtainSprite(which) {
+    const h = CURTAIN[which];
+    return stageSprite(`curtain|${which}`, 420, h, c => paintCurtain(c, h, which === 'top' ? 11 : 29), 2);
+  }
+  function drawCurtain(ctx, age) {
+    if (!(age >= 0 && age < .6)) return;
+    const move = Math.pow(age / .6, 2.2);
+    for (const which of ['top', 'bottom']) {
+      const h = CURTAIN[which], sprite = curtainSprite(which);
+      ctx.save();
+      if (which === 'top') ctx.translate(0, -move * (h + 12));
+      else { ctx.translate(0, 560 + move * (h + 12)); ctx.scale(1, -1); }
+      if (sprite) ctx.drawImage(sprite.surface, 0, 0, 420, h); else paintCurtain(ctx, h, which === 'top' ? 11 : 29);
+      ctx.restore();
+    }
   }
 
   // Powerups, drawn like the rest of the board: flat shapes with a colored ink edge and one shade cut.
@@ -1988,6 +2496,7 @@
       if (floater.kind === 'pop') drawPop(ctx, floater, options.reducedMotion);
       else drawCallout(ctx, floater, options.reducedMotion);
     }
+    drawStage(ctx, state, time, options);
     ctx.restore();
     if (options.flash > 0 && !options.reducedMotion) {
       ctx.save(); ctx.globalCompositeOperation = 'lighter';

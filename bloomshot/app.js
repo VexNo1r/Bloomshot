@@ -907,6 +907,128 @@
     if (game && isTaste() && $('result-dialog').open) renderTasteOffer(game.status === 'won');
   }
   if (store) store.subscribe(refreshStoreViews);
+  // The stage. A level opens on a ribbon between two leafy curtains, every wave tumbles in, a cleared wave's
+  // blooms fly into the score as a harvest of light, and a big bloom drops in with its name and a health vine.
+  // It is all presentation kept on the game object (game.stage, game.harvest and the buds' enter fields, which
+  // art.js reads); hitboxes never move and the engine never waits for any of it.
+  const STAGE = { plops: 8, plopGap: .04, introDelay: .2, harvest: 24, orbGap: .03, orbTime: .55 };
+  const ORB_COLORS = { coral: '#ff5d94', gold: '#ffd148', lilac: '#a47dff', sky: '#45adff', poppy: '#ff7433' };
+  // How far into its entry a bud first touches down: easeOutBack(1.4) crosses 1 at 1/2.4, easeOutBounce at 1/2.75.
+  const TOUCHDOWN = { back: 1 / 2.4, bounce: 1 / 2.75 };
+  const stage = { game: null, plops: [], plopAt: -1, plopIndex: 0, land: null, entering: [] };
+  // Depth levels and endless Rush get the show; the tutorial and the calm boards never do.
+  const staged = () => isRush() && !isTutorial() && !preview;
+  const stageLevel = () => isDepth() ? game.plan.id : 0;
+  function stageFrame(dt) {
+    if (game !== stage.game) {
+      stage.game = game; stage.plops = []; stage.plopAt = -1; stage.land = null; stage.entering = [];
+      // A game picked up again (after a preview) already had its intro.
+      if (staged() && !game.stage) { intro(); bossIntro(null); }
+    }
+    if (!game.stage) return;
+    const held = narrowLandscape.matches || dialogs.some(id => $(id).open);
+    if (!held && game.harvest && game.harvest.length) stepHarvest(dt);
+    if (game.stage.glow > 0) game.stage.glow = Math.max(0, game.stage.glow - dt * 2.6);
+    // Each tumbling bud lands with a soft plop, at most eight a wave and never closer than 40 ms.
+    const plop = stage.plops[0];
+    if (plop && game.time >= plop.at && game.time - stage.plopAt >= STAGE.plopGap - 1e-6) {
+      stage.plops.shift(); stage.plopAt = game.time; BloomSound.play('plop', { i: plop.i, x: plop.x });
+    }
+    if (stage.land && game.time >= stage.land.at) bossLand();
+    const vine = game.stage.vine;
+    if (vine) {
+      const hp = vine.bud.bloomed ? 0 : Math.max(0, vine.bud.hp);
+      // Each lost leaf falls off the vine; a lighter stretch of stem shows the damage, then shrinks in .4 s.
+      if (hp < vine.hp) {
+        for (let i = vine.hp - 1; i >= hp; i--) vine.fallen.push({ i, at: game.time, spin: i % 2 ? 1 : -1 });
+        vine.hp = hp; vine.lagHold = .1; vine.lagSpeed = (vine.lag - hp) / .4;
+      }
+      if (vine.lagHold > 0) vine.lagHold -= dt;
+      else if (vine.lag > vine.hp) vine.lag = Math.max(vine.hp, vine.lag - vine.lagSpeed * dt);
+      if (vine.fallen.length && game.time - vine.fallen[0].at > 1) vine.fallen = vine.fallen.filter(leaf => game.time - leaf.at <= 1);
+    }
+    // Once a bud has landed its enter fields go, so a later respawn (a regrown briar, a boss climbing back) pops in as before.
+    if (stage.entering.length && game.time > stage.entering[0].doneAt) {
+      stage.entering = stage.entering.filter(item => {
+        if (game.time <= item.doneAt) return true;
+        if (item.bud.enterAt === item.at) { delete item.bud.enterAt; delete item.bud.enterDrop; delete item.bud.enterDur; delete item.bud.enterBounce; }
+        return false;
+      });
+    }
+  }
+  // The opening: 'Level 4' and the level's name on a ribbon, the curtains part, and the first wave tumbles in.
+  function intro() {
+    const depth = isDepth() ? Depths.level(game.plan.id) : null;
+    game.stage = { introAt: game.time, glow: 0 };
+    game.floaters.push({ kind: 'title', x: 210, y: 210, life: 1.2, maxLife: 1.2, text: depth ? `Level ${depth.id}` : 'Rush', label: depth ? depth.name : 'how long can you last?' });
+    BloomSound.play('intro', { level: stageLevel(), boss: false });
+    tumble(STAGE.introDelay);
+  }
+  // A new wave's buds drop in from just above, left to right, all within .35 s. Only the drawing moves.
+  function tumble(delay = 0) {
+    if (!save.settings.motion) return;
+    const list = game.buds.filter(bud => !bud.bloomed && !bud.boss && !bud.gift).sort((a, b) => a.x - b.x), n = list.length;
+    if (!n) return;
+    const gap = Math.min(.035, .35 / n), every = Math.max(Math.ceil(n / STAGE.plops), Math.ceil(STAGE.plopGap / gap - 1e-6));
+    stage.plops = []; stage.plopAt = -1;
+    list.forEach((bud, i) => {
+      bud.enterAt = game.time + delay + i * gap; bud.enterDrop = 48; bud.enterDur = .4; delete bud.enterBounce;
+      if (i % every === 0 && stage.plops.length < STAGE.plops) stage.plops.push({ at: bud.enterAt + bud.enterDur * TOUCHDOWN.back, i: stage.plops.length, x: bud.x });
+      stage.entering.push({ bud, at: bud.enterAt, doneAt: bud.enterAt + bud.enterDur + .1 });
+    });
+    stage.entering.sort((a, b) => a.doneAt - b.doneAt);
+  }
+  // A cleared wave cashes in: up to 24 of its blooms, latest first, fly into the score as orbs of light.
+  function startHarvest() {
+    const blooms = game.buds.filter(bud => bud.bloomed && !bud.gift).sort((a, b) => b.bloomAt - a.bloomAt).slice(0, STAGE.harvest);
+    if (!blooms.length) return;
+    if (!save.settings.motion) { BloomSound.play('pluck', { i: 0, n: 1 }); return; }
+    if (!game.stage) game.stage = { glow: 0 };
+    const n = blooms.length, orbs = blooms.map((bud, i) => ({ x: bud.x, y: bud.y, color: ORB_COLORS[bud.type] || ORB_COLORS.gold, delay: i * STAGE.orbGap, dur: STAGE.orbTime, t: 0, i, n }));
+    game.harvest = (game.harvest || []).concat(orbs);
+  }
+  // Orbs fly on real time, so a slow-motion finale or a hit-stop never strands them mid-air.
+  function stepHarvest(dt) {
+    let kept = 0;
+    for (const orb of game.harvest) {
+      orb.t += dt;
+      if (orb.t < orb.delay + orb.dur) { game.harvest[kept++] = orb; continue; }
+      bumpScore(); game.stage.glow = Math.min(1, (game.stage.glow || 0) + .35);
+      if (orb.i < 12 || (orb.i - 12) % 3 === 0) BloomSound.play('pluck', { i: orb.i, n: orb.n });
+    }
+    game.harvest.length = kept;
+  }
+  // A big bloom drops in from high above, lands with a thud, and its name card and health vine come up.
+  function bossIntro(event) {
+    const boss = game.buds.find(bud => bud.boss && !bud.bloomed);
+    if (!boss) return;
+    const name = (event && event.bossName) || boss.name || 'Big bloom', max = Math.max(1, boss.maxHp || boss.hp || 1);
+    if (!game.stage) game.stage = { glow: 0 };
+    game.stage.vine = { bud: boss, name, max, hp: Math.max(0, boss.hp), lag: Math.max(0, boss.hp), lagHold: 0, lagSpeed: 0, shakeAt: -100, shownAt: null, fallen: [] };
+    BloomSound.play('intro', { level: stageLevel(), boss: true });
+    const card = { kind: 'title', boss: true, text: name, label: `${max} ${max === 1 ? 'hit' : 'hits'} to bloom`, x: 210, y: 160, life: 1.6, maxLife: 1.6 };
+    if (!save.settings.motion) { stage.land = { bud: boss, card, at: -Infinity }; bossLand(); return; }
+    boss.enterAt = game.time + .15; boss.enterDrop = 140; boss.enterDur = .8; boss.enterBounce = true;
+    stage.land = { bud: boss, card, at: boss.enterAt + boss.enterDur * TOUCHDOWN.bounce };
+    stage.entering.push({ bud: boss, at: boss.enterAt, doneAt: boss.enterAt + boss.enterDur + .1 });
+    stage.entering.sort((a, b) => a.doneAt - b.doneAt);
+  }
+  function bossLand() {
+    const { bud, card } = stage.land; stage.land = null;
+    BloomSound.play('bossLand', { x: bud.x }); jolt(.3, 0, .2); haptic('tap');
+    game.floaters = game.floaters.filter(item => !(item.kind === 'title' && item.size === 'small'));
+    game.floaters.push(card);
+    if (game.stage.vine && game.stage.vine.bud === bud) game.stage.vine.shownAt = game.time;
+    if (!save.settings.motion) return;
+    // A puff of dust where it touches down.
+    const r = bud.r || 24;
+    game.particles.push({ x: bud.x, y: bud.y + r * .6, vx: 0, vy: 0, life: .5, maxLife: .5, kind: 'ring', color: '#fff4cf', size: r * .9, grow: 46, gravity: 0, drag: 0 });
+    for (let i = 0; i < 10; i++) {
+      const side = i % 2 ? 1 : -1, speed = 70 + (i * 37 % 60), life = .5 + (i % 3) * .12;
+      game.particles.push({ x: bud.x + side * r * .5, y: bud.y + r * .7, vx: side * speed, vy: -25 - (i % 4) * 12, life, maxLife: life, kind: 'pollen', color: '#fff1c8', size: 1.6 + (i % 3) * .7, rotation: 0, spin: 0, drag: 3, gravity: 60 });
+    }
+  }
+  function bossCrack() { if (game.stage && game.stage.vine) game.stage.vine.shakeAt = game.time; }
   // Entering a current: a soft ripple and a few droplets thrown along the flow.
   function ripple(event) {
     if (!save.settings.motion) return;
@@ -1001,23 +1123,35 @@
         game.floaters.push({ x: 210, y: 418, text: '+2', life: 1.05, maxLife: 1.05, kind: 'bonus' });
         $('game-hint').textContent = 'Split! Hit flowers to charge the next one.';
       } else if (event.type === 'cleared') {
-        // Clearing a wave is the big beat of a run: a golden shower, a banner with the next tempo, a rising chord.
-        burst({ x: 210, y: 230, type: 'gold', r: 18 }, 46); burst({ x: 120, y: 170, type: 'coral' }, 20); burst({ x: 300, y: 170, type: 'lilac' }, 20);
+        // Clearing a wave is the big beat of a run: a golden shower, a banner with the next tempo, a rising chord,
+        // and the wave's blooms flying into the score (a finale's sweep takes the harvest's place).
+        burst({ x: 210, y: 230, type: 'gold', r: 18 }, 30); burst({ x: 120, y: 170, type: 'coral' }, 20); burst({ x: 300, y: 170, type: 'lilac' }, 20);
         jolt(.32, .07, .85);
         game.floaters = game.floaters.filter(item => !['wave', 'combo', 'bonus'].includes(item.kind));
-        const label = isDepth() ? Depths.wave(game.plan.id, event.wave + 1).boss ? 'Big bloom next!' : `wave ${event.wave + 1} of ${game.finalWave} next` : `next ×${event.next.toFixed(1)}`;
+        const next = isDepth() ? Depths.wave(game.plan.id, event.wave + 1) : null, nextBoss = next && next.boss ? next.buds.find(bud => bud.boss) : null;
+        const label = next ? next.boss ? `${(nextBoss && nextBoss.name) || 'Big bloom'} next!` : `wave ${event.wave + 1} of ${game.finalWave} next` : `next ×${event.next.toFixed(1)}`;
         game.floaters.push({ x: 210, y: 290, text: 'Wave clear!', label, life: 1, maxLife: 1, kind: 'wave' });
         haptic('surge');
+        if (!event.finale && staged()) startHarvest();
       } else if (event.type === 'wave') {
+        const bossName = event.boss ? event.bossName || (game.buds.find(bud => bud.boss) || {}).name || '' : '';
         if (isDepth()) {
           $('game-hint').textContent = event.hint || `Wave ${game.wave} of ${game.finalWave}.`;
-          say(`Wave ${game.wave} of ${game.finalWave}. ${event.hint || ''} ${game.lives} ${game.lives === 1 ? 'life' : 'lives'} left.`);
+          say(`Wave ${game.wave} of ${game.finalWave}. ${bossName ? `${bossName}! ` : ''}${event.hint || ''} ${game.lives} ${game.lives === 1 ? 'life' : 'lives'} left.`);
         } else {
           $('game-hint').textContent = `Wave ${game.wave}! Faster flowers, ×${game.tempo.toFixed(1)} points.`;
           say(`Wave ${game.wave}. Tempo times ${game.tempo.toFixed(1)}. ${game.lives} lives left.`);
         }
+        // The new buds tumble in; a boss wave drops its big bloom with a name card, any other wave shows its number.
+        if (staged()) {
+          tumble();
+          if (event.boss) bossIntro(event);
+          else game.floaters.push({ kind: 'title', size: 'small', x: 210, y: 120, life: .9, maxLife: .9, text: isDepth() ? `Wave ${game.wave} of ${game.finalWave}` : `Wave ${game.wave}`, label: isDepth() ? '' : `×${game.tempo.toFixed(1)}` });
+        }
       } else if (event.type === 'puff') {
         burst(event.bud, 34); jolt(.14, 0, .25);
+        // A ring of spores shows exactly how far the puff reaches.
+        if (save.settings.motion) game.particles.push({ x: event.bud.x, y: event.bud.y, vx: 0, vy: 0, life: .5, maxLife: .5, kind: 'ring', color: '#c99cf5', size: event.bud.r || 12, grow: Math.max(0, ((window.BloomRush && BloomRush.PUFF_REACH) || 74) - (event.bud.r || 12)), gravity: 0, drag: 0 });
         $('game-hint').textContent = event.count ? `Puff! ${event.count} ${event.count === 1 ? 'flower' : 'flowers'} caught the spores.` : 'Puff!';
       } else if (event.type === 'shield') {
         burst({ x: event.x, y: event.y, type: 'gold', r: 6 }, 6); haptic('tick');
@@ -1033,9 +1167,10 @@
         burst(event.bud, 80); burst({ x: 110, y: 200, type: 'gold' }, 40); burst({ x: 310, y: 200, type: 'lilac' }, 40);
         jolt(.5, .12, 1); haptic('surge');
         game.floaters = game.floaters.filter(item => !['wave', 'combo', 'bonus'].includes(item.kind));
-        game.floaters.push({ x: 210, y: 250, text: 'Big bloom!', label: 'everything blooms', life: 1.2, maxLife: 1.2, kind: 'wave' });
+        const name = event.name || (event.bud && event.bud.name) || '';
+        game.floaters.push({ x: 210, y: 250, text: name ? `${name} bloomed!` : 'Big bloom!', label: 'everything blooms', life: 1.2, maxLife: 1.2, kind: 'wave' });
         $('game-hint').textContent = 'Big bloom! The whole garden opens.';
-        say('Big bloom. The whole wave blooms.');
+        say(name ? `${name} bloomed. The whole wave blooms.` : 'Big bloom. The whole wave blooms.');
       } else if (event.type === 'arm') {
         $('game-hint').textContent = event.power ? Powers.byId[event.power].tip : isDepth() ? depthHint() : 'Keep the flowers above the line.';
         haptic('tick'); trayKey = '';
@@ -1084,7 +1219,7 @@
         jolt(.35, .08, 1);
         haptic('surge');
       } else if (event.type === 'crack') {
-        burst(event.bud, 12); jolt(.05);
+        burst(event.bud, 12); jolt(.05); if (event.bud && event.bud.boss) bossCrack();
       } else if (event.type === 'ready') {
         if (!isRush()) { shotTrail.push(game.bloomedCount - trailTotal); trailTotal = game.bloomedCount; }
         $('game-hint').textContent = isChapter() ? `${game.shotsLeft} ${game.shotsLeft === 1 ? 'seed' : 'seeds'} left. ${game.level.hint || (isKoi() ? 'Watch where the water goes.' : 'Check the gate exit first.')}` : event.blooms ? 'Turn a petal or line up your next shot.' : 'Missed! Try turning a petal.';
@@ -1660,6 +1795,7 @@
     }
     displayScore += (game.score - displayScore) * Math.min(1, dt * 10);
     if (Math.abs(game.score - displayScore) < 1) displayScore = game.score;
+    stageFrame(dt);
     updateHud(); renderTutorial(); pulseTime += dt;
     if (isRush() && (aiming || game.aim.length)) game.aim = game.trace(Math.cos(angle) * 400, Math.sin(angle) * 400);
     trauma = Math.max(0, trauma - dt * 1.7); flash = Math.max(0, flash - dt * 3.2); kick = Math.max(0, kick - dt * 5);
