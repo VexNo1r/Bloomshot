@@ -175,7 +175,7 @@
   }
   function startLevel(level, options = {}) {
     closeDialogs();
-    game = level.tutorial ? new BloomRush.RushGame({ scripted: true }) : level.depth ? new BloomRush.RushGame({ plan: depthPlan(level.depth, level.taste), random: Math.random }) : level.id === 'rush' ? new BloomRush.RushGame({ random: Math.random }) : new Game(level); game.particles = []; game.floaters = [];
+    game = level.tutorial ? new BloomRush.RushGame({ scripted: true }) : level.depth ? new BloomRush.RushGame({ plan: depthPlan(level.depth, level.taste), random: Math.random, startWave: level.from || 1 }) : level.id === 'rush' ? new BloomRush.RushGame({ random: Math.random }) : new Game(level); game.particles = []; game.floaters = []; if ($('checkpoint-btn')) $('checkpoint-btn').hidden = true;
     tutorial = level.tutorial ? Tutorial.create() : null; tutorialKey = ''; document.body.dataset.tutorial = tutorial ? 'on' : '';
     if (tutorial) tutorial.begin(game);
     preview = Boolean(options.preview); theme = options.theme || (isChapter() ? game.level.worldId : 'meadow');
@@ -270,8 +270,10 @@
       $('split-btn').disabled = !game.splitReady;
       $('split-btn').style.setProperty('--split-charge', `${game.splitCharge * 100}%`);
       $('split-btn').textContent = game.splitReady ? 'Split! +2' : game.splitCharge >= 1 ? game.balls.length ? 'No room' : 'Fire first' : `Split ${Math.round(game.splitCharge * 6)}/6`;
+      canvas.dataset.sun = (game.sun || 0).toFixed(2); canvas.dataset.mult = game.mult || 1; canvas.dataset.superBloom = (game.superBloom || 0).toFixed(2);
       $('fever-banner').hidden = game.feverTime <= 0;
       $('fever-banner').textContent = 'Super Bloom!';
+      $('fever-banner').setAttribute('aria-label', 'Super Bloom, double points');
       renderTray();
       return;
     }
@@ -1178,20 +1180,21 @@
         haptic('tick');
       }
       else if (event.type === 'bloom') {
-        const combo = event.combo || 1;
-        burst(event.bud, 24 + Math.min(36, combo * 3));
+        const combo = event.combo || 1, golden = Boolean(event.super), milestone = CHAIN_MILESTONES.indexOf(combo);
+        // During a Super Bloom flowers open fast, so each burst stays small and the screen keeps its shape.
+        burst(event.bud, Math.min(golden ? 30 : 60, 24 + combo * 3));
         if (save.settings.motion && event.gain) {
           const px = event.bud.x, py = event.bud.y - (event.bud.r || 14) - 6;
           const stacked = game.floaters.filter(f => f.kind === 'pop' && f.life > f.maxLife - .35 && Math.abs(f.x - px) < 58 && Math.abs(f.y - py) < 50).length;
-          game.floaters.push({ x: px, y: py - stacked * 19, text: `+${event.gain}`, life: .8, maxLife: .8, kind: 'pop', color: POP_COLORS[event.bud.type] || POP_COLORS.coral, size: Math.min(24, 14 + combo * .8) });
+          game.floaters.push({ x: px, y: py - stacked * 19, text: `+${event.gain}`, life: .8, maxLife: .8, kind: 'pop', color: golden ? POP_COLORS.gold : POP_COLORS[event.bud.type] || POP_COLORS.coral, size: Math.min(26, 14 + (event.mult || 1) * 2.4), golden });
         }
-        jolt(.08 + Math.min(.2, combo * .015), combo % 5 === 0 ? .055 : 0, combo % 5 === 0 ? .7 : 0);
+        jolt(.08 + Math.min(.2, combo * .015), milestone >= 0 ? .055 : 0, milestone >= 0 ? .7 : 0);
         bumpScore();
-        if (event.combo % 5 === 0) {
+        if (milestone >= 0) {
           BloomSound.play('shimmer', event);
           game.floaters = game.floaters.filter(item => item.kind !== 'combo');
-          // Every fifth bloom in a row earns a bigger word, each in a new flower's color.
-          const tier = Math.min(PRAISE.length, event.combo / 5) - 1;
+          // Long chains earn a bigger word at each milestone, each in a new flower's color.
+          const tier = milestone;
           game.floaters.push({ x: 210, y: 92, text: PRAISE[tier], label: `${event.combo} in a row`, tier, life: 1.05, maxLife: 1.05, kind: 'combo' });
         }
         if (event.combo % 3 === 1) haptic('tick');
@@ -1292,6 +1295,28 @@
       } else if (event.type === 'fever') {
         jolt(.35, .08, 1);
         haptic('surge');
+      } else if (event.type === 'sunPetal') {
+        if (event.petal % 2 === 0) haptic('tick');
+      } else if (event.type === 'superBloom') {
+        jolt(.35, .06, 1); haptic('surge');
+        game.floaters = game.floaters.filter(item => !['wave', 'combo', 'bonus'].includes(item.kind));
+        game.floaters.push({ x: 210, y: 250, text: 'Super Bloom!', label: superSeen ? 'double points' : 'seeds fly through flowers', life: 1.3, maxLife: 1.3, kind: 'wave' });
+        $('game-hint').textContent = superSeen ? 'Super Bloom! Double points.' : 'Super Bloom! Seeds fly through flowers.';
+        say(superSeen ? 'Super Bloom. Double points.' : 'Super Bloom. Seeds fly through flowers for double points.');
+        superSeen = true;
+      } else if (event.type === 'superBloomEnd') {
+        $('game-hint').textContent = isDepth() ? depthHint() : 'Keep the flowers above the line.';
+      } else if (event.type === 'mult') {
+        haptic('tick');
+      } else if (event.type === 'chainEnd') {
+        if (event.chain >= 8) {
+          game.floaters = game.floaters.filter(item => item.kind !== 'combo');
+          game.floaters.push({ x: 210, y: 92, text: `${event.chain} in a row!`, life: 1.05, maxLife: 1.05, kind: 'combo' });
+          say(`${event.chain} in a row!`);
+        }
+      } else if (event.type === 'trick') {
+        game.floaters.push({ kind: 'trick', trick: event.kind, text: event.name, label: `+${event.bonus}`, x: event.x, y: clamp(event.y - 30, 70, 400), life: 1.1, maxLife: 1.1 });
+        haptic('tap'); bumpScore(); say(event.name);
       } else if (event.type === 'crack') {
         burst(event.bud, 12); jolt(.05);
       } else if (event.type === 'ready') {
@@ -1314,12 +1339,12 @@
         }
         if (isDepth()) {
           const id = game.plan.id, won = event.type === 'won', previousStars = save.depths[id]?.stars || 0;
-          const recorded = Depths.record(save.depths, id, { won, lives: game.lives, score: game.score, wave: game.wave });
+          const recorded = Depths.record(save.depths, id, { won, lives: game.startWave > 1 ? Math.min(2, game.lives) : game.lives, score: game.score, wave: game.wave });
           save.depths = recorded.progress;
           depthNews = { firstClear: recorded.firstClear, newStars: recorded.newStars, opened: recorded.firstClear && Depths.level(id + 1) && depthOpen(id + 1) ? id + 1 : null };
           if (depthNews.opened) { freshDepth = depthNews.opened; freshShown = false; }
           else if (recorded.firstClear && id + 1 === TASTE.level && tasteOpen()) { freshDepth = TASTE.level; freshShown = false; }
-          awardSeeds({ mode: 'depths', levelId: id, stars: won ? game.stars : 0, previousStars, blooms: game.bloomedCount, wave: game.wave });
+          awardSeeds({ mode: 'depths', levelId: id, stars: won ? game.stars : 0, previousStars, blooms: game.bloomedCount, wave: game.wave - (game.startWave || 1) + 1 });
           runGoals = trackGoals({ type: 'rush', blooms: game.bloomedCount, wave: game.wave, chain: game.bestCombo }); runAward += runGoals.paid;
           persist(); hudKey = '';
           $('game-hint').textContent = won ? 'Level clear!' : 'Out of lives. Try a new angle.';
@@ -1362,6 +1387,14 @@
       }
     }
   }
+  // Long chains are praised at these lengths, one PRAISE word each. The first Super Bloom of a session explains itself.
+  const CHAIN_MILESTONES = [8, 16, 24, 32, 40, 50];
+  let superSeen = false;
+  // A level run lost at wave 6 or later can start again from wave 6, free and as often as the player likes.
+  // Stars from those runs stop at two, and the card says so.
+  const checkpointOffered = won => isDepth() && !isTaste() && !won && game.wave >= Depths.checkpoint;
+  const fromCheckpoint = () => isDepth() && (game.startWave || 1) > 1;
+  if ($('checkpoint-btn')) $('checkpoint-btn').addEventListener('click', () => { if (isDepth() && !isTaste()) startDepth(game.plan.id, false, Depths.checkpoint); });
   // A chain of one is not worth a mention.
   const chainNote = () => game.bestCombo > 1 ? ` · best chain ${game.bestCombo}` : '';
   // The result card's stars pop in one at a time (styles.css), each with a chime.
@@ -1422,8 +1455,12 @@
       const taste = Boolean(won && next && !nextPaid && next.id === TASTE.level && tasteOpen());
       $('result-eyebrow').textContent = won ? `Level ${id} clear!` : 'Out of lives';
       $('result-title').textContent = won ? ['Cleared!', 'Cleared!', 'Great!', 'Perfect!'][game.stars] : `Wave ${game.wave} of ${game.finalWave}`;
-      $('result-message').textContent = won
+      const checkpoint = checkpointOffered(won), restarted = fromCheckpoint();
+      $('result-message').textContent = won && restarted
+        ? `Cleared from wave ${game.startWave}!${depthNews?.opened ? ` Level ${id + 1} is open.` : ''} Start at wave 1 for three stars.`
+        : won
         ? depthNews?.opened ? `Level ${id + 1}, ${next.name}, is open!` : !next ? `${game.bloomedCount} blooms. You reached the Starseed Core!` : taste ? `Try the first ${TASTE.waves} waves of level ${next.id}, ${next.name}, free!` : !nextPaid ? `${next.name} and the levels below it come with a one-time unlock.` : game.stars < 3 ? `${game.bloomedCount} blooms. Keep all 3 lives for ★★★.` : `${game.bloomedCount} blooms${chainNote()}`
+        : checkpoint ? `${game.bloomedCount} blooms.${game.wave >= game.finalWave - 2 ? ' So close!' : ''} A run from wave ${Depths.checkpoint} can earn up to two stars.`
         : `${game.bloomedCount} blooms. ${game.wave >= game.finalWave - 2 ? 'So close!' : 'Try a new angle.'}`;
       $('result-stars').innerHTML = resultStars(game.stars); $('result-stars').setAttribute('aria-label', `${game.stars} of 3 stars`);
       $('result-score').textContent = fmt(game.score);
@@ -1432,12 +1469,16 @@
       // Pointing at the unlock is a quiet button under Replay, never the big one. The free taste is play, so it can be.
       $('next-btn').classList.toggle('button-primary', nextPaid || taste); $('next-btn').classList.toggle('button-secondary', !nextPaid && !taste);
       $('retry-btn').textContent = won ? 'Replay' : 'Try again'; $('retry-btn').classList.toggle('primary', !won || !nextOpen && !taste);
-      showDialog('result-dialog'); celebrate(won); return;
+      // After a late loss the free wave-6 restart leads, and starting over from wave 1 is the quiet choice.
+      const restart = $('checkpoint-btn'), offered = checkpoint && Boolean(restart);
+      if (restart) { restart.hidden = !offered; restart.textContent = `Try from wave ${Depths.checkpoint}`; restart.classList.toggle('primary', offered); }
+      if (offered) { $('retry-btn').textContent = 'Start over'; $('retry-btn').classList.remove('primary'); }
+      showDialog('result-dialog'); if (offered && restart.focus) restart.focus(); celebrate(won); return;
     }
     if (isRush()) {
       $('result-eyebrow').textContent = rushRecordBroken ? 'New best!' : 'Run over';
       $('result-title').textContent = `Wave ${game.wave}`;
-      $('result-message').textContent = `${game.bloomedCount} blooms${chainNote()} · tempo ×${game.tempo.toFixed(1)}`;
+      $('result-message').textContent = `${game.bloomedCount} blooms${chainNote()} · tempo ×${game.tempo.toFixed(1)}${game.tricks > 0 ? ` · ${game.tricks} ${game.tricks === 1 ? 'trick' : 'tricks'}` : ''}`;
       $('result-score').textContent = fmt(game.score);
       $('reward-flower').hidden = true; $('next-btn').hidden = true;
       $('retry-btn').textContent = 'Play again'; $('retry-btn').classList.add('primary');
@@ -1617,7 +1658,7 @@
   function openRush() { if (preview) exitPreview(); if (isRush() && !isDepth() && !game.over) { closeDialogs(); setRoute('game'); } else startLevel({ id: 'rush', name: 'Meadow Rush' }); }
   function openLevels() { if (preview) exitPreview(); closeDialogs(); setRoute('levels'); }
   function showUnlock() { const card = $('depth-unlock'); if (card) card.scrollIntoView({ behavior: save.settings.motion ? 'smooth' : 'auto', block: 'center' }); }
-  function startDepth(id, taste) { if (id === freshDepth) freshDepth = 0; if (preview) exitPreview(); startLevel({ id: 'rush', depth: id, name: Depths.level(id).name, taste: Boolean(taste) }, { theme: depthTheme(id) }); }
+  function startDepth(id, taste, from) { if (id === freshDepth) freshDepth = 0; if (preview) exitPreview(); startLevel({ id: 'rush', depth: id, name: Depths.level(id).name, taste: Boolean(taste), from: taste ? 1 : from || 1 }, { theme: depthTheme(id) }); }
   function replay() { if (isDepth()) startDepth(game.plan.id, isTaste()); else startLevel(game.level, { preview, theme }); }
   // The tutorial plays on the Sunny Meadow board. Finishing it (or skipping) marks it seen; the first time through
   // it leads straight into level 1, and it can be played again from How to play.
@@ -1867,7 +1908,7 @@
       accumulator += gdt;
       while (accumulator >= 1 / 120) { game.step(1 / 120); accumulator -= 1 / 120; }
       processEvents();
-      for (const ball of game.balls || []) ball.hot = (game.combo || 0) >= 8;
+      for (const ball of game.balls || []) ball.hot = !isRush() && (game.combo || 0) >= 8;
       game.particles = stepParticles(game.particles, gdt, 24, 396, 530);
       for (const p of game.floaters) { p.life -= gdt; p.y -= gdt * 12; }
       game.floaters = game.floaters.filter(p => p.life > 0).slice(-16);

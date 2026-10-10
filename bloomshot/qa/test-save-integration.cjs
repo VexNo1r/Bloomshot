@@ -740,13 +740,13 @@ test('A level opened by a first clear greets the player on the map until they pl
   app.click('depth-map', { depth: '1' }); game = depthGame(app); game.started = true; game.wave = 10; game.lives = 3; game._clearLevel(); settleLevel(app);
   app.click('result-garden-btn'); assert(!app.$('depth-map').innerHTML.includes('fresh'), 'a replayed level opens nothing new');
 });
-test('Running out of lives keeps the best wave, pays for the blooms, and Try again restarts the same level', () => {
+test('Running out of lives keeps the best wave, pays for the blooms, and Start over restarts the same level', () => {
   const app = boot(legacySave()); app.click('depth-map', { depth: '1' });
   let game = depthGame(app); game.started = true; game.wave = 6; game.totalBlooms = 90; game.score = 2100; game._lose(); settleLevel(app);
   const saved = app.saved(); assert.deepEqual(saved.depths, { 1: { stars: 0, best: 2100, wave: 6 } }); assert.deepEqual(saved.garden.depthBest, {});
   assert.equal(saved.garden.seeds, 4 + 14);
   assert.equal(app.$('result-eyebrow').textContent, 'Out of lives'); assert.equal(app.$('result-title').textContent, 'Wave 6 of 10');
-  assert.equal(app.$('next-btn').hidden, true); assert.equal(app.$('retry-btn').textContent, 'Try again');
+  assert.equal(app.$('next-btn').hidden, true); assert.equal(app.$('retry-btn').textContent, 'Start over');
   app.click('retry-btn'); game = depthGame(app); assert.equal(game.plan.id, 1); assert.equal(game.wave, 1);
   app.click('back-btn'); assert.equal(app.context.bloomshotState.route, 'levels');
   assert.match(app.$('depth-map').innerHTML, /Best: wave 6 of 10/); assert.match(app.$('depth-map').innerHTML, /class="depth-card locked" type="button" data-depth="2"/);
@@ -990,6 +990,98 @@ testAsync('The daily garden shares its number, stars and a tiny picture of each 
   const none = { ...fakeNative(), share: async () => ({ ok: false }) }, stuck = boot(legacySave(), { today: SATURDAY, native: none });
   stuck.click('garden-btn'); stuck.click('daily-btn'); finishDaily(stuck); stuck.click('share-btn'); await settled();
   assert.equal(stuck.$('toast').textContent, 'Sharing is not available here.');
+});
+// The wave-6 checkpoint: a free, unlimited restart after a late loss, with stars capped at two and said so.
+test('A level lost at wave 6 or later offers a free restart from wave 6 that starts there with three fresh lives', () => {
+  const app = boot(legacySave()); app.click('depth-map', { depth: '1' });
+  let game = depthGame(app); game.started = true; game.wave = 7; game.score = 2400; game.lives = 0; game._lose(); settleLevel(app);
+  assert.equal(app.$('result-dialog').open, true); assert.equal(app.$('result-eyebrow').textContent, 'Out of lives');
+  assert.equal(app.$('checkpoint-btn').hidden, false); assert.equal(app.$('checkpoint-btn').textContent, 'Try from wave 6');
+  assert(app.$('checkpoint-btn').classList.contains('primary'), 'the restart from wave 6 leads');
+  assert.equal(app.$('retry-btn').textContent, 'Start over'); assert(!app.$('retry-btn').classList.contains('primary'), 'starting over is the quiet choice');
+  assert.match(app.$('result-message').textContent, /A run from wave 6 can earn up to two stars\.$/, 'the card says plainly what the restart can earn');
+  const count = app.games.length;
+  app.click('checkpoint-btn'); game = depthGame(app);
+  assert.equal(app.games.length, count + 1, 'a new run'); assert.equal(game.plan.id, 1); assert.equal(game.plan.taste, false);
+  assert.equal(game.wave, 6); assert.equal(game.startWave, 6); assert.equal(game.lives, 3); assert.equal(game.score, 0);
+  assert.equal(app.$('result-dialog').open, false); assert.equal(app.$('checkpoint-btn').hidden, true);
+  app.frame(); assert.equal(app.$('level-label').textContent, 'Level 1 · Wave 6/10');
+  // Losing the restarted run late offers it again: the checkpoint has no limit.
+  game.started = true; game.wave = 9; game._lose(); settleLevel(app);
+  assert.equal(app.$('checkpoint-btn').hidden, false);
+  app.click('retry-btn'); game = depthGame(app); assert.equal(game.wave, 1, 'Start over begins at wave 1'); assert.equal(game.startWave, 1);
+  // An early loss offers only the usual restart.
+  game.started = true; game.wave = 5; game._lose(); settleLevel(app);
+  assert.equal(app.$('checkpoint-btn').hidden, true); assert.equal(app.$('retry-btn').textContent, 'Try again');
+  assert.match(app.$('result-message').textContent, /Try a new angle\.$/);
+});
+test('A checkpoint run pays seeds only for the waves it played, so restarting at wave 6 is never a seed farm', () => {
+  const app = boot(legacySave()); app.click('depth-map', { depth: '1' });
+  let game = depthGame(app); game.started = true; game.wave = 6; game._lose(); settleLevel(app);
+  const seeds = () => app.saved().garden.seeds, before = seeds();
+  app.click('checkpoint-btn'); game = depthGame(app); assert.equal(game.startWave, 6);
+  game.started = true; game._lose(); settleLevel(app);
+  assert.equal(seeds() - before, 0, 'losing straight away at wave 6 earns nothing for waves 1 to 5');
+  app.click('checkpoint-btn'); game = depthGame(app);
+  game.started = true; game.wave = 8; game.totalBlooms = 40; game._lose(); settleLevel(app);
+  assert.equal(seeds() - before, 4 + 2, 'forty blooms and the two waves it cleared');
+});
+test('A level cleared from the checkpoint records at most two stars and says how to earn three', () => {
+  const app = boot(legacySave()); app.click('depth-map', { depth: '1' });
+  let game = depthGame(app); game.started = true; game.wave = 8; game._lose(); settleLevel(app);
+  app.click('checkpoint-btn'); game = depthGame(app); assert.equal(game.startWave, 6);
+  game.started = true; game.wave = 10; game.lives = 3; game.score = 5000; game._clearLevel(); settleLevel(app);
+  assert.equal(game.stars, 2); assert.equal(app.saved().depths[1].stars, 2, 'three lives kept, but only two stars from wave 6');
+  assert.equal(app.$('result-message').textContent, 'Cleared from wave 6! Level 2 is open. Start at wave 1 for three stars.');
+  assert.match(app.$('result-stars').innerHTML, /(class="on"[^]*){2}class="off"/);
+  assert.equal(app.$('checkpoint-btn').hidden, true); assert.equal(app.$('retry-btn').textContent, 'Replay');
+  // Replay starts the full run from wave 1, which can still earn the third star.
+  app.click('retry-btn'); game = depthGame(app); assert.equal(game.wave, 1); assert.equal(game.startWave, 1);
+  game.started = true; game.wave = 10; game.lives = 3; game._clearLevel(); settleLevel(app);
+  assert.equal(app.saved().depths[1].stars, 3);
+});
+test('Nothing is offered for sale after a loss, even with the checkpoint showing, and a free taste has no checkpoint', () => {
+  const store = fakeStore({ live: true, available: true }), app = boot(cleared(1, 2, 3), { store });
+  app.click('depth-map', { depth: '4' });
+  let game = depthGame(app); game.started = true; game.wave = 7; game._lose(); settleLevel(app);
+  assert.equal(app.$('checkpoint-btn').hidden, false); assert.equal(app.$('result-offer').hidden, true); assert.equal(app.$('result-offer').innerHTML, '');
+  app.click('checkpoint-btn'); game = depthGame(app); assert.equal(game.plan.id, 4); assert.equal(game.wave, 6);
+  game.started = true; game.wave = 6; game._lose(); settleLevel(app);
+  assert.equal(app.$('result-offer').hidden, true); assert.deepEqual(store.purchases, [], 'no purchase was started');
+  const taste = boot(cleared(1, 2, 3, 4), { store: fakeStore({ live: true, available: true }) }); taste.click('depth-map', { depth: '5' });
+  const sample = depthGame(taste); assert.equal(sample.plan.taste, true);
+  sample.started = true; sample.wave = 3; sample._lose(); settleLevel(taste);
+  assert.equal(taste.$('checkpoint-btn').hidden, true); assert.equal(taste.$('result-offer').hidden, true);
+});
+test('Super Bloom, trick shots and long chains reach the board, the hint line and the run summary', () => {
+  const app = boot(legacySave()); app.click('depth-map', { depth: '1' });
+  const game = depthGame(app); game.started = true; game.status = 'flying'; app.frame();
+  game._charge(28.8, { by: 1 }); app.frame();
+  assert.equal(app.$('fever-banner').hidden, false); assert.equal(app.$('fever-banner').textContent, 'Super Bloom!');
+  assert.equal(app.$('fever-banner').getAttribute('aria-label'), 'Super Bloom, double points');
+  assert(Number(app.$('game-canvas').dataset.superBloom) > 5); assert.equal(app.$('game-canvas').dataset.sun, '0.00');
+  assert.equal(app.$('game-hint').textContent, 'Super Bloom! Seeds fly through flowers.');
+  assert(game.floaters.some(f => f.kind === 'wave' && f.text === 'Super Bloom!' && f.label === 'seeds fly through flowers'), 'the first one says what it does');
+  game.superBloom = .001; app.frame();
+  assert.equal(game.superBloom, 0); assert.equal(app.$('fever-banner').hidden, true);
+  assert.equal(app.$('game-hint').textContent, 'Tap to shoot. Gold crowns bloom their whole cluster.', 'the wave hint comes back');
+  game._charge(48, { by: 1 }); app.frame();
+  assert(game.floaters.some(f => f.kind === 'wave' && f.label === 'double points'), 'later ones are short');
+  const bud = game.buds.find(b => !b.bloomed); game._trick('bank', bud, 1, false); app.frame();
+  const stamp = game.floaters.find(f => f.kind === 'trick');
+  assert.deepEqual({ trick: stamp.trick, text: stamp.text, label: stamp.label }, { trick: 'bank', text: 'Bank shot!', label: '+300' });
+  assert(stamp.y > 65 && stamp.y <= 400, 'the stamp stays on the board'); assert.equal(app.$('announcement').textContent, 'Bank shot!');
+  // Praise waits for real chains: nothing at 5, the first word at 8, the next at 16.
+  const praise = () => game.floaters.filter(f => f.kind === 'combo').map(f => f.text);
+  game.floaters = []; game.event('bloom', { bud, gain: 100, combo: 5, mult: 2, chain: false }); app.frame(); assert.deepEqual(praise(), []);
+  game.event('bloom', { bud, gain: 100, combo: 8, mult: 2, chain: false }); app.frame(); assert.deepEqual(praise(), ['Lovely!']);
+  game.event('bloom', { bud, gain: 100, combo: 16, mult: 4, chain: false }); app.frame(); assert.deepEqual(praise(), ['Blooming!']);
+  game.event('chainEnd', { chain: 6 }); app.frame(); assert.deepEqual(praise(), ['Blooming!'], 'a short chain ends quietly');
+  game.event('chainEnd', { chain: 17 }); app.frame(); assert.deepEqual(praise(), ['17 in a row!']);
+  // The endless run's summary counts its trick shots.
+  app.click('back-btn'); app.click('levels-rush-btn');
+  const run = app.games.at(-1); assert.equal(run.plan, null); run.started = true; run.trickCount = 3; run.totalBlooms = 30; run.wave = 4; run._lose(); settleLevel(app);
+  assert.match(app.$('result-message').textContent, / · 3 tricks$/); assert.equal(app.$('checkpoint-btn').hidden, true);
 });
 (async () => {
 for (const { name, fn } of later) {

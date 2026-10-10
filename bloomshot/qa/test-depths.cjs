@@ -10,7 +10,7 @@ const Depths = require('../depths.js');
 const { RushGame } = require('../rush.js');
 const { BOUNDS, RADIUS, gatesFor, currentsFor } = require('../engine.js');
 const bot = require('./depths-bot.cjs');
-const results = [], observations = {};
+const results = [], observations = {}, startedAt = Date.now();
 function test(name, fn) {
   try { fn(); results.push({ name, passed: true }); }
   catch (error) { results.push({ name, passed: false, error: error.stack }); }
@@ -264,20 +264,47 @@ test('Briars grow back unless the whole patch blooms in time', () => {
   patch.forEach(b => game.strike(b)); advance(game, 6);
   assert(patch.every(b => b.bloomed && !b.regrowAt), 'a whole patch stays bloomed');
 });
+const botRuns = { supers: [], tricks: [] };
 test('A practice bot clears every level, and the levels get harder', () => {
   const good = { noise: 2.5, think: .3, thinkSpread: .3, bounces: 2 }, average = { noise: 4, think: .5, thinkSpread: .5, bounces: 1 };
   const lost = [];
   for (const id of ids) {
     for (let s = 1; s <= 2; s++) assert.equal(bot.play(id, { seed: s * 31 + id, ...good }).won, true, `a good player clears level ${id}`);
     let livesLost = 0;
-    for (let s = 1; s <= 3; s++) { const run = bot.play(id, { seed: s * 7919 + id, ...average }); livesLost += run.won ? 3 - run.lives : 3 + (10 - run.wave); }
-    lost.push(livesLost);
+    let supers = 0, tricks = 0;
+    for (let s = 1; s <= 3; s++) {
+      const run = bot.play(id, { seed: s * 7919 + id, ...average });
+      livesLost += run.won ? 3 - run.lives : 3 + (10 - run.wave); supers += run.supers; tricks += run.tricks;
+    }
+    lost.push(livesLost); botRuns.supers.push(supers / 3); botRuns.tricks.push(tricks / 3);
   }
   observations.averagePlayerLivesLost = lost;
+  observations.averagePlayerSuperBlooms = botRuns.supers.map(n => +n.toFixed(1));
+  observations.averagePlayerTricks = botRuns.tricks.map(n => +n.toFixed(1));
   const mean = list => list.reduce((a, b) => a + b, 0) / list.length;
   assert(lost[0] <= 1, 'the first level is gentle'); assert(lost[3] > lost[0] && lost[3] >= lost[1], 'the fourth level is the hardest free one');
   assert(mean(lost.slice(4)) > mean(lost.slice(0, 3)), 'the deeper levels are harder than the first three');
   assert(lost[9] > lost[0], 'the last level is harder than the first');
+});
+test('An average player sees a few Super Blooms and a handful of trick shots per level', () => {
+  assert.equal(botRuns.supers.length, ids.length, 'the practice runs finished');
+  const mean = list => list.reduce((a, b) => a + b, 0) / list.length;
+  const supers = mean(botRuns.supers), tricks = mean(botRuns.tricks);
+  assert(supers >= 2 && supers <= 8, `Super Blooms per level average ${supers.toFixed(1)}, want 2-8`);
+  assert(tricks >= 4 && tricks <= 30, `tricks per level average ${tricks.toFixed(1)}, want 4-30`);
+});
+test('Every boss has a name', () => {
+  const names = ids.map(id => Depths.wave(id, 10).buds.find(b => b.boss).name);
+  assert.deepEqual(names, ['Old Sunny', 'Rootknot', 'Mother Morel', 'Crystal Heart', 'Lantern Lily', 'Ammonite Queen', 'Ember Rose', 'Geode King', 'Thornmother', 'The Starseed']);
+  assert.equal(Depths.checkpoint, 6, 'runs can restart from wave 6');
+});
+test('Wave hints fit on one short line', () => {
+  every((id, n, w) => { if (w.hint) assert(w.hint.length <= 52, `level ${id} wave ${n} hint is ${w.hint.length} characters`); });
+});
+test('The whole suite runs in 40 seconds or less', () => {
+  const seconds = (Date.now() - startedAt) / 1000;
+  observations.runtimeSeconds = +seconds.toFixed(1);
+  assert(seconds <= 40, `took ${seconds.toFixed(1)} s`);
 });
 
 const report = { passed: results.filter(r => r.passed).length, failed: results.filter(r => !r.passed).length, observations, results };

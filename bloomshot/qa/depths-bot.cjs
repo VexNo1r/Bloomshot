@@ -2,7 +2,7 @@
 // A practice player for the level campaign. It traces each candidate angle through the board as it stands,
 // picks the shot whose first bud hit matters most (lowest, fastest, crowns, puffcaps, the boss) and fires
 // with a little aim error, the way a good human would. Used to check every level can be cleared and that
-// later levels are harder. Usage: play(levelId, { seed, noise }) -> { won, wave, lives, score, elapsed }.
+// later levels are harder. Usage: play(levelId, { seed, noise }) -> { won, wave, lives, score, elapsed, supers, tricks }.
 const Engine = require('../engine.js');
 const { RushGame } = require('../rush.js');
 const Depths = require('../depths.js');
@@ -71,10 +71,12 @@ function play(levelId, options = {}) {
       }
       const angle = (best ? best.angle : -Math.PI / 2) + gauss() * noise * Math.PI / 180;
       game.fire(Math.cos(angle), Math.sin(angle));
-      think = (options.think ?? .3) + random() * (options.thinkSpread ?? .35);
+      // A Super Bloom reloads fast and the shots fly through flowers, so the player fires quicker while it lasts.
+      think = game.superBloom > 0 ? .12 + random() * .1 : (options.think ?? .3) + random() * (options.thinkSpread ?? .35);
     }
     game.step(1 / 60); game.drainEvents();
   }
-  return { won: game.status === 'won', wave: game.wave, lives: game.lives, score: game.score, elapsed: Math.round(game.elapsed) };
+  return { won: game.status === 'won', wave: game.wave, lives: game.lives, score: game.score, elapsed: Math.round(game.elapsed),
+    supers: game.superCount, tricks: game.tricks };
 }
 module.exports = { play, plan, trace };
