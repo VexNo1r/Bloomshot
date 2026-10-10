@@ -545,10 +545,10 @@
   const budSeeds = new WeakMap(), budSprites = new WeakMap();
   const unfurlPick = new Set(), unfurlPool = [];
   const unfurlOptions = { time: 0, reducedMotion: false, quality: 0 };
-  const NO_DASH = [], LINK_DOTS = [.1, 6], STREAM_WIDE = [12, 8], STREAM_FINE = [2.5, 13], SPORE_RING = [.1, 6], SPORE_REACH = 80;
+  const NO_DASH = [], LINK_DOTS = [.1, 6], STREAM_WIDE = [12, 8], STREAM_FINE = [2.5, 13], SPORE_RING = [.1, 6], SPORE_REACH = 74;
   const CRACK_STEPS = [.26, .24, .2, .17, .13], PT = { x: 0, y: 0 };
   let trembleKey = null, trembleTime = 1;
-  const easeBack = (t, s) => { t = clamp(t, 0, 1) - 1; return 1 + (s + 1) * t * t * t + s * t * t; };
+  const bloomBack = (t, s) => { t = clamp(t, 0, 1) - 1; return 1 + (s + 1) * t * t * t + s * t * t; };
   const smooth = t => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
   function easeBounce(t) {
     t = clamp(t, 0, 1);
@@ -823,20 +823,29 @@
   // turned into place when drawn: one drawImage instead of up to twelve petals and their highlights. The outer layer
   // has 24 frames from .03 s, the inner layer 19 from .12 s. Each frame is painted the first time a bloom reaches it.
   // Regular buds only (r <= 16); a boss's single bloom goes petal by petal.
-  const SHEET_COLS = 6, SHEET_SCALE = 2.25;
+  // At most twelve sheets are kept. A full cache only frees a sheet no bloom has drawn for a few seconds; otherwise the
+  // new bloom goes petal by petal, so boards that mix sizes (gems, geodes) never make sheets churn. Bosses are not
+  // cached at all, so they never push a sheet out.
+  const SHEET_COLS = 6, SHEET_SCALE = 2.25, SHEET_MAX = 12, SHEET_IDLE = 180;
   const sheets = new Map();
+  let sheetClock = 0;
   function sheetFor(layer, type, r) {
-    const key = `${layer}:${type}:${r.toFixed(2)}`;
-    if (sheets.has(key)) return sheets.get(key);
     const form = OPEN[type], outer = layer === 'outer';
-    let sheet = null;
-    if (r <= 16 && (outer || !form.inner.ring)) {
-      const half = outer ? (r * form.reach * 1.12 + r * .5) * 1.12 : (r * form.inner.reach * 1.12 + 2) * 1.12;
-      const frames = outer ? 24 : 19, cell = Math.ceil(half * 2 * SHEET_SCALE);
-      const surface = makeSurface(cell * SHEET_COLS, cell * Math.ceil(frames / SHEET_COLS)), g = surface && surface.getContext('2d');
-      if (g) sheet = { surface, g, type, outer, cell, half: cell / SHEET_SCALE / 2, frames, from: outer ? .03 : .12, step: outer ? .5 / 23 : .02, baked: new Uint8Array(frames) };
+    if (!(r <= 16) || (!outer && form.inner.ring)) return null;
+    const key = `${layer}:${type}:${r.toFixed(2)}`;
+    let sheet = sheets.get(key);
+    if (sheet) { sheet.used = sheetClock; return sheet; }
+    if (sheets.size >= SHEET_MAX) {
+      let idleKey = null, idleAt = Infinity;
+      for (const [name, entry] of sheets) if (entry.used < idleAt) { idleAt = entry.used; idleKey = name; }
+      if (sheetClock - idleAt < SHEET_IDLE) return null;
+      sheets.delete(idleKey);
     }
-    if (sheets.size >= 12) sheets.delete(sheets.keys().next().value);
+    const half = outer ? (r * form.reach * 1.12 + r * .5) * 1.12 : (r * form.inner.reach * 1.12 + 2) * 1.12;
+    const frames = outer ? 24 : 19, cell = Math.ceil(half * 2 * SHEET_SCALE);
+    const surface = makeSurface(cell * SHEET_COLS, cell * Math.ceil(frames / SHEET_COLS)), g = surface && surface.getContext('2d');
+    if (!g) return null;
+    sheet = { surface, g, type, outer, cell, half: cell / SHEET_SCALE / 2, frames, from: outer ? .03 : .12, step: outer ? .5 / 23 : .02, baked: new Uint8Array(frames), used: sheetClock };
     sheets.set(key, sheet);
     return sheet;
   }
@@ -858,7 +867,7 @@
     for (let i = 0; i < n; i++) {
       const d = foldIndex(i, 0, n), order = d > 0 ? d * 2 - 1 : -d * 2, p = (t - delay - order * stagger) / span;
       if (p <= 0) continue;
-      const e = easeBack(p, 1.7);
+      const e = bloomBack(p, 1.7);
       g.save(); g.rotate(i * TAU / n - Math.sign(d) * twist * (1 - e)); g.scale(e * (wide + (1 - wide) * ease(p)), e); blit(g, sprite);
       if (outer && p < .45) { g.globalCompositeOperation = 'lighter'; g.globalAlpha = .5 * (1 - p / .45) * (1 - p / .45); blit(g, sprite); }
       g.restore();
@@ -908,13 +917,14 @@
     // Outer petals: each grows from nothing and swings from its folded angle to its open one, overshooting a little.
     const n = form.count, outer = sprites.outer, lead = leadPetal(impact, n, rot), shine = !still && quality < 1, sheet = still ? null : sprites.sheet;
     const k = sheet ? sheetFrame(sheet, outer, age) : 0;
+    if (sheet) sheet.used = sheetClock;
     if (k > 0) drawSheet(ctx, sheet, k, x, y, rot + lead * TAU / n);
     setFrame(x, y, rot);
     for (let i = 0; i < n && !sheet; i++) {
       const d = foldIndex(i, lead, n), order = d > 0 ? d * 2 - 1 : -d * 2;
       const p = (age - .03 - order * .3 / n) / .22;
       if (p <= 0) continue;
-      const e = easeBack(p, 1.7), length = 1 + Math.sin(i * 7.3 + phase) * .045, angle = i * TAU / n - Math.sign(d) * twist * (1 - e);
+      const e = bloomBack(p, 1.7), length = 1 + Math.sin(i * 7.3 + phase) * .045, angle = i * TAU / n - Math.sign(d) * twist * (1 - e);
       stamp(ctx, outer, 0, 0, angle, e * (.5 + .5 * ease(p)), e * length);
       // Each petal catches the light as it arrives.
       if (shine && p < .45) {
@@ -929,18 +939,19 @@
     const first = inner.ring ? 0 : leadPetal(impact, m, rot + inner.offset * TAU / m);
     if (innerSheet) {
       const j = sheetFrame(innerSheet, sprites.innerPetal, age);
+      innerSheet.used = sheetClock;
       if (j > 0) drawSheet(ctx, innerSheet, j, x, y, rot + (first + inner.offset) * TAU / m);
     } else if (!still && sprites.innerPetal) {
       setFrame(x, y, rot); ctx.globalAlpha = alpha * inner.alpha;
       for (let i = 0; i < m; i++) {
         const d = foldIndex(i, first, m), order = d > 0 ? d * 2 - 1 : -d * 2, q = (age - .12 - order * .16 / m) / .2;
         if (q <= 0) continue;
-        const e = easeBack(q, 1.7);
+        const e = bloomBack(q, 1.7);
         stamp(ctx, sprites.innerPetal, 0, 0, (i + inner.offset) * TAU / m - Math.sign(d) * twist * .6 * (1 - e), e * (.55 + .45 * ease(q)), e);
       }
       ctx.globalAlpha = alpha;
     } else if (p > 0) {
-      const e = easeBack(p, 1.7);
+      const e = bloomBack(p, 1.7);
       setFrame(x, y, rot); stamp(ctx, sprites.inner, 0, 0, -twist * .5 * (1 - e), e, e);
     }
     // The closed bud squashes along the hit and cracks, then pops like a bubble over the petals pushing out.
@@ -971,6 +982,7 @@
   }
   // Which fresh blooms get the full unfurl this frame: those closest to done, up to the budget. The rest crossfade.
   function pickUnfurls(buds, time, options) {
+    sheetClock++; // once per drawn frame: how recently each sheet was used
     unfurlPick.clear();
     if (options.reducedMotion) return unfurlPick;
     const limit = (Number(options.quality) || 0) >= 2 ? UNFURL_LOW : UNFURL_MAX;
@@ -1136,7 +1148,9 @@
       }
       if (kinds & KIND_PUFF) {
         // One cloud of spores swells from each puffcap out to its reach, and a spore drifts to each flower it touches.
+        // The cloud ends exactly at the puff's reach (PUFF_REACH in rush.js), so it shows which flowers it catches.
         RINGS.length = 0;
+        const reach = Number(root.BloomRush && root.BloomRush.PUFF_REACH) || SPORE_REACH;
         for (let i = 0; i < count; i++) {
           if (kindOf(LINK_ITEM[i]) !== KIND_PUFF) continue;
           const l = linkAt(i, time), at = Number.isFinite(LINK_ITEM[i].at) ? LINK_ITEM[i].at : time;
@@ -1144,7 +1158,7 @@
           for (let r = 0; r < RINGS.length && !seen; r += 3) seen = RINGS[r] === l.fx && RINGS[r + 1] === l.fy && RINGS[r + 2] === at;
           if (seen) continue;
           RINGS.push(l.fx, l.fy, at);
-          const u = clamp((time - at) / .4, 0, 1), radius = 8 + ease(u) * SPORE_REACH, fade = 1 - u * u;
+          const u = clamp((time - at) / .4, 0, 1), radius = 8 + ease(u) * (reach - 8), fade = 1 - u * u;
           if (!(fade > .004)) continue;
           ctx.beginPath(); ctx.arc(l.fx, l.fy, radius, 0, TAU);
           ctx.globalAlpha = .28 * fade; ctx.lineWidth = 9; ctx.strokeStyle = '#fff3d6'; ctx.stroke();
@@ -2586,7 +2600,7 @@
           if (k < 0) ctx.globalAlpha *= .25;
           else if (k < 1) {
             const drop = Number.isFinite(bud.enterDrop) ? bud.enterDrop : 48;
-            ctx.translate(0, -drop * (1 - (bud.enterBounce ? easeBounce(k) : easeBack(k, 1.4))));
+            ctx.translate(0, -drop * (1 - (bud.enterBounce ? easeBounce(k) : bloomBack(k, 1.4))));
             ctx.globalAlpha *= Math.min(1, .25 + k * 3);
           }
         }

@@ -17,7 +17,7 @@ const totals = { gradients: 0, surfaces: 0 };
 // A 2D context that records every call, keeps a real save/restore stack and the current transform, and rejects
 // non-finite numbers. drawImage calls are logged with where their center lands on screen and at what alpha.
 function recorder(surface) {
-  const calls = [], images = [], fills = [];
+  const calls = [], images = [], fills = [], arcs = [];
   let m = [1, 0, 0, 1, 0, 0], points = [];
   const stack = [];
   const state = { globalAlpha: 1, globalCompositeOperation: 'source-over', fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, shadowBlur: 0, shadowColor: 'transparent', shadowOffsetX: 0, shadowOffsetY: 0, lineCap: 'butt', lineJoin: 'miter', lineDashOffset: 0, font: '', textAlign: 'start', textBaseline: 'alphabetic', filter: 'none' };
@@ -42,7 +42,7 @@ function recorder(surface) {
     putImageData() {},
     beginPath() { points = []; },
     moveTo(x, y) { points.push([...apply(x, y), 'moveTo']); },
-    arc(x, y) { points.push([...apply(x, y), 'arc']); },
+    arc(x, y, radius) { points.push([...apply(x, y), 'arc']); arcs.push({ x, y, radius }); },
     quadraticCurveTo(cx, cy, x, y) { points.push([...apply(x, y), 'quad']); },
     fill() { const [x, y] = apply(0, 0); fills.push({ style: state.fillStyle, alpha: state.globalAlpha, x, y, points: points.slice() }); if (surface) surface.styles.add(state.fillStyle); },
     drawImage(img, ...args) {
@@ -70,7 +70,7 @@ function recorder(surface) {
       target[name] = value; return true;
     }
   });
-  return { ctx, calls, images, fills };
+  return { ctx, calls, images, fills, arcs };
 }
 class OffscreenCanvas {
   constructor(width, height) { this.width = width; this.height = height; this.id = ++totals.surfaces; this.context = null; this.styles = new Set(); }
@@ -367,6 +367,49 @@ test('Saves and restores balance in every bloom feature', () => {
     Art.drawChainLinks(ctx, rush([target], { pending: [{ id: target.id, at: 0, when: 1, via, from: { x: 0, y: 0 } }] }), .5, {});
     assert.equal(calls.filter(c => c === 'save').length, calls.filter(c => c === 'restore').length, via);
   }
+});
+test('Sheets never churn: a boss takes no slot, and boards that mix sizes reuse the cache instead of repainting', () => {
+  const Fresh = loadArt(true);
+  let now = 100;
+  // One frame of fresh blooms, each a new bud, .2 s into its unfurl; returns the sheets it drew from.
+  const frame = specs => {
+    now += 1 / 60;
+    const buds = specs.map(([type, r, extra], i) => bud({ type, r, x: 40 + i * 30, y: 120, bloomed: true, bloomAt: now - .2, ...extra }));
+    const { ctx, images } = recorder();
+    Fresh.draw(ctx, rush(buds), now, { showAim: false });
+    return new Set(images.filter(i => i.cut).map(i => i.img));
+  };
+  const regular = TYPES.map(type => [type, 11]);
+  // Gems (r 9) and a geode (r 14) on the same board as the regular buds: 9 + 6 + 3 sheets, more than the cache holds.
+  const mixed = [['gold', 9], ['coral', 9], ['lilac', 9], ['poppy', 14], ['coral', 14]];
+  // A boss bloom first: it goes petal by petal and must not hold sheet slots.
+  frame([['gold', 24, { boss: true }], ['coral', 26, { boss: true }]]);
+  const first = frame(regular);
+  assert.equal(first.size, 9, 'every regular type opens from its sheets (sky has no inner sheet)');
+  const seen = new Set(first);
+  frame(mixed); frame(regular); frame(mixed);
+  const settled = totals.surfaces;
+  for (let round = 0; round < 20; round++) {
+    for (const sheet of frame(regular)) seen.add(sheet);
+    for (const sheet of frame(mixed)) seen.add(sheet);
+  }
+  assert.equal(totals.surfaces, settled, 'no new surfaces once the cache is warm');
+  assert(seen.size <= 12, `at most twelve sheets in use (${seen.size})`);
+  for (const sheet of frame(regular)) assert(first.has(sheet), 'the regular buds keep their own sheets');
+  // A size nobody has drawn for a few seconds gives up its slot to the sizes in play.
+  for (let i = 0; i < 200; i++) frame(mixed);
+  assert.equal(frame(mixed).size, 10, 'idle sheets make room for the gems and geodes now on the board');
+});
+test("The puff's spore cloud ends exactly at the puff's reach", () => {
+  const target = bud({ x: 250, y: 220 }), from = { x: 200, y: 200 };
+  const ring = time => {
+    const { ctx, arcs } = recorder();
+    Art.drawChainLinks(ctx, rush([target], { pending: [{ id: target.id, at: 0, when: .3, via: 'puff', from }] }), time, {});
+    return Math.max(0, ...arcs.filter(a => near(a.x, from.x) && near(a.y, from.y) && a.radius > 6).map(a => a.radius));
+  };
+  const sizes = [.05, .15, .25, .35, .39].map(ring);
+  assert(sizes.every((size, i) => !i || size >= sizes[i - 1]), `it only grows (${sizes.map(r => r.toFixed(1))})`);
+  assert(sizes[sizes.length - 1] > 72 && Math.max(...sizes) <= 74 + 1e-9, `ends at the reach of 74 (${sizes[sizes.length - 1].toFixed(2)})`);
 });
 
 const report = { passed: results.filter(r => r.passed).length, failed: results.filter(r => !r.passed).length, results };
