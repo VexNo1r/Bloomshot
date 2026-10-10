@@ -1131,15 +1131,19 @@
     // A phone that cannot keep up gets lighter bursts (feel.js governor tiers).
     count = Math.max(4, Math.round(count * [1, .6, .35][game?.quality || 0]));
     const colors = { coral: '#ff5d94', gold: '#ffd148', lilac: '#a47dff', sky: '#45adff', poppy: '#ff7433' };
+    // A boss bursts from the side the seed struck, so its face stays readable through the hit-stop instead of
+    // vanishing under a glare of sparks frozen on its middle.
+    const rim = bud.boss && Number.isFinite(bud.impactAngle) ? (bud.r || 24) * .9 : 0;
+    const ox = bud.x - Math.cos(bud.impactAngle || 0) * rim, oy = bud.y - Math.sin(bud.impactAngle || 0) * rim;
     for (let i = 0; i < count; i++) {
       const a = i / count * Math.PI * 2 + Math.random() * .3, speed = 60 + Math.random() * 150, life = .7 + Math.random() * 1.3;
       const kind = i % 5 === 0 ? 'spark' : i % 3 === 0 ? 'pollen' : 'petal';
-      into.push({ x: bud.x, y: bud.y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed - 40, life, maxLife: life, color: kind === 'spark' ? '#fff7be' : colors[bud.type] || colors.coral, size: kind === 'pollen' ? 1.2 + Math.random() * 2 : 2.5 + Math.random() * 4, kind, rotation: a, spin: (Math.random() - .5) * 9, drag: kind === 'petal' ? 1.1 : .7, gravity: kind === 'petal' ? 90 : 35, flutter: kind === 'petal' ? 18 + Math.random() * 30 : 0, phase: Math.random() * 6.28 });
+      into.push({ x: ox, y: oy, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed - 40, life, maxLife: life, color: kind === 'spark' ? '#fff7be' : colors[bud.type] || colors.coral, size: kind === 'pollen' ? 1.2 + Math.random() * 2 : 2.5 + Math.random() * 4, kind, rotation: a, spin: (Math.random() - .5) * 9, drag: kind === 'petal' ? 1.1 : .7, gravity: kind === 'petal' ? 90 : 35, flutter: kind === 'petal' ? 18 + Math.random() * 30 : 0, phase: Math.random() * 6.28 });
     }
     // A colored shockwave ring and a couple of drifting glow motes per burst.
     const tint = colors[bud.type] || colors.coral;
     if (ring) into.push({ x: bud.x, y: bud.y, vx: 0, vy: 0, life: .55, maxLife: .55, kind: 'ring', color: tint, size: (bud.r || 12) * .8, grow: 30 + Math.min(40, count), gravity: 0, drag: 0 });
-    for (let i = 0; i < (ring ? 3 : 1); i++) {
+    for (let i = 0; i < (bud.boss ? 0 : ring ? 3 : 1); i++) {
       const a = Math.random() * Math.PI * 2, life = 1 + Math.random() * .8;
       into.push({ x: bud.x, y: bud.y, vx: Math.cos(a) * 30, vy: Math.sin(a) * 30 - 25, life, maxLife: life, kind: 'glow', color: tint, size: 2.5 + Math.random() * 2, gravity: -12, drag: .9 });
     }
@@ -1330,9 +1334,10 @@
     freeze = Math.max(freeze, hitStop.request(.09, performance.now() / 1000, true));
     // Glow motes left by the hits before this one would pile up white over the flower's face through the held frames.
     game.particles = game.particles.filter(p => !(p.kind === 'glow' && Math.hypot(p.x - bud.x, p.y - bud.y) < r * 1.3));
-    game.particles.push({ x: bud.x, y: bud.y, vx: 0, vy: 0, rotation: 0, life: .55, maxLife: .55, kind: 'light', color: '#ffd148', size: r * 2.2, grow: r * 3.2, gravity: 0, drag: 0 },
-      { x: bud.x, y: bud.y, vx: 0, vy: 0, rotation: 0, life: .6, maxLife: .6, kind: 'ring', color: '#ffd148', size: r * 1.2, grow: 170, gravity: 0, drag: 0 });
+    game.particles.push({ x: bud.x, y: bud.y, vx: 0, vy: 0, rotation: 0, life: .6, maxLife: .6, kind: 'ring', color: '#ffd148', size: r * 1.2, grow: 170, gravity: 0, drag: 0 });
     after(.12, () => {
+      // The warm light swells once the frozen blink is over, so the flower's squeezed face reads in the held frames.
+      game.particles.push({ x: bud.x, y: bud.y, vx: 0, vy: 0, rotation: 0, life: .55, maxLife: .55, kind: 'light', color: '#ffd148', size: r * 2.2, grow: r * 3.2, gravity: 0, drag: 0 });
       // Tier 2 still gets 16 pieces (burst() scales by the tier, so ask for the count that lands there).
       burst(bud, (game.quality || 0) === 2 ? 16 / .35 : 26, game.particles, currentKeepsake(), false);
       game.particles.push({ x: bud.x, y: bud.y, vx: 0, vy: 0, rotation: 0, life: .9, maxLife: .9, kind: 'ring', color: '#ffd148', size: r * 1.2, grow: 280, gravity: 0, drag: 0 });
@@ -1371,7 +1376,7 @@
     if (!origin || f.sweepWave === game.wave) return;
     f.sweepWave = game.wave;
     if (isDepth()) {
-      game.floaters = game.floaters.filter(item => !['wave', 'combo', 'bonus', 'title', 'trick', 'pop'].includes(item.kind));
+      game.floaters = game.floaters.filter(item => !['wave', 'combo', 'bonus', 'title', 'trick', 'pop', 'life'].includes(item.kind));
       // The ribbon sits clear of the flower that ended the level, and stays up until the result card comes.
       const bossName = f.bossName && f.impactWave === game.wave ? f.bossName : '';
       game.floaters.push({ kind: 'title', text: isTaste() ? 'Nice run!' : `Level ${game.plan.id} clear!`, label: bossName ? `${bossName} bloomed!` : game.plan.name,

@@ -751,7 +751,7 @@ body[data-mode="rush"] .fever-banner.soon:not([hidden]){animation-delay:0s}
    turning sun, the gold x2 badge and the hint under the board carry the Super Bloom there. */
 body[data-mode="rush"][data-boss="on"] .fever-banner{display:none}
 /* A new wave's 'Wave 3 of 10' ribbon rides the same top edge for under a second: the banner steps aside for it. */
-body[data-mode="rush"][data-ribbon="on"] .fever-banner{visibility:hidden}
+body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
 @keyframes super-pop{from{opacity:0;transform:translateX(-50%) translateY(var(--fever-y)) scale(.3) rotate(-12deg)}to{opacity:.94;transform:translateX(-50%) translateY(var(--fever-y)) scale(.62) rotate(-3deg)}}
 #checkpoint-btn{margin-top:10px}
 #checkpoint-btn+.button-link{margin-top:6px}

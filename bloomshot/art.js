@@ -2848,7 +2848,8 @@
     if (particle.kind === 'light') {
       // The finale's light: a warm glow on the flower that swells and fades, gilding it instead of bleaching the board.
       const q = 1 - f, rr = size + ease(q) * (particle.grow || 40), sprite = goldSprite();
-      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .62 * f * f;
+      // It swells in after the impact's freeze, so the boss's squeezed face reads in the hero frame.
+      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .72 * f * f * Math.min(1, q / .15);
       if (sprite) dab(ctx, sprite, particle.x, particle.y, rr / 40); else circle(ctx, particle.x, particle.y, rr * .5, 'rgba(255,224,130,.5)');
       ctx.restore(); return;
     }
@@ -3811,7 +3812,7 @@
       else if (bud.geode && !bud.bloomed) drawGeode(ctx, bud, time);
       else if (bud.gem && !bud.bloomed) drawGem(ctx, bud, time, options.reducedMotion);
       else if (bud.bloomed && unfurling.has(bud)) drawUnfurl(ctx, bud, age, unfurlOptions);
-      else if (!options.reducedMotion && !bud.boss && (bud.bloomed ? age >= 0 && age < FLASH : time - bud.hitAt >= 0 && time - bud.hitAt < FLASH)) drawSilhouette(ctx, bud.x, bud.y, radius, bud.type, 1.08);
+      else if (!options.reducedMotion && (bud.bloomed ? !bud.boss && age >= 0 && age < FLASH : time - bud.hitAt >= 0 && time - bud.hitAt < FLASH)) drawSilhouette(ctx, bud.x, bud.y, radius, bud.type, 1.08);
       else drawFlower(ctx, bud.x, bud.y, radius, bud.type, openness, time, flowerVariants.get(bud));
       if (bud.briar && bud.bloomed && bud.regrowAt) drawRegrow(ctx, bud, time);
       if (bud.shield && !bud.bloomed) drawCup(ctx, bud);
