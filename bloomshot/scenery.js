@@ -1388,25 +1388,10 @@
   }
 
   // ---------- Level 7: Ember Hollows ----------
-  // A basalt column seen from the front: a hexagonal top and three faces, lit from the upper left.
-  const BASALT = ['#5f3a4c', '#4a2c3c', '#3c2332', '#2f1a27', '#170a12'];
-  function hexColumn(ctx, x, top, w, bottom, pal = BASALT, seed = 1) {
-    const [lid, lit, face, dark, ink] = pal, h = w * .2, l = x - w / 2, r = x + w / 2, a = x - w * .22, b = x + w * .22;
-    poly(ctx, [[l, top], [a, top + h], [a, bottom], [l, bottom]], lit, null);
-    poly(ctx, [[a, top + h], [b, top + h], [b, bottom], [a, bottom]], face, null);
-    poly(ctx, [[b, top + h], [r, top], [r, bottom], [b, bottom]], dark, null);
-    const rr = rng(seed);
-    for (let y = top + 22 + rr() * 30; y < bottom - 8; y += 34 + rr() * 50) {
-      const tilt = (rr() - .5) * 4;
-      stroke(ctx, [[l + 1, y + tilt], [a, y + 2], [b, y + 2 - tilt * .3], [r - 1, y - tilt]], ink, 1.1);
-      stroke(ctx, [[a + 2, y + 3.4], [b - 2, y + 3.4 - tilt * .3]], 'rgba(255,190,170,.12)', 1);
-    }
-    poly(ctx, [[l, top], [r, top], [r, bottom], [l, bottom]], null, ink, 1.5);
-    stroke(ctx, [[a, top + h], [a, bottom]], ink, 1); stroke(ctx, [[b, top + h], [b, bottom]], ink, 1);
-    poly(ctx, [[l, top], [a, top - h], [b, top - h], [r, top], [b, top + h], [a, top + h]], lid, ink, 1.5);
-    stroke(ctx, [[l + 3, top - .4], [a + 1, top - h + 1.4], [b - 2, top - h + 1.4]], 'rgba(255,214,190,.35)', 1.1);
-  }
-  // A seam of magma: a wide soft glow, then a hot line with a white core.
+  // Deep in the basalt the only light is the lava. It pools in the low corners and glows up through the cracks, so
+  // every column is warm at its foot and sinks into cool violet above, and the column ends hanging from the roof are
+  // lit from underneath. Smoke holds the glow in the middle distance; embers ride the heat up the walls.
+  // A seam of magma: a wide soft glow, then a hot line with a white core. (The basalt rocks in play use it too.)
   function magma(ctx, pts, width = 1) {
     const path = () => { ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (const p of pts.slice(1)) ctx.lineTo(p[0], p[1]); };
     ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
@@ -1418,121 +1403,263 @@
     for (let i = 0; i < steps; i++) { x += dx + (r() - .5) * jag; y += dy + (r() - .5) * jag; out.push([x, y]); }
     return out;
   }
-  function ember(ctx, x, y, s, hot) {
-    dot(ctx, x, y, s * 3.4, 'rgba(255,130,60,.13)');
-    if (hot) sparkle(ctx, x, y, s * 2.2, '#ffd9a0'); else dot(ctx, x, y, s, '#ffb35c');
+  const emberRGB = c => c[0] === '#' ? [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16)) : c.slice(c.indexOf('(') + 1, -1).split(',').map(Number);
+  function emberMix(c0, c1, t) {
+    const a = emberRGB(c0), b = emberRGB(c1), k = Math.max(0, Math.min(1, t));
+    return `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * k)).join(',')})`;
   }
-  function lavaPool(ctx, x, y, rx, ry, seed) {
-    halo(ctx, x, y, rx * 1.7, '255,120,50', .06);
-    const rim = blob(x, y, rx + 7, ry + 5, seed, .1, 11), pool = blob(x, y - 1, rx, ry, seed + 1, .1, 11);
-    shape(ctx, rim, '#2b1520', '#140810', 1.6);
-    stroke(ctx, rim.slice(5, 9).map(([px, py]) => [px, py - 1.6]), 'rgba(255,170,110,.3)', 1.2);
-    shape(ctx, pool, '#f2662f', null);
+  function emberLine(ctx, pts, color, width) {
+    ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (const p of pts.slice(1)) ctx.lineTo(p[0], p[1]);
+    ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke();
+  }
+  // The two lava pools, and how strongly their light reaches a point.
+  const EMBER_POOLS = [[76, 510, 1], [364, 522, .8]];
+  const emberHeat = (x, y) => Math.min(1, EMBER_POOLS.reduce((m, [px, py, k]) => Math.max(m, k * Math.exp(-((x - px) ** 2 + ((y - py) * 1.3) ** 2) / 26000)), 0) + .12);
+  const EMBER_NEAR = { shade: '#1a1224', top: '#3a3152', mid: '#4a3048', foot: '#9a4a3c', hot: '#e0784a', lid: '#5a5276', lidWarm: '#a0645a' };
+  const EMBER_FORE = { shade: '#0e0812', top: '#1c1526', mid: '#201420', foot: '#40201f', hot: '#7a3426', lid: '#2a2236', lidWarm: '#5a3030' };
+  // A basalt column seen front-on: three faces of a hexagonal prism under its lid. All faces share the one light, the
+  // glow from the floor, so the gradient runs on the scene's heights and warms with nearness to a pool; the face turned
+  // to the glow (toward +1: the right face, -1: the left) gets all of it. Cross-joints break the shaft, and the lid is
+  // thinner the nearer it sits to eye level.
+  function emberColumn(ctx, x, top, w, bottom, o = {}) {
+    const pal = o.pal || EMBER_NEAR, toward = o.toward || 0, tilt = o.tilt || 0, r = rng(o.seed || 7);
+    const h = w * .19 * Math.max(.3, Math.min(1, (top - 60) / 260)), l = x - w / 2, rr = x + w / 2, a = x - w * .25, b = x + w * .25, T = px => top + (px - x) * tilt;
+    const heat = o.heat ?? emberHeat(x, bottom - 20), foot = emberMix(pal.foot, pal.hot, (heat - .45) * 1.6);
+    if (o.occlude !== false) soft(ctx, () => ctx.rect(l - 2, T(x) - h * 1.4, w + 4, bottom - top + h * 2), 'rgba(12,5,16,.5)', 9);
+    const lift = toward > 0 ? [.14, .62, 1] : toward < 0 ? [1, .62, .14] : [.5, 1, .5];
+    const faces = [[[l, T(l)], [a, T(a) + h], [a, bottom], [l, bottom]], [[a, T(a) + h], [b, T(b) + h], [b, bottom], [a, bottom]], [[b, T(b) + h], [rr, T(rr)], [rr, bottom], [b, bottom]]];
+    faces.forEach((f, i) => poly(ctx, f, lin(ctx, 0, 30, 0, 476, [[0, emberMix(pal.shade, pal.top, lift[i])], [.52, emberMix(pal.shade, pal.mid, lift[i])], [1, emberMix(pal.shade, foot, lift[i] * (.5 + heat * .5))]])));
+    ctx.save(); ctx.beginPath(); ctx.rect(l, T(x) - h * 2, w, bottom - T(x) + h * 3); ctx.clip();
+    // Weathering streaks and chipped edges, then the joints: a dark gap and a lip below it catching what light there is.
+    for (let i = 0; i < 4; i++) { const sx = l + 2 + r() * (w - 4), sy = top + h + r() * (bottom - top) * .7; stroke(ctx, [[sx, sy], [sx + (r() - .5) * 2, sy + 16 + r() * 50]], 'rgba(10,4,16,.16)', 1 + r() * 1.8); }
+    for (let i = 0; i < 3; i++) { const side = r() < .5, cy = top + 30 + r() * (bottom - top - 40), ex = side ? l : rr, d = side ? 1 : -1, cw = 2 + r() * 3; poly(ctx, [[ex, cy], [ex + d * cw, cy + 3 + r() * 3], [ex, cy + 8 + r() * 6]], 'rgba(14,6,20,.55)'); }
+    for (let y = top + 22 + r() * 34; y < bottom - 14; y += 30 + r() * 48) {
+      const s = (r() - .5) * 3, j = [[l, y + s], [a, y + h + s * .3], [b, y + h - s * .3], [rr, y - s]];
+      if (o.magmaBelow && y > o.magmaBelow && r() < .6) { magma(ctx, j, .5); continue; }
+      emberLine(ctx, j, 'rgba(12,5,18,.6)', 1.2);
+      const warm = Math.min(1, heat * Math.max(0, (y - 200) / 260));
+      emberLine(ctx, j.map(([px, py]) => [px, py + 1.5]), warm > .2 ? `rgba(255,170,130,${(.06 + warm * .26).toFixed(3)})` : 'rgba(190,180,240,.1)', .9);
+    }
+    // The lit edge: the corner turned toward the glow, and a rim down the outside of the column, both fading upward.
+    const ex = toward > 0 ? b : toward < 0 ? a : null, ox = toward > 0 ? rr - .7 : toward < 0 ? l + .7 : null;
+    const fade = al => lin(ctx, 0, bottom, 0, Math.max(top, bottom - 300), [[0, `rgba(255,176,120,${(al * heat).toFixed(3)})`], [1, 'rgba(255,176,120,0)']]);
+    if (ex !== null) {
+      emberLine(ctx, [[ex, T(ex) + h], [ex, bottom]], fade(.35), 1); emberLine(ctx, [[ox, T(ox)], [ox, bottom]], fade(.75), 1.5);
+      const cx = toward > 0 ? l + .7 : rr - .7;
+      emberLine(ctx, [[cx, T(cx) + 2], [cx, bottom]], lin(ctx, 0, top, 0, bottom, [[0, 'rgba(150,140,230,.22)'], [1, 'rgba(150,140,230,0)']]), 1.2);
+    }
+    ctx.restore();
+    // The lid sees only the cool air above, with a little warmth near the floor.
+    const lid = [[l, T(l)], [a, T(a) - h], [b, T(b) - h], [rr, T(rr)], [b, T(b) + h], [a, T(a) + h]];
+    poly(ctx, lid, lin(ctx, 0, T(x) - h, 0, T(x) + h, [[0, emberMix(pal.shade, pal.lid, .72)], [1, emberMix(pal.lid, pal.lidWarm, heat * Math.max(0, (top - 220) / 240))]]));
+    emberLine(ctx, [[l + .5, T(l)], [a, T(a) + h - .4], [b, T(b) + h - .4], [rr - .5, T(rr)]], 'rgba(222,208,255,.24)', .9);
+    if (o.chip) poly(ctx, [[b + (rr - b) * .1, T(b) - h * 1.1], [rr + 1, T(rr) - 1], [rr + 1, T(rr) + h * 2.6], [rr - w * .16, T(rr) + h * .6]], emberMix(pal.shade, pal.top, .3));
+  }
+  // A column end hanging from the roof, seen from below: its underside takes what glow climbs this high.
+  function emberHang(ctx, x, w, by, glow, pal = EMBER_NEAR, haze = 0) {
+    const h = w * .19 * Math.max(.3, Math.min(1, (190 - by) / 170)), l = x - w / 2, rr = x + w / 2, a = x - w * .25, b = x + w * .25;
+    const fog = c => emberMix(c, '#3a2a4c', haze);
+    soft(ctx, () => ctx.rect(l - 1, -20, w + 2, by + 20), 'rgba(10,4,14,.4)', 6);
+    const faces = [[[l, -14], [a, -14], [a, by - h], [l, by]], [[a, -14], [b, -14], [b, by - h], [a, by - h]], [[b, -14], [rr, -14], [rr, by], [b, by - h]]];
+    [.36, .7, .22].forEach((k, i) => poly(ctx, faces[i], lin(ctx, 0, Math.max(0, by - 90), 0, by, [[0, fog(emberMix(pal.shade, pal.top, k * .7))], [1, fog(emberMix(pal.shade, '#5e3a52', k))]])));
+    for (let y = by - 22 - (x * 3 % 11); y > 4; y -= 30 + (x * 7 % 17)) emberLine(ctx, [[l, y], [a, y - h], [b, y - h], [rr, y]], `rgba(12,5,18,${(.5 - haze * .3).toFixed(3)})`, 1);
+    const under = [[l, by], [a, by - h], [b, by - h], [rr, by], [b, by + h], [a, by + h]];
+    poly(ctx, under, lin(ctx, 0, by - h, 0, by + h, [[0, fog(emberMix('#4a3048', '#b0645a', glow))], [1, fog(emberMix('#55344a', '#d88a68', glow))]]));
+    emberLine(ctx, [[l + .5, by], [a, by + h - .3], [b, by + h - .3], [rr - .5, by]], `rgba(255,200,160,${(.12 + glow * .3).toFixed(3)})`, .8);
+  }
+  // A column of the far hall, flat in the smoke, lit only at its foot.
+  function emberFar(ctx, x, top, w, bottom, c) {
+    const h = w * .19 * Math.max(.3, Math.min(1, (top - 60) / 260)), l = x - w / 2, rr = x + w / 2, a = x - w * .25, b = x + w * .25;
+    poly(ctx, [[l, top], [a, top + h], [b, top + h], [rr, top], [rr, bottom], [l, bottom]], lin(ctx, 0, top, 0, bottom, [[0, c.face], [.62, c.face], [1, c.foot]]));
+    poly(ctx, [[l, top], [a, top + h], [a, bottom], [l, bottom]], c.side);
+    poly(ctx, [[l, top], [a, top - h], [b, top - h], [rr, top], [b, top + h], [a, top + h]], c.lid);
+  }
+  // The lava: a lip of cooled rock with its back wall lit by the melt; the melt white-hot where it wells up, skinned
+  // with dark crust toward its edges, and every crack in the crust glowing.
+  function emberPool(ctx, x, y, rx, ry, seed) {
+    const r = rng(seed), pool = blob(x, y, rx, ry, seed + 1, .09, 14), at = (a, k, dy = 0) => [x + Math.cos(a) * rx * k, y + Math.sin(a) * ry * k + dy];
+    soft(ctx, () => ctx.ellipse(x, y + 1, rx + 12, ry + 7, 0, 0, TAU), 'rgba(16,4,10,.6)', 7);
+    // The hollow it lies in: the far wall lit hot by the melt below it.
+    const hollow = pool.map(([px, py]) => [x + (px - x) * 1.07, y + (py - y) * 1.3 - 3]);
+    shape(ctx, hollow, lin(ctx, 0, y - ry * 1.3 - 3, 0, y, [[0, '#ffa058'], [.45, '#b04428'], [1, '#5a1c1c']]), null);
+    shape(ctx, pool, rad(ctx, x - rx * .1, y, rx * 1.02, [[0, '#fff4c8'], [.2, '#ffd56c'], [.48, '#ff9a38'], [.8, '#ee5c22'], [1, '#c43a1a']]), null);
     clipTo(ctx, pool, () => {
-      shape(ctx, pool.map(([px, py]) => [x + (px - x) * .78 - rx * .08, y + (py - y) * .6 - ry * .2]), '#ff9a3c', null);
-      const r = rng(seed + 2);
+      // The melt cools and darkens toward its edge, and floes of crust drift on it, each rimmed with light.
+      ctx.beginPath(); smooth(ctx, pool, true); ctx.lineWidth = ry * .8; ctx.strokeStyle = 'rgba(120,28,16,.5)'; ctx.stroke();
       for (let i = 0; i < 5; i++) {
-        const cx = x - rx * .7 + r() * rx * 1.4, cy = y - ry * .5 + r() * ry, crust = blob(cx, cy, 4 + r() * 7, 2 + r() * 2.4, seed + 10 + i, .25, 7);
-        shape(ctx, crust, '#8f2f22', '#5a1912', 1); stroke(ctx, crust.slice(4, 7), 'rgba(255,190,120,.5)', .8);
+        const a = r() * TAU, len = .2 + r() * .45, k = .52 + r() * .36, thick = .08 + r() * .1, floe = [];
+        for (let t = 0; t <= 4; t++) floe.push(at(a + len * t / 4, k + thick * Math.sin(t / 4 * Math.PI) * (.6 + r() * .6)));
+        for (let t = 4; t >= 0; t--) floe.push(at(a + len * t / 4, k - thick * Math.sin(t / 4 * Math.PI) * (.6 + r() * .6)));
+        soft(ctx, () => smooth(ctx, floe, true), 'rgba(255,220,130,.75)', 2.2);
+        shape(ctx, floe, i % 2 ? '#5a1c14' : '#6e2418', null);
+        stroke(ctx, floe.slice(0, 5), 'rgba(255,150,80,.4)', .7);
       }
-      for (let i = 0; i < 3; i++) { const bx = x - rx * .5 + r() * rx, by = y - ry * .3 + r() * ry * .6; ctx.beginPath(); ctx.ellipse(bx, by, 2.6, 1.3, 0, 0, TAU); ctx.strokeStyle = '#ffe2a0'; ctx.lineWidth = .9; ctx.stroke(); }
+      for (let i = 0; i < 3; i++) { const bx = x - rx * .3 + r() * rx * .5, by = y - ry * .25 + r() * ry * .4; ctx.beginPath(); ctx.ellipse(bx, by, 2 + r() * 2.4, .9 + r() * .6, 0, 0, TAU); ctx.strokeStyle = 'rgba(255,250,224,.85)'; ctx.lineWidth = .7; ctx.stroke(); }
     });
-    shape(ctx, pool, null, '#7a2216', 1.4);
-    stroke(ctx, pool.slice(6, 9).map(([px, py]) => [px, py + 1.4]), '#ffd38a', 1.2);
+    // The near rim of the hollow overlaps the melt; its edge catches the glow.
+    const outer = [], inner = [];
+    for (let a = .05; a <= Math.PI - .05 + 1e-6; a += (Math.PI - .1) / 10) { outer.push(at(a, 1.14, 4)); inner.unshift(at(a, .98, -1.4 - Math.sin(a) * 1.5)); }
+    const rimPts = outer.concat(inner);
+    shape(ctx, rimPts, lin(ctx, 0, y, 0, y + ry + 6, [[0, '#4a2228'], [1, '#22101a']]), null);
+    stroke(ctx, inner.slice(1, -1), 'rgba(255,176,110,.7)', 1.1);
+    bloom(ctx, x - rx * .1, y, rx * .8, '255,236,170', .3);
   }
-  function obsidian(ctx, x, y, w, h, tilt) {
-    crystal(ctx, x, y, w, h, tilt, ['#6b5a86', '#2e2240', '#1d1529', '#0e0816']);
+  // Embers riding the heat up a wall: a curving drift from the source, thinning and cooling as they climb.
+  function emberDrift(ctx, p0, p1, p2, n, seed, spread) {
+    const r = rng(seed);
+    for (let i = 0; i < n; i++) {
+      const t = Math.pow(r(), 1.35), [px, py] = bezierAt(p0, p1, p2, t), x = px + (r() - .5) * spread * (.4 + t), y = py + (r() - .5) * 16;
+      const s = (1.5 - t * .7) * (.6 + r() * .8), a = (1 - t * .65) * (.7 + r() * .3);
+      ctx.fillStyle = rad(ctx, x, y, s * 4.5, [[0, `rgba(255,120,40,${(a * .35).toFixed(3)})`], [1, 'rgba(255,120,40,0)']]); ctx.fillRect(x - s * 5, y - s * 5, s * 10, s * 10);
+      dot(ctx, x, y, s * .75, `rgba(255,${Math.round(200 + 40 * (1 - t))},${Math.round(120 + 60 * (1 - t))},${a.toFixed(3)})`);
+    }
   }
-  // A fire salamander basking on a warm column top, tail hanging over the edge.
-  function salamander(ctx, x, y, s, flip) {
+  // Obsidian: glassy black blades, cool violet on the facet facing up, the lava reflected along the foot.
+  function emberShard(ctx, x, y, w, h, tilt) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(tilt);
+    soft(ctx, () => ctx.ellipse(0, 0, w * 1.3, 2.2, 0, 0, TAU), 'rgba(10,2,8,.6)', 2);
+    const blade = [[-w, 0], [-w * .8, -h * .62], [0, -h], [w * .9, -h * .58], [w, 0]];
+    poly(ctx, blade, '#120a18');
+    poly(ctx, [[-w, 0], [-w * .8, -h * .62], [0, -h], [w * .1, 0]], lin(ctx, 0, -h, 0, 0, [[0, '#5a5080'], [.5, '#2a2040'], [1, '#a8482c']]));
+    emberLine(ctx, [[-w * .78, -h * .58], [0, -h + .8]], 'rgba(226,216,255,.6)', .8);
+    emberLine(ctx, [[w * .92, -h * .08], [w * .82, -h * .5]], 'rgba(255,160,100,.55)', .8);
+    ctx.restore();
+  }
+  // Glowing bracket fungus on a column face: fans of warm flesh brightest at the rim, gills beneath, a glow on the stone.
+  function emberBracket(ctx, x, y, w, flip) {
+    ctx.save(); ctx.translate(x, y); ctx.scale(flip ? -1 : 1, 1);
+    bloom(ctx, w * .5, w * .1, w * 2, '255,140,70', .22);
+    soft(ctx, () => ctx.ellipse(w * .4, w * .36, w * .5, w * .12, 0, 0, TAU), 'rgba(16,6,14,.4)', 2);
+    ctx.beginPath(); ctx.moveTo(0, w * .02); ctx.quadraticCurveTo(w * .55, w * .34, w * .98, w * .04); ctx.quadraticCurveTo(w * .5, w * .16, 0, -w * .06); ctx.closePath();
+    ctx.fillStyle = '#8a3422'; ctx.fill();
+    for (let k = 1; k < 6; k++) emberLine(ctx, [[0, 0], [w * k / 6, w * (.06 + .2 * Math.sin(k / 6 * Math.PI))]], 'rgba(255,170,110,.35)', .5);
+    ctx.beginPath(); ctx.moveTo(0, -w * .3); ctx.bezierCurveTo(w * .46, -w * .56, w * 1.04, -w * .32, w, w * .02); ctx.quadraticCurveTo(w * .5, -w * .02, 0, -w * .04); ctx.closePath();
+    ctx.fillStyle = lin(ctx, 0, 0, w, 0, [[0, '#5a2420'], [.5, '#c45e36'], [.88, '#ffb070'], [1, '#ffe2a8']]); ctx.fill();
+    for (const k of [.4, .7]) { ctx.beginPath(); ctx.ellipse(0, -w * .02, w * k, w * k * .44, -.08, -1.25, .05); ctx.strokeStyle = 'rgba(100,30,20,.32)'; ctx.lineWidth = .6; ctx.stroke(); }
+    ctx.restore();
+  }
+  // The fire salamander, basking on a column top above the right-hand pool, its belly lit from below.
+  function emberSalamander(ctx, x, y, s, flip) {
     ctx.save(); ctx.translate(x, y); ctx.scale(flip ? -s : s, s);
-    const ink = '#6a1c14', skin = '#ee6a3e', belly = '#f9a66b', spot = '#ffd166';
-    stroke(ctx, [[14, -3], [22, -2], [26, 4], [24, 12], [19, 14]], ink, 6.4);
-    stroke(ctx, [[14, -3], [22, -2], [26, 4], [24, 12], [19, 14]], skin, 4.2);
-    for (const [lx, ly, a] of [[-8, 0, -.5], [8, 0, .5]]) { ctx.save(); ctx.translate(lx, ly); ctx.rotate(a); ctx.beginPath(); ctx.ellipse(0, 1.6, 2, 3.4, 0, 0, TAU); ctx.fillStyle = skin; ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = 1; ctx.stroke(); ctx.restore(); }
+    const line = '#7a2618', skin = lin(ctx, 0, -12, 0, 2, [[0, '#c8462a'], [.6, '#e86438'], [1, '#ffa45e']]), spot = '#ffd36a';
+    soft(ctx, () => ctx.ellipse(2, 1.5, 22, 2.4, 0, 0, TAU), 'rgba(12,4,10,.55)', 2);
+    const tail = [[14, -3], [22, -2], [26, 4], [24, 12], [19, 15]];
+    stroke(ctx, tail, line, 6); stroke(ctx, tail, '#d4502e', 4); stroke(ctx, tail.map(([px, py]) => [px + .8, py + .4]), 'rgba(255,170,100,.55)', 1.2);
+    for (const [lx, ly, a] of [[-8, 0, -.5], [8, 0, .5]]) { ctx.save(); ctx.translate(lx, ly); ctx.rotate(a); ctx.beginPath(); ctx.ellipse(0, 1.6, 2, 3.4, 0, 0, TAU); ctx.fillStyle = '#b8402a'; ctx.fill(); ctx.restore(); }
     const body = [[-14, -2], [-8, -7.6], [4, -8], [15, -5], [16, -1], [4, .6], [-8, .6]];
-    shape(ctx, body, skin, null); cel(ctx, body, '#d9542d', -1, 2.2); shape(ctx, body, null, ink, 1.3);
-    stroke(ctx, [[-8, -.6], [4, -.4], [13, -1.6]], belly, 1.2);
+    shape(ctx, body, skin, line, 1.1);
+    stroke(ctx, [[-8, -.2], [4, 0], [13, -1.2]], 'rgba(255,214,150,.8)', 1.1);
     for (const [sx, sy, sr] of [[-4, -5, 1.6], [3, -6, 1.3], [9, -4.4, 1.2], [21, 0, 1], [24.4, 7, 1]]) dot(ctx, sx, sy, sr, spot);
     const head = [[-24, -3], [-22.4, -9.6], [-15, -12], [-9, -8.6], [-8, -2], [-15, .8], [-21.6, .6]];
-    shape(ctx, head, skin, null); cel(ctx, head, '#d9542d', 1, 2); shape(ctx, head, null, ink, 1.3);
+    shape(ctx, head, skin, line, 1.1);
+    stroke(ctx, [[-22, -.6], [-15, .2], [-9.5, -1.6]], 'rgba(255,214,150,.75)', 1);
     dot(ctx, -13, -10.4, 1.3, spot);
     dot(ctx, -18.4, -6.4, 2.2, '#2a0d0a'); dot(ctx, -19.1, -7.2, .8, '#ffffff');
-    ctx.beginPath(); ctx.moveTo(-23, -2.2); ctx.quadraticCurveTo(-19, .2, -15.4, -2.6); ctx.strokeStyle = '#2a0d0a'; ctx.lineWidth = .9; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-23, -2.2); ctx.quadraticCurveTo(-19, .2, -15.4, -2.6); ctx.strokeStyle = '#5a160e'; ctx.lineWidth = .9; ctx.stroke();
     dot(ctx, -14.6, -4.4, 1.5, 'rgba(255,200,170,.6)');
-    for (const [lx, a] of [[-11, -.3], [6, .4]]) { ctx.save(); ctx.translate(lx, 0); ctx.rotate(a); ctx.beginPath(); ctx.ellipse(0, 1.8, 2.2, 3.6, 0, 0, TAU); ctx.fillStyle = skin; ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = 1; ctx.stroke(); for (const t of [-1.4, 0, 1.4]) dot(ctx, t, 5.2, .7, ink); ctx.restore(); }
+    for (const [lx, a] of [[-11, -.3], [6, .4]]) { ctx.save(); ctx.translate(lx, 0); ctx.rotate(a); ctx.beginPath(); ctx.ellipse(0, 1.8, 2.2, 3.6, 0, 0, TAU); ctx.fillStyle = '#e86438'; ctx.fill(); ctx.strokeStyle = line; ctx.lineWidth = .9; ctx.stroke(); for (const t of [-1.4, 0, 1.4]) dot(ctx, t, 5.2, .7, line); ctx.restore(); }
     ctx.restore();
   }
-  function paintEmber(ctx, framed) {
-    const back = ctx.createLinearGradient(0, 0, 0, 560);
-    back.addColorStop(0, '#2f1a29'); back.addColorStop(.55, '#3a2030'); back.addColorStop(1, '#452431');
-    ctx.fillStyle = back; ctx.fillRect(0, 0, 420, 560);
-    // Far back: a hall of columns, dim and warm, shorter toward the middle.
-    const far = ['#45293a', '#3f2535', '#392131', '#33202d', '#2a1824'];
-    ctx.save();
-    for (const [x, top, w] of [[22, 112, 32], [56, 150, 26], [80, 204, 22], [112, 270, 30], [140, 318, 20], [176, 356, 26], [204, 372, 18], [228, 350, 24], [262, 334, 20], [292, 276, 30], [322, 236, 22], [344, 188, 26], [376, 150, 32], [406, 98, 28]]) { ctx.globalAlpha = .3 + Math.min(1, Math.abs(x - 210) / 170) * .3; hexColumn(ctx, x, top, w, 470, far, x); }
-    ctx.restore();
-    const heat = ctx.createLinearGradient(0, 300, 0, 470);
-    heat.addColorStop(0, 'rgba(255,120,60,0)'); heat.addColorStop(1, 'rgba(255,120,60,.10)');
-    ctx.fillStyle = heat; ctx.fillRect(0, 300, 420, 170);
-    // The roof: basalt, column ends hanging down like organ pipes, magma glowing in the joints.
-    const roof = [[-10, -10], [430, -10], [430, 36], [380, 44], [320, 34], [250, 46], [190, 36], [130, 46], [70, 34], [-10, 44]];
-    caveWall(ctx, roof, '#2a1622', '#22111b', '#140810');
-    for (const [x, w, len] of [[48, 24, 40], [72, 20, 26], [104, 18, 16], [150, 16, 10], [282, 16, 12], [318, 20, 22], [348, 22, 36], [374, 18, 20]]) {
-      const top = edgeAt(roof.slice(2).reverse(), x) - 6, bottom = top + len, h = w * .2;
-      poly(ctx, [[x - w / 2, top], [x - w * .22, top], [x - w * .22, bottom + h], [x - w / 2, bottom]], '#3a2231', null);
-      poly(ctx, [[x - w * .22, top], [x + w * .22, top], [x + w * .22, bottom + h], [x - w * .22, bottom + h]], '#2f1a28', null);
-      poly(ctx, [[x + w * .22, top], [x + w / 2, top], [x + w / 2, bottom], [x + w * .22, bottom + h]], '#241320', null);
-      poly(ctx, [[x - w / 2, top], [x - w / 2, bottom], [x - w * .22, bottom + h], [x + w * .22, bottom + h], [x + w / 2, bottom], [x + w / 2, top]], null, '#140810', 1.4);
-      stroke(ctx, [[x - w * .22, top + 2], [x - w * .22, bottom + h - 1]], '#140810', .9); stroke(ctx, [[x + w * .22, top + 2], [x + w * .22, bottom + h - 1]], '#140810', .9);
-    }
-    magma(ctx, [[20, 18], [44, 26], [60, 22], [86, 30]], .8);
-    magma(ctx, [[300, 22], [330, 28], [348, 20], [372, 26], [400, 18]], .8);
-    magma(ctx, [[196, 10], [214, 16], [232, 12]], .6);
-    // The side walls: steps of columns, the near ones overlapping the far, magma in the cracks between.
-    const backWall = [[-10, 40], [40, 46], [52, 120], [44, 200], [60, 260], [-10, 270]];
-    caveWall(ctx, backWall, '#2a1622', '#22111b', '#140810');
-    caveWall(ctx, [[430, 40], [384, 48], [372, 110], [384, 180], [366, 250], [430, 260]], '#2a1622', '#22111b', '#140810');
-    magma(ctx, crackPath(44, 120, -2, 16, 6, 3, 6), .9);
-    magma(ctx, crackPath(380, 112, 1, 18, 5, 4, 6), .9);
-    for (const [x, top, w, sd] of [[8, 74, 30, 1], [36, 148, 26, 2], [412, 96, 30, 3], [388, 176, 26, 4]]) hexColumn(ctx, x, top, w, 470, BASALT, sd);
-    magma(ctx, [[22, 150], [23, 200], [21, 260], [23, 330]], .7);
-    magma(ctx, [[400, 178], [401, 240], [399, 300]], .7);
-    for (const [x, top, w, sd] of [[18, 252, 32, 5], [48, 318, 24, 6], [22, 388, 30, 7], [404, 270, 30, 8], [374, 346, 24, 9], [400, 404, 30, 10]]) hexColumn(ctx, x, top, w, 470, BASALT, sd);
-    salamander(ctx, 370, 342, 1.12, false);
-    // Ember brackets: shelf fungus that has learned to glow, stepping up the left columns.
-    for (const [x, y, w] of [[60, 370, 12], [59, 356, 17], [60, 341, 11], [37, 438, 14], [37, 425, 9]]) {
-      dot(ctx, x + w * .3, y, w * 1.4, 'rgba(255,140,60,.10)');
-      ctx.beginPath(); ctx.moveTo(x - 1, y - w * .34); ctx.bezierCurveTo(x + w * .5, y - w * .62, x + w * 1.08, y - w * .3, x + w, y + w * .04); ctx.quadraticCurveTo(x + w * .5, y + w * .26, x - 1, y + w * .2); ctx.closePath();
-      ctx.fillStyle = '#e8743a'; ctx.fill(); ctx.strokeStyle = '#5a1a12'; ctx.lineWidth = 1.1; ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(x + w * .15, y + w * .1); ctx.quadraticCurveTo(x + w * .55, y + w * .2, x + w * .92, y + .4); ctx.strokeStyle = '#ffd38a'; ctx.lineWidth = 1.1; ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(x + w * .1, y - w * .14); ctx.quadraticCurveTo(x + w * .45, y - w * .4, x + w * .8, y - w * .08); ctx.strokeStyle = 'rgba(255,220,170,.55)'; ctx.lineWidth = .8; ctx.stroke();
-    }
-    // Little crusts of glowing lichen on the column faces.
-    for (const [x, y] of [[30, 290], [12, 420], [394, 320], [410, 450], [52, 366]]) { dot(ctx, x, y, 3.4, 'rgba(255,140,60,.18)'); dot(ctx, x, y, 1.4, '#ff9a48'); dot(ctx, x + 2.4, y + 1.2, .9, '#ffc070'); }
-    // Floor: the tops of short columns make a worn hexagon pavement.
-    band(ctx, ridge(456, 2, 77, 40), 560, '#2d1824', '#140810', 1.8);
-    clipTo(ctx, [[-10, 458], [430, 458], [430, 600], [-10, 600]], () => {
-      const r = rng(707);
-      for (let row = 0; row < 6; row++) {
-        const y = 466 + row * 17, w = 36 + row * 4, h = 8 + row * 1.4;
-        for (let col = -1; col < 14; col++) {
-          const x = col * w * .78 + (row % 2) * w * .39 - 8, tone = r();
-          const hex = [[x - w / 2, y], [x - w / 4, y - h], [x + w / 4, y - h], [x + w / 2, y], [x + w / 4, y + h], [x - w / 4, y + h]];
-          poly(ctx, hex, tone < .33 ? '#3a2130' : tone < .66 ? '#361f2c' : '#331c29', 'rgba(20,8,16,.75)', 1.2);
-          stroke(ctx, [[x - w / 2 + 2, y - .5], [x - w / 4 + 1, y - h + 1.4], [x + w / 4 - 2, y - h + 1.4]], 'rgba(255,200,180,.08)', 1);
-        }
+  // The floor: the worn tops of short columns, a causeway in perspective, dark except where a pool lights it; the
+  // gaps run with magma only right beside the lava.
+  function emberFloor(ctx) {
+    band(ctx, ridge(452, 1.6, 77, 40), 560, lin(ctx, 0, 450, 0, 560, [[0, '#2e1c2c'], [1, '#12080e']]), null);
+    const r = rng(707), near = (x, y) => EMBER_POOLS.reduce((m, [px, py, k]) => Math.max(m, k * Math.exp(-((x - px) ** 2 + ((y - py) * 1.6) ** 2) / 7000)), 0);
+    let y = 458, h = 3.6;
+    for (let row = 0; y < 590; row++) {
+      const w = h * 4, step = w * .76;
+      for (let k = -1; k * step < 440; k++) {
+        if (r() < .05) continue;
+        const z = r() < .14 ? -h * (.8 + r() * .8) : (r() - .5) * h * .5, x = k * step + (row % 2) * step * .5 - 6, yy = y + (k % 2 ? h * .55 : 0) + z, heat = near(x, yy);
+        const top = [[x - w / 2, yy], [x - w / 4, yy - h], [x + w / 4, yy - h], [x + w / 2, yy], [x + w / 4, yy + h], [x - w / 4, yy + h]];
+        const lidC = emberMix(emberMix('#2c2034', '#36283e', r()), '#c06a3c', heat * 1.05);
+        poly(ctx, [[x - w / 2, yy], [x - w / 4, yy + h], [x + w / 4, yy + h], [x + w / 2, yy], [x + w / 2, yy + h * 1.7 - z], [x - w / 2, yy + h * 1.7 - z]], emberMix('#140a12', '#62281e', heat));
+        poly(ctx, top.map(([px, py]) => [x + (px - x) * .94, yy + (py - yy) * .9]), lin(ctx, 0, yy - h, 0, yy + h, [[0, emberMix(lidC, '#24182c', .3)], [1, lidC]]));
+        emberLine(ctx, [[x - w * .44, yy - .2], [x - w * .23, yy - h * .82], [x + w * .2, yy - h * .82]], `rgba(214,196,250,${(.05 + (1 - heat) * .04).toFixed(3)})`, .7);
+        if (heat > .5 && r() < (heat - .35) * .8) magma(ctx, [[x - w / 2, yy + h * .1], [x - w / 4, yy + h * 1.05], [x + w / 4, yy + h * 1.05], [x + w / 2, yy + h * .1]].slice(r() < .5 ? 0 : 1, 3 + (r() < .5)), .3 + heat * .2);
       }
-    });
-    // Lava pools in the corners, with glassy obsidian and embers rising off them.
-    lavaPool(ctx, 60, 524, 44, 12, 21); lavaPool(ctx, 366, 532, 38, 11, 31);
-    for (const [x, y, w, h, t] of [[18, 500, 9, 30, -.25], [30, 506, 7, 18, .3], [112, 540, 6, 14, .4], [404, 506, 9, 28, .25], [392, 512, 6, 15, -.35], [318, 548, 6, 12, -.3]]) obsidian(ctx, x, y, w, h, t);
-    const re = rng(919);
-    for (let i = 0; i < 46; i++) {
-      const left = i % 2 === 0, x = left ? 10 + re() * 70 : 340 + re() * 70, y = 70 + Math.pow(re(), .7) * 440;
-      ember(ctx, x, y, .7 + re() * .8, re() < .2);
+      y += h * 1.9; h *= 1.21;
     }
-    for (const [x, y] of [[96, 498], [72, 470], [50, 446], [340, 500], [356, 470], [384, 440], [120, 490], [308, 486]]) ember(ctx, x, y, 1, false);
+    // The far floor sinks into the haze in the middle of the hall; at the walls it meets the columns in shadow.
+    ctx.save(); ctx.translate(210, 452); ctx.scale(1, .2);
+    ctx.fillStyle = rad(ctx, 0, 0, 220, [[0, 'rgba(110,56,74,.8)'], [.6, 'rgba(100,50,70,.4)'], [1, 'rgba(100,50,70,0)']]); ctx.fillRect(-220, -220, 440, 440);
+    ctx.restore();
+    for (const [x, w] of [[30, 90], [390, 90]]) soft(ctx, () => ctx.ellipse(x, 456, w, 7, 0, 0, TAU), 'rgba(16,6,14,.55)', 8);
+  }
+  // The roof: a vault of basalt whose column ends hang down, short over the middle, long at the walls.
+  function emberRoof(ctx) {
+    wash(ctx, lin(ctx, 0, -10, 0, 70, [[0, '#120c1e'], [1, 'rgba(18,12,30,0)']]), null, 1, -10, -10, 440, 80);
+    const r = rng(303);
+    for (const [x0, n, extra] of [[-6, 4, 40], [58, 3, 14], [104, 5, 8], [176, 3, 0], [226, 4, 4], [292, 3, 12], [340, 5, 30]]) {
+      let x = x0;
+      for (let i = 0; i < n; i++) {
+        const w = 13 + r() * 10, d = Math.abs(x - 210) / 210, by = 14 + Math.pow(d, 2.2) * 120 + Math.sin(i / Math.max(1, n - 1) * Math.PI) * extra + r() * 8;
+        emberHang(ctx, x, w, by, .14 + d * .26, EMBER_NEAR, .55);
+        x += w * .84;
+      }
+    }
+    air(ctx, -10, 200, '40,30,62', .2, 0);
+    for (const [x, w, by, g] of [[-6, 36, 176, .42], [24, 30, 132, .4], [50, 24, 96, .36], [72, 20, 70, .3], [92, 18, 50, .26], [120, 16, 34, .2], [304, 16, 40, .22], [328, 20, 58, .28], [352, 24, 84, .34], [380, 30, 122, .4], [410, 36, 160, .44]]) emberHang(ctx, x, w, by, g);
+  }
+  // A long layer of smoke lying in the hall: a soft wavy band, thicker in the middle, its edges lost.
+  function emberSmoke(ctx, y, x0, x1, thick, color, seed, blur = 12) {
+    const top = ridge(y, thick * .4, seed, 36, x0, x1), under = ridge(y + thick, thick * .3, seed + 1, 44, x0, x1).reverse();
+    const pts = top.map(([x, yy]) => [x, yy + (1 - Math.sin(Math.PI * (x - x0) / (x1 - x0))) * thick * .5]).concat(under.map(([x, yy]) => [x, yy - (1 - Math.sin(Math.PI * Math.max(0, Math.min(1, (x - x0) / (x1 - x0))))) * thick * .5]));
+    soft(ctx, () => smooth(ctx, pts, true), color, blur);
+  }
+  function paintEmber(ctx, framed) {
+    // The hollow: cool violet up in the dark, warming through mauve to a smoky rose where the lava light reaches.
+    wash(ctx, lin(ctx, 0, 0, 0, 470, [[0, '#1c1832'], [.28, '#2a2042'], [.6, '#462a48'], [.84, '#633544'], [1, '#7c4240']]));
+    bloom(ctx, 210, 474, 330, '255,128,80', .26);
+    // The far hall: columns standing back into the smoke, stepping down toward the middle.
+    const farA = { face: '#3a2a48', side: '#33243f', lid: '#4a3c5e', foot: '#6a3a48' };
+    for (const [x, top, w] of [[6, 70, 30], [34, 112, 24], [58, 150, 28], [84, 200, 20], [104, 228, 26], [128, 270, 18], [150, 300, 24], [176, 334, 20], [196, 352, 16], [216, 344, 22], [240, 330, 18], [262, 306, 26], [286, 268, 20], [306, 236, 24], [330, 190, 30], [356, 150, 22], [380, 118, 26], [408, 86, 30]]) emberFar(ctx, x, top, w, 470, farA);
+    air(ctx, 20, 470, '118,62,86', 0, .62);
+    // Smoke hanging in the hall, holding the glow.
+    for (const [y, x0, x1, th, c, sd] of [[118, 60, 300, 12, 'rgba(118,100,168,.14)', 1], [150, 150, 430, 16, 'rgba(118,100,168,.12)', 2], [214, -20, 250, 18, 'rgba(150,104,160,.13)', 3], [262, 170, 440, 22, 'rgba(170,100,130,.14)', 4], [330, -20, 300, 24, 'rgba(196,110,120,.14)', 5], [396, 100, 440, 26, 'rgba(214,120,110,.16)', 6]]) emberSmoke(ctx, y, x0, x1, th, c, sd);
+    // The middle distance: shorter columns closing in from both sides.
+    const farB = { face: '#3d2944', side: '#312136', lid: '#524266', foot: '#7c403e' };
+    for (const [x, top, w] of [[74, 236, 30], [100, 302, 26], [124, 358, 30], [148, 404, 22], [280, 394, 24], [302, 348, 30], [328, 290, 26], [350, 242, 32]]) emberFar(ctx, x, top, w, 472, farB);
+    air(ctx, 200, 470, '124,62,78', .1, .42);
+    bloom(ctx, 210, 466, 200, '255,150,96', .18);
+    emberRoof(ctx);
+    // The walls: tall columns into the roof, then steps coming down toward the middle, each warmer than the last.
+    for (const [x, top, w, sd] of [[-4, -40, 34, 11], [22, 120, 30, 1], [48, 232, 32, 2], [76, 326, 28, 3], [98, 410, 24, 4]]) emberColumn(ctx, x, top, w, 472, { toward: 1, seed: sd, magmaBelow: 360, chip: sd === 2 });
+    for (const [x, top, w, sd, t] of [[426, -40, 36, 12, 0], [398, 92, 32, 5, 0], [372, 210, 30, 6, -.03], [348, 318, 30, 7, 0], [324, 420, 22, 8, .05]]) emberColumn(ctx, x, top, w, 472, { toward: -1, seed: sd, tilt: t, magmaBelow: 380, chip: sd === 6 });
+    // A crack in the left wall bleeds a thread of lava down into the pool.
+    const fall = [[29, 412], [30, 436], [28, 458], [31, 480], [38, 498]];
+    bloom(ctx, 30, 460, 54, '255,120,50', .32);
+    for (const [w, c] of [[9, 'rgba(255,110,50,.16)'], [4.4, '#c8481c'], [2.8, '#ff9338'], [1.1, '#ffe8a8']]) stroke(ctx, fall, c, w);
+    magma(ctx, [[17, 416], [24, 411], [30, 412], [36, 409]], .75);
+    // Bracket fungi on the left wall, the salamander basking on the right.
+    for (const [x, y, w] of [[34, 352, 13], [34, 338, 9], [62, 404, 11]]) emberBracket(ctx, x, y, w, false);
+    emberSalamander(ctx, 350, 318, 1.05, false);
+    // The floor, the launch stone and the lava pools.
+    emberFloor(ctx);
+    soft(ctx, () => ctx.ellipse(210, 520, 80, 22, 0, 0, TAU), 'rgba(14,4,12,.6)', 10);
+    const dais = [[148, 504], [180, 484], [240, 484], [272, 504], [240, 524], [180, 524]];
+    poly(ctx, [[148, 504], [180, 524], [240, 524], [272, 504], [272, 520], [240, 542], [180, 542], [148, 520]], lin(ctx, 148, 0, 272, 0, [[0, '#6a3028'], [.35, '#3a1a24'], [.7, '#3a1a24'], [1, '#5a2a26']]));
+    wash(ctx, lin(ctx, 0, 506, 0, 542, [[0, 'rgba(14,4,10,0)'], [1, 'rgba(14,4,10,.6)']]), null, 1, 148, 506, 124, 36);
+    poly(ctx, dais, lin(ctx, 148, 0, 272, 0, [[0, '#7a4a48'], [.3, '#4e3446'], [.7, '#4e3446'], [1, '#6a4246']]));
+    clipTo(ctx, dais, () => {
+      soft(ctx, () => ctx.ellipse(210, 490, 56, 9, 0, 0, TAU), 'rgba(160,150,214,.16)', 8);
+    });
+    emberLine(ctx, [[149, 504], [180, 523.4], [240, 523.4], [271, 504]], 'rgba(255,186,150,.38)', 1);
+    emberLine(ctx, [[149, 503.6], [180, 484.6], [240, 484.6], [271, 503.6]], 'rgba(220,206,255,.16)', .9);
+    for (const [x, y, rx, ry, sd] of [[EMBER_POOLS[0][0], EMBER_POOLS[0][1], 60, 15, 21], [EMBER_POOLS[1][0], EMBER_POOLS[1][1], 40, 10, 31]]) {
+      bloom(ctx, x, y - 8, rx * 2.4, '255,112,44', .34);
+      emberPool(ctx, x, y, rx, ry, sd);
+    }
+    for (const [x, y, w, h, t] of [[132, 530, 4.6, 12, .3], [142, 534, 3.4, 8, -.2], [318, 550, 4.4, 10, -.3], [404, 520, 6, 20, .22], [394, 526, 4.2, 12, -.32], [10, 566, 12, 44, .12], [30, 566, 8, 26, .42], [-4, 560, 9, 30, -.2]]) emberShard(ctx, x, y, w, h, t);
+    // The lava's light rising up the walls, and embers riding it.
+    for (const [x, a, len, al] of [[66, -1.5, 330, .08], [96, -1.68, 240, .05], [372, -1.66, 300, .06]]) shaft(ctx, x, 516, a, len, 20, 46, '255,140,80', al);
+    emberDrift(ctx, [66, 510], [20, 380], [44, 140], 30, 11, 36);
+    emberDrift(ctx, [372, 524], [410, 400], [386, 200], 22, 12, 30);
+    emberDrift(ctx, [104, 520], [136, 476], [116, 440], 6, 13, 26);
+    // Foreground: a broken stump in the lower right corner, almost in silhouette.
+    emberColumn(ctx, 408, 478, 58, 600, { pal: EMBER_FORE, toward: -1, seed: 9, tilt: .1, heat: .8 });
+    grade(ctx, 'rgba(110,104,200,.5)', 'rgba(255,140,80,.45)', 'rgba(24,8,26,.6)');
+    grain(ctx, .08);
     if (framed) frame(ctx, '#a5503a', '#ffb27a');
   }
 
