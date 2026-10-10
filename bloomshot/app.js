@@ -93,8 +93,10 @@
   // The levels run on the Rush engine with a plan of ten waves each. Levels past the free ones wait for the full unlock.
   const isDepth = () => isRush() && Boolean(game.plan);
   const depthsOwned = () => Boolean(store && store.owns(Depths.entitlement));
-  const depthPaid = id => id <= Depths.free || depthsOwned();
-  const depthOpen = id => Depths.unlocked(save.depths, id, depthsOwned());
+  // PLAYTEST BRANCH ONLY (never merges): ?alllevels opens all ten levels so a tester can jump to any of them.
+  const playtestAll = (() => { try { return new URLSearchParams(location.search).has('alllevels'); } catch (_) { return false; } })();
+  const depthPaid = id => playtestAll || id <= Depths.free || depthsOwned();
+  const depthOpen = id => (playtestAll && Boolean(Depths.level(id))) || Depths.unlocked(save.depths, id, depthsOwned());
   const depthTheme = id => `depth-${Depths.level(id).key}`;
   function depthPlan(id) { const level = Depths.level(id); return { id, name: level.name, waves: Depths.waveCount, wave: n => Depths.wave(id, n) }; }
   // The level the map points at: the first open one without stars, otherwise the deepest open one.
