@@ -18,7 +18,7 @@ Open http://127.0.0.1:4387/ . Reuse an existing server; an optional port is `nod
 
 ## Play controls
 
-- Rush: drag above the seed, or drag from the seed toward your target, then release one ball. The pod holds 4 seeds (a burst at most every .15 s); each flower a seed hits returns half a seed, and an empty slot regrows in 6x the wave reload (about 3.4 s on level 1).
+- Rush: drag above the seed, or drag from the seed toward your target, then release one ball. The pod holds 4 seeds, fired no closer than .15 s apart; each flower a seed hits returns half a seed (a turning shell that bats it away, a quarter), and an empty slot regrows in 6x the wave reload (about 3.4 s on level 1). While the pod is empty the aim line is hollow: an aim held .2 s or more and let go up to .6 s before the next seed waits for it and fires. Let go sooner and the aim stays on the board; one quick tap sends it once the seed is in.
 - Flowers descend after the first shot. Three breached clusters end the run.
 - Gold relay flowers affect two neighbors. Six direct hits charge the manual Split, which adds two balls. Five balls maximum.
 - Turn the leaf to redirect shots; two seconds between turns.

@@ -118,7 +118,7 @@ function boot(raw, { storageFails = false, search = '', otherSave, store, native
     BloomLevels: { ...Levels, worlds: [...Levels.worlds, FUTURE] }, BloomMoon: Moon, BloomKoi: Koi, BloomGarden: Garden, BloomGoals: goals ? Goals : QuietGoals, ...(store ? { BloomStore: store } : {}), ...(native ? { BloomNative: native } : {}), BloomEngine: { ...Engine, Game: ObservedGame }, BloomRush: { RushGame: ObservedRush }, BloomDepths: Depths, BloomPowers: Powers, BloomTutorial: require('../tutorial.js'), BloomPetals: require('../petals.js'), BloomScenery: { paint: noop, has: () => true },
     BloomSound: { wake: noop, play: noop, setEnabled: noop }, BloomKeepsakes: Keepsakes,
     BloomArt: { draw: (ctx, state, time, options) => boardDraws.push(options.keepsake ? options.keepsake.id : 'meadow'), drawFlower: noop, drawMoon: noop, koiFish: noop,
-      drawGarden: noop, drawProjectile: noop, drawParticle: noop, drawSeed: noop, drawPowerIcon: noop },
+      drawGarden: noop, drawProjectile: noop, drawParticle: noop, drawSeed: noop, drawPowerIcon: noop, podSlot: i => ({ x: 240 + 22 * i, y: 513 }) },
     BloomMeadow: { plots: Garden.plots.map((p, i) => ({ id: p.id, x: 65 + i * 50, y: 150, labelY: 180, accent: p.color })),
       decor: Garden.decor.map((d, i) => ({ id: d.id, x: 40 + i * 60, y: 200, accent: '#ffffff', icon: [40 + i * 60, 190, 40] })),
       friends: Garden.decor.map((d, i) => ({ id: d.friend.id, decorId: d.id, x: 40 + i * 60, y: 180 })), reactSeconds: 1.1,
@@ -1143,6 +1143,72 @@ test('Super Bloom, trick shots and long chains reach the board, the hint line an
   app.click('back-btn'); app.click('levels-rush-btn');
   const run = app.games.at(-1); assert.equal(run.plan, null); run.started = true; run.trickCount = 3; run.totalBlooms = 30; run.wave = 4; run._lose(); settleLevel(app);
   assert.match(app.$('result-message').textContent, / · 3\u00a0tricks$/); assert.equal(app.$('checkpoint-btn').hidden, true);
+});
+test('The seed pod in the app: its tip shows once and is saved, the hint and sign follow the pod, a held aim waits for its seed, and refund sparks stay few', () => {
+  const app = boot({ ...legacySave(), settings: { sound: false, haptics: false, motion: true } });
+  assert.equal(app.saved().podMet, false, 'an older save has not met the pod yet');
+  app.click('depth-map', { depth: '1' }); const game = depthGame(app); settleLevel(app);
+  // A still board with one flower far off in a corner and nothing to bounce off, so straight-up shots feed nothing.
+  const far = { id: 'far', group: 'far', x: 40, y: 60, baseX: 40, startY: 60, r: 11, type: 'gold', relay: false, hp: 1, maxHp: 1, fall: 1, sway: 0, swayW: 0, swayPhase: 0, hitAt: -100, bloomed: false, bloomAt: -100 };
+  game.buds = [far]; game.descentSpeed = 0; game.drops = []; game.bumpers = [];
+  const canvas = app.$('game-canvas'), hint = () => app.$('game-hint').textContent, label = () => app.$('guide-label').textContent;
+  const press = (x, y) => canvas.emit('pointerdown', { isPrimary: true, pointerId: 1, clientX: x, clientY: y });
+  const release = (x, y) => canvas.emit('pointerup', { pointerId: 1, clientX: x, clientY: y });
+  const wait = ms => { for (let t = 0; t < ms; t += 17) app.frame(17); };
+  const until = (check, ms = 6000) => { for (let t = 0; t < ms && !check(); t += 17) app.frame(17); assert(check(), 'timed out'); };
+  app.$('toast').textContent = '';
+  for (let i = 0; i < 4; i++) { press(210, 120); release(210, 120); wait(220); }
+  assert.equal(game.shotNumber, 4); assert.equal(game.pod, 0);
+  assert.equal(app.$('toast').textContent, 'Your pod holds 4 seeds. Hits win them back!'); assert.equal(app.saved().podMet, true);
+  app.frame(); assert.equal(label(), 'Refilling');
+  app.$('toast').textContent = '';
+  // A quick tap on the empty pod is dropped and says why.
+  press(210, 120); release(210, 120);
+  assert.equal(game.shotNumber, 4); assert.equal(game.dryTaps, 1); assert.equal(hint(), 'Out of seeds! Hit flowers to refill.');
+  // Pressing on an empty pod never says let go: it says a seed is coming, then let go once it is in.
+  press(210, 120); assert.equal(hint(), 'Seed coming… keep aiming.');
+  until(() => game.pod >= 1); app.frame(); assert.equal(hint(), 'Let go to fire.'); assert.equal(label(), 'Fire!');
+  release(210, 120); assert.equal(game.shotNumber, 5);
+  // A held aim let go a little before its seed regrows is kept, its line stays up, and it flies when the seed is in.
+  until(() => game.pod < 1 && game.fireCooldown < .5);
+  press(150, 120); wait(300); release(150, 120);
+  assert(game.kept, 'kept for its seed'); assert(game.aim.length > 0, 'its line stays on the board');
+  until(() => game.shotNumber === 6, 800); assert.equal(game.kept, null); assert(game.balls.at(-1).vx < 0, 'it flew where it was aimed');
+  // Let go well before the seed, the aim stays on the board; once the seed is in, one quick tap anywhere sends it.
+  until(() => game.pod < 1 && game.fireCooldown > 1.2 && game.fireCooldown < 2.5);
+  press(300, 120); wait(300); release(300, 120);
+  assert.equal(game.shotNumber, 6); assert.equal(hint(), 'Too soon! Tap to fire when the seed is in.'); assert(game.aim.length > 0, 'the aim waits');
+  until(() => game.pod >= 1); app.frame(); assert.equal(hint(), 'Seed in! Tap to fire.');
+  press(100, 200); release(100, 200);
+  assert.equal(game.shotNumber, 7); assert(game.balls.at(-1).vx > 0, 'the quick tap sent the remembered aim, not a new one');
+  assert.equal(app.$('toast').textContent, '', 'the pod tip is shown only once');
+  // Refunds: a seed-earned hit sends a spark to the pod; many at once stay at eight sparks.
+  game.pod = 0; game.podGrow = 0; game.buds.push({ ...far, id: 'near', group: 'near', x: 300, y: 200, baseX: 300, startY: 200 });
+  game.striker = { id: 99, touches: 0 }; game.strike(game.buds.at(-1)); game.striker = null; app.frame();
+  const sparks = () => game.particles.filter(p => p.kind === 'podSpark').length;
+  assert.equal(sparks(), 1);
+  for (let i = 0; i < 12; i++) game.event('podRefund', { amount: .5, slot: 1, pod: 0, x: 120 + i * 10, y: 150 });
+  app.frame(); assert.equal(sparks(), 8);
+  assert.equal(boot(app.saved()).saved().podMet, true, 'the tip stays met after a reload');
+});
+test('Taps on an empty pod tick the phone at most once a quarter second, and only with Vibration on', () => {
+  const ticks = (haptics, taps) => {
+    const native = fakeNative(), app = boot({ ...legacySave(), settings: { sound: false, haptics, motion: true } }, { native });
+    app.click('depth-map', { depth: '1' }); const game = depthGame(app); settleLevel(app);
+    // Nothing to aim at and the aim dial already on its notch, so the only ticks are the pod's.
+    game.buds = []; game.descentSpeed = 0; game.drops = []; game.bumpers = []; game.pod = 0; game.podGrow = 0; app.frame();
+    const canvas = app.$('game-canvas');
+    canvas.emit('pointerdown', { isPrimary: true, pointerId: 1, clientX: 210, clientY: 120 }); canvas.emit('pointercancel', { pointerId: 1 });
+    native.calls.haptic.length = 0;
+    for (const gap of taps) {
+      for (let t = 0; t < gap; t += 17) app.frame(17);
+      canvas.emit('pointerdown', { isPrimary: true, pointerId: 1, clientX: 210, clientY: 120 }); canvas.emit('pointerup', { pointerId: 1, clientX: 210, clientY: 120 });
+    }
+    return { dry: game.dryTaps, ticks: native.calls.haptic.filter(kind => kind === 'tick').length };
+  };
+  assert.deepEqual(ticks(true, [0, 0, 0, 0, 0]), { dry: 5, ticks: 1 }, 'five taps at once tick once');
+  assert.deepEqual(ticks(true, [0, 300, 0, 300]), { dry: 4, ticks: 3 }, 'a tap a quarter second later ticks again, one with it does not');
+  assert.deepEqual(ticks(false, [0, 300]), { dry: 2, ticks: 0 });
 });
 (async () => {
 for (const { name, fn } of later) {

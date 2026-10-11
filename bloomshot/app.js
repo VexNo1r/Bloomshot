@@ -73,6 +73,9 @@
   let freshDepth = 0, freshShown = false;
   let game, route = 'game', theme = 'meadow', preview = false, returnSession = null, tutorial = null, tutorialKey = '', tutorialNudges = 0;
   let aiming = false, guiding = false, pointer = null, activePointer = null, angle = -Math.PI / 2, resultAt = Infinity, resultShown = false;
+  // A Rush aim: when the finger went down and where (a held aim is kept for a seed about to regrow), and an aimed shot
+  // let go too early, which stays on the board so one quick tap sends it once the seed is in.
+  let pressAt = 0, pressPoint = null, remembered = null;
   const narrowLandscape = matchMedia('(orientation: landscape) and (max-height: 500px)');
   let lastFrame = 0, accumulator = 0, toastTimer, currentWorld = null, newFlower = null, newKeepsake = null;
   let displayScore = 0, hudKey = '', pulseTime = 0, rushRecordBroken = false;
@@ -188,7 +191,7 @@
     document.body.dataset.world = isChapter() ? game.level.worldId : 'meadow';
     if (!isRush()) for (const key of ['wave', 'lives', 'elapsed', 'splitReady']) delete canvas.dataset[key];
     $('split-btn').hidden = !isRush();
-    angle = -Math.PI / 2; pointer = null; aiming = false; guiding = false; resultAt = Infinity; resultShown = false;
+    angle = -Math.PI / 2; pointer = null; aiming = false; guiding = false; resultAt = Infinity; resultShown = false; remembered = null; pressPoint = null;
     displayScore = 0; hudKey = ''; newFlower = null; newKeepsake = null; accumulator = 0; rushRecordBroken = false; depthNews = null; game.shieldSeen = false; game.shellSeen = false; game.geodeSeen = false;
     runId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`; runAward = 0; runBouquet = null; runGoals = null; shotTrail = []; trailTotal = 0;
     if (!preview && typeof level.id === 'number') { save.lastLevel = level.id; persist(); }
@@ -285,7 +288,11 @@
       putClass(meter, 'fever', game.splitReady);
       putAttr(meter, 'aria-label', 'Manual split charge');
       putAttr(meter, 'aria-valuenow', Math.round(game.splitCharge * 100));
-      put($('guide-label'), 'textContent', game.status === 'won' ? 'Cleared!' : game.status === 'lost' ? isDepth() ? 'Out of lives' : 'Run over' : game.balls.length >= 5 ? 'Max seeds' : game.pod < 1 && !(game.superBloom > 0) ? 'Refilling' : 'Fire!');
+      put($('guide-label'), 'textContent', game.status === 'won' ? 'Cleared!' : game.status === 'lost' ? isDepth() ? 'Out of lives' : 'Run over' : game.balls.length >= 5 ? 'Max seeds' : podEmpty() ? 'Refilling' : 'Fire!');
+      // While a finger aims, or a remembered aim waits, the hint follows the pod; a hint an event just set is left alone.
+      const hint = $('game-hint');
+      if (aiming && hint.textContent !== aimHint() && AIM_HINTS.includes(hint.textContent)) hint.textContent = aimHint();
+      else if (remembered && !aiming && !podEmpty() && hint.textContent === 'Too soon! Tap to fire when the seed is in.') hint.textContent = 'Seed in! Tap to fire.';
       put(split, 'disabled', !game.splitReady);
       // Once the run is over the bar empties, so a full gold Split no longer looks pressable behind the finale.
       putVar(split, '--split-charge', `${game.over ? 0 : game.splitCharge * 100}%`);
@@ -1485,6 +1492,8 @@
         if (event.pod === 0 && isRush() && !(game.superBloom > 0) && !isTutorial() && !preview && !save.podMet) { save.podMet = true; persist(); toast('Your pod holds 4 seeds. Hits win them back!'); }
       }
       else if (event.type === 'dry') { if (!(game.time - game.dryTickAt < .25)) { game.dryTickAt = game.time; haptic('tick'); } }
+      // A kept tap that could not fire in time says why, the same way a dropped tap does.
+      else if (event.type === 'dropped') { if (!aiming) $('game-hint').textContent = event.reason === 'cap' ? AIM_HINTS[2] : event.reason === 'dry' ? 'Out of seeds! Hit flowers to refill.' : 'Almost ready…'; }
       else if (event.type === 'podRefund') podSpark(event);
       else if (event.type === 'bounce' && event.caught) {
         // The petal saved a falling seed: a bright little ring and a pop of sparks so the save reads.
@@ -1982,14 +1991,31 @@
     pointer = point; game.aim = game.trace(Math.cos(angle) * 400, Math.sin(angle) * 400);
     aimFeel();
   }
+  // While a finger aims in Rush, the hint follows the pod: an empty one says to keep aiming (the line is hollow), a seed
+  // in the cup says let go.
+  const AIM_HINTS = ['Let go to fire.', 'Seed coming… keep aiming.', 'Max 5 seeds. Wait for one to land.'];
+  const podEmpty = () => isRush() && game.pod < 1 && !(game.superBloom > 0);
+  const aimHint = () => !isRush() ? AIM_HINTS[0] : game.balls.length >= 5 ? AIM_HINTS[2] : podEmpty() ? AIM_HINTS[1] : AIM_HINTS[0];
+  const HELD = (window.BloomRush && BloomRush.HELD) || .2, REMEMBER = 4000;
   function launch() {
-    if (!gate('fire')) { pointer = null; aiming = false; game.aim = []; nudgeTutorial(); return; }
-    const fired = game.fire(Math.cos(angle), Math.sin(angle));
-    pointer = null; aiming = false; game.aim = [];
-    if (fired) { processEvents(); $('game-hint').textContent = isKoi() ? 'Let the water take it.' : isMoon() ? 'Let it fly.' : isRush() ? isDepth() ? depthHint() : rushHint() : 'Now drag to steer!'; }
-    else if (isRush() && !game.over) {
+    if (!gate('fire')) { pointer = null; aiming = false; game.aim = []; remembered = null; nudgeTutorial(); return; }
+    // How long the finger aimed: a held aim let go just before its seed regrows is kept for that seed. A quick tap that
+    // sends a remembered aim counts as that aim.
+    const held = remembered ? Infinity : pressAt ? (performance.now() - pressAt) / 1000 : 0, shot = angle;
+    const fired = game.fire(Math.cos(angle), Math.sin(angle), held);
+    pointer = null; aiming = false; pressAt = 0; pressPoint = null;
+    if (fired) {
+      // A shot kept for its seed keeps its line on the board until it flies; the engine clears it at launch.
+      remembered = null; if (!game.kept) game.aim = [];
+      processEvents(); $('game-hint').textContent = isKoi() ? 'Let the water take it.' : isMoon() ? 'Let it fly.' : isRush() ? isDepth() ? depthHint() : rushHint() : 'Now drag to steer!';
+      return;
+    }
+    // An aimed shot let go too early stays on the board, hollow until its seed is in, so one quick tap then sends it.
+    remembered = held >= HELD && podEmpty() && !game.over && !isTutorial() ? { angle: shot, until: performance.now() + REMEMBER } : null;
+    if (!remembered) game.aim = [];
+    if (isRush() && !game.over) {
       // A dropped tap always says why: too many seeds in the air, an empty pod, or a blink too soon.
-      $('game-hint').textContent = game.balls.length >= 5 ? 'Max 5 seeds. Wait for one to land.' : game.pod < 1 && !(game.superBloom > 0) ? 'Out of seeds! Hit flowers to refill.' : 'Almost ready…';
+      $('game-hint').textContent = game.balls.length >= 5 ? AIM_HINTS[2] : remembered ? 'Too soon! Tap to fire when the seed is in.' : podEmpty() ? 'Out of seeds! Hit flowers to refill.' : 'Almost ready…';
       processEvents();
     }
   }
@@ -1997,7 +2023,7 @@
   const rushHint = () => game.superBloom > 0 ? 'Super Bloom! Double points.' : game.splitReady ? 'Split is ready! Tap it mid-flight.' : 'Six direct hits charge your split.';
   function cancelInteraction() {
     const id = activePointer; activePointer = null;
-    aiming = false; guiding = false; pointer = null;
+    aiming = false; guiding = false; pointer = null; pressAt = 0; pressPoint = null; remembered = null;
     if (game) { game.guide(null); game.aim = []; }
     if (id !== null && canvas.hasPointerCapture(id)) canvas.releasePointerCapture(id);
   }
@@ -2018,10 +2044,21 @@
     // past it in a hurry never turns it by accident. The calm puzzle boards still turn it with a tap.
     if (!isRush() && rotateNearest(point)) return;
     if (point.y > game.launcher.y + 24) { toast('Aim above the seed, then let go.'); return; }
-    aiming = true; activePointer = event.pointerId; canvas.setPointerCapture(event.pointerId); aimAt(point);
-    $('game-hint').textContent = 'Let go to fire.';
+    aiming = true; activePointer = event.pointerId; canvas.setPointerCapture(event.pointerId);
+    pressAt = performance.now(); pressPoint = point;
+    // A remembered aim stays put until the finger moves or holds; a quick tap sends it as it is.
+    if (remembered && isRush()) { angle = remembered.angle; game.aim = game.trace(Math.cos(angle) * 400, Math.sin(angle) * 400); }
+    else aimAt(point);
+    $('game-hint').textContent = aimHint();
   });
-  canvas.addEventListener('pointermove', event => { if (event.pointerId !== activePointer) return; if (guiding && game.status === 'flying') { pointer = coordinates(event); game.guide(pointer); } else if (aiming && (isRush() || game.status === 'aiming')) aimAt(coordinates(event)); });
+  canvas.addEventListener('pointermove', event => {
+    if (event.pointerId !== activePointer) return;
+    if (guiding && game.status === 'flying') { pointer = coordinates(event); game.guide(pointer); return; }
+    if (!aiming || !(isRush() || game.status === 'aiming')) return;
+    const at = coordinates(event);
+    if (remembered && pressPoint && Math.hypot(at.x - pressPoint.x, at.y - pressPoint.y) < 14) return;
+    remembered = null; aimAt(at);
+  });
   canvas.addEventListener('pointerup', event => {
     if (event.pointerId !== activePointer) return;
     activePointer = null;
@@ -2029,7 +2066,7 @@
     if (!aiming) return;
     const rect = canvas.getBoundingClientRect();
     const outside = event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom;
-    if (outside) { aiming = false; pointer = null; game.aim = []; return; }
+    if (outside) { aiming = false; pointer = null; pressAt = 0; pressPoint = null; remembered = null; game.aim = []; return; }
     launch();
   });
   canvas.addEventListener('pointercancel', event => { if (event.pointerId === activePointer) cancelInteraction(); });
@@ -2273,7 +2310,7 @@
       game = session.game; theme = session.theme; preview = false; angle = session.angle;
       displayScore = session.displayScore; resultAt = session.resultAt; resultShown = session.resultShown; newFlower = session.newFlower; newKeepsake = session.newKeepsake; rushRecordBroken = session.rushRecordBroken;
       runId = session.runId; runAward = session.runAward; runBouquet = session.runBouquet; runGoals = session.runGoals;
-      aiming = false; guiding = false; pointer = null; game.aim = []; accumulator = 0; lastFrame = 0; hudKey = '';
+      aiming = false; guiding = false; pointer = null; remembered = null; pressPoint = null; game.aim = []; accumulator = 0; lastFrame = 0; hudKey = '';
       document.body.dataset.theme = theme; document.body.dataset.mode = isRush() ? 'rush' : 'campaign';
       document.body.dataset.world = isChapter() ? game.level.worldId : 'meadow';
       $('split-btn').hidden = !isRush();
@@ -2366,6 +2403,12 @@
     if (Math.abs(game.score - displayScore) < 1) displayScore = game.score;
     stageFrame(dt);
     updateHud(); renderTutorial(); pulseTime += dt;
+    if (remembered) {
+      // Holding still re-aims where the finger is, the same as moving it; left alone, a remembered aim fades after a while.
+      const now = performance.now();
+      if (aiming && pressPoint && now - pressAt >= HELD * 1000) { remembered = null; aimAt(pressPoint); }
+      else if (!aiming && (game.over || now > remembered.until)) { remembered = null; if (!game.kept) game.aim = []; }
+    }
     if (isRush() && (aiming || game.aim.length)) { game.aim = game.trace(Math.cos(angle) * 400, Math.sin(angle) * 400); aimLock(); }
     trauma = Math.max(0, trauma - dt * 1.7); flash = Math.max(0, flash - dt * 3.2); kick = Math.max(0, kick - dt * 5);
     // While the camera is zoomed in, the shake is divided by the zoom so the leaned-in frame stays steady.

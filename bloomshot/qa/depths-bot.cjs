@@ -5,7 +5,7 @@
 // later levels are harder. Usage: play(levelId, { seed, noise }) -> { won, wave, lives, score, elapsed, supers, tricks, rate }, rate being
 // shots a second outside Super Bloom. mash(levelId, { seed, mode }) is the opposite player: it taps every .12 s whatever
 // the launcher shows, aiming anywhere upward (mode 'wild'), wiggling across the middle ('sweep') or roughly, within
-// 12 degrees, at the lowest flower ('lazy'). -> { won, wave, lives, shots }.
+// 12 degrees, at the lowest flower ('lazy'). -> { won, wave, lives, shots, taps, dry, rate }, dry being taps on an empty pod.
 const Engine = require('../engine.js');
 const { RushGame } = require('../rush.js');
 const Depths = require('../depths.js');
@@ -87,8 +87,10 @@ function play(levelId, options = {}) {
 }
 function mash(levelId, options = {}) {
   const random = rng(options.seed || 1), mode = options.mode || 'wild', game = new RushGame({ plan: plan(levelId) });
-  let next = 0, shots = 0;
+  let next = 0, shots = 0, calmShots = 0, calm = 0, taps = 0, dry = 0;
   for (let t = 0; t < 900 && !game.over; t += 1 / 60) {
+    const calmNow = !(game.superBloom > 0), before = game.shotNumber;
+    if (game.started && calmNow) calm += 1 / 60;
     next -= 1 / 60;
     if (next <= 0) {
       let deg;
@@ -98,12 +100,13 @@ function mash(levelId, options = {}) {
         const low = game.buds.filter(b => !b.bloomed && !b.gift).sort((a, b) => b.y - a.y)[0];
         deg = low ? Math.atan2(low.y - game.launcher.y, low.x - game.launcher.x) * 180 / Math.PI + (random() - .5) * 24 : -90;
       }
-      const before = game.shotNumber;
-      game.fire(Math.cos(deg * Math.PI / 180), Math.sin(deg * Math.PI / 180)); next = options.gap || .12;
-      shots += game.shotNumber - before;
+      game.fire(Math.cos(deg * Math.PI / 180), Math.sin(deg * Math.PI / 180)); next = options.gap || .12; taps++;
     }
-    game.step(1 / 60); game.drainEvents();
+    game.step(1 / 60);
+    for (const event of game.drainEvents()) if (event.type === 'dry') dry++;
+    // Counted from the shot number across the tap and the step: a kept tap launches inside step().
+    shots += game.shotNumber - before; if (calmNow) calmShots += game.shotNumber - before;
   }
-  return { won: game.status === 'won', wave: game.wave, lives: game.lives, shots };
+  return { won: game.status === 'won', wave: game.wave, lives: game.lives, shots, taps, dry, rate: +(calmShots / Math.max(1, calm)).toFixed(2) };
 }
 module.exports = { play, mash, plan, trace };

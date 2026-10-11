@@ -1,5 +1,5 @@
 {
-  "passed": 72,
+  "passed": 74,
   "failed": 0,
   "methodology": "Executes the complete current app.js in an isolated Node VM using real garden/level/engine modules, fake localStorage, and DOM/canvas adapters. Completion fixtures exercise actual engine completion events and app handlers. No real browser or user saves are read or changed.",
   "limitations": [
@@ -277,6 +277,14 @@
     },
     {
       "name": "Super Bloom, trick shots and long chains reach the board, the hint line and the run summary",
+      "passed": true
+    },
+    {
+      "name": "The seed pod in the app: its tip shows once and is saved, the hint and sign follow the pod, a held aim waits for its seed, and refund sparks stay few",
+      "passed": true
+    },
+    {
+      "name": "Taps on an empty pod tick the phone at most once a quarter second, and only with Vibration on",
       "passed": true
     },
     {

@@ -25,7 +25,7 @@ for (const p of players) {
 }
 // average curve as test-depths counts it
 for (let k = 0; k < data.length; k++) {
-  if (!data[k][1] || !data[k][1].average) continue;
+  if ([1, 2, 3, 4, 5, 6, 7, 8, 9, 10].some(id => !data[k][id] || !data[k][id].average)) continue;
   const curve = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(id => data[k][id].average.reduce((n, r) => n + pain(r), 0));
   console.log(`${names[k]} average lives-lost curve: ${curve.join(' ')}  L1<=1 ${curve[0] <= 1} L4>L1&&>=L2 ${curve[3] > curve[0] && curve[3] >= curve[1]} m5-10>m1-3 ${mean(curve.slice(4)) > mean(curve.slice(0, 3))} L10>L1 ${curve[9] > curve[0]}`);
 }

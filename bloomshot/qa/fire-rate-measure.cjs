@@ -1,6 +1,6 @@
 'use strict';
 // Fire-rate measurement: one set of players, any build (this one or an older checkout, to compare). Mashers tap every
-// .12 s (wild, sweep, lazy; lazyReady only taps when a shot is allowed), aimers trace their shots like qa/depths-bot.cjs
+// .12 s (wild, sweep, lazy; lazyReady and wildReady only tap when a shot is allowed), aimers trace their shots like qa/depths-bot.cjs
 // (fast fires as soon as allowed, good and average think first, kid and kidEager aim worse).
 // node qa/fire-rate-measure.cjs <build dir> <out.json> [players=a,b] [levels=1..10|0 for endless], then
 // node qa/fire-rate-report.cjs <out.json> [more.json ...] for the table.
@@ -101,6 +101,7 @@ const PLAYERS = {
   sweep: (env, id, s) => spamRun(env, id, s * 101 + id, 'sweep'),
   lazy: (env, id, s) => spamRun(env, id, s * 101 + id, 'lazy'),
   lazyReady: (env, id, s) => spamRun(env, id, s * 101 + id, 'lazy', { polite: true }),
+  wildReady: (env, id, s) => spamRun(env, id, s * 101 + id, 'wild', { polite: true }),
   wildSemi: (env, id, s) => spamRun(env, id, s * 101 + id, 'wild', { gap: .3 }),
   lazySemi: (env, id, s) => spamRun(env, id, s * 101 + id, 'lazy', { gap: .3 }),
   fast: (env, id, s) => aimRun(env, id, s * 53 + id, FAST),

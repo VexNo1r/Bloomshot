@@ -296,17 +296,21 @@ test('An average player sees a few Super Blooms and a handful of trick shots per
   assert(supers >= 2 && supers <= 8, `Super Blooms per level average ${supers.toFixed(1)}, want 2-8`);
   assert(tricks >= 4 && tricks <= 30, `tricks per level average ${tricks.toFixed(1)}, want 4-30`);
 });
-test('Mashing does not pay: tapping as fast as the launcher allows, barely aiming, loses where a good player clears', () => {
+test('Mashing does not pay, for these seeds: firing anywhere loses from level 3 on, rough aim at full speed loses 3, 4, 6 and 7 (it still wins some of 2, 5, 8 and 9) and costs far more lives than aiming', () => {
   assert.equal(botRuns.good.length, ids.length * 2, 'the practice runs finished');
   const pain = r => r.won ? 3 - r.lives : 3 + (10 - r.wave), mean = list => list.reduce((a, b) => a + b, 0) / list.length;
-  const wild = ids.filter(id => id >= 2).map(id => ({ id, ...bot.mash(id, { seed: 101 + id, mode: 'wild' }) }));
+  const wild = ids.map(id => ({ id, ...bot.mash(id, { seed: 101 + id, mode: 'wild' }) }));
   const lazy = ids.map(id => ({ id, ...bot.mash(id, { seed: 101 + id, mode: 'lazy' }) }));
   const tag = r => `L${r.id} ${r.won ? 'won with ' + r.lives : 'lost at wave ' + r.wave}`;
   observations.wildMasher = wild.map(tag); observations.lazyMasher = lazy.map(tag);
+  observations.masherShotsPerSecond = [...wild, ...lazy].map(r => r.rate);
   observations.goodPlayerShotsPerSecond = botRuns.good.map(r => r.rate);
-  assert(wild.filter(r => r.won).length <= 2, 'firing anywhere loses nearly every level from 2 on');
-  assert(wild.every(r => !r.won || (r.id < 6 && r.lives <= 2)), 'and never wins cleanly, or at all from level 6');
-  assert(lazy.filter(r => !r.won).length >= 4, 'rough aim at full speed still loses several levels');
+  assert([...wild, ...lazy].every(r => r.shots > 0 && r.dry > 0), 'the mashers really fire and run the pod dry');
+  assert(mean([...wild, ...lazy].map(r => r.rate)) >= 1.2, 'as fast as the pod allows');
+  assert(wild.filter(r => r.won).length <= 2 && wild.every(r => !r.won || r.id === 1 || r.lives <= 2), 'firing anywhere wins at most twice, never cleanly past level 1');
+  assert(wild.filter(r => r.won && r.id >= 3).length === 0, 'and never from level 3 on');
+  assert([3, 4, 6, 7].every(id => !lazy[id - 1].won), 'rough aim at full speed loses levels 3, 4, 6 and 7');
+  assert(lazy.filter(r => !r.won).length >= 4, 'and several levels in all');
   assert(mean(lazy.map(pain)) >= mean(botRuns.good.map(pain)) + 2, 'and costs far more lives than aiming');
   assert(mean(botRuns.good.map(r => r.rate)) >= 1.2, 'a good player still fires briskly');
 });

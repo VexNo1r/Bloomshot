@@ -2046,10 +2046,12 @@
     ctx.restore();
   }
 
-  function drawAim(ctx, points, colors, time, type, reducedMotion) {
+  // hollow: the pod is empty, so the line is drawn as open rings (like the refill ring) until a seed is in the cup.
+  function drawAim(ctx, points, colors, time, type, reducedMotion, hollow) {
     if (!Array.isArray(points) || points.length < 2) return;
     ctx.save(); ctx.lineCap = 'round';
     const tint = FLOWERS[type], dot = tint ? tint.base : colors.track, ring = tint ? tint.dark : colors.track;
+    const dim = hollow ? .55 : 1;
     // The dots drift along the path toward where the seed will go.
     let carry = reducedMotion ? 0 : (Number(time) || 0) * 26 % 11, distance = 0, afterGate = Infinity;
     for (let i = 1; i < points.length; i++) {
@@ -2061,14 +2063,16 @@
       if (!len) continue;
       for (let d = carry; d <= len; d += 11) {
         const fade = Math.max(clamp(1 - (distance + d) / 720, .16, .85), afterGate + d < 76 ? .78 - (afterGate + d) * .002 : 0);
-        ctx.globalAlpha = fade;
-        circle(ctx, prev.x + dx * d / len, prev.y + dy * d / len, tint ? 2.7 - Math.min(1.1, (distance + d) / 500) : 2, dot, '#ffffff', tint ? 1 : .65);
+        ctx.globalAlpha = fade * dim;
+        const r = tint ? 2.7 - Math.min(1.1, (distance + d) / 500) : 2;
+        if (hollow) circle(ctx, prev.x + dx * d / len, prev.y + dy * d / len, r, 'rgba(255,255,255,.35)', dot, 1.3);
+        else circle(ctx, prev.x + dx * d / len, prev.y + dy * d / len, r, dot, '#ffffff', tint ? 1 : .65);
       }
       // Where the path turns off a petal, rock or wall, a small ring marks the bounce.
       const after = points[i + 1], ax = after ? after.x - next.x : 0, ay = after ? after.y - next.y : 0;
       const turn = after && !after.move ? (dx * ax + dy * ay) / (len * (Math.hypot(ax, ay) || 1)) : 1;
       if (tint && turn < .94 && distance + len < 640) {
-        ctx.globalAlpha = clamp(1 - (distance + len) / 720, .3, .85);
+        ctx.globalAlpha = clamp(1 - (distance + len) / 720, .3, .85) * dim;
         circle(ctx, next.x, next.y, 4.2, 'rgba(255,255,255,.55)', ring, 1.6);
       }
       if (prev.move && len > 12) {
@@ -2092,13 +2096,14 @@
       const k = reducedMotion ? 1 : clamp((now - lockSince) / .2, 0, 1), e = reducedMotion ? 1 : easeBack(k);
       const radius = (Number(target.r) || 12) + (target.boss ? 15 : 11) + 18 * (1 - e);
       const spin = Math.PI / 4 + (reducedMotion ? 0 : now * .9), pulse = reducedMotion ? 1 : 1 + .08 * Math.sin(now * 7);
-      ctx.globalAlpha = clamp(k * 2.5, 0, 1); ctx.lineJoin = 'round';
+      ctx.globalAlpha = clamp(k * 2.5, 0, 1) * dim; ctx.lineJoin = 'round';
       for (let i = 0; i < 4; i++) {
         const a = spin + i * TAU / 4;
         ctx.save(); ctx.translate(target.x + Math.cos(a) * radius, target.y + Math.sin(a) * radius); ctx.rotate(a); ctx.scale(pulse, pulse);
         ctx.beginPath(); ctx.moveTo(-3.4, 0); ctx.lineTo(4.2, -5); ctx.quadraticCurveTo(2.4, 0, 4.2, 5); ctx.closePath();
         ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3.2; ctx.stroke();
-        ctx.fillStyle = dot; ctx.fill(); ctx.strokeStyle = ring; ctx.lineWidth = .9; ctx.stroke();
+        // Hollow arrowheads while the pod refills: the lock shows where the seed will go, not that it can go yet.
+        ctx.fillStyle = hollow ? 'rgba(255,255,255,.6)' : dot; ctx.fill(); ctx.strokeStyle = hollow ? dot : ring; ctx.lineWidth = hollow ? 1.3 : .9; ctx.stroke();
         ctx.restore();
       }
     } else lockTarget = null;
@@ -3910,7 +3915,10 @@
       if (bumper.kind === 'rock' && root.BloomScenery) root.BloomScenery.drawRock(ctx, bumper, options.theme);
       else drawBumper(ctx, bumper, options.selectedBumper === bumper.id, time, colors, options.reducedMotion);
     }
-    if (options.showAim !== false && state.aim && (state.status !== 'flying' || options.showAim === true)) drawAim(ctx, state.aim, colors, time, state.nextType, options.reducedMotion);
+    if (options.showAim !== false && state.aim && (state.status !== 'flying' || options.showAim === true)) {
+      const hollow = rush && Number(state.podSize) > 0 && Number.isFinite(state.pod) && state.pod < 1 && !(Number(state.superBloom) > 0);
+      drawAim(ctx, state.aim, colors, time, state.nextType, options.reducedMotion, hollow);
+    }
     drawLauncher(ctx, state, time, colors, options.keepsake, options.kick, options.reducedMotion);
 
     const balls = Array.isArray(state.balls) ? state.balls : state.ball ? [state.ball] : [];

@@ -13,8 +13,10 @@
   // regrows on its own, one at a time, in POD_REGROW times the wave's reload (about 3.4 s on level 1, 2.5 s by level 9).
   // Super Bloom fires from the sun instead: a seed every SUPER_DELAY, and the pod keeps regrowing meanwhile.
   // A tap at most KEEP seconds before the next shot is allowed is kept and fires the moment it is, with the latest aim, so
-  // a quick double tap or a tap a blink early is never lost. A tap on an empty pod is dropped and says so ('dry').
-  const POD = 4, POD_GAP = .15, POD_REGROW = 6, REFUND = .5, KEEP = .15;
+  // a quick double tap or a tap a blink early is never lost. An aimed shot (the finger held at least HELD seconds) is kept
+  // up to AIM_KEEP early, so letting go just before the seed regrows still fires it. Any other tap on an empty pod is
+  // dropped and says so ('dry'); a kept tap that still cannot fire in time says why ('dropped').
+  const POD = 4, POD_GAP = .15, POD_REGROW = 6, REFUND = .5, GLANCE = .25, KEEP = .15, HELD = .2, AIM_KEEP = .6;
   // A turning shell lets a shot through only near its opening (about 140 degrees of the circle). Briars
   // grow back unless their whole patch blooms within a few seconds of the first one.
   const SHELL_OPEN = .34, REGROW = 4;
@@ -150,8 +152,10 @@
       this.shotGap = Math.max(0, Number(value) || 0);
       if (!(value > 0)) { this.pod = POD; this.podGrow = 0; }
     }
+    // While a Super Bloom lasts the pod regrows on its own and nothing feeds it; a seed still flying when it ends feeds
+    // it like any other.
     _refund(amount, bud) {
-      if (!(amount > 0) || this.pod >= POD) return;
+      if (!(amount > 0) || this.pod >= POD || this.superBloom > 0) return;
       const slot = this.pod;
       this.podGrow += amount; this.refunds = (this.refunds || 0) + 1;
       this._growPod(0);
@@ -166,15 +170,19 @@
     get splitReady() {
       return this.status === 'flying' && this.splitCharge >= 1 && this.balls.length > 0 && this.balls.length <= CAP - 2;
     }
-    fire(dx, dy) {
+    // held: how long the finger aimed before letting go, in seconds (0 for a tap or a key).
+    fire(dx, dy, held = 0) {
       if (this.over || !Number.isFinite(dx) || !Number.isFinite(dy)) return false;
       const length = Math.hypot(dx, dy);
       if (length < 1e-6 || dy / length > -0.12) return false;
       if (!this.canFire) {
         if (this.balls.length >= CAP || this.scripted) return false;
-        const wait = this.fireCooldown;
-        if (wait <= KEEP + 1e-9) { if (!this.kept) this.event('kept', { wait }); this.kept = { dx, dy, until: this.time + wait + .05 }; return true; }
-        if (!(this.superBloom > 0) && this.pod < 1) { this.dryTaps = (this.dryTaps || 0) + 1; this.dryAt = this.time; this.event('dry', { wait, grow: this.podGrow }); }
+        const wait = this.fireCooldown, aimed = held >= HELD;
+        if (wait <= (aimed ? AIM_KEEP : KEEP) + 1e-9) {
+          if (!this.kept) this.event('kept', { wait, aimed });
+          this.kept = { dx, dy, aimed, until: this.time + wait + .05 }; return true;
+        }
+        if (!(this.superBloom > 0) && this.pod < 1) { this.dryTaps = (this.dryTaps || 0) + 1; this.dryAt = this.time; this.event('dry', { wait, grow: this.podGrow, aimed }); }
         return false;
       }
       return this._launch(dx, dy);
@@ -284,8 +292,9 @@
       if (!bud || bud.bloomed || this.over) return;
       if (bud.gift) { this._collect(bud); return; }
       if (!chain) { this.directHits++; this.splitCharge = Math.min(1, this.splitCharge + 1 / 6); }
-      // Every flower a seed touches or sets off feeds the pod; Super Bloom seeds come from the sun, so they feed nothing.
-      if (!(this.superBloom > 0) && this._credit(chain)) this._refund(REFUND, bud);
+      // Every flower a seed touches or sets off feeds the pod.
+      const credit = this._credit(chain);
+      if (credit) this._refund(REFUND, bud);
       if (this.splitCharge > 1 - 1e-8) this.splitCharge = 1;
       if (this.time - this.lastHitAt > COMBO_WINDOW) this.combo = 0;
       this.lastHitAt = this.time;
@@ -293,7 +302,7 @@
         const gain = Math.round(50 * this.tempo);
         bud.hp--; bud.hitAt = this.time; this.score += gain;
         this.event('crack', { bud, chain, gain, hits: Math.max(0, (bud.maxHp || bud.hp + 1) - bud.hp) });
-        if (bud.boss) this._charge(CHARGE.crack, this._credit(chain));
+        if (bud.boss) this._charge(CHARGE.crack, credit);
         return;
       }
       this.bloom(bud, chain);
@@ -511,7 +520,14 @@
       this.lullaby = Math.max(0, this.lullaby - dt);
       this.shotGap = Math.max(0, this.shotGap - dt);
       this._growPod(dt);
-      if (this.kept) { if (this.canFire) this._launch(this.kept.dx, this.kept.dy); else if (this.time > this.kept.until) this.kept = null; }
+      if (this.kept) {
+        if (this.canFire) this._launch(this.kept.dx, this.kept.dy);
+        else if (this.time > this.kept.until) {
+          // It could not fire in time: five seeds went up meanwhile, or the pod ran out. Say so rather than drop it quietly.
+          const reason = this.balls.length >= CAP ? 'cap' : !(this.superBloom > 0) && this.pod < 1 ? 'dry' : 'gap';
+          this.event('dropped', { reason, aimed: this.kept.aimed }); this.kept = null; this.aim = [];
+        }
+      }
       if (this.superBloom > 0) {
         this.superBloom = Math.max(0, this.superBloom - dt); this.feverTime = this.superBloom;
         if (this.superBloom <= 1e-9) { this.superBloom = 0; this.event('superBloomEnd', {}); }
@@ -619,7 +635,12 @@
             ball.pierced++; ball.touches++; hit.item.hp = 1; this.strike(hit.item); this.striker = null; continue;
           }
           // An acorn cup turns away any shot that meets it from below; a shell, any shot that misses its opening.
-          if (hit.kind === 'bud' && this._guarded(hit.item, hit)) this.event('shield', { bud: hit.item, x: ball.x, y: ball.y, shell: Boolean(hit.item.shell) });
+          if (hit.kind === 'bud' && this._guarded(hit.item, hit)) {
+            this.event('shield', { bud: hit.item, x: ball.x, y: ball.y, shell: Boolean(hit.item.shell) });
+            // A turning shell is a timing shot, so the first time one turns a seed away the seed still wins back a little; a
+            // cup, aimed at from below, wins nothing.
+            if (hit.item.shell && !ball.glanced && this._credit(false)) { ball.glanced = true; this._refund(GLANCE, hit.item); }
+          }
           else if (hit.kind === 'bud') this.strike(hit.item);
           if (hit.kind === 'bud') ball.touches++;
           else {
@@ -657,5 +678,5 @@
     }
   }
   return { RushGame, tempoFor, fireDelayFor, descentFor, SUN_REACH, LULLABY, GIFT_CHANCE, SHOT_POWERS,
-    COMBO_WINDOW, SUN_FULL, FIRST_FILL, SUPER_TIME, SUPER_DELAY, PIERCE, CLOSE_BAND, TRICKS, POD, POD_GAP, POD_REGROW, REFUND, KEEP };
+    COMBO_WINDOW, SUN_FULL, FIRST_FILL, SUPER_TIME, SUPER_DELAY, PIERCE, CLOSE_BAND, TRICKS, POD, POD_GAP, POD_REGROW, REFUND, GLANCE, KEEP, HELD, AIM_KEEP };
 });
