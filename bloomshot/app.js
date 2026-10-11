@@ -12,8 +12,9 @@
   const STORAGE = new URLSearchParams(location.search).has('qa') ? 'bloomshot.qa.v1' : 'bloomshot.save.v1';
   const Goals = window.BloomGoals;
   const Depths = window.BloomDepths;
+  const Tutorial = window.BloomTutorial;
   const Powers = window.BloomPowers;
-  const defaults = { version: 1, garden: BloomGarden.normalize(), goals: Goals.normalize(null, localDate()), progress: {}, moon: {}, koi: {}, daily: {}, rush: { best: 0, bestWave: 1, runs: 0, blooms: 0 }, depths: {}, powers: Powers.normalize(), powerReceipts: [], powersMet: false, lastLevel: 1, keepsake: 'meadow', settings: { sound: true, haptics: true, motion: !matchMedia('(prefers-reduced-motion: reduce)').matches } };
+  const defaults = { version: 1, garden: BloomGarden.normalize(), goals: Goals.normalize(null, localDate()), progress: {}, moon: {}, koi: {}, daily: {}, rush: { best: 0, bestWave: 1, runs: 0, blooms: 0 }, depths: {}, powers: Powers.normalize(), powerReceipts: [], powersMet: false, tutorial: false, lastLevel: 1, keepsake: 'meadow', settings: { sound: true, haptics: true, motion: !matchMedia('(prefers-reduced-motion: reduce)').matches } };
   let storageAvailable = true;
   function readSave() {
     try {
@@ -42,6 +43,9 @@
         if (!value || typeof value !== 'object' || Array.isArray(value)) continue;
         if (/^daily-\d{4}-\d{2}-\d{2}$/.test(key) && Number.isFinite(value.best) && value.best >= 0 && Number.isInteger(value.stars) && value.stars >= 0 && value.stars <= 3) valid.daily[key] = value;
       }
+      // The tutorial plays once, for a new player. Anyone who has already played anything counts as having seen it.
+      valid.tutorial = raw.tutorial === true || valid.powersMet || Object.keys(valid.depths).length > 0 || valid.rush.runs > 0 || Object.keys(valid.progress).length > 0
+        || Object.keys(valid.daily).length > 0 || Object.keys(chapters).some(world => Object.keys(valid[world]).length > 0);
       return valid;
     } catch (_) { return structuredClone(defaults); }
   }
@@ -66,7 +70,7 @@
   let shotTrail = [], trailTotal = 0;
   // A level just opened by a first clear: its card greets the player on the map until they play it.
   let freshDepth = 0, freshShown = false;
-  let game, route = 'game', theme = 'meadow', preview = false, returnSession = null;
+  let game, route = 'game', theme = 'meadow', preview = false, returnSession = null, tutorial = null, tutorialKey = '', tutorialNudges = 0;
   let aiming = false, guiding = false, pointer = null, activePointer = null, angle = -Math.PI / 2, resultAt = Infinity, resultShown = false;
   const narrowLandscape = matchMedia('(orientation: landscape) and (max-height: 500px)');
   let lastFrame = 0, accumulator = 0, toastTimer, currentWorld = null, newFlower = null, newKeepsake = null;
@@ -96,6 +100,10 @@
   const isRush = () => game?.mode === 'rush';
   // The levels run on the Rush engine with a plan of ten waves each. Levels past the free ones wait for the full unlock.
   const isDepth = () => isRush() && Boolean(game.plan);
+  // The first-time tutorial is a scripted Rush board; while it runs, only the control its card points at works.
+  const isTutorial = () => Boolean(tutorial) && isRush() && Boolean(game.scripted);
+  const gate = action => !isTutorial() || tutorial.allows(action);
+  const powerCount = id => isTutorial() ? tutorial.count(id) : save.powers[id];
   const depthsOwned = () => Boolean(store && store.owns(Depths.entitlement));
   const depthPaid = id => id <= Depths.free || depthsOwned();
   const depthOpen = id => Depths.unlocked(save.depths, id, depthsOwned());
@@ -148,7 +156,7 @@
   const keepsakeOpen = id => Keepsakes.unlocked(id, keepsakeContext());
   const currentKeepsake = () => Keepsakes.resolve(save.keepsake, keepsakeContext());
   const collectionOwned = () => Boolean(store && store.owns(Keepsakes.entitlement));
-  function record() { return isDepth() ? save.depths[game.plan.id] : isRush() ? save.rush : isChapter() ? save[game.level.worldId][game.level.id] : typeof game.level.id === 'number' ? save.progress[game.level.id] : save.daily[game.level.id]; }
+  function record() { return isTutorial() ? null : isDepth() ? save.depths[game.plan.id] : isRush() ? save.rush : isChapter() ? save[game.level.worldId][game.level.id] : typeof game.level.id === 'number' ? save.progress[game.level.id] : save.daily[game.level.id]; }
   function localDate() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
   function setRoute(next) {
     route = next; cancelInteraction();
@@ -162,11 +170,14 @@
     if (next === 'worlds') renderWorlds();
     if (next === 'levels') renderLevels();
     document.body.dataset.view = next;
+    $('tutorial').hidden = !(tutorial && next === 'game');
     if (next === 'game') resize();
   }
   function startLevel(level, options = {}) {
     closeDialogs();
-    game = level.depth ? new BloomRush.RushGame({ plan: depthPlan(level.depth, level.taste), random: Math.random }) : level.id === 'rush' ? new BloomRush.RushGame({ random: Math.random }) : new Game(level); game.particles = []; game.floaters = [];
+    game = level.tutorial ? new BloomRush.RushGame({ scripted: true }) : level.depth ? new BloomRush.RushGame({ plan: depthPlan(level.depth, level.taste), random: Math.random }) : level.id === 'rush' ? new BloomRush.RushGame({ random: Math.random }) : new Game(level); game.particles = []; game.floaters = [];
+    tutorial = level.tutorial ? Tutorial.create() : null; tutorialKey = ''; document.body.dataset.tutorial = tutorial ? 'on' : '';
+    if (tutorial) tutorial.begin(game);
     preview = Boolean(options.preview); theme = options.theme || (isChapter() ? game.level.worldId : 'meadow');
     document.body.dataset.theme = theme;
     document.body.dataset.mode = isRush() ? 'rush' : 'campaign';
@@ -186,6 +197,11 @@
       $('game-hint').textContent = 'Keep the flowers above the line.';
       canvas.setAttribute('aria-label', 'Meadow Rush. Aim and release one seed at a time. Flowers descend after your first shot. Three breached clusters end your run. Arrow keys aim, Space fires, S splits after six direct hits, R turns the petal.');
     }
+    if (isTutorial()) {
+      $('level-name').textContent = 'How to play';
+      $('game-hint').textContent = 'Follow the card to learn each button.';
+      canvas.setAttribute('aria-label', 'How to play. A short guided run: each card names one control to try, and the game slows down while it waits. Arrow keys aim, Space fires, S splits, R turns the petal, 1 to 4 pick a powerup.');
+    }
     if (isDepth()) {
       const depth = Depths.level(game.plan.id);
       $('level-name').textContent = depth.name;
@@ -200,7 +216,7 @@
       canvas.setAttribute('aria-label', `${level.name}. Five single-seed shots. ${isKoi() ? 'Flowing currents turn your seed toward the way the water runs.' : 'Paired moon gates transport your seed.'} Aim with arrows, Space fires, R turns a leaf between shots. No in-flight steering.`);
     }
     setRoute('game'); trayKey = ''; updateHud();
-    if (isRush() && !preview && !options.behind && !save.powersMet) { save.powersMet = true; persist(); toast('New: powerups! Tap one above the board, then fire.'); }
+    if (isRush() && !preview && !options.behind && !tutorial && !save.powersMet) { save.powersMet = true; persist(); toast('New: powerups! Tap one above the board, then fire.'); }
   }
   function updateHud() {
     const rush = isRush();
@@ -212,7 +228,7 @@
       $('seed-count').innerHTML = Array.from({ length: isChapter() ? game.rules.shots : 3 }, (_, index) => `<span class="seed-dot ${index < remaining ? 'available' : 'used'}" aria-hidden="true"></span>`).join('') + `<span class="seed-label">${remaining} ${units}</span>`;
       $('seed-count').setAttribute('aria-label', `${remaining} ${units} remaining`);
       $('bloom-count').textContent = rush ? `${game.bloomedCount} ${game.bloomedCount === 1 ? 'bloom' : 'blooms'}` : `${game.bloomedCount} / ${game.buds.length} bloomed`;
-      if (rush) $('level-label').textContent = isDepth() ? `Level ${game.plan.id} · Wave ${game.wave}/${game.finalWave}` : `Wave ${game.wave} · ×${game.tempo.toFixed(1)}`;
+      if (rush) $('level-label').textContent = isTutorial() ? 'Tutorial' : isDepth() ? `Level ${game.plan.id} · Wave ${game.wave}/${game.finalWave}` : `Wave ${game.wave} · ×${game.tempo.toFixed(1)}`;
       $('best-value').textContent = preview ? 'Preview' : record()?.best ? fmt(record().best) : '—';
       canvas.dataset.status = game.status; canvas.dataset.blooms = game.bloomedCount; canvas.dataset.level = game.level.id; canvas.dataset.shots = game.shotsLeft;
       $('rotate-btn').disabled = game.status !== 'aiming' || game.rotationUsed || !game.bumpers.length;
@@ -424,14 +440,14 @@
   const TRAY = { 'power-left': ['sunburst', 'dandelion'], 'power-right': ['beeline', 'lullaby'] };
   let trayKey = '';
   function powerChip(id) {
-    const def = Powers.byId[id], n = save.powers[id], armed = game.armed === id, playing = id === 'lullaby' && game.lullaby > 0;
+    const def = Powers.byId[id], n = powerCount(id), armed = game.armed === id, playing = id === 'lullaby' && game.lullaby > 0;
     const label = `${def.name}, ${n} left. ${def.text}${armed ? ' Ready on your next shot.' : playing ? ' Playing now.' : ''}`;
     return `<button class="power-chip${armed ? ' armed' : playing ? ' active' : n ? '' : ' empty'}" type="button" data-power="${id}" aria-label="${escape(label)}" aria-pressed="${armed || playing}">`
       + `<img src="${powerIcon(id)}" alt=""><span class="power-count" aria-hidden="true">${n}</span></button>`;
   }
   function renderTray() {
     if (!isRush() || preview) return;
-    const key = `${Powers.ids.map(id => save.powers[id]).join()}|${game.armed}|${game.lullaby > 0}`;
+    const key = `${Powers.ids.map(powerCount).join()}|${game.armed}|${game.lullaby > 0}|${isTutorial()}`;
     if (key === trayKey) return;
     trayKey = key;
     for (const [group, ids] of Object.entries(TRAY)) $(group).innerHTML = ids.map(powerChip).join('');
@@ -441,8 +457,9 @@
     const def = Powers.byId[id];
     if (!def || !isRush() || preview || game.over) return;
     BloomSound.wake();
-    if (def.shot && (game.armed === id || save.powers[id])) { if (game.arm(id)) { processEvents(); renderTray(); } return; }
-    if (!save.powers[id]) { BloomSound.play('tap'); toast(`No ${def.name} left. Gift bubbles in the waves hold more.`); return; }
+    if (!gate(`power:${id}`)) { nudgeTutorial(); return; }
+    if (def.shot && (game.armed === id || powerCount(id))) { if (game.arm(id)) { processEvents(); renderTray(); } return; }
+    if (!powerCount(id)) { BloomSound.play('tap'); toast(`No ${def.name} left. Gift bubbles in the waves hold more.`); return; }
     if (!game.started) { BloomSound.play('tap'); toast('Fire your first seed, then use Lullaby.'); return; }
     if (game.lull()) { processEvents(); renderTray(); }
   }
@@ -941,6 +958,7 @@
   }
   function processEvents() {
     for (const event of game.drainEvents()) {
+      if (isTutorial()) tutorial.observe(event);
       BloomSound.play(event.type, event);
       if (event.type === 'bloom') {
         const combo = event.combo || 1;
@@ -1013,13 +1031,15 @@
         haptic('tick'); trayKey = '';
       } else if (event.type === 'power') {
         const def = Powers.byId[event.power];
-        save.powers = Powers.spend(save.powers, event.power).counts; persist(); trayKey = '';
+        // The tutorial's powerups are its own; it never spends the player's.
+        if (isTutorial()) tutorial.spend(event.power); else { save.powers = Powers.spend(save.powers, event.power).counts; persist(); }
+        trayKey = '';
         if (event.power === 'lullaby') {
           game.floaters = game.floaters.filter(item => !['wave', 'combo', 'bonus'].includes(item.kind));
           game.floaters.push({ x: 210, y: 250, text: 'Lullaby', label: 'the flowers doze for 6 seconds', life: 1.3, maxLife: 1.3, kind: 'wave' });
           $('game-hint').textContent = def.tip; haptic('surge');
         } else { burst({ x: event.x, y: event.y - 10, type: 'gold', r: 8 }, 14); haptic('tick'); }
-        say(`${def.name} used. ${save.powers[event.power]} left.`);
+        say(isTutorial() ? `${def.name} used.` : `${def.name} used. ${save.powers[event.power]} left.`);
       } else if (event.type === 'sunburst') {
         burst({ x: event.x, y: event.y, type: 'gold', r: 22 }, 70); burst({ x: event.x, y: event.y, type: 'coral', r: 14 }, 24);
         if (save.settings.motion) game.particles.push({ x: event.x, y: event.y, vx: 0, vy: 0, life: .6, maxLife: .6, kind: 'ring', color: '#ffc94a', size: 10, grow: 90, gravity: 0, drag: 0 });
@@ -1287,6 +1307,7 @@
     catch (_) { toast('Sharing is not available here.'); }
   }
   function rotateNearest(point) {
+    if (!gate('rotate')) return false;
     const near = game.bumpers.find(b => b.kind !== 'rock' && Math.hypot(b.x - point.x, b.y - point.y) <= b.length / 2 + 14);
     if (!near) return false;
     if (game.rotate(near.id)) { BloomSound.wake(); processEvents(); toast('Petal turned!'); }
@@ -1304,6 +1325,7 @@
     pointer = point; game.aim = game.trace(Math.cos(angle) * 400, Math.sin(angle) * 400);
   }
   function launch() {
+    if (!gate('fire')) { pointer = null; aiming = false; game.aim = []; nudgeTutorial(); return; }
     const fired = game.fire(Math.cos(angle), Math.sin(angle));
     pointer = null; aiming = false; game.aim = [];
     if (fired) { processEvents(); $('game-hint').textContent = isKoi() ? 'Let the water take it.' : isMoon() ? 'Let it fly.' : isRush() ? isDepth() ? depthHint() : 'Six direct hits charge your split.' : 'Now drag to steer!'; }
@@ -1318,6 +1340,7 @@
   canvas.addEventListener('pointerdown', event => {
     if (route !== 'game' || activePointer !== null || !event.isPrimary || !['aiming', 'flying'].includes(game.status) || narrowLandscape.matches) return;
     if (isChapter() && game.status === 'flying') return;
+    if (isTutorial() && !tutorial.allows('fire') && !tutorial.allows('rotate')) { nudgeTutorial(); return; }
     event.preventDefault(); BloomSound.wake(); canvas.focus({ preventScroll: true });
     const point = coordinates(event);
     if (!isRush() && game.status === 'flying') { guiding = true; pointer = point; activePointer = event.pointerId; canvas.setPointerCapture(event.pointerId); game.guide(point); return; }
@@ -1354,7 +1377,7 @@
     if (event.key === 'ArrowRight' || event.key === 'ArrowUp') angle += Math.PI / 60;
     angle = clamp(angle, -Math.PI + .16, -.16);
     if (event.key === ' ' || event.key === 'Enter') { if (!event.repeat) launch(); }
-    else if (isRush() && event.key.toLowerCase() === 's') { if (game.split()) processEvents(); }
+    else if (isRush() && event.key.toLowerCase() === 's') { if (!gate('split')) nudgeTutorial(); else if (game.split()) processEvents(); }
     else if (event.key.toLowerCase() === 'r') { if (game.bumpers[0]) rotateNearest(game.bumpers[0]); }
     else if (isRush() && /^[1-4]$/.test(event.key)) usePower(Powers.ids[Number(event.key) - 1]);
     else game.aim = game.trace(Math.cos(angle) * 400, Math.sin(angle) * 400);
@@ -1364,12 +1387,75 @@
   window.addEventListener('blur', cancelInteraction);
   const rotateButton = document.createElement('button'); rotateButton.id = 'rotate-btn'; rotateButton.type = 'button'; rotateButton.className = 'turn-petal-btn'; rotateButton.textContent = 'Turn petal';
   $('restart-btn').parentElement.insertBefore(rotateButton, $('restart-btn'));
-  rotateButton.addEventListener('click', () => { if (game.bumpers[0]) rotateNearest(game.bumpers[0]); });
+  rotateButton.addEventListener('click', () => { if (!gate('rotate')) nudgeTutorial(); else if (game.bumpers[0]) rotateNearest(game.bumpers[0]); });
   function openRush() { if (preview) exitPreview(); if (isRush() && !isDepth() && !game.over) { closeDialogs(); setRoute('game'); } else startLevel({ id: 'rush', name: 'Meadow Rush' }); }
   function openLevels() { if (preview) exitPreview(); closeDialogs(); setRoute('levels'); }
   function showUnlock() { const card = $('depth-unlock'); if (card) card.scrollIntoView({ behavior: save.settings.motion ? 'smooth' : 'auto', block: 'center' }); }
   function startDepth(id, taste) { if (id === freshDepth) freshDepth = 0; if (preview) exitPreview(); startLevel({ id: 'rush', depth: id, name: Depths.level(id).name, taste: Boolean(taste) }, { theme: depthTheme(id) }); }
   function replay() { if (isDepth()) startDepth(game.plan.id, isTaste()); else startLevel(game.level, { preview, theme }); }
+  // The tutorial plays on the Sunny Meadow board. Finishing it (or skipping) marks it seen; the first time through
+  // it leads straight into level 1, and it can be played again from How to play.
+  function startTutorial() { if (preview) exitPreview(); startLevel({ id: 'rush', name: 'How to play', tutorial: true }, { theme: depthTheme(1) }); }
+  function endTutorial(play) {
+    if (!tutorial) return;
+    tutorial.finish(); tutorial = null; tutorialKey = ''; document.body.dataset.tutorial = ''; document.body.dataset.tutorialPhase = ''; $('tutorial').hidden = true;
+    // The tutorial teaches the powerups, so the one-time powerups tip is done too.
+    const first = !save.tutorial; save.tutorial = true; save.powersMet = true; persist();
+    if (play) { startDepth(1); return; }
+    startLevel({ id: 'rush', name: 'Meadow Rush' }, { behind: true }); setRoute('levels');
+    if (first) toast('You can play the tutorial again from the ? button.');
+  }
+  function nudgeTutorial() { if (!isTutorial()) return; BloomSound.play('tap'); $('tutorial').dataset.nudge = String(++tutorialNudges % 2); }
+  // The card, the spotlight on the control it names, and a ghost finger showing the drag for a shot.
+  function tutorialRect(target) {
+    if (target === 'board') return canvas.getBoundingClientRect();
+    // The petal is lit where it sits on the board, with room for its turn ring.
+    if (target === 'petal') {
+      const petal = game.bumpers.find(b => b.id === 'petal'); if (!petal) return null;
+      const board = canvas.getBoundingClientRect(), sx = board.width / 420, sy = board.height / 560, r = (petal.length * .62 + 8) * sx;
+      return { left: board.left + petal.x * sx - r, top: board.top + petal.y * sy - r, width: r * 2, height: r * 2 };
+    }
+    const el = target.startsWith('power:') ? $(Object.keys(TRAY).find(group => TRAY[group].includes(target.slice(6)))).querySelector(`[data-power="${target.slice(6)}"]`) : $(target);
+    return el ? el.getBoundingClientRect() : null;
+  }
+  function renderTutorial() {
+    const box = $('tutorial');
+    if (!isTutorial() || route !== 'game') { box.hidden = true; return; }
+    const v = tutorial.view(), done = v.phase === 'finale' || v.phase === 'end';
+    box.hidden = false;
+    const key = `${v.phase}|${v.number}|${v.title}|${v.text}|${v.target}`;
+    if (key !== tutorialKey) {
+      const fresh = v.phase === 'prompt' && !tutorialKey.startsWith(`prompt|${v.number}|${v.title}|${v.text}|`);
+      tutorialKey = key;
+      $('tutorial-step').textContent = done ? 'All done' : `${v.number} of ${v.total}`;
+      $('tutorial-title').textContent = v.title; $('tutorial-text').textContent = v.text;
+      $('tutorial-go').hidden = v.phase !== 'end'; $('tutorial-skip').hidden = done;
+      $('tutorial-go').textContent = save.depths[1]?.stars ? 'Back to the levels' : 'Play level 1';
+      box.dataset.phase = v.phase; document.body.dataset.tutorialPhase = v.phase;
+      box.dataset.place = v.target && v.target.startsWith('power:') ? 'low' : 'high';
+      $('tutorial-dim').hidden = $('tutorial-spot').hidden = !v.target; $('tutorial-spot-2').hidden = !v.also;
+      $('tutorial-finger').hidden = !v.finger || !save.settings.motion;
+      if (fresh) { say(`${v.title}. ${v.text}`); if (tutorial.index > 0 || tutorial.prompt > 0) BloomSound.play('tap'); }
+      if (v.phase === 'show') BloomSound.play('shimmer', { combo: 5 });
+    }
+    if (!v.target) return;
+    // Everything dims except a hole around each thing the card names, and each gets its own ring.
+    [[v.target, 'tutorial-spot', 'tutorial-hole-1'], [v.also, 'tutorial-spot-2', 'tutorial-hole-2']].forEach(([target, ring, hole]) => {
+      const rect = target && tutorialRect(target);
+      if (!rect) { $(hole).setAttribute('width', 0); $(hole).setAttribute('height', 0); return; }
+      const pad = target === 'board' || target.startsWith('power:') ? 4 : target === 'petal' ? 0 : 8;
+      const left = rect.left - pad, top = rect.top - pad, width = rect.width + pad * 2, height = rect.height + pad * 2;
+      const shape = target === 'board' ? 'board' : 'round', spot = $(ring).style;
+      $(ring).dataset.shape = shape;
+      spot.left = `${left}px`; spot.top = `${top}px`; spot.width = `${width}px`; spot.height = `${height}px`;
+      for (const [name, value] of Object.entries({ x: left, y: top, width, height, rx: shape === 'board' ? 22 : Math.min(width, height) / 2 })) $(hole).setAttribute(name, value);
+    });
+    if (v.finger) {
+      const board = canvas.getBoundingClientRect(), sx = board.width / 420, sy = board.height / 560, finger = $('tutorial-finger').style;
+      finger.left = `${board.left + Tutorial.launcher.x * sx}px`; finger.top = `${board.top + (Tutorial.launcher.y - 26) * sy}px`;
+      finger.setProperty('--dx', `${(v.finger[0] - Tutorial.launcher.x) * sx}px`); finger.setProperty('--dy', `${(v.finger[1] - Tutorial.launcher.y + 26) * sy}px`);
+    }
+  }
   $('rush-btn').addEventListener('click', openLevels);
   $('levels-rush-btn').addEventListener('click', openRush);
   $('resume-btn').addEventListener('click', () => { if (inProgress()) setRoute('game'); else renderLevels(); });
@@ -1387,7 +1473,7 @@
   $('garden-rush-btn').addEventListener('click', openRush);
   for (const group of Object.keys(TRAY)) $(group).addEventListener('click', event => { const chip = event.target.closest('[data-power]'); if (chip) usePower(chip.dataset.power); });
   $('power-shelf').addEventListener('click', event => { const button = event.target.closest('[data-buy]'); if (button) buyPower(button); });
-  $('split-btn').addEventListener('click', () => { BloomSound.wake(); if (game.split()) processEvents(); });
+  $('split-btn').addEventListener('click', () => { BloomSound.wake(); if (!gate('split')) nudgeTutorial(); else if (game.split()) processEvents(); });
   $('restart-btn').addEventListener('click', replay);
   $('back-btn').addEventListener('click', () => { if (preview) exitPreview(); else setRoute(isRush() ? 'levels' : 'garden'); });
   $('garden-btn').addEventListener('click', () => { if (preview) exitPreview(); setRoute('garden'); });
@@ -1519,7 +1605,10 @@
     $('settings-storage').textContent = storageAvailable ? 'Saved on this device. No account needed.' : "This browser won't save, so progress lasts for this visit only.";
   }
   $('settings-btn').addEventListener('click', () => { updateSettings(); showDialog('settings-dialog'); });
-  $('help-btn').addEventListener('click', () => { $('levels-help').open = isDepth() || route === 'levels'; $('rush-help').open = isRush() && !isDepth() && route !== 'levels'; $('campaign-help').open = !isRush() && !isChapter(); $('moon-help').open = isMoon(); $('koi-help').open = isKoi(); showDialog('help-dialog'); });
+  $('help-btn').addEventListener('click', () => { $('levels-help').open = isDepth() || route === 'levels'; $('rush-help').open = isRush() && !isDepth() && route !== 'levels'; $('campaign-help').open = !isRush() && !isChapter(); $('moon-help').open = isMoon(); $('koi-help').open = isKoi(); $('tutorial-replay').hidden = isTutorial(); showDialog('help-dialog'); });
+  $('tutorial-replay').addEventListener('click', () => { closeDialogs(); BloomSound.wake(); startTutorial(); });
+  $('tutorial-skip').addEventListener('click', () => { BloomSound.wake(); endTutorial(false); });
+  $('tutorial-go').addEventListener('click', () => { BloomSound.wake(); endTutorial(!save.depths[1]?.stars); });
   for (const key of ['sound', 'haptics', 'motion']) $(`toggle-${key}`).addEventListener('change', event => { save.settings[key] = event.target.checked; BloomSound.wake(); updateSettings(); persist(); });
   $('sound-btn').addEventListener('click', () => { save.settings.sound = !save.settings.sound; BloomSound.wake(); updateSettings(); persist(); toast(save.settings.sound ? 'Sound on' : 'Sound off'); });
   for (const key of ['settings', 'help', 'world']) $(`close-${key}`).addEventListener('click', () => closeDialog(`${key}-dialog`));
@@ -1543,20 +1632,23 @@
     if (document.hidden || route !== 'game') { lastFrame = timestamp; return; }
     const dt = Math.min(lastFrame ? (timestamp - lastFrame) / 1000 : 0, .06); lastFrame = timestamp;
     const paused = narrowLandscape.matches || dialogs.some(id => $(id).open);
+    // In the tutorial the whole board (seeds, flowers, petals and sparkles) runs at the speed its card sets.
+    if (!paused && isTutorial()) tutorial.tick(game, dt);
+    const gdt = isTutorial() ? dt * tutorial.scale : dt;
     if (!paused && freeze > 0) { freeze -= dt; }
     else if (!paused) {
-      accumulator += dt;
+      accumulator += gdt;
       while (accumulator >= 1 / 120) { game.step(1 / 120); accumulator -= 1 / 120; }
       processEvents();
       for (const ball of game.balls || []) ball.hot = (game.combo || 0) >= 8;
-      game.particles = stepParticles(game.particles, dt, 24, 396, 530);
-      for (const p of game.floaters) { p.life -= dt; p.y -= dt * 12; }
+      game.particles = stepParticles(game.particles, gdt, 24, 396, 530);
+      for (const p of game.floaters) { p.life -= gdt; p.y -= gdt * 12; }
       game.floaters = game.floaters.filter(p => p.life > 0).slice(-16);
       if (!resultShown && game.time >= resultAt) showResult();
     }
     displayScore += (game.score - displayScore) * Math.min(1, dt * 10);
     if (Math.abs(game.score - displayScore) < 1) displayScore = game.score;
-    updateHud(); pulseTime += dt;
+    updateHud(); renderTutorial(); pulseTime += dt;
     if (isRush() && (aiming || game.aim.length)) game.aim = game.trace(Math.cos(angle) * 400, Math.sin(angle) * 400);
     trauma = Math.max(0, trauma - dt * 1.7); flash = Math.max(0, flash - dt * 3.2);
     const t2 = trauma * trauma, nt = timestamp / 1000;
@@ -1568,6 +1660,8 @@
   // The game opens on the level map; an endless Rush board waits behind it until a level is picked.
   const initial = { id: 'rush', name: 'Meadow Rush' };
   startLevel(initial, { behind: true }); setRoute('levels'); resize(); requestAnimationFrame(frame);
+  // A brand-new player starts with the tutorial; it leads into level 1.
+  if (!save.tutorial) startTutorial();
   // A read-only snapshot aids local QA without adding a way to grant progress.
   Object.defineProperty(window, 'bloomshotState', { get: () => ({ ...game.snapshot(), route, theme, preview, earnedFlowers: flowers.filter(earned).map(f => f.id), storageAvailable }), configurable: false });
 })();

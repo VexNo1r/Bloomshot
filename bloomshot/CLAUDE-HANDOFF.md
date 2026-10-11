@@ -19,7 +19,7 @@ Keep purchases honest: exact contents and price shown, no fake scarcity, no misl
 
 ## Saves (never reset)
 
-Normal save `bloomshot.save.v1`; `?qa` uses `bloomshot.qa.v1`. Trevor plays in both. New fields are always additive and old saves load unchanged. Fields added since the last handoff: `garden.decor` (decorations built), `goals` (today's goals and progress, today only), `depths` (level campaign: `{ [levelId]: { stars, best, wave } }`, levels 1 to 10, cleaned on load), `garden.depthBest` (stars per level, for seed rewards), `powers` (powerup counts; a save without it starts with one of each), `powerReceipts` (the last 50 store transaction ids, so a purchase never counts twice) and `powersMet` (the one-time powerups tip was shown). In the native app `native.js` mirrors every save to Capacitor Preferences and restores it if the OS wipes web storage.
+Normal save `bloomshot.save.v1`; `?qa` uses `bloomshot.qa.v1`. Trevor plays in both. New fields are always additive and old saves load unchanged. Fields added since the last handoff: `garden.decor` (decorations built), `goals` (today's goals and progress, today only), `depths` (level campaign: `{ [levelId]: { stars, best, wave } }`, levels 1 to 10, cleaned on load), `garden.depthBest` (stars per level, for seed rewards), `powers` (powerup counts; a save without it starts with one of each), `powerReceipts` (the last 50 store transaction ids, so a purchase never counts twice) `powersMet` (the one-time powerups tip was shown) and `tutorial` (the first-time tutorial was finished or skipped; an old save with any played record loads as `true`, so only brand-new players see it). In the native app `native.js` mirrors every save to Capacitor Preferences and restores it if the OS wipes web storage.
 
 ## What changed since October 4
 
@@ -67,6 +67,8 @@ Before and after pictures: `docs/screenshots/backgrounds/`.
 
 Screenshots: `docs/screenshots/storybook/` (interface), `docs/screenshots/levels/` (levels 1 to 4 and the map), `docs/screenshots/levels-deep/` (levels 5 to 10 and the unlock).
 
+**First-time tutorial (October 10).** Trevor asked for a quick tutorial at the start: an overlay that says what each button does, played like a level, where each new button slows the game, gets highlighted, and is shown working against oncoming flowers, all in under 46 seconds. `tutorial.js` (`BloomTutorial`) scripts seven steps on the Sunny Meadow board (aim and fire, turn the petal, Split, Sunburst, Dandelion, Bee Line, Lullaby). While a card waits the game runs at 8% speed (Split's card at 20%, so the seed is still flying), only the control on the card works (anything else nudges the card), and a spotlight rings that control; a ghost finger shows the drag for shots. Once used, the game plays at full speed until the effect is shown, then the next step sets its own board. A miss goes back a card with the step's uses restored. The tutorial hands out its own powerup uses, so it never spends the player's, and it records no scores, seeds or goals. `rush.js` takes `{ scripted: true }`: no waves of its own, flowers stop just above the line, and it never clears or loses. It plays once for a new player before the level map and leads into level 1; Skip ends it for good, and How to play has a "Play the tutorial" button. A new player acting about a second after each card finishes in about 30 seconds, about 41 at two seconds. `qa/test-tutorial.cjs` plays it on the engine; `qa/test-save-integration.cjs` plays it through the app's own buttons. Browser QA with a fresh save now lands in the tutorial first: tap Skip, or seed the save with `tutorial: true`.
+
 ## Code map
 
 | File | Responsibility |
@@ -75,6 +77,7 @@ Screenshots: `docs/screenshots/storybook/` (interface), `docs/screenshots/levels
 | powers.js | The four powerups, their product ids, counts and the once-only purchase grant |
 | petals.js | The petal shower over a won result (create, step, draw) |
 | rush.js | Endless Rush with tempo, and the level runner: waves, drops, bosses, shells, geodes, briars, powerups and gift bubbles |
+| tutorial.js | The first-time tutorial: seven scripted steps, the slow-down and what each card says |
 | engine.js | Puzzle physics, currents and gates (shared with the levels) |
 | scenery.js | The painter's kit, the ten painted level scenes, the garden boards and the rocks |
 | art.js | All other canvas art: flowers, board pieces, seeds and styles, particles, callouts |
@@ -86,13 +89,13 @@ Screenshots: `docs/screenshots/storybook/` (interface), `docs/screenshots/levels
 | native.js | Haptics and the native save mirror (shipping thread) |
 | store*.js | Purchases (shipping thread; send requests instead of editing) |
 
-Script order: store-config → store → levels → moon → koi → keepsakes → garden → goals → depths → powers → engine → rush → scenery → art → meadow → petals → sound → native → app → store-ui → pwa. `sw.js` ASSETS lists every shipped file; bump `VERSION` whenever an asset changes (the Pages build replaces it with a content hash). The native copy step derives its file list from ASSETS.
+Script order: store-config → store → levels → moon → koi → keepsakes → garden → goals → depths → powers → engine → rush → tutorial → scenery → art → meadow → petals → sound → native → app → store-ui → pwa. `sw.js` ASSETS lists every shipped file; bump `VERSION` whenever an asset changes (the Pages build replaces it with a content hash). The native copy step derives its file list from ASSETS.
 
 Every new buzz goes through `haptic(kind)` in `app.js`, never `navigator.vibrate`, or iPhone stays silent.
 
 ## Verification
 
-From `bloomshot/`, every suite must exit 0 (CI runs the same list in `.github/workflows/web-tests.yml`): every `node qa/test-*.cjs` (18 suites, including `test-depths`, `test-powers`, `test-petals`, `test-scenery`, `test-goals` and `test-keepsakes`) and `node qa/check-moon-pointer.cjs`. Then in `native/`: `npm ci && npm run sync && npm run check`. Running the suites rewrites several `qa/*-results.json` files with new timestamps; commit only the ones your change actually affects. None of this is physical-device proof.
+From `bloomshot/`, every suite must exit 0 (CI runs the same list in `.github/workflows/web-tests.yml`): every `node qa/test-*.cjs` (19 suites, including `test-depths`, `test-powers`, `test-petals`, `test-scenery`, `test-tutorial`, `test-goals` and `test-keepsakes`) and `node qa/check-moon-pointer.cjs`. Then in `native/`: `npm ci && npm run sync && npm run check`. Running the suites rewrites several `qa/*-results.json` files with new timestamps; commit only the ones your change actually affects. None of this is physical-device proof.
 
 ## Store state
 

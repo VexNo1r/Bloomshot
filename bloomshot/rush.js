@@ -69,6 +69,8 @@
       this.random = options && typeof options.random === 'function' ? options.random : null;
       this.giftChance = this.random ? Number.isFinite(options.giftChance) ? options.giftChance : GIFT_CHANCE : 0;
       this.giftsLeft = 1; this.giftAt = null; this.armed = null; this.lullaby = 0; this.powersUsed = 0;
+      // A scripted run (the tutorial) has no waves of its own: its script sets the board, and it never clears or loses.
+      this.scripted = Boolean(options && options.scripted);
       if (first) this._applyWave(first);
       this._rollGift();
     }
@@ -360,7 +362,9 @@
       for (const rock of this.bumpers) if (rock.slide) rock.x = rock.baseX + Math.sin(waveTime * rock.slideW) * rock.slide;
       if (this.plan) this._dropIn(waveTime);
 
-      const breached = new Set(this.buds.filter(bud => !bud.bloomed && bud.y + bud.r >= this.dangerY).map(bud => bud.group));
+      // In a scripted run flowers stop just above the line instead of costing a life.
+      if (this.scripted) for (const bud of this.buds) if (!bud.bloomed) bud.y = Math.min(bud.y, this.dangerY - bud.r - 4);
+      const breached = new Set(this.scripted ? [] : this.buds.filter(bud => !bud.bloomed && bud.y + bud.r >= this.dangerY).map(bud => bud.group));
       for (const group of breached) {
         if (this.status === 'lost' || this.waveBreaches >= 3) break;
         const member = this.buds.find(bud => bud.group === group && !bud.bloomed);
@@ -435,7 +439,7 @@
       }
       this.balls = this.balls.filter(ball => !ball.dead && ball.y <= BOUNDS.bottom + RADIUS && ball.age < BALL_LIFE);
       this.ball = this.balls[0] || null;
-      if (!this.buds.some(open) && this.pending.length === 0 && this.nextWaveAt === null && !(this.drops && this.drops.length)) {
+      if (!this.scripted && !this.buds.some(open) && this.pending.length === 0 && this.nextWaveAt === null && !(this.drops && this.drops.length)) {
         if (this.wave >= this.finalWave) { this._clearLevel(); return; }
         this.nextWaveAt = this.time + 0.7;
         this.event('cleared', { wave: this.wave, tempo: this.tempo, next: tempoFor(this.wave + 1) });

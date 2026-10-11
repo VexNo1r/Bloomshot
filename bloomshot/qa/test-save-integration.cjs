@@ -115,7 +115,7 @@ function boot(raw, { storageFails = false, search = '', otherSave, store, native
     performance: { now: () => now }, devicePixelRatio: 1,
     matchMedia: () => ({ matches: false, addEventListener: noop }),
     requestAnimationFrame: fn => { nextFrame = fn; }, setTimeout: () => 1, clearTimeout: noop,
-    BloomLevels: { ...Levels, worlds: [...Levels.worlds, FUTURE] }, BloomMoon: Moon, BloomKoi: Koi, BloomGarden: Garden, BloomGoals: goals ? Goals : QuietGoals, ...(store ? { BloomStore: store } : {}), ...(native ? { BloomNative: native } : {}), BloomEngine: { ...Engine, Game: ObservedGame }, BloomRush: { RushGame: ObservedRush }, BloomDepths: Depths, BloomPowers: Powers, BloomPetals: require('../petals.js'), BloomScenery: { paint: noop, has: () => true },
+    BloomLevels: { ...Levels, worlds: [...Levels.worlds, FUTURE] }, BloomMoon: Moon, BloomKoi: Koi, BloomGarden: Garden, BloomGoals: goals ? Goals : QuietGoals, ...(store ? { BloomStore: store } : {}), ...(native ? { BloomNative: native } : {}), BloomEngine: { ...Engine, Game: ObservedGame }, BloomRush: { RushGame: ObservedRush }, BloomDepths: Depths, BloomPowers: Powers, BloomTutorial: require('../tutorial.js'), BloomPetals: require('../petals.js'), BloomScenery: { paint: noop, has: () => true },
     BloomSound: { wake: noop, play: noop, setEnabled: noop }, BloomKeepsakes: Keepsakes,
     BloomArt: { draw: (ctx, state, time, options) => boardDraws.push(options.keepsake ? options.keepsake.id : 'meadow'), drawFlower: noop, drawMoon: noop, koiFish: noop,
       drawGarden: noop, drawProjectile: noop, drawParticle: noop, drawSeed: noop, drawPowerIcon: noop },
@@ -592,7 +592,8 @@ test('Native bridge: once a backup has been restored and a reload is pending, th
 const depthGame = app => { const game = app.games.at(-1); assert.equal(game.mode, 'rush'); assert(game.plan, 'a level is running'); return game; };
 const settleLevel = app => { for (let i = 0; i < 40; i++) app.frame(); };
 test('The game opens on the level map: level 1 is open, the rest wait their turn, and a locked card never starts', () => {
-  const app = boot(undefined);
+  // A brand-new player gets the tutorial first; skipping it lands on the map.
+  const app = boot(undefined); app.click('tutorial-skip');
   assert.equal(app.context.bloomshotState.route, 'levels'); assert.equal(app.$('levels-view').hidden, false); assert.equal(app.$('game-view').hidden, true);
   assert(app.$('rush-btn').classList.contains('active'), 'Play is the active tab');
   const map = app.$('depth-map').innerHTML;
@@ -610,6 +611,100 @@ test('The game opens on the level map: level 1 is open, the rest wait their turn
   app.click('depth-map', { depth: '1' }); const game = depthGame(app);
   assert.equal(game.plan.id, 1); assert.equal(app.context.bloomshotState.theme, 'depth-meadow'); assert.equal(app.context.bloomshotState.route, 'game');
   app.frame(); assert.equal(app.$('level-label').textContent, 'Level 1 · Wave 1/10'); assert.equal(app.$('level-name').textContent, 'Sunny Meadow');
+});
+// The first-time tutorial, played through the app's own board and buttons the way a player would: wait about a
+// second on each card, then do what it says.
+const Tutorial = require('../tutorial.js');
+const TRAY_GROUP = { sunburst: 'power-left', dandelion: 'power-left', beeline: 'power-right', lullaby: 'power-right' };
+function tapTutorial(app, action, finger) {
+  if (action === 'fire') {
+    const [x, y] = finger, canvas = app.$('game-canvas');
+    canvas.emit('pointerdown', { isPrimary: true, pointerId: 1, clientX: x, clientY: y }); canvas.emit('pointerup', { pointerId: 1, clientX: x, clientY: y });
+  } else if (action === 'rotate') app.click('rotate-btn');
+  else if (action === 'split') app.click('split-btn');
+  else app.click(TRAY_GROUP[action.slice(6)], { power: action.slice(6) });
+}
+function playTutorial(app, react = .8) {
+  let shown = '', since = 0, acted = false, seconds = 0;
+  const box = app.$('tutorial');
+  while (box.dataset.phase !== 'end' && seconds < 90) {
+    app.frame(17); seconds += .017;
+    const key = `${app.$('tutorial-step').textContent}|${app.$('tutorial-text').textContent}|${box.dataset.phase}`;
+    if (key !== shown) { shown = key; since = 0; acted = false; } else since += .017;
+    if (box.dataset.phase !== 'prompt' || acted || since < react) continue;
+    const step = Tutorial.steps[parseInt(app.$('tutorial-step').textContent, 10) - 1];
+    const prompt = step.prompts.find(p => p.text === app.$('tutorial-text').textContent);
+    tapTutorial(app, prompt.allow[0], prompt.finger); acted = true;
+  }
+  return seconds;
+}
+test('A brand-new player starts in the tutorial; a returning player goes straight to the levels', () => {
+  const fresh = boot(undefined); fresh.frame(); fresh.frame();
+  assert.equal(fresh.context.bloomshotState.route, 'game'); assert.equal(fresh.$('level-name').textContent, 'How to play');
+  assert.equal(fresh.$('level-label').textContent, 'Tutorial'); assert.equal(fresh.context.document.body.dataset.tutorial, 'on');
+  assert.equal(fresh.$('tutorial').hidden, false); assert.equal(fresh.$('tutorial-title').textContent, 'Aim and fire');
+  assert.equal(fresh.$('tutorial-step').textContent, '1 of 7'); assert.equal(fresh.saved().tutorial, false);
+  const back = boot(legacySave());
+  assert.equal(back.context.bloomshotState.route, 'levels'); assert.equal(back.$('tutorial').hidden, true); assert.equal(back.saved().tutorial, true);
+  // Someone who started a level or Rush before the tutorial existed but never finished one has seen the powerups tip.
+  assert.equal(boot({ version: 1, powersMet: true }).context.bloomshotState.route, 'levels');
+  assert.equal(fresh.saved().powersMet, false, 'the tutorial does not count as having started a run');
+});
+test('Played through on the real board, the tutorial finishes in under 46 seconds, spends none of the player\'s powerups and records nothing', () => {
+  const app = boot(undefined), before = app.saved();
+  const seconds = playTutorial(app);
+  assert.equal(app.$('tutorial').dataset.phase, 'end'); assert(seconds < 46, `took ${seconds.toFixed(1)} s`);
+  assert.equal(app.$('tutorial-go').hidden, false); assert.equal(app.$('tutorial-go').textContent, 'Play level 1');
+  const during = app.saved();
+  assert.deepEqual(during.powers, before.powers, 'the tutorial hands out its own uses');
+  assert.deepEqual(during.rush, before.rush); assert.deepEqual(during.depths, {}); assert.equal(during.garden.seeds, before.garden.seeds);
+  app.click('tutorial-go');
+  const game = depthGame(app); assert.equal(game.plan.id, 1); assert.equal(app.context.document.body.dataset.tutorial, '');
+  assert.equal(app.$('tutorial').hidden, true); assert.equal(app.saved().tutorial, true); assert.equal(app.saved().powersMet, true, 'no powerups tip after learning them');
+  assert.notEqual(app.$('toast').textContent, 'New: powerups! Tap one above the board, then fire.');
+  assert.equal(boot(app.saved()).context.bloomshotState.route, 'levels', 'it plays once');
+});
+test('While a card waits, only the control it names works; anything else just nudges the card', () => {
+  const app = boot(undefined), before = app.saved().powers;
+  for (let i = 0; i < 30; i++) app.frame(17);
+  assert.equal(app.$('tutorial').dataset.phase, 'prompt'); const game = app.games.at(-1);
+  app.click('power-left', { power: 'sunburst' }); assert.equal(game.armed, null);
+  assert.equal(app.$('tutorial').dataset.nudge, '1');
+  app.click('split-btn'); app.click('rotate-btn'); assert.equal(app.$('tutorial').dataset.nudge, '1', 'each blocked tap nudges again');
+  assert.equal(game.balls.length, 0); assert.deepEqual(app.saved().powers, before);
+  tapTutorial(app, 'fire', Tutorial.steps[0].prompts[0].finger); assert.equal(game.balls.length, 1, 'the shot on the card fires');
+});
+test('The petal card lights the petal on the board and the Turn petal button, and tapping the petal itself turns it', () => {
+  const app = boot(undefined), box = app.$('tutorial');
+  let seconds = 0;
+  // Play the first card, then wait for the petal card.
+  while (!(box.dataset.phase === 'prompt' && app.$('tutorial-step').textContent === '1 of 7') && seconds < 5) { app.frame(17); seconds += .017; }
+  tapTutorial(app, 'fire', Tutorial.steps[0].prompts[0].finger);
+  while (!(box.dataset.phase === 'prompt' && app.$('tutorial-step').textContent === '2 of 7') && seconds < 15) { app.frame(17); seconds += .017; }
+  app.frame(17);
+  assert.equal(app.$('tutorial-text').textContent, Tutorial.steps[1].prompts[0].text);
+  assert.equal(app.$('tutorial-spot').hidden, false); assert.equal(app.$('tutorial-spot-2').hidden, false); assert.equal(app.$('tutorial-dim').hidden, false);
+  const hole = app.$('tutorial-hole-1').attributes, petal = app.games.at(-1).bumpers[0];
+  // The test board fills 420 x 560 at the origin, so the hole is centred on the petal itself.
+  assert.equal(hole.x + hole.width / 2, petal.x); assert.equal(hole.y + hole.height / 2, petal.y); assert.equal(hole.rx, hole.width / 2);
+  assert(app.$('tutorial-hole-2').attributes.width > 0, 'the Turn petal button has its own hole');
+  const before = petal.angle, canvas = app.$('game-canvas');
+  canvas.emit('pointerdown', { isPrimary: true, pointerId: 1, clientX: petal.x + 12, clientY: petal.y - 12 });
+  canvas.emit('pointerup', { pointerId: 1, clientX: petal.x + 12, clientY: petal.y - 12 });
+  assert.notEqual(app.games.at(-1).bumpers[0].angle, before, 'tapping the petal turned it');
+  for (let i = 0; i < 6; i++) app.frame(17);
+  assert.equal(app.$('tutorial-text').textContent, Tutorial.steps[1].prompts[1].text); assert.equal(app.$('tutorial-spot-2').hidden, true);
+});
+test('Skip ends it for good, and How to play can start it again', () => {
+  const app = boot(undefined); app.frame(); app.click('tutorial-skip');
+  assert.equal(app.context.bloomshotState.route, 'levels'); assert.equal(app.saved().tutorial, true); assert.equal(app.$('tutorial').hidden, true);
+  assert.equal(app.$('toast').textContent, 'You can play the tutorial again from the ? button.');
+  app.click('help-btn'); assert.equal(app.$('tutorial-replay').hidden, false);
+  app.click('tutorial-replay'); app.frame();
+  assert.equal(app.context.bloomshotState.route, 'game'); assert.equal(app.$('level-name').textContent, 'How to play'); assert.equal(app.$('help-dialog').open, false);
+  app.click('help-btn'); assert.equal(app.$('tutorial-replay').hidden, true, 'no replay button while it plays');
+  app.$('help-dialog').close(); app.$('toast').textContent = '';
+  app.click('tutorial-skip'); assert.equal(app.context.bloomshotState.route, 'levels'); assert.equal(app.$('toast').textContent, '', 'the reminder only shows the first time');
 });
 test('Clearing a level saves its stars, pays run and first-clear seeds once, opens the next level and Next starts it', () => {
   const app = boot(legacySave()); app.click('depth-map', { depth: '1' });
