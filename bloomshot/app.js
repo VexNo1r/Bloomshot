@@ -14,7 +14,7 @@
   const Depths = window.BloomDepths;
   const Tutorial = window.BloomTutorial;
   const Powers = window.BloomPowers;
-  const defaults = { version: 1, garden: BloomGarden.normalize(), goals: Goals.normalize(null, localDate()), progress: {}, moon: {}, koi: {}, daily: {}, rush: { best: 0, bestWave: 1, runs: 0, blooms: 0 }, depths: {}, powers: Powers.normalize(), powerReceipts: [], powersMet: false, tutorial: false, lastLevel: 1, keepsake: 'meadow', settings: { sound: true, haptics: true, motion: !matchMedia('(prefers-reduced-motion: reduce)').matches } };
+  const defaults = { version: 1, garden: BloomGarden.normalize(), goals: Goals.normalize(null, localDate()), progress: {}, moon: {}, koi: {}, daily: {}, rush: { best: 0, bestWave: 1, runs: 0, blooms: 0 }, depths: {}, powers: Powers.normalize(), powerReceipts: [], powersMet: false, podMet: false, tutorial: false, lastLevel: 1, keepsake: 'meadow', settings: { sound: true, haptics: true, motion: !matchMedia('(prefers-reduced-motion: reduce)').matches } };
   let storageAvailable = true;
   function readSave() {
     try {
@@ -26,6 +26,7 @@
       valid.depths = Depths.normalize(raw.depths);
       // Powerups are counted, never reset; a save from before them starts with one of each.
       valid.powers = Powers.normalize(raw.powers); valid.powerReceipts = Powers.receipts(raw.powerReceipts); valid.powersMet = raw.powersMet === true;
+      valid.podMet = raw.podMet === true;
       for (const world of Object.keys(chapters)) for (const level of chapters[world].levels) {
         const record = raw[world]?.[level.id];
         if (record && Number.isFinite(record.best) && Number.isInteger(record.stars) && record.stars >= 0 && record.stars <= 3) valid[world][level.id] = { best: Math.max(0, record.best), stars: record.stars, attempts: Math.max(0, Number(record.attempts) || 0) };
@@ -284,7 +285,7 @@
       putClass(meter, 'fever', game.splitReady);
       putAttr(meter, 'aria-label', 'Manual split charge');
       putAttr(meter, 'aria-valuenow', Math.round(game.splitCharge * 100));
-      put($('guide-label'), 'textContent', game.status === 'won' ? 'Cleared!' : game.status === 'lost' ? isDepth() ? 'Out of lives' : 'Run over' : game.fireCooldown > 0 ? 'Reloading' : game.balls.length >= 5 ? 'Max seeds' : 'Fire!');
+      put($('guide-label'), 'textContent', game.status === 'won' ? 'Cleared!' : game.status === 'lost' ? isDepth() ? 'Out of lives' : 'Run over' : game.balls.length >= 5 ? 'Max seeds' : game.pod < 1 && !(game.superBloom > 0) ? 'Refilling' : 'Fire!');
       put(split, 'disabled', !game.splitReady);
       // Once the run is over the bar empties, so a full gold Split no longer looks pressable behind the finale.
       putVar(split, '--split-charge', `${game.over ? 0 : game.splitCharge * 100}%`);
@@ -1150,6 +1151,15 @@
     // The worn keepsake adds its own signature particles on top of the flower's petals.
     if (style.burst) for (const extra of Keepsakes.burstExtras(style, bud.x, bud.y, count)) into.push(extra);
   }
+  // A flower that feeds the pod sends a little seed of light down to the slot it filled. The tray already shows the
+  // true count; this only shows where it came from, so it is skipped with motion off and kept to a few at a time.
+  function podSpark(event) {
+    if (!save.settings.motion || !Number.isFinite(event.x) || !Number.isFinite(event.y)) return;
+    if (game.particles.filter(p => p.kind === 'podSpark').length >= 8) return;
+    const to = BloomArt.podSlot(event.slot);
+    game.particles.push({ x: event.x, y: event.y, vx: 0, vy: 0, rotation: 0, spin: 0, gravity: 0, drag: 0, life: .25, maxLife: .25, kind: 'podSpark',
+      from: { x: event.x, y: event.y }, to, type: game.nextType });
+  }
   function stepParticles(list, dt, left, right, floor) {
     for (const p of list) {
       p.life -= dt; p.vx *= Math.exp(-(p.drag || 1) * dt); p.vy *= Math.exp(-(p.drag || 1) * dt);
@@ -1469,7 +1479,13 @@
       if (isTutorial()) tutorial.observe(event);
       if (feel && !isTutorial()) feelEvent(event);
       BloomSound.play(event.type, event);
-      if (event.type === 'launch') { kick = 1; game.recoilAt = game.time; game.recoilAngle = angle; }
+      if (event.type === 'launch') {
+        // A kept tap launches a tick later with its own aim, so the recoil follows the shot, not the pointer.
+        kick = 1; game.recoilAt = game.time; game.recoilAngle = event.angle ?? angle;
+        if (event.pod === 0 && isRush() && !(game.superBloom > 0) && !isTutorial() && !preview && !save.podMet) { save.podMet = true; persist(); toast('Your pod holds 4 seeds. Hits win them back!'); }
+      }
+      else if (event.type === 'dry') { if (!(game.time - game.dryTickAt < .25)) { game.dryTickAt = game.time; haptic('tick'); } }
+      else if (event.type === 'podRefund') podSpark(event);
       else if (event.type === 'bounce' && event.caught) {
         // The petal saved a falling seed: a bright little ring and a pop of sparks so the save reads.
         burst({ x: event.x, y: event.y, type: 'gold', r: 6 }, 10);
@@ -1971,7 +1987,11 @@
     const fired = game.fire(Math.cos(angle), Math.sin(angle));
     pointer = null; aiming = false; game.aim = [];
     if (fired) { processEvents(); $('game-hint').textContent = isKoi() ? 'Let the water take it.' : isMoon() ? 'Let it fly.' : isRush() ? isDepth() ? depthHint() : rushHint() : 'Now drag to steer!'; }
-    else if (isRush() && !game.over) $('game-hint').textContent = game.balls.length >= 5 ? 'Max 5 seeds. Wait for one to land.' : 'Reloading…';
+    else if (isRush() && !game.over) {
+      // A dropped tap always says why: too many seeds in the air, an empty pod, or a blink too soon.
+      $('game-hint').textContent = game.balls.length >= 5 ? 'Max 5 seeds. Wait for one to land.' : game.pod < 1 && !(game.superBloom > 0) ? 'Out of seeds! Hit flowers to refill.' : 'Almost ready…';
+      processEvents();
+    }
   }
   // The endless run's hint follows what is happening, so it never contradicts the board.
   const rushHint = () => game.superBloom > 0 ? 'Super Bloom! Double points.' : game.splitReady ? 'Split is ready! Tap it mid-flight.' : 'Six direct hits charge your split.';

@@ -18,7 +18,7 @@ Open http://127.0.0.1:4387/ . Reuse an existing server; an optional port is `nod
 
 ## Play controls
 
-- Rush: drag above the seed, or drag from the seed toward your target, then release one ball. Reload takes 0.65 seconds.
+- Rush: drag above the seed, or drag from the seed toward your target, then release one ball. The pod holds 4 seeds (a burst at most every .15 s); each flower a seed hits returns half a seed, and an empty slot regrows in 6x the wave reload (about 3.4 s on level 1).
 - Flowers descend after the first shot. Three breached clusters end the run.
 - Gold relay flowers affect two neighbors. Six direct hits charge the manual Split, which adds two balls. Five balls maximum.
 - Turn the leaf to redirect shots; two seconds between turns.
@@ -36,6 +36,7 @@ Settings contains home-screen installation guidance, offline download status, an
 ```powershell
 node qa/test-engine.cjs
 node qa/test-rush.cjs
+node qa/test-pod.cjs
 node qa/test-pwa.cjs
 node qa/test-sound.cjs
 node qa/test-garden.cjs

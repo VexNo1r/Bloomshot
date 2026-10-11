@@ -264,12 +264,15 @@ test('Briars grow back unless the whole patch blooms in time', () => {
   patch.forEach(b => game.strike(b)); advance(game, 6);
   assert(patch.every(b => b.bloomed && !b.regrowAt), 'a whole patch stays bloomed');
 });
-const botRuns = { supers: [], tricks: [] };
+const botRuns = { supers: [], tricks: [], good: [] };
 test('A practice bot clears every level, and the levels get harder', () => {
   const good = { noise: 2.5, think: .3, thinkSpread: .3, bounces: 2 }, average = { noise: 4, think: .5, thinkSpread: .5, bounces: 1 };
   const lost = [];
   for (const id of ids) {
-    for (let s = 1; s <= 2; s++) assert.equal(bot.play(id, { seed: s * 31 + id, ...good }).won, true, `a good player clears level ${id}`);
+    for (let s = 1; s <= 2; s++) {
+      const run = bot.play(id, { seed: s * 31 + id, ...good }); botRuns.good.push({ id, ...run });
+      assert.equal(run.won, true, `a good player clears level ${id}`);
+    }
     let livesLost = 0;
     let supers = 0, tricks = 0;
     for (let s = 1; s <= 3; s++) {
@@ -292,6 +295,20 @@ test('An average player sees a few Super Blooms and a handful of trick shots per
   const supers = mean(botRuns.supers), tricks = mean(botRuns.tricks);
   assert(supers >= 2 && supers <= 8, `Super Blooms per level average ${supers.toFixed(1)}, want 2-8`);
   assert(tricks >= 4 && tricks <= 30, `tricks per level average ${tricks.toFixed(1)}, want 4-30`);
+});
+test('Mashing does not pay: tapping as fast as the launcher allows, barely aiming, loses where a good player clears', () => {
+  assert.equal(botRuns.good.length, ids.length * 2, 'the practice runs finished');
+  const pain = r => r.won ? 3 - r.lives : 3 + (10 - r.wave), mean = list => list.reduce((a, b) => a + b, 0) / list.length;
+  const wild = ids.filter(id => id >= 2).map(id => ({ id, ...bot.mash(id, { seed: 101 + id, mode: 'wild' }) }));
+  const lazy = ids.map(id => ({ id, ...bot.mash(id, { seed: 101 + id, mode: 'lazy' }) }));
+  const tag = r => `L${r.id} ${r.won ? 'won with ' + r.lives : 'lost at wave ' + r.wave}`;
+  observations.wildMasher = wild.map(tag); observations.lazyMasher = lazy.map(tag);
+  observations.goodPlayerShotsPerSecond = botRuns.good.map(r => r.rate);
+  assert(wild.filter(r => r.won).length <= 2, 'firing anywhere loses nearly every level from 2 on');
+  assert(wild.every(r => !r.won || (r.id < 6 && r.lives <= 2)), 'and never wins cleanly, or at all from level 6');
+  assert(lazy.filter(r => !r.won).length >= 4, 'rough aim at full speed still loses several levels');
+  assert(mean(lazy.map(pain)) >= mean(botRuns.good.map(pain)) + 2, 'and costs far more lives than aiming');
+  assert(mean(botRuns.good.map(r => r.rate)) >= 1.2, 'a good player still fires briskly');
 });
 test('Every boss has a name', () => {
   const names = ids.map(id => Depths.wave(id, 10).buds.find(b => b.boss).name);
