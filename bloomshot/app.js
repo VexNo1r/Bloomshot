@@ -1996,12 +1996,12 @@
   const AIM_HINTS = ['Let go to fire.', 'Seed coming… keep aiming.', 'Max 5 seeds. Wait for one to land.'];
   const podEmpty = () => isRush() && game.pod < 1 && !(game.superBloom > 0);
   const aimHint = () => !isRush() ? AIM_HINTS[0] : game.balls.length >= 5 ? AIM_HINTS[2] : podEmpty() ? AIM_HINTS[1] : AIM_HINTS[0];
-  const HELD = (window.BloomRush && BloomRush.HELD) || .2, REMEMBER = 4000;
-  function launch() {
+  const HELD = (window.BloomRush && BloomRush.HELD) || .2, REMEMBER = 4000, REMEMBER_CONE = .17;
+  function launch(byKey) {
     if (!gate('fire')) { pointer = null; aiming = false; game.aim = []; remembered = null; nudgeTutorial(); return; }
     // How long the finger aimed: a held aim let go just before its seed regrows is kept for that seed. A quick tap that
-    // sends a remembered aim counts as that aim.
-    const held = remembered ? Infinity : pressAt ? (performance.now() - pressAt) / 1000 : 0, shot = angle;
+    // sends a remembered aim counts as that aim, and so does a key press: the arrow keys aimed it on purpose.
+    const held = remembered ? Infinity : byKey ? HELD : pressAt ? (performance.now() - pressAt) / 1000 : 0, shot = angle;
     const fired = game.fire(Math.cos(angle), Math.sin(angle), held);
     pointer = null; aiming = false; pressAt = 0; pressPoint = null;
     if (fired) {
@@ -2046,9 +2046,11 @@
     if (point.y > game.launcher.y + 24) { toast('Aim above the seed, then let go.'); return; }
     aiming = true; activePointer = event.pointerId; canvas.setPointerCapture(event.pointerId);
     pressAt = performance.now(); pressPoint = point;
-    // A remembered aim stays put until the finger moves or holds; a quick tap sends it as it is.
-    if (remembered && isRush()) { angle = remembered.angle; game.aim = game.trace(Math.cos(angle) * 400, Math.sin(angle) * 400); }
-    else aimAt(point);
+    // A remembered aim stays put for a quick tap on or near its line, until the finger moves or holds; a tap anywhere
+    // else aims there instead, so a seed never flies somewhere the player did not touch.
+    const toward = Math.atan2(Math.min(-35, point.y - game.launcher.y), point.x - game.launcher.x);
+    if (remembered && isRush() && Math.abs(toward - remembered.angle) < REMEMBER_CONE) { angle = remembered.angle; game.aim = game.trace(Math.cos(angle) * 400, Math.sin(angle) * 400); }
+    else { remembered = null; aimAt(point); }
     $('game-hint').textContent = aimHint();
   });
   canvas.addEventListener('pointermove', event => {
@@ -2085,7 +2087,7 @@
     if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') angle -= Math.PI / 60;
     if (event.key === 'ArrowRight' || event.key === 'ArrowUp') angle += Math.PI / 60;
     angle = clamp(angle, -Math.PI + .16, -.16);
-    if (event.key === ' ' || event.key === 'Enter') { if (!event.repeat) launch(); }
+    if (event.key === ' ' || event.key === 'Enter') { if (!event.repeat) launch(true); }
     else if (isRush() && event.key.toLowerCase() === 's') { if (!gate('split')) nudgeTutorial(); else if (game.split()) processEvents(); }
     else if (event.key.toLowerCase() === 'r') { if (game.bumpers[0]) rotateNearest(game.bumpers[0]); }
     else if (isRush() && /^[1-4]$/.test(event.key)) usePower(Powers.ids[Number(event.key) - 1]);

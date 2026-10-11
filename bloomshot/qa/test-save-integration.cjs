@@ -1174,13 +1174,21 @@ test('The seed pod in the app: its tip shows once and is saved, the hint and sig
   press(150, 120); wait(300); release(150, 120);
   assert(game.kept, 'kept for its seed'); assert(game.aim.length > 0, 'its line stays on the board');
   until(() => game.shotNumber === 6, 800); assert.equal(game.kept, null); assert(game.balls.at(-1).vx < 0, 'it flew where it was aimed');
-  // Let go well before the seed, the aim stays on the board; once the seed is in, one quick tap anywhere sends it.
+  // Let go well before the seed, the aim stays on the board; once the seed is in, a quick tap on or near its line sends it.
   until(() => game.pod < 1 && game.fireCooldown > 1.2 && game.fireCooldown < 2.5);
   press(300, 120); wait(300); release(300, 120);
   assert.equal(game.shotNumber, 6); assert.equal(hint(), 'Too soon! Tap to fire when the seed is in.'); assert(game.aim.length > 0, 'the aim waits');
   until(() => game.pod >= 1); app.frame(); assert.equal(hint(), 'Seed in! Tap to fire.');
+  press(255, 309); release(255, 309);
+  assert.equal(game.shotNumber, 7); assert(game.balls.at(-1).vx > 0, 'a quick tap near its line sent the remembered aim');
+  // A quick tap anywhere else forgets it and aims where the finger touched, so a seed never flies somewhere unexpected.
+  game.pod = 0; game.podGrow = 0;
+  until(() => game.fireCooldown > 1.2 && game.fireCooldown < 2.5);
+  press(300, 120); wait(300); release(300, 120);
+  assert.equal(game.shotNumber, 7); assert(game.aim.length > 0, 'the aim waits again');
+  until(() => game.pod >= 1); app.frame();
   press(100, 200); release(100, 200);
-  assert.equal(game.shotNumber, 7); assert(game.balls.at(-1).vx > 0, 'the quick tap sent the remembered aim, not a new one');
+  assert.equal(game.shotNumber, 8); assert(game.balls.at(-1).vx < 0, 'a tap elsewhere aims there, not along the old line');
   assert.equal(app.$('toast').textContent, '', 'the pod tip is shown only once');
   // Refunds: a seed-earned hit sends a spark to the pod; many at once stay at eight sparks.
   game.pod = 0; game.podGrow = 0; game.buds.push({ ...far, id: 'near', group: 'near', x: 300, y: 200, baseX: 300, startY: 200 });
