@@ -10,7 +10,7 @@
   // brings in one control. While it waits for the player the game nearly stops and the control is lit up; once
   // the player uses it, the game runs at full speed so they see what it did to the flowers coming down.
   // This file is the script and its clock. app.js draws the card and the spotlight and asks it what is allowed.
-  const SLOW = 0.08, CREEP = 0.2, EASE = 7, DESCENT = 8, INTRO = 0.25;
+  const SLOW = 0.08, CREEP = 0.2, EASE = 7, DESCENT = 8, INTRO = 0.25, FADE = 0.3;
   const LAUNCHER = { x: 210, y: 498 };
   const TYPES = ['coral', 'gold', 'lilac'];
   // Three buds a bunch. The crown comes first, placed where a shot from below meets it first.
@@ -33,7 +33,7 @@
     for (let i = 0; i < 6; i++) spots.push([Math.cos((i + .5) * Math.PI / 3) * 40, Math.sin((i + .5) * Math.PI / 3) * 40]);
     return spots.map(([dx, dy], i) => bud(game, `${tag}-${i}`, `${tag}-${i}`, cx + dx, cy + dy, TYPES[i % 3]));
   }
-  const leaf = degrees => ({ id: 'petal', x: 210, y: 330, length: 64, angle: degrees * Math.PI / 180 });
+  const leaf = degrees => ({ id: 'petal', x: 210, y: 330, length: 64, angle: degrees * Math.PI / 180, oneWay: true });
 
   // Each step: what it is called, what it sets on the board, the prompts in order (what to say, what to light up,
   // which input is open, and when it is done), what counts as it working, and the line shown while it plays out.
@@ -41,41 +41,41 @@
   const STEPS = [
     { id: 'fire', title: 'Aim and fire',
       setup: game => [...bunch(game, 't1-a', 282, 196, 'crown', 'coral'), ...bunch(game, 't1-b', 136, 168, 'crown', 'gold')],
-      prompts: [{ text: 'Drag up from the seed to aim, then let go.', target: 'board', finger: [282, 214], allow: ['fire'], until: (g, s) => s.launch > 0 }],
+      prompts: [{ text: 'Drag up from the seed, then let go.', target: 'board', finger: [282, 214], allow: ['fire'], until: (g, s) => s.launch > 0 }],
       works: s => s.bloom > 0, retry: 0, show: 1.1, done: 'A crowned flower blooms its whole bunch.' },
-    { id: 'petal', title: 'Turn the petal', leaf: 45,
-      setup: game => bunch(game, 't2-a', 344, 330, 'line', 'lilac'),
+    { id: 'petal', title: 'Turn the petal', leaf: 135,
+      setup: game => bunch(game, 't2-a', 344, 298, 'line', 'lilac'),
       prompts: [
-        { text: 'Seeds bounce off this petal. Tap it or Turn petal to swing it.', target: 'petal', also: 'rotate-btn', allow: ['rotate'], until: (g, s) => s.rotate > 0 },
-        { text: 'Now fire straight at the petal.', target: 'board', finger: [210, 342], allow: ['fire'], until: (g, s) => s.launch > 0 }],
+        { text: 'This petal bounces seeds. Tap Turn petal.', target: 'petal', also: 'rotate-btn', allow: ['rotate'], until: (g, s) => s.rotate > 0 },
+        { text: 'Fire straight up and watch it bounce.', target: 'board', finger: [210, 200], allow: ['fire'], until: (g, s) => s.launch > 0 }],
       works: s => s.bloom > 0, retry: 1, show: 1.1, done: 'Rocks and walls bounce seeds too.' },
     { id: 'split', title: 'Split', charge: true,
       setup: game => [...bunch(game, 't3-a', 140, 154, 'line', 'gold'), ...bunch(game, 't3-b', 280, 154, 'line', 'coral'), ...bunch(game, 't3-c', 210, 96, 'crown', 'lilac')],
       prompts: [
-        { text: 'Six hits charge Split. Fire a seed!', target: 'board', finger: [210, 210], allow: ['fire'], until: (g, s) => s.launch > 0 },
+        { text: 'Split is charged. Fire a seed!', target: 'board', finger: [210, 210], allow: ['fire'], until: (g, s) => s.launch > 0 },
         { text: 'Tap Split while it flies!', target: 'split-btn', allow: ['split'], speed: CREEP, until: (g, s) => s.split > 0, lost: g => !g.balls.length }],
       works: s => s.split > 0, retry: 0, show: 1.2, done: 'One seed became three.' },
     { id: 'sunburst', title: 'Sunburst', power: 'sunburst',
       setup: game => crowd(game, 't4', 210, 178),
       prompts: [
-        { text: 'Sunburst makes your next seed burst wide. Tap it.', target: 'power:sunburst', allow: ['power:sunburst'], until: g => g.armed === 'sunburst' },
-        { text: 'Now fire into the crowd!', target: 'board', finger: [210, 226], allow: ['fire', 'power:sunburst'], until: (g, s) => s.launch > 0, lost: g => g.armed !== 'sunburst' }],
+        { text: 'Tap Sunburst for a wide burst.', target: 'power:sunburst', allow: ['power:sunburst'], until: g => g.armed === 'sunburst' },
+        { text: 'Fire into the crowd!', target: 'board', finger: [210, 226], allow: ['fire', 'power:sunburst'], until: (g, s) => s.launch > 0, lost: g => g.armed !== 'sunburst' }],
       works: s => s.sunburst > 0, retry: 0, show: 1.2, done: 'Sunburst blooms everything around it.' },
     { id: 'dandelion', title: 'Dandelion', power: 'dandelion',
       setup: game => [...bunch(game, 't5-a', 148, 202, 'crown', 'gold'), ...bunch(game, 't5-b', 210, 202, 'crown', 'lilac'), ...bunch(game, 't5-c', 272, 202, 'crown', 'coral')],
       prompts: [
-        { text: 'Dandelion fires three seeds at once. Tap it.', target: 'power:dandelion', allow: ['power:dandelion'], until: g => g.armed === 'dandelion' },
+        { text: 'Tap Dandelion for three seeds.', target: 'power:dandelion', allow: ['power:dandelion'], until: g => g.armed === 'dandelion' },
         { text: 'Fire straight up!', target: 'board', finger: [210, 262], allow: ['fire', 'power:dandelion'], until: (g, s) => s.launch > 0, lost: g => g.armed !== 'dandelion' }],
       works: s => s.power.dandelion > 0, retry: 0, show: 1.2, done: 'Three seeds, three bunches.' },
     { id: 'beeline', title: 'Bee Line', power: 'beeline',
       setup: game => [...bunch(game, 't6-a', 210, 250, 'stack', 'coral', { shield: true }), ...bunch(game, 't6-b', 210, 174, 'stack', 'gold', { shield: true }), ...bunch(game, 't6-c', 210, 98, 'stack', 'lilac', { shield: true })],
       prompts: [
-        { text: 'Cups block shots, but Bee Line flies through. Tap it.', target: 'power:beeline', allow: ['power:beeline'], until: g => g.armed === 'beeline' },
+        { text: 'Cups block seeds. Tap Bee Line.', target: 'power:beeline', allow: ['power:beeline'], until: g => g.armed === 'beeline' },
         { text: 'Fire at the cups!', target: 'board', finger: [210, 300], allow: ['fire', 'power:beeline'], until: (g, s) => s.launch > 0, lost: g => g.armed !== 'beeline' }],
       works: s => s.power.beeline > 0, retry: 0, show: 1.3, done: 'Right through the cups!' },
     { id: 'lullaby', title: 'Lullaby', power: 'lullaby', intro: 1,
       setup: game => [70, 140, 210, 280, 350].flatMap((x, i) => bunch(game, `t7-${i}`, x, 44, 'crown', TYPES[i % 3], { fall: 8 })),
-      prompts: [{ text: 'They are falling fast! Tap Lullaby to stop them.', target: 'power:lullaby', allow: ['power:lullaby'], until: g => g.lullaby > 0 }],
+      prompts: [{ text: 'Falling fast! Tap Lullaby.', target: 'power:lullaby', allow: ['power:lullaby'], until: g => g.lullaby > 0 }],
       works: () => true, retry: 0, show: 1.3, done: 'Lullaby stops them falling for 6 seconds.' }
   ];
   // Counted per attempt: launches, petal turns, splits, sunburst openings, blooms among this step's flowers, and
@@ -95,8 +95,14 @@
         this.index++; this.prompt = 0; this.clock = 0;
         if (this.index >= STEPS.length) { this.finale(game); return; }
         const step = STEPS[this.index];
-        // Flowers from the last step that are still closed make way; ones that just bloomed finish opening.
-        game.buds = game.buds.filter(b => b.bloomed && game.time - b.bloomAt < 1.2).concat(step.setup(game));
+        // Flowers from the last step that are still closed make way, and the bloomed ones fade out over .3 s of real
+        // time (the game is nearly stopped while the next card waits). Its sparkles and words go with them.
+        for (const b of game.buds) if (b.bloomed) { b.leaving = true; if (!(b.fade < 1)) b.fade = 1; }
+        game.buds = game.buds.filter(b => b.bloomed).concat(step.setup(game));
+        if (Array.isArray(game.floaters)) game.floaters.length = 0;
+        if (Array.isArray(game.particles)) game.particles.length = 0;
+        // A chain from the last step ends quietly, not with an 'in a row!' over the new card a few seconds later.
+        game.combo = 0;
         game.bumpers = step.leaf === undefined ? [] : [leaf(step.leaf)];
         game.balls = []; game.ball = null; game.pending = []; game.armed = null; game.lullaby = 0;
         game.fireCooldown = 0; game.rotateCooldown = 0; game.rotationUsed = false;
@@ -122,6 +128,7 @@
       tick(game, dt) {
         if (this.finished) return;
         this.elapsed += dt; this.clock += dt;
+        if (game.buds.some(b => b.leaving)) game.buds = game.buds.filter(b => !b.leaving || (b.fade -= dt / FADE) > 0);
         const step = this.step;
         if (this.phase === 'finale') { this.goal = 1; if (this.clock >= 1.2) this.phase = 'end'; }
         else if (this.phase === 'end') this.goal = 1;
@@ -146,6 +153,8 @@
         if (Math.abs(this.goal - this.scale) < .005) this.scale = this.goal;
       },
       enter(phase) { this.phase = phase; this.clock = 0; },
+      // While a seed is watched and its result shown, the card does the talking: no score pops over the board.
+      quiet() { return this.phase === 'watch' || this.phase === 'show'; },
       // A miss goes back to the prompt that sets the shot up again, with the step's uses and Split charge restored.
       retry(game, step) { this.prompt = step.retry; this.refill(); this.attempt(); this.enter('prompt'); game.fireCooldown = 0; if (step.charge) game.splitCharge = 1; },
       // The run ends with everything left on the board bursting into bloom.
@@ -159,7 +168,7 @@
       // What the card should show right now.
       view() {
         const step = this.step;
-        if (this.phase === 'finale' || this.phase === 'end') return { phase: this.phase, number: STEPS.length, total: STEPS.length, title: "You're ready!", text: 'Ten levels are waiting, deeper every time.', target: null };
+        if (this.phase === 'finale' || this.phase === 'end') return { phase: this.phase, number: STEPS.length, total: STEPS.length, title: "You're ready!", text: 'Four levels are ready, with six more deeper down.', target: null };
         if (!step) return { phase: this.phase, number: 0, total: STEPS.length, title: '', text: '', target: null };
         const p = step.prompts[this.prompt];
         const text = this.phase === 'show' ? step.done : this.phase === 'watch' ? 'Watch it go…' : p.text;

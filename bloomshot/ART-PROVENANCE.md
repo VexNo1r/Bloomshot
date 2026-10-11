@@ -23,3 +23,7 @@ The sound effects were rebuilt on October 9, still entirely synthesized in sound
 The interface is AI-assisted HTML, CSS and inline SVG. The buttons, panels, ribbon titles, tab icons and the padlock (assets/ui/lock.svg) are vector shapes written in code, not generated images. The game no longer uses any AI-generated raster art: the two image-generator ornaments it used to carry (botanical-header.png behind the score and split-leaf.png behind the Split button) were removed in the October 2026 redesign.
 
 Typefaces: Fredoka for titles and buttons, Nunito for body text. Both are open-source fonts under the SIL Open Font License 1.1, self-hosted in assets/fonts/ with their license texts, so the game requests no fonts from other servers.
+
+Color pass (October 10, 2026): the forget-me-not and poppy flowers, the colored bud faces, the scenes' color pools and vibrance grade, the praise lettering, the danger-line glow and the colored aim line are all drawn in code in art.js, scenery.js and styles.css, the same way as the rest. No raster images were generated, downloaded or commissioned.
+
+Fun pass (October 10, 2026): the finale camera and gold sweep, the petal-by-petal unfurl and its frame sheets, the bosses' faces, crowns, name cards and health vines, the trick stamps, the sun fan and chain badge, the intro curtains, the harvest orbs and the wilted ghosts are all drawn in code (art.js, app.js, feel.js), and the soundtrack and every new cue are synthesized in sound.js. No raster images or audio samples were generated, downloaded or commissioned.

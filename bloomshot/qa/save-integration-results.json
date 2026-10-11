@@ -1,5 +1,5 @@
 {
-  "passed": 60,
+  "passed": 72,
   "failed": 0,
   "methodology": "Executes the complete current app.js in an isolated Node VM using real garden/level/engine modules, fake localStorage, and DOM/canvas adapters. Completion fixtures exercise actual engine completion events and app handlers. No real browser or user saves are read or changed.",
   "limitations": [
@@ -9,6 +9,10 @@
   "results": [
     {
       "name": "Startup migrates an old save once and preserves all existing progress and preferences",
+      "passed": true
+    },
+    {
+      "name": "Music has its own switch: an old save shows it on, turning it off is saved and survives a reload, and older settings stay the same",
       "passed": true
     },
     {
@@ -25,6 +29,10 @@
     },
     {
       "name": "Restarting an unfinished run does not grant rewards",
+      "passed": true
+    },
+    {
+      "name": "Starting an endless run over keeps a new best score and wave, and still pays nothing",
       "passed": true
     },
     {
@@ -160,6 +168,26 @@
       "passed": true
     },
     {
+      "name": "A brand-new player starts in the tutorial; a returning player goes straight to the levels",
+      "passed": true
+    },
+    {
+      "name": "Played through on the real board, the tutorial finishes in under 46 seconds, spends none of the player's powerups and records nothing",
+      "passed": true
+    },
+    {
+      "name": "While a card waits, only the control it names works; anything else just nudges the card",
+      "passed": true
+    },
+    {
+      "name": "The petal card lights the petal on the board and the Turn petal button; touching the petal never turns it, the button does",
+      "passed": true
+    },
+    {
+      "name": "Skip ends it for good, and How to play can start it again",
+      "passed": true
+    },
+    {
       "name": "Clearing a level saves its stars, pays run and first-clear seeds once, opens the next level and Next starts it",
       "passed": true
     },
@@ -168,7 +196,7 @@
       "passed": true
     },
     {
-      "name": "Running out of lives keeps the best wave, pays for the blooms, and Try again restarts the same level",
+      "name": "Running out of lives keeps the best wave, pays for the blooms, and Start over restarts the same level",
       "passed": true
     },
     {
@@ -229,6 +257,26 @@
     },
     {
       "name": "Level records are cleaned on load and a cleared level opens the next one",
+      "passed": true
+    },
+    {
+      "name": "A level lost at wave 6 or later offers a free restart from wave 6 that starts there with three fresh lives",
+      "passed": true
+    },
+    {
+      "name": "A checkpoint run pays seeds only for the waves it played, so restarting at wave 6 is never a seed farm",
+      "passed": true
+    },
+    {
+      "name": "A level cleared from the checkpoint records at most two stars and says how to earn three",
+      "passed": true
+    },
+    {
+      "name": "Nothing is offered for sale after a loss, even with the checkpoint showing, and a free taste has no checkpoint",
+      "passed": true
+    },
+    {
+      "name": "Super Bloom, trick shots and long chains reach the board, the hint line and the run summary",
       "passed": true
     },
     {

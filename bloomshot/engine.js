@@ -76,6 +76,8 @@
     const b = 2 * (mx * d.x + my * d.y);
     const z = mx * mx + my * my - radius * radius;
     if (a < 1e-12 || b >= 0) return null;
+    // Already touching and closing in (a swaying or falling flower stepped onto the seed): it hits now, never passes through.
+    if (z <= 0) { const length = Math.hypot(mx, my) || 1; return { t: 0, nx: mx / length, ny: my / length }; }
     const discriminant = b * b - 4 * a * z;
     if (discriminant < 0) return null;
     const t = (-b - Math.sqrt(discriminant)) / (2 * a);
@@ -113,7 +115,8 @@
     if (d.x < 0) consider({ t: (BOUNDS.left + RADIUS - p.x) / d.x, nx: 1, ny: 0 }, 'wall');
     if (d.x > 0) consider({ t: (BOUNDS.right - RADIUS - p.x) / d.x, nx: -1, ny: 0 }, 'wall');
     if (d.y < 0) consider({ t: (BOUNDS.top + RADIUS - p.y) / d.y, nx: 0, ny: 1 }, 'wall');
-    for (const bumper of state.bumpers) consider(capsuleHit(p, d, bumper, RADIUS + 6), 'bumper', bumper);
+    // A one-way petal lets seeds fly up through it and only catches the ones coming down.
+    for (const bumper of state.bumpers) if (!bumper.oneWay || d.y > 0) consider(capsuleHit(p, d, bumper, RADIUS + 6), 'bumper', bumper);
     if (includeBuds) for (const bud of state.buds) if (!bud.bloomed) consider(circleHit(p, d, bud, RADIUS + bud.r), 'bud', bud);
     if ((p.gateCooldown || 0) <= 1e-9 && (p.gateHops || 0) < MAX_GATE_HOPS) {
       for (const gate of state.gates || []) consider(circleHit(p, d, gate, gate.r), 'gate', gate);
@@ -325,7 +328,8 @@
         }
         p.x += d.x * hit.t; p.y += d.y * hit.t;
         points.push({ x: p.x, y: p.y });
-        if (hit.kind === 'bud') break;
+        // The aim knows which flower it ends on (non-enumerable, so the points still compare as plain arrays).
+        if (hit.kind === 'bud') { Object.defineProperty(points, 'target', { value: hit.item, enumerable: false }); break; }
         distance = segment === distance ? distance * (1 - hit.t) : distance - segment * hit.t;
         p.gateCooldown = Math.max(0, p.gateCooldown - segment * hit.t / this.speed);
         if (hit.kind === 'gate') {

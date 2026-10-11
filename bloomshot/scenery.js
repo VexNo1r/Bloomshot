@@ -3635,11 +3635,50 @@
   };
   function has(theme) { return Object.prototype.hasOwnProperty.call(SCENES, theme); }
   // The board keeps its painted frame; a level card shows the same scene without it.
-  function paint(ctx, theme, options) { if (has(theme)) SCENES[theme].paint(ctx, !(options && options.frame === false)); }
+  // The last pass over every scene: a few pools of complementary colored light (split toning, so a one-color cave
+  // still has a warm side and a cool side), then a vibrance lift that richens the quiet colors most and leaves the
+  // already-bright ones alone, with a touch of contrast. Each pool is [x, y, radius, color, blend, strength].
+  const POOLS = {
+    'depth-meadow': [[330, 90, 260, '#ffd36b', 'soft-light', .55], [60, 470, 240, '#ff7fb0', 'soft-light', .35]],
+    'depth-roots': [[320, 60, 320, '#ffd36b', 'soft-light', .65], [60, 400, 300, '#ff6f9a', 'soft-light', .5], [400, 540, 240, '#4fd6c8', 'soft-light', .5]],
+    'depth-grotto': [[90, 120, 280, '#ff7ad9', 'soft-light', .55], [350, 430, 280, '#3fe0c5', 'soft-light', .55]],
+    'depth-crystal': [[340, 120, 300, '#d07cff', 'soft-light', .65], [60, 480, 280, '#4ff0e0', 'soft-light', .6]],
+    'depth-lake': [[210, 100, 320, '#8fe9ff', 'soft-light', .55], [380, 470, 260, '#ff8fca', 'soft-light', .5], [40, 300, 220, '#b8ff7a', 'soft-light', .45]],
+    'depth-fossil': [[60, 80, 300, '#ff6f95', 'soft-light', .65], [400, 300, 320, '#2fb4ff', 'overlay', .32], [200, 580, 280, '#ffc93a', 'soft-light', .55]],
+    'depth-ember': [[210, 520, 320, '#ffb03a', 'soft-light', .65], [60, 110, 280, '#b65cff', 'soft-light', .55], [400, 260, 220, '#ff4f8a', 'soft-light', .4]],
+    'depth-geode': [[100, 150, 280, '#ff5fd2', 'soft-light', .6], [330, 430, 280, '#3fe0ff', 'soft-light', .6]],
+    'depth-briar': [[340, 90, 300, '#ffe066', 'overlay', .35], [40, 430, 320, '#ff4f8f', 'overlay', .34], [400, 540, 260, '#3fc8ff', 'soft-light', .5]],
+    'depth-core': [[210, 520, 320, '#ffcf5a', 'soft-light', .6], [60, 140, 260, '#ff6fc2', 'soft-light', .5], [380, 160, 260, '#58d6ff', 'soft-light', .5]]
+  };
+  function pop(ctx, theme) {
+    for (const [x, y, r, color, mode, strength] of POOLS[theme] || []) {
+      ctx.save(); ctx.globalCompositeOperation = mode; ctx.globalAlpha = strength;
+      ctx.fillStyle = rad(ctx, x, y, r, [[0, color], [1, 'rgba(0,0,0,0)']]); ctx.fillRect(-20, -20, 460, 600); ctx.restore();
+    }
+    vivid(ctx, .24, .38, 1.06);
+  }
+  // Vibrance works on the pixels the scene covers (wherever the current transform puts it on the canvas).
+  function vivid(ctx, lift, vibrance, contrast) {
+    const canvas = ctx.canvas, m = typeof ctx.getTransform === 'function' ? ctx.getTransform() : null;
+    if (!canvas || !(canvas.width > 0) || !m || typeof ctx.getImageData !== 'function') return;
+    const x0 = Math.max(0, Math.floor(Math.min(m.e, m.a * 420 + m.e))), y0 = Math.max(0, Math.floor(Math.min(m.f, m.d * 560 + m.f)));
+    const x1 = Math.min(canvas.width, Math.ceil(Math.max(m.e, m.a * 420 + m.e))), y1 = Math.min(canvas.height, Math.ceil(Math.max(m.f, m.d * 560 + m.f)));
+    if (x1 <= x0 || y1 <= y0) return;
+    let image;
+    try { image = ctx.getImageData(x0, y0, x1 - x0, y1 - y0); } catch (_) { return; } // a canvas that can't be read keeps its plain colors
+    const d = image.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const r = d[i], g = d[i + 1], b = d[i + 2], avg = (r + g + b) / 3, quiet = 1 - (Math.max(r, g, b) - Math.min(r, g, b)) / 255;
+      const k = 1 + lift + vibrance * quiet * quiet;
+      d[i] = (avg + (r - avg) * k - 128) * contrast + 128; d[i + 1] = (avg + (g - avg) * k - 128) * contrast + 128; d[i + 2] = (avg + (b - avg) * k - 128) * contrast + 128;
+    }
+    ctx.putImageData(image, x0, y0);
+  }
+  function paint(ctx, theme, options) { if (has(theme)) { SCENES[theme].paint(ctx, !(options && options.frame === false)); pop(ctx, theme); } }
   // The garden worlds share the kit but not the level behaviours (burrows, cave water), so they have their own entry.
   const GARDENS = { meadow: paintGardenMeadow, moon: paintGardenMoon, koi: paintGardenKoi };
   const garden = theme => Object.prototype.hasOwnProperty.call(GARDENS, theme);
-  function paintGarden(ctx, theme, rush, framed = true) { if (garden(theme)) GARDENS[theme](ctx, Boolean(rush), framed); }
+  function paintGarden(ctx, theme, rush, framed = true) { if (garden(theme)) { GARDENS[theme](ctx, Boolean(rush), framed); vivid(ctx, .2, .32, 1.05); } }
   // A few brushes from the painter's kit, for the other painted screens (the Garden tab's map).
   const kit = Object.freeze({ lin, rad, rgba, soft, bloom, grain, clump, scallop, shape, smooth, clipTo });
   root.BloomScenery = Object.freeze({ has, paint, garden, paintGarden, drawRock, kit, dark: theme => has(theme) && SCENES[theme].dark, ink: theme => has(theme) ? SCENES[theme].ink : null, themes: Object.keys(SCENES) });

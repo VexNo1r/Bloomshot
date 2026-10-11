@@ -81,17 +81,21 @@ test('Each control does what its card says to the flowers on the board', () => {
   assert(dandelion.blooms >= 7, `Dandelion bloomed ${dandelion.blooms} across the three bunches`);
   assert(bee.blooms >= 7, `Bee Line bloomed ${bee.blooms} behind the cups`);
 });
-test('Without turning, the petal sends a straight shot away from the bunch; turned, it sends it in', () => {
+test('A straight shot flies up through the petal; falling back, the unturned petal sends it away and the turned one into the bunch', () => {
   const game = new Rush.RushGame({ scripted: true }), t = Tutorial.create();
   t.begin(game); t.next(game);
   assert.equal(t.step.id, 'petal');
   game.fire(0, -1);
-  for (let i = 0; i < 240; i++) game.step(1 / 120);
+  for (let i = 0; i < 60; i++) game.step(1 / 120);
+  assert(game.balls[0].y < 300 && game.balls[0].vy < 0, 'on the way up the seed passes through the petal');
+  for (let i = 0; i < 400; i++) game.step(1 / 120);
   assert.equal(game.drainEvents().filter(e => e.type === 'bloom').length, 0, 'the unturned petal misses');
   t.next(game); t.index = 0; t.next(game);
   game.rotate('petal'); game.fire(0, -1);
-  for (let i = 0; i < 240; i++) game.step(1 / 120);
-  assert(game.drainEvents().some(e => e.type === 'bloom'), 'the turned petal banks into the bunch');
+  for (let i = 0; i < 360; i++) game.step(1 / 120);
+  const events = game.drainEvents();
+  assert(events.some(e => e.type === 'bounce' && e.caught), 'the petal caught the falling seed');
+  assert(events.some(e => e.type === 'bloom'), 'the turned petal banks into the bunch');
 });
 test('While a card waits the game almost stops, and once the control is used it plays at full speed', () => {
   const game = new Rush.RushGame({ scripted: true }), t = Tutorial.create();
