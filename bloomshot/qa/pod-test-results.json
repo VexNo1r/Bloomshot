@@ -1,0 +1,90 @@
+{
+  "passed": 19,
+  "failed": 0,
+  "observations": {
+    "wild": "L1 W3 L1 W2 L1 W1 L1 W1 L2 W1 L2 Lw8 L2 Lw5 L2 Lw5 L3 Lw7 L3 Lw3 L3 Lw9 L3 W2 L4 Lw4 L4 Lw5 L4 W1 L4 Lw4 L5 Lw3 L5 Lw3 L5 Lw9 L5 Lw6 L6 Lw6 L6 Lw6 L6 Lw6 L6 Lw6 L7 Lw7 L7 Lw7 L7 Lw6 L7 Lw6 L8 Lw5 L8 Lw6 L8 Lw3 L8 W1 L9 Lw7 L9 Lw4 L9 Lw5 L9 Lw5 L10 Lw8 L10 Lw4 L10 Lw2 L10 Lw2",
+    "wildRate": 1.38,
+    "lazy": "L1 W2 L1 W2 L1 W1 L1 W3 L2 W3 L2 W3 L2 W3 L2 W1 L3 Lw3 L3 Lw9 L3 Lw3 L3 Lw9 L4 Lw4 L4 Lw4 L4 Lw7 L4 Lw3 L5 W1 L5 Lw7 L5 Lw3 L5 Lw9 L6 Lw6 L6 Lw6 L6 Lw7 L6 Lw6 L7 Lw4 L7 Lw7 L7 Lw6 L7 Lw2 L8 W3 L8 Lw9 L8 Lw10 L8 Lw7 L9 W2 L9 Lw4 L9 Lw8 L9 W2 L10 Lw10 L10 Lw6 L10 W1 L10 W2",
+    "lazyRate": 1.38,
+    "fast": "L1 W3 1.78 L1 W3 1.68 L2 W3 1.63 L2 W3 1.55 L3 W3 1.8 L3 W2 1.67 L4 Lw9 1.63 L4 W3 1.81 L5 W3 1.88 L5 W3 1.71 L6 W3 1.77 L6 W3 1.55 L7 W3 1.79 L7 W3 1.6 L8 W2 1.86 L8 W3 1.73 L9 W3 1.89 L9 W3 2.04 L10 W2 1.91 L10 W3 1.96",
+    "runtimeSeconds": 22
+  },
+  "results": [
+    {
+      "name": "Constants",
+      "passed": true
+    },
+    {
+      "name": "A full pod fires a burst of four, never closer than the gap, then a tap on the empty pod is dropped and says so",
+      "passed": true
+    },
+    {
+      "name": "An empty slot regrows in six times the wave reload, one at a time (levels and endless)",
+      "passed": true
+    },
+    {
+      "name": "A seed that touches a flower gives back half a seed; a miss gives nothing",
+      "passed": true
+    },
+    {
+      "name": "A crown feeds the pod for itself and each flower it opens; a crack counts; a cup deflection does not, the first shell one a seed meets a little",
+      "passed": true
+    },
+    {
+      "name": "A full pod takes nothing more, and a strike no seed earned (a test, the script) feeds nothing",
+      "passed": true
+    },
+    {
+      "name": "A tap a blink early is kept and fires the moment the seed is ready, with the latest aim",
+      "passed": true
+    },
+    {
+      "name": "An aimed shot let go a little before its seed regrows is kept for it; a quick tap that early is dropped",
+      "passed": true
+    },
+    {
+      "name": "A kept tap that cannot fire in time says why instead of vanishing (five seeds went up meanwhile)",
+      "passed": true
+    },
+    {
+      "name": "While a Super Bloom lasts nothing feeds the pod: a sun seed still flying when it ends feeds it like any other, a bought seed landing during one does not",
+      "passed": true
+    },
+    {
+      "name": "Five seeds in the air still refuse a tap without keeping it or calling the pod dry",
+      "passed": true
+    },
+    {
+      "name": "Super Bloom fires from the sun: no seeds spent, a seed every .22 s, no feeding, and the pod keeps regrowing",
+      "passed": true
+    },
+    {
+      "name": "A Dandelion fans three seeds for one pod seed",
+      "passed": true
+    },
+    {
+      "name": "The tutorial: setting the cooldown to zero hands over a full pod, early taps are simply dropped, the script earns nothing",
+      "passed": true
+    },
+    {
+      "name": "The snapshot and the launch event carry the pod",
+      "passed": true
+    },
+    {
+      "name": "Mashing with no aim, for these seeds: it costs lives on level 1, wins no more than one run in four of any later level, never cleanly, and mostly loses by wave 6",
+      "passed": true
+    },
+    {
+      "name": "Rough aim at full speed, for these seeds: it nearly always loses levels 3, 4, 6 and 7, mostly 10, and its wins cost lives; levels 2, 5, 8 and 9 stay winnable that way about half the time",
+      "passed": true
+    },
+    {
+      "name": "A fast, careful aimer clears every level, firing briskly (two runs a level; level 4 is the one it sometimes loses)",
+      "passed": true
+    },
+    {
+      "name": "The suite runs in 40 seconds or less (the mashers play all ten levels)",
+      "passed": true
+    }
+  ]
+}

@@ -103,7 +103,7 @@
       { f: 'grid', s: 'tri', d: 13.5, hp: 2, cup: [0, 1, 2, 3, 4, 5], puffs: [[150, 158], [270, 158]], rocks: [[210, 322, 50, 0]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 3, cup: [0, 1, 3, 4] }, { t: 12, f: 'topvee', s: 'line', hp: 2, cupAll: [2], puffs: [[165, 116]] }] },
       { f: [[78, 176], [342, 176]], s: 'tri', d: 8, hp: 2, cup: [0, 1], puffs: [[146, 140], [274, 140]], rocks: [[150, 312, 40, 0], [270, 312, 40, 0]], boss: { name: 'Mother Morel', hp: 9, r: 25, type: 'lilac', sway: 56, x: 210, y: 100 }, then: [{ t: 8, f: 'topsides', s: 'tri', hp: 2, cup: [0, 1, 2, 3] }, { t: 16, f: 'topsides', s: 'tri', hp: 2, puffs: [[210, 66]] }], hint: 'Big bloom! Puffcaps hurt it too.' }
     ]),
-    lv(4, 'crystal', 'Crystal Caves', 'Everything at once', 1.54, [
+    lv(4, 'crystal', 'Crystal Caves', 'Everything at once', 1.49, [
       { f: 'grid', s: 'tri', d: 12.5, hp: 2, rocks: [[210, 312, 56, 0, 92, .25]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2 }, { t: 12, f: 'top4', s: 'line', hp: 3 }], hint: 'Moving crystals. Time your shots.' },
       { f: 'wall', s: 'tri', d: 13, hp3: 2, cup: [0, 4], then: [{ t: 6, f: 'top5', s: 'tri', hp3: 2, cup: [1, 3] }, { t: 12, f: 'topvee', s: 'line', hp: 2 }], hint: 'Double rings take three hits.' },
       { f: 'vee', s: 'tri', d: 13, hp: 2, sway: 16, rocks: [[120, 322, 44, 0, 50, .3], [300, 322, 44, 0, 50, .3]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 3, sway: 14 }, { t: 12, f: 'topstacks', s: 'stack', hp: 2 }] },
@@ -115,7 +115,7 @@
       { f: 'grid', s: 'tri', d: 15, hp: 2, hp3: 1, sway: 10, cup: [0, 2], cupAll: [4], puffs: [[210, 158]], rocks: [[210, 322, 50, 0, 90, .3]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, hp3: 1, cup: [0, 2, 4], sway: 12 }, { t: 12, f: 'topvee', s: 'tri', hp3: 2, cupAll: [2], fast: [0, 4], puffs: [[120, 116], [280, 114]] }] },
       { f: [[76, 192], [344, 192], [140, 252], [280, 252]], s: 'tri', d: 8.5, hp: 2, cup: [0, 1, 2, 3], puffs: [[150, 138], [270, 138]], rocks: [[210, 304, 60, 0, 100, .3]], boss: { name: 'Crystal Heart', hp: 12, r: 26, type: 'coral', sway: 60, x: 210, y: 98 }, then: [{ t: 8, f: 'topsides', s: 'tri', hp: 2, hp3: 1, cup: [0, 1, 2, 3] }, { t: 16, f: 'topsides', s: 'stack', hp3: 2, fast: [0, 3] }, { t: 24, f: 'topsides', s: 'tri', hp: 3, puffs: [[210, 66]] }], hint: 'Crystal heart! Twelve hits.' }
     ]),
-    lv(5, 'lake', 'Glowworm Lake', 'Ride the currents', 1.64, [
+    lv(5, 'lake', 'Glowworm Lake', 'Ride the currents', 1.76, [
       { f: 'square', s: 'tri', d: 10.5, currents: [[210, 330, 330, 60, 0, 4]], then: [{ t: 6, f: 'top3', s: 'tri' }], hint: 'Currents bend shots. Follow the aim line.' },
       { f: 'wall', s: 'tri', d: 11, hp: 1, currents: [[118, 320, 170, 60, 180, 4.5], [302, 320, 170, 60, 0, 4.5]], then: [{ t: 6, f: 'top4', s: 'line', hp: 1 }] },
       { f: 'vee', s: 'tri', d: 11.5, hp: 1, cup: [0, 1, 3, 4], currents: [[210, 262, 340, 48, 180, 6]], then: [{ t: 7, f: 'top5', s: 'tri', cup: [1, 3] }], hint: 'Let the current carry shots sideways.' },
@@ -163,7 +163,7 @@
       { f: 'grid', s: 'tri', d: 13.5, hp: 2, hp3: 1, shell: [1, 4], spin: 1.8, cup: [0, 2], geodes: [[150, 158, 3, 3], [270, 158, 3, 3]], rocks: [[210, 312, 60, 0, 100, .3]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, cup: [0, 4] }, { t: 12, f: 'top4', s: 'line', hp3: 1 }] },
       { f: [[76, 186], [344, 186]], s: 'tri', d: 8.5, hp: 2, cup: [0, 1], geodes: [[120, 260, 2, 3], [300, 260, 2, 3]], rocks: [[210, 330, 60, 0, 100, .3]], boss: { name: 'Geode King', hp: 16, r: 26, type: 'coral', sway: 58, x: 210, y: 100 }, then: [{ t: 8, f: 'topsides', s: 'tri', hp: 2, geodes: [[210, 92, 2, 2]] }, { t: 16, f: 'topsides', s: 'stack', hp: 2, cup: [0, 3] }], hint: 'Big bloom! Sixteen hits.' }
     ]),
-    lv(9, 'briar', 'Briar Vault', 'Briars grow back', 2.13, [
+    lv(9, 'briar', 'Briar Vault', 'Briars grow back', 2.25, [
       { f: 'square', s: 'tri', d: 10.5, briar: [0, 1], regrow: 5, then: [{ t: 6, f: 'top3', s: 'tri' }], hint: 'Briars regrow. Bloom all three fast!' },
       { f: 'wall', s: 'line', d: 11, briar: [0, 2, 4], regrow: 4.5, puffs: [[70, 178], [210, 178], [350, 178]], then: [{ t: 6, f: 'top4', s: 'tri', hp: 1 }], hint: 'A puffcap blooms a whole briar patch.' },
       { f: 'vee', s: 'tri', d: 11.5, hp: 1, briar: [1, 3], cup: [0, 4], regrow: 4.5, then: [{ t: 6, f: 'top5', s: 'tri', briar: [1, 3] }] },

@@ -2,7 +2,10 @@
 // A practice player for the level campaign. It traces each candidate angle through the board as it stands,
 // picks the shot whose first bud hit matters most (lowest, fastest, crowns, puffcaps, the boss) and fires
 // with a little aim error, the way a good human would. Used to check every level can be cleared and that
-// later levels are harder. Usage: play(levelId, { seed, noise }) -> { won, wave, lives, score, elapsed, supers, tricks }.
+// later levels are harder. Usage: play(levelId, { seed, noise }) -> { won, wave, lives, score, elapsed, supers, tricks, rate }, rate being
+// shots a second outside Super Bloom. mash(levelId, { seed, mode }) is the opposite player: it taps every .12 s whatever
+// the launcher shows, aiming anywhere upward (mode 'wild'), wiggling across the middle ('sweep') or roughly, within
+// 12 degrees, at the lowest flower ('lazy'). -> { won, wave, lives, shots, taps, dry, rate }, dry being taps on an empty pod.
 const Engine = require('../engine.js');
 const { RushGame } = require('../rush.js');
 const Depths = require('../depths.js');
@@ -57,11 +60,13 @@ function play(levelId, options = {}) {
   const random = rng(options.seed || 1), noise = options.noise ?? 1.4;
   const game = new RushGame({ plan: plan(levelId) });
   const gauss = () => { let s = 0; for (let i = 0; i < 6; i++) s += random(); return (s - 3) / Math.sqrt(.5); };
-  let think = 0;
+  let think = 0, shots = 0, calm = 0;
   for (let t = 0; t < 900 && !game.over; t += 1 / 60) {
+    if (game.started && game.superBloom <= 0) calm += 1 / 60;
     think -= 1 / 60;
     if (game.splitReady && random() < .5) game.split();
-    if (think <= 0 && game.fireCooldown <= 1e-7 && game.balls.length < 5) {
+    // Like a person, it waits for a seed in the pod (and room in the air) instead of tapping into an empty one.
+    if (think <= 0 && game.canFire) {
       let best = null;
       for (let deg = -170; deg <= -10; deg += 2.5) {
         const angle = deg * Math.PI / 180, hit = trace(game, angle, options.bounces ?? 3);
@@ -70,13 +75,38 @@ function play(levelId, options = {}) {
         if (score > 0 && (!best || score > best.score)) best = { angle, score };
       }
       const angle = (best ? best.angle : -Math.PI / 2) + gauss() * noise * Math.PI / 180;
-      game.fire(Math.cos(angle), Math.sin(angle));
+      const calmShot = game.superBloom <= 0;
+      if (game.fire(Math.cos(angle), Math.sin(angle)) && calmShot) shots++;
       // A Super Bloom reloads fast and the shots fly through flowers, so the player fires quicker while it lasts.
       think = game.superBloom > 0 ? .12 + random() * .1 : (options.think ?? .3) + random() * (options.thinkSpread ?? .35);
     }
     game.step(1 / 60); game.drainEvents();
   }
   return { won: game.status === 'won', wave: game.wave, lives: game.lives, score: game.score, elapsed: Math.round(game.elapsed),
-    supers: game.superCount, tricks: game.tricks };
+    supers: game.superCount, tricks: game.tricks, rate: +(shots / Math.max(1, calm)).toFixed(2) };
 }
-module.exports = { play, plan, trace };
+function mash(levelId, options = {}) {
+  const random = rng(options.seed || 1), mode = options.mode || 'wild', game = new RushGame({ plan: plan(levelId) });
+  let next = 0, shots = 0, calmShots = 0, calm = 0, taps = 0, dry = 0;
+  for (let t = 0; t < 900 && !game.over; t += 1 / 60) {
+    const calmNow = !(game.superBloom > 0), before = game.shotNumber;
+    if (game.started && calmNow) calm += 1 / 60;
+    next -= 1 / 60;
+    if (next <= 0) {
+      let deg;
+      if (mode === 'wild') deg = -150 + random() * 120;
+      else if (mode === 'sweep') deg = -90 + Math.sin(t * 2.3) * 45 + (random() - .5) * 10;
+      else {
+        const low = game.buds.filter(b => !b.bloomed && !b.gift).sort((a, b) => b.y - a.y)[0];
+        deg = low ? Math.atan2(low.y - game.launcher.y, low.x - game.launcher.x) * 180 / Math.PI + (random() - .5) * 24 : -90;
+      }
+      game.fire(Math.cos(deg * Math.PI / 180), Math.sin(deg * Math.PI / 180)); next = options.gap || .12; taps++;
+    }
+    game.step(1 / 60);
+    for (const event of game.drainEvents()) if (event.type === 'dry') dry++;
+    // Counted from the shot number across the tap and the step: a kept tap launches inside step().
+    shots += game.shotNumber - before; if (calmNow) calmShots += game.shotNumber - before;
+  }
+  return { won: game.status === 'won', wave: game.wave, lives: game.lives, shots, taps, dry, rate: +(calmShots / Math.max(1, calm)).toFixed(2) };
+}
+module.exports = { play, mash, plan, trace };

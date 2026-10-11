@@ -534,6 +534,18 @@
       note(hz([24, 28, 31][index]), 0.012, 0.36, 0.022, pan * 0.5, 'chime', 2);
       if (index === 2) note(hz(24), 0.06, 0.42, 0.03, pan * 0.5, 'chime', 2);
     }
+    // A seed grows back into the pod: a small marimba pip that climbs with the pod, and a tiny chime when it is full.
+    else if (type === 'podSeed') {
+      if (!allowed('podSeed', 0.08)) return;
+      const slot = clamp(Math.floor(num(data.pod, 1)), 1, 4);
+      note(step(slot + 3), 0, 0.09, 0.045, 0, 'marimba', 0, { space: 'low' });
+      if (slot >= 4) note(step(11), 0.05, 0.22, 0.035, 0, 'chime', 0, { space: 'high' });
+    }
+    // An empty pod: a hollow wooden tok and a soft thock, low and short, never a buzzer.
+    else if (type === 'dry') {
+      if (!allowed('dry', 0.25)) return;
+      note(hz(-17), 0, 0.1, 0.07, 0, 'wood', 1); crunch('thock', 0.01, 0, 0.8);
+    }
     else bigMoment(type, data, pan);
   }
   // The newer cues: Super Bloom, tricks, the finale and its sweep, aim, danger, stage and result cues.

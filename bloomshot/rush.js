@@ -7,6 +7,16 @@
   if (!Engine || !Engine.Game) throw new Error('Load engine.js before rush.js.');
   const { Game, RADIUS, BOUNDS } = Engine;
   const TICK = 1 / 120, CAP = 5, FIRE_DELAY = 0.65, BALL_LIFE = 4, PUFF_REACH = 74;
+  // The seed pod. The launcher holds POD seeds and each shot takes one; seeds leave it at least POD_GAP apart, so a
+  // burst is quick but never instant. Every flower a seed touches (a bloom or a crack) or sets off (a crown or puffcap
+  // chain) puts REFUND of a seed back, so good aim keeps the pod full and mashing empties it. An empty slot also
+  // regrows on its own, one at a time, in POD_REGROW times the wave's reload (about 3.4 s on level 1, 2.5 s by level 9).
+  // Super Bloom fires from the sun instead: a seed every SUPER_DELAY, and the pod keeps regrowing meanwhile.
+  // A tap at most KEEP seconds before the next shot is allowed is kept and fires the moment it is, with the latest aim, so
+  // a quick double tap or a tap a blink early is never lost. An aimed shot (the finger held at least HELD seconds) is kept
+  // up to AIM_KEEP early, so letting go just before the seed regrows still fires it. Any other tap on an empty pod is
+  // dropped and says so ('dry'); a kept tap that still cannot fire in time says why ('dropped').
+  const POD = 4, POD_GAP = .15, POD_REGROW = 6, REFUND = .5, GLANCE = .25, KEEP = .15, HELD = .2, AIM_KEEP = .6;
   // A turning shell lets a shot through only near its opening (about 140 degrees of the circle). Briars
   // grow back unless their whole patch blooms within a few seconds of the first one.
   const SHELL_OPEN = .34, REGROW = 4;
@@ -127,21 +137,67 @@
     get tricks() { return this.trickCount; }
     // The flower the next seed will grow into; the aim line and launcher ring wear its color.
     get nextType() { return PALETTES[this.shotNumber % PALETTES.length]; }
+    // How long one empty slot of the pod takes to regrow this wave.
+    get regrowTime() { return POD_REGROW * (this.plan ? this.waveFireDelay : fireDelayFor(this.wave)); }
+    get podSize() { return POD; }
+    get canFire() { return !this.over && this.balls.length < CAP && this.shotGap <= 1e-7 && (this.superBloom > 0 || this.pod >= 1); }
+    // Seconds until the next shot is allowed (0 when one is): the gap after a shot, or the regrow of an empty pod.
+    get fireCooldown() {
+      if (this.pod === undefined) return 0;
+      if (this.superBloom > 0 || this.pod >= 1) return this.shotGap;
+      return Math.max(this.shotGap, (1 - this.podGrow) * this.regrowTime);
+    }
+    // Setting it to zero (the tutorial between steps) hands over a full pod; a positive value only delays the next shot.
+    set fireCooldown(value) {
+      this.shotGap = Math.max(0, Number(value) || 0);
+      if (!(value > 0)) { this.pod = POD; this.podGrow = 0; }
+    }
+    // While a Super Bloom lasts the pod regrows on its own and nothing feeds it; a seed still flying when it ends feeds
+    // it like any other.
+    _refund(amount, bud) {
+      if (!(amount > 0) || this.pod >= POD || this.superBloom > 0) return;
+      const slot = this.pod;
+      this.podGrow += amount; this.refunds = (this.refunds || 0) + 1;
+      this._growPod(0);
+      this.event('podRefund', { amount, slot, pod: this.pod, grow: this.podGrow, x: bud ? bud.x : this.launcher.x, y: bud ? bud.y : this.launcher.y });
+    }
+    _growPod(dt) {
+      if (this.pod >= POD) { this.podGrow = 0; return; }
+      this.podGrow += dt / this.regrowTime;
+      while (this.podGrow >= 1 - 1e-9 && this.pod < POD) { this.podGrow = Math.max(0, this.podGrow - 1); this.pod++; this.podAt = this.time; this.event('podSeed', { pod: this.pod }); }
+      if (this.pod >= POD) this.podGrow = 0;
+    }
     get splitReady() {
       return this.status === 'flying' && this.splitCharge >= 1 && this.balls.length > 0 && this.balls.length <= CAP - 2;
     }
-    fire(dx, dy) {
-      if (this.over || this.fireCooldown > 1e-7 || this.balls.length >= CAP || !Number.isFinite(dx) || !Number.isFinite(dy)) return false;
+    // held: how long the finger aimed before letting go, in seconds (0 for a tap or a key).
+    fire(dx, dy, held = 0) {
+      if (this.over || !Number.isFinite(dx) || !Number.isFinite(dy)) return false;
       const length = Math.hypot(dx, dy);
       if (length < 1e-6 || dy / length > -0.12) return false;
-      this.started = true; this.status = 'flying';
-      this.fireCooldown = this.superBloom > 0 ? SUPER_DELAY : this.plan ? this.waveFireDelay : fireDelayFor(this.wave); this.shotNumber++; this.aim = [];
+      if (!this.canFire) {
+        if (this.balls.length >= CAP || this.scripted) return false;
+        const wait = this.fireCooldown, aimed = held >= HELD;
+        if (wait <= (aimed ? AIM_KEEP : KEEP) + 1e-9) {
+          if (!this.kept) this.event('kept', { wait, aimed });
+          this.kept = { dx, dy, aimed, until: this.time + wait + .05 }; return true;
+        }
+        if (!(this.superBloom > 0) && this.pod < 1) { this.dryTaps = (this.dryTaps || 0) + 1; this.dryAt = this.time; this.event('dry', { wait, grow: this.podGrow, aimed }); }
+        return false;
+      }
+      return this._launch(dx, dy);
+    }
+    _launch(dx, dy) {
+      this.started = true; this.status = 'flying'; this.kept = null;
+      if (this.superBloom > 0) this.shotGap = SUPER_DELAY;
+      else { this.shotGap = POD_GAP; this.pod--; }
+      this.shotNumber++; this.aim = [];
       const power = this.armed, angle = Math.atan2(dy, dx), type = PALETTES[(this.shotNumber - 1) % PALETTES.length];
       this.armed = null;
       // A Dandelion fans out three seeds, even when that briefly goes past the usual five in the air.
       for (const offset of power === 'dandelion' ? [-FAN, 0, FAN] : [0]) this.spawnBall({ x: this.launcher.x, y: this.launcher.y,
         angle: angle + offset, speed: this.speed, type, power }, power === 'dandelion');
-      this.event('launch', { wave: this.wave, count: power === 'dandelion' ? 3 : 1 });
+      this.event('launch', { wave: this.wave, count: power === 'dandelion' ? 3 : 1, angle, pod: this.pod });
       if (power) { this.powersUsed++; this.event('power', { power, x: this.launcher.x, y: this.launcher.y, angle }); }
       return true;
     }
@@ -236,6 +292,9 @@
       if (!bud || bud.bloomed || this.over) return;
       if (bud.gift) { this._collect(bud); return; }
       if (!chain) { this.directHits++; this.splitCharge = Math.min(1, this.splitCharge + 1 / 6); }
+      // Every flower a seed touches or sets off feeds the pod.
+      const credit = this._credit(chain);
+      if (credit) this._refund(REFUND, bud);
       if (this.splitCharge > 1 - 1e-8) this.splitCharge = 1;
       if (this.time - this.lastHitAt > COMBO_WINDOW) this.combo = 0;
       this.lastHitAt = this.time;
@@ -243,7 +302,7 @@
         const gain = Math.round(50 * this.tempo);
         bud.hp--; bud.hitAt = this.time; this.score += gain;
         this.event('crack', { bud, chain, gain, hits: Math.max(0, (bud.maxHp || bud.hp + 1) - bud.hp) });
-        if (bud.boss) this._charge(CHARGE.crack, this._credit(chain));
+        if (bud.boss) this._charge(CHARGE.crack, credit);
         return;
       }
       this.bloom(bud, chain);
@@ -280,7 +339,7 @@
     }
     _startSuper() {
       this.superQueued = false; this.sunCharge = 0; this.sunLit = 0; this.superCount++;
-      this.superBloom = SUPER_TIME; this.feverTime = SUPER_TIME; this.fireCooldown = Math.min(this.fireCooldown, SUPER_DELAY);
+      this.superBloom = SUPER_TIME; this.feverTime = SUPER_TIME; this.shotGap = Math.min(this.shotGap, SUPER_DELAY);
       this.event('superBloom', { time: SUPER_TIME });
     }
     _endSuper() { this.superBloom = 0; this.feverTime = 0; this.superQueued = false; }
@@ -432,7 +491,7 @@
     }
     _lose() {
       if (this.over) return;
-      this.status = 'lost'; this.lives = 0; this.balls = []; this.ball = null; this.armed = null; this.lullaby = 0; this._endSuper();
+      this.status = 'lost'; this.lives = 0; this.balls = []; this.ball = null; this.armed = null; this.lullaby = 0; this._endSuper(); this.kept = null;
       this.pending = []; this.pendingBalls = []; this.aim = []; this.nextWaveAt = null;
       this.event('lost', { wave: this.wave, elapsed: this.elapsed });
     }
@@ -440,7 +499,7 @@
     finishShot() { this.ball = this.balls[0] || null; }
     win() { if (this.started && !this.over && this.nextWaveAt === null) this.nextWaveAt = this.time + 0.7; }
     _clearLevel() {
-      this.status = 'won'; this.balls = []; this.ball = null; this.armed = null; this.lullaby = 0; this.pending = []; this.aim = []; this.nextWaveAt = null; this._endSuper();
+      this.status = 'won'; this.balls = []; this.ball = null; this.armed = null; this.lullaby = 0; this.pending = []; this.aim = []; this.nextWaveAt = null; this._endSuper(); this.kept = null;
       this.event('won', { wave: this.wave, lives: this.lives, stars: this.stars, elapsed: this.elapsed });
     }
     step(dt) {
@@ -459,7 +518,16 @@
       if (!this.started || this.over) return;
       this.elapsed += dt;
       this.lullaby = Math.max(0, this.lullaby - dt);
-      this.fireCooldown = Math.max(0, this.fireCooldown - dt);
+      this.shotGap = Math.max(0, this.shotGap - dt);
+      this._growPod(dt);
+      if (this.kept) {
+        if (this.canFire) this._launch(this.kept.dx, this.kept.dy);
+        else if (this.time > this.kept.until) {
+          // It could not fire in time: five seeds went up meanwhile, or the pod ran out. Say so rather than drop it quietly.
+          const reason = this.balls.length >= CAP ? 'cap' : !(this.superBloom > 0) && this.pod < 1 ? 'dry' : 'gap';
+          this.event('dropped', { reason, aimed: this.kept.aimed }); this.kept = null; this.aim = [];
+        }
+      }
       if (this.superBloom > 0) {
         this.superBloom = Math.max(0, this.superBloom - dt); this.feverTime = this.superBloom;
         if (this.superBloom <= 1e-9) { this.superBloom = 0; this.event('superBloomEnd', {}); }
@@ -567,7 +635,12 @@
             ball.pierced++; ball.touches++; hit.item.hp = 1; this.strike(hit.item); this.striker = null; continue;
           }
           // An acorn cup turns away any shot that meets it from below; a shell, any shot that misses its opening.
-          if (hit.kind === 'bud' && this._guarded(hit.item, hit)) this.event('shield', { bud: hit.item, x: ball.x, y: ball.y, shell: Boolean(hit.item.shell) });
+          if (hit.kind === 'bud' && this._guarded(hit.item, hit)) {
+            this.event('shield', { bud: hit.item, x: ball.x, y: ball.y, shell: Boolean(hit.item.shell) });
+            // A turning shell is a timing shot, so the first time one turns a seed away the seed still wins back a little; a
+            // cup, aimed at from below, wins nothing.
+            if (hit.item.shell && !ball.glanced && this._credit(false)) { ball.glanced = true; this._refund(GLANCE, hit.item); }
+          }
           else if (hit.kind === 'bud') this.strike(hit.item);
           if (hit.kind === 'bud') ball.touches++;
           else {
@@ -595,7 +668,7 @@
       return { mode: this.mode, level: this.plan ? this.plan.id : 'rush', status: this.status, score: this.score, finalWave: this.plan ? this.finalWave : null,
         wave: this.wave, tempo: this.tempo, lives: this.lives, elapsed: this.elapsed, started: this.started,
         speed: this.speed, descentSpeed: this.descentSpeed, balls: this.balls.length, currents: this.currents.length, gates: this.gates.length,
-        fireCooldown: this.fireCooldown, rotateCooldown: this.rotateCooldown, splitCharge: this.splitCharge, splitReady: this.splitReady,
+        fireCooldown: this.fireCooldown, pod: this.pod, podGrow: this.podGrow, podSize: POD, kept: Boolean(this.kept), rotateCooldown: this.rotateCooldown, splitCharge: this.splitCharge, splitReady: this.splitReady,
         combo: this.combo, bestCombo: this.bestCombo, bloomedCount: this.bloomedCount,
         directHits: this.directHits, rotationUsed: this.rotationUsed, armed: this.armed, lullaby: this.lullaby, powersUsed: this.powersUsed,
         sun: this.sun, superBloom: this.superBloom, mult: this.mult, tricks: this.trickCount, startWave: this.startWave,
@@ -605,5 +678,5 @@
     }
   }
   return { RushGame, tempoFor, fireDelayFor, descentFor, SUN_REACH, LULLABY, GIFT_CHANCE, SHOT_POWERS,
-    COMBO_WINDOW, SUN_FULL, FIRST_FILL, SUPER_TIME, SUPER_DELAY, PIERCE, CLOSE_BAND, TRICKS };
+    COMBO_WINDOW, SUN_FULL, FIRST_FILL, SUPER_TIME, SUPER_DELAY, PIERCE, CLOSE_BAND, TRICKS, POD, POD_GAP, POD_REGROW, REFUND, GLANCE, KEEP, HELD, AIM_KEEP };
 });

@@ -1,6 +1,6 @@
 'use strict';
 const assert = require('assert');
-const { RushGame, tempoFor, fireDelayFor, descentFor } = require('../rush.js');
+const { RushGame, tempoFor, fireDelayFor, descentFor, POD, POD_GAP, POD_REGROW } = require('../rush.js');
 const { earliest } = require('../engine.js');
 const results = [], observations = {};
 function test(name, fn) {
@@ -42,12 +42,13 @@ test('Nothing starts, drifts, or fires before the first launch', () => {
   assert.deepEqual(game.buds.map(b => ({ x: b.x, y: b.y })), initial);
 });
 
-test('One press launches one ball; cooldown blocks repeats and allows active firing', () => {
+test('One press launches one ball; a second tap inside the gap is kept and follows it; each shot takes a pod seed', () => {
   const game = new RushGame();
   assert(game.fire(-1, -3)); assert.equal(game.balls.length, 1); assert.equal(game.ballSerial, 1);
-  assert.equal(game.pendingBalls.length, 0); assert.equal(game.fire(1, -3), false);
-  advance(game, 0.64); assert.equal(game.fire(1, -3), false);
-  advance(game, 0.02); assert(game.fire(1, -3)); assert.equal(game.ballSerial, 2);
+  assert.equal(game.pendingBalls.length, 0); assert.equal(game.pod, POD - 1);
+  assert.equal(game.fire(1, -3), true, 'a quick second tap is kept'); assert.equal(game.balls.length, 1);
+  advance(game, 0.14); assert.equal(game.ballSerial, 1, 'not before the gap');
+  advance(game, 0.02); assert.equal(game.ballSerial, 2); assert.equal(game.pod, POD - 2);
   assert.equal(game.status, 'flying'); assert.equal(game.shotsLeft, 3);
   assert.equal(game.events.filter(e => e.type === 'launch').length, 2);
 });
@@ -169,7 +170,8 @@ test('Tempo rises a tenth per wave to x2, multiplies every score and shortens th
   game.combo = 0; game.lastHitAt = -100;
   const before = game.score; game.strike(ordinary); assert.equal(game.score - before, 150);
   const mid = game.score; game.strike(layered); assert.equal(game.score - mid, 75);
-  game.fireCooldown = 0; assert(game.fire(0, -1)); assert(Math.abs(game.fireCooldown - 0.525) < 1e-9);
+  game.fireCooldown = 0; assert(game.fire(0, -1)); assert(Math.abs(game.fireCooldown - POD_GAP) < 1e-9);
+  assert(Math.abs(game.regrowTime - POD_REGROW * 0.525) < 1e-9, 'the pod regrows faster as the tempo climbs');
 });
 
 test('An endless finale wave (every fifth) waits 1.4 s for the next wave; every other wave and every level wave 0.7 s', () => {
@@ -338,7 +340,7 @@ test('Super Bloom lasts six seconds, reloads in .22 s, pays double for seed-earn
   advance(game, 5.5); assert(game.superBloom > 0); assert.equal(game.feverTime, game.superBloom);
   advance(game, .6); assert.equal(game.superBloom, 0); assert.equal(game.feverTime, 0);
   assert.equal(game.events.filter(e => e.type === 'superBloomEnd').length, 1);
-  game.fireCooldown = 0; assert(game.fire(0, -1)); assert(Math.abs(game.fireCooldown - .65) < 1e-9, 'reloads go back to normal');
+  game.fireCooldown = 0; assert(game.fire(0, -1)); assert(Math.abs(game.fireCooldown - POD_GAP) < 1e-9 && game.pod === POD - 1, 'shots take pod seeds again');
 });
 test('A sun that fills between waves waits for the next wave, and won or lost clears a Super Bloom', () => {
   const game = activeEmpty(); for (const b of game.buds) while (!b.bloomed) game.strike(b, true);
