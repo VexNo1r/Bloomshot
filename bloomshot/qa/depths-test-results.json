@@ -1,5 +1,5 @@
 {
-  "passed": 19,
+  "passed": 23,
   "failed": 0,
   "observations": {
     "bossHp": [
@@ -36,50 +36,75 @@
         20.2
       ],
       [
-        15,
-        18.4
+        15.6,
+        19.2
       ],
       [
-        16.5,
-        19.8
+        19.3,
+        23.1
       ],
       [
         17.2,
         22.1
       ],
       [
-        12.4,
-        15.9
-      ],
-      [
-        16.8,
-        21.6
-      ],
-      [
         14.7,
         18.9
       ],
       [
-        18.7,
-        24
+        21,
+        26
       ],
       [
-        16.7,
-        20.5
+        18.1,
+        23.2
+      ],
+      [
+        22.4,
+        28.8
+      ],
+      [
+        19.8,
+        24.3
       ]
     ],
     "averagePlayerLivesLost": [
       0,
       0,
       1,
-      1,
-      4,
+      3,
       2,
+      2,
+      0,
+      0,
+      0,
+      3
+    ],
+    "averagePlayerSuperBlooms": [
       5,
-      2,
-      2,
-      4
-    ]
+      6,
+      6.7,
+      7,
+      6,
+      6,
+      6,
+      8,
+      6,
+      7.3
+    ],
+    "averagePlayerTricks": [
+      15,
+      13.7,
+      19,
+      18.3,
+      16.3,
+      16,
+      25.7,
+      22.3,
+      17,
+      25.3
+    ],
+    "runtimeSeconds": 20.1
   },
   "results": [
     {
@@ -156,6 +181,22 @@
     },
     {
       "name": "A practice bot clears every level, and the levels get harder",
+      "passed": true
+    },
+    {
+      "name": "An average player sees a few Super Blooms and a handful of trick shots per level",
+      "passed": true
+    },
+    {
+      "name": "Every boss has a name",
+      "passed": true
+    },
+    {
+      "name": "Wave hints fit on one short line",
+      "passed": true
+    },
+    {
+      "name": "The whole suite runs in 40 seconds or less",
       "passed": true
     }
   ]

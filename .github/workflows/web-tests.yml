@@ -17,9 +17,10 @@ jobs:
           node-version: 22
       - name: Run every suite
         run: |
-          for t in test-engine test-rush test-pwa test-sound test-garden test-save-integration test-moon-engine test-moon-levels test-precache-streams test-store test-native check-moon-pointer test-koi-levels test-keepsakes test-goals test-depths test-powers test-petals; do
-            echo "== $t"
-            node qa/$t.cjs > /dev/null || { echo "FAILED: $t"; node qa/$t.cjs | tail -40; exit 1; }
+          # Every suite in qa/ runs, so a new test-*.cjs is picked up without editing this list.
+          for f in qa/test-*.cjs qa/check-moon-pointer.cjs; do
+            echo "== $f"
+            node "$f" > /dev/null || { echo "FAILED: $f"; node "$f" | tail -40; exit 1; }
           done
 
   # Keeps the native packaging honest: if a game change breaks the Android/iOS copy step

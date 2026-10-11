@@ -21,6 +21,10 @@ function test(name, fn) {
   try { fn(); results.push({ name, passed: true }); }
   catch (error) { results.push({ name, passed: false, error: error.stack }); }
 }
+// Flows that wait on the store or the share sheet run one after another once the synchronous tests are done.
+const later = [];
+function testAsync(name, fn) { later.push({ name, fn }); }
+const settled = () => new Promise(resolve => setTimeout(resolve, 0));
 const clone = value => JSON.parse(JSON.stringify(value));
 function legacySave() {
   return { version: 1, progress: { 1: { best: 1234, stars: 3, attempts: 2 }, 2: { best: 5678, stars: 2, attempts: 5 } },
@@ -30,26 +34,29 @@ function legacySave() {
 }
 // Future worlds still open as visual previews; one is added here so that path stays covered.
 const FUTURE = { id: 'orchard', name: 'Night Orchard', tagline: 'Soon.', description: 'A future garden.', price: null, theme: 'moon', available: false, mechanic: 'Planned.' };
-const BUNDLE = 'bloomshot.bundle.launch1';
+const BUNDLE = 'bloomshot.bundle.complete1';
 // Mirrors store.js: a product grants one or more entitlements; owned means all of them, partial means some.
-// Powerups are consumables: the store hands each purchase to the game's grant handler, then reports it.
-function fakeStore({ owned = [], live = false, available = false, price = '$4.99', stylePrice = '$1.99', bundlePrice = '$5.99', levelsPrice = '$2.99', amounts = [4.99, 1.99, 5.99], currency = 'USD', mode = 'native', powers = false, powerPrice = '$0.25' } = {}) {
+// Powerups are consumables: the store hands each purchase to the game's grant handler, then reports it, in the
+// real store's shape: `items` lists [{ power, count }]; `power` is set only for one kind, and `count` is the total.
+function fakeStore({ owned = [], live = false, available = false, price = '$4.99', stylePrice = '$1.99', bundlePrice = '$6.99', levelsPrice = '$2.99', amounts = [4.99, 1.99, 6.99, 2.99], currency = 'USD', mode = 'native', powers = false, powerPrice = '$0.25' } = {}) {
   const have = new Set(owned), listeners = [], purchases = [];
   let grant = null, serial = 0;
-  const consumables = powers ? Powers.list.map(p => ({ id: p.product, entitlements: [], kind: 'power', consumable: true, power: p.id, price: powerPrice, amount: .25, currency })) : [];
+  const consumables = powers ? [...Powers.list.map(p => ({ id: p.product, entitlements: [], kind: 'power', consumable: true, power: p.id, count: 1, price: powerPrice, amount: .25, currency })),
+    ...Powers.packs.map(p => ({ id: p.product, entitlements: [], kind: 'power', consumable: true, power: p.single, count: Object.values(p.contents).reduce((n, c) => n + c, 0), items: Object.entries(p.contents).map(([power, count]) => ({ power, count })), price: p.single ? '$0.99' : '$1.99', amount: p.single ? .99 : 1.99, currency }))] : [];
   const catalog = [...consumables, { id: Koi.product, entitlements: [Koi.entitlement], kind: 'world', price, amount: amounts[0], currency },
     { id: Keepsakes.product, entitlements: [Keepsakes.entitlement], kind: 'style', price: stylePrice, amount: amounts[1], currency },
-    { id: BUNDLE, entitlements: [Koi.entitlement, Keepsakes.entitlement], kind: 'bundle', price: bundlePrice, amount: amounts[2], currency },
-    { id: Depths.product, entitlements: [Depths.entitlement], kind: 'levels', price: levelsPrice, amount: 2.99, currency }];
+    { id: BUNDLE, entitlements: [Depths.entitlement, Koi.entitlement, Keepsakes.entitlement], kind: 'bundle', price: bundlePrice, amount: amounts[2], currency },
+    { id: Depths.product, entitlements: [Depths.entitlement], kind: 'levels', price: levelsPrice, amount: amounts[3], currency }];
+  const handOver = (item, transaction) => grant({ productId: item.id, power: item.power, count: item.count, items: item.items || [{ power: item.power, count: item.count }], transaction });
   const held = item => item.entitlements.filter(e => have.has(e)).length;
   return { mode, busy: false, purchases, isLive: () => live, owns: id => have.has(id), revoke: id => have.delete(id),
     products: () => catalog.map(item => ({ ...item, entitlement: item.entitlements[0], available, owned: !item.consumable && held(item) === item.entitlements.length, partial: held(item) > 0 && held(item) < item.entitlements.length })),
     onConsumable: fn => { grant = fn; },
     // The store handing a purchase over again, as after a crash before it was finished.
-    replay: (id, transaction) => grant({ productId: id, power: catalog.find(entry => entry.id === id).power, count: 1, transaction }),
+    replay: (id, transaction) => handOver(catalog.find(entry => entry.id === id), transaction),
     purchase: id => {
       purchases.push(id); const item = catalog.find(entry => entry.id === id);
-      if (item.consumable) { const transaction = `T${++serial}`; const kept = grant({ productId: id, power: item.power, count: 1, transaction }); return Promise.resolve({ ok: kept, consumable: true, power: item.power, count: 1, transaction }); }
+      if (item.consumable) { const transaction = `T${++serial}`; const kept = handOver(item, transaction); return Promise.resolve({ ok: kept, consumable: true, power: item.power, count: item.count, transaction }); }
       if (held(item) > 0) return Promise.resolve({ ok: false, reason: 'partly-owned' });
       item.entitlements.forEach(e => have.add(e)); listeners.forEach(fn => fn({ type: 'entitlements' })); return Promise.resolve({ ok: true, entitlements: item.entitlements });
     },
@@ -108,7 +115,7 @@ function boot(raw, { storageFails = false, search = '', otherSave, store, native
     performance: { now: () => now }, devicePixelRatio: 1,
     matchMedia: () => ({ matches: false, addEventListener: noop }),
     requestAnimationFrame: fn => { nextFrame = fn; }, setTimeout: () => 1, clearTimeout: noop,
-    BloomLevels: { ...Levels, worlds: [...Levels.worlds, FUTURE] }, BloomMoon: Moon, BloomKoi: Koi, BloomGarden: Garden, BloomGoals: goals ? Goals : QuietGoals, ...(store ? { BloomStore: store } : {}), ...(native ? { BloomNative: native } : {}), BloomEngine: { ...Engine, Game: ObservedGame }, BloomRush: { RushGame: ObservedRush }, BloomDepths: Depths, BloomPowers: Powers, BloomPetals: require('../petals.js'), BloomScenery: { paint: noop, has: () => true },
+    BloomLevels: { ...Levels, worlds: [...Levels.worlds, FUTURE] }, BloomMoon: Moon, BloomKoi: Koi, BloomGarden: Garden, BloomGoals: goals ? Goals : QuietGoals, ...(store ? { BloomStore: store } : {}), ...(native ? { BloomNative: native } : {}), BloomEngine: { ...Engine, Game: ObservedGame }, BloomRush: { RushGame: ObservedRush }, BloomDepths: Depths, BloomPowers: Powers, BloomTutorial: require('../tutorial.js'), BloomPetals: require('../petals.js'), BloomScenery: { paint: noop, has: () => true },
     BloomSound: { wake: noop, play: noop, setEnabled: noop }, BloomKeepsakes: Keepsakes,
     BloomArt: { draw: (ctx, state, time, options) => boardDraws.push(options.keepsake ? options.keepsake.id : 'meadow'), drawFlower: noop, drawMoon: noop, koiFish: noop,
       drawGarden: noop, drawProjectile: noop, drawParticle: noop, drawSeed: noop, drawPowerIcon: noop },
@@ -143,6 +150,36 @@ test('Startup migrates an old save once and preserves all existing progress and 
   assert.equal(Garden.summary(after.garden).totalStages, 0); assert(app.writes.length >= 1);
   assert.deepEqual(boot(after).saved(), after);
 });
+test('Music has its own switch: an old save shows it on, turning it off is saved and survives a reload, and older settings stay the same', () => {
+  const before = legacySave(); const app = boot(before);
+  assert.equal(app.$('toggle-music').checked, true, 'an old save, with no music setting, shows Music on');
+  assert.deepEqual(app.saved().settings, before.settings, 'nothing is added to the settings until the switch is used');
+  const music = []; app.context.BloomSound.setMusic = on => music.push(on);
+  app.$('toggle-music').checked = false; app.$('toggle-music').emit('change');
+  const saved = app.saved();
+  assert.equal(saved.settings.music, false);
+  assert.deepEqual({ ...saved.settings, music: undefined }, { ...before.settings, music: undefined }, 'the other settings are untouched');
+  assert.deepEqual(music, [false]);
+  const reloaded = boot(saved);
+  assert.equal(reloaded.$('toggle-music').checked, false, 'off survives a reload'); assert.deepEqual(reloaded.saved().settings, saved.settings);
+  // The soundtrack plays only with both Sound and Music on.
+  const both = boot({ ...legacySave(), settings: { sound: true, haptics: false, motion: false } }), calls = [];
+  both.context.BloomSound.setMusic = on => calls.push(on);
+  both.$('toggle-music').checked = false; both.$('toggle-music').emit('change');
+  both.$('toggle-music').checked = true; both.$('toggle-music').emit('change');
+  both.$('toggle-sound').checked = false; both.$('toggle-sound').emit('change');
+  assert.deepEqual(calls, [false, true, false]); assert.equal(both.saved().settings.music, true);
+  // The soundtrack hears the board: home in the menus and endless Rush, a level's own groove in that level.
+  const states = []; both.context.BloomSound.music = { frame: state => states.push(state) };
+  both.frame(); assert.equal(states.at(-1).route, 'levels'); assert.equal(states.at(-1).groove, 'home');
+  both.click('levels-rush-btn'); both.frame(200);
+  assert.equal(states.at(-1).route, 'game'); assert.equal(states.at(-1).groove, 'home'); assert.equal(states.at(-1).threat >= 0, true);
+  both.click('rush-btn'); both.frame(200); assert.equal(states.at(-1).route, 'levels'); assert.equal(states.at(-1).groove, 'home');
+  both.click('depth-map', { depth: '1' }); both.frame(200);
+  assert.equal(states.at(-1).route, 'game'); assert.equal(states.at(-1).groove, 'meadow');
+  const count = states.length; both.frame(); assert.equal(states.length, count, 'about ten times a second, not every frame');
+  for (const state of states) for (const key of ['heat', 'threat']) assert(Number.isFinite(state[key]));
+});
 test('Malformed individual daily entries cannot reset valid campaign, Rush, or planted meadow records', () => {
   const before = legacySave(); before.garden = Garden.plant(Garden.normalize(), 'moon').state;
   Object.assign(before.daily, { 'daily-2026-10-02': null, 'daily-2026-10-03': [], 'daily-2026-10-04': false,
@@ -175,9 +212,25 @@ test('Completed Rush rewards are saved before the result dialog and cannot repea
 test('Restarting an unfinished run does not grant rewards', () => {
   const app = boot(legacySave()); const before = app.saved();
   const game = app.games.at(-1); game.totalBlooms = 24; game.wave = 3;
+  // Restart sits next to Split: the first tap on a run with progress only asks for a second one.
   app.click('restart-btn');
+  assert.equal(app.games.length, 1, 'one tap does not wipe the run'); assert(app.$('restart-btn').classList.contains('armed'));
+  assert.equal(app.$('restart-btn').attributes['aria-label'], 'Tap again to restart');
+  assert.equal(app.context.document.body.dataset.restart, 'armed', 'the hint line steps back while the tip shows');
+  app.click('restart-btn');
+  assert.equal(app.context.document.body.dataset.restart, '', 'and comes back');
   // The restarted board is the first one played, so it shows the powerups tip once; nothing else changes.
   assert.equal(app.games.length, 2); assert.deepEqual({ ...app.saved(), powersMet: false }, before);
+  assert.equal(app.$('restart-btn').classList.contains('armed'), false);
+});
+test('Starting an endless run over keeps a new best score and wave, and still pays nothing', () => {
+  const app = boot(legacySave()); const before = app.saved();
+  const game = app.games.at(-1); game.started = true; game.score = 5000; game.wave = 4;
+  app.click('restart-btn'); app.click('restart-btn');
+  assert.equal(app.games.length, 2);
+  const after = app.saved();
+  assert.equal(after.rush.best, 5000); assert.equal(after.rush.bestWave, 4);
+  assert.equal(after.rush.runs, before.rush.runs, 'an abandoned run is not counted'); assert.deepEqual(after.garden, before.garden, 'and earns no seeds');
 });
 test('Visual previews grant no progress and restore the original in-progress run ID for its reward', () => {
   const app = boot(legacySave()); const original = app.games.at(-1); const before = app.saved();
@@ -294,7 +347,9 @@ test('The Koi unlock names its contents and store price and buys only through th
 test('Clearing a Rush wave shows the next tempo, and the HUD and result carry the tempo reached', () => {
   const app = boot(legacySave()); app.click('levels-rush-btn'); const game = app.games.at(-1);
   assert(game.fire(0, -1)); app.frame();
+  // The opening seed flies up through the petal now, so it is cleared away before it can reach wave 2.
   for (const bud of game.buds) while (!bud.bloomed) game.strike(bud, true);
+  game.balls = [];
   app.frame(20); app.frame(20);
   const banner = game.floaters.find(f => f.kind === 'wave');
   assert(banner, 'a wave-clear banner is shown'); assert.equal(banner.text, 'Wave clear!'); assert.equal(banner.label, 'next ×1.1');
@@ -302,37 +357,44 @@ test('Clearing a Rush wave shows the next tempo, and the HUD and result carry th
   assert.equal(game.wave, 2); assert.match(app.$('level-label').textContent, /^Wave 2 · ×1\.1$/);
   assert.match(app.$('game-hint').textContent, /×1\.1 points/);
   game._lose(); for (let i = 0; i < 40; i++) app.frame();
-  assert.match(app.$('result-message').textContent, /tempo ×1\.1/);
+  assert.match(app.$('result-message').textContent, /tempo\u00a0×1\.1/);
 });
-test('The Launch Bundle states its price and saving, buys both parts at once, and then disappears', () => {
+test('The Complete Garden states its price and exact saving everywhere it is offered, buys all three at once, and then disappears', () => {
   const store = fakeStore({ live: true, available: true }), app = boot(legacySave(), { store });
+  const saving = /\$2\.98 less than buying all three \(\$2\.99 \+ \$4\.99 \+ \$1\.99\)\./;
+  const levelsMap = app.$('depth-map').innerHTML;
+  assert.match(levelsMap, /Unlock levels 5 to 10 · \$2\.99/); assert.match(levelsMap, /Get everything · \$6\.99/); assert.match(levelsMap, saving);
+  assert(levelsMap.indexOf('Unlock levels 5 to 10') < levelsMap.indexOf('Get everything'), 'the levels unlock comes first, the Complete Garden beside it');
   app.click('worlds-btn'); app.click('worlds-grid', { world: 'koi' });
   const koiPanel = app.$('world-detail').innerHTML;
-  assert.match(koiPanel, /Unlock all 8 pools · \$4\.99/); assert.match(koiPanel, /Get both · \$5\.99/);
-  assert.match(koiPanel, /\$0\.99 less than buying both \(\$4\.99 \+ \$1\.99\)\./);
-  app.click('collection-btn'); assert.match(app.$('keepsake-offer').innerHTML, /Get both · \$5\.99/);
+  assert.match(koiPanel, /Unlock all 8 pools · \$4\.99/); assert.match(koiPanel, /Get everything · \$6\.99/); assert.match(koiPanel, saving);
+  app.click('collection-btn'); assert.match(app.$('keepsake-offer').innerHTML, /Get everything · \$6\.99/);
   app.click('keepsake-shelf', { keepsake: 'firefly' });
   app.click('keepsake-shelf', { buy: BUNDLE }); assert.deepEqual(store.purchases, [BUNDLE]);
-  assert(store.owns(Koi.entitlement) && store.owns(Keepsakes.entitlement));
+  assert(store.owns(Depths.entitlement) && store.owns(Koi.entitlement) && store.owns(Keepsakes.entitlement));
   assert.equal(app.$('keepsake-offer').innerHTML, '');
   app.click('keepsake-shelf', { keepsake: 'firefly' }); assert.equal(app.saved().keepsake, 'firefly');
   app.click('worlds-btn'); app.click('worlds-grid', { world: 'koi' });
   assert(!app.$('world-detail').innerHTML.includes('data-buy'));
+  app.click('rush-btn'); assert(!app.$('depth-map').innerHTML.includes('data-buy'), 'nothing left to sell on the level map');
   app.click('keepsake-shelf', { buy: BUNDLE }); assert.deepEqual(store.purchases, [BUNDLE], 'an owned bundle never opens the store again');
 });
-test('Owning either part offers only the other part, never the bundle', () => {
+test('Owning any part offers only the parts still missing, never the Complete Garden', () => {
   const koiOwner = boot(legacySave(), { store: fakeStore({ live: true, available: true, owned: [Koi.entitlement] }) });
   koiOwner.click('collection-btn');
   assert.match(koiOwner.$('keepsake-offer').innerHTML, /Get all three · \$1\.99/); assert(!koiOwner.$('keepsake-offer').innerHTML.includes(BUNDLE));
+  assert(!koiOwner.$('depth-map').innerHTML.includes(BUNDLE)); assert.match(koiOwner.$('depth-map').innerHTML, /Unlock levels 5 to 10 · \$2\.99/);
   koiOwner.click('keepsake-shelf', { buy: BUNDLE }); assert.equal(koiOwner.context.BloomStore.purchases.length, 0);
   const styleOwner = boot(legacySave(), { store: fakeStore({ live: true, available: true, owned: [Keepsakes.entitlement] }) });
   styleOwner.click('worlds-btn'); styleOwner.click('worlds-grid', { world: 'koi' });
   assert.match(styleOwner.$('world-detail').innerHTML, /Unlock all 8 pools · \$4\.99/); assert(!styleOwner.$('world-detail').innerHTML.includes(BUNDLE));
+  const levelsOwner = boot(legacySave(), { store: fakeStore({ live: true, available: true, owned: [Depths.entitlement] }) });
+  levelsOwner.click('collection-btn'); assert(!levelsOwner.$('keepsake-offer').innerHTML.includes(BUNDLE));
 });
 test('Without comparable amounts the bundle still says it costs less, but names no number; off sale or on the website it is not offered', () => {
-  const mixed = boot(legacySave(), { store: fakeStore({ live: true, available: true, amounts: [4.99, NaN, 5.99] }) });
+  const mixed = boot(legacySave(), { store: fakeStore({ live: true, available: true, amounts: [4.99, NaN, 6.99, 2.99] }) });
   mixed.click('collection-btn'); const html = mixed.$('keepsake-offer').innerHTML;
-  assert.match(html, /Less than buying both \(\$4\.99 \+ \$1\.99\)\./); assert(!/\$0\.99 less/.test(html));
+  assert.match(html, /Less than buying all three \(\$2\.99 \+ \$4\.99 \+ \$1\.99\)\./); assert(!/\$\d+\.\d+ less/.test(html));
   const offSale = boot(legacySave(), { store: fakeStore({ live: true, available: false }) });
   offSale.click('collection-btn'); assert(!offSale.$('keepsake-offer').innerHTML.includes(BUNDLE));
   const web = boot(legacySave(), { store: fakeStore({ live: false, available: true, mode: 'web' }) });
@@ -578,23 +640,122 @@ test('Native bridge: once a backup has been restored and a reload is pending, th
 const depthGame = app => { const game = app.games.at(-1); assert.equal(game.mode, 'rush'); assert(game.plan, 'a level is running'); return game; };
 const settleLevel = app => { for (let i = 0; i < 40; i++) app.frame(); };
 test('The game opens on the level map: level 1 is open, the rest wait their turn, and a locked card never starts', () => {
-  const app = boot(undefined);
+  // A brand-new player gets the tutorial first; skipping it lands on the map.
+  const app = boot(undefined); app.click('tutorial-skip');
   assert.equal(app.context.bloomshotState.route, 'levels'); assert.equal(app.$('levels-view').hidden, false); assert.equal(app.$('game-view').hidden, true);
   assert(app.$('rush-btn').classList.contains('active'), 'Play is the active tab');
   const map = app.$('depth-map').innerHTML;
   for (let id = 1; id <= 10; id++) assert.match(map, new RegExp(`data-depth="${id}"`));
   assert.match(map, /class="depth-card next" type="button" data-depth="1"/); assert.match(map, /class="depth-card locked" type="button" data-depth="2"/);
   assert.match(map, /Sunny Meadow/); assert.match(map, /Crystal Caves/); assert.match(map, /Clear level 3 to open/);
-  assert.match(map, /class="depth-card locked paid" type="button" data-depth="5"/); assert.match(map, /Starseed Core/);
-  assert(map.indexOf('id="depth-unlock"') > map.indexOf('data-depth="4"') && map.indexOf('id="depth-unlock"') < map.indexOf('data-depth="5"'), 'the unlock sits between level 4 and level 5');
+  assert.match(map, /class="depth-card locked paid" type="button" data-depth="5"/); assert.match(map, /Starseed Core/); assert.match(map, /Clear level 4 to try it free/);
+  assert(map.indexOf('id="depth-unlock"') > map.indexOf('data-depth="5"') && map.indexOf('id="depth-unlock"') < map.indexOf('data-depth="6"'), 'the unlock sits between level 5 (the free taste) and level 6');
   assert.match(map, /Levels 5 to 10 unlock in the Bloomshot app/); assert(!map.includes('data-buy'), 'the web build sells nothing');
   const started = app.games.length;
   app.click('depth-map', { depth: '2' }); assert.equal(app.games.length, started); assert.equal(app.$('toast').textContent, 'Clear level 1 to open Root Tunnels.');
-  app.click('depth-map', { depth: '5' }); assert.equal(app.games.length, started); assert.equal(app.$('toast').textContent, 'Glowworm Lake is part of levels 5 to 10.');
-  assert.equal(app.$('depth-unlock').scrolled, 1, 'and the map shows what the unlock holds');
+  app.click('depth-map', { depth: '5' }); assert.equal(app.games.length, started); assert.equal(app.$('toast').textContent, 'Clear level 4 to try Glowworm Lake free.');
+  app.click('depth-map', { depth: '6' }); assert.equal(app.games.length, started); assert.equal(app.$('toast').textContent, 'Fossil Beds is part of levels 5 to 10.');
+  assert.equal(app.$('depth-unlock').scrolled, 2, 'and the map shows what the unlock holds');
   app.click('depth-map', { depth: '1' }); const game = depthGame(app);
   assert.equal(game.plan.id, 1); assert.equal(app.context.bloomshotState.theme, 'depth-meadow'); assert.equal(app.context.bloomshotState.route, 'game');
   app.frame(); assert.equal(app.$('level-label').textContent, 'Level 1 · Wave 1/10'); assert.equal(app.$('level-name').textContent, 'Sunny Meadow');
+});
+// The first-time tutorial, played through the app's own board and buttons the way a player would: wait about a
+// second on each card, then do what it says.
+const Tutorial = require('../tutorial.js');
+const TRAY_GROUP = { sunburst: 'power-left', dandelion: 'power-left', beeline: 'power-right', lullaby: 'power-right' };
+function tapTutorial(app, action, finger) {
+  if (action === 'fire') {
+    const [x, y] = finger, canvas = app.$('game-canvas');
+    canvas.emit('pointerdown', { isPrimary: true, pointerId: 1, clientX: x, clientY: y }); canvas.emit('pointerup', { pointerId: 1, clientX: x, clientY: y });
+  } else if (action === 'rotate') app.click('rotate-btn');
+  else if (action === 'split') app.click('split-btn');
+  else app.click(TRAY_GROUP[action.slice(6)], { power: action.slice(6) });
+}
+function playTutorial(app, react = .8) {
+  let shown = '', since = 0, acted = false, seconds = 0;
+  const box = app.$('tutorial');
+  while (box.dataset.phase !== 'end' && seconds < 90) {
+    app.frame(17); seconds += .017;
+    const key = `${app.$('tutorial-step').textContent}|${app.$('tutorial-text').textContent}|${box.dataset.phase}`;
+    if (key !== shown) { shown = key; since = 0; acted = false; } else since += .017;
+    if (box.dataset.phase !== 'prompt' || acted || since < react) continue;
+    const step = Tutorial.steps[parseInt(app.$('tutorial-step').textContent, 10) - 1];
+    const prompt = step.prompts.find(p => p.text === app.$('tutorial-text').textContent);
+    tapTutorial(app, prompt.allow[0], prompt.finger); acted = true;
+  }
+  return seconds;
+}
+test('A brand-new player starts in the tutorial; a returning player goes straight to the levels', () => {
+  const fresh = boot(undefined); fresh.frame(); fresh.frame();
+  assert.equal(fresh.context.bloomshotState.route, 'game'); assert.equal(fresh.$('level-name').textContent, 'How to play');
+  assert.equal(fresh.$('level-label').textContent, 'Tutorial'); assert.equal(fresh.context.document.body.dataset.tutorial, 'on');
+  assert.equal(fresh.$('tutorial').hidden, false); assert.equal(fresh.$('tutorial-title').textContent, 'Aim and fire');
+  assert.equal(fresh.$('tutorial-step').textContent, '1 of 7'); assert.equal(fresh.saved().tutorial, false);
+  const back = boot(legacySave());
+  assert.equal(back.context.bloomshotState.route, 'levels'); assert.equal(back.$('tutorial').hidden, true); assert.equal(back.saved().tutorial, true);
+  // Someone who started a level or Rush before the tutorial existed but never finished one has seen the powerups tip.
+  assert.equal(boot({ version: 1, powersMet: true }).context.bloomshotState.route, 'levels');
+  assert.equal(fresh.saved().powersMet, false, 'the tutorial does not count as having started a run');
+});
+test('Played through on the real board, the tutorial finishes in under 46 seconds, spends none of the player\'s powerups and records nothing', () => {
+  const app = boot(undefined), before = app.saved();
+  const seconds = playTutorial(app);
+  assert.equal(app.$('tutorial').dataset.phase, 'end'); assert(seconds < 46, `took ${seconds.toFixed(1)} s`);
+  assert.equal(app.$('tutorial-go').hidden, false); assert.equal(app.$('tutorial-go').textContent, 'Play level 1');
+  const during = app.saved();
+  assert.deepEqual(during.powers, before.powers, 'the tutorial hands out its own uses');
+  assert.deepEqual(during.rush, before.rush); assert.deepEqual(during.depths, {}); assert.equal(during.garden.seeds, before.garden.seeds);
+  app.click('tutorial-go');
+  const game = depthGame(app); assert.equal(game.plan.id, 1); assert.equal(app.context.document.body.dataset.tutorial, '');
+  assert.equal(app.$('tutorial').hidden, true); assert.equal(app.saved().tutorial, true); assert.equal(app.saved().powersMet, true, 'no powerups tip after learning them');
+  assert.notEqual(app.$('toast').textContent, 'New: powerups! Tap one above the board, then fire.');
+  assert.equal(boot(app.saved()).context.bloomshotState.route, 'levels', 'it plays once');
+});
+test('While a card waits, only the control it names works; anything else just nudges the card', () => {
+  const app = boot(undefined), before = app.saved().powers;
+  for (let i = 0; i < 30; i++) app.frame(17);
+  assert.equal(app.$('tutorial').dataset.phase, 'prompt'); const game = app.games.at(-1);
+  app.click('power-left', { power: 'sunburst' }); assert.equal(game.armed, null);
+  assert.equal(app.$('tutorial').dataset.nudge, '1');
+  app.click('split-btn'); app.click('rotate-btn'); assert.equal(app.$('tutorial').dataset.nudge, '1', 'each blocked tap nudges again');
+  assert.equal(game.balls.length, 0); assert.deepEqual(app.saved().powers, before);
+  tapTutorial(app, 'fire', Tutorial.steps[0].prompts[0].finger); assert.equal(game.balls.length, 1, 'the shot on the card fires');
+});
+test('The petal card lights the petal on the board and the Turn petal button; touching the petal never turns it, the button does', () => {
+  const app = boot(undefined), box = app.$('tutorial');
+  let seconds = 0;
+  // Play the first card, then wait for the petal card.
+  while (!(box.dataset.phase === 'prompt' && app.$('tutorial-step').textContent === '1 of 7') && seconds < 5) { app.frame(17); seconds += .017; }
+  tapTutorial(app, 'fire', Tutorial.steps[0].prompts[0].finger);
+  while (!(box.dataset.phase === 'prompt' && app.$('tutorial-step').textContent === '2 of 7') && seconds < 15) { app.frame(17); seconds += .017; }
+  app.frame(17);
+  assert.equal(app.$('tutorial-text').textContent, Tutorial.steps[1].prompts[0].text);
+  assert.equal(app.$('tutorial-spot').hidden, false); assert.equal(app.$('tutorial-spot-2').hidden, false); assert.equal(app.$('tutorial-dim').hidden, false);
+  const hole = app.$('tutorial-hole-1').attributes, petal = app.games.at(-1).bumpers[0];
+  // The test board fills 420 x 560 at the origin, so the hole is centred on the petal itself.
+  assert.equal(hole.x + hole.width / 2, petal.x); assert.equal(hole.y + hole.height / 2, petal.y); assert.equal(hole.rx, hole.width / 2);
+  assert(app.$('tutorial-hole-2').attributes.width > 0, 'the Turn petal button has its own hole');
+  const before = petal.angle, canvas = app.$('game-canvas');
+  canvas.emit('pointerdown', { isPrimary: true, pointerId: 1, clientX: petal.x + 12, clientY: petal.y - 12 });
+  canvas.emit('pointerup', { pointerId: 1, clientX: petal.x + 12, clientY: petal.y - 12 });
+  assert.equal(app.games.at(-1).bumpers[0].angle, before, 'a touch on the board aims and never turns the petal');
+  assert.equal(app.$('tutorial-text').textContent, Tutorial.steps[1].prompts[0].text, 'the card still waits for Turn petal');
+  app.click('rotate-btn');
+  assert.notEqual(app.games.at(-1).bumpers[0].angle, before, 'Turn petal turned it');
+  for (let i = 0; i < 6; i++) app.frame(17);
+  assert.equal(app.$('tutorial-text').textContent, Tutorial.steps[1].prompts[1].text); assert.equal(app.$('tutorial-spot-2').hidden, true);
+});
+test('Skip ends it for good, and How to play can start it again', () => {
+  const app = boot(undefined); app.frame(); app.click('tutorial-skip');
+  assert.equal(app.context.bloomshotState.route, 'levels'); assert.equal(app.saved().tutorial, true); assert.equal(app.$('tutorial').hidden, true);
+  assert.equal(app.$('toast').textContent, 'You can play the tutorial again from the ? button.');
+  app.click('help-btn'); assert.equal(app.$('tutorial-replay').hidden, false);
+  app.click('tutorial-replay'); app.frame();
+  assert.equal(app.context.bloomshotState.route, 'game'); assert.equal(app.$('level-name').textContent, 'How to play'); assert.equal(app.$('help-dialog').open, false);
+  app.click('help-btn'); assert.equal(app.$('tutorial-replay').hidden, true, 'no replay button while it plays');
+  app.$('help-dialog').close(); app.$('toast').textContent = '';
+  app.click('tutorial-skip'); assert.equal(app.context.bloomshotState.route, 'levels'); assert.equal(app.$('toast').textContent, '', 'the reminder only shows the first time');
 });
 test('Clearing a level saves its stars, pays run and first-clear seeds once, opens the next level and Next starts it', () => {
   const app = boot(legacySave()); app.click('depth-map', { depth: '1' });
@@ -625,13 +786,13 @@ test('A level opened by a first clear greets the player on the map until they pl
   app.click('depth-map', { depth: '1' }); game = depthGame(app); game.started = true; game.wave = 10; game.lives = 3; game._clearLevel(); settleLevel(app);
   app.click('result-garden-btn'); assert(!app.$('depth-map').innerHTML.includes('fresh'), 'a replayed level opens nothing new');
 });
-test('Running out of lives keeps the best wave, pays for the blooms, and Try again restarts the same level', () => {
+test('Running out of lives keeps the best wave, pays for the blooms, and Start over restarts the same level', () => {
   const app = boot(legacySave()); app.click('depth-map', { depth: '1' });
   let game = depthGame(app); game.started = true; game.wave = 6; game.totalBlooms = 90; game.score = 2100; game._lose(); settleLevel(app);
   const saved = app.saved(); assert.deepEqual(saved.depths, { 1: { stars: 0, best: 2100, wave: 6 } }); assert.deepEqual(saved.garden.depthBest, {});
   assert.equal(saved.garden.seeds, 4 + 14);
   assert.equal(app.$('result-eyebrow').textContent, 'Out of lives'); assert.equal(app.$('result-title').textContent, 'Wave 6 of 10');
-  assert.equal(app.$('next-btn').hidden, true); assert.equal(app.$('retry-btn').textContent, 'Try again');
+  assert.equal(app.$('next-btn').hidden, true); assert.equal(app.$('retry-btn').textContent, 'Start over');
   app.click('retry-btn'); game = depthGame(app); assert.equal(game.plan.id, 1); assert.equal(game.wave, 1);
   app.click('back-btn'); assert.equal(app.context.bloomshotState.route, 'levels');
   assert.match(app.$('depth-map').innerHTML, /Best: wave 6 of 10/); assert.match(app.$('depth-map').innerHTML, /class="depth-card locked" type="button" data-depth="2"/);
@@ -655,9 +816,10 @@ test('The levels unlock says what it holds and what it costs, buys only through 
   const map = app.$('depth-map').innerHTML;
   assert.match(map, /data-buy="bloomshot\.levels\.full">Unlock levels 5 to 10 · \$2\.99</); assert.match(map, /6 deeper levels/);
   assert.match(map, /One-time purchase, no ads/); assert.match(map, /One payment\. Restore it any time in Settings\./);
-  assert.match(map, /class="depth-card locked paid" type="button" data-depth="5"/);
+  assert.match(map, /class="depth-card paid taste next" type="button" data-depth="5"/); assert.match(map, /First 3 waves free/);
+  assert.match(map, /class="depth-card locked paid" type="button" data-depth="6"/);
   const count = app.games.length;
-  app.click('depth-map', { depth: '5' }); assert.equal(app.games.length, count, 'a paid level never starts before the unlock');
+  app.click('depth-map', { depth: '6' }); assert.equal(app.games.length, count, 'a paid level never starts before the unlock');
   app.click('depth-map', { buy: Depths.product }); assert.deepEqual(store.purchases, [Depths.product]);
   const after = app.$('depth-map').innerHTML;
   assert(!after.includes('depth-unlock'), 'the offer is gone once owned'); assert.match(after, /class="depth-card next" type="button" data-depth="5"/);
@@ -666,16 +828,20 @@ test('The levels unlock says what it holds and what it costs, buys only through 
   assert.equal(game.plan.id, 5); assert.equal(app.context.bloomshotState.theme, 'depth-lake'); assert(game.currents.length > 0, 'the lake brings its currents');
   assert.deepEqual(app.saved().depths, cleared(1, 2, 3, 4).depths, 'buying changes no progress');
 });
-test('Clearing level 4 points to the unlock once, gently; with it owned, Next goes straight to level 5', () => {
+test('Clearing level 4 offers a free taste of level 5; with the levels owned, Next goes straight to level 5', () => {
   const free = boot(cleared(1, 2, 3)); free.click('depth-map', { depth: '4' });
   let game = depthGame(free); game.started = true; game.wave = 10; game.lives = 3; game._clearLevel(); settleLevel(free);
   assert.equal(free.$('result-eyebrow').textContent, 'Level 4 clear!');
-  assert.equal(free.$('result-message').textContent, 'Glowworm Lake and the levels below it come with a one-time unlock.');
-  assert.equal(free.$('next-btn').hidden, false); assert.equal(free.$('next-btn').textContent, 'See levels 5 to 10');
-  assert(free.$('retry-btn').classList.contains('primary'), 'replaying stays the main button');
-  assert(free.$('next-btn').classList.contains('button-secondary') && !free.$('next-btn').classList.contains('button-primary'), 'the pointer to the unlock is the quiet button');
-  free.click('next-btn'); assert.equal(free.context.bloomshotState.route, 'levels'); assert.equal(free.games.at(-1), game, 'nothing new started');
-  assert.equal(free.$('depth-unlock').scrolled, 1);
+  assert.equal(free.$('result-message').textContent, 'Try the first 3 waves of level 5, Glowworm Lake, free!');
+  assert.equal(free.$('next-btn').hidden, false); assert.equal(free.$('next-btn').textContent, 'Try it free');
+  assert(free.$('next-btn').classList.contains('button-primary'), 'the taste is play, so it is the main button');
+  assert(!free.$('retry-btn').classList.contains('primary')); assert.equal(free.$('result-offer').hidden, true, 'nothing is sold on this card');
+  free.click('result-garden-btn');
+  assert.match(free.$('depth-map').innerHTML, /class="depth-card paid taste next fresh" type="button" data-depth="5"/, 'the map greets the taste as new');
+  free.click('rush-btn'); free.click('depth-map', { depth: '4' }); game = depthGame(free); game.started = true; game.wave = 10; game.lives = 3; game._clearLevel(); settleLevel(free);
+  free.click('next-btn'); game = depthGame(free);
+  assert.equal(game.plan.id, 5); assert.equal(game.plan.taste, true); assert.equal(game.finalWave, 3); assert.equal(free.context.bloomshotState.theme, 'depth-lake');
+  free.frame(); assert.equal(free.$('level-label').textContent, 'Level 5 · Wave 1/3');
   const owner = boot(cleared(1, 2, 3), { store: fakeStore({ owned: [Depths.entitlement] }) }); owner.click('depth-map', { depth: '4' });
   game = depthGame(owner); game.started = true; game.wave = 10; game.lives = 3; game._clearLevel(); settleLevel(owner);
   assert.match(owner.$('result-message').textContent, /Level 5, Glowworm Lake, is open!/); assert.equal(owner.$('next-btn').textContent, 'Level 5');
@@ -751,7 +917,7 @@ test('The powerup shelf shows counts, never sells on the web or before launch, a
   assert.match(offSale.$('power-shelf').innerHTML, /Not on sale yet\./); assert(!offSale.$('power-shelf').innerHTML.includes('data-buy'));
   const store = fakeStore({ live: true, available: true, powers: true }), app = boot(legacySave(), { store }); app.click('rush-btn');
   assert.match(app.$('power-shelf').innerHTML, /data-buy="bloomshot\.power\.dandelion"[^>]*>Get 1 · \$0\.25</);
-  assert.match(app.$('power-shelf').innerHTML, /Each tap buys one powerup, the one you picked\./);
+  assert.match(app.$('power-shelf').innerHTML, /Each button buys exactly what it says\./);
   app.click('power-shelf', { buy: 'bloomshot.power.dandelion' });
   assert.deepEqual(store.purchases, ['bloomshot.power.dandelion']); assert.equal(app.saved().powers.dandelion, 2);
   assert.deepEqual(app.saved().powerReceipts, ['T1']);
@@ -760,12 +926,229 @@ test('The powerup shelf shows counts, never sells on the web or before launch, a
   store.replay('bloomshot.power.lullaby', 'T9'); assert.equal(app.saved().powers.lullaby, 2, 'a purchase finished after a restart still arrives');
   for (const id of ['sunburst', 'beeline']) assert.equal(app.saved().powers[id], 1, 'buying one never touches the others');
 });
+test('Packs on the shelf: five of one kind or the bag with three of each, shown in full, each counted once', () => {
+  const offSale = boot(legacySave(), { store: fakeStore({ live: true, available: false, powers: true }) }); offSale.click('rush-btn');
+  assert(!offSale.$('power-shelf').innerHTML.includes('Get 5') && !offSale.$('power-shelf').innerHTML.includes('Powerup Bag'));
+  const store = fakeStore({ live: true, available: true, powers: true }), app = boot(legacySave(), { store }); app.click('rush-btn');
+  const shelf = app.$('power-shelf').innerHTML;
+  for (const p of Powers.list) assert.match(shelf, new RegExp(`data-buy="bloomshot\\.pack\\.${p.id}5"[^>]*>Get 5 · \\$0\\.99<`));
+  assert.match(shelf, /Powerup Bag/); assert.match(shelf, /3 of each, 12 in all\./); assert.match(shelf, /data-buy="bloomshot\.pack\.bag12"[^>]*>Get the bag · \$1\.99</);
+  app.click('power-shelf', { buy: 'bloomshot.pack.sunburst5' });
+  assert.equal(app.saved().powers.sunburst, 6);
+  assert.deepEqual(['dandelion', 'beeline', 'lullaby'].map(id => app.saved().powers[id]), [1, 1, 1]);
+  app.click('power-shelf', { buy: 'bloomshot.pack.bag12' });
+  assert.deepEqual(app.saved().powers, { sunburst: 9, dandelion: 4, beeline: 4, lullaby: 4 });
+  assert.deepEqual(app.saved().powerReceipts, ['T1', 'T2']);
+  assert.equal(store.replay('bloomshot.pack.bag12', 'T2'), true); assert.equal(store.replay('bloomshot.pack.sunburst5', 'T1'), true);
+  assert.deepEqual(app.saved().powers, { sunburst: 9, dandelion: 4, beeline: 4, lullaby: 4 }, 'a pack handed over again adds nothing');
+  store.replay('bloomshot.pack.bag12', 'T7'); assert.deepEqual(app.saved().powers, { sunburst: 12, dandelion: 7, beeline: 7, lullaby: 7 }, 'a bag finished after a restart still arrives whole');
+  assert.deepEqual(store.purchases, ['bloomshot.pack.sunburst5', 'bloomshot.pack.bag12']);
+});
+const tasteReady = (store) => { const app = boot(cleared(1, 2, 3, 4), store ? { store } : {}); app.click('depth-map', { depth: '5' }); return { app, game: depthGame(app) }; };
+test('The free taste plays the first three waves of level 5, records no progress, and pays only for its blooms', () => {
+  const { app, game } = tasteReady();
+  assert.equal(game.plan.id, 5); assert.equal(game.plan.taste, true); assert.equal(game.finalWave, 3);
+  const before = app.saved();
+  game.started = true; game.wave = 3; game.totalBlooms = 40; game.lives = 3; game.score = 1900; game._clearLevel(); settleLevel(app);
+  const after = app.saved();
+  assert.deepEqual(after.depths, before.depths, 'a taste records no level progress'); assert(!after.garden.depthBest[5], 'and earns no stars');
+  assert.equal(after.garden.seeds, before.garden.seeds + 6, 'its blooms and waves pay like any finished run');
+  assert.equal(app.$('result-eyebrow').textContent, 'Free taste done!'); assert.equal(app.$('result-stars').hidden, true);
+  assert.equal(app.$('result-message').textContent, 'Waves 4 to 10 of Glowworm Lake, and the 5 levels below it, come with the one-time unlock.');
+  assert.equal(app.$('result-offer').hidden, false); assert.match(app.$('result-offer').innerHTML, /Levels 5 to 10 unlock in the Bloomshot app/);
+  assert.equal(app.$('next-btn').hidden, true); assert.equal(app.$('share-btn').hidden, true, 'a taste is not a clear to share');
+  app.click('retry-btn'); const again = depthGame(app); assert.equal(again.plan.taste, true, 'Play the taste again replays the taste');
+  again.started = true; again.wave = 2; again._lose(); settleLevel(app);
+  assert.equal(app.$('result-eyebrow').textContent, 'Out of lives'); assert.equal(app.$('result-offer').hidden, true, 'nothing is offered after a loss');
+  assert.equal(app.$('result-offer').innerHTML, '');
+});
+test('Bought from the taste card, the unlock gives way to the full level 5', () => {
+  const store = fakeStore({ live: true, available: true }), { app, game } = tasteReady(store);
+  game.started = true; game.wave = 3; game.lives = 2; game._clearLevel(); settleLevel(app);
+  const offer = app.$('result-offer').innerHTML;
+  assert.match(offer, /data-buy="bloomshot\.levels\.full">Unlock levels 5 to 10 · \$2\.99</); assert.match(offer, /Get everything · \$6\.99/);
+  app.click('result-offer', { buy: Depths.product }); assert.deepEqual(store.purchases, [Depths.product]);
+  assert.equal(app.$('result-offer').hidden, true); assert.equal(app.$('next-btn').hidden, false); assert.equal(app.$('next-btn').textContent, 'Play Glowworm Lake');
+  app.click('next-btn'); const full = depthGame(app); assert.equal(full.plan.id, 5); assert.equal(full.plan.taste, false); assert.equal(full.finalWave, 10);
+  app.click('rush-btn'); assert(!app.$('depth-map').innerHTML.includes('taste'), 'owned, level 5 is just the next level');
+});
+test('No taste before level 4 is cleared or once the levels are owned', () => {
+  const early = boot(cleared(1, 2, 3)); const count = early.games.length;
+  early.click('depth-map', { depth: '5' }); assert.equal(early.games.length, count);
+  const owner = boot(cleared(1, 2, 3, 4), { store: fakeStore({ owned: [Depths.entitlement] }) });
+  owner.click('depth-map', { depth: '5' }); assert.equal(depthGame(owner).plan.taste, false); assert.equal(depthGame(owner).finalWave, 10);
+});
 test('Level records are cleaned on load and a cleared level opens the next one', () => {
   const before = legacySave(); before.depths = { 1: { stars: 9, best: -5, wave: 3 }, 2: 'bad', 3: [], 12: { stars: 1, best: 1, wave: 1 } };
   const app = boot(before); assert.deepEqual(app.saved().depths, { 1: { stars: 3, best: 0, wave: 3 } });
   assert.match(app.$('depth-map').innerHTML, /class="depth-card next" type="button" data-depth="2"/);
   for (const field of ['progress', 'rush', 'daily', 'settings']) assert.deepEqual(app.saved()[field], before[field]);
 });
+testAsync('Buying says exactly what arrived: one, five, or the bag', async () => {
+  const store = fakeStore({ live: true, available: true, powers: true }), app = boot(legacySave(), { store }); app.click('rush-btn');
+  app.click('power-shelf', { buy: 'bloomshot.power.dandelion' }); await settled(); assert.equal(app.$('toast').textContent, '+1 Dandelion! You have 2.');
+  app.click('power-shelf', { buy: 'bloomshot.pack.sunburst5' }); await settled(); assert.equal(app.$('toast').textContent, '+5 Sunburst! You have 6.');
+  app.click('power-shelf', { buy: 'bloomshot.pack.bag12' }); await settled(); assert.equal(app.$('toast').textContent, '+12 powerups! 3 of each.');
+  app.click('depth-map', { buy: BUNDLE }); await settled();
+  assert.equal(app.$('toast').textContent, 'Complete Garden unlocked! Levels 5 to 10, Koi pools and seed styles are yours.');
+});
+const clearDepth = (app, id, lives = 3) => { app.click('depth-map', { depth: String(id) }); const game = depthGame(app); game.started = true; game.wave = 10; game.lives = lives; game.score = 5400; game._clearLevel(); settleLevel(app); return game; };
+testAsync('A level clear shares a short note and the web link through the phone\'s share sheet', async () => {
+  const shared = [], play = 'https://play.google.com/store/apps/details?id=dev.bloomshot.game';
+  const bridge = { ...fakeNative(), link: play, share: async payload => { shared.push(payload); return { ok: true, via: 'sheet' }; } };
+  const app = boot(cleared(1, 2, 3, 4), { native: bridge, store: fakeStore({ owned: [Depths.entitlement] }) });
+  clearDepth(app, 5, 2); assert.equal(app.$('share-btn').hidden, false);
+  app.click('share-btn'); await settled();
+  assert.equal(shared.length, 1); assert.equal(shared[0].url, play, 'the app shares the link it was given (the Play Store page on Android)');
+  assert.equal(shared[0].text, 'Bloomshot · Level 5, Glowworm Lake 🌸\n⭐⭐ 2/3 · 5,400 points');
+  const lost = boot(cleared(1)); lost.click('depth-map', { depth: '2' }); const game = depthGame(lost); game.started = true; game.wave = 4; game._lose(); settleLevel(lost);
+  assert.equal(lost.$('share-btn').hidden, true, 'a lost level has nothing to share');
+});
+testAsync('A new Meadow Rush best can be shared; without a share sheet the note is copied for pasting', async () => {
+  const app = boot(legacySave()); let copied = null;
+  app.context.navigator.clipboard = { writeText: async text => { copied = text; } };
+  app.finishRush(); for (let i = 0; i < 40; i++) app.frame();
+  assert.equal(app.$('share-btn').hidden, false);
+  app.click('share-btn'); await settled();
+  assert.equal(copied, 'Bloomshot · Meadow Rush 🌼\nNew best: wave 3 · 3,200 points\nhttps://vexno1r.github.io/Bloomshot/');
+  assert.equal(app.$('toast').textContent, 'Copied! Paste it in a chat.');
+  app.click('retry-btn'); app.finishRush(); for (let i = 0; i < 40; i++) app.frame();
+  assert.equal(app.$('share-btn').hidden, true, 'a run that sets no new best shows no share');
+});
+testAsync('The daily garden shares its number, stars and a tiny picture of each shot, like a word-game grid', async () => {
+  const shared = [], bridge = { ...fakeNative(), share: async payload => { shared.push(payload); return { ok: true }; } };
+  const app = boot(legacySave(), { today: SATURDAY, native: bridge }); app.click('garden-btn'); app.click('daily-btn');
+  const game = app.games.at(-1), total = game.buds.length;
+  // Three shots: one misses, one blooms a few, the last blooms the rest and wins.
+  const bloom = count => game.buds.slice(0, count).forEach(bud => { bud.bloomed = true; });
+  game.event('ready', { blooms: 0 }); app.frame();
+  bloom(Math.ceil(total * .3)); game.event('ready', { blooms: game.bloomedCount }); app.frame();
+  bloom(total); finishDaily(app);
+  assert.equal(app.$('share-btn').hidden, false);
+  app.click('share-btn'); await settled();
+  assert.match(shared[0].text, /^Bloomshot daily garden #3\n⭐+ \d\/3\n🍂🌷💐$/u);
+  const cancelled = { ...fakeNative(), share: async () => ({ ok: false, cancelled: true }) }, quiet = boot(legacySave(), { today: SATURDAY, native: cancelled });
+  quiet.click('garden-btn'); quiet.click('daily-btn'); finishDaily(quiet); quiet.click('share-btn'); await settled();
+  assert.notEqual(quiet.$('toast').textContent, 'Sharing is not available here.', 'closing the share sheet is not an error');
+  const copier = { ...fakeNative(), share: async () => ({ ok: true, via: 'copied' }) }, copy = boot(legacySave(), { today: SATURDAY, native: copier });
+  copy.click('garden-btn'); copy.click('daily-btn'); finishDaily(copy); copy.click('share-btn'); await settled();
+  assert.equal(copy.$('toast').textContent, 'Copied! Paste it in a chat.', 'a share that fell back to the clipboard says so');
+  const none = { ...fakeNative(), share: async () => ({ ok: false }) }, stuck = boot(legacySave(), { today: SATURDAY, native: none });
+  stuck.click('garden-btn'); stuck.click('daily-btn'); finishDaily(stuck); stuck.click('share-btn'); await settled();
+  assert.equal(stuck.$('toast').textContent, 'Sharing is not available here.');
+});
+// The wave-6 checkpoint: a free, unlimited restart after a late loss, with stars capped at two and said so.
+test('A level lost at wave 6 or later offers a free restart from wave 6 that starts there with three fresh lives', () => {
+  const app = boot(legacySave()); app.click('depth-map', { depth: '1' });
+  let game = depthGame(app); game.started = true; game.wave = 7; game.score = 2400; game.lives = 0; game._lose(); settleLevel(app);
+  assert.equal(app.$('result-dialog').open, true); assert.equal(app.$('result-eyebrow').textContent, 'Out of lives');
+  assert.equal(app.$('checkpoint-btn').hidden, false); assert.equal(app.$('checkpoint-btn').textContent, 'Try from wave 6');
+  assert(app.$('checkpoint-btn').classList.contains('primary'), 'the restart from wave 6 leads');
+  assert.equal(app.$('retry-btn').textContent, 'Start over'); assert(!app.$('retry-btn').classList.contains('primary'), 'starting over is the quiet choice');
+  assert.match(app.$('result-message').textContent, /A run from wave 6 can earn up to two stars\.$/, 'the card says plainly what the restart can earn');
+  const count = app.games.length;
+  app.click('checkpoint-btn'); game = depthGame(app);
+  assert.equal(app.games.length, count + 1, 'a new run'); assert.equal(game.plan.id, 1); assert.equal(game.plan.taste, false);
+  assert.equal(game.wave, 6); assert.equal(game.startWave, 6); assert.equal(game.lives, 3); assert.equal(game.score, 0);
+  assert.equal(app.$('result-dialog').open, false); assert.equal(app.$('checkpoint-btn').hidden, true);
+  app.frame(); assert.equal(app.$('level-label').textContent, 'Level 1 · Wave 6/10');
+  // Losing the restarted run late offers it again: the checkpoint has no limit.
+  game.started = true; game.wave = 9; game._lose(); settleLevel(app);
+  assert.equal(app.$('checkpoint-btn').hidden, false);
+  app.click('retry-btn'); game = depthGame(app); assert.equal(game.wave, 1, 'Start over begins at wave 1'); assert.equal(game.startWave, 1);
+  // An early loss offers only the usual restart.
+  game.started = true; game.wave = 5; game._lose(); settleLevel(app);
+  assert.equal(app.$('checkpoint-btn').hidden, true); assert.equal(app.$('retry-btn').textContent, 'Try again');
+  assert.match(app.$('result-message').textContent, /Try a new angle\.$/);
+});
+test('A checkpoint run pays seeds only for the waves it played, so restarting at wave 6 is never a seed farm', () => {
+  const app = boot(legacySave()); app.click('depth-map', { depth: '1' });
+  let game = depthGame(app); game.started = true; game.wave = 6; game._lose(); settleLevel(app);
+  const seeds = () => app.saved().garden.seeds, before = seeds();
+  app.click('checkpoint-btn'); game = depthGame(app); assert.equal(game.startWave, 6);
+  game.started = true; game._lose(); settleLevel(app);
+  assert.equal(seeds() - before, 0, 'losing straight away at wave 6 earns nothing for waves 1 to 5');
+  app.click('checkpoint-btn'); game = depthGame(app);
+  game.started = true; game.wave = 8; game.totalBlooms = 40; game._lose(); settleLevel(app);
+  assert.equal(seeds() - before, 4 + 2, 'forty blooms and the two waves it cleared');
+});
+test('A level cleared from the checkpoint records at most two stars and says how to earn three', () => {
+  const app = boot(legacySave()); app.click('depth-map', { depth: '1' });
+  let game = depthGame(app); game.started = true; game.wave = 8; game._lose(); settleLevel(app);
+  app.click('checkpoint-btn'); game = depthGame(app); assert.equal(game.startWave, 6);
+  game.started = true; game.wave = 10; game.lives = 3; game.score = 5000; game._clearLevel(); settleLevel(app);
+  assert.equal(game.stars, 2); assert.equal(app.saved().depths[1].stars, 2, 'three lives kept, but only two stars from wave 6');
+  assert.equal(app.$('result-message').textContent, 'Cleared from wave 6! Level 2 is open. Start at wave 1 for three stars.');
+  assert.match(app.$('result-stars').innerHTML, /(class="on"[^]*){2}class="off"/);
+  assert.equal(app.$('checkpoint-btn').hidden, true); assert.equal(app.$('retry-btn').textContent, 'Replay');
+  // Replay starts the full run from wave 1, which can still earn the third star.
+  app.click('retry-btn'); game = depthGame(app); assert.equal(game.wave, 1); assert.equal(game.startWave, 1);
+  game.started = true; game.wave = 10; game.lives = 3; game._clearLevel(); settleLevel(app);
+  assert.equal(app.saved().depths[1].stars, 3);
+});
+test('Nothing is offered for sale after a loss, even with the checkpoint showing, and a free taste has no checkpoint', () => {
+  const store = fakeStore({ live: true, available: true }), app = boot(cleared(1, 2, 3), { store });
+  app.click('depth-map', { depth: '4' });
+  let game = depthGame(app); game.started = true; game.wave = 7; game._lose(); settleLevel(app);
+  assert.equal(app.$('checkpoint-btn').hidden, false); assert.equal(app.$('result-offer').hidden, true); assert.equal(app.$('result-offer').innerHTML, '');
+  app.click('checkpoint-btn'); game = depthGame(app); assert.equal(game.plan.id, 4); assert.equal(game.wave, 6);
+  game.started = true; game.wave = 6; game._lose(); settleLevel(app);
+  assert.equal(app.$('result-offer').hidden, true); assert.deepEqual(store.purchases, [], 'no purchase was started');
+  const taste = boot(cleared(1, 2, 3, 4), { store: fakeStore({ live: true, available: true }) }); taste.click('depth-map', { depth: '5' });
+  const sample = depthGame(taste); assert.equal(sample.plan.taste, true);
+  sample.started = true; sample.wave = 3; sample._lose(); settleLevel(taste);
+  assert.equal(taste.$('checkpoint-btn').hidden, true); assert.equal(taste.$('result-offer').hidden, true);
+});
+test('Super Bloom, trick shots and long chains reach the board, the hint line and the run summary', () => {
+  const app = boot(legacySave()); app.click('depth-map', { depth: '1' });
+  const game = depthGame(app); game.started = true; game.status = 'flying'; app.frame();
+  game._charge(28.8, { by: 1 }); app.frame();
+  assert.equal(app.$('fever-banner').hidden, false); assert.equal(app.$('fever-banner').textContent, 'Super Bloom!');
+  assert.equal(app.$('fever-banner').getAttribute('aria-label'), 'Super Bloom, double points');
+  assert(Number(app.$('game-canvas').dataset.superBloom) > 5); assert.equal(app.$('game-canvas').dataset.sun, '0.00');
+  assert.equal(app.$('game-hint').textContent, 'Super Bloom! Seeds fly through flowers.');
+  assert(game.floaters.some(f => f.kind === 'wave' && f.text === 'Super Bloom!' && f.label === 'seeds fly through flowers'), 'the first one says what it does');
+  game.superBloom = .001; app.frame();
+  assert.equal(game.superBloom, 0); assert.equal(app.$('fever-banner').hidden, true);
+  assert.equal(app.$('game-hint').textContent, 'Drag up and let go. Crowns bloom their whole bunch.', 'the wave hint comes back');
+  game.floaters = []; game._charge(48, { by: 1 }); app.frame();
+  // Later ones leave the middle of the board to the flowers: the gold sky, the banner (straight away) and the hint say it.
+  assert(!game.floaters.some(f => f.kind === 'wave' && f.text === 'Super Bloom!'), 'later ones keep the board clear');
+  assert.equal(app.$('fever-banner').hidden, false); assert(app.$('fever-banner').classList.contains('soon'), 'the banner comes at once');
+  assert.equal(app.$('game-hint').textContent, 'Super Bloom! Double points.');
+  // A new wave's ribbon rides the same top edge as the banner: the banner steps aside while the ribbon shows.
+  const body = app.context.document.body;
+  assert.equal(body.dataset.ribbon, '', 'no ribbon yet');
+  game.floaters.push({ kind: 'title', size: 'small', x: 210, y: 32, life: .9, maxLife: .9, text: 'Wave 2 of 10', label: '' }); app.frame();
+  assert.equal(body.dataset.ribbon, 'on', 'the banner makes way for "Wave 2 of 10"');
+  game.floaters = game.floaters.filter(f => !(f.kind === 'title' && f.size === 'small')); app.frame();
+  assert.equal(body.dataset.ribbon, '', 'and comes back once it has gone');
+  const bud = game.buds.find(b => !b.bloomed); game._trick('bank', bud, 1, false); app.frame();
+  const stamp = game.floaters.find(f => f.kind === 'trick');
+  assert.deepEqual({ trick: stamp.trick, text: stamp.text, label: stamp.label }, { trick: 'bank', text: 'Bank shot!', label: '+300' });
+  assert(stamp.y > game.dangerY && stamp.y < 545, 'the stamp lands in the lane by the pod, under the danger line, clear of the flowers');
+  assert.equal(app.$('announcement').textContent, 'Bank shot!');
+  // One stamp at a time, at most one every two seconds; the trick still counts and is announced.
+  const tricks = game.trickCount; game._trick('rebound', bud, 1, false); app.frame();
+  assert.equal(game.floaters.filter(f => f.kind === 'trick').length, 1); assert.equal(game.floaters.find(f => f.kind === 'trick').trick, 'bank');
+  assert.equal(game.trickCount, tricks + 1); assert.equal(app.$('announcement').textContent, 'Rebound!');
+  // Praise waits for real chains: nothing at 5, the first word at 8, the next at 16.
+  const praise = () => game.floaters.filter(f => f.kind === 'combo').map(f => f.text);
+  game.floaters = []; game.event('bloom', { bud, gain: 100, combo: 5, mult: 2, chain: false }); app.frame(); assert.deepEqual(praise(), []);
+  game.event('bloom', { bud, gain: 100, combo: 8, mult: 2, chain: false }); app.frame(); assert.deepEqual(praise(), ['Lovely!']);
+  game.event('bloom', { bud, gain: 100, combo: 16, mult: 4, chain: false }); app.frame(); assert.deepEqual(praise(), ['Blooming!']);
+  game.event('chainEnd', { chain: 6 }); app.frame(); assert.deepEqual(praise(), ['Blooming!'], 'a short chain ends quietly');
+  game.event('chainEnd', { chain: 17 }); app.frame(); assert.deepEqual(praise(), ['17 in a row!']);
+  // The endless run's summary counts its trick shots.
+  app.click('back-btn'); app.click('levels-rush-btn');
+  const run = app.games.at(-1); assert.equal(run.plan, null); run.started = true; run.trickCount = 3; run.totalBlooms = 30; run.wave = 4; run._lose(); settleLevel(app);
+  assert.match(app.$('result-message').textContent, / · 3\u00a0tricks$/); assert.equal(app.$('checkpoint-btn').hidden, true);
+});
+(async () => {
+for (const { name, fn } of later) {
+  try { await fn(); results.push({ name, passed: true }); }
+  catch (error) { results.push({ name, passed: false, error: error.stack }); }
+}
 const report = { passed: results.filter(r => r.passed).length, failed: results.filter(r => !r.passed).length,
   methodology: 'Executes the complete current app.js in an isolated Node VM using real garden/level/engine modules, fake localStorage, and DOM/canvas adapters. Completion fixtures exercise actual engine completion events and app handlers. No real browser or user saves are read or changed.',
   limitations: ['DOM and canvas adapters verify integration state, not visual appearance, accessibility behavior, or browser-specific storage.',
@@ -773,3 +1156,4 @@ const report = { passed: results.filter(r => r.passed).length, failed: results.f
 fs.writeFileSync(path.join(__dirname, 'save-integration-results.json'), JSON.stringify(report, null, 2) + '\n');
 console.log(JSON.stringify(report, null, 2));
 process.exitCode = report.failed ? 1 : 0;
+})();
