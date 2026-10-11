@@ -1,7 +1,7 @@
 {
   "generatedBy": "qa/test-native.cjs",
-  "passed": 16,
-  "total": 16,
+  "passed": 22,
+  "total": 22,
   "methodology": "Fake Capacitor shaped like the injected native bridge (Capacitor.Plugins, no registerPlugin), fake storage and a manual timer. No device, no real preferences store.",
   "limitations": [
     "Plugin names (Haptics, Preferences, Share) and call shapes follow the Capacitor 8 plugin sources and the injected bridge scripts and have not run on a real phone.",
@@ -58,6 +58,30 @@
     },
     {
       "name": "Mirror: a save the game could not keep in web storage still reaches the backup once the mirror is open",
+      "passed": true
+    },
+    {
+      "name": "Mirror: the debounce re-arms after each write, waits a short time, and nothing is lost",
+      "passed": true
+    },
+    {
+      "name": "Mirror: when the app is hidden a pending save is written at once, through the real page-visibility listener",
+      "passed": true
+    },
+    {
+      "name": "Packaging: native.js loads before app.js, and app.js uses the bridge for every buzz instead of navigator.vibrate",
+      "passed": true
+    },
+    {
+      "name": "Restore: storage that refuses the write-back (throws) or the wrong key never restores, reloads or writes",
+      "passed": true
+    },
+    {
+      "name": "Errors: a plugin that throws or rejects, a registerPlugin that throws, or storage that throws at boot never break the game",
+      "passed": true
+    },
+    {
+      "name": "Capacitor present but not a native platform: it behaves like the website",
       "passed": true
     },
     {
