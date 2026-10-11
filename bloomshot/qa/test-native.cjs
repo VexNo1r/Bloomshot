@@ -1,5 +1,5 @@
 'use strict';
-// Native bridge tests: haptics and the save backup. Uses fake Capacitor plugins and fake storage; no device.
+// Native bridge tests: haptics, the save backup and sharing. Uses fake Capacitor plugins and fake storage; no device.
 // The fake Capacitor has the same shape the native WebView really injects: isNativePlatform and a Plugins map,
 // and NO registerPlugin (that only exists when @capacitor/core is bundled into the page, which this app does not do).
 const assert = require('node:assert/strict');
@@ -30,7 +30,7 @@ function timers() {
 // registerOnly: expose the plugins only through Capacitor.registerPlugin, the way a bundled @capacitor/core would.
 // throwSync: plugin methods that throw instead of returning a rejected promise. setRejects: Preferences.set rejects.
 function fakePlugins(options = {}) {
-  const log = { impact: [], notification: [], set: [], get: 0 };
+  const log = { impact: [], notification: [], set: [], get: 0, share: [] };
   const store = { ...(options.backup === undefined ? {} : { [SAVE]: options.backup }) };
   const plugins = {
     Haptics: {
@@ -51,9 +51,13 @@ function fakePlugins(options = {}) {
         if (options.setRejects) return Promise.reject(new Error('disk full'));
         store[key] = value; return Promise.resolve();
       }
+    },
+    // The Share plugin rejects with "Share canceled" when the sheet is closed without picking anything.
+    Share: {
+      share: async opts => { log.share.push(opts); if (options.share === 'cancel') throw new Error('Share canceled'); if (options.share === 'fail') throw new Error('No activity found'); return {}; }
     }
   };
-  const Capacitor = { isNativePlatform: () => options.web !== true, getPlatform: () => 'ios' };
+  const Capacitor = { isNativePlatform: () => options.web !== true, getPlatform: () => options.platform || 'ios' };
   if (options.registerOnly) Capacitor.registerPlugin = name => plugins[name];
   else Capacitor.Plugins = plugins;
   return { Capacitor, log, store, plugins };
@@ -292,10 +296,72 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
     assert.deepEqual(plugins.log.set, []); assert.equal(plugins.log.get, 0);
   });
 
+  // A browser's navigator for the share tests: share() and clipboard.writeText behave as `options` says.
+  function browser(options = {}) {
+    const log = { share: [], copied: [] };
+    const nav = {};
+    if (options.share) nav.share = async data => { log.share.push(data); if (options.share !== 'ok') { const e = new Error(options.share); e.name = options.share; throw e; } };
+    if (options.clipboard !== false) nav.clipboard = { writeText: async text => { if (options.clipboard === 'fail') throw new Error('denied'); log.copied.push(text); } };
+    return { nav, log };
+  }
+  const MESSAGE = { title: 'Bloomshot', text: 'Daily garden 10/10\n⭐⭐⭐ in 4 shots', url: 'https://vexno1r.github.io/Bloomshot/' };
+
+  await test('Share (app): the phone share sheet gets the title, text and link, and the link points at the right store', async () => {
+    const plugins = fakePlugins(); const { nav, log } = browser({ share: 'ok' });
+    const { api } = make({ plugins, navigator: nav });
+    assert.equal(api.canShare, true);
+    assert.deepEqual(await api.share(MESSAGE), { ok: true, via: 'sheet' });
+    assert.deepEqual(plugins.log.share, [{ dialogTitle: 'Bloomshot', title: 'Bloomshot', text: MESSAGE.text, url: MESSAGE.url }]);
+    assert.deepEqual(log.share, []); assert.deepEqual(log.copied, []); // never the WebView's own navigator.share in the app
+    assert.deepEqual(await api.share({ text: 'Just text' }), { ok: true, via: 'sheet' });
+    assert.deepEqual(plugins.log.share[1], { text: 'Just text' });
+    assert.equal(api.link, 'https://vexno1r.github.io/Bloomshot/'); // iPhone: no App Store page yet
+    assert.equal(make({ plugins: fakePlugins({ platform: 'android' }) }).api.link, 'https://play.google.com/store/apps/details?id=dev.bloomshot.game');
+  });
+
+  await test('Share (app): closing the sheet is a quiet cancel; a sheet that fails falls back to copying; a build without the plugin copies', async () => {
+    const cancelled = browser(); const first = make({ plugins: fakePlugins({ share: 'cancel' }), navigator: cancelled.nav }).api;
+    assert.deepEqual(await first.share(MESSAGE), { ok: false, cancelled: true });
+    assert.deepEqual(cancelled.log.copied, []);
+    const failing = browser(); const second = make({ plugins: fakePlugins({ share: 'fail' }), navigator: failing.nav }).api;
+    assert.deepEqual(await second.share(MESSAGE), { ok: true, via: 'copied' });
+    assert.deepEqual(failing.log.copied, [MESSAGE.text + '\n' + MESSAGE.url]);
+    const old = fakePlugins(); delete old.Capacitor.Plugins.Share; const plain = browser();
+    const third = make({ plugins: old, navigator: plain.nav }).api;
+    assert.equal(third.canShare, true);
+    assert.deepEqual(await third.share({ url: MESSAGE.url }), { ok: true, via: 'copied' });
+    assert.deepEqual(plain.log.copied, [MESSAGE.url]);
+  });
+
+  await test('Share (web): the browser share sheet first, the clipboard when it is refused, and nothing at all is a plain failure', async () => {
+    const web = { Capacitor: null, log: {} };
+    const sheet = browser({ share: 'ok' }); const api = make({ plugins: web, navigator: sheet.nav }).api;
+    assert.deepEqual(await api.share(MESSAGE), { ok: true, via: 'sheet' });
+    assert.deepEqual(sheet.log.share, [{ title: 'Bloomshot', text: MESSAGE.text, url: MESSAGE.url }]);
+    assert.equal(api.link, 'https://vexno1r.github.io/Bloomshot/');
+    const aborted = browser({ share: 'AbortError' });
+    assert.deepEqual(await make({ plugins: web, navigator: aborted.nav }).api.share(MESSAGE), { ok: false, cancelled: true });
+    assert.deepEqual(aborted.log.copied, []);
+    const refused = browser({ share: 'NotAllowedError' });
+    assert.deepEqual(await make({ plugins: web, navigator: refused.nav }).api.share(MESSAGE), { ok: true, via: 'copied' });
+    assert.deepEqual(refused.log.copied, [MESSAGE.text + '\n' + MESSAGE.url]);
+    const copyOnly = browser(); const desktop = make({ plugins: web, navigator: copyOnly.nav }).api;
+    assert.equal(desktop.canShare, true);
+    assert.deepEqual(await desktop.share({ text: 'hi' }), { ok: true, via: 'copied' });
+    const blocked = browser({ clipboard: 'fail' });
+    assert.deepEqual(await make({ plugins: web, navigator: blocked.nav }).api.share(MESSAGE), { ok: false });
+    const bare = make({ plugins: web, navigator: browser({ clipboard: false }).nav }).api;
+    assert.equal(bare.canShare, false); assert.deepEqual(await bare.share(MESSAGE), { ok: false });
+    assert.equal(make({ plugins: web }).api.canShare, false);
+    const empty = browser({ share: 'ok' });
+    assert.deepEqual(await make({ plugins: web, navigator: empty.nav }).api.share({ text: '', url: 5 }), { ok: false });
+    assert.deepEqual(empty.log.share, []); assert.deepEqual(empty.log.copied, []);
+  });
+
   const failed = results.filter(r => !r.passed);
   const report = { generatedBy: 'qa/test-native.cjs', passed: results.length - failed.length, total: results.length,
     methodology: 'Fake Capacitor shaped like the injected native bridge (Capacitor.Plugins, no registerPlugin), fake storage and a manual timer. No device, no real preferences store.',
-    limitations: ['Plugin names (Haptics, Preferences) and call shapes follow the Capacitor 8 plugin sources and the injected bridge scripts and have not run on a real phone.',
+    limitations: ['Plugin names (Haptics, Preferences, Share) and call shapes follow the Capacitor 8 plugin sources and the injected bridge scripts and have not run on a real phone.',
       'A save the OS rolls back in web storage but not in preferences (or the reverse) is not detected: once an install has checked its backup, the local save wins.'], results };
   fs.writeFileSync(path.join(__dirname, 'native-test-results.json'), JSON.stringify(report, null, 2) + '\n');
   for (const r of results) console.log(`${r.passed ? 'ok  ' : 'FAIL'} ${r.name}${r.passed ? '' : '\n' + r.error}`);

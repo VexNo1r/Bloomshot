@@ -225,11 +225,118 @@ test('Koi pool rewards pay once per new star and keep their own records', () => 
   assert.equal(Garden.grant(state, reward('koi-moon-id', 3, { levelId: 'moon-1' })).reason, 'invalid-reward');
   assert.deepEqual(Garden.normalize({ koiBest: { 'koi-1': 9, 'koi-2': -1, 'koi-12': 3 } }).koiBest, { 'koi-1': 3 });
 });
+const daily = (runId, date, stars, extra = {}) => ({ runId, mode: 'daily', completed: true, levelId: 'daily-' + date, stars, ...extra });
+test('A daily garden pays 6, 8 or 10 seeds on its first clear, then two per new star, once per day', () => {
+  for (const [stars, seeds] of [[1, 6], [2, 8], [3, 10]]) assert.equal(Garden.grant(Garden.normalize(), daily('d' + stars, '2026-10-03', stars)).awarded, seeds);
+  let result = Garden.grant(Garden.normalize(), daily('first', '2026-10-03', 1)); assert.equal(result.awarded, 6);
+  result = Garden.grant(result.state, daily('again', '2026-10-03', 1)); assert.equal(result.awarded, 0); assert.equal(result.reason, 'no-new-reward');
+  result = Garden.grant(result.state, daily('better', '2026-10-03', 3)); assert.equal(result.awarded, 4);
+  assert.equal(Garden.grant(result.state, daily('better', '2026-10-03', 3)).duplicate, true);
+  // A day already cleared before this update (the app passes its saved stars) pays only for new stars.
+  assert.equal(Garden.grant(Garden.normalize(), daily('upgrade', '2026-10-02', 2, { previousStars: 2 })).awarded, 0);
+  assert.equal(Garden.grant(Garden.normalize(), daily('upgrade2', '2026-10-02', 3, { previousStars: 2 })).awarded, 2);
+  result = Garden.grant(result.state, daily('next-day', '2026-10-04', 2)); assert.equal(result.awarded, 8);
+  assert.deepEqual(Garden.normalize(JSON.parse(JSON.stringify(result.state))).dailyBest, { 'daily-2026-10-03': 3, 'daily-2026-10-04': 2 });
+  for (const bad of ['2026-02-30', '2026-13-01', '26-10-03', '2026-10-3']) assert.equal(Garden.grant(Garden.normalize(), daily('bad' + bad, bad, 2)).reason, 'invalid-reward');
+  assert.equal(Garden.grant(Garden.normalize(), daily('no-stars', '2026-10-03', 0)).reason, 'invalid-reward');
+  assert.equal(Garden.grant(Garden.normalize(), { ...daily('incomplete', '2026-10-03', 2), completed: false }).awarded, 0);
+});
+test('Any four cleared daily gardens in one Monday-to-Sunday week gather a 12-seed bouquet, once, and missed days take nothing away', () => {
+  let state = Garden.normalize(), result;
+  // Monday 28 Sep, Wednesday 30 Sep and Saturday 3 Oct 2026: gaps do not matter.
+  for (const date of ['2026-09-28', '2026-09-30', '2026-10-03']) { result = Garden.grant(state, daily(date, date, 1)); state = result.state; assert.equal(result.bouquet, null); }
+  let week = Garden.week(state, 'daily-2026-10-03');
+  assert.equal(week.id, 'week-2026-09-28'); assert.equal(week.cleared, 3); assert.equal(week.goal, 4); assert.equal(week.claimed, false);
+  assert.deepEqual(week.days.map(d => d.stars), [1, 0, 1, 0, 0, 1, 0]);
+  assert.deepEqual(week.days.map(d => d.today), [false, false, false, false, false, true, false]);
+  assert.deepEqual(week.days.map(d => d.future), [false, false, false, false, false, false, true]);
+  // A day in the following week counts toward that week, not this one.
+  result = Garden.grant(state, daily('mon-next', '2026-10-05', 1)); assert.equal(result.bouquet, null); assert.equal(result.awarded, 6);
+  result = Garden.grant(state, daily('sunday', '2026-10-04', 2));
+  assert.deepEqual(result.bouquet, { week: 'week-2026-09-28', seeds: 12 }); assert.equal(result.awarded, 8 + 12);
+  state = result.state; assert.deepEqual(state.bouquets, ['week-2026-09-28']); assert.equal(Garden.week(state, 'daily-2026-09-29').claimed, true);
+  // A fifth clear or a better score in the same week never pays the bouquet twice.
+  result = Garden.grant(state, daily('tuesday', '2026-09-29', 1)); assert.equal(result.bouquet, null); assert.equal(result.awarded, 6);
+  result = Garden.grant(result.state, daily('sunday-3', '2026-10-04', 3)); assert.equal(result.bouquet, null); assert.equal(result.awarded, 2);
+  assert.equal(Garden.week(Garden.normalize(), 'nope'), null);
+});
+test('Daily records keep the latest 21 days and 8 bouquets, reject malformed entries, and old days cannot be claimed again', () => {
+  const dailyBest = {}; for (let d = 1; d <= 30; d++) dailyBest[`daily-2026-08-${String(d).padStart(2, '0')}`] = 2;
+  Object.assign(dailyBest, { 'daily-2026-02-30': 3, 'daily-2026-09-01': 0, 'daily-2026-09-02': 7, 'nope': 2 });
+  const state = Garden.normalize({ dailyBest, bouquets: ['week-2026-08-03', 'week-2026-08-04', 'week-2026-08-03', 'weekly', 4, 'week-2026-02-30'] });
+  const kept = Object.keys(state.dailyBest);
+  assert.equal(kept.length, 21); assert.equal(kept.sort()[0], 'daily-2026-08-10'); assert.equal(state.dailyBest['daily-2026-09-02'], undefined);
+  assert.deepEqual(state.bouquets, ['week-2026-08-03']);
+  assert.equal(Garden.grant(state, daily('rewind', '2026-08-02', 3)).reason, 'expired');
+  // A remembered day can still improve; its full week (24 to 30 Aug) also gathers its unclaimed bouquet.
+  const recent = Garden.grant(state, daily('recent', '2026-08-30', 3));
+  assert.equal(recent.awarded, 2 + 12); assert.deepEqual(recent.bouquet, { week: 'week-2026-08-24', seeds: 12 });
+  const weeks = Array.from({ length: 12 }, (_, i) => 'week-' + new Date(Date.UTC(2026, 5, 1 + i * 7)).toISOString().slice(0, 10));
+  assert.deepEqual(Garden.normalize({ bouquets: weeks }).bouquets, weeks.slice(-8));
+});
+test('Six decorations cost 20 to 100 seeds, build once each in any order, and save as a list', () => {
+  assert.deepEqual(Garden.decor.map(d => d.id), ['bench', 'birdhouse', 'lilies', 'beehive', 'lanterns', 'tree']);
+  assert.deepEqual(Garden.decor.map(d => d.cost), [20, 30, 40, 55, 75, 100]);
+  Garden.decor.forEach(d => { assert(d.name && d.description); assert(Object.isFrozen(d)); });
+  assert.deepEqual(Garden.decor.map(d => d.friend.id), ['biscuit', 'pip', 'hopper', 'buzz', 'glimmer', 'nutmeg']);
+  assert.deepEqual(Garden.decor.map(d => d.friend.kind), ['cat', 'bluebird', 'frog', 'bee', 'firefly', 'squirrel']);
+  Garden.decor.forEach(d => { assert(Object.isFrozen(d.friend)); assert(d.friend.name && d.friend.says && d.friend.about); });
+  let state = Garden.normalize({ seeds: 60 });
+  assert.deepEqual(state.decor, []);
+  const short = Garden.build(state, 'tree');
+  assert.equal(short.success, false); assert.equal(short.reason, 'insufficient-seeds'); assert.equal(short.cost, 100); assert.equal(short.state.seeds, 60);
+  let built = Garden.build(state, 'birdhouse');
+  assert.equal(built.success, true); assert.equal(built.cost, 30); assert.equal(built.state.seeds, 30); assert.equal(built.state.totalSeedsSpent, 30);
+  built = Garden.build(built.state, 'bench');
+  assert.equal(built.state.seeds, 10); assert.deepEqual(built.state.decor, ['bench', 'birdhouse']);
+  const again = Garden.build({ ...built.state, seeds: 500 }, 'bench');
+  assert.equal(again.success, false); assert.equal(again.reason, 'built'); assert.equal(again.state.seeds, 500);
+  assert.equal(Garden.build(built.state, '__proto__').reason, 'unknown-decor');
+  assert.equal(Garden.build(built.state, 'toString').reason, 'unknown-decor');
+  assert.deepEqual(Garden.normalize(JSON.parse(JSON.stringify(built.state))), built.state);
+});
+test('Saved decorations are cleaned: unknown, repeated or non-list values are dropped, catalog order kept', () => {
+  assert.deepEqual(Garden.normalize({ decor: ['tree', 'nope', 'bench', 'tree', 7, null, '__proto__'] }).decor, ['bench', 'tree']);
+  for (const raw of [{ decor: 'bench' }, { decor: { bench: true } }, { decor: null }, {}]) assert.deepEqual(Garden.normalize(raw).decor, []);
+  const old = { seeds: 12, levels: { sunbell: 2 }, receipts: ['a'] };
+  assert.deepEqual(Garden.normalize(old).decor, []); assert.equal(Garden.normalize(old).seeds, 12);
+  const source = freeze(Garden.normalize({ seeds: 40, decor: ['lilies'] }));
+  const before = JSON.stringify(source);
+  const result = Garden.build(source, 'bench'); result.state.decor.push('tree');
+  assert.equal(JSON.stringify(source), before);
+});
+test('Summary lists every decoration with its price, whether it is built or affordable, and when the meadow is complete', () => {
+  let summary = Garden.summary(Garden.normalize({ seeds: 30, decor: ['bench'] }));
+  assert.equal(summary.builtDecor, 1); assert.equal(summary.totalDecor, 6); assert.equal(summary.complete, false);
+  assert.deepEqual(summary.decor.map(d => [d.id, d.built, d.canBuild]), [['bench', true, false], ['birdhouse', false, true], ['lilies', false, false],
+    ['beehive', false, false], ['lanterns', false, false], ['tree', false, false]]);
+  const levels = {}; Garden.plots.forEach(p => { levels[p.id] = 3; });
+  summary = Garden.summary(Garden.normalize({ seeds: 0, levels, decor: Garden.decor.map(d => d.id) }));
+  assert.equal(summary.complete, true); assert.equal(summary.builtDecor, 6);
+  assert.equal(Garden.summary(Garden.normalize({ levels })).complete, false);
+});
+test('Level runs pay for their blooms, won or lost, and new stars on a level pay once like a garden', () => {
+  const run = (state, extra, id) => Garden.grant(state, { mode: 'depths', completed: true, runId: id, levelId: 2, stars: 0, blooms: 120, wave: 5, ...extra });
+  let state = Garden.normalize({ seeds: 0 });
+  let paid = run(state, {}, 'lvl-a'); assert.equal(paid.awarded, 16); assert.deepEqual(paid.state.depthBest, {}); state = paid.state;
+  paid = run(state, { blooms: 360, wave: 10, stars: 2 }, 'lvl-b'); assert.equal(paid.awarded, 24 + 10); assert.equal(paid.state.depthBest[2], 2); state = paid.state;
+  paid = run(state, { blooms: 360, wave: 10, stars: 2 }, 'lvl-c'); assert.equal(paid.awarded, 24); state = paid.state;
+  paid = run(state, { blooms: 360, wave: 10, stars: 3 }, 'lvl-d'); assert.equal(paid.awarded, 24 + 2); assert.equal(paid.state.depthBest[2], 3); state = paid.state;
+  assert.equal(run(state, { blooms: 360, wave: 10, stars: 3 }, 'lvl-d').reason, 'duplicate');
+  assert.equal(run(state, { blooms: 1, wave: 1 }, 'lvl-e').awarded, 1);
+  assert.equal(run(state, { blooms: 0, wave: 1 }, 'lvl-f').awarded, 0);
+  for (const bad of [{ levelId: 0 }, { levelId: 11 }, { levelId: '2' }, { stars: 4 }, { stars: -1 }, { wave: 0 }, { wave: 11 }, { blooms: -3 }, { blooms: 2.5 }])
+    assert.equal(run(state, bad, 'lvl-bad').reason, 'invalid-reward', JSON.stringify(bad));
+  assert.deepEqual(Garden.normalize({ depthBest: { 1: 3, 2: 9, 11: 2, x: 1 } }).depthBest, { 1: 3, 2: 3 });
+  assert.deepEqual(Garden.normalize({ seeds: 5 }).depthBest, {});
+});
 const report = {
   passed: results.filter(r => r.passed).length, failed: results.filter(r => !r.passed).length,
-  observations: { starterSeeds: 4, costsPerPlot: [4, 8, 14], completeMeadowCost: 156,
+  observations: { starterSeeds: 4, costsPerPlot: [4, 8, 14], completeMeadowCost: 156, decorCosts: [20, 30, 40, 55, 75, 100], completeDecorCost: 320,
     decentRush: { blooms: 24, wave: 3, awarded: 8 }, weakPositiveRushMinimum: 1, rushRewardCap: 40,
     firstCampaignClearByStars: { 1: 8, 2: 10, 3: 12 }, improvedCampaignStar: 2, receiptWindow: 64,
+    firstDailyClearByStars: { 1: 6, 2: 8, 3: 10 }, weeklyBouquet: { dailyClears: 4, seeds: 12 }, dailyMemoryDays: 21,
+    levelRun: { bloomsPerSeed: 10, plusWavesReached: true, cap: 24, firstClearByStars: { 1: 8, 2: 10, 3: 12 }, improvedStar: 2 },
     limitations: ['Local save logic is not a server-authoritative payment or anti-tampering system.',
       'Rush receipt deduplication covers the most recent 64 completions; the UI must issue one unique ID per run.',
       'The caller must persist the initial garden and each successful state transition.',

@@ -1,0 +1,132 @@
+# Builds the Android App Bundle (.aab) that Google Play Console takes.
+# Start every build with Run workflow in the Actions tab. Each run gets a higher version code than the last, which Play
+# requires; a re-run of an old run also gets its own code. Never rename this file: the run count, and so the version
+# code, would start again from 1 and Play would refuse the bundles.
+#   With the upload key set up (see docs/PLAY-LAUNCH.md): the bundle is signed and published as a pre-release on the
+#   Releases page, where the .aab downloads as a plain file ready to upload.
+#   Without it: a dry run signs with a throwaway key so the whole path is still checked. Never upload a dry-run file.
+name: Android release bundle
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/android-release.yml
+      - .github/scripts/check-16k-pages.sh
+      - native/android/app/build.gradle
+      - native/android/app/src/main/AndroidManifest.xml
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      BLOOMSHOT_VERSION_NAME: '1.0'
+    defaults:
+      run:
+        working-directory: native
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Build tools and npm packages run in this job; none of them needs a token that can push.
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: native/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Pick the version code
+        # Ten codes per run, one per attempt, so a re-run never repeats a code Play has already seen.
+        run: echo "BLOOMSHOT_VERSION_CODE=$(( GITHUB_RUN_NUMBER * 10 + GITHUB_RUN_ATTEMPT ))" >> "$GITHUB_ENV"
+
+      - run: npm ci
+      - run: npm run sync:android
+      - run: npm run check
+      - run: chmod +x android/gradlew
+
+      - name: Build and sign the bundle
+        id: key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          # The passwords stay inside this step: only Gradle needs them.
+          keystore="$RUNNER_TEMP/upload.keystore"
+          set_count=0
+          for value in "$KEYSTORE_BASE64" "$KEYSTORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD"; do
+            if [ -n "$value" ]; then set_count=$((set_count + 1)); fi
+          done
+          if [ "$set_count" = 4 ]; then
+            printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$keystore"
+            echo "real=true" >> "$GITHUB_OUTPUT"
+          elif [ "$set_count" != 0 ] && [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            echo "::error::Only some of the four ANDROID_ secrets exist, so the upload key is incomplete. See docs/PLAY-LAUNCH.md, step 4."
+            exit 1
+          else
+            echo "::notice title=Dry run::No upload key is set up yet, so this bundle is signed with a throwaway key and must not be uploaded to Google Play."
+            KEYSTORE_PASSWORD="$(openssl rand -hex 16)"; KEY_ALIAS=dryrun; KEY_PASSWORD="$KEYSTORE_PASSWORD"
+            keytool -genkeypair -storetype PKCS12 -keystore "$keystore" -alias "$KEY_ALIAS" -keyalg RSA -keysize 2048 -validity 2 \
+              -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_PASSWORD" -dname "CN=Bloomshot dry run"
+            echo "real=false" >> "$GITHUB_OUTPUT"
+          fi
+          export ANDROID_KEYSTORE_FILE="$keystore" ANDROID_KEYSTORE_PASSWORD="$KEYSTORE_PASSWORD" ANDROID_KEY_ALIAS="$KEY_ALIAS" ANDROID_KEY_PASSWORD="$KEY_PASSWORD"
+          status=0
+          (cd android && ./gradlew bundleRelease) || status=$?
+          rm -f "$keystore"
+          exit "$status"
+
+      - name: Check the bundle
+        id: check
+        run: |
+          aab=android/app/build/outputs/bundle/release/app-release.aab
+          test -s "$aab"
+          # jarsigner lists one harmless "signed in JarFile" warning per entry for bundles; only its verdict matters.
+          jarsigner -verify "$aab" > "$RUNNER_TEMP/verify.txt" 2>&1 || true
+          if ! grep -q "jar verified" "$RUNNER_TEMP/verify.txt"; then cat "$RUNNER_TEMP/verify.txt"; echo "::error::The bundle's signature does not verify."; exit 1; fi
+          echo "Signature verified. Signing certificate (this fingerprint is public):"
+          keytool -printcert -jarfile "$aab" | grep -E "Owner:|SHA256:|Valid from"
+          bash ../.github/scripts/check-16k-pages.sh "$aab"
+          manifests="$(find android/app/build/intermediates -path '*merged_manifest*' -name AndroidManifest.xml | grep -i release || true)"
+          if [ -z "$manifests" ]; then
+            echo "::error::Could not find the merged release manifest, so the permission checks cannot run."
+            exit 1
+          fi
+          # Play only lets you create in-app products once an uploaded build declares the billing permission.
+          if ! grep -q "com.android.vending.BILLING" $manifests; then
+            echo "::error::The release build does not declare com.android.vending.BILLING, so Play Console would not let you create the in-app products."
+            exit 1
+          fi
+          # The game shows no ads and tracks no one, so it must not ask for the advertising ID, and Play's Advertising ID
+          # declaration is answered "No". If a library adds the permission back, remove it again in AndroidManifest.xml.
+          if grep -q "com.google.android.gms.permission.AD_ID" $manifests; then
+            echo "::error::The release build asks for the advertising ID (com.google.android.gms.permission.AD_ID). Remove it in AndroidManifest.xml."
+            exit 1
+          fi
+          echo "Permissions: billing declared, advertising ID not requested."
+          if [ "${{ steps.key.outputs.real }}" = "true" ]; then name="bloomshot-${BLOOMSHOT_VERSION_CODE}.aab"; else name="DRY-RUN-do-not-upload-${BLOOMSHOT_VERSION_CODE}.aab"; fi
+          mkdir -p "$RUNNER_TEMP/out" && cp "$aab" "$RUNNER_TEMP/out/$name"
+          echo "file=$RUNNER_TEMP/out/$name" >> "$GITHUB_OUTPUT"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.key.outputs.real == 'true' && 'bloomshot-release-aab' || 'bloomshot-dry-run-aab-do-not-upload' }}
+          path: ${{ steps.check.outputs.file }}
+
+      - name: Publish the signed bundle as a pre-release
+        if: github.event_name == 'workflow_dispatch' && steps.key.outputs.real == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "android-${BLOOMSHOT_VERSION_CODE}" "${{ steps.check.outputs.file }}" \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
+            --title "Android build ${BLOOMSHOT_VERSION_CODE}" \
+            --notes "Signed with the upload key. Version code ${BLOOMSHOT_VERSION_CODE}, built from commit ${GITHUB_SHA::7}. Upload ${{ steps.check.outputs.name }} to Google Play Console."

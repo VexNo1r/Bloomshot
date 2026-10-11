@@ -1,0 +1,59 @@
+{
+  "passed": 8,
+  "failed": 0,
+  "observations": {
+    "goalsPerDay": 3,
+    "groups": [
+      "rush",
+      "puzzle",
+      "explore"
+    ],
+    "seedsPerGoal": 4,
+    "bonusForAllThree": 6,
+    "catalog": [
+      "rush-blooms",
+      "rush-wave",
+      "rush-chain",
+      "puzzles",
+      "perfect",
+      "daily",
+      "moon",
+      "koi",
+      "meadow"
+    ]
+  },
+  "results": [
+    {
+      "name": "Browser and CommonJS builds expose the same API",
+      "passed": true
+    },
+    {
+      "name": "Every day has three goals, one in Rush, one puzzle and one to explore, the same for everyone",
+      "passed": true
+    },
+    {
+      "name": "Goals read plainly and every one points at a place to play it",
+      "passed": true
+    },
+    {
+      "name": "Rush blooms add up across runs, while the wave and chain goals keep the best run",
+      "passed": true
+    },
+    {
+      "name": "Puzzle goals count clears in any garden mode; stars, daily, Moon and Koi each count only their own",
+      "passed": true
+    },
+    {
+      "name": "A goal completes once; finishing all three gives the bonus once",
+      "passed": true
+    },
+    {
+      "name": "A new day starts fresh, and damaged or forged saves cannot mark a goal done",
+      "passed": true
+    },
+    {
+      "name": "The garden pays 4 seeds per goal and a 6-seed bonus, once per day and slot",
+      "passed": true
+    }
+  ]
+}

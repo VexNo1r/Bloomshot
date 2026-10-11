@@ -1,5 +1,5 @@
 {
-  "passed": 21,
+  "passed": 28,
   "failed": 0,
   "observations": {
     "starterSeeds": 4,
@@ -9,6 +9,15 @@
       14
     ],
     "completeMeadowCost": 156,
+    "decorCosts": [
+      20,
+      30,
+      40,
+      55,
+      75,
+      100
+    ],
+    "completeDecorCost": 320,
     "decentRush": {
       "blooms": 24,
       "wave": 3,
@@ -23,6 +32,27 @@
     },
     "improvedCampaignStar": 2,
     "receiptWindow": 64,
+    "firstDailyClearByStars": {
+      "1": 6,
+      "2": 8,
+      "3": 10
+    },
+    "weeklyBouquet": {
+      "dailyClears": 4,
+      "seeds": 12
+    },
+    "dailyMemoryDays": 21,
+    "levelRun": {
+      "bloomsPerSeed": 10,
+      "plusWavesReached": true,
+      "cap": 24,
+      "firstClearByStars": {
+        "1": 8,
+        "2": 10,
+        "3": 12
+      },
+      "improvedStar": 2
+    },
     "limitations": [
       "Local save logic is not a server-authoritative payment or anti-tampering system.",
       "Rush receipt deduplication covers the most recent 64 completions; the UI must issue one unique ID per run.",
@@ -113,6 +143,34 @@
     },
     {
       "name": "Koi pool rewards pay once per new star and keep their own records",
+      "passed": true
+    },
+    {
+      "name": "A daily garden pays 6, 8 or 10 seeds on its first clear, then two per new star, once per day",
+      "passed": true
+    },
+    {
+      "name": "Any four cleared daily gardens in one Monday-to-Sunday week gather a 12-seed bouquet, once, and missed days take nothing away",
+      "passed": true
+    },
+    {
+      "name": "Daily records keep the latest 21 days and 8 bouquets, reject malformed entries, and old days cannot be claimed again",
+      "passed": true
+    },
+    {
+      "name": "Six decorations cost 20 to 100 seeds, build once each in any order, and save as a list",
+      "passed": true
+    },
+    {
+      "name": "Saved decorations are cleaned: unknown, repeated or non-list values are dropped, catalog order kept",
+      "passed": true
+    },
+    {
+      "name": "Summary lists every decoration with its price, whether it is built or affordable, and when the meadow is complete",
+      "passed": true
+    },
+    {
+      "name": "Level runs pay for their blooms, won or lost, and new stars on a level pay once like a garden",
       "passed": true
     }
   ]

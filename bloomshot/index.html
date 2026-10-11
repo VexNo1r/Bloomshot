@@ -3,26 +3,34 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#ddf7f4">
+  <meta name="theme-color" content="#d7f0df">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Bloomshot">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-  <meta name="description" content="Make a little chaos bloom. Keep the meadow clear in Rush, or take on three-volley gardens.">
-  <title>BLOOMSHOT — make a little chaos bloom.</title>
+  <meta name="description" content="Fire seeds, bloom flowers, grow your meadow. A garden arcade game.">
+  <title>Bloomshot</title>
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="preload" href="assets/fonts/fredoka.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/nunito.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="styles.css">
   <script src="store-config.js" defer></script>
   <script src="store.js" defer></script>
   <script src="levels.js" defer></script>
   <script src="moon.js" defer></script>
   <script src="koi.js" defer></script>
+  <script src="keepsakes.js" defer></script>
   <script src="garden.js" defer></script>
+  <script src="goals.js" defer></script>
+  <script src="depths.js" defer></script>
+  <script src="powers.js" defer></script>
   <script src="engine.js" defer></script>
   <script src="rush.js" defer></script>
+  <script src="scenery.js" defer></script>
   <script src="art.js" defer></script>
   <script src="meadow.js" defer></script>
+  <script src="petals.js" defer></script>
   <script src="sound.js" defer></script>
   <script src="native.js" defer></script>
   <script src="app.js" defer></script>
@@ -31,36 +39,31 @@
 </head>
 <body data-theme="meadow">
   <aside class="desktop-note desktop-note-left" aria-hidden="true">
-    <span class="note-eyebrow">SMALL SEEDS. BIG ENERGY.</span>
-    <p class="desktop-title">Make a little<br><span>chaos bloom.</span></p>
-    <p class="desktop-copy desktop-mode-campaign">Three volleys.<br>A whole world in bloom.</p>
-    <p class="desktop-copy desktop-mode-rush">One seed at a time.<br>Keep the meadow clear.</p>
-    <p class="desktop-copy desktop-mode-moon">Five seeds.<br>A path through moonlight.</p>
-    <p class="desktop-copy desktop-mode-koi">Five seeds.<br>Read the water.</p>
+    <p class="desktop-logo">bloomshot</p>
     <svg class="botanical-drawing" viewBox="0 0 260 250" fill="none">
-      <path d="M114 237Q142 180 112 128" stroke="#26b498" stroke-width="13" stroke-linecap="round"/><path d="M124 206Q54 211 44 162Q111 145 124 206" fill="#50cba9"/><path d="M124 188Q190 200 207 145Q144 139 124 188" fill="#20b895"/>
-      <g transform="translate(111 102)"><g fill="#ff698c"><ellipse cy="-37" rx="27" ry="45"/><ellipse cy="-37" rx="27" ry="45" transform="rotate(60)"/><ellipse cy="-37" rx="27" ry="45" transform="rotate(120)"/><ellipse cy="-37" rx="27" ry="45" transform="rotate(180)"/><ellipse cy="-37" rx="27" ry="45" transform="rotate(240)"/><ellipse cy="-37" rx="27" ry="45" transform="rotate(300)"/></g><circle r="29" fill="#ffc950"/><circle cx="-6" cy="-8" r="17" fill="#ffdb71"/></g>
-      <path d="m219 41 4 13 13 4-13 4-4 13-4-13-13-4 13-4Z" fill="#9c79e9"/><circle cx="232" cy="116" r="8" fill="#ffc950"/><circle cx="27" cy="220" r="7" fill="#84cee8"/>
+      <path d="M114 237Q142 180 112 128" stroke="#3aa978" stroke-width="13" stroke-linecap="round"/><path d="M124 206Q54 211 44 162Q111 145 124 206" fill="#5cc98f"/><path d="M124 188Q190 200 207 145Q144 139 124 188" fill="#3aa978"/>
+      <g transform="translate(111 102)"><g fill="#ff6f96"><ellipse cy="-37" rx="27" ry="45"/><ellipse cy="-37" rx="27" ry="45" transform="rotate(60)"/><ellipse cy="-37" rx="27" ry="45" transform="rotate(120)"/><ellipse cy="-37" rx="27" ry="45" transform="rotate(180)"/><ellipse cy="-37" rx="27" ry="45" transform="rotate(240)"/><ellipse cy="-37" rx="27" ry="45" transform="rotate(300)"/></g><circle r="29" fill="#ffc94a"/><circle cx="-6" cy="-8" r="17" fill="#ffdb73"/></g>
     </svg>
-    <span class="desktop-edition">AIM. BLOOM. KEEP IT GOING.</span>
+    <p class="desktop-copy desktop-mode-rush">Keep the flowers above the line.</p>
+    <p class="desktop-copy desktop-mode-campaign">Three shots. Clear the garden.</p>
+    <p class="desktop-copy desktop-mode-moon">Five seeds. Find the way through.</p>
+    <p class="desktop-copy desktop-mode-koi">Five seeds. Ride the current.</p>
   </aside>
 
   <main class="app-shell">
     <header class="app-header">
-      <div class="brand-lockup">
-        <div class="brand-line">
-          <svg class="brand-mark" viewBox="0 0 28 28" aria-hidden="true"><path d="M14 25V13M14 18C7 18 3 13 3 7c7 0 11 4 11 11Zm0-5C14 6 18 2 25 2c0 7-4 11-11 11Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <span class="wordmark">bloomshot<span class="wordmark-dot">.</span></span>
-        </div>
-        <span class="brand-tagline">MAKE A LITTLE CHAOS BLOOM.</span>
+      <div class="brand-line">
+        <svg class="brand-mark" viewBox="0 0 28 28" aria-hidden="true"><g fill="#ff6f96"><ellipse cx="14" cy="7.5" rx="4.3" ry="6"/><ellipse cx="14" cy="20.5" rx="4.3" ry="6"/><ellipse cx="7.5" cy="14" rx="6" ry="4.3"/><ellipse cx="20.5" cy="14" rx="6" ry="4.3"/></g><circle cx="14" cy="14" r="4.6" fill="#ffc94a"/></svg>
+        <span class="wordmark">bloomshot</span>
       </div>
       <div class="header-actions">
+        <div class="seed-purse" title="Seeds"><span class="purse-leaf" aria-hidden="true"></span><strong id="garden-seeds">4</strong><span class="sr-only">seeds</span></div>
         <button id="sound-btn" class="icon-button quiet-button" type="button" aria-label="Turn sound off" aria-pressed="true" title="Sound">
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m11 5-5 4H3v6h3l5 4V5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.2h3.2L11.6 5c.6-.5 1.4-.1 1.4.7v12.6c0 .8-.8 1.2-1.4.7l-4.4-4.2H4c-.6 0-1-.4-1-1v-3.6c0-.6.4-1 1-1Z" fill="currentColor"/><path class="sound-waves" d="M16 9a4.2 4.2 0 0 1 0 6m2.6-8.6a8 8 0 0 1 0 11.2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
         </button>
-        <button id="help-btn" class="help-button" type="button" aria-label="How to play" title="How to play">?</button>
+        <button id="help-btn" class="icon-button help-button" type="button" aria-label="How to play" title="How to play">?</button>
         <button id="settings-btn" class="icon-button" type="button" aria-label="Open settings" title="Settings">
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M4 17h16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="9" cy="7" r="2.5" fill="var(--paper)" stroke="currentColor" stroke-width="1.5"/><circle cx="15" cy="17" r="2.5" fill="var(--paper)" stroke="currentColor" stroke-width="1.5"/></svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.3 2.8h3.4l.5 2.5 1.8.8 2.1-1.4 2.4 2.4-1.4 2.1.8 1.8 2.5.5v3.4l-2.5.5-.8 1.8 1.4 2.1-2.4 2.4-2.1-1.4-1.8.8-.5 2.5h-3.4l-.5-2.5-1.8-.8-2.1 1.4-2.4-2.4 1.4-2.1-.8-1.8-2.5-.5v-3.4l2.5-.5.8-1.8-1.4-2.1 2.4-2.4 2.1 1.4 1.8-.8Z" fill="currentColor"/><circle cx="12" cy="12" r="3.3" fill="var(--cream)"/></svg>
         </button>
       </div>
     </header>
@@ -68,185 +71,221 @@
     <div class="app-content">
       <section id="game-view" class="view game-view" aria-label="Play Bloomshot">
         <div class="game-hud">
-        <div class="game-heading">
-          <div class="level-title-group">
-            <span id="level-label" class="eyebrow">THE MEADOW · 01</span>
-            <h1 id="level-name">First light</h1>
+          <div class="game-heading">
+            <div class="level-title-group">
+              <span id="level-label" class="level-tag">Garden 1/18</span>
+              <h1 id="level-name">First light</h1>
+            </div>
+            <div class="score-display" aria-label="Score">
+              <span class="score-caption">Score</span>
+              <span id="score-value" class="score-value">0</span>
+              <span class="best-caption">Best <span id="best-value">0</span></span>
+            </div>
           </div>
-          <div class="score-display" aria-label="Score">
-            <span class="score-caption">SCORE</span>
-            <span id="score-value" class="score-value">0</span>
-            <span class="best-caption">BEST <span id="best-value">0</span></span>
+          <div class="garden-status">
+            <span class="status-item seed-status"><span id="seed-count">3 shots</span></span>
+            <span class="status-divider" aria-hidden="true"></span>
+            <span class="status-item bloom-status"><svg viewBox="0 0 18 18" aria-hidden="true"><g fill="currentColor"><ellipse cx="9" cy="5.2" rx="2.7" ry="4"/><ellipse cx="9" cy="12.8" rx="2.7" ry="4"/><ellipse cx="5.2" cy="9" rx="4" ry="2.7"/><ellipse cx="12.8" cy="9" rx="4" ry="2.7"/></g><circle cx="9" cy="9" r="2.3" fill="#ffd45c"/></svg><span id="bloom-count">0 / 8 bloomed</span></span>
           </div>
         </div>
-        <div class="garden-status">
-          <span class="status-item seed-status"><span id="seed-count">3 volleys</span></span>
-          <span class="status-divider" aria-hidden="true"></span>
-          <span class="status-item bloom-status"><svg viewBox="0 0 18 18" aria-hidden="true"><g fill="currentColor"><ellipse cx="9" cy="5.5" rx="2.5" ry="4"/><ellipse cx="9" cy="12.5" rx="2.5" ry="4"/><ellipse cx="5.5" cy="9" rx="4" ry="2.5"/><ellipse cx="12.5" cy="9" rx="4" ry="2.5"/></g><circle cx="9" cy="9" r="2.1" fill="var(--paper)"/></svg><span id="bloom-count">0 / 8 bloomed</span></span>
+        <div class="play-strip">
+          <div id="power-left" class="power-group" role="group" aria-label="Powerups"></div>
+          <div id="combo-meter" class="combo-meter" role="meter" aria-label="Super bloom charge" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="combo-fill" aria-hidden="true"></span><span class="combo-spark" aria-hidden="true"></span><span id="combo-label">Chain blooms</span><span id="guide-label">Ready</span></div>
+          <div id="power-right" class="power-group" role="group" aria-label="More powerups"></div>
         </div>
-
-        </div>
-        <div id="combo-meter" class="combo-meter" role="meter" aria-label="Super bloom charge" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="combo-fill" aria-hidden="true"></span><span class="combo-spark" aria-hidden="true">✦</span><span id="combo-label">BUILD YOUR SUPER BLOOM</span><span id="guide-label">GUIDE READY</span></div>
 
         <div class="board-region">
           <div class="board-wrap">
-            <canvas id="game-canvas" width="420" height="560" tabindex="0" role="img" aria-label="Garden game board. Drag to aim three seeds and release to fire. Hold and drag during flight to guide them. Tap a leaf bumper between volleys to turn it.">Your browser needs canvas support to play Bloomshot.</canvas>
+            <canvas id="game-canvas" width="420" height="560" tabindex="0" role="img" aria-label="Garden game board. Drag to aim three seeds and release to fire. Hold and drag during flight to guide them. Tap a leaf between shots to turn it.">Your browser needs canvas support to play Bloomshot.</canvas>
             <div id="fever-banner" class="fever-banner" hidden>SUPER BLOOM!</div>
           </div>
         </div>
         <p id="game-hint" class="game-hint">Aim, release, then drag to guide your seeds.</p>
         <div class="game-actions">
-          <button id="back-btn" class="text-button" type="button"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m11.5 5-5 5 5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span>The meadow</span></button>
+          <button id="back-btn" class="text-button" type="button"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m11.5 5-5 5 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Levels</span></button>
           <button id="split-btn" class="split-button" type="button" hidden disabled>Split · 0/6</button>
-          <button id="restart-btn" class="text-button" type="button" aria-label="Restart this game"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4.3 7.4a6 6 0 1 1-.2 4.3M4 3.5v4.3h4.3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Try again</span></button>
+          <button id="restart-btn" class="text-button" type="button" aria-label="Restart this game"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4.3 7.4a6 6 0 1 1-.2 4.3M4 3.5v4.3h4.3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Restart</span></button>
         </div>
       </section>
 
+      <section id="levels-view" class="view browse-view" aria-labelledby="levels-title" hidden>
+        <div class="screen-head">
+          <h1 id="levels-title" class="screen-title">Levels</h1>
+          <p id="levels-summary" class="screen-sub">Start at the top and dig down.</p>
+        </div>
+        <button id="resume-btn" class="rush-card resume-card panel" type="button" hidden>
+          <span class="rush-card-icon" aria-hidden="true"><svg viewBox="0 0 26 26"><path d="M10 7.8c0-1 1.1-1.6 1.9-1.1l7 4.4c.8.5.8 1.6 0 2.1l-7 4.4c-.8.5-1.9-.1-1.9-1.1Z" fill="currentColor"/></svg></span>
+          <span class="rush-card-copy"><strong id="resume-title">Resume</strong><span id="resume-sub"></span></span>
+        </button>
+        <ol id="depth-map" class="depth-map" aria-label="Levels"></ol>
+        <h2 class="section-title">Endless</h2>
+        <button id="levels-rush-btn" class="rush-card panel" type="button">
+          <span class="rush-card-icon" aria-hidden="true"><svg viewBox="0 0 26 26"><path d="M10 7.8c0-1 1.1-1.6 1.9-1.1l7 4.4c.8.5.8 1.6 0 2.1l-7 4.4c-.8.5-1.9-.1-1.9-1.1Z" fill="currentColor"/></svg></span>
+          <span class="rush-card-copy"><strong>Meadow Rush</strong><span id="levels-rush-best">Endless waves. How far can you go?</span></span>
+        </button>
+        <h2 class="section-title">Powerups <small id="power-total" class="section-count"></small></h2>
+        <div id="power-shelf" class="power-shelf"></div>
+      </section>
+
       <section id="garden-view" class="view browse-view" aria-labelledby="garden-title" hidden>
-        <div class="page-heading meadow-heading">
-          <div><span class="eyebrow">A LITTLE MORE LIFE, EVERY RUN</span><h1 id="garden-title">Your meadow</h1></div>
-          <div class="seed-purse"><span class="purse-leaf" aria-hidden="true"></span><strong id="garden-seeds">4</strong><span>seeds</span></div>
-          <p id="meadow-summary">Choose your first patch. Four seeds are yours to plant.</p>
+        <div class="screen-head meadow-heading">
+          <h1 id="garden-title" class="screen-title">My Meadow</h1>
+          <p id="meadow-summary" class="screen-sub">Pick a patch and plant your first seeds.</p>
         </div>
         <div class="meadow-map">
           <canvas id="meadow-canvas" width="840" height="660" role="img" aria-label="Your meadow. Choose one of the six flower patches below."></canvas>
           <div id="plot-markers" class="plot-markers" role="group" aria-label="Choose a flower patch"></div>
+          <div id="friend-spots" class="friend-spots" role="group" aria-label="Meadow friends"></div>
+          <p id="friend-bubble" class="friend-bubble" hidden></p>
         </div>
-        <section class="plot-detail" aria-labelledby="plot-name">
-          <div class="plot-copy"><span id="plot-stage" class="eyebrow">READY TO PLANT</span><h2 id="plot-name">Sunbell</h2><p id="plot-message">Make room for something golden.</p></div>
+        <section class="plot-detail panel" aria-labelledby="plot-name">
+          <div class="plot-copy"><span id="plot-stage" class="stage-chip">Ready to plant</span><h2 id="plot-name">Sunbell</h2><p id="plot-message">Golden bells catch the first light.</p></div>
           <button id="plant-btn" class="plant-button" type="button">Plant · 4 seeds</button>
         </section>
-        <p id="garden-earning-hint" class="garden-earning-hint">Bloom flowers in Rush to earn seeds for your meadow.</p>
-        <button id="garden-rush-btn" class="rush-card" type="button">
-          <span class="rush-card-copy"><span class="eyebrow">PLAY. BLOOM. GROW.</span><strong>Play Meadow Rush</strong><span id="rush-best">Keep the flowers above the line.</span></span>
-          <span class="rush-card-arrow" aria-hidden="true">↗</span>
+        <p id="garden-earning-hint" class="garden-earning-hint">Bloom flowers in any level to earn seeds.</p>
+        <section class="decor-panel panel" aria-labelledby="decor-title">
+          <div class="decor-head"><h2 id="decor-title">Decorate</h2><span id="decor-count" class="card-meta">0/6 built</span></div>
+          <div id="decor-grid" class="decor-grid" role="group" aria-label="Things to build with seeds"></div>
+        </section>
+        <section class="goals-card panel" aria-labelledby="goals-title">
+          <div class="decor-head"><h2 id="goals-title">Today's goals</h2><span id="goals-count" class="card-meta">0/3 done</span></div>
+          <ol id="goals-list" class="goals-list"></ol>
+          <p id="goals-bonus" class="goals-bonus">Finish all 3 for +6 bonus seeds.</p>
+        </section>
+        <button id="daily-btn" class="daily-card panel" type="button">
+          <canvas id="daily-canvas" class="daily-board" width="216" height="288" aria-hidden="true"></canvas>
+          <span class="daily-copy"><span class="card-head"><span class="card-tag">Daily</span><span id="daily-eyebrow" class="card-meta">Today</span></span><strong id="daily-title">Today's garden</strong><span id="daily-status">A new layout every day.</span>
+            <span id="daily-week" class="daily-week" aria-hidden="true"></span><span id="daily-bouquet" class="daily-bouquet"></span></span>
         </button>
-        <details id="puzzle-section" class="puzzle-section">
-        <summary><span>Garden puzzles</span><small id="garden-summary">18 gardens to discover</small></summary>
-        <button id="daily-btn" class="daily-card" type="button">
-          <span class="daily-icon" aria-hidden="true"><svg viewBox="0 0 40 40" fill="none"><circle cx="20" cy="20" r="7" stroke="currentColor" stroke-width="1.4"/><path d="M20 4v5m0 22v5M4 20h5m22 0h5M8.7 8.7l3.5 3.5m15.6 15.6 3.5 3.5M8.7 31.3l3.5-3.5m15.6-15.6 3.5-3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span>
-          <span class="daily-copy"><span class="eyebrow">DAILY CHALLENGE</span><strong>Today's garden</strong><span>A new layout every day.</span></span>
-          <svg class="card-arrow" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 10h12m-5-5 5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <button id="garden-rush-btn" class="rush-card panel" type="button">
+          <span class="rush-card-icon" aria-hidden="true"><svg viewBox="0 0 26 26"><path d="M10 7.8c0-1 1.1-1.6 1.9-1.1l7 4.4c.8.5.8 1.6 0 2.1l-7 4.4c-.8.5-1.9-.1-1.9-1.1Z" fill="currentColor"/></svg></span>
+          <span class="rush-card-copy"><strong>Play Meadow Rush</strong><span id="rush-best">Keep the flowers above the line.</span></span>
         </button>
-        <div class="section-rule"><span>CHOOSE A GARDEN</span><span>THE MEADOW</span></div>
-        <div id="level-grid" class="level-grid" aria-label="Meadow levels"></div>
-        <p class="page-footnote">Replay cleared gardens to improve your score.</p>
+        <details id="puzzle-section" class="puzzle-section panel">
+          <summary><span>Garden puzzles</span><small id="garden-summary">18 gardens</small></summary>
+          <div id="level-grid" class="level-grid" aria-label="Meadow levels"></div>
         </details>
       </section>
 
       <section id="collection-view" class="view browse-view" aria-labelledby="collection-title" hidden>
-        <div class="page-heading">
-          <span class="eyebrow">YOUR COLLECTION</span>
-          <h1 id="collection-title">Your herbarium</h1>
-          <p>Clear gardens to collect new flowers.</p>
-          <p id="collection-summary" class="page-summary">Your first pressed flower is waiting.</p>
+        <div class="screen-head">
+          <h1 id="collection-title" class="screen-title">Collection</h1>
+          <p id="collection-summary" class="screen-sub">0 of 6 flowers found</p>
         </div>
-        <div class="section-rule"><span>FLOWERS YOU'VE FOUND</span><span>THE MEADOW</span></div>
+        <h2 class="section-title">Seed styles</h2>
+        <div id="keepsake-shelf" class="keepsake-shelf">
+          <div class="keepsake-stage"><canvas id="keepsake-canvas" width="420" height="190" role="img" aria-label="Seed style preview"></canvas></div>
+          <div id="keepsake-caption" class="keepsake-caption" aria-live="polite"></div>
+          <div id="keepsake-grid" class="keepsake-grid" role="group" aria-label="Seed styles"></div>
+          <div id="keepsake-offer"></div>
+        </div>
+        <h2 class="section-title">Meadow friends <small id="friend-count" class="section-count">0/6</small></h2>
+        <div id="friend-grid" class="friend-grid" role="group" aria-label="Meadow friends"></div>
+        <h2 class="section-title">Flowers</h2>
         <div id="collection-grid" class="collection-grid" aria-label="Collected flowers"></div>
-        <p class="page-footnote">Each flower shows the garden that unlocks it.</p>
       </section>
 
       <section id="worlds-view" class="view browse-view" aria-labelledby="worlds-title" hidden>
-        <div class="page-heading">
-          <span class="eyebrow">EXPLORE THE WORLDS</span>
-          <h1 id="worlds-title">Beyond the meadow</h1>
-          <p>Three gardens to explore, each with its own way to play.</p>
+        <div class="screen-head">
+          <h1 id="worlds-title" class="screen-title">Worlds</h1>
+          <p class="screen-sub">Three gardens, three ways to play.</p>
         </div>
         <div id="worlds-grid" class="worlds-grid" aria-label="Gardens to explore"></div>
-        <p class="page-footnote">The Meadow and Moon Garden are free to play, and so are the first two koi pools.</p>
       </section>
     </div>
 
     <nav class="bottom-nav" aria-label="Main navigation">
-      <button id="rush-btn" class="nav-button" type="button"><svg viewBox="0 0 26 26" fill="none" aria-hidden="true"><circle cx="13" cy="13" r="10" stroke="currentColor" stroke-width="1.6"/><path d="m11 8 7 5-7 5Z" fill="currentColor"/></svg><span>Play</span></button>
-      <button id="garden-btn" class="nav-button active" type="button" aria-current="page"><svg viewBox="0 0 26 26" fill="none" aria-hidden="true"><path d="M13 22V12M13 16C7 16 4 12 4 7c6 0 9 3 9 9Zm0-4c0-6 3-9 9-9 0 6-3 9-9 9Z" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 22h10" stroke="currentColor" stroke-width="1.55" stroke-linecap="round"/></svg><span>Garden</span></button>
-      <button id="collection-btn" class="nav-button" type="button"><svg viewBox="0 0 26 26" fill="none" aria-hidden="true"><rect x="5" y="3" width="16" height="20" rx="2" stroke="currentColor" stroke-width="1.55"/><path d="M9 3v20m6-6v-6m0 3c-3 0-4-2-4-4 3 0 4 1 4 4Zm0-2c0-3 1-4 4-4 0 3-1 4-4 4Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Collection</span></button>
-      <button id="worlds-btn" class="nav-button" type="button"><svg viewBox="0 0 26 26" fill="none" aria-hidden="true"><circle cx="13" cy="13" r="10" stroke="currentColor" stroke-width="1.55"/><path d="M3.5 13h19M13 3c5 5 5 15 0 20-5-5-5-15 0-20Z" stroke="currentColor" stroke-width="1.3"/></svg><span>Worlds</span></button>
+      <button id="rush-btn" class="nav-button" type="button"><span class="nav-icon"><svg viewBox="0 0 26 26" aria-hidden="true"><path d="M9.6 6.9c0-1.1 1.2-1.8 2.2-1.2l8.3 5.2c.9.6.9 1.9 0 2.5l-8.3 5.2c-1 .6-2.2-.1-2.2-1.2Z" fill="currentColor"/></svg></span><span>Play</span></button>
+      <button id="garden-btn" class="nav-button active" type="button" aria-current="page"><span class="nav-icon"><svg viewBox="0 0 26 26" aria-hidden="true"><path d="M12.4 22.5v-8.2" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M12.6 15.2C6.8 15.6 3.6 12.4 3.4 6.6c5.6-.4 9 2.8 9.2 8.6Z" fill="currentColor"/><path d="M12.4 12.4c.2-5.4 3.4-8.4 9-8.2-.2 5.4-3.4 8.4-9 8.2Z" fill="currentColor" opacity=".72"/></svg></span><span>Garden</span></button>
+      <button id="collection-btn" class="nav-button" type="button"><span class="nav-icon"><svg viewBox="0 0 26 26" aria-hidden="true"><path d="M6.5 3.5h12.5a2 2 0 0 1 2 2v15a2 2 0 0 1-2 2H6.5a2 2 0 0 1-2-2v-15a2 2 0 0 1 2-2Z" fill="currentColor"/><g fill="var(--nav-face)"><ellipse cx="13.2" cy="9.4" rx="2" ry="2.8"/><ellipse cx="13.2" cy="15" rx="2" ry="2.8"/><ellipse cx="10.4" cy="12.2" rx="2.8" ry="2"/><ellipse cx="16" cy="12.2" rx="2.8" ry="2"/></g><circle cx="13.2" cy="12.2" r="1.5" fill="currentColor"/></svg></span><span>Collection</span></button>
+      <button id="worlds-btn" class="nav-button" type="button"><span class="nav-icon"><svg viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="currentColor"/><path d="M8.2 7.6c2 .4 2.6 1.8 1.8 3.2-.9 1.4.4 2.6 2 2.3 1.9-.3 2.6 1.3 1.6 2.8-.8 1.3-.2 3.4.8 4.4M18.6 7.4c-1.6.9-1.8 2.6-.4 3.5 1.2.8 2.6.5 3.6-.2" fill="none" stroke="var(--nav-face)" stroke-width="1.7" stroke-linecap="round"/></svg></span><span>Worlds</span></button>
     </nav>
   </main>
 
   <aside class="desktop-note desktop-note-right" aria-hidden="true">
-    <span class="tiny-flower">✳</span>
     <div class="desktop-mode-campaign">
-    <span class="note-eyebrow">A FEW GOOD SHOTS</span>
-    <div class="desktop-instruction"><span>01</span><p>Aim a volley.<br>Three seeds. Make them count.</p></div>
-    <div class="desktop-instruction"><span>02</span><p>Guide them in flight.<br>Hold and drag toward the flowers.</p></div>
-    <div class="desktop-instruction"><span>03</span><p>Reach 12 blooms.<br>Earn two bonus seeds.</p></div>
-    <div class="desktop-note-rule"></div>
-    <p class="desktop-smallprint">THREE VOLLEYS.<br>ONE GARDEN TO CLEAR.</p>
+      <p class="desktop-heading">How to play</p>
+      <div class="desktop-instruction"><span>1</span><p>Drag to aim. Each shot fires three seeds.</p></div>
+      <div class="desktop-instruction"><span>2</span><p>Hold and drag in flight to steer them.</p></div>
+      <div class="desktop-instruction"><span>3</span><p>Bloom every flower in three shots.</p></div>
     </div>
     <div class="desktop-mode-rush">
-      <span class="note-eyebrow">MEADOW RUSH</span>
-      <div class="desktop-instruction"><span>01</span><p>Aim and release.<br>One seed. Then another.</p></div>
-      <div class="desktop-instruction"><span>02</span><p>Charge your Split.<br>Land six direct hits.</p></div>
-      <div class="desktop-instruction"><span>03</span><p>Find a gold-ring relay.<br>Bloom two nearby buds.</p></div>
-      <div class="desktop-note-rule"></div>
-      <p class="desktop-smallprint">THREE CLUSTERS THROUGH.<br>THAT'S YOUR RUN.</p>
+      <p class="desktop-heading">Meadow Rush</p>
+      <div class="desktop-instruction"><span>1</span><p>Drag to aim, release to fire.</p></div>
+      <div class="desktop-instruction"><span>2</span><p>Six direct hits charge Split.</p></div>
+      <div class="desktop-instruction"><span>3</span><p>Three clusters over the line ends the run.</p></div>
     </div>
   </aside>
 
   <dialog id="result-dialog" class="result-dialog" aria-labelledby="result-title" aria-describedby="result-message">
-    <div class="result-topline"><span id="result-eyebrow" class="eyebrow">LOOK AT YOU GROW!</span><span class="result-spark" aria-hidden="true">✦</span></div>
+    <div class="result-topline"><span id="result-eyebrow" class="result-banner">Garden clear!</span></div>
     <div id="reward-flower" class="reward-flower" aria-hidden="true"></div>
-    <h2 id="result-title">Garden cleared.</h2>
-    <p id="result-message" class="dialog-copy">Every flower in bloom.</p>
+    <h2 id="result-title">Great!</h2>
     <div id="result-stars" class="result-stars" aria-label="Stars earned"></div>
-    <div class="result-score-box"><span class="eyebrow">BLOOM POINTS</span><strong id="result-score">0</strong></div>
-    <div id="garden-reward" class="garden-reward" hidden><span class="purse-leaf" aria-hidden="true"></span><p><strong id="reward-seeds"></strong><span>For your growing meadow</span></p><button id="grow-garden-btn" type="button">Garden <span aria-hidden="true">↗</span></button></div>
-    <button id="next-btn" class="button-primary" type="button">Next garden <span aria-hidden="true">→</span></button>
+    <p id="result-message" class="dialog-copy">Every flower in bloom.</p>
+    <div class="result-score-box"><span class="score-label">Score</span><strong id="result-score">0</strong></div>
+    <p id="result-goals" class="result-goals" hidden></p>
+    <div id="garden-reward" class="garden-reward" hidden><span class="purse-leaf" aria-hidden="true"></span><p><strong id="reward-seeds"></strong><span id="reward-goal">For your meadow</span></p><button id="grow-garden-btn" type="button">Garden <span aria-hidden="true">›</span></button></div>
+    <button id="next-btn" class="button-primary" type="button">Next garden</button>
     <button id="retry-btn" class="button-secondary" type="button">Play again</button>
     <button id="result-garden-btn" class="button-link" type="button">Back to the meadow</button>
   </dialog>
 
   <dialog id="settings-dialog" class="settings-dialog" aria-labelledby="settings-title">
-    <div class="dialog-heading"><div><span class="eyebrow">MAKE IT YOURS</span><h2 id="settings-title">Settings</h2></div><button id="close-settings" class="close-button" type="button" aria-label="Close settings">×</button></div>
-    <label class="setting-row" for="toggle-sound"><span><strong>Sound effects</strong><span class="setting-description">Seed hits, blooms and chain reactions.</span></span><input id="toggle-sound" class="toggle-switch" type="checkbox" aria-label="Sound effects" checked></label>
-    <label class="setting-row" for="toggle-haptics"><span><strong>Vibration</strong><span class="setting-description">Short taps on supported phones.</span></span><input id="toggle-haptics" class="toggle-switch" type="checkbox" aria-label="Vibration" checked></label>
-    <label class="setting-row" for="toggle-motion"><span><strong>Animations</strong><span class="setting-description">Bloom bursts and floating petals.</span></span><input id="toggle-motion" class="toggle-switch" type="checkbox" aria-label="Animations" checked></label>
+    <div class="dialog-heading"><h2 id="settings-title">Settings</h2><button id="close-settings" class="close-button" type="button" aria-label="Close settings">×</button></div>
+    <label class="setting-row" for="toggle-sound"><span><strong>Sound</strong><span class="setting-description">Hits, blooms and chains</span></span><input id="toggle-sound" class="toggle-switch" type="checkbox" aria-label="Sound effects" checked></label>
+    <label class="setting-row" for="toggle-haptics"><span><strong>Vibration</strong><span class="setting-description">On supported phones</span></span><input id="toggle-haptics" class="toggle-switch" type="checkbox" aria-label="Vibration" checked></label>
+    <label class="setting-row" for="toggle-motion"><span><strong>Animations</strong><span class="setting-description">Bursts, petals and screen shake</span></span><input id="toggle-motion" class="toggle-switch" type="checkbox" aria-label="Animations" checked></label>
     <p id="settings-storage" class="settings-footnote">Your garden is saved on this device.</p>
     <section class="install-section" aria-labelledby="install-title">
-      <h3 id="install-title">Take your garden with you</h3>
+      <h3 id="install-title">Play offline</h3>
       <p id="pwa-status" role="status">Preparing offline play…</p>
       <button id="install-btn" class="button-secondary" type="button">Add to home screen</button>
       <p id="install-help" hidden></p>
       <button id="update-app-btn" class="button-primary" type="button" hidden>Restart and update</button>
       <p id="offline-note" hidden>Your saved scores stay. Updating restarts the current run.</p>
     </section>
-    <span class="dialog-signature">bloomshot.</span>
+    <span class="dialog-signature">bloomshot</span>
   </dialog>
 
   <dialog id="help-dialog" class="help-dialog" aria-labelledby="help-title">
-    <div class="dialog-heading"><div><span class="eyebrow">HOW TO PLAY</span><h2 id="help-title">Make every seed count.</h2></div><button id="close-help" class="close-button" type="button" aria-label="Close how to play">×</button></div>
-    <details id="rush-help" class="help-mode" open>
-      <summary><span>Meadow Rush</span><small>ENDLESS ARCADE</small></summary>
-      <ol class="help-steps"><li><span class="help-number">01</span><div><h3>Aim. Fire. Keep moving.</h3><p>Drag to aim and release one seed. Your next shot is ready after 0.65 seconds.</p></div></li><li><span class="help-number">02</span><div><h3>Choose when to Split.</h3><p>Land six direct hits to charge Split. Tap Split while a seed is flying to add two extra seeds.</p></div></li><li><span class="help-number">03</span><div><h3>Keep the clusters back.</h3><p>Gold-ring relays bloom two nearby buds. Your run ends when three clusters cross the bottom line.</p></div></li></ol>
-      <p class="help-tip">Turn the leaf petal to redirect your shots. It can turn again after two seconds.</p>
+    <div class="dialog-heading"><h2 id="help-title">How to play</h2><button id="close-help" class="close-button" type="button" aria-label="Close how to play">×</button></div>
+    <details id="levels-help" class="help-mode" open>
+      <summary><span>Levels</span><small>Ten waves</small></summary>
+      <ol class="help-steps"><li><span class="help-number">1</span><div><h3>Ten waves</h3><p>Keep the flowers above the line. Clear all ten waves to finish the level and open the next one.</p></div></li><li><span class="help-number">2</span><div><h3>New pieces</h3><p>Rings take more hits. Cups block shots from below. Puffcaps bloom everything near them. Rocks bounce your seeds. Deeper down: currents, turning shells, tunnels, geodes and briars.</p></div></li><li><span class="help-number">3</span><div><h3>Stars</h3><p>Finish with all three lives for ★★★. The last wave of every level is a big bloom.</p></div></li><li><span class="help-number">4</span><div><h3>Powerups</h3><p>Tap one above the board, then fire. Sunburst, Dandelion and Bee Line change your next shot. Lullaby stops the flowers falling for a moment. Shoot a gift bubble to keep the powerup inside.</p></div></li></ol>
+      <p class="help-tip">Tap the leaf to turn it and bend your shots.</p>
+    </details>
+    <details id="rush-help" class="help-mode">
+      <summary><span>Meadow Rush</span><small>Endless</small></summary>
+      <ol class="help-steps"><li><span class="help-number">1</span><div><h3>Aim and fire</h3><p>Drag to aim, release to fire. Another seed is ready a moment later.</p></div></li><li><span class="help-number">2</span><div><h3>Split</h3><p>Six direct hits charge Split. Tap it while a seed is flying for two more.</p></div></li><li><span class="help-number">3</span><div><h3>Hold the line</h3><p>Gold-ring flowers bloom their neighbors. Three clusters over the line ends the run.</p></div></li></ol>
+      <p class="help-tip">Tap the leaf to turn it and bend your next shots.</p>
     </details>
     <details id="campaign-help" class="help-mode">
-      <summary><span>Gardens</span><small>THREE-VOLLEY PUZZLES</small></summary>
-      <ol class="help-steps"><li><span class="help-number">01</span><div><h3>Line up your volley.</h3><p>Drag to aim. Release to fire three seeds. You get three volleys to clear the garden.</p></div></li><li><span class="help-number">02</span><div><h3>Guide them in flight.</h3><p>Hold and drag to pull your seeds toward the flowers. You have three seconds of guiding power per volley.</p></div></li><li><span class="help-number">03</span><div><h3>Keep the chain going.</h3><p>Bloom 12 flowers in one volley to earn two bonus seeds. You can earn this bonus once per volley.</p></div></li></ol>
-      <p class="help-tip">Tap a leaf bumper between volleys to turn it. In later gardens, layered buds take two or three hits.</p>
+      <summary><span>Gardens</span><small>Puzzles</small></summary>
+      <ol class="help-steps"><li><span class="help-number">1</span><div><h3>Aim and fire</h3><p>Drag to aim, let go to fire three seeds. You get three shots per garden.</p></div></li><li><span class="help-number">2</span><div><h3>Steer in flight</h3><p>Hold and drag to pull your seeds toward the flowers.</p></div></li><li><span class="help-number">3</span><div><h3>Chain it</h3><p>Bloom 12 flowers in one shot for two extra seeds.</p></div></li></ol>
+      <p class="help-tip">Tap a leaf between shots to turn it. Later buds take two or three hits.</p>
     </details>
     <details id="moon-help" class="help-mode">
-      <summary><span>Moon Garden</span><small>FIVE-SEED TRIALS</small></summary>
-      <ol class="help-steps"><li><span class="help-number">01</span><div><h3>Find a path through the gates.</h3><p>Matching gates carry a seed between them. The dotted aim line shows where your seed will emerge.</p></div></li><li><span class="help-number">02</span><div><h3>Make each seed count.</h3><p>You have five single-seed shots. Aim before releasing; moon seeds cannot be steered in flight.</p></div></li><li><span class="help-number">03</span><div><h3>Turn a leaf. Change the route.</h3><p>Tap a leaf bumper between shots to rotate it. Clear the flowers with fewer shots to earn more stars.</p></div></li></ol>
+      <summary><span>Moon Garden</span><small>Trials</small></summary>
+      <ol class="help-steps"><li><span class="help-number">1</span><div><h3>Use the gates</h3><p>Matching gates carry your seed between them. The aim line shows the exit.</p></div></li><li><span class="help-number">2</span><div><h3>Five seeds</h3><p>One seed per shot, and no steering in flight.</p></div></li><li><span class="help-number">3</span><div><h3>Turn a leaf</h3><p>Tap a leaf between shots to change the route. Fewer shots earn more stars.</p></div></li></ol>
     </details>
     <details id="koi-help" class="help-mode">
-      <summary><span>Koi Conservatory</span><small>CURRENT POOLS</small></summary>
-      <ol class="help-steps"><li><span class="help-number">01</span><div><h3>Read the water.</h3><p>Currents gently turn your seed toward the way they flow. The dotted aim line follows the water, so you can see the bend before you shoot.</p></div></li><li><span class="help-number">02</span><div><h3>Ride a lane.</h3><p>A current never speeds a seed up or slows it down. It only changes the heading, and a longer ride turns it further.</p></div></li><li><span class="help-number">03</span><div><h3>Make each seed count.</h3><p>Five single-seed shots with no steering in flight. Turn a leaf between shots, and clear the pool in fewer shots for more stars.</p></div></li></ol>
-      <p class="help-tip">Pools 1 and 2 are free. Pools 3 to 8 come with the full Koi Conservatory, a one-time purchase in the app.</p>
+      <summary><span>Koi Conservatory</span><small>Pools</small></summary>
+      <ol class="help-steps"><li><span class="help-number">1</span><div><h3>Read the water</h3><p>Currents turn your seed the way they flow. The aim line bends with them.</p></div></li><li><span class="help-number">2</span><div><h3>Ride a lane</h3><p>Currents never change speed, only direction. A longer ride turns further.</p></div></li><li><span class="help-number">3</span><div><h3>Five seeds</h3><p>No steering in flight. Turn a leaf between shots for a new angle.</p></div></li></ol>
+      <p class="help-tip">Pools 1 and 2 are free. Pools 3 to 8 come with the Koi Conservatory.</p>
     </details>
-    <p class="settings-footnote">On a keyboard, use arrow keys to aim and Space to shoot.</p>
+    <p class="settings-footnote">Keyboard: arrow keys to aim, Space to shoot.</p>
   </dialog>
 
   <dialog id="world-dialog" class="world-dialog" aria-label="Explore a garden">
     <button id="close-world" class="close-button world-close" type="button" aria-label="Close garden details">×</button>
     <div id="world-detail" class="world-detail"></div>
-    <button id="world-preview-btn" class="button-primary" type="button">Play preview <span aria-hidden="true">→</span></button>
+    <button id="world-preview-btn" class="button-primary" type="button">Play preview</button>
   </dialog>
 
+  <canvas id="petal-layer" class="petal-layer" popover="manual" aria-hidden="true"></canvas>
   <div id="toast" class="toast" role="status"></div>
   <div id="announcement" class="sr-only" aria-live="polite" aria-atomic="true"></div>
-  <div id="orientation-note" role="status"><span aria-hidden="true">↻</span><strong>A little more room to grow.</strong><p>Turn your device upright to play.<br>Your game is paused.</p></div>
+  <div id="orientation-note" role="status"><span aria-hidden="true">↻</span><strong>Turn your phone upright</strong><p>Your game is paused.</p></div>
 </body>
 </html>

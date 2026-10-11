@@ -1,10 +1,10 @@
 {
   "generatedBy": "qa/test-native.cjs",
-  "passed": 17,
-  "total": 19,
+  "passed": 22,
+  "total": 22,
   "methodology": "Fake Capacitor shaped like the injected native bridge (Capacitor.Plugins, no registerPlugin), fake storage and a manual timer. No device, no real preferences store.",
   "limitations": [
-    "Plugin names (Haptics, Preferences) and call shapes follow the Capacitor 8 plugin sources and the injected bridge scripts and have not run on a real phone.",
+    "Plugin names (Haptics, Preferences, Share) and call shapes follow the Capacitor 8 plugin sources and the injected bridge scripts and have not run on a real phone.",
     "A save the OS rolls back in web storage but not in preferences (or the reverse) is not detected: once an install has checked its backup, the local save wins."
   ],
   "results": [
@@ -58,13 +58,11 @@
     },
     {
       "name": "Mirror: a save the game could not keep in web storage still reaches the backup once the mirror is open",
-      "passed": false,
-      "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n+ actual - expected\n\n+ '{\"version\":1,\"rush\":{\"best\":900}}'\n- '{\"version\":1,\"later\":true}'\n                 ^\n\n    at /tmp/claude-0/nt/bloomshot/qa/test-native.cjs:212:12\n    at async test (/tmp/claude-0/nt/bloomshot/qa/test-native.cjs:11:9)\n    at async /tmp/claude-0/nt/bloomshot/qa/test-native.cjs:207:3"
+      "passed": true
     },
     {
       "name": "Mirror: the debounce re-arms after each write, waits a short time, and nothing is lost",
-      "passed": false,
-      "error": "AssertionError [ERR_ASSERTION]: write 1 must schedule a flush\n\n0 !== 1\n\n    at /tmp/claude-0/nt/bloomshot/qa/test-native.cjs:220:58\n    at async test (/tmp/claude-0/nt/bloomshot/qa/test-native.cjs:11:9)\n    at async /tmp/claude-0/nt/bloomshot/qa/test-native.cjs:215:3"
+      "passed": true
     },
     {
       "name": "Mirror: when the app is hidden a pending save is written at once, through the real page-visibility listener",
@@ -84,6 +82,18 @@
     },
     {
       "name": "Capacitor present but not a native platform: it behaves like the website",
+      "passed": true
+    },
+    {
+      "name": "Share (app): the phone share sheet gets the title, text and link, and the link points at the right store",
+      "passed": true
+    },
+    {
+      "name": "Share (app): closing the sheet is a quiet cancel; a sheet that fails falls back to copying; a build without the plugin copies",
+      "passed": true
+    },
+    {
+      "name": "Share (web): the browser share sheet first, the clipboard when it is refused, and nothing at all is a plain failure",
       "passed": true
     }
   ]

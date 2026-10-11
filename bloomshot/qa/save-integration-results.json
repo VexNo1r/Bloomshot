@@ -1,5 +1,5 @@
 {
-  "passed": 22,
+  "passed": 52,
   "failed": 0,
   "methodology": "Executes the complete current app.js in an isolated Node VM using real garden/level/engine modules, fake localStorage, and DOM/canvas adapters. Completion fixtures exercise actual engine completion events and app handlers. No real browser or user saves are read or changed.",
   "limitations": [
@@ -32,7 +32,7 @@
       "passed": true
     },
     {
-      "name": "Visual preview restoration retains an already-earned result amount without regranting",
+      "name": "Visual preview restoration never regrants an already-earned result",
       "passed": true
     },
     {
@@ -72,6 +72,66 @@
       "passed": true
     },
     {
+      "name": "Clearing a Rush wave shows the next tempo, and the HUD and result carry the tempo reached",
+      "passed": true
+    },
+    {
+      "name": "The Launch Bundle states its price and saving, buys both parts at once, and then disappears",
+      "passed": true
+    },
+    {
+      "name": "Owning either part offers only the other part, never the bundle",
+      "passed": true
+    },
+    {
+      "name": "Without comparable amounts the bundle still says it costs less, but names no number; off sale or on the website it is not offered",
+      "passed": true
+    },
+    {
+      "name": "Keepsakes: a fresh garden wears Meadow, every style previews, and locked styles never go on the seed",
+      "passed": true
+    },
+    {
+      "name": "Clearing the last Moon trial earns Moonlit once, the result offers to wear it, and play draws it",
+      "passed": true
+    },
+    {
+      "name": "The Keepsake Collection shows the store price, buys only through the store, and a refund falls back to Meadow without forgetting",
+      "passed": true
+    },
+    {
+      "name": "The daily garden card shows today, this week and the bouquet, and its first clear pays seeds plus the bouquet on the fourth day",
+      "passed": true
+    },
+    {
+      "name": "A daily garden cleared before this update pays only for new stars, and the seed reward names the next thing to grow",
+      "passed": true
+    },
+    {
+      "name": "Decorate: a card names what is missing, builds once with seeds, shows in the meadow and survives a reload",
+      "passed": true
+    },
+    {
+      "name": "Meadow friends: each moves in with its decoration, says hello when tapped, and is met in the Collection",
+      "passed": true
+    },
+    {
+      "name": "After the beds, the seed reward points at the cheapest decoration, and a finished meadow says so",
+      "passed": true
+    },
+    {
+      "name": "Today's goals: the Garden card lists all three with progress, and each one opens a place to play it",
+      "passed": true
+    },
+    {
+      "name": "A Rush run that reaches the wave goal pays 4 more seeds once, says so on the result, and remembers it today only",
+      "passed": true
+    },
+    {
+      "name": "Growing in the meadow and clearing two puzzles finish the day, paying each goal and the 6-seed bonus",
+      "passed": true
+    },
+    {
       "name": "Native bridge: planting buzzes through BloomNative only while the Vibration setting is on",
       "passed": true
     },
@@ -93,6 +153,66 @@
     },
     {
       "name": "Native bridge: once a backup has been restored and a reload is pending, the page saves nothing, so it cannot overwrite the restore",
+      "passed": true
+    },
+    {
+      "name": "The game opens on the level map: level 1 is open, the rest wait their turn, and a locked card never starts",
+      "passed": true
+    },
+    {
+      "name": "Clearing a level saves its stars, pays run and first-clear seeds once, opens the next level and Next starts it",
+      "passed": true
+    },
+    {
+      "name": "A level opened by a first clear greets the player on the map until they play it",
+      "passed": true
+    },
+    {
+      "name": "Running out of lives keeps the best wave, pays for the blooms, and Try again restarts the same level",
+      "passed": true
+    },
+    {
+      "name": "Back goes to the level map, and an unfinished level resumes from its card or the resume card without restarting",
+      "passed": true
+    },
+    {
+      "name": "The levels unlock says what it holds and what it costs, buys only through the store, and opens level 5",
+      "passed": true
+    },
+    {
+      "name": "Clearing level 4 points to the unlock once, gently; with it owned, Next goes straight to level 5",
+      "passed": true
+    },
+    {
+      "name": "A won level counts its score up and chimes each star; with Animations off the score shows at once",
+      "passed": true
+    },
+    {
+      "name": "A save from before powerups starts with one of each, and counts survive a reload",
+      "passed": true
+    },
+    {
+      "name": "The powerups tip waits for the first level, not the level map",
+      "passed": true
+    },
+    {
+      "name": "Picking a powerup and firing spends exactly one; picking it again first puts it back",
+      "passed": true
+    },
+    {
+      "name": "Lullaby waits for the first shot, then spends one",
+      "passed": true
+    },
+    {
+      "name": "A caught gift is saved at once, before the run ends",
+      "passed": true
+    },
+    {
+      "name": "The powerup shelf shows counts, never sells on the web or before launch, and buys exactly one per tap",
+      "passed": true
+    },
+    {
+      "name": "Level records are cleaned on load and a cleared level opens the next one",
       "passed": true
     }
   ]

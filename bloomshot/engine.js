@@ -345,5 +345,5 @@
       return { level: this.level.id, status: this.status, score: this.score, shotsLeft: this.shotsLeft, balls: this.balls.length, combo: this.combo, guideCharge: this.guideCharge, buds: this.buds.map(({ id, bloomed }) => ({ id, bloomed })), rotationUsed: this.rotationUsed, gatePasses: this.gatePasses };
     }
   }
-  return { Game, WIDTH, HEIGHT, SPEED, RADIUS, BOUNDS, circleHit, capsuleHit, earliest, clamp, laneAt, currentsFor };
+  return { Game, WIDTH, HEIGHT, SPEED, RADIUS, BOUNDS, GATE_COOLDOWN, circleHit, capsuleHit, earliest, clamp, laneAt, currentsFor, gatesFor, steer, gateTransfer };
 });

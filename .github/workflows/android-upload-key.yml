@@ -1,0 +1,61 @@
+# One-time setup: makes the key that signs Android builds for Google Play and stores it as GitHub secrets,
+# so the key is never in the repo, a log or chat. Steps for the one setup secret are in docs/PLAY-LAUNCH.md (step 4).
+# It refuses to run if a key already exists, so a good key can never be replaced by accident.
+name: Create Android upload key
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Two runs started together could both pass the "key already exists" check; this makes the second one wait.
+concurrency:
+  group: android-upload-key
+  cancel-in-progress: false
+
+jobs:
+  create:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Make the key and store it as secrets
+        env:
+          GH_TOKEN: ${{ secrets.SETUP_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::The SETUP_TOKEN secret is missing. Follow step 4 in docs/PLAY-LAUNCH.md first."
+            exit 1
+          fi
+          # A plain assignment keeps gh's exit status, so if the list cannot be read the run stops here instead of
+          # assuming there is no key.
+          existing="$(gh secret list --repo "$GITHUB_REPOSITORY" --json name --jq '.[].name')"
+          if grep -qx 'ANDROID_KEYSTORE_BASE64' <<< "$existing"; then
+            echo "::error::An Android upload key already exists, so nothing was changed. To replace a lost key: delete the four ANDROID_ secrets, run this again, send Google the new certificate from the run summary in Play Console's upload key reset request, and upload again only after Google confirms."
+            exit 1
+          fi
+          password="$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 32)"
+          echo "::add-mask::$password"
+          keytool -genkeypair -storetype PKCS12 -keystore upload.keystore -alias upload -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass "$password" -keypass "$password" -dname "CN=Bloomshot upload key"
+          # The keystore goes last: it is what the check above looks for, so a run that fails part way can be run again.
+          gh secret set ANDROID_KEYSTORE_PASSWORD --repo "$GITHUB_REPOSITORY" --body "$password"
+          gh secret set ANDROID_KEY_ALIAS --repo "$GITHUB_REPOSITORY" --body "upload"
+          gh secret set ANDROID_KEY_PASSWORD --repo "$GITHUB_REPOSITORY" --body "$password"
+          base64 -w0 upload.keystore | gh secret set ANDROID_KEYSTORE_BASE64 --repo "$GITHUB_REPOSITORY"
+          # The certificate is public. Google asks for it only if the upload key ever has to be reset.
+          {
+            echo "## Android upload key created"
+            echo "Stored as four ANDROID_ secrets. Its public certificate, needed only for an upload key reset:"
+            echo '```'
+            keytool -exportcert -rfc -keystore upload.keystore -alias upload -storepass "$password"
+            echo '```'
+            keytool -list -v -keystore upload.keystore -alias upload -storepass "$password" | grep -E "SHA256:"
+          } >> "$GITHUB_STEP_SUMMARY"
+          rm -f upload.keystore
+          # The setup token can change secrets, so it is removed as soon as it has done its job.
+          gh secret delete SETUP_TOKEN --repo "$GITHUB_REPOSITORY"
+          echo "Upload key stored. The SETUP_TOKEN secret has been deleted; delete the token itself under GitHub Settings, Developer settings."

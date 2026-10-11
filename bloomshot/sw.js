@@ -1,9 +1,9 @@
 'use strict';
 // Release packaging replaces this tag with the hash of the shipped assets.
 const CACHE_PREFIX = 'bloomshot-shell-';
-const VERSION = '7a3f19c25be84d06';
+const VERSION = '171cd6e515c79a12';
 const CACHE_NAME = CACHE_PREFIX + VERSION;
-const ASSETS = ['./', './index.html', './styles.css', './store-config.js', './store.js', './levels.js', './moon.js', './koi.js', './garden.js', './engine.js', './rush.js', './art.js', './meadow.js', './sound.js', './native.js', './app.js', './store-ui.js', './pwa.js', './manifest.webmanifest', './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png', './icons/apple-touch-icon.png', './assets/botanical-header.png', './assets/split-leaf.png'];
+const ASSETS = ['./', './index.html', './styles.css', './store-config.js', './store.js', './levels.js', './moon.js', './koi.js', './keepsakes.js', './garden.js', './goals.js', './depths.js', './powers.js', './engine.js', './rush.js', './scenery.js', './art.js', './meadow.js', './petals.js', './sound.js', './native.js', './app.js', './store-ui.js', './pwa.js', './manifest.webmanifest', './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png', './icons/apple-touch-icon.png', './assets/fonts/fredoka.woff2', './assets/fonts/nunito.woff2', './assets/ui/lock.svg'];
 const BASE = new URL(self.registration.scope);
 const URLS = ASSETS.map(path => new URL(path, BASE).href);
 const INDEX = new URL('index.html', BASE).href;
@@ -25,6 +25,8 @@ function validAsset(response, url) {
   if (path.endsWith('.css')) return type.includes('text/css');
   if (path.endsWith('.png')) return type.includes('image/png');
   if (path.endsWith('.svg')) return type.includes('image/svg+xml');
+  // Hosts label web fonts differently; any of these is a font file, never a sign-in page.
+  if (path.endsWith('.woff2')) return /font\/woff2|font-woff2|octet-stream/.test(type);
   if (path.endsWith('.webmanifest')) return /json|manifest/.test(type);
   return type.includes('text/html');
 }

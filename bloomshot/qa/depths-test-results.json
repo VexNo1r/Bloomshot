@@ -1,0 +1,162 @@
+{
+  "passed": 19,
+  "failed": 0,
+  "observations": {
+    "bossHp": [
+      6,
+      8,
+      9,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18
+    ],
+    "budsPerLevel": [
+      343,
+      370,
+      400,
+      463,
+      371,
+      353,
+      358,
+      401,
+      364,
+      411
+    ],
+    "fallSpeed": [
+      [
+        14,
+        18.6
+      ],
+      [
+        15.5,
+        20.2
+      ],
+      [
+        15,
+        18.4
+      ],
+      [
+        16.5,
+        19.8
+      ],
+      [
+        17.2,
+        22.1
+      ],
+      [
+        12.4,
+        15.9
+      ],
+      [
+        16.8,
+        21.6
+      ],
+      [
+        14.7,
+        18.9
+      ],
+      [
+        18.7,
+        24
+      ],
+      [
+        16.7,
+        20.5
+      ]
+    ],
+    "averagePlayerLivesLost": [
+      0,
+      0,
+      1,
+      1,
+      4,
+      2,
+      5,
+      2,
+      2,
+      4
+    ]
+  },
+  "results": [
+    {
+      "name": "Browser and CommonJS builds expose the same API",
+      "passed": true
+    },
+    {
+      "name": "Ten levels of ten waves, the first four free, the rest one product",
+      "passed": true
+    },
+    {
+      "name": "Every bud starts on the board, never overlaps another, and sways inside the walls",
+      "passed": true
+    },
+    {
+      "name": "Rocks and the leaf sit between the flowers and the launcher, clear of every opening bud",
+      "passed": true
+    },
+    {
+      "name": "Currents and tunnels are valid, and sit clear of the launcher and the opening buds",
+      "passed": true
+    },
+    {
+      "name": "Each level brings its own twist and ends with a tougher boss",
+      "passed": true
+    },
+    {
+      "name": "Cups turn away shots from below, but a shot from above or a crown blooms them",
+      "passed": true
+    },
+    {
+      "name": "A puffcap blooms everything within reach and nothing past it",
+      "passed": true
+    },
+    {
+      "name": "A boss that reaches the line costs a life and climbs back; blooming it blooms its wave",
+      "passed": true
+    },
+    {
+      "name": "Drops wait for their time and for room at the top, and the wave only clears after the last one",
+      "passed": true
+    },
+    {
+      "name": "Crystals slide, the leaf keeps its turn between waves, and turning never moves a rock",
+      "passed": true
+    },
+    {
+      "name": "Swaying buds move side to side and fast ones fall faster",
+      "passed": true
+    },
+    {
+      "name": "Progress saves stars, best score and furthest wave; levels open in order",
+      "passed": true
+    },
+    {
+      "name": "Currents bend a shot without changing its speed",
+      "passed": true
+    },
+    {
+      "name": "A tunnel sends a straight shot out of its partner at the exit heading",
+      "passed": true
+    },
+    {
+      "name": "A shell only lets a shot in through its opening, and a crown chain blooms shelled buds anyway",
+      "passed": true
+    },
+    {
+      "name": "A geode cracks into gems that must bloom before the wave clears, unless a big bloom takes it",
+      "passed": true
+    },
+    {
+      "name": "Briars grow back unless the whole patch blooms in time",
+      "passed": true
+    },
+    {
+      "name": "A practice bot clears every level, and the levels get harder",
+      "passed": true
+    }
+  ]
+}
