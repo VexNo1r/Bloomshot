@@ -4,9 +4,7 @@ A mobile-first botanical arcade game with Meadow Rush, a persistent illustrated 
 
 ## Play
 
-Private hosted proof: https://bloomshot-meadow.trevor-owens1996.chatgpt.site
-
-Sign in with the owning account. This is a private web release, not an App Store or Google Play release. Purchases are not implemented.
+Private hosted proof: https://bloomshot-meadow.trevor-owens1996.chatgpt.site (sign in with the owning account). It still serves the October 2 build until Codex refreshes it from `main` (task C1 in `../docs/LAUNCH-PLAN.md`). This is a private web release, not an App Store or Google Play release. Purchases are built and unit-tested but switched off: nothing is on sale anywhere, and the web version never sells (see `../docs/STORES.md`).
 
 To run locally from this folder:
 
@@ -34,21 +32,13 @@ Settings contains home-screen installation guidance, offline download status, an
 ## Verify
 
 ```powershell
-node qa/test-engine.cjs
-node qa/test-rush.cjs
-node qa/test-pod.cjs
-node qa/test-pwa.cjs
-node qa/test-sound.cjs
-node qa/test-garden.cjs
-node qa/test-save-integration.cjs
-node qa/test-moon-engine.cjs
-node qa/test-moon-levels.cjs
-node qa/test-precache-streams.cjs
+foreach ($f in Get-ChildItem qa/test-*.cjs) { node $f; if ($LASTEXITCODE) { throw "FAILED: $f" } }
+node qa/check-moon-pointer.cjs
 ```
 
-Automated reports total 118 passing checks: 20 campaign-engine, 17 Rush, 20 PWA/service-worker, 12 audio-graph, 20 garden-domain, 14 save-integration and 15 Moon-engine checks. All six Moon solution routes replayed at 30, 60 and 144 Hz. A search across 770 opening shots found zero one-shot clears; this is not evidence of human difficulty or balance. The constrained-download regression also passed. These checks do not establish physical-device performance, perceived audio quality, fun, retention or revenue.
+Every suite must exit 0: 24 suites as of October 12, 2026, the same list CI runs in `../.github/workflows/web-tests.yml`. Running them rewrites several `qa/*-results.json` files; commit only the ones your change affects. Then, from `../native/`: `npm ci && npm run sync && npm run check`. These checks do not establish physical-device performance, perceived audio quality, fun, retention or revenue.
 
-Read `CLAUDE-HANDOFF.md` for the release state, exact hosting source, tests and next priorities. `ART-PROVENANCE.md` contains the art provenance, UI prompts and generation modes. Moon is a free playable chapter; Koi remains a visual preview with Meadow geometry. The release sequence is mobile web proof, then iOS/Android packaging and real optional purchases.
+Read `CLAUDE-HANDOFF.md` for the technical map and `../docs/LAUNCH-PLAN.md` for who does what next. `ART-PROVENANCE.md` contains the art provenance, UI prompts and generation modes. Moon is a free playable chapter; the Koi Conservatory has eight pools, the first two free and the rest behind a purchase that is not on sale yet.
 
 ## Your meadow
 
@@ -56,4 +46,4 @@ Choose one of six patches and plant your four starter seeds. Each patch grows th
 
 ## Native source
 
-Android and iOS source projects are prepared in the sibling `bloomshot-native` folder and separate `BLOOMSHOT-native-source.zip`. Read its README before building. Generation and sync passed; no APK/iOS app was compiled or installed, no billing was added, and store publication remains outstanding. Keep both folders side by side for native sync.
+Android and iOS source projects live in `../native/` (Capacitor 8). Read `../native/README.md` before building. Both compile in GitHub Actions ("Android debug APK" and "iOS simulator build", last run October 12, 2026); neither has been launched on a real device or simulator, no store account exists, and nothing is on sale.
