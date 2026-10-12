@@ -1,6 +1,6 @@
 # BLOOMSHOT — handoff to Codex
 
-Updated October 9, 2026 by Claude after passes 9 to 11 and the level campaign (levels 1 to 10 and their unlock). This replaces the October 4 handoff. Read all of "Start here" before touching files.
+Updated October 12, 2026 by Claude after the seed pod (PR 27) merged. This file is the technical map; the release sequence with an owner per step (Trevor, Codex, Claude) is `../docs/LAUNCH-PLAN.md`, read it after "Start here". This replaces the October 9 handoff. Read all of "Start here" before touching files.
 
 ## Start here
 
@@ -143,8 +143,9 @@ Koi (`bloomshot.world.koi`, $4.99), Keepsake Collection (`bloomshot.style.collec
 
 ## What to do next
 
-1. Get Trevor playing the levels on his phone and ask which waves feel unfair, slow or flat; retune `depths.js` with the practice bot rather than by feel alone.
-2. Google Play: products, RevenueCat entitlements, sandbox buy, cancel, restore and refund for each product, then flip products to available one at a time.
-3. After the levels: decorations and goals keep the meadow fresh; new earnable keepsakes; boosters only if earnable in play and never sold as relief from designed frustration.
-4. Keep every new screen, scene and line of text to the Storybook rules above. New scenes start from the painter's kit and a frame-by-frame look at Sunny Meadow and Root Tunnels.
-5. Update this file at the end of every fourth pass.
+The ordered list with owners (Trevor, Codex, Claude) is `../docs/LAUNCH-PLAN.md`; keep that page current instead of this section. Standing rules that stay here:
+
+1. When a play report names a level as unfair, slow or flat, retune `depths.js` with the practice bot (`qa/depths-bot.cjs`), never by feel alone. If younger players starve for seeds on levels 4, 6, 7 or 10, change the pod rules in `rush.js`, not the paces, and only after a playtest (see "Fire rate (October 11)").
+2. After the levels: decorations and goals keep the meadow fresh; new earnable keepsakes; boosters only if earnable in play and never sold as relief from designed frustration.
+3. Keep every new screen, scene and line of text to the Storybook rules above. New scenes start from the painter's kit and a frame-by-frame look at Sunny Meadow and Root Tunnels.
+4. Update this file at the end of every fourth pass.
