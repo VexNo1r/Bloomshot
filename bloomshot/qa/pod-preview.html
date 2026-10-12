@@ -1,0 +1,41 @@
+<!doctype html>
+<!-- The seed pod on every level scene, six states each (full, two left, one left, empty, a dry tap, sun and badge). Serve the game and open qa/pod-preview.html. -->
+<html><head><meta charset="utf-8"><title>Pod preview</title>
+<link rel="stylesheet" href="../styles.css">
+<style>body{margin:0;background:#ddd;font:12px Nunito, sans-serif} .row{display:flex;gap:6px;margin:6px} canvas{background:#fff} .lab{width:60px}</style>
+<script src="../depths.js"></script><script src="../powers.js"></script><script src="../engine.js"></script><script src="../rush.js"></script>
+<script src="../feel.js"></script><script src="../scenery.js"></script><script src="../art.js"></script>
+</head><body><div id="out"></div>
+<script>
+const states = [
+  ['full', g => { g.pod = 4; g.podGrow = 0; }],
+  ['2 left', g => { g.pod = 2; g.podGrow = .55; }],
+  ['1 left', g => { g.pod = 1; g.podGrow = .3; }],
+  ['empty', g => { g.pod = 0; g.podGrow = .62; }],
+  ['dry tap', g => { g.pod = 0; g.podGrow = .2; g.dryAt = g.time - .05; }],
+  ['sun+mult', g => { g.pod = 3; g.podGrow = .4; g.sunCharge = 20; g.sunLit = 5; g.combo = 9; g.lastHitAt = g.time; }],
+];
+async function run() {
+  await document.fonts.ready;
+  const out = document.getElementById('out');
+  for (let id = 1; id <= 10; id++) {
+    const row = document.createElement('div'); row.className = 'row'; out.appendChild(row);
+    const lab = document.createElement('div'); lab.className = 'lab'; lab.textContent = 'L' + id + ' ' + BloomDepths.level(id).key; row.appendChild(lab);
+    for (const [name, set] of states) {
+      const level = BloomDepths.level(id);
+      const g = new BloomRush.RushGame({ plan: { id, name: level.name, waves: BloomDepths.waveCount, wave: n => BloomDepths.wave(id, n) } });
+      g.started = true; g.status = 'flying'; g.time = 3; g.lives = 3;
+      set(g);
+      const c = document.createElement('canvas'); c.width = 420 * 2; c.height = 560 * 2; c.title = name;
+      const full = c.getContext('2d'); full.scale(2, 2);
+      BloomArt.draw(full, g, g.time, { theme: 'depth-' + level.key, reducedMotion: false, kick: 0, showAim: false });
+      const crop = document.createElement('canvas'); crop.width = 400; crop.height = 210;
+      crop.getContext('2d').drawImage(c, 150 * 2, 440 * 2, 200 * 2, 105 * 2, 0, 0, 400, 210);
+      crop.style.width = '280px'; crop.style.height = '147px';
+      row.appendChild(crop);
+    }
+  }
+  document.title = 'ready';
+}
+run();
+</script></body></html>

@@ -1512,13 +1512,48 @@
     frameAhead = 0; feelOpts = null;
   }
 
+  // The seed tray beside the pod: the three seeds waiting behind the one in the cup, like birds beside a slingshot.
+  // Full slots hold a seed, empty ones are dimples, and the next one to regrow fills like a clock. It sits right of
+  // the pod, clear of the sun fan above it, the hearts below, the trick stamps' lane on the left and the badge.
+  const TRAY = { x: 242, y: 498, w: 74, h: 30, slots: [257, 279, 301], sy: 513 };
+  function drawSeedTray(ctx, state, time, style, reducedMotion, dry) {
+    const pod = Math.max(0, Math.min(4, Math.floor(Number(state.pod) || 0))), grow = clamp(Number(state.podGrow) || 0, 0, 1);
+    ctx.save();
+    ctx.shadowColor = 'rgba(20,70,64,.28)'; ctx.shadowBlur = 5; ctx.shadowOffsetY = 1.5;
+    roundRect(ctx, TRAY.x, TRAY.y, TRAY.w, TRAY.h, TRAY.h / 2); ctx.fillStyle = 'rgba(255,251,240,.94)'; ctx.fill();
+    ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+    ctx.lineWidth = 2; ctx.strokeStyle = dry ? `rgb(${Math.round(14 + 241 * dry)},${Math.round(143 - 23 * dry)},${Math.round(134 - 30 * dry)})` : '#0e8f86'; ctx.stroke();
+    TRAY.slots.forEach((sx, i) => {
+      const slot = i + 1;
+      if (pod > slot) {
+        const since = Number.isFinite(state.podAt) && pod === slot + 1 ? time - state.podAt : Infinity;
+        const pop = !reducedMotion && since >= 0 && since < .2 ? 1 + .3 * (1 - since / .2) : 1;
+        drawSeed(ctx, sx, TRAY.sy, 7.4 * pop, time, false, style);
+        return;
+      }
+      circle(ctx, sx, TRAY.sy, 7.6, dry ? `rgba(255,138,122,${.25 + .35 * dry})` : 'rgba(14,143,134,.14)', 'rgba(14,143,134,.55)', 1.3);
+      if (pod === slot && grow > 0) {
+        ctx.beginPath(); ctx.moveTo(sx, TRAY.sy); ctx.arc(sx, TRAY.sy, 7.6, -Math.PI / 2, -Math.PI / 2 + grow * TAU); ctx.closePath();
+        ctx.fillStyle = 'rgba(19,169,143,.75)'; ctx.fill();
+      }
+    });
+    ctx.restore();
+  }
+
   function drawLauncher(ctx, state, time, colors, style, kick, reducedMotion) {
     const x = (state.launcher && Number(state.launcher.x)) || 210;
     const y = (state.launcher && Number(state.launcher.y)) || 498;
     const rush = state.mode === 'rush';
     const left = rush ? (state.lives == null ? 3 : state.lives) : state.shotsLeft == null ? 3 : state.shotsLeft;
     const k = reducedMotion ? 0 : clamp(Number(kick) || 0, 0, 1), next = FLOWERS[state.nextType];
+    // The seed pod (Rush): the cup holds the next seed only when the pod has one; empty, it shows the regrow ring.
+    const live = state.status !== 'lost' && state.status !== 'won';
+    const podded = rush && live && Number(state.podSize) > 0 && Number.isFinite(state.pod);
+    const loaded = !podded || Number(state.superBloom) > 0 || state.pod >= 1;
+    const dryAge = podded && Number.isFinite(state.dryAt) ? time - state.dryAt : Infinity;
+    const dry = dryAge >= 0 && dryAge < .24 ? 1 - dryAge / .24 : 0;
     ctx.save();
+    if (dry && !reducedMotion) ctx.translate(Math.sin(dryAge * 75) * 3 * dry, 0);
     const pull = reducedMotion ? null : podPose(ctx, state, time, x, y);
     // A shot pushes the pod down and wide for a blink before it springs back, with a puff of air around it.
     if (k > 0) {
@@ -1530,16 +1565,34 @@
     else { ctx.shadowColor = '#12bcc199'; ctx.shadowBlur = 16; }
     circle(ctx, x, y + 2, 22, 'rgba(5,155,150,.15)');
     circle(ctx, x, y, 19.5, '#50d7bb', '#ffffff', 1.5);
-    circle(ctx, x, y, 14.7, '#d6ffee', '#9be9d8', 1);
+    circle(ctx, x, y, 14.7, loaded ? '#d6ffee' : '#bfe9dc', '#9be9d8', 1);
     ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
-    if (next && rush && !state.armed && state.status !== 'lost' && state.status !== 'won') circle(ctx, x, y, 17.1, null, next.base, 2.2);
-    if (rush && state.armed && POWER_TINT[state.armed] && state.status !== 'lost' && state.status !== 'won') {
-      // An armed powerup sits in the launcher in place of the seed, with a ring that breathes.
+    if (!loaded) {
+      // Empty: a hollow cup with a mint ring that fills clockwise from the top as the next seed regrows.
+      const grow = clamp(Number(state.podGrow) || 0, 0, 1), beat = reducedMotion ? 0 : .5 + .5 * Math.sin(time * 6);
+      circle(ctx, x, y, 7.5, 'rgba(14,143,134,.10)', 'rgba(14,143,134,.38)', 1.2);
+      circle(ctx, x, y, 17.1, null, dry ? `rgba(255,120,104,${.55 + .45 * dry})` : 'rgba(255,255,255,.72)', 3.2);
+      if (grow > 0) {
+        ctx.beginPath(); ctx.arc(x, y, 17.1, -Math.PI / 2, -Math.PI / 2 + grow * TAU);
+        ctx.lineWidth = 3.4; ctx.lineCap = 'round'; ctx.strokeStyle = '#13a98f'; ctx.stroke();
+        ctx.beginPath(); ctx.arc(x, y, 17.1, -Math.PI / 2 + grow * TAU - .01, -Math.PI / 2 + grow * TAU);
+        ctx.lineWidth = 5 + beat * 1.5; ctx.strokeStyle = '#7ff0cf'; ctx.stroke(); ctx.lineCap = 'butt';
+      }
+    } else if (next && rush && !state.armed && live) circle(ctx, x, y, 17.1, null, next.base, 2.2);
+    if (rush && state.armed && POWER_TINT[state.armed] && live) {
+      // An armed powerup sits in the launcher in place of the seed, with a ring that breathes (dim while the pod is empty).
       const beat = .5 + Math.sin(time * 5) * .5;
+      if (!loaded) ctx.globalAlpha = .45;
       circle(ctx, x, y, 22 + beat * 3, null, POWER_TINT[state.armed], 2.4);
       drawPowerIcon(ctx, state.armed, x, y, 12.5, time);
-    } else if (state.status === 'aiming' || !state.status || (rush && state.status !== 'lost')) drawSeed(ctx, x + (pull ? pull.x : 0), y + (pull ? pull.y : 0), 8.4, time, false, style);
+      ctx.globalAlpha = 1;
+    } else if (loaded && (state.status === 'aiming' || !state.status || (rush && state.status !== 'lost'))) {
+      const since = podded && Number.isFinite(state.podAt) && state.pod === 1 ? time - state.podAt : Infinity;
+      const pop = !reducedMotion && since >= 0 && since < .2 ? 1 + .3 * (1 - since / .2) : 1;
+      drawSeed(ctx, x + (pull ? pull.x : 0), y + (pull ? pull.y : 0), 8.4 * pop, time, false, style);
+    }
     ctx.restore();
+    if (podded) drawSeedTray(ctx, state, time, style, reducedMotion, dry);
     // Lives (Rush) or shots left sit still under the pod; a heart just lost cracks in two and falls away. Rush hearts
     // are drawn a third bigger so they read on a small phone.
     ctx.save(); ctx.fillStyle = colors.ink; ctx.globalAlpha = .7;
@@ -1993,10 +2046,12 @@
     ctx.restore();
   }
 
-  function drawAim(ctx, points, colors, time, type, reducedMotion) {
+  // hollow: the pod is empty, so the line is drawn as open rings (like the refill ring) until a seed is in the cup.
+  function drawAim(ctx, points, colors, time, type, reducedMotion, hollow) {
     if (!Array.isArray(points) || points.length < 2) return;
     ctx.save(); ctx.lineCap = 'round';
     const tint = FLOWERS[type], dot = tint ? tint.base : colors.track, ring = tint ? tint.dark : colors.track;
+    const dim = hollow ? .55 : 1;
     // The dots drift along the path toward where the seed will go.
     let carry = reducedMotion ? 0 : (Number(time) || 0) * 26 % 11, distance = 0, afterGate = Infinity;
     for (let i = 1; i < points.length; i++) {
@@ -2008,14 +2063,16 @@
       if (!len) continue;
       for (let d = carry; d <= len; d += 11) {
         const fade = Math.max(clamp(1 - (distance + d) / 720, .16, .85), afterGate + d < 76 ? .78 - (afterGate + d) * .002 : 0);
-        ctx.globalAlpha = fade;
-        circle(ctx, prev.x + dx * d / len, prev.y + dy * d / len, tint ? 2.7 - Math.min(1.1, (distance + d) / 500) : 2, dot, '#ffffff', tint ? 1 : .65);
+        ctx.globalAlpha = fade * dim;
+        const r = tint ? 2.7 - Math.min(1.1, (distance + d) / 500) : 2;
+        if (hollow) circle(ctx, prev.x + dx * d / len, prev.y + dy * d / len, r, 'rgba(255,255,255,.35)', dot, 1.3);
+        else circle(ctx, prev.x + dx * d / len, prev.y + dy * d / len, r, dot, '#ffffff', tint ? 1 : .65);
       }
       // Where the path turns off a petal, rock or wall, a small ring marks the bounce.
       const after = points[i + 1], ax = after ? after.x - next.x : 0, ay = after ? after.y - next.y : 0;
       const turn = after && !after.move ? (dx * ax + dy * ay) / (len * (Math.hypot(ax, ay) || 1)) : 1;
       if (tint && turn < .94 && distance + len < 640) {
-        ctx.globalAlpha = clamp(1 - (distance + len) / 720, .3, .85);
+        ctx.globalAlpha = clamp(1 - (distance + len) / 720, .3, .85) * dim;
         circle(ctx, next.x, next.y, 4.2, 'rgba(255,255,255,.55)', ring, 1.6);
       }
       if (prev.move && len > 12) {
@@ -2039,13 +2096,14 @@
       const k = reducedMotion ? 1 : clamp((now - lockSince) / .2, 0, 1), e = reducedMotion ? 1 : easeBack(k);
       const radius = (Number(target.r) || 12) + (target.boss ? 15 : 11) + 18 * (1 - e);
       const spin = Math.PI / 4 + (reducedMotion ? 0 : now * .9), pulse = reducedMotion ? 1 : 1 + .08 * Math.sin(now * 7);
-      ctx.globalAlpha = clamp(k * 2.5, 0, 1); ctx.lineJoin = 'round';
+      ctx.globalAlpha = clamp(k * 2.5, 0, 1) * dim; ctx.lineJoin = 'round';
       for (let i = 0; i < 4; i++) {
         const a = spin + i * TAU / 4;
         ctx.save(); ctx.translate(target.x + Math.cos(a) * radius, target.y + Math.sin(a) * radius); ctx.rotate(a); ctx.scale(pulse, pulse);
         ctx.beginPath(); ctx.moveTo(-3.4, 0); ctx.lineTo(4.2, -5); ctx.quadraticCurveTo(2.4, 0, 4.2, 5); ctx.closePath();
         ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3.2; ctx.stroke();
-        ctx.fillStyle = dot; ctx.fill(); ctx.strokeStyle = ring; ctx.lineWidth = .9; ctx.stroke();
+        // Hollow arrowheads while the pod refills: the lock shows where the seed will go, not that it can go yet.
+        ctx.fillStyle = hollow ? 'rgba(255,255,255,.6)' : dot; ctx.fill(); ctx.strokeStyle = hollow ? dot : ring; ctx.lineWidth = hollow ? 1.3 : .9; ctx.stroke();
         ctx.restore();
       }
     } else lockTarget = null;
@@ -2851,6 +2909,22 @@
       // It swells in after the impact's freeze, so the boss's squeezed face reads in the hero frame.
       ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .72 * f * f * Math.min(1, q / .15);
       if (sprite) dab(ctx, sprite, particle.x, particle.y, rr / 40); else circle(ctx, particle.x, particle.y, rr * .5, 'rgba(255,224,130,.5)');
+      ctx.restore(); return;
+    }
+    if (particle.kind === 'podSpark') {
+      // A refund: a seed of light arcs from the flower that fed the pod down to the slot it filled, trailing mint.
+      const from = particle.from, to = particle.to;
+      if (from && to) {
+        const cx = (from.x + to.x) / 2, cy = (from.y + to.y) / 2 - 60, q = 1 - f;
+        const at = t => { const u = 1 - t; return [u * u * from.x + 2 * u * t * cx + t * t * to.x, u * u * from.y + 2 * u * t * cy + t * t * to.y]; };
+        ctx.globalAlpha = 1;
+        for (let k = 4; k >= 1; k--) {
+          const t = q - k * .07; if (t <= 0) continue;
+          const [tx, ty] = at(t); ctx.globalAlpha = .55 * (1 - k / 5); circle(ctx, tx, ty, 3.4 - k * .45, '#7ff0cf');
+        }
+        const [hx, hy] = at(q), petal = FLOWERS[particle.type];
+        ctx.globalAlpha = 1; circle(ctx, hx, hy, 3.4, petal ? petal.base : '#13a98f', '#ffffff', 1);
+      }
       ctx.restore(); return;
     }
     if (particle.kind === 'firefly') {
@@ -3841,7 +3915,10 @@
       if (bumper.kind === 'rock' && root.BloomScenery) root.BloomScenery.drawRock(ctx, bumper, options.theme);
       else drawBumper(ctx, bumper, options.selectedBumper === bumper.id, time, colors, options.reducedMotion);
     }
-    if (options.showAim !== false && state.aim && (state.status !== 'flying' || options.showAim === true)) drawAim(ctx, state.aim, colors, time, state.nextType, options.reducedMotion);
+    if (options.showAim !== false && state.aim && (state.status !== 'flying' || options.showAim === true)) {
+      const hollow = rush && Number(state.podSize) > 0 && Number.isFinite(state.pod) && state.pod < 1 && !(Number(state.superBloom) > 0);
+      drawAim(ctx, state.aim, colors, time, state.nextType, options.reducedMotion, hollow);
+    }
     drawLauncher(ctx, state, time, colors, options.keepsake, options.kick, options.reducedMotion);
 
     const balls = Array.isArray(state.balls) ? state.balls : state.ball ? [state.ball] : [];
@@ -3983,5 +4060,7 @@
   }
 
   root.BloomArt = { draw, drawFlower, drawGarden, drawMoon, koiFish, drawProjectile, drawParticle, drawSeed, drawPowerIcon, drawUnfurl, drawChainLinks,
-    prewarm, setHarvestTarget, paints: () => painted };
+    prewarm, setHarvestTarget, paints: () => painted,
+    // Where a pod seed sits: slot 0 is the cup, 1-3 the tray beside it.
+    podSlot: i => i >= 1 && i <= 3 ? { x: TRAY.slots[i - 1], y: TRAY.sy } : { x: 210, y: 498 } };
 })(typeof window !== 'undefined' ? window : globalThis);
