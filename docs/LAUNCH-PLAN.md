@@ -4,7 +4,7 @@ Written October 12, 2026 by Claude from a fresh clone of `main` (commit `acedd16
 
 ## Verified on October 12
 
-- `main` passes all 24 QA suites and the Moon pointer check locally and in CI. The native packaging check matches 32 assets. The native shell has not been compiled since October 3, before the background, color, fun, tutorial and growth passes; both cloud builds were started again today from `main` (Actions tab: "Android debug APK" and "iOS simulator build").
+- `main` passes all 24 QA suites and the Moon pointer check locally and in CI. The native packaging check matches 32 assets. The native shell had not been compiled since October 3, before the background, color, fun, tutorial and growth passes; both cloud builds were run again today from `main` and passed (Actions runs 38191933641, Android debug APK, and 38191935684, iOS simulator build). Still unverified: any launch on a real phone or simulator.
 - The game runs clean in headless Chromium at 360, 390 and 820 px wide: every tab, a level, powerups, Restart, Settings, How to play and the tutorial replay, with no console errors, warnings, failed requests or page errors.
 - The game is live nowhere a phone can reach: GitHub Pages is still off (the Pages workflow only builds as a check), the ChatGPT-hosted copy at `bloomshot-meadow.trevor-owens1996.chatgpt.site` is the October 2 build (its source repo `bloomshot-site` has not changed since), and there is no Android release because the upload key has not been made.
 - Pull request 27 (the seed pod) is open, green and reviewed: one small hint bug was fixed on the branch and `main` was merged in, so it merges cleanly.
@@ -52,7 +52,7 @@ Codex owns the `bloomshot-site` repository and the ChatGPT-hosted copy, the stor
 | # | Task | State |
 |---|---|---|
 | K1 | Review PR 27, fix what it finds, merge `main` into it so it merges cleanly | Done October 12 |
-| K2 | Start the Android debug and iOS simulator cloud builds on current `main` and read their results | Started October 12 |
+| K2 | Run the Android debug and iOS simulator cloud builds on current `main` | Done October 12, both passed |
 | K3 | Publish a private phone-playable build of `main` and PR 27 for Trevor | Done October 12 |
 | K4 | Fix whatever T1 and C5 find, retuning with `qa/depths-bot.cjs`, never by feel alone | Waiting on play reports |
 | K5 | When T9 exists: put the Android public SDK key in `store-config.js`, flip `bloomshot.levels.full` to available, run "Android release bundle", walk Trevor through the sandbox buy, cancel, restore and refund checks in `docs/STORES.md` | Waiting on T3, T4, T5, T9 |
