@@ -7,7 +7,7 @@ Written October 12, 2026 by Claude from a fresh clone of `main` (commit `acedd16
 - `main` passes all 24 QA suites and the Moon pointer check locally and in CI. The native packaging check matches 32 assets. The native shell had not been compiled since October 3, before the background, color, fun, tutorial and growth passes; both cloud builds were run again today from `main` and passed (Actions runs 38191933641, Android debug APK, and 38191935684, iOS simulator build). Still unverified: any launch on a real phone or simulator.
 - The game runs clean in headless Chromium at 360, 390 and 820 px wide: every tab, a level, powerups, Restart, Settings, How to play and the tutorial replay, with no console errors, warnings, failed requests or page errors.
 - The game is live nowhere a phone can reach: GitHub Pages is still off (the Pages workflow only builds as a check), the ChatGPT-hosted copy at `bloomshot-meadow.trevor-owens1996.chatgpt.site` is the October 2 build (its source repo `bloomshot-site` has not changed since), and there is no Android release because the upload key has not been made.
-- Pull request 27 (the seed pod) is open, green and reviewed: one small hint bug was fixed on the branch and `main` was merged in, so it merges cleanly.
+- Pull request 27 (the seed pod) was reviewed, one small hint bug was fixed on the branch, and Trevor merged it on October 12. `main` now carries the pod.
 
 ## The money path, plainly
 
@@ -23,7 +23,7 @@ What to expect: a casual game with no marketing budget converts roughly one to t
 
 | # | Do this | Why | Where |
 |---|---|---|---|
-| T1 | Play the current build on your phone and the seed-pod build from PR 27, then merge PR 27 or say what to change | Nothing beats your own hands on the levels; the pod changes how every level feels | Playtest link from Claude (private, sign in) |
+| T1 | Play the current build on your phone, now with the seed pod, and say which levels feel unfair, slow or flat | Nothing beats your own hands on the levels | Playtest link from Claude (private, sign in) |
 | T2 | Repo Settings, Pages, Source: **GitHub Actions** | One click. Every push to `main` then publishes the game at `https://vexno1r.github.io/Bloomshot/`, the tester and share link until the stores exist | GitHub, Bloomshot, Settings |
 | T3 | Pay the Google Play Console fee ($25), Personal account, identity check, sign in to the Play Console app on an Android phone | Starts the only clock that matters | `docs/PLAY-LAUNCH.md` step 1 |
 | T4 | Payments profile: bank and tax | No product can be created without it | `docs/PLAY-LAUNCH.md` step 2 |
@@ -51,7 +51,7 @@ Codex owns the `bloomshot-site` repository and the ChatGPT-hosted copy, the stor
 
 | # | Task | State |
 |---|---|---|
-| K1 | Review PR 27, fix what it finds, merge `main` into it so it merges cleanly | Done October 12 |
+| K1 | Review PR 27, fix what it finds, merge `main` into it | Done October 12; Trevor merged it the same day |
 | K2 | Run the Android debug and iOS simulator cloud builds on current `main` | Done October 12, both passed |
 | K3 | Publish a private phone-playable build of `main` and PR 27 for Trevor | Done October 12 |
 | K4 | Fix whatever T1 and C5 find, retuning with `qa/depths-bot.cjs`, never by feel alone | Waiting on play reports |
@@ -68,7 +68,7 @@ Codex owns the `bloomshot-site` repository and the ChatGPT-hosted copy, the stor
 
 ## Decisions only Trevor can make
 
-1. PR 27, the seed pod: merge, or change. It was built on his own feedback that spamming shots made the game too easy.
+1. The seed pod is merged. The open question is whether any level now feels starved of seeds; the handoff names younger players on levels 4, 6, 7 and 10 as the ones to watch, and the fix belongs in `rush.js`, not `depths.js`.
 2. The app id, before the first Play upload (T7). `dev.bloomshot.game` works on Google Play; Apple needs it unique, not owned. Pick once.
 3. Launch prices stay as built: $2.99 for levels 5 to 10, $6.99 for the Complete Garden, $4.99 Koi, $1.99 Keepsakes, $0.25 powerups ($0.29 on iOS). Google Play price experiments can test $3.99 later with real data.
 4. Whether the hosted web copies (chatgpt.site and GitHub Pages) are public now. Recommendation: yes. The web version sells nothing and a public link is how testers and friends find the game.
