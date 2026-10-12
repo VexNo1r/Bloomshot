@@ -2010,6 +2010,13 @@
       processEvents(); $('game-hint').textContent = isKoi() ? 'Let the water take it.' : isMoon() ? 'Let it fly.' : isRush() ? isDepth() ? depthHint() : rushHint() : 'Now drag to steer!';
       return;
     }
+    // A quick tap while a kept shot waits for its seed changes nothing: its line comes back and the hint says so,
+    // instead of wiping the line and claiming the pod is out of seeds just before that shot flies.
+    if (game.kept) {
+      remembered = null; game.aim = game.trace(game.kept.dx * 400, game.kept.dy * 400);
+      if (isRush() && !game.over) { $('game-hint').textContent = 'Seed coming… your shot fires when it\u2019s in.'; processEvents(); }
+      return;
+    }
     // An aimed shot let go too early stays on the board, hollow until its seed is in, so one quick tap then sends it.
     remembered = held >= HELD && podEmpty() && !game.over && !isTutorial() ? { angle: shot, until: performance.now() + REMEMBER } : null;
     if (!remembered) game.aim = [];
@@ -2024,7 +2031,8 @@
   function cancelInteraction() {
     const id = activePointer; activePointer = null;
     aiming = false; guiding = false; pointer = null; pressAt = 0; pressPoint = null; remembered = null;
-    if (game) { game.guide(null); game.aim = []; }
+    // A shot already kept for its seed keeps its line: the engine still fires it.
+    if (game) { game.guide(null); if (!game.kept) game.aim = []; }
     if (id !== null && canvas.hasPointerCapture(id)) canvas.releasePointerCapture(id);
   }
   canvas.addEventListener('pointerdown', event => {
