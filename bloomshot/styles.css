@@ -712,8 +712,6 @@ body[data-world="moon"] .desktop-mode-moon,body[data-world="koi"] .desktop-mode-
   body[data-mode="rush"] .play-strip{margin:4px 0 5px}
   body[data-mode="rush"] .game-hint{flex-basis:24px}
   body[data-mode="rush"] .game-actions{flex-basis:52px;padding-bottom:6px}
-  /* Here a tutorial card at the top reaches the powerup tray, which it does not teach until it moves down. */
-  body:has(.tutorial:not([hidden]):not([data-place="low"])) .power-group{visibility:hidden}
 }
 @media(max-width:350px){
   .app-header{padding:0 8px}
@@ -795,7 +793,9 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
   body[data-view="game"] .status-item{font-size:12px}
   body[data-view="game"] .play-strip{position:absolute;z-index:3;top:calc(env(safe-area-inset-top) + 153px);left:calc(env(safe-area-inset-left) + 12px);right:calc(env(safe-area-inset-right) + 12px);max-width:760px;margin:0 auto;gap:6px}
   body[data-view="game"] .play-strip>.combo-meter{height:24px;min-width:74px;padding:0 8px;font-size:11px}
-  body[data-view="game"] .power-group{gap:6px}
+  body[data-view="game"] .power-tray{display:none}
+  body[data-view="game"][data-mode="rush"] .power-tray{position:absolute;z-index:4;left:calc(env(safe-area-inset-left) + 12px);right:calc(env(safe-area-inset-right) + 12px);bottom:calc(env(safe-area-inset-bottom) + 72px);display:flex;align-items:center;justify-content:center;gap:12px;height:44px}
+  body[data-view="game"] .power-group{gap:12px;flex-direction:row}
   body[data-view="game"] .power-chip{width:44px;height:44px}
   body[data-view="game"] .power-chip img{width:33px;height:33px}
   body[data-view="game"] .power-count{right:-4px;bottom:-4px;min-width:17px;height:17px;font-size:10px}
@@ -806,18 +806,22 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
   body[data-view="game"] .game-actions #restart-btn{flex:0 0 46px;margin-left:auto}
   body[data-view="game"] .game-actions #split-btn:not([hidden])+#restart-btn{margin-left:0}
   body[data-view="game"] .game-actions #restart-btn{width:46px;height:46px}
+  /* The board already paints attack warnings. Keep its lower edge for the pod and thumb controls. */
+  body[data-view="game"][data-mode="rush"] .game-hint{display:none}
+  body[data-view="game"][data-mode="rush"] .board-region{top:calc(env(safe-area-inset-top) + 184px);bottom:calc(env(safe-area-inset-bottom) + 128px)}
   body[data-view="game"] .bottom-nav{display:none}
   body[data-tutorial="on"][data-view="game"] .app-header{display:none}
 }
-/* Short portrait phones keep a readable board, with powers in two edge columns. */
+/* Short portrait phones keep one thumb-friendly power row above Split. */
 @media(max-width:520px) and (min-height:600px) and (max-height:740px) and (orientation:portrait){
-  body[data-view="game"] .board-region{inset:calc(env(safe-area-inset-top) + 138px) 56px calc(env(safe-area-inset-bottom) + 86px)}
-  body[data-view="game"] .board-wrap{height:auto;width:min(100%,calc((100dvh - 224px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) * .75));max-height:100%}
-  body[data-view="game"] .play-strip{top:calc(env(safe-area-inset-top) + 166px);justify-content:space-between;align-items:flex-start}
-  body[data-view="game"] .power-group{flex-direction:column;gap:10px}
-  body[data-view="game"] .play-strip>.combo-meter{position:absolute;left:0;top:-40px;flex:none;width:max-content}
+  body[data-view="game"] .board-region{inset:calc(env(safe-area-inset-top) + 156px) 0 calc(env(safe-area-inset-bottom) + 86px)}
+  body[data-view="game"] .board-wrap{height:100%;width:auto;max-height:133.333vw}
+  body[data-view="game"] .play-strip{top:calc(env(safe-area-inset-top) + 126px)}
+  body[data-view="game"] .play-strip>.combo-meter{flex:none;width:max-content}
   body[data-view="game"] .game-hint{bottom:calc(env(safe-area-inset-bottom) + 62px);font-size:11px;max-height:36px}
   body[data-view="game"] .game-actions{height:46px;bottom:calc(env(safe-area-inset-bottom) + 8px)}
+  body[data-view="game"][data-mode="rush"] .power-tray{bottom:calc(env(safe-area-inset-bottom) + 66px)}
+  body[data-view="game"][data-mode="rush"] .board-region{top:calc(env(safe-area-inset-top) + 156px);bottom:calc(env(safe-area-inset-bottom) + 122px)}
 }
 @media(min-width:521px) and (max-width:1100px){
   body{display:block}

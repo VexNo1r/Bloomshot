@@ -2077,9 +2077,92 @@
     }
     ctx.restore();
   }
+  function bossFlowerEffect(bud, time) {
+    const effect = bud && bud.bossFlowerEffect;
+    if (!effect || !BOSS_LOOKS[effect.kind] || bud.bloomed || bud.hidden || bud.visible === false || bud.boss || bud.bossPart || bud.gift || bud.puff || bud.geode || bud.gem) return null;
+    return Number.isFinite(effect.at) && Number.isFinite(effect.until) && time >= effect.at && time < effect.until ? effect : null;
+  }
+  function paintFlowerEffectMark(c, kind) {
+    const look = BOSS_LOOKS[kind];
+    c.translate(12, 12); c.lineCap = 'round'; c.lineJoin = 'round';
+    circle(c, 0, 0, 9.3, '#fffaf0', look.dark, 1.15);
+    c.strokeStyle = look.ink; c.fillStyle = look.base; c.lineWidth = 1.4;
+    if (kind === 'sunny') {
+      circle(c, 0, 0, 2.7, '#ffd34c', look.dark, 1);
+      for (let i = 0; i < 8; i++) { const a = i * TAU / 8; c.beginPath(); c.moveTo(Math.cos(a) * 4.3, Math.sin(a) * 4.3); c.lineTo(Math.cos(a) * 6.3, Math.sin(a) * 6.3); c.stroke(); }
+    } else if (kind === 'root') {
+      for (const side of [-1, 1]) { c.beginPath(); c.moveTo(side * 6.3, -3); c.lineTo(side * 2.2, 0); c.lineTo(side * 6.3, 3); c.stroke(); }
+    } else if (kind === 'puff') {
+      c.beginPath(); c.moveTo(-5.8, .2); c.bezierCurveTo(-5.2, -7, 5.2, -7, 5.8, .2); c.closePath(); c.fill(); c.stroke();
+      c.beginPath(); c.moveTo(-1.8, 1); c.lineTo(-1.5, 5.5); c.lineTo(1.7, 5.5); c.lineTo(2, 1); c.stroke();
+      for (const [x, y] of [[-2.4, -1.8], [1.9, -2.7]]) circle(c, x, y, .9, '#fff6e2');
+    } else if (kind === 'crystal' || kind === 'geode') {
+      bossPolygon(c, [[0, -6.6], [5.4, -1.7], [3.2, 5], [-3.2, 5], [-5.4, -1.7]], look.light, look.ink, 1.1);
+      c.beginPath(); c.moveTo(0, -6.6); c.lineTo(1.8, -.8); c.lineTo(0, 5); c.lineTo(-1.8, -.8); c.closePath(); c.fillStyle = look.base; c.fill();
+      if (kind === 'geode') { c.beginPath(); c.moveTo(3.7, 3.7); c.lineTo(7.3, 3.7); c.moveTo(5.5, 1.9); c.lineTo(5.5, 5.5); c.stroke(); }
+    } else if (kind === 'lotus') {
+      c.strokeStyle = '#388b78'; c.beginPath(); c.moveTo(0, 5.5); c.lineTo(0, -5.2); c.moveTo(-3, -2.2); c.lineTo(0, -5.2); c.lineTo(3, -2.2); c.stroke();
+      leaf(c, -1, 4, 5.7, 2.7, -1.05, '#83cbb2', '#388b78'); leaf(c, 1, 4, 5.7, 2.7, 1.05, '#b2ddbd', '#388b78');
+    } else if (kind === 'fossil') {
+      c.beginPath(); c.arc(0, 0, 5.7, -.5, 4.8); c.arc(0, 0, 3.5, 4.8, .1, true); c.arc(.2, 0, 1.5, .1, 4.4); c.stroke();
+    } else if (kind === 'ember') {
+      c.beginPath(); c.moveTo(.1, -6.7); c.bezierCurveTo(1, -2.3, 6.1, -1.6, 4.5, 3.5); c.bezierCurveTo(2, 7.1, -5.9, 4.7, -4.5, .2); c.quadraticCurveTo(-1, 2, .1, -6.7); c.closePath(); c.fill(); c.stroke();
+      c.beginPath(); c.moveTo(0, -.1); c.quadraticCurveTo(3.1, 4, -.9, 4.8); c.strokeStyle = '#fff0ab'; c.stroke();
+    } else if (kind === 'briar') {
+      c.beginPath(); c.moveTo(-4.7, 5.6); c.bezierCurveTo(6.1, 5.2, -6.4, -4.3, 4.9, -5.6); c.stroke();
+      for (const [x, y, side] of [[-2.2, 2.4, -1], [.3, -1.3, 1], [2.5, -4.3, -1]]) bossPolygon(c, [[x, y], [x + side * 3.1, y - 2.4], [x + .8, y - 1.4]], '#71984d', look.ink, .7);
+    } else if (kind === 'core') {
+      sparkle(c, -2.8, -1.8, 4.3, '#b8a0e5', .1); sparkle(c, 3.5, 2.4, 4.3, '#ffd36a', .1);
+    }
+  }
+  function drawFlowerEffectMark(ctx, kind, x, y, size) {
+    if (!BOSS_LOOKS[kind]) return;
+    const sprite = stageSprite(`guardian:flower-mark:${kind}`, 24, 24, c => paintFlowerEffectMark(c, kind));
+    if (sprite) ctx.drawImage(sprite.surface, x - size / 2, y - size / 2, size, size);
+    else { ctx.save(); ctx.translate(x - size / 2, y - size / 2); ctx.scale(size / 24, size / 24); paintFlowerEffectMark(ctx, kind); ctx.restore(); }
+  }
+  function drawBossFlowerWarning(ctx, state, time, still) {
+    const warning = state.bossState && state.bossState.flowerWarning;
+    if (!warning || !BOSS_LOOKS[warning.kind] || !Number.isFinite(warning.at) || !Number.isFinite(warning.until) || time < warning.at || time >= warning.until) return;
+    const look = BOSS_LOOKS[warning.kind], span = Math.max(.1, Math.min(Number(root.BloomBosses && root.BloomBosses.telegraph) || 1.3, warning.until - warning.at));
+    const progress = clamp(1 - (warning.until - time) / span, 0, 1);
+    const buds = Array.isArray(state.buds) ? state.buds : [];
+    ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    for (const target of Array.isArray(warning.targets) ? warning.targets.slice(0, 4) : []) {
+      const bud = buds.find(item => item.id === target.id);
+      if (!bud || bud.bloomed || bud.hidden || bud.visible === false || bud.boss || bud.bossPart || bud.gift || !Number.isFinite(bud.x) || !Number.isFinite(bud.y)) continue;
+      const radius = Math.max(2, Number(bud.r) || 13) + 5;
+      ctx.setLineDash([3, 3]); circle(ctx, bud.x, bud.y, radius, null, '#fff8dc', 3.3); circle(ctx, bud.x, bud.y, radius, null, look.dark, 1.3); ctx.setLineDash([]);
+      if (!still) { ctx.beginPath(); ctx.arc(bud.x, bud.y, radius + 3, -Math.PI / 2, -Math.PI / 2 + TAU * progress); ctx.strokeStyle = look.base; ctx.lineWidth = 1.8; ctx.stroke(); }
+      drawFlowerEffectMark(ctx, warning.kind, bud.x + radius * .72, bud.y - radius * .72, 15);
+      if (warning.kind === 'core' && Number.isFinite(target.echoX) && Number.isFinite(target.echoY) && Number.isFinite(target.echoR)) {
+        const r = Math.max(2, target.echoR);
+        ctx.setLineDash([3, 3]); ctx.beginPath();
+        for (let i = 0; i < 8; i++) { const a = -Math.PI / 2 + i * TAU / 8, length = i % 2 ? r * .44 : r; const x = target.echoX + Math.cos(a) * length, y = target.echoY + Math.sin(a) * length; if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }
+        ctx.closePath(); ctx.strokeStyle = '#fff8dc'; ctx.lineWidth = 3.3; ctx.stroke(); ctx.strokeStyle = '#a780d0'; ctx.lineWidth = 1.3; ctx.stroke(); ctx.setLineDash([]);
+      }
+    }
+    ctx.restore();
+  }
+  function drawVeiledFlower(ctx, bud, radius, time, effect) {
+    const type = FLOWERS[bud.type] ? bud.type : 'coral';
+    ctx.save(); ctx.globalAlpha *= clamp(Number(effect.opacity) || .4, .25, .6);
+    drawFlower(ctx, bud.x, bud.y, radius, type, 0, time, flowerVariants.get(bud)); ctx.restore();
+    // The faded fill remains a real target: its original silhouette and circular hit boundary stay solid.
+    ctx.save(); ctx.translate(bud.x, bud.y); closedBudPath(ctx, radius, type);
+    ctx.strokeStyle = '#fff6e9'; ctx.lineWidth = 2.8; ctx.stroke(); ctx.strokeStyle = FLOWERS[type].dark; ctx.lineWidth = 1.1; ctx.stroke();
+    circle(ctx, 0, 0, radius + 2.4, null, '#fff7e9', 1.2); ctx.restore();
+  }
+  function drawBossFlowerAccent(ctx, bud, effect) {
+    // Real shell, armor-ring, briar and ignition renderers already show those physical modifiers.
+    if (!effect || !['sunny', 'root', 'crystal', 'lotus', 'core'].includes(effect.kind)) return;
+    const r = Number(bud.r) || 13;
+    drawFlowerEffectMark(ctx, effect.kind, bud.x + r + 4, bud.y - r - 3, 12);
+  }
   function drawIgnitedBud(ctx, bud, state, time, still) {
-    const s = state.bossState, remaining = s && Number(bud.bossFlameUntil) - Number(s.age);
-    if (!s || s.kind !== 'ember' || bud.bloomed || !(remaining > 0)) return;
+    const s = state.bossState, effect = bossFlowerEffect(bud, time);
+    const remaining = effect && effect.kind === 'ember' ? effect.until - time : s && s.kind === 'ember' ? Number(bud.bossFlameUntil) - Number(s.age) : 0;
+    if (bud.bloomed || !(remaining > 0)) return;
     // Fire follows the actual warned escort. It adds no target, armor or collision geometry.
     const sprite = stageSprite('guardian:ignited-escort', 38, 38, c => {
       c.lineJoin = 'round';
@@ -2133,10 +2216,12 @@
   function drawBossWarning(ctx, state, time, still) {
     const w = state.bossWarning || state.bossState && state.bossState.warning;
     if (!w || !Number.isFinite(w.until) || !(time < w.until) || !Number.isFinite(w.x) || !Number.isFinite(w.y)) return;
-    const L = BOSS_LOOKS[w.kind] || BOSS_LOOKS.sunny, span = Math.max(.1, w.until - (Number(w.at) || 0)), p = clamp((time - (Number(w.at) || 0)) / span, 0, 1);
+    const L = BOSS_LOOKS[w.kind] || BOSS_LOOKS.sunny, span = Math.max(.1, Math.min(Number(root.BloomBosses && root.BloomBosses.telegraph) || 1.3, w.until - (Number(w.at) || 0)));
+    const p = clamp(1 - (w.until - time) / span, 0, 1);
     ctx.save(); ctx.lineCap = 'round';
     for (const t of Array.isArray(w.targets) ? w.targets.slice(0, 12) : []) {
-      if (!Number.isFinite(t.x) || !Number.isFinite(t.y)) continue;
+      // Ordinary-flower tells have their own live-position marks, including Core copy destinations.
+      if (t.effect || t.role === 'flower-effect' || !Number.isFinite(t.x) || !Number.isFinite(t.y)) continue;
       const radius = Math.max(8, Number(t.r) || 14) + 7;
       // A dashed footprint denotes an upcoming hazard, distinct from the seed's lock-on arrowheads.
       ctx.setLineDash([4, 4]); circle(ctx, t.x, t.y, radius, null, '#fff6ce', 4); circle(ctx, t.x, t.y, radius, null, '#b55c67', 2); ctx.setLineDash([]);
@@ -4412,7 +4497,7 @@
     for (const bud of buds) {
       if (bud.hidden || bud.visible === false || bud.bossPart) continue;
       if (bud.gift) { if (!bud.bloomed) drawGift(ctx, bud, time, options.reducedMotion); continue; }
-      const age = typeof bud.bloomAt === 'number' ? time - bud.bloomAt : Infinity;
+      const effect = bossFlowerEffect(bud, time), age = typeof bud.bloomAt === 'number' ? time - bud.bloomAt : Infinity;
       // Every bloom takes the same .55 s, whether it unfurls petal by petal or crossfades (over budget).
       const openness = bud.bloomed ? (options.reducedMotion || typeof bud.bloomAt !== 'number' ? 1 : clamp(age / UNFURL, 0, 1)) : 0;
       const hp = Math.max(1, Number(bud.hp) || 1), maxHp = Math.max(hp, Number(bud.maxHp) || 1), radius = bud.r || 16;
@@ -4495,6 +4580,7 @@
       else if (bud.geode && !bud.bloomed) drawGeode(ctx, bud, time);
       else if (bud.gem && !bud.bloomed) drawGem(ctx, bud, time, options.reducedMotion);
       else if (bud.bloomed && unfurling.has(bud)) drawUnfurl(ctx, bud, age, unfurlOptions);
+      else if (effect && effect.kind === 'puff') drawVeiledFlower(ctx, bud, radius, time, effect);
       else if (!options.reducedMotion && (bud.bloomed ? !bud.boss && age >= 0 && age < FLASH : time - bud.hitAt >= 0 && time - bud.hitAt < FLASH)) drawSilhouette(ctx, bud.x, bud.y, radius, bud.type, 1.08);
       else drawFlower(ctx, bud.x, bud.y, radius, bud.type, openness, time, flowerVariants.get(bud));
       drawIgnitedBud(ctx, bud, state, time, Boolean(options.reducedMotion));
@@ -4519,7 +4605,10 @@
       // Animations off: the trembling group shows a still red pip instead.
       if (shaking && options.reducedMotion) circle(ctx, bud.x, bud.y + radius + (maxHp > 1 && !bud.boss ? 17 : 10), 2.5, '#ff3d6e', '#ffffff', 1);
       ctx.restore();
+      drawBossFlowerAccent(ctx, bud, effect);
     }
+    // Flower-specific tells sit above the buds so their small marks cannot be buried by crowns or armor.
+    if (rush) drawBossFlowerWarning(ctx, state, time, Boolean(options.reducedMotion));
     for (const bud of buds) if (bud.bossPart) drawBossTarget(ctx, bud, state, time, Boolean(options.reducedMotion));
     drawFlares(ctx, buds, time, options, line);
     if (rush) drawLullaby(ctx, state, time, options.reducedMotion, buds, true);
@@ -4607,6 +4696,7 @@
     // The boss's vine.
     if (plan.boss && FLOWERS[plan.boss.type]) {
       const type = plan.boss.type, max = Math.max(1, Math.round(plan.boss.max || 1));
+      if (BOSS_LOOKS[plan.boss.bossKind]) add(() => drawFlowerEffectMark(sctx, plan.boss.bossKind, 12, 12, 24));
       if (bossLook(plan.boss)) {
         add(() => bossPart(plan.boss, true)); add(() => bossPart(plan.boss, false));
         if (plan.boss.bossKind === 'puff') add(() => bossPart(plan.boss, false, 'bonnet'));

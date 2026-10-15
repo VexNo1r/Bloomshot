@@ -1,13 +1,13 @@
 'use strict';
 // Powerups: the catalog matches the store ids, counts never go wrong (a purchase counts once, even when the
-// store hands it over again), each powerup does what its card says, and gift bubbles stay rare, optional and
+// store hands it over again), each powerup does what its card says, and regular free gift bubbles stay optional and
 // harmless. Run: node qa/test-powers.cjs
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const Powers = require('../powers.js');
-const { RushGame, SUN_REACH, LULLABY, GIFT_CHANCE } = require('../rush.js');
+const { RushGame, SUN_REACH, LULLABY, GIFT_EVERY } = require('../rush.js');
 const bot = require('./depths-bot.cjs');
 const results = [];
 function test(name, fn) {
@@ -61,20 +61,21 @@ test('A purchase counts once, even when the store hands the same one over again'
   assert.equal(Powers.spend({ dandelion: 1 }, 'dandelion').counts.dandelion, 0);
   assert.equal(Powers.spend({ dandelion: 0 }, 'dandelion').ok, false);
 });
-test('Packs hold fixed, stated contents: five of one kind, or the bag with three of each', () => {
-  assert.deepEqual(Powers.packs.map(p => p.product), ['bloomshot.pack.sunburst5', 'bloomshot.pack.dandelion5', 'bloomshot.pack.beeline5', 'bloomshot.pack.lullaby5', 'bloomshot.pack.bag12']);
+test('Packs hold five of one kind or twenty mixed; retired receipts keep their original contents', () => {
+  assert.deepEqual(Powers.packs.map(p => p.product), ['bloomshot.pack.sunburst5', 'bloomshot.pack.dandelion5', 'bloomshot.pack.beeline5', 'bloomshot.pack.lullaby5', 'bloomshot.pack.bag20']);
   for (const p of Powers.list) assert.deepEqual(Powers.contents(`bloomshot.pack.${p.id}5`), { [p.id]: 5 });
   assert.deepEqual(Powers.contents('bloomshot.pack.bag12'), { sunburst: 3, dandelion: 3, beeline: 3, lullaby: 3 });
+  assert.deepEqual(Powers.contents('bloomshot.pack.bag20'), { sunburst: 5, dandelion: 5, beeline: 5, lullaby: 5 });
   assert.deepEqual(Powers.contents('bloomshot.power.lullaby'), { lullaby: 1 });
   assert.equal(Powers.contents('bloomshot.levels.full'), null, 'an unlock is not a powerup');
-  const bag = Powers.contents('bloomshot.pack.bag12'); bag.sunburst = 99;
-  assert.equal(Powers.contents('bloomshot.pack.bag12').sunburst, 3, 'handing out contents never changes the pack');
+  const bag = Powers.contents('bloomshot.pack.bag20'); bag.sunburst = 99;
+  assert.equal(Powers.contents('bloomshot.pack.bag20').sunburst, 5, 'handing out contents never changes the pack');
 });
 test('A bag arrives all at once under one receipt, counts once, and a bad set adds nothing', () => {
   const start = Powers.normalize({ sunburst: 2, dandelion: 0, beeline: 1, lullaby: 0 });
-  const bag = Powers.grant(start, [], { powers: Powers.contents('bloomshot.pack.bag12'), transaction: 'GPA.9' });
-  assert(bag.ok && !bag.repeat); assert.deepEqual(bag.counts, { sunburst: 5, dandelion: 3, beeline: 4, lullaby: 3 }); assert.deepEqual(bag.receipts, ['GPA.9']);
-  const again = Powers.grant(bag.counts, bag.receipts, { powers: Powers.contents('bloomshot.pack.bag12'), transaction: 'GPA.9' });
+  const bag = Powers.grant(start, [], { powers: Powers.contents('bloomshot.pack.bag20'), transaction: 'GPA.9' });
+  assert(bag.ok && !bag.repeat); assert.deepEqual(bag.counts, { sunburst: 7, dandelion: 5, beeline: 6, lullaby: 5 }); assert.deepEqual(bag.receipts, ['GPA.9']);
+  const again = Powers.grant(bag.counts, bag.receipts, { powers: Powers.contents('bloomshot.pack.bag20'), transaction: 'GPA.9' });
   assert(again.repeat); assert.deepEqual(again.counts, bag.counts);
   for (const bad of [{ rocket: 3 }, { sunburst: 3, rocket: 1 }, { sunburst: 0 }, { sunburst: 'x' }, {}]) {
     const result = Powers.grant(start, [], { powers: bad, transaction: 'GPA.10' });
@@ -154,11 +155,11 @@ test('Lullaby stops the falling for six seconds, then the flowers go on falling'
 test('Without the app’s chance source no gifts appear, so tests and the practice bot are unchanged', () => {
   const game = started(1, 1); advance(game, 20);
   assert(!game.buds.some(b => b.gift)); assert.equal(game.giftChance, 0);
-  assert(GIFT_CHANCE > 0 && GIFT_CHANCE <= .1, 'gifts stay rare');
+  assert.equal(GIFT_EVERY, 2, 'normal play offers a free gift every other regular wave');
 });
 test('A gift floats in, a shot that catches it flies on, and the powerup is kept', () => {
-  const game = still(started(1, 1, { random: () => 0 }), [bud('a', 60, 300)]);
-  assert(game.giftAt >= 2 && game.giftAt <= 6, 'it comes a few seconds into the wave');
+  const game = still(started(1, 2, { random: () => 0 }), [bud('a', 60, 300)]);
+  assert(game.giftAt >= 2 && game.giftAt <= 4, 'it comes early enough to catch');
   advance(game, game.giftAt + .05);
   const gift = game.buds.find(b => b.gift);
   assert(gift); assert.equal(gift.gift, 'sunburst'); assert(types(game.drainEvents()).includes('giftAppear'));
@@ -167,28 +168,47 @@ test('A gift floats in, a shot that catches it flies on, and the powerup is kept
   const events = game.drainEvents();
   assert.deepEqual(events.filter(e => e.type === 'gift').map(e => e.power), ['sunburst']);
   assert(!game.buds.some(b => b.gift)); assert.equal(events.filter(e => e.type === 'bounce' && e.kind === 'bud').length, 0);
-  assert.equal(game.giftsLeft, 0);
+  assert.equal(game.giftsGiven, 1);
 });
 test('A missed gift floats away without costing a life, and never holds up the wave', () => {
-  const game = still(started(1, 1, { random: () => 0 }), [bud('a', 60, -3000)]);
+  const game = still(started(1, 2, { random: () => 0 }), [bud('a', 60, -3000)]);
   advance(game, game.giftAt + .05); game.drainEvents();
   game.descentSpeed = 200; advance(game, 3);
   assert.equal(game.lives, 3, 'no life lost to the gift');
   assert(types(game.drainEvents()).includes('giftGone')); assert(!game.buds.some(b => b.gift));
-  const fresh = still(started(1, 1, { random: () => 0 }), [bud('a', 60, 100)]);
+  const fresh = still(started(1, 2, { random: () => 0 }), [bud('a', 60, 100)]);
   advance(fresh, fresh.giftAt + .05);
   fresh.strike(fresh.buds.find(b => b.id === 'a')); advance(fresh, .9);
-  assert.equal(fresh.wave, 2, 'the wave clears with the gift still floating');
+  assert.equal(fresh.wave, 3, 'the wave clears with the gift still floating');
   assert(fresh.drainEvents().some(e => e.type === 'giftGone'));
 });
-test('At most one gift a run, and none in a big bloom wave', () => {
-  const game = started(1, 1, { random: () => 0 });
-  advance(game, game.giftAt + .05); assert.equal(game.buds.filter(b => b.gift).length, 1);
-  game.wave = 1; game._loadWave(); assert.equal(game.giftAt, null, 'the run already had its gift');
-  const boss = started(1, 9, { random: () => 0 }); boss._loadWave();
-  assert.equal(boss.bossWave, true); assert.equal(boss.giftAt, null);
+test('Four regular free drops per campaign, one per eligible wave, and all four powers before repeats', () => {
+  for (let level = 1; level <= 10; level++) {
+    const game = started(level, 1, { random: () => 0 }), offered = [], powers = [];
+    for (let wave = 1; wave <= 10; wave++) {
+      if (wave > 1) { game.wave = wave - 1; game._loadWave(); }
+      if (game.giftAt !== null) {
+        // Scheduling/placement uses the actual live game controller; a clear entrance removes layout luck.
+        game.buds = [bud('far', 210, -3000)]; game._spawnGift();
+        offered.push(wave); powers.push(game.buds.find(b => b.gift).gift);
+        game._rollGift(); assert.equal(game.giftAt, null, 'one gift maximum in the same wave');
+      }
+    }
+    assert.deepEqual(offered, [2, 4, 6, 8]);
+    assert.deepEqual(powers, Powers.ids);
+  }
   const endless = new RushGame({ random: () => 0 });
-  assert(endless.giftAt !== null, 'Meadow Rush gets gifts too');
+  endless.wave = 9; endless._loadWave();
+  assert(endless.giftAt !== null, 'Meadow Rush continues giving gifts beyond campaign-length runs');
+  const scripted = new RushGame({ scripted: true, random: () => 0, giftChance: 1 });
+  assert.equal(scripted.giftAt, null, 'tutorial script owns its gifts');
+});
+test('A blocked entrance retries the free gift without spending it', () => {
+  const game = still(started(2, 2, { random: () => 0 }), [bud('blocked', 70, 50)]);
+  const before = game.time; game._spawnGift();
+  assert.equal(game.giftsGiven, 0); assert(game.giftAt > before - game.waveStart);
+  game.buds = [bud('clear', 210, -3000)]; game._spawnGift();
+  assert.equal(game.giftsGiven, 1); assert.equal(game.buds.filter(b => b.gift).length, 1);
 });
 
 const report = { passed: results.filter(r => r.passed).length, failed: results.filter(r => !r.passed).length, results };

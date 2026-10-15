@@ -1,5 +1,7 @@
 # Apple screenshots
 
+Release gate: these are October 14 review drafts. The October 15 boss flower effects and new spell cues were added afterward. Retake from Trevor's approved final build before uploading; the current-source validator is expected to reject the old capture fingerprints until then.
+
 Capture status: all ten requested images were regenerated and validated October 14, 2026 against the frozen game sources. The manifest identifies the exact source and PNG hashes. Owner review, native testing and App Store Connect validation remain release checks.
 
 The requested final set is ten iPhone screenshots in `iphone-1290/`, one actual gameplay frame from each campaign level. Every PNG is 1290 × 2796 opaque RGB, rendered at a 430 × 932 browser viewport with a 3× pixel ratio. There are no added prices or captions.

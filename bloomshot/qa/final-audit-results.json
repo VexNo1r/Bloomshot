@@ -512,5 +512,7 @@
     "Real sandbox purchase or restore",
     "Current-game native compilation/signing",
     "Human difficulty, retention and revenue"
-  ]
+  ],
+  "supersededBy": "playtest-feedback-results.json",
+  "scopeNote": "Historical October 14 build, with original source fingerprints and observations. Do not use as verification of October 15 gameplay or media."
 }

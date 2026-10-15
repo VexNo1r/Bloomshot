@@ -523,7 +523,7 @@
     if (game.lull()) { processEvents(); renderTray(); }
   }
   // The shelf says what each powerup does and how many you have. Once they are on sale in the app, each button
-  // says exactly what it buys (one, five of that kind, or the bag with three of each) at the price the store
+  // says exactly what it buys (one, five of that kind, or the bag with five of each) at the price the store
   // shows. Nothing is random, and nothing here appears during play.
   function renderPowerShelf() {
     const total = Powers.ids.reduce((n, id) => n + save.powers[id], 0);
@@ -1609,8 +1609,8 @@
           else game.floaters.push({ kind: 'title', size: 'small', x: 210, y: 32, life: .9, maxLife: .9, text: isDepth() ? `Wave ${game.wave} of ${game.finalWave}` : `Wave ${game.wave}`, label: isDepth() ? '' : `×${game.tempo.toFixed(1)}` });
         }
       } else if (event.type === 'bossWarning') {
-        $('game-hint').textContent = event.text;
-        say(`${event.name}: ${event.text}`);
+        $('game-hint').textContent = event.flowerText || event.text;
+        say(`${event.name}: ${event.text}${event.flowerText ? ` ${event.flowerText}` : ''}`);
         haptic('warn');
       } else if (event.type === 'bossBurn') {
         // A tiny ember puff makes a consumed seed readable without obscuring the warning or target.
@@ -2240,7 +2240,8 @@
       $('tutorial-go').hidden = v.phase !== 'end'; $('tutorial-skip').hidden = done;
       $('tutorial-go').textContent = save.depths[1]?.stars ? 'Back to the levels' : 'Play level 1';
       box.dataset.phase = v.phase; document.body.dataset.tutorialPhase = v.phase;
-      box.dataset.place = v.target && v.target.startsWith('power:') ? 'low' : 'high';
+      // Every taught control now sits below the card, including the bottom power row.
+      box.dataset.place = 'high';
       $('tutorial-dim').hidden = $('tutorial-spot').hidden = !v.target; $('tutorial-spot-2').hidden = !v.also;
       $('tutorial-finger').hidden = !v.finger || !save.settings.motion;
       if (fresh) { say(`${v.title}. ${v.text}`); if (tutorial.index > 0 || tutorial.prompt > 0) BloomSound.play('tap'); }

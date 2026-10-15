@@ -221,7 +221,7 @@ test('Mashing with no aim, for these seeds: it costs lives on level 1, wins no m
   assert(deep.filter(r => r.won).every(r => r.lives <= 2), 'and never cleanly');
   assert(lost[Math.floor(lost.length / 2)] <= 6, `it usually loses by wave 6 (median ${lost[Math.floor(lost.length / 2)]})`);
 });
-test('Rough aim at full speed, for these seeds: it nearly always loses levels 3, 4, 6 and 7, mostly 10, and its wins cost lives; levels 2, 5, 8 and 9 stay winnable that way about half the time', () => {
+test('Rough aim at full speed mostly loses later levels; the eased introductory Level 2 may have a clean clear', () => {
   const lazy = mashAll('lazy'); observations.lazy = lazy.map(tag).join(' '); observations.lazyRate = mashes(lazy, 'the rough masher');
   for (const id of [3, 4, 6, 7]) assert(wins(lazy, id) <= 1, `rough mashing won level ${id} ${wins(lazy, id)} of 4 times`);
   assert(wins(lazy, 10) <= 2, `rough mashing won level 10 ${wins(lazy, 10)} of 4 times`);
@@ -229,7 +229,11 @@ test('Rough aim at full speed, for these seeds: it nearly always loses levels 3,
   assert(partly <= 10, `rough mashing won ${partly} of 16 runs on levels 2, 5, 8 and 9`);
   const deep = lazy.filter(r => r.id >= 2 && r.won);
   assert(deep.length <= 12, `rough mashing won ${deep.length} of 36 runs on levels 2-10`);
-  assert(deep.length === 0 || deep.reduce((n, r) => n + r.lives, 0) / deep.length <= 2.4, 'any deeper-level wins cost lives');
+  // Level 2 now deliberately gives a less precise aimer more time around its new rocks. Keep the
+  // unchanged win-count limits above, and require costly wins from Level 3 on rather than forcing
+  // the introductory Level 2 to take a life. Fully aimless mashing is checked separately above.
+  const laterWins = deep.filter(r => r.id >= 3);
+  assert(laterWins.length === 0 || laterWins.reduce((n, r) => n + r.lives, 0) / laterWins.length <= 2.4, 'wins from Level 3 on cost lives');
 });
 test('A fast, careful aimer clears every level, firing briskly (two runs a level; level 4 is the one it sometimes loses)', () => {
   const fast = { noise: 2.5, think: 0, thinkSpread: 0, bounces: 2 }, runs = [];

@@ -22,8 +22,8 @@
   const SHELL_OPEN = .34, REGROW = 4;
   // Powerups. Sunburst blooms everything within reach of its first touch, Dandelion fans into three seeds,
   // Bee Line flies through flowers (cups and shells too) and blooms each one, Lullaby stops the falling for a
-  // few seconds. A gift bubble holding one sometimes floats down in a wave; shooting it keeps the powerup.
-  const SUN_REACH = 82, FAN = .2, LULLABY = 6, GIFT_CHANCE = .06, GIFT_R = 14;
+  // few seconds. A free gift floats down every other regular wave; shooting it keeps the powerup.
+  const SUN_REACH = 82, FAN = .2, LULLABY = 6, GIFT_EVERY = 2, GIFT_R = 14;
   const SHOT_POWERS = ['sunburst', 'dandelion', 'beeline'], GIFTS = ['sunburst', 'dandelion', 'beeline', 'lullaby'];
   const open = bud => !bud.bloomed && !bud.gift;
   const PALETTES = ['gold', 'coral', 'lilac', 'sky', 'poppy'];
@@ -109,10 +109,13 @@
       this.guideCharge = 0; this.guideTarget = null;
       this.waveBreaches = 0; this.nextWaveAt = null; this.lastHitAt = -100; this.bossDown = false;
       this.speed = 460; this.descentSpeed = 10.2; this.waveFireDelay = FIRE_DELAY; this.waveHint = '';
-      // Gifts need a source of chance from the app; without one (tests, the practice bot) none appear.
+      // The app supplies randomness for placement and the first gift's type. A regular cadence avoids
+      // long unlucky droughts; no gifts appear in simulations that omit this source.
       this.random = options && typeof options.random === 'function' ? options.random : null;
-      this.giftChance = this.random ? Number.isFinite(options.giftChance) ? options.giftChance : GIFT_CHANCE : 0;
-      this.giftsLeft = 1; this.giftAt = null; this.armed = null; this.lullaby = 0; this.powersUsed = 0;
+      // An explicit probability remains available to visual QA; normal play always uses the cadence.
+      this.giftChance = this.random ? Number.isFinite(options.giftChance) ? Math.max(0, Math.min(1, options.giftChance)) : null : 0;
+      this.giftWave = 0; this.giftsGiven = 0; this.giftOffset = null;
+      this.giftAt = null; this.armed = null; this.lullaby = 0; this.powersUsed = 0;
       // A scripted run (the tutorial) has no waves of its own: its script sets the board, and it never clears or loses.
       this.scripted = Boolean(options && options.scripted);
       // The sun, Super Bloom and tricks. striker is the seed whose touch is being resolved and due the chain link
@@ -264,23 +267,28 @@
     }
     _rollGift() {
       this.giftAt = null;
-      if (!this.random || this.giftsLeft <= 0 || this.bossWave) return;
-      if (this.random() < this.giftChance) this.giftAt = 2 + this.random() * 4;
+      if (!this.random || this.giftWave === this.wave || this.bossWave || this.scripted) return;
+      const due = this.giftChance === null ? this.wave % GIFT_EVERY === 0 : this.random() < this.giftChance;
+      if (due) this.giftAt = 2 + this.random() * 2;
     }
-    // The gift floats in near the top, clear of the flowers, and drifts down a little faster than they do.
+    // The gift floats in near the top, clear of the flowers, and drifts slowly enough to line up a shot.
     _spawnGift() {
       this.giftAt = null;
       const live = this.buds.filter(bud => !bud.bloomed);
       for (let tries = 0; tries < 10; tries++) {
         const x = 70 + this.random() * 280, y = 50;
         if (live.some(bud => Math.hypot(bud.x - x, bud.y - y) < bud.r + GIFT_R + 12)) continue;
-        const power = GIFTS[Math.min(GIFTS.length - 1, Math.floor(this.random() * GIFTS.length))];
-        this.giftsLeft--;
+        // Cycle through all four free powers before repeating, from a random starting point.
+        if (this.giftOffset === null) this.giftOffset = Math.min(GIFTS.length - 1, Math.floor(this.random() * GIFTS.length));
+        const power = GIFTS[(this.giftOffset + this.giftsGiven) % GIFTS.length];
+        this.giftWave = this.wave; this.giftsGiven++;
         this.buds.push({ id: `gift-${this.wave}-${this.ballSerial}`, group: `gift-${this.wave}`, x, y, baseX: x, startY: y, r: GIFT_R, type: 'gold',
-          gift: power, relay: false, hp: 1, maxHp: 1, fall: 1.35, sway: 16, swayW: 1.4, swayPhase: this.random() * 6, hitAt: -100, bloomed: false, bloomAt: -100, spawnAt: this.time });
+          gift: power, relay: false, hp: 1, maxHp: 1, fall: .85, sway: 16, swayW: 1.4, swayPhase: this.random() * 6, hitAt: -100, bloomed: false, bloomAt: -100, spawnAt: this.time });
         this.event('giftAppear', { power, x, y });
         return;
       }
+      // A crowded entrance delays the gift instead of silently consuming this wave's free drop.
+      this.giftAt = this.time - this.waveStart + .75;
     }
     _collect(gift) {
       this.buds = this.buds.filter(bud => bud !== gift);
@@ -760,6 +768,6 @@
         rocks: this.bumpers.filter(item => item.kind === 'rock').map(({ id, x, y, length, angle }) => ({ id, x, y, length, angle })) };
     }
   }
-  return { RushGame, tempoFor, fireDelayFor, descentFor, SUN_REACH, LULLABY, GIFT_CHANCE, SHOT_POWERS,
+  return { RushGame, tempoFor, fireDelayFor, descentFor, SUN_REACH, LULLABY, GIFT_EVERY, SHOT_POWERS,
     COMBO_WINDOW, SUN_FULL, FIRST_FILL, SUPER_TIME, SUPER_DELAY, PIERCE, CLOSE_BAND, TRICKS, POD, POD_GAP, POD_REGROW, REFUND, GLANCE, KEEP, HELD, AIM_KEEP, bossMotion };
 });

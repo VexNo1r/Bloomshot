@@ -95,7 +95,7 @@
       { f: 'grid', s: 'tri', d: 12, hp: 3, sway: 12, petal: [210, 360, 135], then: [{ t: 7, f: 'topvee', s: 'tri', hp: 2, sway: 14 }, { t: 13, f: 'top5', s: 'line', hp: 3 }] },
       { f: [[80, 178], [340, 178], [118, 248], [302, 248]], s: 'tri', d: 7, boss: { name: 'Old Sunny', hp: 6, r: 24, type: 'gold', sway: 50, x: 210, y: 104 }, then: [{ t: 9, f: 'topsides', s: 'tri', hp: 1 }, { t: 18, f: 'topsides', s: 'line', hp: 2 }], hint: 'Big bloom! Hit it six times.' }
     ]),
-    lv(2, 'roots', 'Root Tunnels', 'Bank around rocks', 1.55, [
+    lv(2, 'roots', 'Root Tunnels', 'Bank around rocks', 1.4, [
       { f: 'square', s: 'tri', d: 10, rocks: [[150, 330, 50, 0], [270, 330, 50, 0]], then: [{ t: 6, f: 'top4', s: 'tri', hp: 1 }], hint: 'Rocks! Bounce your shots around them.' },
       { f: 'wall', s: 'tri', d: 10.5, hp: 1, rocks: [[106, 298, 74, -22], [314, 298, 74, 22]], petal: [210, 372, 45], then: [{ t: 6, f: 'top5', s: 'line', hp: 1 }] },
       { f: 'grid', s: 'tri', d: 10.5, hp: 2, rocks: [[210, 296, 60, 0], [86, 352, 44, 90]], then: [{ t: 7, f: 'top4', s: 'tri', hp: 2 }, { t: 13, f: 'top3', s: 'stack' }] },
@@ -107,16 +107,17 @@
       { f: 'grid', s: ['tri', 'stack', 'tri', 'stack', 'tri', 'stack'], d: 13, hp: 3, fast: [1], rocks: [[110, 322, 46, 0], [210, 292, 46, 0], [310, 322, 46, 0]], petal: [210, 384, 135], then: [{ t: 6, f: 'topvee', s: 'tri', hp: 3 }, { t: 12, f: 'topstacks', s: 'stack', hp: 2, fast: [0, 3] }] },
       { f: [[70, 182], [350, 182], [140, 236], [280, 236]], s: ['stack', 'stack', 'tri', 'tri'], d: 7.5, hp: 1, rocks: [[150, 304, 44, -25], [270, 304, 44, 25]], boss: { name: 'Rootknot', hp: 8, r: 24, type: 'coral', sway: 56, x: 210, y: 104 }, then: [{ t: 8, f: 'topsides', s: 'stack', hp: 2 }, { t: 16, f: 'topsides', s: 'tri', hp: 2 }], hint: 'Big bloom! Eight hits.' }
     ]),
-    lv(3, 'grotto', 'Mushroom Grotto', 'Cups and puffcaps', 1.42, [
+    // Cups arrive in small patches, with exposed crowns and puffcaps between them.
+    lv(3, 'grotto', 'Mushroom Grotto', 'Cups and puffcaps', 1.32, [
       { f: 'grid', s: 'tri', d: 11, puffs: [[210, 158]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 1, puffs: [[175, 104]] }], hint: 'Pop a puffcap to bloom everything near it.' },
-      { f: 'wall', s: 'tri', d: 11.5, cup: [0, 1, 2, 3, 4], then: [{ t: 6, f: 'top4', s: 'tri', cup: [0, 1, 2, 3] }], hint: 'Cups block shots from below. Hit the crowns!' },
-      { f: 'vee', s: 'tri', d: 11.5, cup: [1, 3], cupAll: [2], puffs: [[210, 100], [210, 210]], then: [{ t: 7, f: 'top5', s: 'line', hp: 2, cup: [0, 4] }], hint: 'Fully cupped? Bank above or pop the puffcap.' },
+      { f: 'wall', s: 'tri', d: 11.5, cup: [1, 3], then: [{ t: 6, f: 'top4', s: 'tri', cup: [1, 2] }], hint: 'Cups block shots from below. Hit the crowns!' },
+      { f: 'vee', s: 'tri', d: 11.5, cup: [1, 3], puffs: [[210, 100], [210, 210]], then: [{ t: 7, f: 'top5', s: 'line', hp: 2, cup: [2] }], hint: 'Bank around cups, or pop a nearby puffcap.' },
       { f: 'ring', s: 'tri', d: 12, hp: 2, sway: 14, puffs: [[156, 181], [264, 181]], then: [{ t: 6, f: 'top4', s: 'tri', hp: 2, cup: [1, 2] }, { t: 12, f: 'top5', s: 'tri', puffs: [[210, 112]] }] },
-      { f: 'columns', s: 'tri', d: 12, hp: 1, cup: [1, 5], cupAll: [0, 4], puffs: [[96,150],[324,150]], rocks: [[96, 300, 50, 0], [324, 300, 50, 0]], then: [{ t: 6, f: 'topvee', s: 'tri', hp: 2, cup: [0, 2, 4] }, { t: 12, f: 'top3', s: 'stack', cup: [0, 1, 2] }] },
-      { f: 'stairs', s: 'line', d: 12.5, hp: 2, fast: [0, 4], puffs: [[124, 196], [296, 140]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, fast: [1, 3] }, { t: 12, f: 'top4', s: 'line', cup: [0, 1, 2, 3], puffs: [[210, 104]] }] },
-      { f: 'diamond', s: 'tri', d: 12.5, hp: 2, sway: 18, cup: [0, 1, 2, 3], rocks: [[210, 300, 60, 0]], petal: [210, 384, 45], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, cup: [1, 3], sway: 14 }, { t: 12, f: 'topvee', s: 'tri', cupAll: [2], puffs: [[140, 114], [260, 116]] }] },
+      { f: 'columns', s: 'tri', d: 12, hp: 1, cup: [1, 5], cupAll: [0], puffs: [[96,150],[324,150]], rocks: [[96, 300, 50, 0], [324, 300, 50, 0]], then: [{ t: 6, f: 'topvee', s: 'tri', hp: 2, cup: [2] }, { t: 12, f: 'top3', s: 'stack', cup: [1] }], hint: 'Fully cupped? Bank above or pop the puffcap.' },
+      { f: 'stairs', s: 'line', d: 12.5, hp: 2, fast: [0, 4], puffs: [[124, 196], [296, 140]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, fast: [1, 3] }, { t: 12, f: 'top4', s: 'line', cup: [1, 2], puffs: [[210, 104]] }] },
+      { f: 'diamond', s: 'tri', d: 12.5, hp: 2, sway: 18, cup: [0, 3], rocks: [[210, 300, 60, 0]], petal: [210, 384, 45], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, cup: [2], sway: 14 }, { t: 12, f: 'topvee', s: 'tri', cupAll: [2], puffs: [[140, 114], [260, 116]] }] },
       { f: 'zigzag', s: 'tri', d: 13, hp: 3, cup: [1, 3], cupAll: [0], puffs: [[140, 112], [280, 112]], then: [{ t: 6, f: 'topstacks', s: 'stack', hp: 2, cup: [0, 3] }, { t: 12, f: 'top5', s: 'tri', hp: 3, fast: [0, 4] }] },
-      { f: 'grid', s: 'tri', d: 13.5, hp: 2, cup: [0, 1, 2, 3, 4, 5], puffs: [[150, 158], [270, 158]], rocks: [[210, 322, 50, 0]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 3, cup: [0, 1, 3, 4] }, { t: 12, f: 'topvee', s: 'line', hp: 2, cupAll: [2], puffs: [[165, 116]] }] },
+      { f: 'grid', s: 'tri', d: 13.5, hp: 2, cup: [0, 2, 4], puffs: [[150, 158], [270, 158]], rocks: [[210, 322, 50, 0]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 3, cup: [1, 3] }, { t: 12, f: 'topvee', s: 'line', hp: 2, cupAll: [2], puffs: [[165, 116]] }] },
       { f: [[78, 176], [342, 176]], s: 'tri', d: 8, hp: 2, cup: [0, 1], puffs: [[146, 140], [274, 140]], rocks: [[150, 312, 40, 0], [270, 312, 40, 0]], boss: { name: 'Mother Morel', hp: 9, r: 25, type: 'lilac', sway: 56, x: 210, y: 100 }, then: [{ t: 8, f: 'topsides', s: 'tri', hp: 2, cup: [0, 1, 2, 3] }, { t: 16, f: 'topsides', s: 'tri', hp: 2, puffs: [[210, 66]] }], hint: 'Big bloom! Puffcaps hurt it too.' }
     ]),
     lv(4, 'crystal', 'Crystal Caves', 'Everything at once', 1.15, [
@@ -189,7 +190,7 @@
       { f: 'zigzag', s: 'line', d: 13, hp: 1, briar: [0, 1, 2, 3, 4], regrow: 4, gates: [[96, 404, 360, 250, -150], [324, 404, 60, 250, -30]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, briar: [0, 4] }, { t: 12, f: 'top4', s: 'line', hp: 1 }] },
       { f: 'columns', s: 'tri', d: 13, hp: 2, briar: [1, 3, 5], cup: [0, 2, 4], regrow: 4, currents: [[210, 330, 330, 56, 0, 4]], then: [{ t: 6, f: 'topstacks', s: 'stack', hp: 2 }, { t: 12, f: 'top5', s: 'tri', hp: 2, briar: [1, 3] }] },
       { f: 'grid', s: 'tri', d: 13.5, hp: 2, briar: [0, 1, 2, 3, 4, 5], regrow: 3.6, puffs: [[150, 158], [270, 158]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, briar: [0, 2, 4] }, { t: 12, f: 'topvee', s: 'line', hp3: 1 }] },
-      { f: [[80, 190], [340, 190]], s: 'tri', d: 8.5, hp: 1, briar: [0, 1], regrow: 4, boss: { name: 'Thornmother', hp: 17, r: 26, type: 'lilac', sway: 58, x: 210, y: 100 }, then: [{ t: 8, f: 'topsides', s: 'tri', hp: 1, briar: [0, 3] }, { t: 16, f: 'topsides', s: 'line', hp: 2 }], hint: 'Big bloom! Seventeen hits.' }
+      { f: [[80, 190], [340, 190]], s: 'tri', d: 8.5, hp: 1, briar: [0], regrow: 4, boss: { name: 'Thornmother', hp: 17, r: 26, type: 'lilac', sway: 58, x: 210, y: 100 }, then: [{ t: 8, f: 'topsides', s: 'tri', hp: 1, briar: [0, 3] }, { t: 16, f: 'topsides', s: 'line', hp: 2 }], hint: 'Big bloom! Seventeen hits.' }
     ]),
     lv(10, 'core', 'Starseed Core', 'The final test', 2.15, [
       { f: 'grid', s: 'tri', d: 11, hp: 1, shell: [0, 2], spin: 1.3, currents: [[210, 330, 330, 56, 0, 4]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 1 }], hint: 'The last level. Everything you learned.' },

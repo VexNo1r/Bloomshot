@@ -1,5 +1,5 @@
 {
-  "passed": 25,
+  "passed": 35,
   "failed": 0,
   "results": [
     {
@@ -8,6 +8,46 @@
     },
     {
       "name": "Old Sunny blocks plain seeds asleep; his bubble wakes a six-second double-damage window",
+      "passed": true
+    },
+    {
+      "name": "Sunny warns before an early two-sprout volley; ignoring the whole pair costs exactly one life",
+      "passed": true
+    },
+    {
+      "name": "Two ordinary aimed seeds can stop Sunny’s whole volley before it takes a life",
+      "passed": true
+    },
+    {
+      "name": "Lullaby freezes Sunny’s launched sprouts and defeat cancels them with the normal finale",
+      "passed": true
+    },
+    {
+      "name": "Every authored boss has a unique ordinary-flower change after its complete visible tell",
+      "passed": true
+    },
+    {
+      "name": "Sunny growth and Root shrink change the actual seed collider, with no tiny target",
+      "passed": true
+    },
+    {
+      "name": "Crystal sways real colliders, Lily lifts flowers safely, and Lullaby holds effect phase and deadlines",
+      "passed": true
+    },
+    {
+      "name": "Temporary fields restore on expiry, near-line entry, boss breach and defeat without changing saved health damage",
+      "passed": true
+    },
+    {
+      "name": "Thornmother converts a whole clean group, regrows it through the engine, then clears temporary timers",
+      "passed": true
+    },
+    {
+      "name": "Geode cannot keep adding rings to the same bud, and Core echoes never copy echoes or exceed four total",
+      "passed": true
+    },
+    {
+      "name": "Modifier selection excludes special pieces and the final reaction margin, and a new wave discards all old effects",
       "passed": true
     },
     {

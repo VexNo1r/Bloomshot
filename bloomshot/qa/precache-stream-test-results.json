@@ -1,10 +1,10 @@
 {
   "passed": true,
-  "testedAt": "2026-10-15T03:16:23.596Z",
+  "testedAt": "2026-10-15T21:28:39.006Z",
   "node": "v24.20.0",
-  "workerSha256": "2e7b74f90a78a50c416709a06938a2440a2e3d1743d12cde08cb96d8f3b964ce",
+  "workerSha256": "c7f6960f3927c9b2cc7a38caa86f13fdc92afe7a43afefb9e71fcec96fd5dbd9",
   "maxConnections": 3,
-  "workerVersion": "codex-garden-20261014-1",
+  "workerVersion": "codex-garden-20261015-1",
   "assetCount": 37,
   "imageCount": 6,
   "negativeControl": {
@@ -13,29 +13,29 @@
     "consumed": 0,
     "bytes": 0,
     "peakConnections": 3,
-    "elapsedMs": 298.05
+    "elapsedMs": 292.74
   },
   "actualInstall": {
     "headers": 37,
     "consumed": 37,
-    "bytes": 1579236,
+    "bytes": 1598663,
     "peakConnections": 3,
     "cached": 37,
-    "elapsedMs": 82.05,
+    "elapsedMs": 95.78,
     "deadlineMs": 15000,
     "allBodyHashesMatch": true
   },
   "assets": [
     {
       "path": "/",
-      "bytes": 29268,
-      "sha256": "84db26bc1e79072c000cbea8dcc8eec20cb62d7794238202dc061ff8065b67f5",
+      "bytes": 29278,
+      "sha256": "3998e0d845d8aefefd103f9550955c55c93c8db1add3d5cea9fac30047b74369",
       "type": "text/html; charset=utf-8"
     },
     {
       "path": "/index.html",
-      "bytes": 29268,
-      "sha256": "84db26bc1e79072c000cbea8dcc8eec20cb62d7794238202dc061ff8065b67f5",
+      "bytes": 29278,
+      "sha256": "3998e0d845d8aefefd103f9550955c55c93c8db1add3d5cea9fac30047b74369",
       "type": "text/html; charset=utf-8"
     },
     {
@@ -46,14 +46,14 @@
     },
     {
       "path": "/styles.css",
-      "bytes": 79032,
-      "sha256": "a2c85ac0206caef3d559b810cec1f3671f6f6cf0fef3357a22a41f250713d1ec",
+      "bytes": 79558,
+      "sha256": "dfe7ba71ef56142db9be0717ccdeb484e6517af4e175e13393235b8bd0606064",
       "type": "text/css; charset=utf-8"
     },
     {
       "path": "/store-config.js",
-      "bytes": 4080,
-      "sha256": "841666f9aec771d637dd8d6388b776070f2a6a430fab2201918f1ae10da29f10",
+      "bytes": 4078,
+      "sha256": "cef75c4993b9037e75b0e354b65129c244ec7b2924d4157d941e9a34633c8738",
       "type": "text/javascript; charset=utf-8"
     },
     {
@@ -100,14 +100,14 @@
     },
     {
       "path": "/depths.js",
-      "bytes": 39425,
-      "sha256": "d1375c05e6cae72d6cff61613abb882fdd5a86645d11a0324c03f9e1d5bfbbda",
+      "bytes": 39482,
+      "sha256": "f7dff1a7bdb3e6c353848a9f6aac76b41920153df1823f4e5c173b7e4ffe877d",
       "type": "text/javascript; charset=utf-8"
     },
     {
       "path": "/powers.js",
-      "bytes": 5736,
-      "sha256": "500d859091b53cf965dee95e16ef8577d9b396fbc3ea6738beb4790ec9945d1c",
+      "bytes": 5960,
+      "sha256": "a511e022c055e7eb1c6bcb473a68689637fd0e1ff936b49eff5335bfbfa9ca62",
       "type": "text/javascript; charset=utf-8"
     },
     {
@@ -118,14 +118,14 @@
     },
     {
       "path": "/bosses.js",
-      "bytes": 27894,
-      "sha256": "65fd5a1002a44a0135a4716fba1a47bf39d520a4ff0f54c5094968ad2a624205",
+      "bytes": 37861,
+      "sha256": "c9673466e16331b6d929b5807ddcace6af332a9775206f6f2b148da50bbc6a8a",
       "type": "text/javascript; charset=utf-8"
     },
     {
       "path": "/rush.js",
-      "bytes": 53929,
-      "sha256": "710b74d78a922f42438ae272b4ad171458eed0cd4c0414af7a7f4481385e8b8a",
+      "bytes": 54664,
+      "sha256": "378e9a8b333ac4c109402978a7f640768b17ac8d9cb9068f0568535e092b351f",
       "type": "text/javascript; charset=utf-8"
     },
     {
@@ -148,8 +148,8 @@
     },
     {
       "path": "/art.js",
-      "bytes": 329401,
-      "sha256": "887d366ff6ed11c6562046ccf567bbf50ce9dc4061e26934aaa5862142fd6c53",
+      "bytes": 337197,
+      "sha256": "3263d939b180ea0bb2e2cf93e2ed76fef942a849b4640bf7e61a063dc6033ef4",
       "type": "text/javascript; charset=utf-8"
     },
     {
@@ -178,8 +178,8 @@
     },
     {
       "path": "/app.js",
-      "bytes": 209102,
-      "sha256": "62dd5b3547e773850a1c7194c89bde97f9335c3ab57e1b733fd9a54e54bdfa0c",
+      "bytes": 209206,
+      "sha256": "6617d8a3e2077c28fdf130c155b79e399b2e52ae7a1f86b5c5d39c34fc6727ab",
       "type": "text/javascript; charset=utf-8"
     },
     {

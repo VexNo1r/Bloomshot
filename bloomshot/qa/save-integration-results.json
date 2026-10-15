@@ -1,5 +1,5 @@
 {
-  "passed": 86,
+  "passed": 87,
   "failed": 0,
   "methodology": "Executes the complete current app.js in an isolated Node VM using real garden/level/engine modules, fake localStorage, and DOM/canvas adapters. Completion fixtures exercise actual engine completion events and app handlers. No real browser or user saves are read or changed.",
   "limitations": [
@@ -244,7 +244,7 @@
       "passed": true
     },
     {
-      "name": "Packs on the shelf: five of one kind or the bag with three of each, shown in full, each counted once",
+      "name": "Packs on the shelf: five of one kind or the bag with five of each, shown in full, each counted once",
       "passed": true
     },
     {
@@ -289,6 +289,10 @@
     },
     {
       "name": "Super Bloom, trick shots and long chains reach the board, the hint line and the run summary",
+      "passed": true
+    },
+    {
+      "name": "Boss tells name the flower change in the hint and announce both the attack and the change",
       "passed": true
     },
     {

@@ -737,7 +737,7 @@ const ledgerOf = storage => JSON.parse(storage.data['bloomshot.grants.v1']);
     for (const p of products) {
       assert.match(p.id, /^bloomshot\.[a-z0-9]+\.[a-z0-9]+$/, p.id);
       if (p.consumable) {
-        // A powerup grants items, never an entitlement. Singles are the 25-cent purchase Trevor asked for; a pack
+        // A powerup grants items, never an entitlement. Singles are the 29-cent purchase Trevor approved; a pack
         // costs less per powerup than buying them one at a time.
         assert.equal(p.kind, 'power', p.id); assert.ok(p.items.length > 0 && p.count > 0, p.id); assert.deepEqual(p.entitlements, [], p.id);
         assert.ok(p.items.every(it => Powers.byId[it.power]), `${p.id} grants a powerup the game does not have`);
@@ -757,6 +757,13 @@ const ledgerOf = storage => JSON.parse(storage.data['bloomshot.grants.v1']);
     const Koi = require('../koi.js'); const koi = products.find(p => p.id === Koi.product);
     assert.ok(koi && koi.entitlement === Koi.entitlement, 'koi.js and store-config.js disagree');
     for (const def of Powers.list) assert.deepEqual(products.find(p => p.id === def.product)?.items, [{ power: def.id, count: 1 }], `powers.js and store-config.js disagree on ${def.id}`);
+    for (const p of products.filter(p => p.consumable)) {
+      assert.equal(p.available, false, 'real purchases still await phone sandbox evidence');
+      assert.equal(price(p), p.count === 1 ? .29 : p.count === 5 ? .49 : 1, p.id + ' owner-approved USD target');
+      assert.deepEqual(p.items.map(it => [it.power, it.count]).sort(), Object.entries(Powers.contents(p.id)).sort(), p.id + ' grants exactly its stated contents');
+    }
+    assert.equal(products.find(p => p.id === 'bloomshot.pack.bag20').count, 20);
+    assert(!products.some(p => p.id === 'bloomshot.pack.bag12'), 'retired twelve-pack is not offered');
   });
 
   const failed = results.filter(r => !r.passed);

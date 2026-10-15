@@ -1,5 +1,7 @@
 # Google Play graphics
 
+Release gate: these are October 14 review drafts. The October 15 boss flower effects and new spell cues were added afterward. Retake from Trevor's approved final build before uploading; the current-source validator is expected to reject the old capture fingerprints until then.
+
 Capture status: regenerated and validated October 14, 2026 against the frozen game sources. The manifest identifies the exact source and PNG hashes. These listing assets still need owner review and the release checks before public submission.
 
 The eight phone images cover all ten campaign levels. Six are direct screenshots (Sunny Meadow, Crystal Caves, Glowworm Lake, Ember Hollows, Briar Vault and Starseed Core). Two are clearly framed marketing composites of actual gameplay crops: Root Tunnels with Mushroom Grotto, and Fossil Beds with Geode Mine. These pairs add only the actual level names in the game's Fredoka font. No prices or invented UI/mechanics are added. Every upload PNG is 1080 × 1920 opaque RGB. Upload the eight `phone-*.png` files in filename order.

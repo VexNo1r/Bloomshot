@@ -2,14 +2,14 @@
   "passed": 23,
   "failed": 0,
   "observations": {
-    "wild": "L1 Lw3 L1 W1 L1 Lw6 L1 Lw8 L2 Lw8 L2 Lw6 L2 Lw2 L2 Lw9 L3 Lw8 L3 Lw4 L3 Lw3 L3 Lw8 L4 Lw5 L4 Lw6 L4 Lw5 L4 Lw3 L5 Lw4 L5 Lw7 L5 Lw3 L5 Lw3 L6 Lw4 L6 Lw3 L6 Lw4 L6 Lw2 L7 Lw2 L7 Lw4 L7 Lw3 L7 Lw5 L8 Lw3 L8 Lw2 L8 Lw2 L8 Lw3 L9 Lw2 L9 Lw3 L9 Lw4 L9 Lw4 L10 Lw2 L10 Lw2 L10 Lw2 L10 Lw3",
-    "wildRate": 1.05,
-    "lazy": "L1 W2 L1 W3 L1 W2 L1 W3 L2 Lw9 L2 Lw9 L2 Lw6 L2 Lw8 L3 Lw9 L3 Lw7 L3 Lw7 L3 Lw8 L4 Lw7 L4 Lw6 L4 Lw7 L4 Lw4 L5 Lw7 L5 Lw9 L5 Lw9 L5 Lw9 L6 Lw4 L6 Lw4 L6 Lw3 L6 Lw5 L7 Lw4 L7 Lw7 L7 Lw5 L7 Lw6 L8 Lw5 L8 Lw3 L8 Lw7 L8 Lw10 L9 Lw3 L9 Lw3 L9 Lw3 L9 Lw4 L10 Lw2 L10 Lw2 L10 Lw2 L10 Lw6",
-    "lazyRate": 1.17,
-    "fast": "L1 W3 1.44 L1 W3 1.69 L2 W3 1.36 L2 W3 1.37 L3 W3 1.51 L3 W3 1.54 L4 W1 1.43 L4 W2 1.45 L5 W2 1.56 L5 W3 1.56 L6 W3 1.41 L6 W2 1.4 L7 W1 1.41 L7 W2 1.53 L8 W3 1.82 L8 W3 1.78 L9 W3 1.69 L9 W3 1.75 L10 W1 1.7 L10 W1 1.83",
-    "fastMeanRate": 1.562,
-    "fastMinimumRate": 1.36,
-    "runtimeSeconds": 31.3
+    "wild": "L1 Lw3 L1 Lw10 L1 Lw6 L1 Lw8 L2 Lw9 L2 Lw2 L2 Lw1 L2 Lw5 L3 Lw8 L3 Lw5 L3 Lw7 L3 W2 L4 Lw5 L4 Lw6 L4 Lw5 L4 Lw3 L5 Lw4 L5 Lw7 L5 Lw3 L5 Lw3 L6 Lw4 L6 Lw3 L6 Lw4 L6 Lw2 L7 Lw2 L7 Lw4 L7 Lw3 L7 Lw5 L8 Lw3 L8 Lw2 L8 Lw2 L8 Lw3 L9 Lw2 L9 Lw3 L9 Lw4 L9 Lw4 L10 Lw2 L10 Lw2 L10 Lw2 L10 Lw3",
+    "wildRate": 1.06,
+    "lazy": "L1 W2 L1 W3 L1 W2 L1 W3 L2 Lw1 L2 Lw8 L2 Lw1 L2 W3 L3 Lw9 L3 Lw8 L3 Lw5 L3 W1 L4 Lw7 L4 Lw6 L4 Lw7 L4 Lw4 L5 Lw7 L5 Lw9 L5 Lw9 L5 Lw9 L6 Lw4 L6 Lw4 L6 Lw3 L6 Lw5 L7 Lw4 L7 Lw7 L7 Lw5 L7 Lw6 L8 Lw5 L8 Lw3 L8 Lw7 L8 Lw10 L9 Lw3 L9 Lw3 L9 Lw3 L9 Lw4 L10 Lw2 L10 Lw2 L10 Lw2 L10 Lw6",
+    "lazyRate": 1.15,
+    "fast": "L1 W3 1.38 L1 W3 1.67 L2 W3 1.28 L2 W3 1.44 L3 W3 1.41 L3 W3 1.54 L4 W1 1.44 L4 W2 1.52 L5 W2 1.56 L5 W3 1.57 L6 W3 1.4 L6 W2 1.4 L7 W1 1.41 L7 W2 1.52 L8 W3 1.82 L8 W3 1.78 L9 W3 1.73 L9 W2 1.41 L10 W2 1.68 L10 W1 1.93",
+    "fastMeanRate": 1.544,
+    "fastMinimumRate": 1.28,
+    "runtimeSeconds": 34.1
   },
   "results": [
     {
@@ -93,7 +93,7 @@
       "passed": true
     },
     {
-      "name": "Rough aim at full speed, for these seeds: it nearly always loses levels 3, 4, 6 and 7, mostly 10, and its wins cost lives; levels 2, 5, 8 and 9 stay winnable that way about half the time",
+      "name": "Rough aim at full speed mostly loses later levels; the eased introductory Level 2 may have a clean clear",
       "passed": true
     },
     {

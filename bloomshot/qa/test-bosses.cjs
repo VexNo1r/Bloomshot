@@ -33,6 +33,123 @@ test('Old Sunny blocks plain seeds asleep; his bubble wakes a six-second double-
   hit(g,b); assert.equal(b.hp,hp-2); advance(g,6.1); hit(g,b); assert.equal(b.hp,hp-3);
   advance(g,7.5); assert.equal(g.bossState.mode,'sleeping'); assert(!bubble.bloomed);
 });
+function sunnyAttack() {
+  const g=new RushGame({plan:bot.plan(1),startWave:10});
+  assert(g.fire(0,-1),'a real opening seed wakes Sunny');
+  for(let n=0;n<600&&!g.bossWarning;n++)g.step(1/120);
+  assert(g.bossWarning && g.bossWarning.move==='sprouts');return g;
+}
+test('Sunny warns before an early two-sprout volley; ignoring the whole pair costs exactly one life', () => {
+  const g=sunnyAttack(),w=g.bossWarning,b=g.bossState.boss;
+  assert(g.time<3,'the introduction does not postpone its attack until the fight is over');
+  const marks=w.targets.filter(t=>t.role==='sprout');assert.equal(marks.length,2);assert(marks.every(t=>t.y<g.dangerY-170));
+  const until=w.until;advance(g,1.2);assert(!g.buds.some(p=>p.sunnySprout),'no threat before the full tell');
+  while(g.time<until+1/120)g.step(1/120);
+  const sprouts=g.buds.filter(p=>p.sunnySprout);assert.equal(sprouts.length,2);
+  assert.equal(new Set(sprouts.map(p=>p.group)).size,1,'a missed volley is one life, not two');
+  for(const p of sprouts){assert.equal(p.hp,1);assert.equal(p.relay,false);const t=w.targets.find(t=>t.x===p.x);assert(t);assert(Math.abs(p.startY-t.y)<1e-9);}
+  assert.equal(g.bossState.mode,'dizzy','the volley preserves the earned six-second critical window');
+  const spawn=g.time,life=g.lives;while(g.time<spawn+4.7)g.step(1/120);assert.equal(g.lives,life,'the new player has time to change aim');
+  while(g.time<spawn+5.2)g.step(1/120);assert.equal(g.lives,life-1);assert(!g.buds.some(p=>p.sunnySprout&&!p.bloomed));
+  assert.equal(b.maxHp,14,'the attack is not an HP inflation');
+});
+test('Two ordinary aimed seeds can stop Sunny’s whole volley before it takes a life', () => {
+  const g=sunnyAttack(),until=g.bossWarning.until;while(g.time<until+1/120)g.step(1/120);
+  const sprouts=g.buds.filter(p=>p.sunnySprout),life=g.lives;
+  for(const target of sprouts){
+    let seconds=Math.hypot(target.x-g.launcher.x,target.y-g.launcher.y)/g.speed;
+    for(let n=0;n<4;n++)seconds=Math.hypot(target.x-g.launcher.x,target.y+g.descentSpeed*target.fall*seconds-g.launcher.y)/g.speed;
+    assert(g.fire(target.x-g.launcher.x,target.y+g.descentSpeed*target.fall*seconds-g.launcher.y));advance(g,.22);
+  }
+  advance(g,1);assert(sprouts.every(p=>p.bloomed),'the actual launched seeds hit both one-hit targets');
+  advance(g,4.5);assert.equal(g.lives,life);assert.equal(g.powersUsed,0,'plain play is sufficient');
+});
+test('Lullaby freezes Sunny’s launched sprouts and defeat cancels them with the normal finale', () => {
+  const g=sunnyAttack(),until=g.bossWarning.until;while(g.time<until+1/120)g.step(1/120);
+  const sprouts=g.buds.filter(p=>p.sunnySprout),ys=sprouts.map(p=>p.y);g.lull();advance(g,1);
+  assert.deepEqual(sprouts.map(p=>p.y),ys);
+  g.bossState.boss.hp=1;g.strike(g.bossState.boss,true);advance(g,2);
+  assert(sprouts.every(p=>p.bloomed));assert.equal(g.lives,3);assert.equal(g.status,'won');
+});
+function flowerEncounter(id) {
+  const g=new RushGame({plan:bot.plan(id),startWave:10});g.started=true;g.status='flying';g.bossState.next=0;
+  g.step(1/120);const w=g.bossState.flowerWarning;assert(w && w.targets.length,'L'+id+' warns about real ordinary flowers');
+  const before=new Map(g.buds.map(p=>[p.id,{r:p.r,hp:p.hp,maxHp:p.maxHp,shell:p.shell,briar:p.briar,relay:p.relay}]));
+  advance(g,1.2);assert(!g.buds.some(p=>p.bossFlowerEffect),'no mutation before the full tell');
+  while(g.time<w.until+1/120)g.step(1/120);g.bossState.next=Infinity;
+  return {g,w,before,affected:g.buds.filter(p=>p.bossFlowerEffect)};
+}
+test('Every authored boss has a unique ordinary-flower change after its complete visible tell', () => {
+  for(let id=1;id<=10;id++){
+    const {g,w,before,affected}=flowerEncounter(id),kind=Depths.bosses[id-1].kind;
+    assert(w.until-w.at>=1.3-1e-9);assert(affected.length>=1 && affected.length<=3,'L'+id+' bounded observed changes');
+    const event=g.drainEvents().find(e=>e.type==='bossWarning'&&e.flowerText);assert(event && event.flowerText===w.text,'the exact effect description reaches the existing warning event');
+    assert.equal(g.bossState.flowerWarning,null);
+    for(const p of affected){const e=p.bossFlowerEffect;assert.equal(e.kind,kind);assert(e.until>g.time);assert(!p.hidden);assert(p.r>=8);
+      assert(!p.boss && !p.bossPart && !p.gift && !p.puff && !p.geode && !p.gem);assert(p.y+p.r<g.dangerY-100);
+      if(kind==='sunny')assert.equal(p.r,before.get(p.id).r*1.25);
+      if(kind==='root')assert.equal(p.r,Math.max(8,before.get(p.id).r*.7));
+      if(kind==='puff')assert.equal(e.opacity,.4);
+      if(kind==='fossil'){assert(p.shell);assert.equal(p.shellSpin,.9);}
+      if(kind==='ember')assert(p.bossFlameUntil>g.bossState.age);
+      if(kind==='geode')assert.equal(p.hp,Math.min(3,before.get(p.id).hp+1));
+      if(kind==='briar'){assert(p.briar);assert.equal(p.relay,false);assert(!before.get(p.id).briar);}
+      if(kind==='core'){assert(p.bossEcho);assert(p.bossEchoOf);assert(w.targets.some(t=>t.id===p.bossEchoOf&&t.echoX===p.x&&Math.abs(t.echoY-p.startY)<1e-9));}
+    }
+  }
+});
+test('Sunny growth and Root shrink change the actual seed collider, with no tiny target', () => {
+  for(const id of[1,2]){const {g,before,affected}=flowerEncounter(id),p=affected[0],oldR=before.get(p.id).r;
+    const point={x:p.x+Engine.RADIUS+(p.r+oldR)/2,y:p.y+50},d={x:0,y:-100},world={buds:[p],bumpers:[],gates:[]};
+    const real=Engine.earliest(world,point,d),old=Engine.earliest({...world,buds:[{...p,r:oldR}]},point,d);
+    assert.equal(Boolean(real),id===1);assert.equal(Boolean(old),id===2);assert(p.r>=8);
+  }
+});
+test('Crystal sways real colliders, Lily lifts flowers safely, and Lullaby holds effect phase and deadlines', () => {
+  for(const id of[4,5]){const {g,affected}=flowerEncounter(id),p=affected[0],e=p.bossFlowerEffect,y=p.y;
+    advance(g,.5);if(id===4){const normal=p.baseX+(p.sway?Math.sin((g.time-g.waveStart)*p.swayW+p.swayPhase)*p.sway:0);assert(Math.abs(p.x-normal)>1);}
+    else assert(p.y<y,'the actual flower rises, not only its picture');
+    assert(p.x-p.r>=22 && p.x+p.r<=398 && p.y-p.r>=22);
+    const phase=g.time-e.at,left=e.until-g.time,until=e.until;g.lull();advance(g,.6);
+    assert(Math.abs((g.time-e.at)-phase)<1e-8);assert(Math.abs((e.until-g.time)-left)<1e-8);assert(e.until>until+.59);
+  }
+  const g=new RushGame({plan:bot.plan(2),startWave:10});g.started=true;g.bossState.next=0;g.step(.01);
+  const w=g.bossState.flowerWarning;g.lull();advance(g,.6);assert.equal(w.until,g.bossWarning.until);assert(!g.buds.some(p=>p.bossFlowerEffect));
+});
+test('Temporary fields restore on expiry, near-line entry, boss breach and defeat without changing saved health damage', () => {
+  for(const id of[1,2,3,4,5,6,7,8,9,10])for(const reason of['expiry','breach','defeat']){
+    const {g,before,affected}=flowerEncounter(id),refs=affected.slice();
+    if(reason==='expiry'){for(const p of affected){p.fall=0;p.bossFlowerEffect.until=g.time+.1;}advance(g,.2);}
+    else if(reason==='breach')Bosses.breach(g);else {g.bossState.boss.hp=1;g.strike(g.bossState.boss,true);}
+    assert.equal(g.bossState.flowerEffects.size,0,'L'+id+' '+reason);assert(!g.buds.some(p=>p.bossFlowerEffect));
+    for(const p of refs){assert(!p.bossFlowerEffect);if(p.bossEcho)assert(!g.buds.includes(p));else {const b=before.get(p.id);assert.equal(p.r,b.r);assert.equal(p.shell,b.shell);assert.equal(p.briar,b.briar);assert.equal(p.relay,b.relay);}}
+  }
+  const {g,affected,before}=flowerEncounter(8),p=affected.find(p=>before.get(p.id).hp===2);hit(g,p);hit(g,p);assert.equal(p.hp,1);
+  p.bossFlowerEffect.until=g.time;Bosses.step(g,0);assert.equal(p.hp,1,'expiry never heals seed damage');assert.equal(p.maxHp,before.get(p.id).maxHp);
+  const root=flowerEncounter(2);root.affected[0].y=root.g.dangerY-100-root.affected[0].r;Bosses.step(root.g,0);assert(!root.affected[0].bossFlowerEffect,'no shrinking near the danger line');
+});
+test('Thornmother converts a whole clean group, regrows it through the engine, then clears temporary timers', () => {
+  const {g,affected}=flowerEncounter(9);assert.equal(affected.length,3);assert.equal(new Set(affected.map(p=>p.group)).size,1);
+  const p=affected[0];hit(g,p);assert(p.bloomed);assert(g.briarTimers.has(p.group));assert(g.briarTimers.get(p.group)<=g.time+2);advance(g,2.05);assert(!p.bloomed,'the normal Rush regrow path brings the thorn bud back');
+  advance(g,3.1);assert(affected.every(p=>!p.briar&&!p.bossFlowerEffect));assert(!g.briarTimers.has(p.group));
+  const real=new RushGame({plan:bot.plan(9),startWave:10});real.started=true;real.status='flying';while(!real.bossState.flowerWarning)real.step(1/120);
+  const until=real.bossWarning.until;while(real.time<until+1/120)real.step(1/120);real.bossState.next=Infinity;
+  const thorn=real.buds.find(p=>p.bossFlowerEffect?.kind==='briar');assert(thorn);hit(real,thorn);advance(real,2.05);assert(!thorn.bloomed && thorn.briar,'the naturally timed first spell regrows before the safe-line cutoff');
+});
+test('Geode cannot keep adding rings to the same bud, and Core echoes never copy echoes or exceed four total', () => {
+  const a=flowerEncounter(8),used=new Set(a.affected.map(p=>p.id));for(const p of a.affected)p.bossFlowerEffect.until=a.g.time;
+  Bosses.step(a.g,0);a.g.bossState.next=0;Bosses.step(a.g,0);assert(a.g.bossState.flowerWarning?.targets.every(t=>!used.has(t.id)) ?? true);
+  const {g}=flowerEncounter(10);for(let cast=0;cast<5;cast++){
+    for(const p of g.buds.filter(p=>p.bossEcho))p.bossFlowerEffect.until=g.time;Bosses.step(g,0);
+    g.bossState.next=0;Bosses.step(g,0);const w=g.bossWarning;if(w){for(const t of w.flowerTargets)assert(!g.buds.find(p=>p.id===t.id).bossEcho);g.time=w.until;Bosses.step(g,0);}
+    assert(g.bossState.echoesCreated<=4);assert(g.buds.filter(p=>p.bossEcho).length<=2);assert.equal(new Set(g.buds.map(p=>p.id)).size,g.buds.length);
+  }
+});
+test('Modifier selection excludes special pieces and the final reaction margin, and a new wave discards all old effects', () => {
+  const g=arena(3);for(const [i,field] of['gift','puff','geode','gem','bossEcho'].entries())g.buds.push({id:'excluded-'+field,group:'excluded-'+field,x:60+i*65,y:210,r:10,hp:1,maxHp:1,bloomed:false,[field]:true});
+  g.buds.push({id:'near-line',group:'near-line',x:90,y:g.dangerY-90,r:10,hp:1,maxHp:1,bloomed:false});g.bossState.next=0;advance(g,.02);assert.equal(g.bossState.flowerWarning,null);
+  const a=flowerEncounter(2),refs=a.affected.slice();a.g.wave=9;a.g._loadWave();assert(refs.every(p=>!p.bossFlowerEffect));assert(!a.g.buds.some(p=>p.bossFlowerEffect));
+});
 test('Rootknot warns of walls and holes, has no underground collider, and emerges hittable', () => {
   const g = arena(2), b = g.bossState.boss, hp=b.hp; advance(g,4.1); assert(g.bossWarning && g.bossWarning.targets.some(t=>t.role==='hole'));
   advance(g,1.35); assert.equal(g.bossState.mode,'burrow'); assert(b.hidden && !b.visible); assert.equal(g.bumpers.filter(p=>p.bossWall).length,2);
@@ -81,7 +198,7 @@ test('Ember fire actually consumes a plain seed; tunnel seeds survive and igniti
   assert.equal(b.hp,hp-3);assert(g.balls.length>0);g.balls=[];
   g.descentSpeed=20;
   for(let n=0;n<7;n++)g.buds.push({id:'ember-escort-'+n,group:'escort-'+n,x:45+n*50,y:260,r:10,hp:1,maxHp:1,fall:1,bloomed:false});
-  s.next=s.age;advance(g,.02);const marks=g.bossWarning.targets.filter(t=>t.role==='flame');assert.equal(marks.length,6);
+  s.next=s.age;advance(g,.02);const marks=g.bossWarning.targets.filter(t=>t.role==='flame');assert.equal(marks.length,3);
   const target=g.buds.find(p=>p.id===marks[0].id);advance(g,.5);assert.equal(marks[0].y,target.y,'the warning follows its actual target');
   advance(g,.82);assert.equal(s.mode,'dive');const marked=target.y,unmarked=g.buds.at(-1).y;advance(g,1);
   assert(Math.abs(target.y-marked-25)<1e-6);assert(Math.abs(g.buds.at(-1).y-unmarked-20)<1e-6);

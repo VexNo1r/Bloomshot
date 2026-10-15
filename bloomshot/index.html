@@ -98,9 +98,7 @@
           </div>
         </div>
         <div class="play-strip">
-          <div id="power-left" class="power-group" role="group" aria-label="Powerups"></div>
           <div id="combo-meter" class="combo-meter" role="meter" aria-label="Super bloom charge" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="combo-fill" aria-hidden="true"></span><span class="combo-spark" aria-hidden="true"></span><span id="combo-label">Chain blooms</span><span id="guide-label">Ready</span></div>
-          <div id="power-right" class="power-group" role="group" aria-label="More powerups"></div>
         </div>
 
         <div class="board-region">
@@ -110,6 +108,10 @@
           </div>
         </div>
         <p id="game-hint" class="game-hint">Aim, release, then drag to guide your seeds.</p>
+        <div class="power-tray" role="group" aria-label="Powerups">
+          <div id="power-left" class="power-group"></div>
+          <div id="power-right" class="power-group"></div>
+        </div>
         <div class="game-actions">
           <button id="split-btn" class="split-button" type="button" hidden disabled>Split · 0/6</button>
           <button id="restart-btn" class="text-button" type="button" aria-label="Restart this game"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4.3 7.4a6 6 0 1 1-.2 4.3M4 3.5v4.3h4.3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Restart</span></button>

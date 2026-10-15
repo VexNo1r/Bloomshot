@@ -13,7 +13,115 @@
     crystal: 'Three hearts. Follow the beating one.', lotus: 'Whirlpool! Watch the lantern.', fossil: 'Two locks. Wait for both gaps.',
     ember: 'Fire dive! Catch her bare.', geode: 'The crust is growing back.', briar: 'Cut the vines! Clear a whole patch.', core: 'The little stars are waking.' };
   const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+  const FLOWER_TIME = { sunny: 4, root: 4, puff: 4.5, crystal: 4.5, lotus: 2.5, fossil: 4.5, ember: 3, geode: 5, briar: 5, core: 4.5 };
+  const FLOWER_TEXT = { sunny: 'Warmth swells the buds.', root: 'The roots are shrinking the buds.', puff: 'A soft spore veil is settling.', crystal: 'The buds are swaying sideways.', lotus: 'The lake is lifting the flowers.', fossil: 'Shells are closing around the buds.', ember: 'Marked flowers are catching fire.', geode: 'A crystal ring is growing.', briar: 'Thorns are taking a whole patch.', core: 'The flowers are making echoes.' };
+  const flowerFields = ['r', 'shell', 'shellAngle', 'shellSpin', 'briar', 'relay', 'bossFlameUntil'];
   function active(game) { const s = game.bossState; return s && !s.boss.bloomed && !game.over ? s : null; }
+  function plainFlower(p) { return p && !p.bloomed && !p.hidden && !p.boss && !p.bossPart && !p.gift && !p.puff && !p.geode && !p.gem && !p.bossEcho && !p.sunnySprout; }
+  function safeFlower(game, p, seconds = 0) {
+    return plainFlower(p) && !p.bossFlowerEffect && p.y + p.r + game.descentSpeed * (p.fall || 1) * seconds < game.dangerY - 100;
+  }
+  function flowerX(game, p) { return p.baseX + (p.sway ? Math.sin((game.time - game.waveStart) * p.swayW + p.swayPhase) * p.sway : 0); }
+  function endFlowerEffect(game, s, record) {
+    const p = record.bud, effect = p.bossFlowerEffect;
+    if (record.echo) game.buds = game.buds.filter(b => b !== p);
+    else {
+      for (const [key, saved] of Object.entries(record.saved)) { if (saved.had) p[key] = saved.value; else delete p[key]; }
+      if (effect && effect.kind === 'crystal') p.x = clamp(flowerX(game, p), 22 + p.r, 398 - p.r);
+      if (record.health && !p.bloomed) { p.maxHp = record.health.maxHp; p.hp = Math.min(p.hp, record.health.hp); }
+      if (effect && effect.kind === 'briar') {
+        game.briarTimers?.delete(p.group); delete p.regrowAt; delete p.regrowSpan;
+      }
+    }
+    delete p.bossFlowerEffect; s.flowerEffects.delete(p.id);
+  }
+  function clearFlowerEffects(game, s) {
+    if (!s) return;
+    for (const record of [...(s.flowerEffects?.values() || [])]) endFlowerEffect(game, s, record);
+    s.flowerWarning = null;
+    if (s.warning) { s.warning.flowerTargets = []; s.warning.targets = s.warning.targets.filter(t => !t.effect); }
+  }
+  function echoSpot(game, source, taken) {
+    for (const [dx, dy] of [[42,-48],[-42,-48],[54,-74],[-54,-74],[0,-74]]) {
+      const x = source.x + dx, y = source.y + dy, r = Math.max(8, Math.min(12, source.r));
+      if (x-r<28 || x+r>392 || y-r<28 || y+r>=game.dangerY-100) continue;
+      const clear = game.buds.every(p => p.bloomed || p.hidden || Math.hypot(p.x-x,p.y-y) > p.r+r+12);
+      if (clear && taken.every(p=>Math.hypot(p.echoX-x,p.echoY-y)>p.echoR+r+12)) return { echoX:x,echoY:y,echoR:r };
+    }
+    return null;
+  }
+  function flowerTargets(game, s) {
+    const kind=s.kind, activeCount=s.flowerEffects.size;
+    if(activeCount || kind==='core' && s.echoesCreated>=4)return [];
+    let buds=game.buds.filter(p=>safeFlower(game,p,TELEGRAPH)).sort((a,b)=>a.y-b.y || a.x-b.x);
+    if(kind==='geode')buds=buds.filter(p=>!s.flowerUsed.has(p.id) && p.hp<3);
+    if(kind==='fossil')buds=buds.filter(p=>!p.shell);
+    if(kind==='briar'){
+      const first=buds.find(p=>!p.briar && game.buds.filter(b=>b.group===p.group).length<=3 && game.buds.filter(b=>b.group===p.group).every(b=>!b.briar && safeFlower(game,b,TELEGRAPH)));
+      buds=first?buds.filter(p=>p.group===first.group):[];
+    }else buds=buds.slice(0,kind==='ember'?3:2);
+    const targets=[];
+    for(const p of buds){
+      const target={id:p.id,x:p.x,y:p.y,r:p.r,role:kind==='ember'?'flame':'flower-effect',effect:kind};
+      if(kind==='core'){const spot=echoSpot(game,p,targets);if(!spot || targets.length>=4-s.echoesCreated)continue;Object.assign(target,spot);}
+      targets.push(target);
+    }
+    return targets;
+  }
+  function flowerWarning(game, s, w) {
+    const targets=flowerTargets(game,s);w.flowerTargets=targets;
+    w.flowerText=targets.length?FLOWER_TEXT[s.kind]:null;
+    s.flowerWarning=targets.length?{kind:s.kind,text:FLOWER_TEXT[s.kind],at:w.at,until:w.until,targets}:null;
+    w.targets.push(...targets);
+  }
+  function applyFlowerEffects(game, s, w) {
+    const kind=s.kind;
+    for(const t of w.flowerTargets || []){
+      const p=game.buds.find(b=>b.id===t.id);if(!safeFlower(game,p))continue;
+      if(kind==='core'){
+        if(s.echoesCreated>=4 || game.buds.filter(b=>b.bossEcho&&!b.bloomed).length>=2)break;
+        if(game.buds.some(b=>!b.bloomed&&!b.hidden&&Math.hypot(b.x-t.echoX,b.y-t.echoY)<b.r+t.echoR+8))continue;
+        const id=s.boss.id+'-echo-'+s.serial++, echo={id,group:s.boss.id+'-echo-volley-'+s.action,
+          x:t.echoX,y:t.echoY,baseX:t.echoX,startY:t.echoY,r:t.echoR,type:p.type,hp:1,maxHp:1,relay:false,
+          fall:Math.min(1,p.fall||1),sway:0,hitAt:-100,bloomAt:-100,bloomed:false,spawnAt:game.time,
+          bossEcho:true,bossEchoOf:p.id,bossSummon:true,bossSource:s.boss.id};
+        echo.bossFlowerEffect={kind,at:game.time,until:game.time+FLOWER_TIME[kind]};game.buds.push(echo);
+        s.flowerEffects.set(id,{bud:echo,echo:true});s.echoesCreated++;continue;
+      }
+      const record={bud:p,saved:Object.fromEntries(flowerFields.map(key=>[key,{had:Object.hasOwn(p,key),value:p[key]}]))};
+      const effect=p.bossFlowerEffect={kind,at:game.time,until:game.time+FLOWER_TIME[kind]};
+      if(kind==='sunny')p.r=Math.min(p.r*1.25,20,p.x-22,398-p.x);
+      if(kind==='root')p.r=Math.max(8,p.r*.7);
+      if(kind==='puff')effect.opacity=.4;
+      if(kind==='crystal')effect.amplitude=16;
+      if(kind==='lotus')effect.lift=12;
+      if(kind==='fossil'){p.shell=true;p.shellAngle=Math.PI/2;p.shellSpin=.9;}
+      if(kind==='ember')p.bossFlameUntil=s.age+FLOWER_TIME[kind];
+      if(kind==='geode'){
+        record.health={hp:p.hp,maxHp:p.maxHp};p.hp=Math.min(3,p.hp+1);p.maxHp=Math.max(p.maxHp,p.hp);s.flowerUsed.add(p.id);
+      }
+      if(kind==='briar'){p.briar=true;p.relay=false;}
+      s.flowerEffects.set(p.id,record);
+    }
+    s.flowerWarning=null;
+  }
+  function stepFlowerEffects(game,s,dt){
+    for(const record of [...s.flowerEffects.values()]){
+      const p=record.bud,e=p.bossFlowerEffect;if(!e){s.flowerEffects.delete(p.id);continue;}
+      const wholeBriar=e.kind==='briar' && game.buds.some(b=>b.group===p.group&&!b.bloomed);
+      if(!game.buds.includes(p) || p.bloomed&&!wholeBriar || p.y+p.r>=game.dangerY-100 || game.time>=e.until){
+        if(e.kind==='briar')for(const other of [...s.flowerEffects.values()]){if(other.bud.group===p.group)endFlowerEffect(game,s,other);}
+        else endFlowerEffect(game,s,record);continue;
+      }
+      if(game.lullaby>0){e.until+=dt;e.at+=dt;if(e.kind==='ember')p.bossFlameUntil+=dt;}
+      if(e.kind==='crystal'){
+        const elapsed=game.time-e.at,duration=FLOWER_TIME.crystal,envelope=Math.sin(Math.PI*clamp(elapsed/duration,0,1));
+        const edge=clamp((game.dangerY-100-p.y-p.r)/36,0,1);
+        p.x=clamp(flowerX(game,p)+Math.sin(elapsed*2.6)*e.amplitude*envelope*edge,22+p.r,398-p.r);
+      }
+      if(e.kind==='lotus' && !(game.lullaby>0))p.y=Math.max(28+p.r,p.y-(game.descentSpeed*(p.fall||1)+e.lift)*dt);
+    }
+  }
   function part(game, role, x, y, r, hp, extra) {
     const s = game.bossState, boss = s.boss, id = boss.id + '-' + role + '-' + s.serial++;
     const p = { id, group: boss.group, bossId: boss.id, bossKind: s.kind, bossPart: role, x, y, baseX: x, startY: y, r,
@@ -22,12 +130,14 @@
     s.parts.push(p); game.buds.push(p); return p;
   }
   function init(game) {
+    clearFlowerEffects(game,game.bossState);
     const boss = game.buds.find(b => b.boss && b.bossKind);
     game.bossState = null; game.bossWarning = null;
     if (!boss) return;
     const s = game.bossState = { kind: boss.bossKind, boss, age: 0, moveAge: 0, phase: 0, mode: 'open', vulnerable: true, weakspot: null,
       warning: null, parts: [], hazards: [], serial: 0, action: 0, next: 4, modeUntil: 0, hits: 0, crits: 0, guards: 0,
-      heals: 0, summons: 0, lostLives: 0, patches: [], baseX: boss.baseX, baseY: boss.y, drift: 0, bob: 0, stunUntil: 0 };
+      heals: 0, summons: 0, lostLives: 0, patches: [], baseX: boss.baseX, baseY: boss.y, drift: 0, bob: 0, stunUntil: 0,
+      flowerEffects:new Map(),flowerUsed:new Set(),flowerWarning:null,echoesCreated:0 };
     game.bossReached = true; game.bossDefeated = false;
     boss.bossWarning = null; boss.visible = true;
     boss.maxHp = boss.hp = Number.isInteger(boss.hp) && boss.hp > 0 ? boss.hp : HEALTH[s.kind];
@@ -89,6 +199,7 @@
     const s = active(game); if (!s) return;
     const boss = s.boss, w = { kind: s.kind, name: boss.name, move, text, at: game.time, until: game.time + TELEGRAPH,
       x: boss.x, y: boss.y, targets };
+    flowerWarning(game,s,w);
     s.warning = w; game.bossWarning = w; boss.bossWarning = w; game.event('bossWarning', { ...w });
   }
   function landing(game, desired, r = 32) {
@@ -109,12 +220,50 @@
       bossSummon: true, bossSource: s.boss.id, healing: Boolean(options.briar) }));
     game.buds.push(...made); s.summons++; return made;
   }
+  function sunnyTargets(game) {
+    const s = active(game), targets = [], radius = 14;
+    // The first guardian teaches a change of aim. Two visible one-hit sprouts arrive in the middle
+    // of the board, rather than spending the whole short fight drifting harmlessly from the ceiling.
+    for (const xs of [[146, 92, 178], [274, 328, 242]]) {
+      let target = null;
+      for (const y of [224, 260, 194]) {
+        for (const x of xs) {
+          const clear = game.buds.every(p => {
+            if (p.bloomed || p.hidden) return true;
+            const pose = p.boss || p.bossPart ? positions(s, TELEGRAPH).get(p.id) : null;
+            const px = pose ? pose.x : p.x, py = pose ? pose.y : p.y + game.descentSpeed * (p.fall || 1) * TELEGRAPH;
+            return Math.hypot(px - x, py - y) >= p.r + radius + 12;
+          });
+          if (clear && targets.every(p => Math.hypot(p.x - x, p.y - y) > radius * 2 + 20)) { target = { x, y, r: radius, role: 'sprout' }; break; }
+        }
+        if (target) break;
+      }
+      if (target) targets.push(target);
+    }
+    return targets;
+  }
+  function sunnyVolley(game, targets) {
+    const s = active(game); if (!targets.length || game.buds.some(p => p.sunnySprout && !p.bloomed)) return;
+    const id = s.boss.id + '-sprouts-' + s.serial++;
+    // A missed pair costs one life in total. Five seconds of travel plus the 1.3-second tell lets a
+    // new player see them, change aim and land two plain shots; no paid tool or banking is needed.
+    for (const [i, t] of targets.entries()) game.buds.push({ id: id + '-' + i, group: id, x: t.x, y: t.y,
+      baseX: t.x, startY: t.y, r: t.r, type: 'gold', hp: 1, maxHp: 1, relay: false,
+      fall: (game.dangerY - t.y - t.r) / (5 * Math.max(1, game.descentSpeed)), sway: 0,
+      hitAt: -100, bloomAt: -100, bloomed: false, spawnAt: game.time, bossSummon: true,
+      bossSource: s.boss.id, sunnySprout: true });
+    s.summons++;
+  }
   function schedule(game) {
     const s = active(game), b = s.boss, kind = s.kind, side = s.action % 2 ? 320 : 100;
     let move = kind, targets = [], text = TEXT[kind];
     const place = landing(game, side);
-    if (['sunny', 'puff', 'briar'].includes(kind)) { if (place) targets.push(place); }
-    if (kind === 'sunny') { move = s.action % 2 ? 'nap' : 'sprouts'; text = move === 'nap' ? 'Old Sunny is nodding off.' : 'Old Sunny is tossing sprouts.'; }
+    if (['puff', 'briar'].includes(kind)) { if (place) targets.push(place); }
+    if (kind === 'sunny') {
+      move = s.action % 2 ? 'nap' : 'sprouts';
+      text = move === 'nap' ? 'Old Sunny is nodding off.' : 'Quick sprouts! Pop both.';
+      if (move === 'sprouts') targets = sunnyTargets(game);
+    }
     if (kind === 'puff') { const p = positions(s, TELEGRAPH).get(b.id); targets.push({ x: clamp(p.x + (s.action % 2 ? -48 : 48), 50, 370), y: p.y, r: 12, role: 'puff' }); }
     if (kind === 'root') { targets = [{ x: 128, y: 326, r: 32, role: 'wall' }, { x: 292, y: 326, r: 32, role: 'wall' }, { x: s.action % 2 ? 128 : 292, y: b.y, r: b.r, role: 'hole' }]; }
     if (kind === 'crystal') {
@@ -126,7 +275,7 @@
     if (kind === 'lotus') { targets = [{ x: 210, y: 305, r: 50, role: 'swirl' }]; const lure = game.buds.filter(p => !p.bloomed && !p.boss && !p.bossPart && !p.puff).sort((a, z) => z.y - a.y)[0]; if (lure) { s.lureGroup = lure.group; targets.push({ x: lure.x, y: lure.y, r: 24, role: 'lure' }); } }
     if (kind === 'fossil') { targets = [{ x: b.x, y: b.y, r: b.r + 12, role: 'lock' },{ x:s.action%2?128:292,y:b.y,r:b.r,role:'station' }]; }
     if (kind === 'ember') { const destination=s.action%2?128:292; targets = [{ x:(b.x+destination)/2,y:b.y+44,r:b.r,role:'dive' },{ x:destination,y:b.y,r:b.r,role:'alcove' }];
-      for (const p of game.buds.filter(p=>!p.boss && !p.bossPart && !p.bloomed && !p.gift && !p.puff).slice(0,6)) targets.push({id:p.id,x:p.x,y:p.y,r:p.r,role:'flame'}); }
+    }
     if (kind === 'geode') {
       targets = s.parts.filter(p => p.bossPart === 'plate' && p.bloomed && p.regrowAt <= game.time + TELEGRAPH).map(p => ({ id: p.id, x: p.x, y: p.y, r: p.r, role: 'plate' }));
       if (!targets.length) text = 'The king is tossing gems.';
@@ -166,14 +315,15 @@
   }
   function activate(game) {
     const s = active(game), b = s.boss, w = s.warning; s.warning = null; b.bossWarning = game.bossWarning = null; s.action++;
+    applyFlowerEffects(game,s,w);
     if (s.kind === 'sunny') {
       if (w.move === 'nap') { s.mode = 'sleeping'; s.vulnerable = false; const bubble = s.parts.find(p => p.bossPart === 'bubble'); revive(bubble, game); }
-      else { s.mode = 'cross'; s.vulnerable = true; cluster(game, w.targets[0]); }
+      else { sunnyVolley(game, w.targets.filter(t=>t.role==='sprout')); }
     }
     if (s.kind === 'root') { walls(game, w.targets); s.mode = 'burrow'; b.hidden = true; b.visible = false; s.vulnerable = false; s.modeUntil = s.age + 1.5; s.station = w.targets.find(t => t.role === 'hole').x; }
     if (s.kind === 'puff') {
       s.mode = 'bonnet'; s.modeUntil = s.age + 3;
-      const t = w.targets[0]; if (t) { const babies = cluster(game, t, { cup: true }); if (babies.length) babies[0].puff = true; }
+      const t = w.targets.find(t=>t.role==='summon'); if (t) { const babies = cluster(game, t, { cup: true }); if (babies.length) babies[0].puff = true; }
       // A nearby puffcap is an explicit opportunity to score two damage, never a hidden weakspot.
       if (!game.buds.some(p => p.puff && !p.bloomed && Math.hypot(p.x - b.x, p.y - b.y) < 70)) {
         const target = w.targets.find(t => t.role === 'puff'), x = target.x, y = target.y;
@@ -185,23 +335,24 @@
       s.mode = 'split'; s.parts.filter(p => p.bossPart === 'heart').forEach((p, i) => { p.fromSlot = p.slot; p.slot = (i + s.action) % 3; p.shuffleAt = s.age; p.real = i === 1; if (p.bloomed) revive(p, game); });
       if (b.hp < b.maxHp / 2) for (const t of w.targets.filter(t=>t.role==='shard')) { const shards=cluster(game,t,{hp:2,fast:true}); shards.forEach(p=>{p.bossShard=true;p.gem=true;p.relay=false;}); }
     }
-    if (s.kind === 'lotus') { whirlpool(game); for (const p of game.buds.filter(p => p.group === s.lureGroup)) p.bossLureUntil = s.age + 4; }
+    if (s.kind === 'lotus') { whirlpool(game); }
     if (s.kind === 'fossil') { s.lockAngle += Math.PI * .6;s.shellBaseSpin=-s.shellBaseSpin;b.shellSpin=s.shellBaseSpin;s.lockStage = 0; s.mode = 'jet'; s.jetAt=s.age;s.jetFrom=b.x;s.jetTo=w.targets.find(t=>t.role==='station').x;s.modeUntil=s.age+.9; }
     if (s.kind === 'ember') { s.mode = 'dive'; s.vulnerable = true; s.modeUntil = s.age + 2.4; s.diveAt = s.age;s.diveFrom=b.x;s.diveTo=w.targets.find(t=>t.role==='alcove').x;
       for (const t of w.targets.filter(t=>t.role==='flame')) { const p=game.buds.find(p=>p.id===t.id);if(p&&!p.bloomed) p.bossFlameUntil=s.age+3; } }
     if (s.kind === 'geode') { for (const p of s.parts.filter(p => p.bossPart === 'plate' && p.bloomed && p.regrowAt <= game.time)) revive(p, game); const t = w.targets.find(t => t.role === 'summon'); const gems = cluster(game, t); gems.forEach(p => { p.gem = true; p.relay = false; }); }
     if (s.kind === 'briar') {
-      const made = cluster(game, w.targets[0], { briar: true }); if (made.length) s.patches.push({ group: made[0].group, healAt: s.age + 4, cut: false });
+      const made = cluster(game, w.targets.find(t=>t.role==='summon'), { briar: true }); if (made.length) s.patches.push({ group: made[0].group, healAt: s.age + 4, cut: false });
       s.mode = s.action % 2 ? 'sealed' : 'skirt'; s.modeUntil = s.age + 2.4;
     }
     if (s.kind === 'core') {
       if (w.move === 'satellites') for (const p of s.parts) { if(p.bloomed) revive(p,game); if(s.phase>=1) p.lit=true; }
       if (w.move === 'swirl') whirlpool(game);
       if (w.move === 'roots') walls(game, w.targets);
-      if (w.move === 'thorns') cluster(game, w.targets[0], { briar: true });
-      if (w.move === 'supernova') { s.mode = 'supernova'; s.vulnerable = true; s.phase = 2; for (const p of s.parts) { p.bloomed = true; p.lit = false; } cluster(game, w.targets[0], { hp: 2, fast: true }); }
+      if (w.move === 'thorns') cluster(game, w.targets.find(t=>t.role==='summon'), { briar: true });
+      if (w.move === 'supernova') { s.mode = 'supernova'; s.vulnerable = true; s.phase = 2; for (const p of s.parts) { p.bloomed = true; p.lit = false; } cluster(game, w.targets.find(t=>t.role==='summon'), { hp: 2, fast: true }); }
     }
     s.next = s.age + (s.kind === 'core' && s.phase === 2 ? 4 : s.kind==='core' && s.phase===1 ? 4.5 : s.kind === 'sunny' && w.move==='sprouts' ? 2.5 : s.kind === 'sunny' ? 10 : Math.max(5, 9 - Object.keys(HEALTH).indexOf(s.kind) * .25));
+    if (s.kind === 'sunny' && w.move === 'sprouts') s.next = Math.max(s.next, s.modeUntil + .8);
     game.event('bossAbility', { kind: s.kind, move: w.move, name: b.name, x: b.x, y: b.y, targets: w.targets });
   }
   function step(game, dt) {
@@ -211,6 +362,7 @@
     const map = positions(s, 0);
     for (const p of [b, ...s.parts]) { const pos = map.get(p.id); p.x = pos.x; p.y = pos.y; }
     if (s.warning) for (const t of s.warning.targets) if (t.id) { const pos=map.get(t.id)||game.buds.find(p=>p.id===t.id);if(pos) Object.assign(t,{x:pos.x,y:pos.y,r:pos.r}); }
+    stepFlowerEffects(game,s,dt);
     b.bossPhase = 1 - b.hp / b.maxHp; b.bossEnraged = b.hp <= b.maxHp / 2;
     if (s.modeUntil && s.age >= s.modeUntil) {
       if (s.kind === 'sunny') { s.mode = 'cross'; s.vulnerable = true; }
@@ -243,7 +395,7 @@
     for (const p of game.buds) if (p.bossLureUntil > s.age && !p.bloomed && !(game.lullaby > 0)) p.y += 6 * dt;
     // Ignited clusters visibly hurry for three seconds; Lullaby freezes them with every other flower.
     for (const p of game.buds) if (p.bossFlameUntil > s.age && !p.bloomed && !(game.lullaby > 0)) p.y += game.descentSpeed * (p.fall || 1) * .25 * dt;
-    if (game.lullaby > 0) { s.next += dt; if (s.warning) s.warning.until += dt; }
+    if (game.lullaby > 0) { s.next += dt; if (s.warning) s.warning.until += dt; if(s.flowerWarning)s.flowerWarning.until+=dt; }
     else if (s.warning && game.time >= s.warning.until) activate(game);
     else if (!s.warning && s.age >= s.next && !(s.kind==='fossil' && s.lockStage===1)) schedule(game);
   }
@@ -295,7 +447,7 @@
       // The mouth stays clicked for a full outer-ring revolution plus a reaction margin. A station jet
       // cannot erase that earned click while the player is waiting for the second opening.
       s.lockStage = 1;s.lockUntil = s.age + TAU/s.lockSpin + 1.2;s.mode = 'lock-plates';bud.shellAngle=Math.atan2(hit.ny,hit.nx);bud.shellSpin=0;
-      if(s.warning){s.warning=null;game.bossWarning=null;bud.bossWarning=null;}
+      if(s.warning){s.warning=null;s.flowerWarning=null;game.bossWarning=null;bud.bossWarning=null;}
       game.event('bossLock', { kind: s.kind, stage: 1 }); return { blocked: true, feed: true };
     }
     let damage = 1;
@@ -310,19 +462,32 @@
   }
   function bloomed(game, bud) {
     const s = game.bossState; if (!s) return;
+    if(bud.bossFlowerEffect?.kind==='briar' && game.briarTimers?.has(bud.group)){
+      // A temporary thorn spell must have a real regrowth opportunity before its safe-line cutoff.
+      // Its two-second visible clock is local to this converted patch, never the authored briars.
+      const at=Math.min(game.briarTimers.get(bud.group),game.time+2);
+      game.briarTimers.set(bud.group,at);
+      for(const p of game.buds.filter(p=>p.group===bud.group)){p.regrowAt=at;p.regrowSpan=2;}
+    }
     if (bud.boss) { game.bossDefeated = true; cleanup(game); return; }
-    if (bud.bossPart === 'bubble') { s.mode = 'dizzy'; s.vulnerable = true; s.modeUntil = s.age + 6; s.next = s.age + 8; game.event('bossPhase', { kind: s.kind, mode: s.mode }); }
+    if (bud.bossPart === 'bubble') {
+      s.mode = 'dizzy'; s.vulnerable = true; s.modeUntil = s.age + 6;
+      s.next = s.action === 0 ? Math.min(s.next, s.age + 1) : s.age + 8;
+      game.event('bossPhase', { kind: s.kind, mode: s.mode });
+    }
     if (bud.bossPart === 'plate') bud.regrowAt = game.time + 8;
     if (bud.bossPart === 'satellite') bud.lit = false;
   }
   function breach(game) {
     const s=active(game);if(!s)return;
+    clearFlowerEffects(game,s);
     s.drift=0;s.baseY=s.boss.startY;s.lostLives++;
     // Reconnect the whole visible encounter immediately, before this tick's seed collisions.
     const map=positions(s,0);for(const p of [s.boss,...s.parts]){const at=map.get(p.id);p.x=at.x;p.y=at.y;}
   }
   function cleanup(game) {
     const s = game.bossState; if (!s) return;
+    clearFlowerEffects(game,s);
     s.warning = null; game.bossWarning = null; s.boss.bossWarning = null;
     game.bumpers = game.bumpers.filter(p => !p.bossWall); game.currents = game.currents.filter(p => !p.bossSwirl);
     for(const p of game.buds) { p.bossFlameUntil=0;p.bossLureUntil=0; }

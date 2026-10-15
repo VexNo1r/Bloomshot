@@ -7,7 +7,7 @@
   'use strict';
 
   // Powerups for the levels and Meadow Rush. Three change your next shot; Lullaby stops the flowers falling
-  // for a moment. Players start with one of each, catch more as rare gifts in the waves, and can buy any
+  // for a moment. Players start with one of each, catch more as regular free gifts, and can buy any
   // one they choose (one consumable store product each). Buying happens only on the shelf, never mid-run.
   var LIST = [
     { id: 'sunburst', name: 'Sunburst', shot: true, product: 'bloomshot.power.sunburst',
@@ -24,14 +24,16 @@
   LIST.forEach(function (p) { BY_ID[p.id] = p; BY_PRODUCT[p.product] = p; });
   var MAX = 999, STARTER = 1, KEEP_RECEIPTS = 50;
   // Packs hold fixed contents, always shown before buying, and nothing in them is random: five of one kind,
-  // or the bag with three of each. Like the singles, they are sold only on the shelf.
+  // or the bag with five of each. Like the singles, they are sold only on the shelf.
   var PACKS = LIST.map(function (p) {
     var contents = {}; contents[p.id] = 5;
     return { id: p.id + '5', product: 'bloomshot.pack.' + p.id + '5', name: '5 ' + p.name, contents: contents, single: p.id };
-  }).concat([{ id: 'bag', product: 'bloomshot.pack.bag12', name: 'Powerup Bag', single: null,
-    contents: IDS.reduce(function (all, id) { all[id] = 3; return all; }, {}) }]);
+  }).concat([{ id: 'bag', product: 'bloomshot.pack.bag20', name: '20-powerup Bag', single: null,
+    contents: IDS.reduce(function (all, id) { all[id] = 5; return all; }, {}) }]);
   var PACK_BY_PRODUCT = {};
   PACKS.forEach(function (p) { PACK_BY_PRODUCT[p.product] = p; });
+  // Retired draft product: still recognize a saved grant without changing what its receipt promises.
+  PACK_BY_PRODUCT['bloomshot.pack.bag12'] = { contents: IDS.reduce(function (all, id) { all[id] = 3; return all; }, {}) };
   // What a product gives, as { powerId: count }, or null for a product that is not a powerup.
   function contents(product) {
     if (BY_PRODUCT[product]) { var one = {}; one[BY_PRODUCT[product].id] = 1; return one; }

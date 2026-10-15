@@ -20,6 +20,7 @@ Open http://127.0.0.1:4387/ . Reuse an existing server; an optional port is `nod
 - Flowers descend after the first shot. Three breached clusters end the run.
 - Gold relay flowers affect two neighbors. Six direct hits charge the manual Split, which adds two balls. Five balls maximum.
 - Turn the leaf to redirect shots; two seconds between turns.
+- In levels and Rush, the four powerup buttons sit directly above Split. Catch free gift bubbles on even regular waves for more; no purchases happen during play.
 - Keyboard: arrows aim, Space/Enter fires, S splits, R turns the petal.
 - Garden lets you plant six permanent flower patches with earned seeds. Its Garden puzzles section opens 18 three-volley puzzles; Collection shows earned flowers. Play resumes the current game. Start/switch to Rush through Play Meadow Rush in Garden.
 - Moon has six playable trials with real paired gates that teleport a seed and rotate its direction. Each trial gives five single seeds, with no guidance or automatic extra balls. Matching gate marks, entry/exit pulses and a soft chime make crossings readable. New Moon stars earn seeds for your permanent meadow.
@@ -36,7 +37,7 @@ foreach ($f in Get-ChildItem qa/test-*.cjs) { node $f; if ($LASTEXITCODE) { thro
 node qa/check-moon-pointer.cjs
 ```
 
-Every suite must exit 0: 29 suites as of October 14, 2026, the same list CI runs in `../.github/workflows/web-tests.yml`. Running them rewrites several `qa/*-results.json` files; commit only the ones your change affects. Then, from `../native/`: `npm ci && npm run sync && npm run check`. These checks do not establish physical-device performance, perceived audio quality, fun, retention or revenue.
+Every suite must exit 0: 30 suites as of October 15, 2026, the same list CI runs in `../.github/workflows/web-tests.yml`. Running them rewrites several `qa/*-results.json` files; commit only the ones your change affects. Then, from `../native/`: `npm ci && npm run sync && npm run check`. These checks do not establish physical-device performance, perceived audio quality, fun, retention or revenue. The latest gameplay changes and evidence are described in `../docs/PLAYTEST-2026-10-15.md`.
 
 Read `CLAUDE-HANDOFF.md` for the technical map and `../docs/LAUNCH-PLAN.md` for who does what next. `ART-PROVENANCE.md` contains the art provenance, UI prompts and generation modes. Moon is a free playable chapter; the Koi Conservatory has eight pools, the first two free and the rest behind a purchase that is not on sale yet.
 
@@ -46,4 +47,4 @@ Choose one of six patches and plant your four starter seeds. Each patch grows th
 
 ## Native source
 
-Android and iOS source projects live in `../native/` (Capacitor 8). Read `../native/README.md` before building. Both compile in GitHub Actions ("Android debug APK" and "iOS simulator build", last run October 12, 2026); neither has been launched on a real device or simulator, no store account exists, and nothing is on sale.
+Android and iOS source projects live in `../native/` (Capacitor 8). Read `../native/README.md` before building. Earlier revisions compiled in GitHub Actions; the unsigned iOS simulator build at `06ae817` succeeded before the October 15 gameplay follow-up. The current follow-up passes source synchronization and 34-asset checks for both platforms; current compilation, simulator launch, real-device play and sandbox purchases remain unverified. No store account exists and nothing is on sale.
