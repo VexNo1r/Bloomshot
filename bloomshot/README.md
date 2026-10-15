@@ -4,7 +4,7 @@ A mobile-first botanical arcade game with Meadow Rush, a persistent illustrated 
 
 ## Play
 
-Private hosted proof: https://bloomshot-meadow.trevor-owens1996.chatgpt.site (sign in with the owning account). It still serves the October 2 build until Codex refreshes it from `main` (task C1 in `../docs/LAUNCH-PLAN.md`). This is a private web release, not an App Store or Google Play release. Purchases are built and unit-tested but switched off: nothing is on sale anywhere, and the web version never sells (see `../docs/STORES.md`).
+Private hosted proof: https://bloomshot-meadow.trevor-owens1996.chatgpt.site (sign in with the owning account). The exact deployed version is recorded in `WEB-RELEASE.json`; source changes in an open pull request are not automatically deployed. This is a private web release, not an App Store or Google Play release. Purchases are built and unit-tested but switched off: nothing is on sale anywhere, and the web version never sells (see `../docs/STORES.md`).
 
 To run locally from this folder:
 
@@ -16,7 +16,7 @@ Open http://127.0.0.1:4387/ . Reuse an existing server; an optional port is `nod
 
 ## Play controls
 
-- Rush: drag above the seed, or drag from the seed toward your target, then release one ball. The pod holds 4 seeds, fired no closer than .15 s apart; each flower a seed hits returns half a seed (a turning shell that bats it away, a quarter, once per seed), and an empty slot regrows in 6x the wave reload (about 3.4 s on level 1). While the pod is empty the aim line is hollow: an aim held .2 s or more and let go up to .6 s before the next seed waits for it and fires. Let go sooner and the aim stays on the board; one quick tap on or near that line sends it once the seed is in, and a tap anywhere else aims there instead.
+- Rush: drag above the seed, or drag from the seed toward your target, then release one ball. The pod holds 4 seeds, fired no closer than .15 s apart; each flower a seed damages within 1.6 s of launch returns half a seed, once per flower per flight (guarded contacts share one quarter-seed allowance), and an empty slot regrows in 6x the wave reload (about 3.4 s on level 1). While the pod is empty the aim line is hollow: an aim held .2 s or more and let go up to .6 s before the next seed waits for it and fires. Let go sooner and the aim stays on the board; one quick tap on or near that line sends it once the seed is in, and a tap anywhere else aims there instead.
 - Flowers descend after the first shot. Three breached clusters end the run.
 - Gold relay flowers affect two neighbors. Six direct hits charge the manual Split, which adds two balls. Five balls maximum.
 - Turn the leaf to redirect shots; two seconds between turns.
@@ -36,7 +36,7 @@ foreach ($f in Get-ChildItem qa/test-*.cjs) { node $f; if ($LASTEXITCODE) { thro
 node qa/check-moon-pointer.cjs
 ```
 
-Every suite must exit 0: 24 suites as of October 12, 2026, the same list CI runs in `../.github/workflows/web-tests.yml`. Running them rewrites several `qa/*-results.json` files; commit only the ones your change affects. Then, from `../native/`: `npm ci && npm run sync && npm run check`. These checks do not establish physical-device performance, perceived audio quality, fun, retention or revenue.
+Every suite must exit 0: 29 suites as of October 14, 2026, the same list CI runs in `../.github/workflows/web-tests.yml`. Running them rewrites several `qa/*-results.json` files; commit only the ones your change affects. Then, from `../native/`: `npm ci && npm run sync && npm run check`. These checks do not establish physical-device performance, perceived audio quality, fun, retention or revenue.
 
 Read `CLAUDE-HANDOFF.md` for the technical map and `../docs/LAUNCH-PLAN.md` for who does what next. `ART-PROVENANCE.md` contains the art provenance, UI prompts and generation modes. Moon is a free playable chapter; the Koi Conservatory has eight pools, the first two free and the rest behind a purchase that is not on sale yet.
 

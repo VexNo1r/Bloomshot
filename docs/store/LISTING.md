@@ -1,6 +1,6 @@
 # Store listing draft
 
-Status: rewritten October 10, 2026 around the 10-level campaign, following the growth review Trevor approved. Nothing here has been entered in a console yet. Field limits are the ones I last knew; check each against the console when pasting. The text describes the game once the share button and Wordle-style daily result are in (the game-visuals thread is building them); until then, leave out the sentence "Share your result with friends."
+Status: updated October 12, 2026 for the current campaign. Nothing here has been entered in a console. The name is **Bloomshot**, as Trevor confirmed. Check field limits against the console when pasting. The production description below assumes the named products passed sandbox checks and were enabled. For the first testing build, use the substitutions immediately below it; that build has no purchases.
 
 **Name check (October 10, 2026):** web searches of Google Play and the App Store found no app called "Bloomshot" or "Bloomshot: Flower Shooter". The nearest names are "Bloom Shooter!" on Google Play and a few "Bloom ..." puzzle games. A search cannot prove a name is free: App Store Connect refuses a name another developer already uses when the app record is created, so that is the real check (Google Play does not require unique names). If Apple refuses it, "Bloomshot: Bloom Shooter" and "Bloomshot - Flower Pop" are the fallbacks. The home-screen name stays "Bloomshot" either way.
 
@@ -8,14 +8,14 @@ Status: rewritten October 10, 2026 around the 10-level campaign, following the g
 
 | Field | Text | Limit |
 |---|---|---|
-| App name (both stores) | Bloomshot: Flower Shooter | 30 (25 used) |
+| App name (both stores) | Bloomshot | 30 (9 used) |
 | Apple subtitle | Aim, bounce, bloom. 10 levels. | 30 (30 used) |
 | Google short description | A flower bubble shooter with 10 levels. No ads. No timers. Plays offline. | 80 (73 used) |
 | Apple keywords | bubble,pop,puzzle,garden,blossom,relaxing,cozy,offline,casual,arcade,physics,zen,family,brain,blast | 100 (99 used) |
 | Apple promotional text | Ten levels, from a sunny meadow down to the glowing Starseed Core. Levels 1 to 4 are free. No ads, no timers, and it plays offline. | 170 (131 used) |
 | Category | Games, then Puzzle (Apple) / Puzzle (Google) | |
 
-Apple already searches the words in the name and subtitle, so the keywords leave out "flower", "shooter", "aim", "bounce", "bloom" and "levels" and do not repeat each other. "bubble" in the keywords plus "Shooter" in the name is what matches a search for "bubble shooter". Keep prices out of the name, subtitle, keywords and description: they differ by country and the stores show them anyway.
+Apple searches the name, subtitle and keywords together. Keep prices out of those fields and the description: they differ by country and the stores show them beside each purchase.
 
 ## Full description (Apple and Google)
 
@@ -25,7 +25,7 @@ No ads. No timers. Plays offline. No account needed.
 
 If you like bubble shooters, you'll feel at home: drag to aim, release, and bank your shot off the walls to reach the flowers that are hard to hit. Clear the field before the flowers drift past the line.
 
-10 LEVELS, 10 WAVES EACH
+Ten levels, ten waves each
 Every wave is a new layout and a new little puzzle, not just a faster one.
 1 Sunny Meadow: learn the ropes
 2 Root Tunnels: bank around rocks
@@ -39,24 +39,32 @@ Every wave is a new layout and a new little puzzle, not just a faster one.
 10 Starseed Core: the final test
 Levels 1 to 4 are free. Levels 5 to 10 are one purchase that is yours forever.
 
-POWERUPS
-Sunburst blooms everything around the flower it hits. Dandelion splits your shot into three seeds. Bee Line flies straight through flowers, cups and shells. Lullaby stops the flowers falling for six seconds. Gift bubbles in the waves sometimes hold one for free, and you can buy them in small packs whose contents are always shown. Nothing is random.
+Powerups
+Sunburst blooms everything around the flower it hits. Dandelion splits your shot into three seeds. Bee Line flies straight through flowers, cups and shells. Lullaby stops the flowers falling for six seconds. Gift bubbles in the waves sometimes hold one for free, and you can buy them in small packs whose contents are always shown. Paid packs always have fixed contents.
 
-DAILY GARDEN
+Daily garden
 A new layout every day, the same for everyone. Share your result with friends.
 
-MORE TO PLAY
+More to play
 Meadow Rush: endless waves. How far can you go?
 Garden puzzles: eighteen three-shot puzzles.
 Moon Garden: six trials with gates that carry your seed across the board.
 Koi Conservatory: eight pools with currents that bend your shots. The first two are free.
 Keepsakes: three seed styles that change how your seed looks, never how it plays.
 
-YOUR MEADOW
+Your meadow
 Every star you earn becomes seeds. Plant them in six flower patches and watch each one grow. It never makes the game easier. It is simply yours.
 
-FAIR PLAY
+Fair play
 Prices are shown before you buy, there are no subscriptions, and "Restore purchases" is always in Settings. Your progress stays on your device.
+
+## Substitutions for the first testing build (purchases disabled)
+
+Use short description: **Aim, bounce and bloom through four free levels. No ads. Plays offline.**
+
+Replace the opening paragraph with: "Aim a seed, bounce it off the walls and watch the flowers bloom. Play four illustrated levels from Sunny Meadow to Crystal Caves. Six deeper levels are planned as an optional one-time unlock."
+
+Replace "Levels 5 to 10 are one purchase that is yours forever" with "Levels 5 to 10 are not on sale yet." Replace the paid powerup-pack sentence with "Gift bubbles in the waves sometimes hold a free powerup. Purchases are not available in this testing build." Replace the Fair play paragraph with "No ads or subscriptions. Your progress stays on your device." Do not promise a working purchase or Restore button until that build actually includes it.
 
 ## Purchase listings (create these in each store)
 
@@ -86,19 +94,23 @@ The README states that code and art are AI-assisted (`bloomshot/ART-PROVENANCE.m
 
 ## Privacy and data forms
 
-Both stores ask what data the app collects. The app itself collects none. Once purchases are live, the RevenueCat SDK sends an anonymous installation id, purchase receipts and basic device details. Declare that as purchase history and device or other identifiers, used for app functionality only, not for advertising or tracking. Google Play also asks separately whether the app uses the advertising ID: answer **No**. The Android build removes that permission (a purchases library would otherwise add it), and the release workflow fails if it ever comes back. RevenueCat publishes guidance for filling these forms in; follow it and check the console's current wording. A privacy policy link is required by both stores: see `PRIVACY-POLICY.md`.
+For the first build with empty RevenueCat keys, the purchase service is inactive. Before enabling it, update both stores' forms for the submitted binary. RevenueCat's [Google Play guide](https://www.revenuecat.com/docs/platform-resources/google-platform-resources/google-plays-data-safety) declares purchase history as collected, required, not ephemeral, for app functionality and analytics (purchase reporting). Its device/other ID declaration is tied to advertising-ID integrations, which Bloomshot does not enable. Follow its [Apple privacy guide](https://www.revenuecat.com/docs/platform-resources/apple-platform-resources/apple-app-privacy) and check the actual SDK/configuration rather than assuming no data is collected.
+
+Bloomshot has no ads, gameplay analytics or advertising tracking. Google Play's Advertising ID answer is **No**; the Android build removes that permission and the release workflow checks it. A privacy policy is required in the app and in the listing: see `PRIVACY-POLICY.md`. The public contact is **hello@harborlineleadrecovery.com**.
 
 ## Graphics checklist
 
 | Asset | Notes |
 |---|---|
 | App icon | Already generated from `bloomshot/icons/icon.svg`: 1024 px opaque for Apple, adaptive icon for Android. Google also wants a 512 x 512 store icon. |
-| iPhone screenshots | Apple asks for the largest iPhone size class. Confirm the exact pixel size in App Store Connect. |
-| iPad screenshots | Required if the app supports iPad, which it currently does. Confirm the pixel size in App Store Connect. |
-| Google Play graphics | Ready in `docs/store/graphics/google-play/`: `icon-512.png` (512 x 512 store icon), `feature-graphic.png` (1024 x 500), and four 1080 x 1920 phone screenshots (`phone-1-rush.png` to `phone-4-moon.png`). `feature-graphic-for-video.png` is the same banner with the logo raised, for use only if a promo video is added later. All are drawn from the game's own art code or captured from real play, with no text or prices added. |
-| Screenshot content | Lead with the levels: the level map going underground, then three or four level scenes mid-shot (Sunny Meadow, Glowworm Lake, Crystal Caves, Starseed Core), a powerup in action, and the unlock card with its honest wording. The first screenshot carries the most weight. The game-visuals thread retakes all of them after the background redo; the current ones show the game before the campaign and are only for the testing tracks. |
-| Preview video | 15 to 30 seconds of real level play, built by the game-visuals thread from level clips after the background redo. Google takes a YouTube link; Apple takes an app preview file per device size. Optional, but it raises installs from the listing page. |
+| iPhone screenshots | Ten current 1290 × 2796 opaque RGB gameplay captures, one per campaign level, are in `docs/store/graphics/apple/iphone-1290/`. They were regenerated and validated October 14, 2026. These are browser captures; native-device testing and App Store Connect slot validation remain. |
+| iPad screenshots | Required if the app supports iPad, which it currently does. No final iPad set is included; confirm the pixel size in App Store Connect and capture that device class before submission. Earlier drafts are preserved outside the repository. |
+| Google Play graphics | In `docs/store/graphics/google-play/`: `icon-512.png` (512 × 512), `feature-graphic.png` (1024 × 500), and eight current 1080 × 1920 opaque RGB phone images, in filename order. `feature-graphic-for-video.png` is the same unlettered rendered scene. Six phone images are direct gameplay screenshots; two pair clearly framed gameplay crops with only the real level names. No prices or fabricated game objects are added. |
+| Screenshot content | The final eight-image Play set and ten-image iPhone set both cover all ten levels. They show actual launched seeds, the new environments and boss encounters. `CAPTURE-MANIFEST.json` files record source and image hashes; `validate-store-media.cjs` checks current-source agreement, dimensions and coverage. Owner review and the public-release gates still apply. |
+| Preview video | A current 27.9872-second H.264/AAC clip of real play in levels 1, 4, 7 and 10 is preserved with its source/decoding manifest in the workspace's `outputs/bloomshot-store-final/` folder. It uses original game music/effects and has no added captions. It is a general/Play promotional asset, 1080 × 1440; a Play listing still needs an authorized YouTube upload/link. Apple needs a separate device-size app preview if one is submitted. |
 
 ## Review notes to paste for the reviewer
 
-The app has no login. To test the main purchase: open Play, scroll the level map past level 4 to the "Levels 5 to 10" card, and choose the unlock. The Complete Garden is offered on the same card. Powerups are on the Powerups shelf under the level map. "Restore purchases" is in Settings. The app runs entirely offline except for the store itself.
+First testing build: the app has no login and no purchases. Play opens the level map; levels 1 to 4 are free, and the deeper unlock card says it is not on sale. Powerups are earned from gift bubbles. Gameplay runs offline.
+
+Once the sandbox-tested purchase build is submitted: open Play, scroll past level 4 to the "Levels 5 to 10" card, and choose the unlock. Only products enabled in that binary can be tested. The Complete Garden and paid Powerups appear when enabled. Restore purchases is in Settings once the native store is active. Gameplay runs offline; purchases and restoration need a connection.

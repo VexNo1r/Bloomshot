@@ -23,9 +23,10 @@
   <script src="keepsakes.js" defer></script>
   <script src="garden.js" defer></script>
   <script src="goals.js" defer></script>
-  <script src="depths.js" defer></script>
   <script src="powers.js" defer></script>
   <script src="engine.js" defer></script>
+  <script src="bosses.js" defer></script>
+  <script src="depths.js" defer></script>
   <script src="rush.js" defer></script>
   <script src="tutorial.js" defer></script>
   <script src="feel.js" defer></script>
@@ -56,8 +57,12 @@
     <header class="app-header">
       <div class="brand-line">
         <svg class="brand-mark" viewBox="0 0 28 28" aria-hidden="true"><g fill="#ff6f96"><ellipse cx="14" cy="7.5" rx="4.3" ry="6"/><ellipse cx="14" cy="20.5" rx="4.3" ry="6"/><ellipse cx="7.5" cy="14" rx="6" ry="4.3"/><ellipse cx="20.5" cy="14" rx="6" ry="4.3"/></g><circle cx="14" cy="14" r="4.6" fill="#ffc94a"/></svg>
-        <span class="wordmark">bloomshot</span>
+        <span class="wordmark">Bloomshot</span>
       </div>
+      <button id="back-btn" class="icon-button back-button" type="button" aria-label="Back to levels" title="Back">
+        <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m12.5 4.5-5.5 5.5 5.5 5.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="sr-only">Back</span>
+      </button>
       <div class="header-actions">
         <div class="seed-purse" title="Seeds"><span class="purse-leaf" aria-hidden="true"></span><strong id="garden-seeds">4</strong><span class="sr-only">seeds</span></div>
         <button id="sound-btn" class="icon-button quiet-button" type="button" aria-label="Turn sound off" aria-pressed="true" title="Sound">
@@ -72,6 +77,8 @@
 
     <div class="app-content">
       <section id="game-view" class="view game-view" aria-label="Play Bloomshot">
+        <canvas id="scene-canvas" aria-hidden="true"></canvas>
+        <canvas id="life-canvas" aria-hidden="true"></canvas>
         <div class="game-hud">
           <div class="game-heading">
             <div class="level-title-group">
@@ -104,7 +111,6 @@
         </div>
         <p id="game-hint" class="game-hint">Aim, release, then drag to guide your seeds.</p>
         <div class="game-actions">
-          <button id="back-btn" class="text-button" type="button"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m11.5 5-5 5 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Levels</span></button>
           <button id="split-btn" class="split-button" type="button" hidden disabled>Split · 0/6</button>
           <button id="restart-btn" class="text-button" type="button" aria-label="Restart this game"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4.3 7.4a6 6 0 1 1-.2 4.3M4 3.5v4.3h4.3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Restart</span></button>
         </div>
@@ -243,6 +249,7 @@
     <label class="setting-row" for="toggle-haptics"><span><strong>Vibration</strong><span class="setting-description">On supported phones</span></span><input id="toggle-haptics" class="toggle-switch" type="checkbox" aria-label="Vibration" checked></label>
     <label class="setting-row" for="toggle-motion"><span><strong>Animations</strong><span class="setting-description">Bursts, petals and screen shake</span></span><input id="toggle-motion" class="toggle-switch" type="checkbox" aria-label="Animations" checked></label>
     <p id="settings-storage" class="settings-footnote">Your garden is saved on this device.</p>
+    <button id="privacy-btn" class="button-link" type="button">Privacy policy</button>
     <section class="install-section" aria-labelledby="install-title">
       <h3 id="install-title">Play offline</h3>
       <p id="pwa-status" role="status">Preparing offline play…</p>
@@ -252,6 +259,11 @@
       <p id="offline-note" hidden>Your saved scores stay. Updating restarts the current run.</p>
     </section>
     <span class="dialog-signature">bloomshot</span>
+  </dialog>
+
+  <dialog id="privacy-dialog" class="settings-dialog" aria-labelledby="privacy-title">
+    <div class="dialog-heading"><h2 id="privacy-title">Privacy policy</h2><button id="close-privacy" class="close-button" type="button" aria-label="Close privacy policy">×</button></div>
+    <iframe class="privacy-page" src="privacy.html" title="Bloomshot privacy policy" loading="lazy"></iframe>
   </dialog>
 
   <dialog id="help-dialog" class="help-dialog" aria-labelledby="help-title">

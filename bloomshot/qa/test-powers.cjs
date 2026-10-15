@@ -81,7 +81,14 @@ test('A bag arrives all at once under one receipt, counts once, and a bad set ad
     assert.equal(result.ok, false, JSON.stringify(bad)); assert.deepEqual(result.counts, start); assert.deepEqual(result.receipts, []);
   }
   assert.equal(Powers.grant(start, [], { power: 'sunburst', count: 5, transaction: 'GPA.11' }).counts.sunburst, 7, 'a five-pack names its powerup and count');
-  assert.equal(Powers.grant({ beeline: 998 }, [], { powers: { beeline: 3 } }).counts.beeline, 999, 'still capped');
+  const full = Powers.grant({ beeline: 998 }, [], { powers: { beeline: 3 }, transaction: 'GPA.full' });
+  assert.equal(full.ok, false); assert.equal(full.reason, 'capacity'); assert.equal(full.counts.beeline, 998);
+  assert.deepEqual(full.receipts, [], 'a grant that cannot fit is never marked delivered');
+  const room = Powers.spend(Powers.spend(full.counts, 'beeline').counts, 'beeline').counts;
+  const later = Powers.grant(room, full.receipts, { powers: { beeline: 3 }, transaction: 'GPA.full' });
+  assert.equal(later.ok, true); assert.equal(later.counts.beeline, 999);
+  const mixed = Powers.grant({ beeline: 998, sunburst: 5 }, [], { powers: { beeline: 3, sunburst: 3 }, transaction: 'GPA.bag' });
+  assert.equal(mixed.ok, false); assert.equal(mixed.counts.sunburst, 5, 'an overflowing bag grants none of its contents');
 });
 test('A shot powerup waits for the next shot, and picking it again puts it back', () => {
   const game = started(1, 1);

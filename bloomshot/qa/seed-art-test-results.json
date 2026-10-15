@@ -1,0 +1,26 @@
+{
+  "passed": 5,
+  "failed": 0,
+  "results": [
+    {
+      "name": "All five ordinary seeds draw finite paths and leave collision/trail data untouched",
+      "passed": true
+    },
+    {
+      "name": "The cached body retains the exact colored circular boundary and puts the almond inside it",
+      "passed": true
+    },
+    {
+      "name": "The five new body sprites stay below 45 KB and warmed frames make no new surfaces or gradients",
+      "passed": true
+    },
+    {
+      "name": "Reduced motion keeps the projectile pose static and omits its trail",
+      "passed": true
+    },
+    {
+      "name": "Keepsake and power branches retain distinct illustrations without mutating seeds",
+      "passed": true
+    }
+  ]
+}

@@ -207,7 +207,7 @@ test('A boss wave drops its big bloom from 140 px, then its name card and health
   const landed = app.cues('bossLand')[0];
   assert(landed.at - boss.enterAt < .8 * .4, 'the thud comes on first touchdown'); assert.equal(landed.data.x, boss.x);
   const card = titles(game).find(f => f.boss);
-  assert.deepEqual(plain([card.text, card.label, card.y, card.maxLife]), ['Mother Morel', `${boss.maxHp} hits to bloom`, 178, 1.6]);
+  assert.deepEqual(plain([card.text, card.label, card.y, card.maxLife]), ['Mother Morel', 'Pop a nearby puffcap', 178, 1.6]);
   assert(card.y - 29 > boss.y + boss.r * 1.3, 'the card sits below the boss, not over it');
   const vine = game.stage.vine;
   assert.equal(vine.bud, boss); assert.equal(vine.name, 'Mother Morel'); assert.equal(vine.max, boss.maxHp); assert.equal(typeof vine.shownAt, 'number');
@@ -225,12 +225,12 @@ test('A boss wave drops its big bloom from 140 px, then its name card and health
   assert.equal(banner.text, 'Mother Morel bloomed!'); assert.equal(banner.label, 'everything blooms');
   assert.match(app.$('announcement').textContent, /^Mother Morel bloomed\./);
 });
-test('An unnamed big bloom is called Big bloom, and its hit count reads right', () => {
+test('An unnamed guardian is called Big bloom and keeps its opening strategy', () => {
   const app = level(player(), 1); app.run(1.3);
   const game = app.game(), boss = bossWave(app, null);
   app.run(1, () => app.cues('bossLand').length > 0);
   const card = titles(game).find(f => f.boss);
-  assert.equal(card.text, 'Big bloom'); assert.equal(card.label, `${boss.maxHp} hits to bloom`);
+  assert.equal(card.text, 'Big bloom'); assert.equal(card.label, 'Pop the bubble first');
   boss.hp = 1; game.strike(boss); app.frame();
   assert(game.floaters.some(f => f.kind === 'wave' && f.text === 'Big bloom!'));
 });

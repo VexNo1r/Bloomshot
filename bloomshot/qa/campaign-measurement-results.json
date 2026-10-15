@@ -1,0 +1,4045 @@
+{
+  "schema": 1,
+  "scope": "Seeded engine simulations; no rendering, physical-device testing, player telemetry, purchases or powerups. Profile labels are software settings, not calibrated human populations.",
+  "reproduction": "Commands and seed formulas in MEASUREMENTS.md and measure-depths.cjs. Frozen sources were resumed after interruption; a workspace-only Windows I/O retry wrapper tolerated transient checkpoint file locks without changing simulation code or configuration.",
+  "sources": [
+    {
+      "file": ".work/campaign-final-verified.json",
+      "sha256": "c0ca9978babd2d959c9a3116c8b0e97857505e8bda6091aa2cccba3cec22a6d3",
+      "generatedAt": "2026-10-15T03:02:13.472Z",
+      "config": {
+        "levels": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "groups": [
+          "average",
+          "boss",
+          "good"
+        ],
+        "counts": {
+          "average": 128,
+          "heldout": 32,
+          "boss": 48,
+          "good": 16
+        },
+        "profiles": {
+          "average": {
+            "noise": 4,
+            "think": 0.5,
+            "thinkSpread": 0.5,
+            "bounces": 1
+          },
+          "good": {
+            "noise": 2.5,
+            "think": 0.3,
+            "thinkSpread": 0.3,
+            "bounces": 2
+          }
+        },
+        "max_time_seconds": 900,
+        "seed_formula_version": 1
+      },
+      "sourceHashes": {
+        "engine.js": "51fbcdcbad7ca83ca5f23d842f019807137fe39e0db99086d18a0a49593cebec",
+        "rush.js": "710b74d78a922f42438ae272b4ad171458eed0cd4c0414af7a7f4481385e8b8a",
+        "depths.js": "d1375c05e6cae72d6cff61613abb882fdd5a86645d11a0324c03f9e1d5bfbbda",
+        "bosses.js": "65fd5a1002a44a0135a4716fba1a47bf39d520a4ff0f54c5094968ad2a624205",
+        "qa/depths-bot.cjs": "a3a002dd08cf5a5243eeb7e8fc02ce6c2c97f7394826b6734da36f462963b471",
+        "qa/measure-depths.cjs": "a8f9d09e28fa39ca409bdb613b1dbea6e12cb86a19d536824c10308c6b5918f2"
+      },
+      "completed": 1920,
+      "expected": 1920,
+      "finished": true,
+      "sourceStable": true,
+      "summary": [
+        {
+          "group": "average",
+          "level": 1,
+          "n": 128,
+          "wins": 128,
+          "win_rate": 1,
+          "win_rate_95_wilson": [
+            0.9709,
+            1
+          ],
+          "S": {
+            "n": 128,
+            "mean": 0.0234,
+            "min": 0,
+            "max": 2,
+            "standard_error": 0.0174
+          },
+          "lives_remaining": {
+            "n": 128,
+            "mean": 2.9766,
+            "min": 1,
+            "max": 3,
+            "standard_error": 0.0174
+          },
+          "lives_lost": {
+            "n": 128,
+            "mean": 0.0234,
+            "min": 0,
+            "max": 2,
+            "standard_error": 0.0174
+          },
+          "elapsed_seconds": {
+            "n": 128,
+            "mean": 132.4058,
+            "min": 109.175,
+            "max": 165.083,
+            "standard_error": 0.9374
+          },
+          "super_blooms": {
+            "n": 128,
+            "mean": 5.1641,
+            "min": 5,
+            "max": 6,
+            "standard_error": 0.0329
+          },
+          "shots_per_calm_second": {
+            "n": 128,
+            "mean": 1.1485,
+            "min": 0.97,
+            "max": 1.24,
+            "standard_error": 0.0045
+          },
+          "shots": {
+            "n": 128,
+            "mean": 173.9375,
+            "min": 145,
+            "max": 202,
+            "standard_error": 1.1203
+          },
+          "refunds": {
+            "n": 128,
+            "mean": 176.8359,
+            "min": 139,
+            "max": 214,
+            "standard_error": 1.3644
+          },
+          "boss_reached": 128,
+          "boss_kills": 128,
+          "P_on_kills": {
+            "n": 128,
+            "mean": 0.1735,
+            "min": 0.0477,
+            "max": 0.4357,
+            "standard_error": 0.0066
+          },
+          "boss_kill_seconds": {
+            "n": 128,
+            "mean": 8.6764,
+            "min": 2.383,
+            "max": 21.783,
+            "standard_error": 0.3318
+          },
+          "boss_lives_lost": {
+            "n": 128,
+            "mean": 0,
+            "min": 0,
+            "max": 0,
+            "standard_error": 0
+          },
+          "boss_observed_pressure_all_attempts": {
+            "n": 128,
+            "mean": 0.1735,
+            "min": 0.0477,
+            "max": 0.4357,
+            "standard_error": 0.0066
+          },
+          "timed_out": 0
+        },
+        {
+          "group": "average",
+          "level": 2,
+          "n": 128,
+          "wins": 127,
+          "win_rate": 0.9922,
+          "win_rate_95_wilson": [
+            0.9571,
+            0.9986
+          ],
+          "S": {
+            "n": 128,
+            "mean": 0.1172,
+            "min": 0,
+            "max": 4,
+            "standard_error": 0.0424
+          },
+          "lives_remaining": {
+            "n": 128,
+            "mean": 2.8906,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.0372
+          },
+          "lives_lost": {
+            "n": 128,
+            "mean": 0.1094,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.0372
+          },
+          "elapsed_seconds": {
+            "n": 128,
+            "mean": 144.7719,
+            "min": 120.817,
+            "max": 175.142,
+            "standard_error": 0.9844
+          },
+          "super_blooms": {
+            "n": 128,
+            "mean": 5.9297,
+            "min": 5,
+            "max": 7,
+            "standard_error": 0.0276
+          },
+          "shots_per_calm_second": {
+            "n": 128,
+            "mean": 1.0527,
+            "min": 0.93,
+            "max": 1.19,
+            "standard_error": 0.0046
+          },
+          "shots": {
+            "n": 128,
+            "mean": 172.0313,
+            "min": 141,
+            "max": 201,
+            "standard_error": 1.0024
+          },
+          "refunds": {
+            "n": 128,
+            "mean": 165.0391,
+            "min": 130,
+            "max": 198,
+            "standard_error": 1.0688
+          },
+          "boss_reached": 127,
+          "boss_kills": 127,
+          "P_on_kills": {
+            "n": 127,
+            "mean": 0.2931,
+            "min": 0.1473,
+            "max": 0.5827,
+            "standard_error": 0.0067
+          },
+          "boss_kill_seconds": {
+            "n": 127,
+            "mean": 14.6557,
+            "min": 7.367,
+            "max": 29.133,
+            "standard_error": 0.3371
+          },
+          "boss_lives_lost": {
+            "n": 127,
+            "mean": 0,
+            "min": 0,
+            "max": 0,
+            "standard_error": 0
+          },
+          "boss_observed_pressure_all_attempts": {
+            "n": 127,
+            "mean": 0.2931,
+            "min": 0.1473,
+            "max": 0.5827,
+            "standard_error": 0.0067
+          },
+          "timed_out": 0
+        },
+        {
+          "group": "average",
+          "level": 3,
+          "n": 128,
+          "wins": 112,
+          "win_rate": 0.875,
+          "win_rate_95_wilson": [
+            0.8066,
+            0.9216
+          ],
+          "S": {
+            "n": 128,
+            "mean": 1.0938,
+            "min": 0,
+            "max": 10,
+            "standard_error": 0.1574
+          },
+          "lives_remaining": {
+            "n": 128,
+            "mean": 2.1563,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.0944
+          },
+          "lives_lost": {
+            "n": 128,
+            "mean": 0.8438,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.0944
+          },
+          "elapsed_seconds": {
+            "n": 128,
+            "mean": 160.2277,
+            "min": 51.158,
+            "max": 198.992,
+            "standard_error": 1.7901
+          },
+          "super_blooms": {
+            "n": 128,
+            "mean": 6.4219,
+            "min": 1,
+            "max": 7,
+            "standard_error": 0.0842
+          },
+          "shots_per_calm_second": {
+            "n": 128,
+            "mean": 1.0664,
+            "min": 0.69,
+            "max": 1.19,
+            "standard_error": 0.0067
+          },
+          "shots": {
+            "n": 128,
+            "mean": 200.0391,
+            "min": 44,
+            "max": 239,
+            "standard_error": 2.2885
+          },
+          "refunds": {
+            "n": 128,
+            "mean": 188.9766,
+            "min": 30,
+            "max": 223,
+            "standard_error": 2.3918
+          },
+          "boss_reached": 113,
+          "boss_kills": 112,
+          "P_on_kills": {
+            "n": 112,
+            "mean": 0.3215,
+            "min": 0.1413,
+            "max": 0.636,
+            "standard_error": 0.0078
+          },
+          "boss_kill_seconds": {
+            "n": 112,
+            "mean": 16.0748,
+            "min": 7.067,
+            "max": 31.8,
+            "standard_error": 0.3913
+          },
+          "boss_lives_lost": {
+            "n": 113,
+            "mean": 0.0088,
+            "min": 0,
+            "max": 1,
+            "standard_error": 0.0088
+          },
+          "boss_observed_pressure_all_attempts": {
+            "n": 113,
+            "mean": 0.3314,
+            "min": 0.1413,
+            "max": 1.435,
+            "standard_error": 0.0125
+          },
+          "timed_out": 0
+        },
+        {
+          "group": "average",
+          "level": 4,
+          "n": 128,
+          "wins": 112,
+          "win_rate": 0.875,
+          "win_rate_95_wilson": [
+            0.8066,
+            0.9216
+          ],
+          "S": {
+            "n": 128,
+            "mean": 1.3047,
+            "min": 0,
+            "max": 9,
+            "standard_error": 0.1543
+          },
+          "lives_remaining": {
+            "n": 128,
+            "mean": 1.9844,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.0887
+          },
+          "lives_lost": {
+            "n": 128,
+            "mean": 1.0156,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.0887
+          },
+          "elapsed_seconds": {
+            "n": 128,
+            "mean": 209.5783,
+            "min": 90.975,
+            "max": 250.767,
+            "standard_error": 2.1561
+          },
+          "super_blooms": {
+            "n": 128,
+            "mean": 7.3984,
+            "min": 3,
+            "max": 9,
+            "standard_error": 0.0854
+          },
+          "shots_per_calm_second": {
+            "n": 128,
+            "mean": 1.0511,
+            "min": 0.91,
+            "max": 1.18,
+            "standard_error": 0.0044
+          },
+          "shots": {
+            "n": 128,
+            "mean": 256.1172,
+            "min": 109,
+            "max": 302,
+            "standard_error": 2.7395
+          },
+          "refunds": {
+            "n": 128,
+            "mean": 249.8828,
+            "min": 96,
+            "max": 294,
+            "standard_error": 2.9786
+          },
+          "boss_reached": 113,
+          "boss_kills": 112,
+          "P_on_kills": {
+            "n": 112,
+            "mean": 0.5985,
+            "min": 0.1703,
+            "max": 2.1577,
+            "standard_error": 0.0223
+          },
+          "boss_kill_seconds": {
+            "n": 112,
+            "mean": 29.4771,
+            "min": 8.517,
+            "max": 57.883,
+            "standard_error": 0.9051
+          },
+          "boss_lives_lost": {
+            "n": 113,
+            "mean": 0.0265,
+            "min": 0,
+            "max": 2,
+            "standard_error": 0.0197
+          },
+          "boss_observed_pressure_all_attempts": {
+            "n": 113,
+            "mean": 0.6201,
+            "min": 0.1703,
+            "max": 3.044,
+            "standard_error": 0.031
+          },
+          "timed_out": 0
+        },
+        {
+          "group": "average",
+          "level": 5,
+          "n": 128,
+          "wins": 107,
+          "win_rate": 0.8359,
+          "win_rate_95_wilson": [
+            0.7622,
+            0.8901
+          ],
+          "S": {
+            "n": 128,
+            "mean": 1.6641,
+            "min": 0,
+            "max": 10,
+            "standard_error": 0.2016
+          },
+          "lives_remaining": {
+            "n": 128,
+            "mean": 1.8047,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.0948
+          },
+          "lives_lost": {
+            "n": 128,
+            "mean": 1.1953,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.0948
+          },
+          "elapsed_seconds": {
+            "n": 128,
+            "mean": 146.1568,
+            "min": 35.692,
+            "max": 176.992,
+            "standard_error": 2.3919
+          },
+          "super_blooms": {
+            "n": 128,
+            "mean": 5.6953,
+            "min": 1,
+            "max": 7,
+            "standard_error": 0.1056
+          },
+          "shots_per_calm_second": {
+            "n": 128,
+            "mean": 1.1379,
+            "min": 0.9,
+            "max": 1.25,
+            "standard_error": 0.0052
+          },
+          "shots": {
+            "n": 128,
+            "mean": 189.4219,
+            "min": 37,
+            "max": 230,
+            "standard_error": 3.3237
+          },
+          "refunds": {
+            "n": 128,
+            "mean": 186.5234,
+            "min": 30,
+            "max": 234,
+            "standard_error": 3.4626
+          },
+          "boss_reached": 109,
+          "boss_kills": 107,
+          "P_on_kills": {
+            "n": 107,
+            "mean": 0.4675,
+            "min": 0.254,
+            "max": 1.5583,
+            "standard_error": 0.0229
+          },
+          "boss_kill_seconds": {
+            "n": 107,
+            "mean": 21.0374,
+            "min": 12.7,
+            "max": 36.15,
+            "standard_error": 0.4121
+          },
+          "boss_lives_lost": {
+            "n": 109,
+            "mean": 0.0642,
+            "min": 0,
+            "max": 1,
+            "standard_error": 0.0236
+          },
+          "boss_observed_pressure_all_attempts": {
+            "n": 109,
+            "mean": 0.4808,
+            "min": 0.254,
+            "max": 1.5583,
+            "standard_error": 0.0244
+          },
+          "timed_out": 0
+        },
+        {
+          "group": "average",
+          "level": 6,
+          "n": 128,
+          "wins": 100,
+          "win_rate": 0.7813,
+          "win_rate_95_wilson": [
+            0.702,
+            0.8441
+          ],
+          "S": {
+            "n": 128,
+            "mean": 1.7891,
+            "min": 0,
+            "max": 9,
+            "standard_error": 0.1907
+          },
+          "lives_remaining": {
+            "n": 128,
+            "mean": 1.7266,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.1015
+          },
+          "lives_lost": {
+            "n": 128,
+            "mean": 1.2734,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.1015
+          },
+          "elapsed_seconds": {
+            "n": 128,
+            "mean": 166.7938,
+            "min": 57.267,
+            "max": 241.558,
+            "standard_error": 2.7118
+          },
+          "super_blooms": {
+            "n": 128,
+            "mean": 5.375,
+            "min": 1,
+            "max": 6,
+            "standard_error": 0.0967
+          },
+          "shots_per_calm_second": {
+            "n": 128,
+            "mean": 1.1106,
+            "min": 0.92,
+            "max": 1.23,
+            "standard_error": 0.0054
+          },
+          "shots": {
+            "n": 128,
+            "mean": 209.5391,
+            "min": 61,
+            "max": 269,
+            "standard_error": 3.4833
+          },
+          "refunds": {
+            "n": 128,
+            "mean": 236.0938,
+            "min": 79,
+            "max": 297,
+            "standard_error": 3.9079
+          },
+          "boss_reached": 102,
+          "boss_kills": 100,
+          "P_on_kills": {
+            "n": 100,
+            "mean": 0.5674,
+            "min": 0.2227,
+            "max": 1.917,
+            "standard_error": 0.0341
+          },
+          "boss_kill_seconds": {
+            "n": 100,
+            "mean": 25.8713,
+            "min": 11.133,
+            "max": 60.5,
+            "standard_error": 1.0119
+          },
+          "boss_lives_lost": {
+            "n": 102,
+            "mean": 0.0784,
+            "min": 0,
+            "max": 2,
+            "standard_error": 0.0302
+          },
+          "boss_observed_pressure_all_attempts": {
+            "n": 102,
+            "mean": 0.5924,
+            "min": 0.2227,
+            "max": 2.4093,
+            "standard_error": 0.0386
+          },
+          "timed_out": 0
+        },
+        {
+          "group": "average",
+          "level": 7,
+          "n": 128,
+          "wins": 85,
+          "win_rate": 0.6641,
+          "win_rate_95_wilson": [
+            0.5785,
+            0.74
+          ],
+          "S": {
+            "n": 128,
+            "mean": 2.3516,
+            "min": 0,
+            "max": 7,
+            "standard_error": 0.1613
+          },
+          "lives_remaining": {
+            "n": 128,
+            "mean": 1.1797,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.0918
+          },
+          "lives_lost": {
+            "n": 128,
+            "mean": 1.8203,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.0918
+          },
+          "elapsed_seconds": {
+            "n": 128,
+            "mean": 144.9066,
+            "min": 69.267,
+            "max": 200.625,
+            "standard_error": 2.1892
+          },
+          "super_blooms": {
+            "n": 128,
+            "mean": 6.3125,
+            "min": 3,
+            "max": 8,
+            "standard_error": 0.094
+          },
+          "shots_per_calm_second": {
+            "n": 128,
+            "mean": 1.0998,
+            "min": 0.93,
+            "max": 1.23,
+            "standard_error": 0.005
+          },
+          "shots": {
+            "n": 128,
+            "mean": 188.1875,
+            "min": 89,
+            "max": 238,
+            "standard_error": 2.7532
+          },
+          "refunds": {
+            "n": 128,
+            "mean": 160.1563,
+            "min": 72,
+            "max": 216,
+            "standard_error": 2.4422
+          },
+          "boss_reached": 92,
+          "boss_kills": 85,
+          "P_on_kills": {
+            "n": 85,
+            "mean": 0.7102,
+            "min": 0.3237,
+            "max": 3.556,
+            "standard_error": 0.0686
+          },
+          "boss_kill_seconds": {
+            "n": 85,
+            "mean": 27.8655,
+            "min": 16.183,
+            "max": 77.8,
+            "standard_error": 1.2821
+          },
+          "boss_lives_lost": {
+            "n": 92,
+            "mean": 0.2283,
+            "min": 0,
+            "max": 2,
+            "standard_error": 0.0538
+          },
+          "boss_observed_pressure_all_attempts": {
+            "n": 92,
+            "mean": 0.7813,
+            "min": 0.3237,
+            "max": 3.556,
+            "standard_error": 0.0712
+          },
+          "timed_out": 0
+        },
+        {
+          "group": "average",
+          "level": 8,
+          "n": 128,
+          "wins": 73,
+          "win_rate": 0.5703,
+          "win_rate_95_wilson": [
+            0.4837,
+            0.6528
+          ],
+          "S": {
+            "n": 128,
+            "mean": 2.8672,
+            "min": 0,
+            "max": 10,
+            "standard_error": 0.2138
+          },
+          "lives_remaining": {
+            "n": 128,
+            "mean": 1.1328,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.1007
+          },
+          "lives_lost": {
+            "n": 128,
+            "mean": 1.8672,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.1007
+          },
+          "elapsed_seconds": {
+            "n": 128,
+            "mean": 143.2307,
+            "min": 41.375,
+            "max": 198.5,
+            "standard_error": 3.0041
+          },
+          "super_blooms": {
+            "n": 128,
+            "mean": 6.8984,
+            "min": 1,
+            "max": 9,
+            "standard_error": 0.1512
+          },
+          "shots_per_calm_second": {
+            "n": 128,
+            "mean": 1.1722,
+            "min": 1.04,
+            "max": 1.28,
+            "standard_error": 0.0039
+          },
+          "shots": {
+            "n": 128,
+            "mean": 199.8125,
+            "min": 54,
+            "max": 268,
+            "standard_error": 4.2705
+          },
+          "refunds": {
+            "n": 128,
+            "mean": 177.6563,
+            "min": 50,
+            "max": 235,
+            "standard_error": 3.6058
+          },
+          "boss_reached": 75,
+          "boss_kills": 73,
+          "P_on_kills": {
+            "n": 73,
+            "mean": 0.6058,
+            "min": 0.3417,
+            "max": 2.0927,
+            "standard_error": 0.0308
+          },
+          "boss_kill_seconds": {
+            "n": 73,
+            "mean": 28.9185,
+            "min": 17.083,
+            "max": 54.633,
+            "standard_error": 0.7777
+          },
+          "boss_lives_lost": {
+            "n": 75,
+            "mean": 0.0667,
+            "min": 0,
+            "max": 2,
+            "standard_error": 0.0347
+          },
+          "boss_observed_pressure_all_attempts": {
+            "n": 75,
+            "mean": 0.6445,
+            "min": 0.3417,
+            "max": 2.932,
+            "standard_error": 0.0437
+          },
+          "timed_out": 0
+        },
+        {
+          "group": "average",
+          "level": 9,
+          "n": 128,
+          "wins": 74,
+          "win_rate": 0.5781,
+          "win_rate_95_wilson": [
+            0.4915,
+            0.6602
+          ],
+          "S": {
+            "n": 128,
+            "mean": 2.5625,
+            "min": 0,
+            "max": 8,
+            "standard_error": 0.1603
+          },
+          "lives_remaining": {
+            "n": 128,
+            "mean": 0.9922,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.0904
+          },
+          "lives_lost": {
+            "n": 128,
+            "mean": 2.0078,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.0904
+          },
+          "elapsed_seconds": {
+            "n": 128,
+            "mean": 147.0478,
+            "min": 47.983,
+            "max": 197.808,
+            "standard_error": 2.9698
+          },
+          "super_blooms": {
+            "n": 128,
+            "mean": 6.2891,
+            "min": 2,
+            "max": 8,
+            "standard_error": 0.1246
+          },
+          "shots_per_calm_second": {
+            "n": 128,
+            "mean": 1.1918,
+            "min": 1.07,
+            "max": 1.3,
+            "standard_error": 0.004
+          },
+          "shots": {
+            "n": 128,
+            "mean": 206.9453,
+            "min": 67,
+            "max": 266,
+            "standard_error": 4.0941
+          },
+          "refunds": {
+            "n": 128,
+            "mean": 182.4063,
+            "min": 61,
+            "max": 244,
+            "standard_error": 3.4852
+          },
+          "boss_reached": 90,
+          "boss_kills": 74,
+          "P_on_kills": {
+            "n": 74,
+            "mean": 1.0857,
+            "min": 0.626,
+            "max": 2.5257,
+            "standard_error": 0.0743
+          },
+          "boss_kill_seconds": {
+            "n": 74,
+            "mean": 44.1482,
+            "min": 31.3,
+            "max": 76.283,
+            "standard_error": 1.4414
+          },
+          "boss_lives_lost": {
+            "n": 90,
+            "mean": 0.3444,
+            "min": 0,
+            "max": 1,
+            "standard_error": 0.0504
+          },
+          "boss_observed_pressure_all_attempts": {
+            "n": 90,
+            "mean": 1.2477,
+            "min": 0.626,
+            "max": 2.5257,
+            "standard_error": 0.0715
+          },
+          "timed_out": 0
+        },
+        {
+          "group": "average",
+          "level": 10,
+          "n": 128,
+          "wins": 53,
+          "win_rate": 0.4141,
+          "win_rate_95_wilson": [
+            0.3325,
+            0.5007
+          ],
+          "S": {
+            "n": 128,
+            "mean": 3.3906,
+            "min": 0,
+            "max": 11,
+            "standard_error": 0.1938
+          },
+          "lives_remaining": {
+            "n": 128,
+            "mean": 0.6328,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.0751
+          },
+          "lives_lost": {
+            "n": 128,
+            "mean": 2.3672,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.0751
+          },
+          "elapsed_seconds": {
+            "n": 128,
+            "mean": 168.4858,
+            "min": 33.542,
+            "max": 226.567,
+            "standard_error": 4.2991
+          },
+          "super_blooms": {
+            "n": 128,
+            "mean": 7.1563,
+            "min": 1,
+            "max": 10,
+            "standard_error": 0.1861
+          },
+          "shots_per_calm_second": {
+            "n": 128,
+            "mean": 1.1671,
+            "min": 0.98,
+            "max": 1.26,
+            "standard_error": 0.0036
+          },
+          "shots": {
+            "n": 128,
+            "mean": 234.3516,
+            "min": 42,
+            "max": 320,
+            "standard_error": 6.1909
+          },
+          "refunds": {
+            "n": 128,
+            "mean": 223.5234,
+            "min": 33,
+            "max": 305,
+            "standard_error": 5.8817
+          },
+          "boss_reached": 80,
+          "boss_kills": 54,
+          "P_on_kills": {
+            "n": 54,
+            "mean": 2.0798,
+            "min": 0.8953,
+            "max": 3.0303,
+            "standard_error": 0.0656
+          },
+          "boss_kill_seconds": {
+            "n": 54,
+            "mean": 59.5441,
+            "min": 44.767,
+            "max": 76.45,
+            "standard_error": 1.1294
+          },
+          "boss_lives_lost": {
+            "n": 80,
+            "mean": 0.925,
+            "min": 0,
+            "max": 2,
+            "standard_error": 0.0346
+          },
+          "boss_observed_pressure_all_attempts": {
+            "n": 80,
+            "mean": 2.0476,
+            "min": 0.8953,
+            "max": 3.0303,
+            "standard_error": 0.0445
+          },
+          "timed_out": 0
+        },
+        {
+          "group": "boss",
+          "level": 1,
+          "n": 48,
+          "wins": 48,
+          "win_rate": 1,
+          "win_rate_95_wilson": [
+            0.9259,
+            1
+          ],
+          "S": {
+            "n": 48,
+            "mean": 0,
+            "min": 0,
+            "max": 0,
+            "standard_error": 0
+          },
+          "lives_remaining": {
+            "n": 48,
+            "mean": 3,
+            "min": 3,
+            "max": 3,
+            "standard_error": 0
+          },
+          "lives_lost": {
+            "n": 48,
+            "mean": 0,
+            "min": 0,
+            "max": 0,
+            "standard_error": 0
+          },
+          "elapsed_seconds": {
+            "n": 48,
+            "mean": 11.7832,
+            "min": 6.192,
+            "max": 23.767,
+            "standard_error": 0.4609
+          },
+          "super_blooms": {
+            "n": 48,
+            "mean": 0.4583,
+            "min": 0,
+            "max": 1,
+            "standard_error": 0.0727
+          },
+          "shots_per_calm_second": {
+            "n": 48,
+            "mean": 1.2229,
+            "min": 0.77,
+            "max": 1.44,
+            "standard_error": 0.0186
+          },
+          "shots": {
+            "n": 48,
+            "mean": 14.9792,
+            "min": 8,
+            "max": 24,
+            "standard_error": 0.5502
+          },
+          "refunds": {
+            "n": 48,
+            "mean": 19.4375,
+            "min": 11,
+            "max": 32,
+            "standard_error": 0.6906
+          },
+          "boss_reached": 48,
+          "boss_kills": 48,
+          "P_on_kills": {
+            "n": 48,
+            "mean": 0.2252,
+            "min": 0.1237,
+            "max": 0.446,
+            "standard_error": 0.0088
+          },
+          "boss_kill_seconds": {
+            "n": 48,
+            "mean": 11.2614,
+            "min": 6.183,
+            "max": 22.3,
+            "standard_error": 0.4383
+          },
+          "boss_lives_lost": {
+            "n": 48,
+            "mean": 0,
+            "min": 0,
+            "max": 0,
+            "standard_error": 0
+          },
+          "boss_observed_pressure_all_attempts": {
+            "n": 48,
+            "mean": 0.2252,
+            "min": 0.1237,
+            "max": 0.446,
+            "standard_error": 0.0088
+          },
+          "timed_out": 0
+        },
+        {
+          "group": "boss",
+          "level": 2,
+          "n": 48,
+          "wins": 48,
+          "win_rate": 1,
+          "win_rate_95_wilson": [
+            0.9259,
+            1
+          ],
+          "S": {
+            "n": 48,
+            "mean": 0,
+            "min": 0,
+            "max": 0,
+            "standard_error": 0
+          },
+          "lives_remaining": {
+            "n": 48,
+            "mean": 3,
+            "min": 3,
+            "max": 3,
+            "standard_error": 0
+          },
+          "lives_lost": {
+            "n": 48,
+            "mean": 0,
+            "min": 0,
+            "max": 0,
+            "standard_error": 0
+          },
+          "elapsed_seconds": {
+            "n": 48,
+            "mean": 16.783,
+            "min": 9.875,
+            "max": 28.175,
+            "standard_error": 0.4866
+          },
+          "super_blooms": {
+            "n": 48,
+            "mean": 1,
+            "min": 1,
+            "max": 1,
+            "standard_error": 0
+          },
+          "shots_per_calm_second": {
+            "n": 48,
+            "mean": 1.1433,
+            "min": 0.88,
+            "max": 1.33,
+            "standard_error": 0.0176
+          },
+          "shots": {
+            "n": 48,
+            "mean": 21.375,
+            "min": 12,
+            "max": 33,
+            "standard_error": 0.6993
+          },
+          "refunds": {
+            "n": 48,
+            "mean": 19.4583,
+            "min": 10,
+            "max": 28,
+            "standard_error": 0.6503
+          },
+          "boss_reached": 48,
+          "boss_kills": 48,
+          "P_on_kills": {
+            "n": 48,
+            "mean": 0.3288,
+            "min": 0.1887,
+            "max": 0.5633,
+            "standard_error": 0.0097
+          },
+          "boss_kill_seconds": {
+            "n": 48,
+            "mean": 16.4386,
+            "min": 9.433,
+            "max": 28.167,
+            "standard_error": 0.4836
+          },
+          "boss_lives_lost": {
+            "n": 48,
+            "mean": 0,
+            "min": 0,
+            "max": 0,
+            "standard_error": 0
+          },
+          "boss_observed_pressure_all_attempts": {
+            "n": 48,
+            "mean": 0.3288,
+            "min": 0.1887,
+            "max": 0.5633,
+            "standard_error": 0.0097
+          },
+          "timed_out": 0
+        },
+        {
+          "group": "boss",
+          "level": 3,
+          "n": 48,
+          "wins": 48,
+          "win_rate": 1,
+          "win_rate_95_wilson": [
+            0.9259,
+            1
+          ],
+          "S": {
+            "n": 48,
+            "mean": 0,
+            "min": 0,
+            "max": 0,
+            "standard_error": 0
+          },
+          "lives_remaining": {
+            "n": 48,
+            "mean": 3,
+            "min": 3,
+            "max": 3,
+            "standard_error": 0
+          },
+          "lives_lost": {
+            "n": 48,
+            "mean": 0,
+            "min": 0,
+            "max": 0,
+            "standard_error": 0
+          },
+          "elapsed_seconds": {
+            "n": 48,
+            "mean": 17.6296,
+            "min": 11.075,
+            "max": 25.192,
+            "standard_error": 0.5278
+          },
+          "super_blooms": {
+            "n": 48,
+            "mean": 1,
+            "min": 1,
+            "max": 1,
+            "standard_error": 0
+          },
+          "shots_per_calm_second": {
+            "n": 48,
+            "mean": 1.1679,
+            "min": 0.89,
+            "max": 1.43,
+            "standard_error": 0.0192
+          },
+          "shots": {
+            "n": 48,
+            "mean": 22.9583,
+            "min": 15,
+            "max": 32,
+            "standard_error": 0.5578
+          },
+          "refunds": {
+            "n": 48,
+            "mean": 18.25,
+            "min": 10,
+            "max": 33,
+            "standard_error": 0.7345
+          },
+          "boss_reached": 48,
+          "boss_kills": 48,
+          "P_on_kills": {
+            "n": 48,
+            "mean": 0.3423,
+            "min": 0.2067,
+            "max": 0.4973,
+            "standard_error": 0.0105
+          },
+          "boss_kill_seconds": {
+            "n": 48,
+            "mean": 17.1136,
+            "min": 10.333,
+            "max": 24.867,
+            "standard_error": 0.5275
+          },
+          "boss_lives_lost": {
+            "n": 48,
+            "mean": 0,
+            "min": 0,
+            "max": 0,
+            "standard_error": 0
+          },
+          "boss_observed_pressure_all_attempts": {
+            "n": 48,
+            "mean": 0.3423,
+            "min": 0.2067,
+            "max": 0.4973,
+            "standard_error": 0.0105
+          },
+          "timed_out": 0
+        },
+        {
+          "group": "boss",
+          "level": 4,
+          "n": 48,
+          "wins": 48,
+          "win_rate": 1,
+          "win_rate_95_wilson": [
+            0.9259,
+            1
+          ],
+          "S": {
+            "n": 48,
+            "mean": 0,
+            "min": 0,
+            "max": 0,
+            "standard_error": 0
+          },
+          "lives_remaining": {
+            "n": 48,
+            "mean": 3,
+            "min": 3,
+            "max": 3,
+            "standard_error": 0
+          },
+          "lives_lost": {
+            "n": 48,
+            "mean": 0,
+            "min": 0,
+            "max": 0,
+            "standard_error": 0
+          },
+          "elapsed_seconds": {
+            "n": 48,
+            "mean": 31.2661,
+            "min": 10.925,
+            "max": 57.992,
+            "standard_error": 1.3089
+          },
+          "super_blooms": {
+            "n": 48,
+            "mean": 1,
+            "min": 1,
+            "max": 1,
+            "standard_error": 0
+          },
+          "shots_per_calm_second": {
+            "n": 48,
+            "mean": 1.1069,
+            "min": 0.73,
+            "max": 1.3,
+            "standard_error": 0.0183
+          },
+          "shots": {
+            "n": 48,
+            "mean": 39.6042,
+            "min": 13,
+            "max": 57,
+            "standard_error": 1.2293
+          },
+          "refunds": {
+            "n": 48,
+            "mean": 34.5625,
+            "min": 12,
+            "max": 63,
+            "standard_error": 1.5243
+          },
+          "boss_reached": 48,
+          "boss_kills": 48,
+          "P_on_kills": {
+            "n": 48,
+            "mean": 0.6153,
+            "min": 0.2183,
+            "max": 1.151,
+            "standard_error": 0.0264
+          },
+          "boss_kill_seconds": {
+            "n": 48,
+            "mean": 30.7642,
+            "min": 10.917,
+            "max": 57.55,
+            "standard_error": 1.3221
+          },
+          "boss_lives_lost": {
+            "n": 48,
+            "mean": 0,
+            "min": 0,
+            "max": 0,
+            "standard_error": 0
+          },
+          "boss_observed_pressure_all_attempts": {
+            "n": 48,
+            "mean": 0.6153,
+            "min": 0.2183,
+            "max": 1.151,
+            "standard_error": 0.0264
+          },
+          "timed_out": 0
+        },
+        {
+          "group": "boss",
+          "level": 5,
+          "n": 48,
+          "wins": 48,
+          "win_rate": 1,
+          "win_rate_95_wilson": [
+            0.9259,
+            1
+          ],
+          "S": {
+            "n": 48,
+            "mean": 0.0833,
+            "min": 0,
+            "max": 1,
+            "standard_error": 0.0403
+          },
+          "lives_remaining": {
+            "n": 48,
+            "mean": 2.9167,
+            "min": 2,
+            "max": 3,
+            "standard_error": 0.0403
+          },
+          "lives_lost": {
+            "n": 48,
+            "mean": 0.0833,
+            "min": 0,
+            "max": 1,
+            "standard_error": 0.0403
+          },
+          "elapsed_seconds": {
+            "n": 48,
+            "mean": 22.504,
+            "min": 17.408,
+            "max": 31.117,
+            "standard_error": 0.4461
+          },
+          "super_blooms": {
+            "n": 48,
+            "mean": 1,
+            "min": 1,
+            "max": 1,
+            "standard_error": 0
+          },
+          "shots_per_calm_second": {
+            "n": 48,
+            "mean": 1.2217,
+            "min": 1.03,
+            "max": 1.36,
+            "standard_error": 0.0115
+          },
+          "shots": {
+            "n": 48,
+            "mean": 31.4792,
+            "min": 24,
+            "max": 40,
+            "standard_error": 0.5392
+          },
+          "refunds": {
+            "n": 48,
+            "mean": 26.7708,
+            "min": 17,
+            "max": 35,
+            "standard_error": 0.683
+          },
+          "boss_reached": 48,
+          "boss_kills": 48,
+          "P_on_kills": {
+            "n": 48,
+            "mean": 0.5288,
+            "min": 0.3333,
+            "max": 1.622,
+            "standard_error": 0.0436
+          },
+          "boss_kill_seconds": {
+            "n": 48,
+            "mean": 22.274,
+            "min": 16.667,
+            "max": 31.1,
+            "standard_error": 0.4686
+          },
+          "boss_lives_lost": {
+            "n": 48,
+            "mean": 0.0833,
+            "min": 0,
+            "max": 1,
+            "standard_error": 0.0403
+          },
+          "boss_observed_pressure_all_attempts": {
+            "n": 48,
+            "mean": 0.5288,
+            "min": 0.3333,
+            "max": 1.622,
+            "standard_error": 0.0436
+          },
+          "timed_out": 0
+        },
+        {
+          "group": "boss",
+          "level": 6,
+          "n": 48,
+          "wins": 48,
+          "win_rate": 1,
+          "win_rate_95_wilson": [
+            0.9259,
+            1
+          ],
+          "S": {
+            "n": 48,
+            "mean": 0.1042,
+            "min": 0,
+            "max": 1,
+            "standard_error": 0.0446
+          },
+          "lives_remaining": {
+            "n": 48,
+            "mean": 2.8958,
+            "min": 2,
+            "max": 3,
+            "standard_error": 0.0446
+          },
+          "lives_lost": {
+            "n": 48,
+            "mean": 0.1042,
+            "min": 0,
+            "max": 1,
+            "standard_error": 0.0446
+          },
+          "elapsed_seconds": {
+            "n": 48,
+            "mean": 30.2356,
+            "min": 16.942,
+            "max": 52.317,
+            "standard_error": 1.1165
+          },
+          "super_blooms": {
+            "n": 48,
+            "mean": 1,
+            "min": 1,
+            "max": 1,
+            "standard_error": 0
+          },
+          "shots_per_calm_second": {
+            "n": 48,
+            "mean": 1.156,
+            "min": 0.87,
+            "max": 1.38,
+            "standard_error": 0.0168
+          },
+          "shots": {
+            "n": 48,
+            "mean": 38.0625,
+            "min": 21,
+            "max": 53,
+            "standard_error": 0.965
+          },
+          "refunds": {
+            "n": 48,
+            "mean": 40.6458,
+            "min": 28,
+            "max": 56,
+            "standard_error": 0.9237
+          },
+          "boss_reached": 48,
+          "boss_kills": 48,
+          "P_on_kills": {
+            "n": 48,
+            "mean": 0.7066,
+            "min": 0.3203,
+            "max": 1.6537,
+            "standard_error": 0.0477
+          },
+          "boss_kill_seconds": {
+            "n": 48,
+            "mean": 30.1202,
+            "min": 16.017,
+            "max": 52.3,
+            "standard_error": 1.1295
+          },
+          "boss_lives_lost": {
+            "n": 48,
+            "mean": 0.1042,
+            "min": 0,
+            "max": 1,
+            "standard_error": 0.0446
+          },
+          "boss_observed_pressure_all_attempts": {
+            "n": 48,
+            "mean": 0.7066,
+            "min": 0.3203,
+            "max": 1.6537,
+            "standard_error": 0.0477
+          },
+          "timed_out": 0
+        },
+        {
+          "group": "boss",
+          "level": 7,
+          "n": 48,
+          "wins": 48,
+          "win_rate": 1,
+          "win_rate_95_wilson": [
+            0.9259,
+            1
+          ],
+          "S": {
+            "n": 48,
+            "mean": 0.1875,
+            "min": 0,
+            "max": 1,
+            "standard_error": 0.0569
+          },
+          "lives_remaining": {
+            "n": 48,
+            "mean": 2.8125,
+            "min": 2,
+            "max": 3,
+            "standard_error": 0.0569
+          },
+          "lives_lost": {
+            "n": 48,
+            "mean": 0.1875,
+            "min": 0,
+            "max": 1,
+            "standard_error": 0.0569
+          },
+          "elapsed_seconds": {
+            "n": 48,
+            "mean": 26.5325,
+            "min": 15.75,
+            "max": 50.317,
+            "standard_error": 0.9682
+          },
+          "super_blooms": {
+            "n": 48,
+            "mean": 1,
+            "min": 1,
+            "max": 1,
+            "standard_error": 0
+          },
+          "shots_per_calm_second": {
+            "n": 48,
+            "mean": 1.1371,
+            "min": 0.79,
+            "max": 1.33,
+            "standard_error": 0.0186
+          },
+          "shots": {
+            "n": 48,
+            "mean": 35.5,
+            "min": 22,
+            "max": 47,
+            "standard_error": 0.866
+          },
+          "refunds": {
+            "n": 48,
+            "mean": 25.7708,
+            "min": 15,
+            "max": 34,
+            "standard_error": 0.6817
+          },
+          "boss_reached": 48,
+          "boss_kills": 48,
+          "P_on_kills": {
+            "n": 48,
+            "mean": 0.7155,
+            "min": 0.3073,
+            "max": 2.006,
+            "standard_error": 0.0671
+          },
+          "boss_kill_seconds": {
+            "n": 48,
+            "mean": 26.4,
+            "min": 15.367,
+            "max": 50.3,
+            "standard_error": 0.9853
+          },
+          "boss_lives_lost": {
+            "n": 48,
+            "mean": 0.1875,
+            "min": 0,
+            "max": 1,
+            "standard_error": 0.0569
+          },
+          "boss_observed_pressure_all_attempts": {
+            "n": 48,
+            "mean": 0.7155,
+            "min": 0.3073,
+            "max": 2.006,
+            "standard_error": 0.0671
+          },
+          "timed_out": 0
+        },
+        {
+          "group": "boss",
+          "level": 8,
+          "n": 48,
+          "wins": 47,
+          "win_rate": 0.9792,
+          "win_rate_95_wilson": [
+            0.891,
+            0.9963
+          ],
+          "S": {
+            "n": 48,
+            "mean": 0.2708,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.0929
+          },
+          "lives_remaining": {
+            "n": 48,
+            "mean": 2.7292,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.0929
+          },
+          "lives_lost": {
+            "n": 48,
+            "mean": 0.2708,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.0929
+          },
+          "elapsed_seconds": {
+            "n": 48,
+            "mean": 31.4998,
+            "min": 22.075,
+            "max": 48.942,
+            "standard_error": 0.8511
+          },
+          "super_blooms": {
+            "n": 48,
+            "mean": 1.2708,
+            "min": 1,
+            "max": 2,
+            "standard_error": 0.0648
+          },
+          "shots_per_calm_second": {
+            "n": 48,
+            "mean": 1.2069,
+            "min": 0.98,
+            "max": 1.39,
+            "standard_error": 0.0128
+          },
+          "shots": {
+            "n": 48,
+            "mean": 43.5417,
+            "min": 31,
+            "max": 61,
+            "standard_error": 0.9698
+          },
+          "refunds": {
+            "n": 48,
+            "mean": 41.0417,
+            "min": 31,
+            "max": 61,
+            "standard_error": 0.9325
+          },
+          "boss_reached": 48,
+          "boss_kills": 47,
+          "P_on_kills": {
+            "n": 47,
+            "mean": 0.8368,
+            "min": 0.4277,
+            "max": 2.7977,
+            "standard_error": 0.0843
+          },
+          "boss_kill_seconds": {
+            "n": 47,
+            "mean": 31.2018,
+            "min": 21.383,
+            "max": 48.55,
+            "standard_error": 0.8692
+          },
+          "boss_lives_lost": {
+            "n": 48,
+            "mean": 0.2708,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.0929
+          },
+          "boss_observed_pressure_all_attempts": {
+            "n": 48,
+            "mean": 0.8968,
+            "min": 0.4277,
+            "max": 3.7167,
+            "standard_error": 0.1021
+          },
+          "timed_out": 0
+        },
+        {
+          "group": "boss",
+          "level": 9,
+          "n": 48,
+          "wins": 47,
+          "win_rate": 0.9792,
+          "win_rate_95_wilson": [
+            0.891,
+            0.9963
+          ],
+          "S": {
+            "n": 48,
+            "mean": 0.4583,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.0986
+          },
+          "lives_remaining": {
+            "n": 48,
+            "mean": 2.5417,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.0986
+          },
+          "lives_lost": {
+            "n": 48,
+            "mean": 0.4583,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.0986
+          },
+          "elapsed_seconds": {
+            "n": 48,
+            "mean": 50.2368,
+            "min": 29.317,
+            "max": 107,
+            "standard_error": 2.4385
+          },
+          "super_blooms": {
+            "n": 48,
+            "mean": 1.875,
+            "min": 1,
+            "max": 2,
+            "standard_error": 0.0482
+          },
+          "shots_per_calm_second": {
+            "n": 48,
+            "mean": 1.1413,
+            "min": 0.88,
+            "max": 1.34,
+            "standard_error": 0.0167
+          },
+          "shots": {
+            "n": 48,
+            "mean": 67.3542,
+            "min": 42,
+            "max": 116,
+            "standard_error": 2.2205
+          },
+          "refunds": {
+            "n": 48,
+            "mean": 53.4792,
+            "min": 34,
+            "max": 91,
+            "standard_error": 1.5523
+          },
+          "boss_reached": 48,
+          "boss_kills": 47,
+          "P_on_kills": {
+            "n": 47,
+            "mean": 1.416,
+            "min": 0.5787,
+            "max": 4.1347,
+            "standard_error": 0.1282
+          },
+          "boss_kill_seconds": {
+            "n": 47,
+            "mean": 50.589,
+            "min": 28.933,
+            "max": 106.733,
+            "standard_error": 2.4565
+          },
+          "boss_lives_lost": {
+            "n": 48,
+            "mean": 0.4583,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.0986
+          },
+          "boss_observed_pressure_all_attempts": {
+            "n": 48,
+            "mean": 1.4622,
+            "min": 0.5787,
+            "max": 4.1347,
+            "standard_error": 0.1337
+          },
+          "timed_out": 0
+        },
+        {
+          "group": "boss",
+          "level": 10,
+          "n": 48,
+          "wins": 48,
+          "win_rate": 1,
+          "win_rate_95_wilson": [
+            0.9259,
+            1
+          ],
+          "S": {
+            "n": 48,
+            "mean": 1.0417,
+            "min": 0,
+            "max": 2,
+            "standard_error": 0.0417
+          },
+          "lives_remaining": {
+            "n": 48,
+            "mean": 1.9583,
+            "min": 1,
+            "max": 3,
+            "standard_error": 0.0417
+          },
+          "lives_lost": {
+            "n": 48,
+            "mean": 1.0417,
+            "min": 0,
+            "max": 2,
+            "standard_error": 0.0417
+          },
+          "elapsed_seconds": {
+            "n": 48,
+            "mean": 61.6483,
+            "min": 46.667,
+            "max": 77.158,
+            "standard_error": 0.8962
+          },
+          "super_blooms": {
+            "n": 48,
+            "mean": 2.2292,
+            "min": 2,
+            "max": 3,
+            "standard_error": 0.0613
+          },
+          "shots_per_calm_second": {
+            "n": 48,
+            "mean": 1.1867,
+            "min": 1.1,
+            "max": 1.35,
+            "standard_error": 0.0077
+          },
+          "shots": {
+            "n": 48,
+            "mean": 86.6458,
+            "min": 66,
+            "max": 113,
+            "standard_error": 1.222
+          },
+          "refunds": {
+            "n": 48,
+            "mean": 83.8333,
+            "min": 66,
+            "max": 97,
+            "standard_error": 0.8161
+          },
+          "boss_reached": 48,
+          "boss_kills": 48,
+          "P_on_kills": {
+            "n": 48,
+            "mean": 2.2675,
+            "min": 0.922,
+            "max": 3.2727,
+            "standard_error": 0.0488
+          },
+          "boss_kill_seconds": {
+            "n": 48,
+            "mean": 61.2934,
+            "min": 46.1,
+            "max": 76.65,
+            "standard_error": 0.8961
+          },
+          "boss_lives_lost": {
+            "n": 48,
+            "mean": 1.0417,
+            "min": 0,
+            "max": 2,
+            "standard_error": 0.0417
+          },
+          "boss_observed_pressure_all_attempts": {
+            "n": 48,
+            "mean": 2.2675,
+            "min": 0.922,
+            "max": 3.2727,
+            "standard_error": 0.0488
+          },
+          "timed_out": 0
+        },
+        {
+          "group": "good",
+          "level": 1,
+          "n": 16,
+          "wins": 16,
+          "win_rate": 1,
+          "win_rate_95_wilson": [
+            0.8064,
+            1
+          ],
+          "S": {
+            "n": 16,
+            "mean": 0,
+            "min": 0,
+            "max": 0,
+            "standard_error": 0
+          },
+          "lives_remaining": {
+            "n": 16,
+            "mean": 3,
+            "min": 3,
+            "max": 3,
+            "standard_error": 0
+          },
+          "lives_lost": {
+            "n": 16,
+            "mean": 0,
+            "min": 0,
+            "max": 0,
+            "standard_error": 0
+          },
+          "elapsed_seconds": {
+            "n": 16,
+            "mean": 115.5829,
+            "min": 105.15,
+            "max": 126.633,
+            "standard_error": 1.6726
+          },
+          "super_blooms": {
+            "n": 16,
+            "mean": 5.125,
+            "min": 5,
+            "max": 6,
+            "standard_error": 0.0854
+          },
+          "shots_per_calm_second": {
+            "n": 16,
+            "mean": 1.4512,
+            "min": 1.29,
+            "max": 1.6,
+            "standard_error": 0.0251
+          },
+          "shots": {
+            "n": 16,
+            "mean": 181.0625,
+            "min": 162,
+            "max": 205,
+            "standard_error": 3.1774
+          },
+          "refunds": {
+            "n": 16,
+            "mean": 189.5625,
+            "min": 167,
+            "max": 223,
+            "standard_error": 3.7047
+          },
+          "boss_reached": 16,
+          "boss_kills": 16,
+          "P_on_kills": {
+            "n": 16,
+            "mean": 0.1196,
+            "min": 0.0813,
+            "max": 0.294,
+            "standard_error": 0.0131
+          },
+          "boss_kill_seconds": {
+            "n": 16,
+            "mean": 5.9782,
+            "min": 4.067,
+            "max": 14.7,
+            "standard_error": 0.6571
+          },
+          "boss_lives_lost": {
+            "n": 16,
+            "mean": 0,
+            "min": 0,
+            "max": 0,
+            "standard_error": 0
+          },
+          "boss_observed_pressure_all_attempts": {
+            "n": 16,
+            "mean": 0.1196,
+            "min": 0.0813,
+            "max": 0.294,
+            "standard_error": 0.0131
+          },
+          "timed_out": 0
+        },
+        {
+          "group": "good",
+          "level": 2,
+          "n": 16,
+          "wins": 16,
+          "win_rate": 1,
+          "win_rate_95_wilson": [
+            0.8064,
+            1
+          ],
+          "S": {
+            "n": 16,
+            "mean": 0.0625,
+            "min": 0,
+            "max": 1,
+            "standard_error": 0.0625
+          },
+          "lives_remaining": {
+            "n": 16,
+            "mean": 2.9375,
+            "min": 2,
+            "max": 3,
+            "standard_error": 0.0625
+          },
+          "lives_lost": {
+            "n": 16,
+            "mean": 0.0625,
+            "min": 0,
+            "max": 1,
+            "standard_error": 0.0625
+          },
+          "elapsed_seconds": {
+            "n": 16,
+            "mean": 134.6009,
+            "min": 110.45,
+            "max": 154.008,
+            "standard_error": 2.83
+          },
+          "super_blooms": {
+            "n": 16,
+            "mean": 5.875,
+            "min": 5,
+            "max": 6,
+            "standard_error": 0.0854
+          },
+          "shots_per_calm_second": {
+            "n": 16,
+            "mean": 1.23,
+            "min": 1.1,
+            "max": 1.41,
+            "standard_error": 0.0225
+          },
+          "shots": {
+            "n": 16,
+            "mean": 179.3125,
+            "min": 143,
+            "max": 196,
+            "standard_error": 3.0574
+          },
+          "refunds": {
+            "n": 16,
+            "mean": 174.125,
+            "min": 151,
+            "max": 191,
+            "standard_error": 2.5428
+          },
+          "boss_reached": 16,
+          "boss_kills": 16,
+          "P_on_kills": {
+            "n": 16,
+            "mean": 0.2846,
+            "min": 0.1803,
+            "max": 0.4557,
+            "standard_error": 0.0224
+          },
+          "boss_kill_seconds": {
+            "n": 16,
+            "mean": 14.2313,
+            "min": 9.017,
+            "max": 22.783,
+            "standard_error": 1.1223
+          },
+          "boss_lives_lost": {
+            "n": 16,
+            "mean": 0,
+            "min": 0,
+            "max": 0,
+            "standard_error": 0
+          },
+          "boss_observed_pressure_all_attempts": {
+            "n": 16,
+            "mean": 0.2846,
+            "min": 0.1803,
+            "max": 0.4557,
+            "standard_error": 0.0224
+          },
+          "timed_out": 0
+        },
+        {
+          "group": "good",
+          "level": 3,
+          "n": 16,
+          "wins": 16,
+          "win_rate": 1,
+          "win_rate_95_wilson": [
+            0.8064,
+            1
+          ],
+          "S": {
+            "n": 16,
+            "mean": 0.5,
+            "min": 0,
+            "max": 2,
+            "standard_error": 0.1581
+          },
+          "lives_remaining": {
+            "n": 16,
+            "mean": 2.5,
+            "min": 1,
+            "max": 3,
+            "standard_error": 0.1581
+          },
+          "lives_lost": {
+            "n": 16,
+            "mean": 0.5,
+            "min": 0,
+            "max": 2,
+            "standard_error": 0.1581
+          },
+          "elapsed_seconds": {
+            "n": 16,
+            "mean": 149.1241,
+            "min": 126.467,
+            "max": 164.1,
+            "standard_error": 2.479
+          },
+          "super_blooms": {
+            "n": 16,
+            "mean": 6.5625,
+            "min": 6,
+            "max": 7,
+            "standard_error": 0.1281
+          },
+          "shots_per_calm_second": {
+            "n": 16,
+            "mean": 1.3369,
+            "min": 1.2,
+            "max": 1.54,
+            "standard_error": 0.0211
+          },
+          "shots": {
+            "n": 16,
+            "mean": 219.25,
+            "min": 200,
+            "max": 238,
+            "standard_error": 3.1178
+          },
+          "refunds": {
+            "n": 16,
+            "mean": 218.8125,
+            "min": 202,
+            "max": 252,
+            "standard_error": 3.096
+          },
+          "boss_reached": 16,
+          "boss_kills": 16,
+          "P_on_kills": {
+            "n": 16,
+            "mean": 0.2571,
+            "min": 0.1923,
+            "max": 0.386,
+            "standard_error": 0.0139
+          },
+          "boss_kill_seconds": {
+            "n": 16,
+            "mean": 12.8532,
+            "min": 9.617,
+            "max": 19.3,
+            "standard_error": 0.6944
+          },
+          "boss_lives_lost": {
+            "n": 16,
+            "mean": 0,
+            "min": 0,
+            "max": 0,
+            "standard_error": 0
+          },
+          "boss_observed_pressure_all_attempts": {
+            "n": 16,
+            "mean": 0.2571,
+            "min": 0.1923,
+            "max": 0.386,
+            "standard_error": 0.0139
+          },
+          "timed_out": 0
+        },
+        {
+          "group": "good",
+          "level": 4,
+          "n": 16,
+          "wins": 15,
+          "win_rate": 0.9375,
+          "win_rate_95_wilson": [
+            0.7167,
+            0.9889
+          ],
+          "S": {
+            "n": 16,
+            "mean": 0.5,
+            "min": 0,
+            "max": 6,
+            "standard_error": 0.3764
+          },
+          "lives_remaining": {
+            "n": 16,
+            "mean": 2.6875,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.1983
+          },
+          "lives_lost": {
+            "n": 16,
+            "mean": 0.3125,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.1983
+          },
+          "elapsed_seconds": {
+            "n": 16,
+            "mean": 196.4271,
+            "min": 135.233,
+            "max": 229.183,
+            "standard_error": 5.7826
+          },
+          "super_blooms": {
+            "n": 16,
+            "mean": 7.375,
+            "min": 5,
+            "max": 8,
+            "standard_error": 0.2016
+          },
+          "shots_per_calm_second": {
+            "n": 16,
+            "mean": 1.3081,
+            "min": 1.15,
+            "max": 1.48,
+            "standard_error": 0.022
+          },
+          "shots": {
+            "n": 16,
+            "mean": 282.375,
+            "min": 179,
+            "max": 322,
+            "standard_error": 8.4749
+          },
+          "refunds": {
+            "n": 16,
+            "mean": 291.4375,
+            "min": 176,
+            "max": 334,
+            "standard_error": 9.5315
+          },
+          "boss_reached": 15,
+          "boss_kills": 15,
+          "P_on_kills": {
+            "n": 15,
+            "mean": 0.5568,
+            "min": 0.247,
+            "max": 0.986,
+            "standard_error": 0.0565
+          },
+          "boss_kill_seconds": {
+            "n": 15,
+            "mean": 27.8377,
+            "min": 12.35,
+            "max": 49.3,
+            "standard_error": 2.8225
+          },
+          "boss_lives_lost": {
+            "n": 15,
+            "mean": 0,
+            "min": 0,
+            "max": 0,
+            "standard_error": 0
+          },
+          "boss_observed_pressure_all_attempts": {
+            "n": 15,
+            "mean": 0.5568,
+            "min": 0.247,
+            "max": 0.986,
+            "standard_error": 0.0565
+          },
+          "timed_out": 0
+        },
+        {
+          "group": "good",
+          "level": 5,
+          "n": 16,
+          "wins": 14,
+          "win_rate": 0.875,
+          "win_rate_95_wilson": [
+            0.6398,
+            0.965
+          ],
+          "S": {
+            "n": 16,
+            "mean": 1.1875,
+            "min": 0,
+            "max": 4,
+            "standard_error": 0.3319
+          },
+          "lives_remaining": {
+            "n": 16,
+            "mean": 1.9375,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.2657
+          },
+          "lives_lost": {
+            "n": 16,
+            "mean": 1.0625,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.2657
+          },
+          "elapsed_seconds": {
+            "n": 16,
+            "mean": 137.1996,
+            "min": 112.308,
+            "max": 156.392,
+            "standard_error": 3.1548
+          },
+          "super_blooms": {
+            "n": 16,
+            "mean": 5.875,
+            "min": 5,
+            "max": 6,
+            "standard_error": 0.0854
+          },
+          "shots_per_calm_second": {
+            "n": 16,
+            "mean": 1.4188,
+            "min": 1.29,
+            "max": 1.54,
+            "standard_error": 0.0217
+          },
+          "shots": {
+            "n": 16,
+            "mean": 208.8125,
+            "min": 164,
+            "max": 243,
+            "standard_error": 5.1114
+          },
+          "refunds": {
+            "n": 16,
+            "mean": 213.625,
+            "min": 147,
+            "max": 251,
+            "standard_error": 6.3442
+          },
+          "boss_reached": 14,
+          "boss_kills": 14,
+          "P_on_kills": {
+            "n": 14,
+            "mean": 0.4147,
+            "min": 0.246,
+            "max": 1.481,
+            "standard_error": 0.0836
+          },
+          "boss_kill_seconds": {
+            "n": 14,
+            "mean": 17.1642,
+            "min": 12.3,
+            "max": 24.05,
+            "standard_error": 0.9694
+          },
+          "boss_lives_lost": {
+            "n": 14,
+            "mean": 0.0714,
+            "min": 0,
+            "max": 1,
+            "standard_error": 0.0714
+          },
+          "boss_observed_pressure_all_attempts": {
+            "n": 14,
+            "mean": 0.4147,
+            "min": 0.246,
+            "max": 1.481,
+            "standard_error": 0.0836
+          },
+          "timed_out": 0
+        },
+        {
+          "group": "good",
+          "level": 6,
+          "n": 16,
+          "wins": 16,
+          "win_rate": 1,
+          "win_rate_95_wilson": [
+            0.8064,
+            1
+          ],
+          "S": {
+            "n": 16,
+            "mean": 0.0625,
+            "min": 0,
+            "max": 1,
+            "standard_error": 0.0625
+          },
+          "lives_remaining": {
+            "n": 16,
+            "mean": 2.9375,
+            "min": 2,
+            "max": 3,
+            "standard_error": 0.0625
+          },
+          "lives_lost": {
+            "n": 16,
+            "mean": 0.0625,
+            "min": 0,
+            "max": 1,
+            "standard_error": 0.0625
+          },
+          "elapsed_seconds": {
+            "n": 16,
+            "mean": 150.3063,
+            "min": 131.742,
+            "max": 171.433,
+            "standard_error": 2.7723
+          },
+          "super_blooms": {
+            "n": 16,
+            "mean": 5.8125,
+            "min": 5,
+            "max": 6,
+            "standard_error": 0.1008
+          },
+          "shots_per_calm_second": {
+            "n": 16,
+            "mean": 1.4306,
+            "min": 1.29,
+            "max": 1.56,
+            "standard_error": 0.0196
+          },
+          "shots": {
+            "n": 16,
+            "mean": 226.875,
+            "min": 208,
+            "max": 247,
+            "standard_error": 3.4808
+          },
+          "refunds": {
+            "n": 16,
+            "mean": 265.9375,
+            "min": 232,
+            "max": 291,
+            "standard_error": 4.563
+          },
+          "boss_reached": 16,
+          "boss_kills": 16,
+          "P_on_kills": {
+            "n": 16,
+            "mean": 0.3167,
+            "min": 0.141,
+            "max": 0.4883,
+            "standard_error": 0.0238
+          },
+          "boss_kill_seconds": {
+            "n": 16,
+            "mean": 15.8375,
+            "min": 7.05,
+            "max": 24.417,
+            "standard_error": 1.1904
+          },
+          "boss_lives_lost": {
+            "n": 16,
+            "mean": 0,
+            "min": 0,
+            "max": 0,
+            "standard_error": 0
+          },
+          "boss_observed_pressure_all_attempts": {
+            "n": 16,
+            "mean": 0.3168,
+            "min": 0.141,
+            "max": 0.4883,
+            "standard_error": 0.0238
+          },
+          "timed_out": 0
+        },
+        {
+          "group": "good",
+          "level": 7,
+          "n": 16,
+          "wins": 15,
+          "win_rate": 0.9375,
+          "win_rate_95_wilson": [
+            0.7167,
+            0.9889
+          ],
+          "S": {
+            "n": 16,
+            "mean": 1,
+            "min": 0,
+            "max": 5,
+            "standard_error": 0.3162
+          },
+          "lives_remaining": {
+            "n": 16,
+            "mean": 2.125,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.2213
+          },
+          "lives_lost": {
+            "n": 16,
+            "mean": 0.875,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.2213
+          },
+          "elapsed_seconds": {
+            "n": 16,
+            "mean": 135.0712,
+            "min": 89.808,
+            "max": 160.433,
+            "standard_error": 4.3809
+          },
+          "super_blooms": {
+            "n": 16,
+            "mean": 6.5625,
+            "min": 4,
+            "max": 7,
+            "standard_error": 0.2035
+          },
+          "shots_per_calm_second": {
+            "n": 16,
+            "mean": 1.39,
+            "min": 1.19,
+            "max": 1.54,
+            "standard_error": 0.0239
+          },
+          "shots": {
+            "n": 16,
+            "mean": 203.875,
+            "min": 129,
+            "max": 240,
+            "standard_error": 6.462
+          },
+          "refunds": {
+            "n": 16,
+            "mean": 189.9375,
+            "min": 127,
+            "max": 220,
+            "standard_error": 5.8967
+          },
+          "boss_reached": 15,
+          "boss_kills": 15,
+          "P_on_kills": {
+            "n": 15,
+            "mean": 0.3939,
+            "min": 0.26,
+            "max": 0.631,
+            "standard_error": 0.0248
+          },
+          "boss_kill_seconds": {
+            "n": 15,
+            "mean": 19.6967,
+            "min": 13,
+            "max": 31.55,
+            "standard_error": 1.2426
+          },
+          "boss_lives_lost": {
+            "n": 15,
+            "mean": 0,
+            "min": 0,
+            "max": 0,
+            "standard_error": 0
+          },
+          "boss_observed_pressure_all_attempts": {
+            "n": 15,
+            "mean": 0.3939,
+            "min": 0.26,
+            "max": 0.631,
+            "standard_error": 0.0249
+          },
+          "timed_out": 0
+        },
+        {
+          "group": "good",
+          "level": 8,
+          "n": 16,
+          "wins": 15,
+          "win_rate": 0.9375,
+          "win_rate_95_wilson": [
+            0.7167,
+            0.9889
+          ],
+          "S": {
+            "n": 16,
+            "mean": 0.75,
+            "min": 0,
+            "max": 5,
+            "standard_error": 0.3227
+          },
+          "lives_remaining": {
+            "n": 16,
+            "mean": 2.375,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.2213
+          },
+          "lives_lost": {
+            "n": 16,
+            "mean": 0.625,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.2213
+          },
+          "elapsed_seconds": {
+            "n": 16,
+            "mean": 147.0134,
+            "min": 112.033,
+            "max": 167.533,
+            "standard_error": 2.9942
+          },
+          "super_blooms": {
+            "n": 16,
+            "mean": 7.875,
+            "min": 5,
+            "max": 9,
+            "standard_error": 0.2016
+          },
+          "shots_per_calm_second": {
+            "n": 16,
+            "mean": 1.5481,
+            "min": 1.44,
+            "max": 1.71,
+            "standard_error": 0.0208
+          },
+          "shots": {
+            "n": 16,
+            "mean": 246.625,
+            "min": 171,
+            "max": 271,
+            "standard_error": 5.719
+          },
+          "refunds": {
+            "n": 16,
+            "mean": 233.3125,
+            "min": 165,
+            "max": 258,
+            "standard_error": 5.364
+          },
+          "boss_reached": 15,
+          "boss_kills": 15,
+          "P_on_kills": {
+            "n": 15,
+            "mean": 0.4527,
+            "min": 0.3697,
+            "max": 0.592,
+            "standard_error": 0.0164
+          },
+          "boss_kill_seconds": {
+            "n": 15,
+            "mean": 22.6367,
+            "min": 18.483,
+            "max": 29.6,
+            "standard_error": 0.8203
+          },
+          "boss_lives_lost": {
+            "n": 15,
+            "mean": 0,
+            "min": 0,
+            "max": 0,
+            "standard_error": 0
+          },
+          "boss_observed_pressure_all_attempts": {
+            "n": 15,
+            "mean": 0.4527,
+            "min": 0.3697,
+            "max": 0.592,
+            "standard_error": 0.0164
+          },
+          "timed_out": 0
+        },
+        {
+          "group": "good",
+          "level": 9,
+          "n": 16,
+          "wins": 15,
+          "win_rate": 0.9375,
+          "win_rate_95_wilson": [
+            0.7167,
+            0.9889
+          ],
+          "S": {
+            "n": 16,
+            "mean": 0.75,
+            "min": 0,
+            "max": 5,
+            "standard_error": 0.3227
+          },
+          "lives_remaining": {
+            "n": 16,
+            "mean": 2.375,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.2213
+          },
+          "lives_lost": {
+            "n": 16,
+            "mean": 0.625,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.2213
+          },
+          "elapsed_seconds": {
+            "n": 16,
+            "mean": 141.4981,
+            "min": 87.967,
+            "max": 181.775,
+            "standard_error": 4.8401
+          },
+          "super_blooms": {
+            "n": 16,
+            "mean": 6.8125,
+            "min": 4,
+            "max": 7,
+            "standard_error": 0.1875
+          },
+          "shots_per_calm_second": {
+            "n": 16,
+            "mean": 1.5231,
+            "min": 1.29,
+            "max": 1.65,
+            "standard_error": 0.024
+          },
+          "shots": {
+            "n": 16,
+            "mean": 236.4375,
+            "min": 146,
+            "max": 272,
+            "standard_error": 6.9047
+          },
+          "refunds": {
+            "n": 16,
+            "mean": 214.6875,
+            "min": 133,
+            "max": 248,
+            "standard_error": 6.3158
+          },
+          "boss_reached": 15,
+          "boss_kills": 15,
+          "P_on_kills": {
+            "n": 15,
+            "mean": 0.771,
+            "min": 0.5253,
+            "max": 2.315,
+            "standard_error": 0.1156
+          },
+          "boss_kill_seconds": {
+            "n": 15,
+            "mean": 35.2155,
+            "min": 26.267,
+            "max": 65.75,
+            "standard_error": 2.7835
+          },
+          "boss_lives_lost": {
+            "n": 15,
+            "mean": 0.0667,
+            "min": 0,
+            "max": 1,
+            "standard_error": 0.0667
+          },
+          "boss_observed_pressure_all_attempts": {
+            "n": 15,
+            "mean": 0.771,
+            "min": 0.5253,
+            "max": 2.315,
+            "standard_error": 0.1156
+          },
+          "timed_out": 0
+        },
+        {
+          "group": "good",
+          "level": 10,
+          "n": 16,
+          "wins": 16,
+          "win_rate": 1,
+          "win_rate_95_wilson": [
+            0.8064,
+            1
+          ],
+          "S": {
+            "n": 16,
+            "mean": 0.8125,
+            "min": 0,
+            "max": 2,
+            "standard_error": 0.1875
+          },
+          "lives_remaining": {
+            "n": 16,
+            "mean": 2.1875,
+            "min": 1,
+            "max": 3,
+            "standard_error": 0.1875
+          },
+          "lives_lost": {
+            "n": 16,
+            "mean": 0.8125,
+            "min": 0,
+            "max": 2,
+            "standard_error": 0.1875
+          },
+          "elapsed_seconds": {
+            "n": 16,
+            "mean": 181.6651,
+            "min": 167.85,
+            "max": 203.85,
+            "standard_error": 2.7335
+          },
+          "super_blooms": {
+            "n": 16,
+            "mean": 8.75,
+            "min": 8,
+            "max": 9,
+            "standard_error": 0.1118
+          },
+          "shots_per_calm_second": {
+            "n": 16,
+            "mean": 1.5525,
+            "min": 1.45,
+            "max": 1.62,
+            "standard_error": 0.0122
+          },
+          "shots": {
+            "n": 16,
+            "mean": 307.9375,
+            "min": 284,
+            "max": 337,
+            "standard_error": 4.1728
+          },
+          "refunds": {
+            "n": 16,
+            "mean": 311.9375,
+            "min": 295,
+            "max": 350,
+            "standard_error": 3.7798
+          },
+          "boss_reached": 16,
+          "boss_kills": 16,
+          "P_on_kills": {
+            "n": 16,
+            "mean": 1.3969,
+            "min": 0.676,
+            "max": 2.3753,
+            "standard_error": 0.1734
+          },
+          "boss_kill_seconds": {
+            "n": 16,
+            "mean": 47.9688,
+            "min": 33.8,
+            "max": 68.767,
+            "standard_error": 2.5008
+          },
+          "boss_lives_lost": {
+            "n": 16,
+            "mean": 0.4375,
+            "min": 0,
+            "max": 1,
+            "standard_error": 0.1281
+          },
+          "boss_observed_pressure_all_attempts": {
+            "n": 16,
+            "mean": 1.3969,
+            "min": 0.676,
+            "max": 2.3753,
+            "standard_error": 0.1734
+          },
+          "timed_out": 0
+        }
+      ]
+    },
+    {
+      "file": ".work/campaign-final-heldout.json",
+      "sha256": "1b80c24bf44aec89c7a6c01c036f45a2d40141787707d756dfb67c6679c73a9f",
+      "generatedAt": "2026-10-15T03:09:31.938Z",
+      "config": {
+        "levels": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "groups": [
+          "heldout"
+        ],
+        "counts": {
+          "average": 128,
+          "heldout": 32,
+          "boss": 48,
+          "good": 16
+        },
+        "profiles": {
+          "average": {
+            "noise": 4,
+            "think": 0.5,
+            "thinkSpread": 0.5,
+            "bounces": 1
+          },
+          "good": {
+            "noise": 2.5,
+            "think": 0.3,
+            "thinkSpread": 0.3,
+            "bounces": 2
+          }
+        },
+        "max_time_seconds": 900,
+        "seed_formula_version": 1
+      },
+      "sourceHashes": {
+        "engine.js": "51fbcdcbad7ca83ca5f23d842f019807137fe39e0db99086d18a0a49593cebec",
+        "rush.js": "710b74d78a922f42438ae272b4ad171458eed0cd4c0414af7a7f4481385e8b8a",
+        "depths.js": "d1375c05e6cae72d6cff61613abb882fdd5a86645d11a0324c03f9e1d5bfbbda",
+        "bosses.js": "65fd5a1002a44a0135a4716fba1a47bf39d520a4ff0f54c5094968ad2a624205",
+        "qa/depths-bot.cjs": "a3a002dd08cf5a5243eeb7e8fc02ce6c2c97f7394826b6734da36f462963b471",
+        "qa/measure-depths.cjs": "a8f9d09e28fa39ca409bdb613b1dbea6e12cb86a19d536824c10308c6b5918f2"
+      },
+      "completed": 320,
+      "expected": 320,
+      "finished": true,
+      "sourceStable": true,
+      "summary": [
+        {
+          "group": "heldout",
+          "level": 1,
+          "n": 32,
+          "wins": 32,
+          "win_rate": 1,
+          "win_rate_95_wilson": [
+            0.8928,
+            1
+          ],
+          "S": {
+            "n": 32,
+            "mean": 0.0313,
+            "min": 0,
+            "max": 1,
+            "standard_error": 0.0313
+          },
+          "lives_remaining": {
+            "n": 32,
+            "mean": 2.9688,
+            "min": 2,
+            "max": 3,
+            "standard_error": 0.0313
+          },
+          "lives_lost": {
+            "n": 32,
+            "mean": 0.0313,
+            "min": 0,
+            "max": 1,
+            "standard_error": 0.0313
+          },
+          "elapsed_seconds": {
+            "n": 32,
+            "mean": 132.4589,
+            "min": 114.533,
+            "max": 155.675,
+            "standard_error": 1.8865
+          },
+          "super_blooms": {
+            "n": 32,
+            "mean": 5.0938,
+            "min": 5,
+            "max": 6,
+            "standard_error": 0.0524
+          },
+          "shots_per_calm_second": {
+            "n": 32,
+            "mean": 1.1325,
+            "min": 1.04,
+            "max": 1.25,
+            "standard_error": 0.0089
+          },
+          "shots": {
+            "n": 32,
+            "mean": 171.625,
+            "min": 151,
+            "max": 198,
+            "standard_error": 2.15
+          },
+          "refunds": {
+            "n": 32,
+            "mean": 174.2188,
+            "min": 142,
+            "max": 208,
+            "standard_error": 2.6711
+          },
+          "boss_reached": 32,
+          "boss_kills": 32,
+          "P_on_kills": {
+            "n": 32,
+            "mean": 0.1911,
+            "min": 0.0917,
+            "max": 0.3153,
+            "standard_error": 0.0123
+          },
+          "boss_kill_seconds": {
+            "n": 32,
+            "mean": 9.5547,
+            "min": 4.583,
+            "max": 15.767,
+            "standard_error": 0.6147
+          },
+          "boss_lives_lost": {
+            "n": 32,
+            "mean": 0,
+            "min": 0,
+            "max": 0,
+            "standard_error": 0
+          },
+          "boss_observed_pressure_all_attempts": {
+            "n": 32,
+            "mean": 0.1911,
+            "min": 0.0917,
+            "max": 0.3153,
+            "standard_error": 0.0123
+          },
+          "timed_out": 0
+        },
+        {
+          "group": "heldout",
+          "level": 2,
+          "n": 32,
+          "wins": 32,
+          "win_rate": 1,
+          "win_rate_95_wilson": [
+            0.8928,
+            1
+          ],
+          "S": {
+            "n": 32,
+            "mean": 0.125,
+            "min": 0,
+            "max": 2,
+            "standard_error": 0.0745
+          },
+          "lives_remaining": {
+            "n": 32,
+            "mean": 2.875,
+            "min": 1,
+            "max": 3,
+            "standard_error": 0.0745
+          },
+          "lives_lost": {
+            "n": 32,
+            "mean": 0.125,
+            "min": 0,
+            "max": 2,
+            "standard_error": 0.0745
+          },
+          "elapsed_seconds": {
+            "n": 32,
+            "mean": 143.9062,
+            "min": 113.342,
+            "max": 161,
+            "standard_error": 2.0023
+          },
+          "super_blooms": {
+            "n": 32,
+            "mean": 5.9375,
+            "min": 5,
+            "max": 6,
+            "standard_error": 0.0435
+          },
+          "shots_per_calm_second": {
+            "n": 32,
+            "mean": 1.0525,
+            "min": 0.95,
+            "max": 1.13,
+            "standard_error": 0.0081
+          },
+          "shots": {
+            "n": 32,
+            "mean": 172.8125,
+            "min": 135,
+            "max": 201,
+            "standard_error": 2.3985
+          },
+          "refunds": {
+            "n": 32,
+            "mean": 163.875,
+            "min": 137,
+            "max": 190,
+            "standard_error": 2.3792
+          },
+          "boss_reached": 32,
+          "boss_kills": 32,
+          "P_on_kills": {
+            "n": 32,
+            "mean": 0.2466,
+            "min": 0.147,
+            "max": 0.4267,
+            "standard_error": 0.0123
+          },
+          "boss_kill_seconds": {
+            "n": 32,
+            "mean": 12.3276,
+            "min": 7.35,
+            "max": 21.333,
+            "standard_error": 0.6149
+          },
+          "boss_lives_lost": {
+            "n": 32,
+            "mean": 0,
+            "min": 0,
+            "max": 0,
+            "standard_error": 0
+          },
+          "boss_observed_pressure_all_attempts": {
+            "n": 32,
+            "mean": 0.2466,
+            "min": 0.147,
+            "max": 0.4267,
+            "standard_error": 0.0123
+          },
+          "timed_out": 0
+        },
+        {
+          "group": "heldout",
+          "level": 3,
+          "n": 32,
+          "wins": 29,
+          "win_rate": 0.9063,
+          "win_rate_95_wilson": [
+            0.7578,
+            0.9676
+          ],
+          "S": {
+            "n": 32,
+            "mean": 0.9375,
+            "min": 0,
+            "max": 8,
+            "standard_error": 0.2908
+          },
+          "lives_remaining": {
+            "n": 32,
+            "mean": 2.2813,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.1633
+          },
+          "lives_lost": {
+            "n": 32,
+            "mean": 0.7188,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.1633
+          },
+          "elapsed_seconds": {
+            "n": 32,
+            "mean": 159.2755,
+            "min": 103.125,
+            "max": 184.108,
+            "standard_error": 2.6802
+          },
+          "super_blooms": {
+            "n": 32,
+            "mean": 6.5,
+            "min": 3,
+            "max": 7,
+            "standard_error": 0.1555
+          },
+          "shots_per_calm_second": {
+            "n": 32,
+            "mean": 1.085,
+            "min": 0.87,
+            "max": 1.18,
+            "standard_error": 0.0118
+          },
+          "shots": {
+            "n": 32,
+            "mean": 201.0625,
+            "min": 106,
+            "max": 222,
+            "standard_error": 3.7845
+          },
+          "refunds": {
+            "n": 32,
+            "mean": 191.1563,
+            "min": 88,
+            "max": 219,
+            "standard_error": 4.1124
+          },
+          "boss_reached": 29,
+          "boss_kills": 29,
+          "P_on_kills": {
+            "n": 29,
+            "mean": 0.3104,
+            "min": 0.1803,
+            "max": 0.419,
+            "standard_error": 0.0125
+          },
+          "boss_kill_seconds": {
+            "n": 29,
+            "mean": 15.5225,
+            "min": 9.017,
+            "max": 20.95,
+            "standard_error": 0.6272
+          },
+          "boss_lives_lost": {
+            "n": 29,
+            "mean": 0,
+            "min": 0,
+            "max": 0,
+            "standard_error": 0
+          },
+          "boss_observed_pressure_all_attempts": {
+            "n": 29,
+            "mean": 0.3105,
+            "min": 0.1803,
+            "max": 0.419,
+            "standard_error": 0.0125
+          },
+          "timed_out": 0
+        },
+        {
+          "group": "heldout",
+          "level": 4,
+          "n": 32,
+          "wins": 23,
+          "win_rate": 0.7188,
+          "win_rate_95_wilson": [
+            0.5463,
+            0.8444
+          ],
+          "S": {
+            "n": 32,
+            "mean": 2.0938,
+            "min": 0,
+            "max": 8,
+            "standard_error": 0.41
+          },
+          "lives_remaining": {
+            "n": 32,
+            "mean": 1.5938,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.2147
+          },
+          "lives_lost": {
+            "n": 32,
+            "mean": 1.4063,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.2147
+          },
+          "elapsed_seconds": {
+            "n": 32,
+            "mean": 204.3903,
+            "min": 97.558,
+            "max": 252.108,
+            "standard_error": 5.7688
+          },
+          "super_blooms": {
+            "n": 32,
+            "mean": 6.9063,
+            "min": 3,
+            "max": 8,
+            "standard_error": 0.2349
+          },
+          "shots_per_calm_second": {
+            "n": 32,
+            "mean": 1.0344,
+            "min": 0.94,
+            "max": 1.12,
+            "standard_error": 0.0085
+          },
+          "shots": {
+            "n": 32,
+            "mean": 246.2813,
+            "min": 116,
+            "max": 297,
+            "standard_error": 7.522
+          },
+          "refunds": {
+            "n": 32,
+            "mean": 238.7188,
+            "min": 112,
+            "max": 285,
+            "standard_error": 7.3238
+          },
+          "boss_reached": 23,
+          "boss_kills": 23,
+          "P_on_kills": {
+            "n": 23,
+            "mean": 0.6689,
+            "min": 0.1957,
+            "max": 3.3187,
+            "standard_error": 0.1271
+          },
+          "boss_kill_seconds": {
+            "n": 23,
+            "mean": 29.0963,
+            "min": 9.783,
+            "max": 65.933,
+            "standard_error": 2.6249
+          },
+          "boss_lives_lost": {
+            "n": 23,
+            "mean": 0.087,
+            "min": 0,
+            "max": 2,
+            "standard_error": 0.087
+          },
+          "boss_observed_pressure_all_attempts": {
+            "n": 23,
+            "mean": 0.6689,
+            "min": 0.1957,
+            "max": 3.3187,
+            "standard_error": 0.127
+          },
+          "timed_out": 0
+        },
+        {
+          "group": "heldout",
+          "level": 5,
+          "n": 32,
+          "wins": 28,
+          "win_rate": 0.875,
+          "win_rate_95_wilson": [
+            0.7193,
+            0.9503
+          ],
+          "S": {
+            "n": 32,
+            "mean": 1.2188,
+            "min": 0,
+            "max": 10,
+            "standard_error": 0.375
+          },
+          "lives_remaining": {
+            "n": 32,
+            "mean": 2.1563,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.1802
+          },
+          "lives_lost": {
+            "n": 32,
+            "mean": 0.8438,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.1802
+          },
+          "elapsed_seconds": {
+            "n": 32,
+            "mean": 149.8695,
+            "min": 46.967,
+            "max": 170.542,
+            "standard_error": 4.0144
+          },
+          "super_blooms": {
+            "n": 32,
+            "mean": 5.7813,
+            "min": 1,
+            "max": 7,
+            "standard_error": 0.1781
+          },
+          "shots_per_calm_second": {
+            "n": 32,
+            "mean": 1.1278,
+            "min": 0.98,
+            "max": 1.22,
+            "standard_error": 0.0095
+          },
+          "shots": {
+            "n": 32,
+            "mean": 192.6563,
+            "min": 50,
+            "max": 229,
+            "standard_error": 5.4722
+          },
+          "refunds": {
+            "n": 32,
+            "mean": 189.4688,
+            "min": 47,
+            "max": 230,
+            "standard_error": 6.0702
+          },
+          "boss_reached": 28,
+          "boss_kills": 28,
+          "P_on_kills": {
+            "n": 28,
+            "mean": 0.4774,
+            "min": 0.3003,
+            "max": 1.479,
+            "standard_error": 0.0535
+          },
+          "boss_kill_seconds": {
+            "n": 28,
+            "mean": 20.3005,
+            "min": 15.017,
+            "max": 23.95,
+            "standard_error": 0.4808
+          },
+          "boss_lives_lost": {
+            "n": 28,
+            "mean": 0.0714,
+            "min": 0,
+            "max": 1,
+            "standard_error": 0.0496
+          },
+          "boss_observed_pressure_all_attempts": {
+            "n": 28,
+            "mean": 0.4774,
+            "min": 0.3003,
+            "max": 1.479,
+            "standard_error": 0.0535
+          },
+          "timed_out": 0
+        },
+        {
+          "group": "heldout",
+          "level": 6,
+          "n": 32,
+          "wins": 26,
+          "win_rate": 0.8125,
+          "win_rate_95_wilson": [
+            0.6469,
+            0.9111
+          ],
+          "S": {
+            "n": 32,
+            "mean": 1.5625,
+            "min": 0,
+            "max": 7,
+            "standard_error": 0.3388
+          },
+          "lives_remaining": {
+            "n": 32,
+            "mean": 1.8125,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.198
+          },
+          "lives_lost": {
+            "n": 32,
+            "mean": 1.1875,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.198
+          },
+          "elapsed_seconds": {
+            "n": 32,
+            "mean": 162.5667,
+            "min": 81,
+            "max": 193.917,
+            "standard_error": 4.0935
+          },
+          "super_blooms": {
+            "n": 32,
+            "mean": 5.5,
+            "min": 2,
+            "max": 6,
+            "standard_error": 0.1796
+          },
+          "shots_per_calm_second": {
+            "n": 32,
+            "mean": 1.1375,
+            "min": 0.92,
+            "max": 1.26,
+            "standard_error": 0.0106
+          },
+          "shots": {
+            "n": 32,
+            "mean": 209.8438,
+            "min": 95,
+            "max": 241,
+            "standard_error": 5.9494
+          },
+          "refunds": {
+            "n": 32,
+            "mean": 238,
+            "min": 111,
+            "max": 284,
+            "standard_error": 6.795
+          },
+          "boss_reached": 26,
+          "boss_kills": 26,
+          "P_on_kills": {
+            "n": 26,
+            "mean": 0.5059,
+            "min": 0.281,
+            "max": 1.637,
+            "standard_error": 0.0538
+          },
+          "boss_kill_seconds": {
+            "n": 26,
+            "mean": 23.3737,
+            "min": 14.05,
+            "max": 48.35,
+            "standard_error": 1.4912
+          },
+          "boss_lives_lost": {
+            "n": 26,
+            "mean": 0.0385,
+            "min": 0,
+            "max": 1,
+            "standard_error": 0.0385
+          },
+          "boss_observed_pressure_all_attempts": {
+            "n": 26,
+            "mean": 0.5059,
+            "min": 0.281,
+            "max": 1.637,
+            "standard_error": 0.0538
+          },
+          "timed_out": 0
+        },
+        {
+          "group": "heldout",
+          "level": 7,
+          "n": 32,
+          "wins": 19,
+          "win_rate": 0.5938,
+          "win_rate_95_wilson": [
+            0.4226,
+            0.7448
+          ],
+          "S": {
+            "n": 32,
+            "mean": 2.4375,
+            "min": 0,
+            "max": 5,
+            "standard_error": 0.2976
+          },
+          "lives_remaining": {
+            "n": 32,
+            "mean": 1.0625,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.1954
+          },
+          "lives_lost": {
+            "n": 32,
+            "mean": 1.9375,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.1954
+          },
+          "elapsed_seconds": {
+            "n": 32,
+            "mean": 138.5817,
+            "min": 105.575,
+            "max": 168.108,
+            "standard_error": 3.3871
+          },
+          "super_blooms": {
+            "n": 32,
+            "mean": 6.25,
+            "min": 4,
+            "max": 8,
+            "standard_error": 0.1851
+          },
+          "shots_per_calm_second": {
+            "n": 32,
+            "mean": 1.1238,
+            "min": 0.98,
+            "max": 1.23,
+            "standard_error": 0.0095
+          },
+          "shots": {
+            "n": 32,
+            "mean": 185.1875,
+            "min": 125,
+            "max": 222,
+            "standard_error": 5.1503
+          },
+          "refunds": {
+            "n": 32,
+            "mean": 157.75,
+            "min": 101,
+            "max": 196,
+            "standard_error": 4.7669
+          },
+          "boss_reached": 20,
+          "boss_kills": 19,
+          "P_on_kills": {
+            "n": 19,
+            "mean": 0.596,
+            "min": 0.3527,
+            "max": 2.5867,
+            "standard_error": 0.1124
+          },
+          "boss_kill_seconds": {
+            "n": 19,
+            "mean": 24.5377,
+            "min": 17.633,
+            "max": 32.7,
+            "standard_error": 1.0293
+          },
+          "boss_lives_lost": {
+            "n": 20,
+            "mean": 0.15,
+            "min": 0,
+            "max": 2,
+            "standard_error": 0.1094
+          },
+          "boss_observed_pressure_all_attempts": {
+            "n": 20,
+            "mean": 0.6289,
+            "min": 0.3527,
+            "max": 2.5867,
+            "standard_error": 0.1116
+          },
+          "timed_out": 0
+        },
+        {
+          "group": "heldout",
+          "level": 8,
+          "n": 32,
+          "wins": 28,
+          "win_rate": 0.875,
+          "win_rate_95_wilson": [
+            0.7193,
+            0.9503
+          ],
+          "S": {
+            "n": 32,
+            "mean": 2.0313,
+            "min": 0,
+            "max": 8,
+            "standard_error": 0.3404
+          },
+          "lives_remaining": {
+            "n": 32,
+            "mean": 1.4375,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.1415
+          },
+          "lives_lost": {
+            "n": 32,
+            "mean": 1.5625,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.1415
+          },
+          "elapsed_seconds": {
+            "n": 32,
+            "mean": 154.8821,
+            "min": 80.167,
+            "max": 183.842,
+            "standard_error": 4.9189
+          },
+          "super_blooms": {
+            "n": 32,
+            "mean": 7.4688,
+            "min": 3,
+            "max": 9,
+            "standard_error": 0.2579
+          },
+          "shots_per_calm_second": {
+            "n": 32,
+            "mean": 1.1709,
+            "min": 1.05,
+            "max": 1.24,
+            "standard_error": 0.008
+          },
+          "shots": {
+            "n": 32,
+            "mean": 220.0938,
+            "min": 102,
+            "max": 263,
+            "standard_error": 7.1935
+          },
+          "refunds": {
+            "n": 32,
+            "mean": 189.7188,
+            "min": 90,
+            "max": 234,
+            "standard_error": 6.3569
+          },
+          "boss_reached": 28,
+          "boss_kills": 28,
+          "P_on_kills": {
+            "n": 28,
+            "mean": 0.5619,
+            "min": 0.4237,
+            "max": 0.767,
+            "standard_error": 0.0174
+          },
+          "boss_kill_seconds": {
+            "n": 28,
+            "mean": 28.0977,
+            "min": 21.183,
+            "max": 38.35,
+            "standard_error": 0.869
+          },
+          "boss_lives_lost": {
+            "n": 28,
+            "mean": 0,
+            "min": 0,
+            "max": 0,
+            "standard_error": 0
+          },
+          "boss_observed_pressure_all_attempts": {
+            "n": 28,
+            "mean": 0.562,
+            "min": 0.4237,
+            "max": 0.767,
+            "standard_error": 0.0174
+          },
+          "timed_out": 0
+        },
+        {
+          "group": "heldout",
+          "level": 9,
+          "n": 32,
+          "wins": 14,
+          "win_rate": 0.4375,
+          "win_rate_95_wilson": [
+            0.2817,
+            0.6067
+          ],
+          "S": {
+            "n": 32,
+            "mean": 3.0313,
+            "min": 0,
+            "max": 8,
+            "standard_error": 0.3796
+          },
+          "lives_remaining": {
+            "n": 32,
+            "mean": 0.875,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.2045
+          },
+          "lives_lost": {
+            "n": 32,
+            "mean": 2.125,
+            "min": 0,
+            "max": 3,
+            "standard_error": 0.2045
+          },
+          "elapsed_seconds": {
+            "n": 32,
+            "mean": 135.6804,
+            "min": 49.133,
+            "max": 225.758,
+            "standard_error": 7.0916
+          },
+          "super_blooms": {
+            "n": 32,
+            "mean": 5.875,
+            "min": 3,
+            "max": 8,
+            "standard_error": 0.2647
+          },
+          "shots_per_calm_second": {
+            "n": 32,
+            "mean": 1.1922,
+            "min": 1.07,
+            "max": 1.32,
+            "standard_error": 0.0092
+          },
+          "shots": {
+            "n": 32,
+            "mean": 191.5938,
+            "min": 69,
+            "max": 297,
+            "standard_error": 9.6839
+          },
+          "refunds": {
+            "n": 32,
+            "mean": 167.3125,
+            "min": 61,
+            "max": 244,
+            "standard_error": 8.1294
+          },
+          "boss_reached": 17,
+          "boss_kills": 14,
+          "P_on_kills": {
+            "n": 14,
+            "mean": 1.16,
+            "min": 0.6467,
+            "max": 2.9187,
+            "standard_error": 0.208
+          },
+          "boss_kill_seconds": {
+            "n": 14,
+            "mean": 47.287,
+            "min": 32.333,
+            "max": 95.933,
+            "standard_error": 4.9381
+          },
+          "boss_lives_lost": {
+            "n": 17,
+            "mean": 0.3529,
+            "min": 0,
+            "max": 1,
+            "standard_error": 0.1195
+          },
+          "boss_observed_pressure_all_attempts": {
+            "n": 17,
+            "mean": 1.312,
+            "min": 0.6467,
+            "max": 2.9187,
+            "standard_error": 0.1889
+          },
+          "timed_out": 0
+        },
+        {
+          "group": "heldout",
+          "level": 10,
+          "n": 32,
+          "wins": 18,
+          "win_rate": 0.5625,
+          "win_rate_95_wilson": [
+            0.3933,
+            0.7183
+          ],
+          "S": {
+            "n": 32,
+            "mean": 3.125,
+            "min": 1,
+            "max": 11,
+            "standard_error": 0.4462
+          },
+          "lives_remaining": {
+            "n": 32,
+            "mean": 0.9063,
+            "min": 0,
+            "max": 2,
+            "standard_error": 0.1579
+          },
+          "lives_lost": {
+            "n": 32,
+            "mean": 2.0938,
+            "min": 1,
+            "max": 3,
+            "standard_error": 0.1579
+          },
+          "elapsed_seconds": {
+            "n": 32,
+            "mean": 173.2263,
+            "min": 30.742,
+            "max": 225.883,
+            "standard_error": 9.545
+          },
+          "super_blooms": {
+            "n": 32,
+            "mean": 7.4063,
+            "min": 1,
+            "max": 9,
+            "standard_error": 0.3962
+          },
+          "shots_per_calm_second": {
+            "n": 32,
+            "mean": 1.1822,
+            "min": 0.94,
+            "max": 1.26,
+            "standard_error": 0.0111
+          },
+          "shots": {
+            "n": 32,
+            "mean": 244.3125,
+            "min": 38,
+            "max": 321,
+            "standard_error": 13.9994
+          },
+          "refunds": {
+            "n": 32,
+            "mean": 235.6875,
+            "min": 26,
+            "max": 329,
+            "standard_error": 13.6439
+          },
+          "boss_reached": 22,
+          "boss_kills": 18,
+          "P_on_kills": {
+            "n": 18,
+            "mean": 2.1323,
+            "min": 0.886,
+            "max": 2.549,
+            "standard_error": 0.1102
+          },
+          "boss_kill_seconds": {
+            "n": 18,
+            "mean": 62.1704,
+            "min": 44.3,
+            "max": 77.45,
+            "standard_error": 2.3785
+          },
+          "boss_lives_lost": {
+            "n": 22,
+            "mean": 0.9091,
+            "min": 0,
+            "max": 1,
+            "standard_error": 0.0627
+          },
+          "boss_observed_pressure_all_attempts": {
+            "n": 22,
+            "mean": 2.1048,
+            "min": 0.886,
+            "max": 2.549,
+            "standard_error": 0.0906
+          },
+          "timed_out": 0
+        }
+      ]
+    }
+  ]
+}

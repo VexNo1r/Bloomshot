@@ -11,11 +11,11 @@
   // one they choose (one consumable store product each). Buying happens only on the shelf, never mid-run.
   var LIST = [
     { id: 'sunburst', name: 'Sunburst', shot: true, product: 'bloomshot.power.sunburst',
-      text: 'Your next shot bursts and blooms the flowers around it.', tip: 'Sunburst ready. Fire into a crowd!' },
+      text: 'Blooms nearby flowers; takes 4 rings off each boss in reach.', tip: 'Sunburst ready. Fire into a crowd!' },
     { id: 'dandelion', name: 'Dandelion', shot: true, product: 'bloomshot.power.dandelion',
       text: 'Your next shot splits into three seeds.', tip: 'Dandelion ready. Three seeds at once!' },
     { id: 'beeline', name: 'Bee Line', shot: true, product: 'bloomshot.power.beeline',
-      text: 'Your next shot flies through flowers, cups and shells.', tip: 'Bee Line ready. It flies through everything!' },
+      text: 'Pierces flowers and guards; takes 3 rings off each boss.', tip: 'Bee Line ready. It flies through everything!' },
     { id: 'lullaby', name: 'Lullaby', shot: false, product: 'bloomshot.power.lullaby',
       text: 'The flowers stop falling for 6 seconds.', tip: 'Shh. The flowers are dozing.' }
   ];
@@ -66,7 +66,10 @@
     var next = normalize(counts), kept = receipts(list), keys = Object.keys(adds);
     if (!valid || !keys.length || keys.some(function (key) { return adds[key] < 1; })) return { ok: false, counts: next, receipts: kept };
     if (id && kept.indexOf(id) >= 0) return { ok: true, repeat: true, counts: next, receipts: kept };
-    keys.forEach(function (key) { next[key] = Math.min(MAX, next[key] + adds[key]); });
+    // Paid contents must fit in full. Leave an overflowing grant waiting, with its receipt unused,
+    // so it can be delivered after the player makes room instead of losing paid powerups.
+    if (keys.some(function (key) { return next[key] + adds[key] > MAX; })) return { ok: false, reason: 'capacity', counts: next, receipts: kept };
+    keys.forEach(function (key) { next[key] += adds[key]; });
     if (id) kept = kept.concat(id).slice(-KEEP_RECEIPTS);
     return { ok: true, counts: next, receipts: kept, added: adds };
   }

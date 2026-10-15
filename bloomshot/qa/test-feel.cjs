@@ -277,7 +277,7 @@ function boot({ motion = true } = {}) {
     matchMedia: () => ({ matches: false, addEventListener: noop }),
     requestAnimationFrame: fn => { nextFrame = fn; }, setTimeout: () => 1, clearTimeout: noop,
     BloomLevels: Levels, BloomMoon: Moon, BloomKoi: Koi, BloomGarden: Garden, BloomGoals: QuietGoals,
-    BloomEngine: Engine, BloomRush: { RushGame: ObservedRush }, BloomDepths: Depths, BloomPowers: Powers,
+    BloomEngine: Engine, BloomRush: { RushGame: ObservedRush }, BloomBosses: require('../bosses.js'), BloomDepths: Depths, BloomPowers: Powers,
     BloomTutorial: require('../tutorial.js'), BloomPetals: require('../petals.js'), BloomScenery: { paint: noop, has: () => true },
     BloomFeel: Feel,
     BloomSound: { wake: noop, setEnabled: noop, play: (type, detail) => cues.push({ type, detail, at: now }), muffle: (amount, seconds) => cues.push({ type: 'muffle', detail: { amount, seconds }, at: now }) },
@@ -297,7 +297,7 @@ function boot({ motion = true } = {}) {
 }
 
 // Level 1's boss wave with the boss on its last ring and one seed just under it, flying straight up.
-function bossShot(app) {
+function bossShot(app, { awake = true } = {}) {
   app.click('depth-map', { depth: '1' });
   const game = app.games.at(-1);
   assert.equal(game.mode, 'rush'); assert(game.plan && game.plan.id === 1, 'level 1 is running');
@@ -308,14 +308,30 @@ function bossShot(app) {
   assert.equal(game.wave, 10);
   const boss = game.buds.find(bud => bud.boss);
   assert(boss, 'wave 10 has a boss');
+  if (awake) {
+    // Earn the real vulnerable phase. Removing a visual shield does not bypass Sunny's controller.
+    const bubble = game.buds.find(bud => bud.bossPart === 'bubble');
+    game.spawnBall({ x: bubble.x, y: bubble.y + bubble.r + Engine.RADIUS + 1, angle: -Math.PI / 2 }, true);
+    game.striker = game.balls.at(-1); game.striker.bossContact = { nx: 0, ny: 1 };
+    game.strike(bubble); game.striker = null;
+    assert.equal(game.bossState.mode, 'dizzy'); assert(bubble.bloomed);
+  }
   boss.hp = 1; boss.sway = 0; boss.x = boss.baseX = 210; boss.shield = false; boss.shell = false;
-  game.buds = game.buds.filter(bud => bud === boss || bud.bloomed || bud.y < boss.y);
+  game.buds = game.buds.filter(bud => bud === boss || bud.bossPart || bud.bloomed || bud.y < boss.y);
   game.bumpers = game.bumpers.filter(item => item.y > boss.y + 120 || item.y < boss.y - 60);
   game.balls = []; game.status = 'flying';
-  game.spawnBall({ x: boss.x, y: boss.y + boss.r + Engine.RADIUS + 40, angle: -Math.PI / 2, type: 'gold' }, true);
+  game.spawnBall(awake ? { x: boss.x, y: boss.y + boss.r + Engine.RADIUS + 40, angle: -Math.PI / 2, type: 'gold' }
+    : { x: boss.x + boss.r + Engine.RADIUS + 40, y: boss.y, angle: Math.PI, type: 'gold' }, true);
   return { game, boss };
 }
 // Plays until the result shows (or the limit), noting when things happen in real seconds.
+test('A guarded named guardian never starts a victory drumroll for a blocked seed', () => {
+  const app = boot({ motion: true }), { game, boss } = bossShot(app, { awake: false });
+  for (let i = 0; i < 60; i++) app.frame();
+  assert.equal(boss.hp, 1); assert.equal(boss.bloomed, false);
+  assert(app.cues.some(cue => cue.type === 'bossGuard'), 'the seed actually met the sleeping guardian');
+  assert(!app.cues.some(cue => cue.type === 'roll' || cue.type === 'finale'), 'no false victory build or impact');
+});
 function playOut(app, game, limit = 12, onFrame) {
   // flight: real and game seconds while the seed is in the air (the frame that ends the level stops part way).
   const marks = { finaleAt: null, impactAt: null, wonAt: null, openAt: null, flight: { real: 0, game: 0 } };
@@ -410,11 +426,16 @@ test('A bloom the camera never saw coming still gets a short lean-in and slow-do
   const out = feel.step(DT); assert.equal(out.scale, 1); assert.equal(out.busy, false);
 });
 
-test('The finale leads a swaying boss: a shot that will meet it builds early, one it will drift away from never builds', () => {
+test('The finale leads a swaying final flower: a shot that will meet it builds early, one it will drift away from never builds', () => {
   // The boss swings right through the middle of its sway (about 69 px/s) as a seed climbs straight up toward its row.
   const shotAt = (offset, below) => {
-    const app = boot({ motion: true }), { game, boss } = bossShot(app);
-    game.balls = []; boss.sway = 50; boss.swayPhase = 0; boss.baseX = boss.x = 210; game.waveStart = game.time;
+    const app = boot({ motion: true }); app.click('levels-rush-btn');
+    const game = app.games.at(-1); for (let i = 0; i < 20; i++) app.frame();
+    game.started = true; game.wave = 4; game._loadWave();
+    const boss = game.buds.find(bud => !bud.gift);
+    assert(boss && !boss.bossKind, 'the endless final flower uses the continuous sway under test');
+    boss.hp = 1; game.buds = [boss]; game.drops = []; game.pending = []; game.bumpers = [];
+    game.balls = []; boss.sway = 50; boss.swayW = 1.38; boss.swayPhase = 0; boss.baseX = boss.x = 210; game.waveStart = game.time;
     game.spawnBall({ x: 210 + offset, y: boss.y + below, angle: -Math.PI / 2, type: 'gold' }, true);
     let rollAt = null, bloomAt = null;
     for (let i = 0; i < 240 && bloomAt === null; i++) {
@@ -425,11 +446,11 @@ test('The finale leads a swaying boss: a shot that will meet it builds early, on
     return { rollAt, bloomAt };
   };
   // Aimed just past its right edge: it swings into the seed.
-  const into = shotAt(36, 130);
+  const into = shotAt(30, 130);
   assert(into.bloomAt !== null, 'the boss swings into the seed');
   assert(into.rollAt !== null && into.bloomAt - into.rollAt > .15, `the build starts a full beat ahead: ${JSON.stringify(into)}`);
   // Aimed inside its left edge: by the time the seed arrives the boss has swung clear.
-  const clear = shotAt(-24, 110);
+  const clear = shotAt(-20, 110);
   assert.equal(clear.bloomAt, null, 'the seed misses');
   assert.equal(clear.rollAt, null, 'so no drumroll for a miss');
 });
@@ -471,7 +492,7 @@ test('Nothing freezes the finale glide, and the impact still gets its full froze
 test('The last ring cracked a moment before still leaves the impact its full frozen blink', () => {
   const app = boot({ motion: true }), { game, boss } = bossShot(app);
   // Two seeds in a line: the first cracks the boss to its last ring (a hit-stop of its own), the second blooms it.
-  boss.hp = 2; game.balls = [];
+  boss.hp = 3; game.balls = []; // Sunny's dizzy weakspot takes two rings per direct hit.
   game.spawnBall({ x: boss.x, y: boss.y + boss.r + Engine.RADIUS + 20, angle: -Math.PI / 2, type: 'gold' }, true);
   game.spawnBall({ x: boss.x, y: boss.y + boss.r + Engine.RADIUS + 110, angle: -Math.PI / 2, type: 'coral' }, true);
   let cracked = false, impact = false, frozen = 0, last = game.time;

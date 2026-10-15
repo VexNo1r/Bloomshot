@@ -1,0 +1,42 @@
+{
+  "passed": 9,
+  "failed": 0,
+  "results": [
+    {
+      "name": "One visible forecast table is shared by all angle candidates without moving live colliders",
+      "passed": true
+    },
+    {
+      "name": "Hidden cores are omitted while visible decoys and real hearts remain physical colliders",
+      "passed": true
+    },
+    {
+      "name": "Rich Fossil armor uses the actual two-ring opening rather than the legacy shell threshold",
+      "passed": true
+    },
+    {
+      "name": "Visible ring centers receive a soft safety preference without legalizing closed gaps",
+      "passed": true
+    },
+    {
+      "name": "The lit lantern is preferable to a normal body hit while an urgent escort still outranks it",
+      "passed": true
+    },
+    {
+      "name": "Tunnel forecast preserves actual exit rotation, cooldown and gate provenance",
+      "passed": true
+    },
+    {
+      "name": "Ember tunnel eligibility and dark satellite selection follow visible encounter state",
+      "passed": true
+    },
+    {
+      "name": "Identical seeds produce identical measured results without using powerups",
+      "passed": true
+    },
+    {
+      "name": "Deliberate spam policies keep a fixed bank or alternate banks on each tap",
+      "passed": true
+    }
+  ]
+}

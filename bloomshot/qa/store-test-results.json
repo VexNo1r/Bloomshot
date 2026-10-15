@@ -1,5 +1,5 @@
 {
-  "passed": 44,
+  "passed": 48,
   "failed": 0,
   "results": [
     {
@@ -119,6 +119,14 @@
       "passed": true
     },
     {
+      "name": "powerups: unavailable or silently dropping ledger storage refuses a charge",
+      "passed": true
+    },
+    {
+      "name": "powerups: storage that fails after the charge recovers from the durable inflight record",
+      "passed": true
+    },
+    {
       "name": "powerups: paid but the app was killed before it heard back, the next launch grants it once",
       "passed": true
     },
@@ -155,7 +163,15 @@
       "passed": true
     },
     {
-      "name": "powerups: an unsettled purchase older than a week no longer claims a transaction",
+      "name": "powerups: a receipt arriving after weeks offline still grants the paid item exactly once",
+      "passed": true
+    },
+    {
+      "name": "powerups: an indeterminate sheet error cannot open a second sheet until the first is resolved",
+      "passed": true
+    },
+    {
+      "name": "powerups: changing the device clock cannot discard a paid receipt during error recovery",
       "passed": true
     },
     {

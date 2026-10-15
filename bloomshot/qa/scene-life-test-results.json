@@ -1,0 +1,36 @@
+{
+  "passed": 7,
+  "failed": 0,
+  "spriteSurfaces": 33,
+  "spriteDecodedBytes": 2299968,
+  "results": [
+    {
+      "name": "All ten levels have two appropriate visitors, with deterministic long pauses",
+      "passed": true
+    },
+    {
+      "name": "Visitors stay at the edges and at most two appear; none occupies the central play area",
+      "passed": true
+    },
+    {
+      "name": "Entry and exit start invisible; peeking visitors pause instead of constantly wobbling",
+      "passed": true
+    },
+    {
+      "name": "Reduced motion removes every visitor and immediately clears the overlay",
+      "passed": true
+    },
+    {
+      "name": "Portrait phone and tablet draws use finite coordinates and balanced Canvas state",
+      "passed": true
+    },
+    {
+      "name": "Warmed ambient frames reuse a bounded sprite atlas with no per-frame paths or gradients",
+      "passed": true
+    },
+    {
+      "name": "Garden scene aliases use the same bounded visitors; invalid visual clocks are safe",
+      "passed": true
+    }
+  ]
+}

@@ -117,7 +117,7 @@
     if (d.y < 0) consider({ t: (BOUNDS.top + RADIUS - p.y) / d.y, nx: 0, ny: 1 }, 'wall');
     // A one-way petal lets seeds fly up through it and only catches the ones coming down.
     for (const bumper of state.bumpers) if (!bumper.oneWay || d.y > 0) consider(capsuleHit(p, d, bumper, RADIUS + 6), 'bumper', bumper);
-    if (includeBuds) for (const bud of state.buds) if (!bud.bloomed) consider(circleHit(p, d, bud, RADIUS + bud.r), 'bud', bud);
+    if (includeBuds) for (const bud of state.buds) if (!bud.bloomed && !bud.hidden) consider(circleHit(p, d, bud, RADIUS + bud.r), 'bud', bud);
     if ((p.gateCooldown || 0) <= 1e-9 && (p.gateHops || 0) < MAX_GATE_HOPS) {
       for (const gate of state.gates || []) consider(circleHit(p, d, gate, gate.r), 'gate', gate);
     }
