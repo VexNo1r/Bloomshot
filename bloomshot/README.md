@@ -4,7 +4,7 @@ A mobile-first botanical arcade game with Meadow Rush, a persistent illustrated 
 
 ## Play
 
-Private hosted proof: https://bloomshot-meadow.trevor-owens1996.chatgpt.site (sign in with the owning account). The exact deployed version is recorded in `WEB-RELEASE.json`; source changes in an open pull request are not automatically deployed. This is a private web release, not an App Store or Google Play release. Purchases are built and unit-tested but switched off: nothing is on sale anywhere, and the web version never sells (see `../docs/STORES.md`).
+The owner-private playtest address is shared with Trevor in the project chat; sign in with the owning account. The exact deployed version is recorded in `WEB-RELEASE.json`; source changes in an open pull request are not automatically deployed. This is a private web release, not an App Store or Google Play release. Purchases are built and unit-tested but switched off: nothing is on sale anywhere, and the web version never sells (see `../docs/STORES.md`).
 
 To run locally from this folder:
 
