@@ -163,7 +163,8 @@ test('The privacy policy is readable without leaving the app or changing the sav
 
 test('Startup migrates an old save once and preserves all existing progress and preferences', () => {
   const before = legacySave(); const app = boot(before); const after = app.saved();
-  for (const field of ['progress', 'daily', 'rush', 'lastLevel', 'settings']) assert.deepEqual(after[field], before[field]);
+  for (const field of ['progress', 'daily', 'rush', 'lastLevel']) assert.deepEqual(after[field], before[field]);
+  assert.deepEqual(after.settings, { ...before.settings, graphics: 'maximum', frameRate: false }, 'only the two additive graphics defaults are introduced');
   assert.equal(after.garden.seeds, 4); assert.equal(after.garden.starterSeeds, 4);
   assert.equal(Garden.summary(after.garden).totalStages, 0); assert(app.writes.length >= 1);
   assert.deepEqual(boot(after).saved(), after);
@@ -171,12 +172,13 @@ test('Startup migrates an old save once and preserves all existing progress and 
 test('Music has its own switch: an old save shows it on, turning it off is saved and survives a reload, and older settings stay the same', () => {
   const before = legacySave(); const app = boot(before);
   assert.equal(app.$('toggle-music').checked, true, 'an old save, with no music setting, shows Music on');
-  assert.deepEqual(app.saved().settings, before.settings, 'nothing is added to the settings until the switch is used');
+  const settingsOnLoad = { ...before.settings, graphics: 'maximum', frameRate: false };
+  assert.deepEqual(app.saved().settings, settingsOnLoad, 'graphics defaults are added, while Music remains implicit until used');
   const music = []; app.context.BloomSound.setMusic = on => music.push(on);
   app.$('toggle-music').checked = false; app.$('toggle-music').emit('change');
   const saved = app.saved();
   assert.equal(saved.settings.music, false);
-  assert.deepEqual({ ...saved.settings, music: undefined }, { ...before.settings, music: undefined }, 'the other settings are untouched');
+  assert.deepEqual({ ...saved.settings, music: undefined }, { ...settingsOnLoad, music: undefined }, 'the other settings are untouched');
   assert.deepEqual(music, [false]);
   const reloaded = boot(saved);
   assert.equal(reloaded.$('toggle-music').checked, false, 'off survives a reload'); assert.deepEqual(reloaded.saved().settings, saved.settings);
@@ -203,7 +205,8 @@ test('Malformed individual daily entries cannot reset valid campaign, Rush, or p
   Object.assign(before.daily, { 'daily-2026-10-02': null, 'daily-2026-10-03': [], 'daily-2026-10-04': false,
     'daily-2026-10-05': 'bad', 'daily-2026-10-06': { best: 'bad', stars: 2 }, 'daily-2026-10-07': { best: 10, stars: 9 } });
   const after = boot(before).saved();
-  for (const field of ['progress', 'rush', 'lastLevel', 'settings', 'garden']) assert.deepEqual(after[field], before[field]);
+  for (const field of ['progress', 'rush', 'lastLevel', 'garden']) assert.deepEqual(after[field], before[field]);
+  assert.deepEqual(after.settings, { ...before.settings, graphics: 'maximum', frameRate: false });
   assert.deepEqual(after.daily, { 'daily-2026-10-01': before.daily['daily-2026-10-01'] });
   assert.equal(after.garden.seeds, 0); assert.equal(after.garden.levels.moon, 1);
 });
@@ -421,7 +424,7 @@ test('Without comparable amounts the bundle still says it costs less, but names 
 const moonThrough = count => Object.fromEntries(Moon.levels.slice(0, count).map(level => [level.id, { best: 700, stars: 2, attempts: 1 }]));
 test('Keepsakes: a fresh garden wears Meadow, every style previews, and locked styles never go on the seed', () => {
   const before = legacySave(), app = boot(before);
-  assert.equal(app.saved().keepsake, 'meadow'); assert.deepEqual(app.saved().settings, before.settings);
+  assert.equal(app.saved().keepsake, 'meadow'); assert.deepEqual(app.saved().settings, { ...before.settings, graphics: 'maximum', frameRate: false });
   app.click('collection-btn'); app.frame();
   const grid = app.$('keepsake-grid').innerHTML;
   for (const style of Keepsakes.styles) assert(grid.includes(`data-keepsake="${style.id}"`), style.id);
@@ -1096,7 +1099,8 @@ test('Level records are cleaned on load and a cleared level opens the next one',
   const before = legacySave(); before.depths = { 1: { stars: 9, best: -5, wave: 3 }, 2: 'bad', 3: [], 12: { stars: 1, best: 1, wave: 1 } };
   const app = boot(before); assert.deepEqual(app.saved().depths, { 1: { stars: 3, best: 0, wave: 3 } });
   assert.match(app.$('depth-map').innerHTML, /class="depth-card next" type="button" data-depth="2"/);
-  for (const field of ['progress', 'rush', 'daily', 'settings']) assert.deepEqual(app.saved()[field], before[field]);
+  for (const field of ['progress', 'rush', 'daily']) assert.deepEqual(app.saved()[field], before[field]);
+  assert.deepEqual(app.saved().settings, { ...before.settings, graphics: 'maximum', frameRate: false });
 });
 testAsync('Buying says exactly what arrived: one, five, or the bag', async () => {
   const store = fakeStore({ live: true, available: true, powers: true }), app = boot(legacySave(), { store }); app.click('rush-btn');

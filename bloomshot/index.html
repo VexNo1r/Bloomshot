@@ -250,6 +250,8 @@
     <label class="setting-row" for="toggle-music"><span><strong>Music</strong><span class="setting-description">A soft garden soundtrack</span></span><input id="toggle-music" class="toggle-switch" type="checkbox" aria-label="Music" checked></label>
     <label class="setting-row" for="toggle-haptics"><span><strong>Vibration</strong><span class="setting-description">On supported phones</span></span><input id="toggle-haptics" class="toggle-switch" type="checkbox" aria-label="Vibration" checked></label>
     <label class="setting-row" for="toggle-motion"><span><strong>Animations</strong><span class="setting-description">Bursts, petals and screen shake</span></span><input id="toggle-motion" class="toggle-switch" type="checkbox" aria-label="Animations" checked></label>
+    <label class="setting-row graphics-setting" for="graphics-quality"><span><strong>Graphics</strong><span class="setting-description" id="graphics-description">All modes target 60 FPS. Lower detail can help slower phones.</span></span><select id="graphics-quality" class="graphics-select" aria-describedby="graphics-description"><option value="maximum" selected>Maximum</option><option value="balanced">Balanced</option><option value="performance">Performance</option></select></label>
+    <label class="setting-row" for="toggle-frame-rate"><span><strong>Show frame rate</strong><span class="setting-description">Check smoothness while you play</span></span><input id="toggle-frame-rate" class="toggle-switch" type="checkbox"></label>
     <p id="settings-storage" class="settings-footnote">Your garden is saved on this device.</p>
     <button id="privacy-btn" class="button-link" type="button">Privacy policy</button>
     <section class="install-section" aria-labelledby="install-title">
@@ -318,6 +320,7 @@
     </div>
   </div>
   <div id="toast" class="toast" role="status"></div>
+  <output id="frame-rate-meter" class="frame-rate-meter" aria-label="Recent animation frame rate" aria-live="off" hidden></output>
   <div id="announcement" class="sr-only" aria-live="polite" aria-atomic="true"></div>
   <div id="orientation-note" role="status"><span aria-hidden="true">↻</span><strong>Turn your phone upright</strong><p>Your game is paused.</p></div>
 </body>

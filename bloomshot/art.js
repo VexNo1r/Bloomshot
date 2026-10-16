@@ -1299,8 +1299,24 @@
 
   // Feel: the finale camera, the pod's slingshot pose, comet seeds and the danger drama. Glows and veils are
   // sprites made once at 3x (OffscreenCanvas, else a page canvas); in Node there is no surface and plain shapes
-  // stand in. draw() sets frameAhead (seeds glide between physics steps in slow motion) and the quality tier.
-  let frameAhead = 0, feelQuality = 0, feelOpts = null, aimSince = null, lockTarget = null, lockSince = 0;
+  // stand in. draw() sets interpolation between resolved physics positions and the quality tier.
+  let frameAhead = 0, frameAlpha = null, feelQuality = 0, feelOpts = null, aimSince = null, lockTarget = null, lockSince = 0;
+  const seedOffset = { x: 0, y: 0 };
+  function projectileOffset(ball) {
+    seedOffset.x = seedOffset.y = 0;
+    if (frameAlpha !== null) {
+      // The trail ends at the previous fixed-step position. Interpolate only the already-resolved motion,
+      // never into a future collision. Tunnels clear the trail, so nothing slides across the portal gap.
+      const trail = ball.trail, previous = Array.isArray(trail) && trail[trail.length - 1];
+      if (previous && !previous.move && Number.isFinite(previous.x) && Number.isFinite(previous.y)) {
+        seedOffset.x = (previous.x - ball.x) * (1 - frameAlpha);
+        seedOffset.y = (previous.y - ball.y) * (1 - frameAlpha);
+      }
+    } else if (frameAhead) {
+      seedOffset.x = (Number(ball.vx) || 0) * frameAhead; seedOffset.y = (Number(ball.vy) || 0) * frameAhead;
+    }
+    return seedOffset;
+  }
   const feelSprites = new Map();
   const easeBack = k => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(k - 1, 3) + c1 * Math.pow(k - 1, 2); };
   // Squash, lean and ring timings follow the real clock, so the tutorial's slow motion never makes them sluggish.
@@ -1537,7 +1553,7 @@
       if (!reduced && d.mintFlash > 0) feelVeil(ctx, '120,240,200', .3 * d.mintFlash);
     }
     // The frame is done: seeds outside draw() (the collection showcase) draw where they are.
-    frameAhead = 0; feelOpts = null;
+    frameAhead = 0; frameAlpha = null; feelOpts = null;
   }
 
   // The seed tray beside the pod: the three seeds waiting behind the one in the cup, like birds beside a slingshot.
@@ -1556,7 +1572,7 @@
       if (pod > slot) {
         const since = Number.isFinite(state.podAt) && pod === slot + 1 ? time - state.podAt : Infinity;
         const pop = !reducedMotion && since >= 0 && since < .2 ? 1 + .3 * (1 - since / .2) : 1;
-        drawSeed(ctx, sx, TRAY.sy, 7.4 * pop, time, false, style);
+        drawSeed(ctx, sx, TRAY.sy, 7.4 * pop, time, false, style, 7.4);
         return;
       }
       circle(ctx, sx, TRAY.sy, 7.6, dry ? `rgba(255,138,122,${.25 + .35 * dry})` : 'rgba(14,143,134,.14)', 'rgba(14,143,134,.55)', 1.3);
@@ -1619,7 +1635,7 @@
     } else if (loaded && (state.status === 'aiming' || !state.status || (rush && state.status !== 'lost'))) {
       const since = podded && Number.isFinite(state.podAt) && state.pod === 1 ? time - state.podAt : Infinity;
       const pop = !reducedMotion && since >= 0 && since < .2 ? 1 + .3 * (1 - since / .2) : 1;
-      drawSeed(ctx, x + (pull ? pull.x : 0), y + (pull ? pull.y : 0), 8.4 * pop, time, false, style);
+      drawSeed(ctx, x + (pull ? pull.x : 0), y + (pull ? pull.y : 0), 8.4 * pop, time, false, style, 8.4);
     }
     ctx.restore();
     if (podded) drawSeedTray(ctx, state, time, style, reducedMotion, dry);
@@ -2775,9 +2791,7 @@
     });
   }
 
-  function drawSeed(ctx, x, y, r, time, flying, style) {
-    const look = style && style.seed;
-    ctx.save(); ctx.translate(x, y); ctx.rotate(flying ? time * 2.5 : -.35);
+  function paintRestingSeed(ctx, r, look) {
     ctx.shadowColor = look ? look.base + '88' : 'rgba(132,106,43,.23)'; ctx.shadowBlur = look ? 12 : 9; ctx.shadowOffsetY = 2;
     const seed = ctx.createRadialGradient(-r * .3, -r * .4, .2, 0, 0, r * 1.2);
     seed.addColorStop(0, look ? look.core : '#fffef1'); seed.addColorStop(.6, look ? look.light : '#f2dda0'); seed.addColorStop(1, look ? look.base : '#c8a465');
@@ -2785,6 +2799,17 @@
     ctx.shadowColor = 'transparent'; ctx.lineWidth = .8; ctx.strokeStyle = look ? look.rim : '#af925c'; ctx.stroke();
     ctx.beginPath(); ctx.moveTo(-r * .21, -r * .65); ctx.quadraticCurveTo(-r * .3, -r * .02, r * .19, r * .59);
     ctx.lineWidth = .7; ctx.strokeStyle = 'rgba(158,118,48,.40)'; ctx.stroke();
+  }
+  function restingSeedSprite(r, look) {
+    const edge = r + 14, key = `resting-seed:${look ? [look.core, look.light, look.base, look.rim].join(':') : 'plain'}:${r}`;
+    return atlasSprite(key, -edge, -edge, edge, edge, c => paintRestingSeed(c, r, look));
+  }
+  function drawSeed(ctx, x, y, r, time, flying, style, nominalRadius = r) {
+    const look = style && style.seed, size = Number(nominalRadius) > 0 ? nominalRadius : r;
+    const sprite = restingSeedSprite(size, look);
+    ctx.save(); ctx.translate(x, y); ctx.rotate(flying ? time * 2.5 : -.35);
+    if (sprite) { const scale = r / size; ctx.scale(scale, scale); blit(ctx, sprite); }
+    else paintRestingSeed(ctx, r, look);
     ctx.restore();
   }
 
@@ -3452,8 +3477,7 @@
     return atlasSprite(`shot-seed:${colors.base}:${r}`, -edge, -edge, edge, edge, c => paintShotSeed(c, r, colors));
   }
   function drawProjectile(ctx, ball, index, time, reducedMotion, fever, style) {
-    // In slow motion a seed is drawn where it is between two physics steps, so it glides instead of stepping.
-    const ox = frameAhead ? (Number(ball.vx) || 0) * frameAhead : 0, oy = frameAhead ? (Number(ball.vy) || 0) * frameAhead : 0;
+    const offset = projectileOffset(ball), ox = offset.x, oy = offset.y;
     if (ball.power && POWER_TINT[ball.power]) {
       if (ox || oy) { ctx.save(); ctx.translate(ox, oy); drawPowerShot(ctx, ball, time, reducedMotion); ctx.restore(); }
       else drawPowerShot(ctx, ball, time, reducedMotion);
@@ -3500,7 +3524,7 @@
 
   function drawStyledProjectile(ctx, ball, time, reducedMotion, fever, style, index) {
     const s = style.seed, r = ball.r || 5.5, hot = fever || ball.hot;
-    const x = ball.x + (frameAhead ? (Number(ball.vx) || 0) * frameAhead : 0), y = ball.y + (frameAhead ? (Number(ball.vy) || 0) * frameAhead : 0);
+    const offset = projectileOffset(ball), x = ball.x + offset.x, y = ball.y + offset.y;
     ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     if (!reducedMotion && (ball.trail || []).length > 1 && !(feelQuality >= 1 && index >= 3)) drawKeepsakeTrail(ctx, ball, style, r, time, hot, x, y);
     if (!reducedMotion) {
@@ -4432,8 +4456,10 @@
     const colors = PAPER[options.theme] || PAPER.meadow;
     ctx.save();
     const rush = state.mode === 'rush';
-    // Feel: seeds glide a fraction of a step ahead in slow motion, and the finale camera leans in, backdrop and all.
-    feelOpts = options; frameAhead = Number(options.ahead) || 0; feelQuality = Number(options.quality) || 0;
+    // Seeds glide between resolved 120 Hz positions; the finale camera leans in, backdrop and all.
+    feelOpts = options; frameAhead = Number(options.ahead) || 0;
+    frameAlpha = typeof options.interpolation === 'number' && Number.isFinite(options.interpolation) ? clamp(options.interpolation, 0, 1) : null;
+    feelQuality = Number(options.quality) || 0;
     const camera = options.camera;
     if (camera && camera.zoom > 1.001 && !options.reducedMotion) { ctx.translate(camera.fx, camera.fy); ctx.scale(camera.zoom, camera.zoom); ctx.translate(-camera.fx, -camera.fy); }
     if (options.backdrop !== false) drawGarden(ctx, 420, 560, options.theme, { mode: state.mode });
@@ -4680,6 +4706,7 @@
     plan = plan || {};
     const jobs = [], scratch = makeSurface(4, 4), sctx = scratch && scratch.getContext('2d', { willReadFrequently: true }), add = fn => jobs.push(fn);
     let next = 0;
+    add(() => { for (const r of [7.4, 8.4]) restingSeedSprite(r, plan.keepsake && plan.keepsake.seed); });
     // The HUD: the gold sky and its band, the sun fan at every count, the turning wheel, the badges.
     add(() => hudSprite('sky:gold', 420, 560, paintGoldSky, 1)); add(() => hudSprite('sky:band', 420, 240, paintGoldBand, 1));
     add(litPetalSprite);

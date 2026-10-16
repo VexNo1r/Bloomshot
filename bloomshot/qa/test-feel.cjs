@@ -230,10 +230,10 @@ test('After the first frame, seeds and their trails make no gradients and no sha
 
 // ---- the finale through app.js ----
 
-function boot({ motion = true, render = null } = {}) {
+function boot({ motion = true, render = null, settings = {} } = {}) {
   const storage = new Map();
   storage.set('bloomshot.save.v1', JSON.stringify({ version: 1, tutorial: true, powersMet: true, rush: { best: 0, bestWave: 1, runs: 1, blooms: 0 },
-    depths: render?.depths, settings: { sound: false, haptics: false, motion } }));
+    depths: render?.depths, settings: { sound: false, haptics: false, motion, ...settings } }));
   const nodes = new Map(), games = [], cues = [], draws = [];
   let nextFrame, now = 0, work = 0, paints = 0;
   const windowHandlers = new Map();
@@ -283,7 +283,7 @@ function boot({ motion = true, render = null } = {}) {
   const context = vm.createContext({ console, structuredClone, URLSearchParams, Date, Math, Map, Set,
     document, location: { search: '', reload: noop }, navigator: {}, crypto: { randomUUID: () => 'feel-run' },
     localStorage: { getItem: name => storage.get(name) || null, setItem: (name, value) => storage.set(name, value) },
-    performance: { now: () => now + work }, devicePixelRatio: 1,
+    performance: { now: () => now + work }, devicePixelRatio: render?.dpr || 1,
     ...(render ? { innerWidth: 420, innerHeight: 560 } : {}),
     matchMedia: () => ({ matches: false, addEventListener: noop }),
     requestAnimationFrame: fn => { nextFrame = fn; }, setTimeout: () => 1, clearTimeout: noop,
@@ -293,7 +293,7 @@ function boot({ motion = true, render = null } = {}) {
     BloomFeel: Feel,
     BloomSound: { wake: noop, setEnabled: noop, play: (type, detail) => cues.push({ type, detail, at: now }), muffle: (amount, seconds) => cues.push({ type: 'muffle', detail: { amount, seconds }, at: now }) },
     BloomKeepsakes: Keepsakes,
-    BloomArt: { draw: (ctx, state, time, options) => { draws.push({ time, camera: options.camera ? { ...options.camera } : null, vignette: options.vignette, danger: { ...options.danger }, quality: options.quality, flash: options.flash }); work += render?.drawCost || 0; paints++; },
+    BloomArt: { draw: (ctx, state, time, options) => { draws.push({ time, camera: options.camera ? { ...options.camera } : null, vignette: options.vignette, danger: { ...options.danger }, quality: options.quality, flash: options.flash, interpolation: options.interpolation }); work += render?.drawCost || 0; paints++; },
       ...(render ? { paints: () => paints, prewarm: () => ({ step(ms) { render.warms.push(ms); work += render.warmCost || 0; return false; } }) } : {}),
       drawFlower: noop, drawMoon: noop, koiFish: noop, drawGarden: (ctx, w, h, theme, options) => { if (render && options?.frame === false) render.scenes.push({ theme, mode: options.mode }); }, drawProjectile: noop, drawParticle: noop, drawSeed: noop, drawPowerIcon: noop, podSlot: () => ({ x: 210, y: 498 }) },
     BloomMeadow: { plots: Garden.plots.map((p, i) => ({ id: p.id, x: 65 + i * 50, y: 150, labelY: 180, accent: p.color })),
@@ -306,17 +306,71 @@ function boot({ motion = true, render = null } = {}) {
   function frame(milliseconds = 1000 / 60) { now += milliseconds; work = 0; const fn = nextFrame; assert.equal(typeof fn, 'function'); fn(now); }
   function click(id, dataset) { const target = dataset ? Object.assign(element(), { dataset }) : $(id); $(id).emit('click', { target }); }
   return { $, click, frame, games, cues, draws, now: () => now, emit: name => { for (const fn of windowHandlers.get(name) || []) fn(); },
-    setViewport: (width, height) => { context.innerWidth = width; context.innerHeight = height; } };
+    setViewport: (width, height) => { context.innerWidth = width; context.innerHeight = height; },
+    performance: () => context.bloomshotPerformance, saved: () => JSON.parse(storage.get('bloomshot.save.v1')) };
 }
+
+test('Old saves default to Maximum; graphics settings persist without changing progress or simulation', () => {
+  const render = { dpr: 3, depths: { 1: { stars: 3, best: 1000 } } }, app = boot({ render });
+  app.click('depth-map', { depth: '1' }); app.frame();
+  assert.equal(app.saved().settings.graphics, 'maximum');
+  assert.equal(app.$('game-canvas').width, 1050, 'Maximum retains the original pixel cap');
+  const game = app.games.at(-1), before = JSON.stringify(game.snapshot());
+  app.$('graphics-quality').emit('change', { target: { value: 'balanced' } });
+  assert.equal(app.saved().settings.graphics, 'balanced');
+  assert.equal(app.$('game-canvas').width, 840); assert.equal(app.$('scene-canvas').width, 630);
+  assert.equal(game.quality, 1); assert.equal(JSON.stringify(game.snapshot()), before, 'changing graphics does not step the engine');
+  app.$('graphics-quality').emit('change', { target: { value: 'performance' } });
+  assert.equal(app.$('game-canvas').width, 630); assert.equal(app.$('scene-canvas').width, 420);
+  app.frame(); assert.equal(app.draws.at(-1).quality, 2, 'manual detail floor survives a fast frame');
+  app.$('graphics-quality').emit('change', { target: { value: 'maximum' } });
+  assert.equal(app.$('game-canvas').width, 1050); assert.equal(app.saved().depths[1].best, 1000);
+});
+
+test('Invalid graphics values fall back to Maximum, while valid saved choices and FPS preference survive', () => {
+  for (const value of ['performance', 'balanced', 'maximum', '__proto__', 'constructor', null]) {
+    const app = boot({ settings: { graphics: value, frameRate: true } });
+    assert.equal(app.saved().settings.graphics, ['performance', 'balanced', 'maximum'].includes(value) ? value : 'maximum');
+    assert.equal(app.saved().settings.frameRate, true);
+  }
+});
+
+test('Rapid Rush moves defer collision traces until the next paint and release uses the latest angle', () => {
+  const app = boot(); app.click('depth-map', { depth: '1' }); app.frame();
+  const game = app.games.at(-1), canvas = app.$('game-canvas'), trace = game.trace.bind(game);
+  let traces = 0; game.trace = (...args) => { traces++; return trace(...args); };
+  canvas.emit('pointerdown', { pointerId: 7, isPrimary: true, clientX: 200, clientY: 220 });
+  traces = 0;
+  for (let i = 0; i < 20; i++) canvas.emit('pointermove', { pointerId: 7, clientX: 200 + i * 4, clientY: 180 });
+  assert.equal(traces, 0, 'high-rate moves only update the aim direction');
+  app.frame(); assert.equal(traces, 1, 'one fresh trace for the displayed frame');
+  canvas.emit('pointermove', { pointerId: 7, clientX: 310, clientY: 170 });
+  canvas.emit('pointerup', { pointerId: 7, clientX: 310, clientY: 170 });
+  assert(game.balls.length > 0, 'release still launches before another animation frame');
+  const ball = game.balls.at(-1), expected = Math.atan2(170 - game.launcher.y, 310 - game.launcher.x);
+  assert(Math.abs(Math.atan2(ball.vy, ball.vx) - expected) < 1e-8, 'latest touch determines the shot');
+});
+
+test('Normal-speed rendering receives the residual physics fraction and pausing holds that fraction', () => {
+  const app = boot(); app.click('depth-map', { depth: '1' }); app.frame();
+  app.frame(16.7); const fraction = app.draws.at(-1).interpolation;
+  assert(fraction > 0 && fraction < 1, 'normal speed interpolates between ticks');
+  app.$('settings-dialog').open = true; app.frame(33.3);
+  assert.equal(app.draws.at(-1).interpolation, fraction, 'paused simulation has no visual extrapolation');
+});
 
 test('A busy frame skips warming; a nearly full frame offers only the time still available', () => {
   const render = { drawCost: 13 }, app = boot({ render });
   app.click('depth-map', { depth: '1' }); app.frame();
   assert.equal(render.warms.length, 0, 'over-budget gameplay performs no warm-up job');
-  render.drawCost = 10; app.frame();
+  render.drawCost = 6; app.frame();
   assert.deepEqual(render.warms, [2], 'only two milliseconds remain, with no minimum extra work');
   render.drawCost = 1; app.frame();
-  assert.equal(render.warms.at(-1), 8, 'an idle frame still caps warming at eight milliseconds');
+  assert.equal(render.warms.at(-1), 4, 'Maximum caps warming at four milliseconds and reserves browser time');
+  app.$('graphics-quality').emit('change', { target: { value: 'balanced' } }); app.frame();
+  assert.equal(render.warms.at(-1), 3, 'Balanced does not spend every saved millisecond warming');
+  app.$('graphics-quality').emit('change', { target: { value: 'performance' } }); app.frame();
+  assert.equal(render.warms.at(-1), 2, 'Performance leaves the most headroom');
 });
 
 test('The quality governor includes warming and fresh paints in sustained CPU cost, then recovers', () => {

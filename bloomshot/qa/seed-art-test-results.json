@@ -1,5 +1,5 @@
 {
-  "passed": 5,
+  "passed": 6,
   "failed": 0,
   "results": [
     {
@@ -16,6 +16,10 @@
     },
     {
       "name": "Reduced motion keeps the projectile pose static and omits its trail",
+      "passed": true
+    },
+    {
+      "name": "Loaded and tray seeds reuse a bounded cache even through a regrowth pop",
       "passed": true
     },
     {

@@ -59,6 +59,19 @@ test('Reduced motion keeps the projectile pose static and omits its trail', () =
   const a = brush(), b = brush(); Art.drawProjectile(a.ctx, ball, 0, 1, true, false, null); Art.drawProjectile(b.ctx, ball, 0, 10, true, false, null);
   assert.deepEqual(a.calls, b.calls); assert(!a.calls.some(call => call[0] === 'lineTo' || call[0] === 'rotate'), 'no decorative movement or tail');
 });
+test('Loaded and tray seeds reuse a bounded cache even through a regrowth pop', () => {
+  const { Art, brush, totals } = rig(), rec = brush();
+  for (const style of [null, ...Keepsakes.styles.filter(s => s.seed)]) {
+    for (const size of [7.4, 8.4]) Art.drawSeed(rec.ctx, 210, 498, size, 1, false, style, size);
+  }
+  const before = { ...totals };
+  for (let frame = 0; frame < 120; frame++) for (const style of [null, ...Keepsakes.styles.filter(s => s.seed)]) {
+    for (const size of [7.4, 8.4]) Art.drawSeed(rec.ctx, 210, 498, size * (1 + .3 * Math.max(0, 1 - frame / 12)), frame / 60, false, style, size);
+  }
+  assert.deepEqual(totals, before, 'no new gradients or surfaces while the cached seed scales');
+  assert(rec.calls.some(call => call[0] === 'drawImage')); assert(rec.balanced());
+});
+
 test('Keepsake and power branches retain distinct illustrations without mutating seeds', () => {
   const { Art, brush } = rig(), signatures = new Set();
   for (const style of Keepsakes.styles.filter(style => style.seed)) {

@@ -4,6 +4,8 @@ Updated October 16, 2026. Trevor chose **Individual enrollment under his persona
 
 This is the owner checklist. The engineer prepares and checks code, builds and media; Trevor handles identity, agreements, payments, banking/tax details, real-phone testing, merges and final release decisions. Do not paste passwords, private keys, payment details or identity documents into chat or the public repository.
 
+October 16 status: **PR #30 is merged**. PR #31 remains open for game/graphics changes and owner approval. The installed iPhone and Android apps are the release targets. Graphics defaults to Maximum; Balanced and Performance offer lower detail. Use Show frame rate for local testing and follow [the installed-device performance checks](PERFORMANCE.md) once TestFlight/Play builds are available.
+
 ## 1. Play on your iPhone now
 
 1. Trevor reported **iPhone 13, iOS 26.6.2** on October 15. For future tests, confirm those fields at **Settings → General → About**. Serial number and IMEI are not needed.
@@ -41,7 +43,7 @@ The first native test builds keep purchases disabled. Account setup, device test
 
 Both pull requests target `main` directly. The engineer will identify the checked revision and give a merge-ready prompt; a green older revision is not a reason to merge while a new update is being prepared.
 
-1. **First: [PR #30, native release preparation](https://github.com/VexNo1r/Bloomshot/pull/30)**, after its updated checks pass. It prepares signing and the Android billing handoff; it does not publish an app.
+1. **Completed: [PR #30, native release preparation](https://github.com/VexNo1r/Bloomshot/pull/30) is merged.** It prepares signing and the Android billing handoff; it does not publish an app.
 2. **Second: [PR #31, game and purchase preparation](https://github.com/VexNo1r/Bloomshot/pull/31)**, after Trevor approves the current game and its latest checks pass.
 3. **Then: build and test from main**, only once both are merged. The release archive expects the privacy policy and current game files supplied by PR #31.
 

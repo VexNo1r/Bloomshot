@@ -17,7 +17,12 @@
   const Depths = window.BloomDepths;
   const Tutorial = window.BloomTutorial;
   const Powers = window.BloomPowers;
-  const defaults = { version: 1, garden: BloomGarden.normalize(), goals: Goals.normalize(null, localDate()), progress: {}, moon: {}, koi: {}, daily: {}, rush: { best: 0, bestWave: 1, runs: 0, blooms: 0 }, depths: {}, bossLosses: {}, powers: Powers.normalize(), powerReceipts: [], powersMet: false, podMet: false, tutorial: false, lastLevel: 1, keepsake: 'meadow', settings: { sound: true, haptics: true, motion: !matchMedia('(prefers-reduced-motion: reduce)').matches } };
+  const GRAPHICS = Object.freeze({
+    maximum: { board: 2.5, scene: 2, effects: 0, warm: 4 },
+    balanced: { board: 2, scene: 1.5, effects: 1, warm: 3 },
+    performance: { board: 1.5, scene: 1, effects: 2, warm: 2 }
+  });
+  const defaults = { version: 1, garden: BloomGarden.normalize(), goals: Goals.normalize(null, localDate()), progress: {}, moon: {}, koi: {}, daily: {}, rush: { best: 0, bestWave: 1, runs: 0, blooms: 0 }, depths: {}, bossLosses: {}, powers: Powers.normalize(), powerReceipts: [], powersMet: false, podMet: false, tutorial: false, lastLevel: 1, keepsake: 'meadow', settings: { sound: true, haptics: true, motion: !matchMedia('(prefers-reduced-motion: reduce)').matches, graphics: 'maximum', frameRate: false } };
   let storageAvailable = true;
   function readSave() {
     try {
@@ -46,7 +51,8 @@
       // The chosen style is kept even while locked (a refund or a restore in progress); play shows Meadow until it is owned.
       if (typeof raw.keepsake === 'string' && Keepsakes.byId[raw.keepsake]) valid.keepsake = raw.keepsake;
       for (const key of ['best', 'bestWave', 'runs', 'blooms']) if (Number.isFinite(raw.rush?.[key]) && raw.rush[key] >= 0) valid.rush[key] = Math.floor(raw.rush[key]);
-      for (const key of ['sound', 'haptics', 'motion', 'music']) if (typeof raw.settings?.[key] === 'boolean') valid.settings[key] = raw.settings[key];
+      for (const key of ['sound', 'haptics', 'motion', 'music', 'frameRate']) if (typeof raw.settings?.[key] === 'boolean') valid.settings[key] = raw.settings[key];
+      if (Object.hasOwn(GRAPHICS, raw.settings?.graphics)) valid.settings.graphics = raw.settings.graphics;
       if (raw.daily && typeof raw.daily === 'object') for (const [key, value] of Object.entries(raw.daily).slice(-14)) {
         if (!value || typeof value !== 'object' || Array.isArray(value)) continue;
         if (/^daily-\d{4}-\d{2}-\d{2}$/.test(key) && Number.isFinite(value.best) && value.best >= 0 && Number.isInteger(value.stars) && value.stars >= 0 && value.stars <= 3) valid.daily[key] = value;
@@ -110,6 +116,9 @@
   const narrowLandscape = matchMedia('(orientation: landscape) and (max-height: 500px)');
   let lastFrame = 0, accumulator = 0, toastTimer, currentWorld = null, newFlower = null, newKeepsake = null;
   let displayScore = 0, hudKey = '', pulseTime = 0, rushRecordBroken = false;
+  const graphics = () => GRAPHICS[save.settings.graphics] || GRAPHICS.maximum;
+  const frameMeter = typeof window.BloomFeel?.createFrameMeter === 'function' ? BloomFeel.createFrameMeter({ capacity: 1800, target: 60 }) : null;
+  let meterAt = 0;
   const dialogs = ['result-dialog', 'settings-dialog', 'privacy-dialog', 'help-dialog', 'world-dialog'];
   // Three filled stars, the unearned ones dimmed, so a row of stars always reads the same width.
   const starHTML = n => '<span>★</span>'.repeat(n) + '<span class="off">★</span>'.repeat(3 - n);
@@ -1044,7 +1053,7 @@
     const tricks = (window.BloomRush && BloomRush.TRICKS) || {};
     for (const [kind, def] of Object.entries(tricks)) callouts.push({ kind: 'trick', trick: kind, text: def.name, label: '' });
     for (const text of ['2 lives left', '1 life left', 'Out of lives']) callouts.push({ kind: 'life', text });
-    return { flowers: [...flowers.values()].slice(0, 12), board: game.buds.filter(bud => !bud.boss && !bud.gift), boss, callouts };
+    return { flowers: [...flowers.values()].slice(0, 12), board: game.buds.filter(bud => !bud.boss && !bud.gift), boss, callouts, keepsake: currentKeepsake() };
   }
   function warmUp() {
     warm = null;
@@ -2056,11 +2065,13 @@
     // While the finale camera leans in, a touch lands where the board is drawn, not where it would be unzoomed.
     return feel && feel.out.zoom > 1.001 ? Feel.toBoard(point, feel.out) : point;
   }
-  function aimAt(point) {
+  function aimAt(point, deferTrace = false) {
     const dx = point.x - game.launcher.x, dy = Math.min(-35, point.y - game.launcher.y);
     angle = clamp(Math.atan2(dy, dx), -Math.PI + .16, -.16);
-    pointer = point; game.aim = game.trace(Math.cos(angle) * 400, Math.sin(angle) * 400);
-    aimFeel();
+    pointer = point;
+    // A touch screen can report several moves between paints. Keep the latest angle immediately, then
+    // trace it once with the moving flowers in the next frame. Release always fires that latest angle.
+    if (!deferTrace) { game.aim = game.trace(Math.cos(angle) * 400, Math.sin(angle) * 400); aimFeel(); }
   }
   // While a finger aims in Rush, the hint follows the pod: an empty one says to keep aiming (the line is hollow), a seed
   // in the cup says let go.
@@ -2138,7 +2149,7 @@
     if (!aiming || !(isRush() || game.status === 'aiming')) return;
     const at = coordinates(event);
     if (remembered && pressPoint && Math.hypot(at.x - pressPoint.x, at.y - pressPoint.y) < 14) return;
-    remembered = null; aimAt(at);
+    remembered = null; aimAt(at, isRush());
   });
   canvas.addEventListener('pointerup', event => {
     if (event.pointerId !== activePointer) return;
@@ -2413,9 +2424,12 @@
     if (typeof BloomSound.setMusic === 'function') BloomSound.setMusic(save.settings.sound && save.settings.music !== false);
     $('toggle-sound').checked = save.settings.sound; $('toggle-haptics').checked = save.settings.haptics; $('toggle-motion').checked = save.settings.motion;
     $('toggle-music').checked = save.settings.music !== false;
+    $('graphics-quality').value = save.settings.graphics;
+    $('toggle-frame-rate').checked = save.settings.frameRate;
     $('sound-btn').setAttribute('aria-pressed', String(save.settings.sound)); $('sound-btn').setAttribute('aria-label', save.settings.sound ? 'Mute sound' : 'Enable sound');
     $('sound-btn').classList.toggle('muted', !save.settings.sound);
     document.body.classList.toggle('reduce-motion', !save.settings.motion);
+    putData(document.body, 'graphics', save.settings.graphics);
     meadowDirty = true;
     $('settings-storage').textContent = nativeSavePending() ? "Your phone's save is still being checked. Reopen Bloomshot if it doesn't finish." : storageAvailable ? 'Saved on this device. No account needed.' : "This browser won't save, so progress lasts for this visit only.";
   }
@@ -2427,6 +2441,15 @@
   $('tutorial-skip').addEventListener('click', () => { BloomSound.wake(); endTutorial(false); });
   $('tutorial-go').addEventListener('click', () => { BloomSound.wake(); endTutorial(!save.depths[1]?.stars); });
   for (const key of ['sound', 'haptics', 'motion', 'music']) $(`toggle-${key}`).addEventListener('change', event => { save.settings[key] = event.target.checked; BloomSound.wake(); updateSettings(); persist(); });
+  $('graphics-quality').addEventListener('change', event => {
+    if (!Object.hasOwn(GRAPHICS, event.target.value)) return;
+    save.settings.graphics = event.target.value;
+    game.quality = Math.max(graphics().effects, governor ? governor.tier : 0);
+    updateSettings(); resize(); if (frameMeter) frameMeter.reset(); persist();
+  });
+  $('toggle-frame-rate').addEventListener('change', event => {
+    save.settings.frameRate = event.target.checked; meterAt = 0; updateSettings(); persist();
+  });
   $('sound-btn').addEventListener('click', () => { save.settings.sound = !save.settings.sound; BloomSound.wake(); updateSettings(); persist(); toast(save.settings.sound ? 'Sound on' : 'Sound off'); });
   for (const key of ['settings', 'help', 'world']) $(`close-${key}`).addEventListener('click', () => closeDialog(`${key}-dialog`));
   dialogs.forEach(id => $(id).addEventListener('click', event => { if (event.target === $(id)) { const r = $(id).getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) closeDialog(id); } }));
@@ -2435,10 +2458,10 @@
     // The board's backing store matches the device pixels it is shown at (a small phone shows it well under 420 css
     // px wide, so the scale comes first and the 2.5 cap after it): one board pixel per screen pixel, never more.
     const shown = canvas.getBoundingClientRect ? canvas.getBoundingClientRect() : null, cssWidth = shown && shown.width > 40 ? shown.width : 420;
-    const dpr = clamp((devicePixelRatio || 1) * Math.min(1, cssWidth / 420), 1, 2.5);
+    const dpr = clamp((devicePixelRatio || 1) * Math.min(1, cssWidth / 420), 1, graphics().board);
     const width = Math.round(420 * dpr), height = Math.round(560 * dpr);
     const nextFullScene = Boolean(sceneCanvas && sceneCtx && typeof innerWidth === 'number' && route === 'game');
-    const rect = nextFullScene ? sceneCanvas.getBoundingClientRect() : null, sceneDpr = Math.min(devicePixelRatio || 1, 2);
+    const rect = nextFullScene ? sceneCanvas.getBoundingClientRect() : null, sceneDpr = Math.min(devicePixelRatio || 1, graphics().scene);
     const sw = rect ? rect.width : 0, sh = rect ? rect.height : 0;
     const key = [route, theme, game.mode, dpr, cssWidth, shown?.height, shown?.left, shown?.top, sw, sh, sceneDpr,
       typeof innerWidth === 'number' ? innerWidth : 0, typeof innerHeight === 'number' ? innerHeight : 0].join('|');
@@ -2490,18 +2513,22 @@
   // Safari can emit several resize events while its toolbar moves. Size once at the next paint; route changes
   // still resize immediately, before the first frame of their new scene.
   window.addEventListener('resize', () => { resizePending = true; });
-  document.addEventListener('visibilitychange', () => { lastFrame = 0; accumulator = 0; cancelInteraction(); musicFrame(performance.now(), true); });
+  document.addEventListener('visibilitychange', () => { lastFrame = 0; accumulator = 0; if (frameMeter) frameMeter.sample(0, 0, false); cancelInteraction(); musicFrame(performance.now(), true); });
   function frame(timestamp) {
     requestAnimationFrame(frame);
+    const workFrom = performance.now();
     if (resizePending) resize();
     if (restartArmed !== null && (performance.now() - restartArmed > 2000 || route !== 'game')) armRestart(false);
     partyFrame(timestamp);
     musicFrame(timestamp);
     if (!document.hidden && route === 'collection') drawShowcase(timestamp);
     if (!document.hidden && route === 'garden' && (meadowDirty || save.settings.motion && timestamp - meadowFrame >= 1000 / 30)) drawMeadow(timestamp);
-    if (document.hidden || route !== 'game') { lastFrame = timestamp; return; }
+    if (document.hidden || route !== 'game') {
+      if (frameMeter) frameMeter.sample(timestamp, 0, false);
+      put($('frame-rate-meter'), 'hidden', true); lastFrame = timestamp; return;
+    }
     const dt = Math.min(lastFrame ? (timestamp - lastFrame) / 1000 : 0, .06); lastFrame = timestamp;
-    const workFrom = performance.now();
+    game.quality = Math.max(graphics().effects, governor ? governor.tier : 0);
     feelStep(dt);
     const paused = narrowLandscape.matches || dialogs.some(id => $(id).open);
     // In the tutorial the whole board (seeds, flowers, petals and sparkles) runs at the speed its card sets.
@@ -2536,10 +2563,10 @@
     if (remembered) {
       // Holding still re-aims where the finger is, the same as moving it; left alone, a remembered aim fades after a while.
       const now = performance.now();
-      if (aiming && pressPoint && now - pressAt >= HELD * 1000) { remembered = null; aimAt(pressPoint); }
+      if (aiming && pressPoint && now - pressAt >= HELD * 1000) { remembered = null; aimAt(pressPoint, true); }
       else if (!aiming && (game.over || now > remembered.until)) { remembered = null; if (!game.kept) game.aim = []; }
     }
-    if (isRush() && (aiming || game.aim.length)) { game.aim = game.trace(Math.cos(angle) * 400, Math.sin(angle) * 400); aimLock(); }
+    if (isRush() && (aiming || game.aim.length)) { game.aim = game.trace(Math.cos(angle) * 400, Math.sin(angle) * 400); aimFeel(); }
     trauma = Math.max(0, trauma - dt * 1.7); flash = Math.max(0, flash - dt * 3.2); kick = Math.max(0, kick - dt * 5);
     // While the camera is zoomed in, the shake is divided by the zoom so the leaned-in frame stays steady.
     const t2 = trauma * trauma / (feel ? feel.out.zoom : 1), nt = timestamp / 1000;
@@ -2547,13 +2574,25 @@
     const worn = currentKeepsake(), view = feel && !isTutorial() ? feel.out : null;
     if (fullScene) ctx.clearRect(0, 0, 420, 560);
     BloomArt.draw(ctx, game, game.time, { theme, backdrop: !fullScene, reducedMotion: !save.settings.motion, keepsake: worn.seed ? worn : null, pointer, shake, flash, kick, showAim: isRush() ? aiming || game.aim.length > 0 : game.status === 'aiming', selectedBumper: isRush() ? game.rotateCooldown <= 0 ? game.bumpers[0]?.id : null : game.status === 'aiming' && !game.rotationUsed ? game.bumpers[0]?.id : null,
-      camera: view && view.zoom > 1.001 ? view : null, vignette: view ? view.vignette : 0, quality: game.quality || 0, ahead: view && view.scale < .99 ? accumulator : 0, danger, realTime: nt });
+      camera: view && view.zoom > 1.001 ? view : null, vignette: view ? view.vignette : 0, quality: game.quality || 0, interpolation: clamp(accumulator * 120, 0, 1), danger, realTime: nt });
     // Warm-up a frame at a time until everything the level can need is painted (and rasterized on the board's own
-    // context, so the first bloom that uses a sprite does not pay for it): what is left of about 12 ms after this
-    // frame's own work, up to 8 ms. A busy frame owes no warm-up work.
-    const warmBudget = Math.min(8, 12 - (performance.now() - workFrom));
+    // context, so the first bloom that uses a sprite does not pay for it). Keep roughly half a 60 Hz frame for
+    // the browser's raster/compositing work. Lower presets also limit warming instead of spending their savings
+    // immediately on more preparation. A busy frame owes no warm-up work.
+    const warmBudget = Math.min(graphics().warm, 8 - (performance.now() - workFrom));
     if (warm && !paused && warmBudget > 0 && warm.step(warmBudget, ctx)) warm = null;
-    if (governor) game.quality = !paused && dt > 0 ? governor.sample((performance.now() - workFrom) / 1000, dt) : governor.tier;
+    const cpuMs = performance.now() - workFrom;
+    if (governor) game.quality = Math.max(graphics().effects, !paused && dt > 0 ? governor.sample(cpuMs / 1000, dt) : governor.tier);
+    if (frameMeter) {
+      frameMeter.sample(timestamp, cpuMs, !paused);
+      const visible = save.settings.frameRate;
+      put($('frame-rate-meter'), 'hidden', !visible);
+      if (visible && timestamp - meterAt >= 1000) {
+        meterAt = timestamp;
+        const sample = frameMeter.snapshot();
+        put($('frame-rate-meter'), 'textContent', sample.samples ? `${Math.round(sample.measuredFps)} FPS` : 'Measuring…');
+      }
+    }
   }
   updateSettings(); persist(); renderMeadow(); renderDaily();
   // The game opens on the level map; an endless Rush board waits behind it until a level is picked.
@@ -2563,4 +2602,6 @@
   if (!save.tutorial) startTutorial();
   // A read-only snapshot aids local QA without adding a way to grant progress.
   Object.defineProperty(window, 'bloomshotState', { get: () => ({ ...game.snapshot(), route, theme, preview, reviewAll, reviewBosses, earnedFlowers: flowers.filter(earned).map(f => f.id), storageAvailable }), configurable: false });
+  // Local frame diagnostics contain timings only, and never send or save a performance report.
+  Object.defineProperty(window, 'bloomshotPerformance', { get: () => ({ ...(frameMeter ? frameMeter.snapshot() : {}), graphics: save.settings.graphics, effectTier: game.quality || 0, boardPixelRatio: canvas.width / 420 }), configurable: false });
 })();
