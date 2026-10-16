@@ -27,6 +27,10 @@ for (const entry of inventory.files) {
 }
 const config = JSON.parse(fs.readFileSync(path.join(root, 'capacitor.config.json'), 'utf8'));
 if (config.server && config.server.url) problems.push('capacitor.config.json must not set a remote server url');
+// RevenueCat requires standard/singleTop so returning from a banking-app verification does not cancel billing.
+const manifest = fs.readFileSync(path.join(root, 'android/app/src/main/AndroidManifest.xml'), 'utf8');
+const mainActivity = (manifest.match(/<activity\b[\s\S]*?<\/activity>/g) || []).find(activity => /android:name="(?:\.|dev\.bloomshot\.game\.)MainActivity"/.test(activity));
+if (!mainActivity || !/android:launchMode="(?:standard|singleTop)"/.test(mainActivity)) problems.push('MainActivity launchMode must be standard or singleTop for purchase verification returns');
 const html = fs.readFileSync(path.join(root, 'www/index.html'), 'utf8');
 if (/manifest\.webmanifest|pwa\.js|install-btn/.test(html)) problems.push('www/index.html still has browser installation parts');
 for (const match of html.matchAll(/(?:src|href)="([^"#?]+)"/g)) {
