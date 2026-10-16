@@ -1,104 +1,63 @@
-# Bloomshot mobile release checklist
+# Bloomshot mobile launch: current status and order
 
-Updated October 13, 2026 from the repository, replacing the October 3 assessment of an incomplete ZIP. See LAUNCH-PLAN.md for ownership and PLAY-LAUNCH.md for the Android sequence.
+Updated October 15, 2026 from the repository and Trevor's account-status confirmation. This replaces the old assessment of an incomplete ZIP. Both native projects and their build scripts are in the repository. Account setup, compilation, signing, phone testing and purchases are separate gates.
 
-## Current state
+## Merge and launch order
 
-- The ten-level campaign, level 5 preview, Koi Conservatory, Keepsakes, Complete Garden bundle, powerups and packs are implemented. Levels 1 to 4, Garden puzzles, Meadow Rush and Moon trials are free. Paid content stays locked until store setup and purchase verification are complete.
-- Both RevenueCat public SDK keys are empty and every catalog product has available: false. This build cannot accept money. Keep those safeguards until the corresponding sandbox checks pass.
-- Android debug APK and unsigned iOS simulator builds passed in GitHub Actions on October 12 (runs 38191933641 and 38191935684). Compilation shows that the projects build; neither run demonstrates a launch on a device or simulator.
-- Trevor confirmed October 12 that developer accounts, the Android upload key, RevenueCat setup and real-phone testing have not been completed.
-- The retained application identifier is dev.bloomshot.game on both platforms. The player-facing name is Bloomshot. Check the actual App Store Connect name when creating the record; a search cannot reserve it.
-- Trevor has supplied the public policy contact, hello@harborlineleadrecovery.com. Before submission, finish and deploy the policy, open the public URL and verify the in-app link. The iOS release workflow requires privacy.html in the exported app. Account configuration and the policy must agree with the submitted binary.
+1. **Merge [PR #30](https://github.com/VexNo1r/Bloomshot/pull/30) first**, once its latest checks are green and its release changes are reviewed. Trevor presses Merge. This prepares workflows, safer Android purchase returns and documentation; it does not create signing keys, dispatch the manual iOS archive, upload to Apple or enable sales.
+2. **Hold [PR #31](https://github.com/VexNo1r/Bloomshot/pull/31) until Trevor approves the latest game playtest**, then merge it into main after its checks pass. Both PRs target main independently. If GitHub shows conflicts or failures, resolve them before asking Trevor to merge.
+3. **Run a release archive only after both are merged and main contains the approved game.** The archive requires the offline privacy.html supplied by the game update. Verify the main commit and rerun packaging/unsigned compilation for that candidate.
+4. Apple enrollment and app-record setup can proceed alongside free Safari testing. Public website/store publication remains a later owner approval.
 
-## Android gates, in order
+PR #30 can be merged first safely. It is not a request to publish the game. Do not merge branches or enable public Pages automatically.
 
-| Gate | What completes it |
+## Current facts
+
+| Item | Verified state / required next evidence |
 |---|---|
-| Developer account | Enrollment fee, identity/device verification and account access completed by Trevor |
-| Real-device check | Install the debug APK, complete the checklist below and record device/build/results |
-| Upload key | Run **Create Android upload key** once on main with the setup token; confirm all four signing secrets |
-| Signed bundle | Start **Android release bundle** on main; download the signed .aab from its pre-release, never a dry-run artifact |
-| App setup | Listing, public policy, access/ads/target-audience/content-rating/data-safety forms completed truthfully for the submitted build |
-| Internal testing | Install through Play with an approved tester account; record the bundle's version code |
-| Purchase test | Payments profile, Play product, RevenueCat integration and public SDK key configured; test one product at a time |
-| Closed testing | For new personal accounts: at least 12 testers opted in continuously for the preceding 14 days; collect meaningful feedback |
-| Production | Apply for production access, address review feedback and submit an approved release |
+| Owner device | Trevor has an iPhone only. Record Model Name and iOS Version from Settings → General → About. Desktop phone-size rendering is not an iPhone test. |
+| Accounts | Trevor confirms none of the Apple Developer, Google Play or RevenueCat accounts have been started. He chose **Individual enrollment under his personal legal name**. Identity, agreements, tax/banking and payment steps belong to Trevor. |
+| App identity | Visible name **Bloomshot**; retained bundle/package ID **dev.bloomshot.game**. Confirm that ID/name in the actual app record; do not silently change native identifiers. |
+| Billing | Public RevenueCat keys are blank and products disabled. Approved USD targets: $0.29 single, $0.49 for five of one kind, $1.00 for twenty mixed, five of each. These are planned prices; verify the merged catalog and store choices before enabling. |
+| Policy | Contact **hello@harborlineleadrecovery.com**, effective **October 14, 2026**. Verify the merged offline Settings policy and an accessible public policy URL before submission. |
+| iOS compilation | An unsigned simulator compile passed for game commit 06ae8172f7239a1e6a1f7b1cf171e621562b16be in [run 38677531072](https://github.com/VexNo1r/Bloomshot/actions/runs/38677531072). It did not launch a simulator or phone. Later game changes need a fresh candidate check. |
+| iOS distribution | Archive/export/upload workflow prepared. No real certificate/profile import, signed Release export, Apple upload, TestFlight installation or sandbox purchase is verified. |
+| Android return path | MainActivity now uses singleTop. The packaging guard rejects singleTask, following [RevenueCat's bank-verification return requirement](https://www.revenuecat.com/docs/getting-started/installation/capacitor). Actual banking-app return remains a sandbox test. |
 
-An Android launch can earn revenue when its own store and purchase gates are complete. It does not have to wait for Apple approval. Approval, sales and launch dates cannot be guaranteed.
+This independent release branch deliberately does not contain unmerged game revisions; its older local catalog is not the launch configuration. The approved game update supplies [Product setup](store/PRODUCT-SETUP.md) and [Sandbox test plan](store/SANDBOX-TEST-PLAN.md).
 
-## iOS gates
+## iPhone first
 
-The existing **iOS simulator build** workflow compiles without signing. A separate **iOS release archive** workflow is now prepared in `.github/workflows/ios-release.yml` to archive and export a signed IPA on a macOS runner once the owner supplies credentials. It has **not been run with signing assets**, and no App Store archive, IPA, upload, TestFlight install or purchase has been verified. Complete Apple enrollment, app setup and the steps below before making a release claim.
+Follow [IOS-LAUNCH.md](IOS-LAUNCH.md), in this order:
 
-The app supports iPhone and iPad. Prepare screenshots for the size classes requested by App Store Connect and test both layouts and orientations. The app includes a UserDefaults privacy manifest for the Preferences plugin; also review the full SDK privacy report and App Privacy answers for the release binary.
+1. Free Safari playtest and owner game approval. A website needs no paid Apple membership.
+2. Apple Account with two-factor authentication → Individual Developer Program enrollment → active membership.
+3. Explicit bundle ID → matching App Store Connect iOS app record.
+4. Apple Distribution certificate/private-key P12 → matching App Store Connect provisioning profile → four signing secrets.
+5. Approved main commit → fresh build number → **iOS release archive with upload unchecked** → inspect signed artifact.
+6. Separate upload API key, if automated upload is used → new build number with upload selected → wait for Apple processing.
+7. Manually managed internal TestFlight group → actual iPhone install and device report.
+8. Paid Apps Agreement/tax/banking and store/RevenueCat setup → real sandbox evidence for one product at a time.
+9. Accurate listing/media/privacy/compliance and review details → Trevor approves App Review submission and release.
 
-## Preparing the iOS release workflow
+App downloads are planned to be free. Paid membership is Apple's developer enrollment, not a charge to players. TestFlight and an App Store upload do not publish the app.
 
-Trevor must supply or authorize these account steps:
+The source supports iPad as well as iPhone. Verify iPad layouts/orientations and required media before universal submission. The cloud macOS runner avoids needing a local Mac for compilation; it does not create the owner's signing identity or complete account tasks.
 
-1. Enroll in the Apple Developer Program and accept the required agreements. Register the explicit App ID **dev.bloomshot.game**, then create the matching iOS app record in App Store Connect. The home-screen name remains Bloomshot.
-2. Create an **Apple Distribution** certificate and retain its private key. Export a password-protected `.p12` containing that certificate **and private key**. A `.cer` certificate by itself cannot sign an app. Do not send signing keys or passwords in chat.
-3. Create/download an **App Store Connect distribution provisioning profile** for that explicit App ID, team and certificate. Development, ad hoc, enterprise, wildcard, expired or mismatched profiles are refused.
-4. Add the signing values below in Bloomshot's GitHub Actions secrets. Use base64 of the original file bytes; base64 is transport encoding, not encryption. Keep the originals in the owner's secure backup.
-5. For optional automated upload, request App Store Connect API access and create a **team API key** with a role allowed to upload builds. Download its `.p8` once and retain it securely; record its key ID and issuer UUID. This workflow expects a team key, not an individual key or an In-App Purchase/server-notification key.
+## Android after access to a test phone
 
-| Secret | Value |
-|---|---|
-| `IOS_TEAM_ID` | Ten-character Apple Developer Team ID |
-| `IOS_DISTRIBUTION_CERTIFICATE_BASE64` | Base64 of the Apple Distribution certificate/private-key `.p12` |
-| `IOS_CERTIFICATE_PASSWORD` | Password protecting that `.p12` |
-| `IOS_PROVISIONING_PROFILE_BASE64` | Base64 of the matching App Store Connect `.mobileprovision` |
-| `APP_STORE_CONNECT_API_KEY_ID` | Ten-character team API key ID; required only when upload is selected |
-| `APP_STORE_CONNECT_API_ISSUER_ID` | Team API issuer UUID; required only when upload is selected |
-| `APP_STORE_CONNECT_API_KEY_BASE64` | Base64 of that key's `.p8`; required only when upload is selected |
+Use the updated [Play guide](PLAY-LAUNCH.md) from the merged game. Trevor chose an individual publisher; do not infer that a business contact email establishes an Organization account.
 
-The workflow builds on GitHub's macOS runner; it does not require a local Mac for that build. Signing material still needs to be created and backed up through the owner's Apple account and approved signing tools. No account, certificate, profile or API key is created by this workflow.
+1. Trevor enrolls and completes Google's identity/device and payments tasks.
+2. Make the upload key once with **Create Android upload key** on main. Retain the complete key set.
+3. Start a new **Android release bundle** run on main. Only an explicitly signed .aab belongs in Play; **DRY-RUN-do-not-upload** artifacts do not.
+4. Complete app/policy forms, upload to Internal testing and install through Play on a real Android phone.
+5. Configure products/RevenueCat; record purchase and bank-verification-return tests. Complete applicable closed-testing/production-access gates before requesting production.
 
-## Archive, export and optional upload
+An Android debug APK or compilation does not prove Play installation or billing. Recheck store requirements and the resolved release billing dependency when uploading.
 
-1. Select **iOS release archive**, **Run workflow**, branch **main**. Branch runs are skipped; there is no push or pull-request signing trigger.
-2. Enter the App Store version (default `1.0`) and an unused numeric build number from **1 to 9999**, greater than previous uploads for that version. A retry using the same number is not a new App Store build. The workflow does not query the account to allocate build numbers.
-3. Leave **upload_to_app_store_connect** unchecked for the first signing run. Missing secrets fail before dependencies are installed. The workflow checks Xcode 26+, verifies the imported distribution identity against the profile, and applies manual signing only to the App target's Release configuration in the temporary CI checkout.
-4. A successful run preserves a signed `.xcarchive`, exported `.ipa` and `ReleaseMetadata.json` as an Actions artifact for 14 days. The metadata records bundle/version/build/commit and whether the upload command completed. Download and securely retain the deliverable before the artifact expires. An App Store IPA is for delivery through Apple; it is not a development/ad hoc package to sideload on an arbitrary phone.
-5. After reviewing that artifact and the app record, use a **new build number** and select upload if desired. The workflow validates/uploads using `xcrun altool` and the team API key. It does not submit a version for review or publish the app. If optional upload fails after export, the valid exported artifact is kept for diagnosis or manual delivery.
-6. Confirm Apple's processing result and the build's appearance in App Store Connect. Then configure TestFlight, complete required compliance/testing details and install it on a real iPhone and iPad. TestFlight processing or external beta review may require additional account actions.
+## Evidence to retain
 
-Signing uses a temporary keychain and an installed profile on the disposable runner. An exit handler restores the original keychain search list and removes the imported profile, keychain, `.p12`, decoded `.p8` and temporary signing files on normal success or failure. Release artifacts exclude private signing material. The runner is disposable; abrupt host termination cannot be certified by a local cleanup handler.
+Record source commit, workflow URL, artifact version/build, product IDs, device/OS, tester/date and reproducible results. Keep browser emulation, unsigned compile, signed export, processed upload, phone install and sandbox transaction as separate evidence.
 
-Prepared and locally inspectable: workflow guards, secret checks, profile/certificate validation, export options, App-only signing configuration, packaging checks and cleanup. Still unverified: macOS keychain import, real certificate/profile matching, Xcode Release archive/export, Apple API authentication/upload, processing, TestFlight installation, physical-device performance and every sandbox purchase. The first signed run must confirm the runner's current Xcode export options and `altool` authentication behavior. Fix any toolchain/account error before describing the workflow as a verified release path.
-
-Complete paid-app agreements, tax/banking, store products and RevenueCat separately. Purchases remain disabled until their sandbox scenarios pass; creating an IPA does not activate them.
-
-Apple references checked October 13, 2026:
-
-- [Create an App Store provisioning profile](https://developer.apple.com/help/account/provisioning-profiles/create-an-app-store-provisioning-profile/)
-- [App Store Connect API keys and roles](https://developer.apple.com/help/app-store-connect/get-started/app-store-connect-api/)
-- [Upload builds, supported Xcode versions and processing](https://developer.apple.com/help/app-store-connect/manage-builds/upload-builds/)
-- [Xcode archive/export options](https://developer.apple.com/documentation/xcode/creating-distribution-signed-code-for-the-mac/): the archive/export command structure also applies here; use `xcodebuild -help` for the active toolchain's export keys.
-- [Apple's altool API-key authentication reference](https://developer.apple.com/documentation/technotes/tn3147-migrating-to-the-latest-notarization-tool): this workflow uses the supported app-upload commands, rather than notarization.
-
-## Real-device report
-
-Record the commit, APK/bundle version, device model, OS/WebView version, date and tester. Check:
-
-1. Fresh install, first-run tutorial and tutorial replay; aim/release, turn petal, Split and each powerup.
-2. Levels 1 to 4, the level 5 preview, one Garden puzzle, a Moon trial and both free Koi pools.
-3. Sound enabled/disabled, headphones, an interruption, lock/unlock and background/foreground during a run.
-4. Small screen safe areas, readable labels, touch responsiveness and sustained performance during a busy wave and finale.
-5. Android Back behavior, native share sheet, shared destination, policy link and offline cold launch.
-6. Save/relaunch and backup restoration without resetting existing progress. Reinstallation is a separate test; do not promise that local progress or consumed powerups restore with purchases.
-
-Capture reproducible failures as issues with screenshots or recordings. A browser pass and a compile pass do not replace this report.
-
-## Current platform requirements
-
-The Android project targets API 36, matching Google's requirement for new apps and updates from August 31, 2026. The shipped dependency graph must use Play Billing Library 8 or newer; verify the resolved release dependency, not just the npm plugin version. The release workflow checks the signature, billing permission, absence of advertising-ID permission and 16 KB ELF alignment. If native libraries are present, also verify the generated APK's packaging and test on a 16 KB environment.
-
-- [Google Play testing requirements](https://support.google.com/googleplay/android-developer/answer/14151465)
-- [Google Play target API requirements](https://support.google.com/googleplay/android-developer/answer/11926878)
-- [Play Billing Library support timeline](https://developer.android.com/google/play/billing/deprecation-faq.html)
-- [Android 16 KB page-size support](https://developer.android.com/guide/practices/page-sizes)
-- [Apple app upload overview](https://developer.apple.com/help/app-store-connect/manage-builds/upload-builds/)
-
-Recheck these requirements when uploading. Nothing in this checklist is evidence that a store account, device test, purchase or submission has been completed.
+The seven exact iOS secret names, export-only default, optional upload and cleanup behavior are in [IOS-LAUNCH.md](IOS-LAUNCH.md). No account, agreement, private key or live product is created by the workflows. Either platform can earn only after its own approval and purchase gates pass; no approval date, sales or popularity is guaranteed.
