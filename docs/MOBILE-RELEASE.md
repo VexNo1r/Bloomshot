@@ -1,65 +1,63 @@
-# Bloomshot mobile release: assessment and checklist
+# Bloomshot mobile launch: current status and order
 
-Prepared October 3 2026 from `BLOOMSHOT-Claude-handoff.zip`, the concept handoff and the native source notes (`README.md`, `package.json`, `capacitor.config.json`, `NATIVE-VERIFICATION.json`, `web-inventory.json`). The native zip itself (`android/`, `ios/`, `scripts/`) was not available, so nothing about the generated native projects has been inspected.
+Updated October 15, 2026 from the repository and Trevor's account-status confirmation. This replaces the old assessment of an incomplete ZIP. Both native projects and their build scripts are in the repository. Account setup, compilation, signing, phone testing and purchases are separate gates.
 
-## Where things stand
+## Merge and launch order
 
-Verified in this pass:
+1. **Merge [PR #30](https://github.com/VexNo1r/Bloomshot/pull/30) first**, once its latest checks are green and its release changes are reviewed. Trevor presses Merge. This prepares workflows, safer Android purchase returns and documentation; it does not create signing keys, dispatch the manual iOS archive, upload to Apple or enable sales.
+2. **Hold [PR #31](https://github.com/VexNo1r/Bloomshot/pull/31) until Trevor approves the latest game playtest**, then merge it into main after its checks pass. Both PRs target main independently. If GitHub shows conflicts or failures, resolve them before asking Trevor to merge.
+3. **Run a release archive only after both are merged and main contains the approved game.** The archive requires the offline privacy.html supplied by the game update. Verify the main commit and rerun packaging/unsigned compilation for that candidate.
+4. Apple enrollment and app-record setup can proceed alongside free Safari testing. Public website/store publication remains a later owner approval.
 
-- The web game runs. All 118 existing checks pass (engine 20, Rush 17, PWA worker 20, sound 12, garden 20, save integration 14, Moon engine 15), plus the Moon level, precache-stream and pointer checks.
-- It renders cleanly at phone size (390 x 844) and on an iPad (820 x 1180), where it sits in a centered phone-width column. Safe-area insets are already used for top and bottom.
-- The purchase layer in `docs/STORES.md` passes its own 14 checks and works in a browser in test mode.
+PR #30 can be merged first safely. It is not a request to publish the game. Do not merge branches or enable public Pages automatically.
 
-The Android debug APK and the iOS simulator build both compiled in GitHub Actions on October 3, 2026.
+## Current facts
 
-Not verified by anyone yet: any real device or simulator run, WebView performance, touch feel, audio on phones, and every store step.
+| Item | Verified state / required next evidence |
+|---|---|
+| Owner device | Trevor has an iPhone only. Record Model Name and iOS Version from Settings → General → About. Desktop phone-size rendering is not an iPhone test. |
+| Accounts | Trevor confirms none of the Apple Developer, Google Play or RevenueCat accounts have been started. He chose **Individual enrollment under his personal legal name**. Identity, agreements, tax/banking and payment steps belong to Trevor. |
+| App identity | Visible name **Bloomshot**; retained bundle/package ID **dev.bloomshot.game**. Confirm that ID/name in the actual app record; do not silently change native identifiers. |
+| Billing | Public RevenueCat keys are blank and products disabled. Approved USD targets: $0.29 single, $0.49 for five of one kind, $1.00 for twenty mixed, five of each. These are planned prices; verify the merged catalog and store choices before enabling. |
+| Policy | Contact **hello@harborlineleadrecovery.com**, effective **October 14, 2026**. Verify the merged offline Settings policy and an accessible public policy URL before submission. |
+| iOS compilation | An unsigned simulator compile passed for game commit 06ae8172f7239a1e6a1f7b1cf171e621562b16be in [run 38677531072](https://github.com/VexNo1r/Bloomshot/actions/runs/38677531072). It did not launch a simulator or phone. Later game changes need a fresh candidate check. |
+| iOS distribution | Archive/export/upload workflow prepared. No real certificate/profile import, signed Release export, Apple upload, TestFlight installation or sandbox purchase is verified. |
+| Android return path | MainActivity now uses singleTop. The packaging guard rejects singleTask, following [RevenueCat's bank-verification return requirement](https://www.revenuecat.com/docs/getting-started/installation/capacitor). Actual banking-app return remains a sandbox test. |
 
-## Gaps between today and a store release
+This independent release branch deliberately does not contain unmerged game revisions; its older local catalog is not the launch configuration. The approved game update supplies [Product setup](store/PRODUCT-SETUP.md) and [Sandbox test plan](store/SANDBOX-TEST-PLAN.md).
 
-| Gap | Needs accounts? | Who | Notes |
-|---|---|---|---|
-| Purchase plumbing | No | Done (this pass) | Test mode only until keys exist. |
-| **Something to sell** | No | Content work, in progress | As of October 3 2026 the Koi Conservatory is built (pools 1 and 2 free, pools 3 to 8 behind `world_koi`) and the Keepsake Collection (three seed styles, `style_collection1`) is next. A Launch Bundle (`bloomshot.bundle.launch1`) grants both. All three stay `available: false` in `store-config.js` until a sandbox purchase and restore work end to end. The six Moon trials are free. |
-| Android debug APK in the cloud | No | Built once, October 3 2026 | `.github/workflows/android-debug.yml` (Actions tab, Run workflow). The APK is attached to the run as `bloomshot-debug-apk`. Compiles; has not been launched on a device. Lets Trevor sideload a real Android build with no account. |
-| iOS compile check in the cloud | No | Passed once, October 3 2026 | `.github/workflows/ios-simulator.yml`. Compiles unsigned for the simulator (`BUILD SUCCEEDED`); cannot be installed on an iPhone and has not been run in a simulator. |
-| Final app id and name check | No | Trevor decides | `dev.bloomshot.game` is a placeholder; the first upload to any Google Play track, even Internal testing, claims it for good, so confirm it before that upload. The name "Bloomshot" has not been searched in either store. |
-| Privacy policy page | No | Claude drafts, Trevor hosts | Required by both stores. The game collects nothing and has no accounts or ads, which makes it short. |
-| Store listing text, screenshots, age ratings | No (drafting) | Claude | Entered into the consoles after enrollment. iPad screenshots are required if iPad is supported. |
-| iPhone haptics | No | Written, October 3 2026 | `navigator.vibrate` does nothing on iOS, so `bloomshot/native.js` sends buzzes to the Capacitor Haptics plugin in the app (found as `Capacitor.Plugins.Haptics`, the way the injected native bridge exposes it) and keeps `vibrate()` on the web. Unit-tested with a fake plugin shaped like that bridge; the feel on a real iPhone and Android phone is untested. |
-| Share sheet | No | Written, October 10 2026 | `BloomNative.share({ text, url, title })` in `bloomshot/native.js` opens the phone's share sheet through `@capacitor/share` 8.0.3 in the app, the browser's own share sheet on the web, and otherwise copies the text and link to the clipboard. `BloomNative.link` is the link to share: the Google Play page on Android, the web game elsewhere until the App Store listing exists. Unit-tested with fake plugins; not yet tried on a real phone. The game's share button and daily result call it. |
-| Progress safety in the native app | No | Written, October 3 2026 | Progress lives in `localStorage`. In the app, `bloomshot/native.js` also copies each save to the phone's preferences. Until an install has checked its local save against that backup (a marker stored beside the save), the local save is treated as unverified: a usable backup is restored over it and the page reloads once, and a backup that cannot be read is never overwritten. This guards against the OS clearing the WebView's storage while the app stays installed. It does not survive deleting the app, it cannot tell which of two valid copies is newer once an install has been checked, and it has not run on a real device. |
-| Real device testing | Android: no. iPhone/iPad: yes | Trevor + Claude | See below. |
-| Signing, TestFlight, sandbox purchases, submission | **Yes** | Trevor | Below. |
+## iPhone first
 
-## What Trevor can do now, for free
+Follow [IOS-LAUNCH.md](IOS-LAUNCH.md), in this order:
 
-1. **Create an empty private GitHub repo for the game** and connect it, so the game and native shell can live in one place with the workflows above. Claude cannot create repositories from here.
-2. Decide the **final app name and app id**, and search the App Store and Google Play for "Bloomshot" to make sure it is not taken or too close to something else.
-3. Sign up for a **RevenueCat account** (free).
-4. **Line up 12 people with Android phones** for the Google closed test (see below). Their Google account emails are needed later.
-5. Choose whether the hosted web version should become **public** so testers can open it. It is currently owner-private. iPhone and iPad testers can play the web version from Safari with Add to Home Screen until the native app is on TestFlight.
-6. Tell Claude if the Android phone can install a sideloaded APK; then the first real-device test needs no money at all.
+1. Free Safari playtest and owner game approval. A website needs no paid Apple membership.
+2. Apple Account with two-factor authentication → Individual Developer Program enrollment → active membership.
+3. Explicit bundle ID → matching App Store Connect iOS app record.
+4. Apple Distribution certificate/private-key P12 → matching App Store Connect provisioning profile → four signing secrets.
+5. Approved main commit → fresh build number → **iOS release archive with upload unchecked** → inspect signed artifact.
+6. Separate upload API key, if automated upload is used → new build number with upload selected → wait for Apple processing.
+7. Manually managed internal TestFlight group → actual iPhone install and device report.
+8. Paid Apps Agreement/tax/banking and store/RevenueCat setup → real sandbox evidence for one product at a time.
+9. Accurate listing/media/privacy/compliance and review details → Trevor approves App Review submission and release.
 
-## What needs money or an account (Trevor only)
+App downloads are planned to be free. Paid membership is Apple's developer enrollment, not a charge to players. TestFlight and an App Store upload do not publish the app.
 
-Costs and rules are as of my last information. Confirm each on the official page when enrolling.
+The source supports iPad as well as iPhone. Verify iPad layouts/orientations and required media before universal submission. The cloud macOS runner avoids needing a local Mac for compilation; it does not create the owner's signing identity or complete account tasks.
 
-- **Google Play Console**: one-time fee (about $25) and identity verification. New personal accounts must run a **closed test with at least 12 testers for 14 consecutive days** before they can publish to production. That 14-day clock is the longest lead time on Android, so if only one account can be paid for first, make it this one. The step-by-step order, including how the Android upload key and signed bundle are made, is in `docs/PLAY-LAUNCH.md`.
-- **Apple Developer Program**: about $99 a year. Enrolling as an **Individual** shows the legal name as the seller; an Organization needs a legal entity and a D-U-N-S number. Needed for TestFlight, sandbox purchases, signing and submission.
-- **Banking and tax** in both consoles (Paid Apps agreement in App Store Connect, payments profile in Play Console). No purchase can go live until these are complete.
-- **Apple Small Business Program** (15% commission instead of 30%): apply after enrolling.
-- **Signing**: an App Store Connect API key for automated uploads, and Google Play App Signing. Trevor stores these as GitHub Actions secrets himself; never paste them into chat. For Android, the `Create Android upload key` workflow makes the upload key and stores it as secrets itself (`docs/PLAY-LAUNCH.md`), and `Android release bundle` builds the signed `.aab`.
-- **Pressing Submit** and answering any reviewer questions.
+## Android after access to a test phone
 
-## Suggested order
+Use the updated [Play guide](PLAY-LAUNCH.md) from the merged game. Trevor chose an individual publisher; do not infer that a business contact email establishes an Organization account.
 
-1. Repo, name, app id (free, now).
-2. Native folder is in the repo and both cloud builds have compiled once; Trevor sideloads the Android APK and plays it, and Claude fixes what that finds.
-3. Haptics and the save backup are written; store-listing text is drafted; testing-track graphics are made from the current game, and final store screenshots wait for the final art.
-4. Pay for Google Play; start the 12-tester, 14-day closed test with the free game.
-5. Pay for Apple when the next check arrives; TestFlight; sandbox-test purchases.
-6. Create products and entitlements; flip `available` on finished content; submit both.
+1. Trevor enrolls and completes Google's identity/device and payments tasks.
+2. Make the upload key once with **Create Android upload key** on main. Retain the complete key set.
+3. Start a new **Android release bundle** run on main. Only an explicitly signed .aab belongs in Play; **DRY-RUN-do-not-upload** artifacts do not.
+4. Complete app/policy forms, upload to Internal testing and install through Play on a real Android phone.
+5. Configure products/RevenueCat; record purchase and bank-verification-return tests. Complete applicable closed-testing/production-access gates before requesting production.
 
-## Honest limits
+An Android debug APK or compilation does not prove Play installation or billing. Recheck store requirements and the resolved release billing dependency when uploading.
 
-No revenue can happen until paid content exists and both stores approve the app. Review times and outcomes are outside anyone's control, and the concept handoff itself notes that purchase demand has not been tested. Prices in the catalog are test values.
+## Evidence to retain
+
+Record source commit, workflow URL, artifact version/build, product IDs, device/OS, tester/date and reproducible results. Keep browser emulation, unsigned compile, signed export, processed upload, phone install and sandbox transaction as separate evidence.
+
+The seven exact iOS secret names, export-only default, optional upload and cleanup behavior are in [IOS-LAUNCH.md](IOS-LAUNCH.md). No account, agreement, private key or live product is created by the workflows. Either platform can earn only after its own approval and purchase gates pass; no approval date, sales or popularity is guaranteed.

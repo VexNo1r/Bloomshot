@@ -16,6 +16,10 @@ on:
       - native/android/app/build.gradle
       - native/android/app/src/main/AndroidManifest.xml
 
+concurrency:
+  group: android-release-${{ github.event_name == 'workflow_dispatch' && 'manual' || github.ref }}
+  cancel-in-progress: false
+
 jobs:
   bundle:
     runs-on: ubuntu-latest
@@ -43,7 +47,13 @@ jobs:
 
       - name: Pick the version code
         # Ten codes per run, one per attempt, so a re-run never repeats a code Play has already seen.
-        run: echo "BLOOMSHOT_VERSION_CODE=$(( GITHUB_RUN_NUMBER * 10 + GITHUB_RUN_ATTEMPT ))" >> "$GITHUB_ENV"
+        run: |
+          # An eleventh attempt would reuse the following run's first code. Start a fresh run instead.
+          if [ "$GITHUB_RUN_ATTEMPT" -gt 10 ]; then
+            echo "::error::This run used all ten version codes. Use Run workflow to start a new run."
+            exit 1
+          fi
+          echo "BLOOMSHOT_VERSION_CODE=$(( GITHUB_RUN_NUMBER * 10 + GITHUB_RUN_ATTEMPT ))" >> "$GITHUB_ENV"
 
       - run: npm ci
       - run: npm run sync:android
@@ -53,13 +63,18 @@ jobs:
       - name: Build and sign the bundle
         id: key
         env:
-          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          # Pull requests and branch builds always use a throwaway key, including PRs from this repository.
+          # Only an explicit build of main receives the real upload key.
+          KEYSTORE_BASE64: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && secrets.ANDROID_KEYSTORE_BASE64 || '' }}
+          KEYSTORE_PASSWORD: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && secrets.ANDROID_KEYSTORE_PASSWORD || '' }}
+          KEY_ALIAS: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && secrets.ANDROID_KEY_ALIAS || '' }}
+          KEY_PASSWORD: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && secrets.ANDROID_KEY_PASSWORD || '' }}
         run: |
           # The passwords stay inside this step: only Gradle needs them.
+          set -euo pipefail
+          umask 077
           keystore="$RUNNER_TEMP/upload.keystore"
+          trap 'rm -f "$keystore"' EXIT
           set_count=0
           for value in "$KEYSTORE_BASE64" "$KEYSTORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD"; do
             if [ -n "$value" ]; then set_count=$((set_count + 1)); fi
@@ -122,7 +137,7 @@ jobs:
           path: ${{ steps.check.outputs.file }}
 
       - name: Publish the signed bundle as a pre-release
-        if: github.event_name == 'workflow_dispatch' && steps.key.outputs.real == 'true'
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && steps.key.outputs.real == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

@@ -1,0 +1,256 @@
+# Prepared release path, not evidence of a signed build. No credentials are configured yet.
+# Run manually on main after setting the signing secrets documented in docs/MOBILE-RELEASE.md.
+# Export is the default. Upload requires an explicit input and App Store Connect API credentials.
+name: iOS release archive
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_number:
+        description: 'New build number (1-9999), greater than any upload for this version'
+        required: true
+        type: string
+      version_name:
+        description: 'App Store version, matching the version record'
+        required: true
+        default: '1.0'
+        type: string
+      upload_to_app_store_connect:
+        description: 'Validate and upload the exported IPA to App Store Connect (does not submit for review)'
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: macos-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: native
+        shell: bash
+    env:
+      BLOOMSHOT_APP_ID: dev.bloomshot.game
+      BLOOMSHOT_IOS_BUILD: ${{ inputs.build_number }}
+      BLOOMSHOT_IOS_VERSION: ${{ inputs.version_name }}
+      BLOOMSHOT_IOS_UPLOAD: ${{ inputs.upload_to_app_store_connect }}
+    steps:
+      - name: Check required credentials and inputs
+        env:
+          IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+          IOS_DISTRIBUTION_CERTIFICATE_BASE64: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_BASE64 }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+        working-directory: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for name in IOS_TEAM_ID IOS_DISTRIBUTION_CERTIFICATE_BASE64 IOS_CERTIFICATE_PASSWORD IOS_PROVISIONING_PROFILE_BASE64; do
+            if [ -z "${!name}" ]; then echo "::error::Missing required signing secret: $name. See docs/MOBILE-RELEASE.md."; missing=1; fi
+          done
+          if [ "$BLOOMSHOT_IOS_UPLOAD" = true ]; then
+            for name in APP_STORE_CONNECT_API_KEY_ID APP_STORE_CONNECT_API_ISSUER_ID APP_STORE_CONNECT_API_KEY_BASE64; do
+              if [ -z "${!name}" ]; then echo "::error::Upload selected but required secret is missing: $name."; missing=1; fi
+            done
+          fi
+          [ "$missing" = 0 ] || exit 1
+          [[ "$IOS_TEAM_ID" =~ ^[A-Z0-9]{10}$ ]] || { echo "::error::IOS_TEAM_ID must be the ten-character Apple Team ID."; exit 1; }
+          [[ "$BLOOMSHOT_IOS_BUILD" =~ ^[1-9][0-9]{0,3}$ ]] || { echo "::error::Use a new numeric build number between 1 and 9999."; exit 1; }
+          [[ "$BLOOMSHOT_IOS_VERSION" =~ ^[1-9][0-9]{0,3}(\.[0-9]{1,2}){1,2}$ ]] || { echo "::error::Use a version such as 1.0 or 1.0.1."; exit 1; }
+          if [ "$BLOOMSHOT_IOS_UPLOAD" = true ]; then
+            [[ "$APP_STORE_CONNECT_API_KEY_ID" =~ ^[A-Z0-9]{10}$ ]] || { echo "::error::Invalid App Store Connect API key ID."; exit 1; }
+            [[ "$APP_STORE_CONNECT_API_ISSUER_ID" =~ ^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$ ]] || { echo "::error::Use the issuer UUID for a team API key."; exit 1; }
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: native/package-lock.json
+      - name: Check the Xcode toolchain
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          major="$(xcodebuild -version | awk '/^Xcode / { split($2, v, "."); print v[1] }')"
+          [ "${major:-0}" -ge 26 ] || { echo "::error::This app requires Xcode 26 or newer. Select a compatible runner image."; exit 1; }
+          xcrun --sdk iphoneos --show-sdk-version
+      - run: npm ci
+      - run: npm run sync:ios
+      - run: npm run check
+
+      - name: Sign, archive and export; upload only if selected
+        id: archive
+        env:
+          IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+          IOS_DISTRIBUTION_CERTIFICATE_BASE64: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_BASE64 }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+        run: |
+          set -euo pipefail
+          umask 077
+          signing_dir="$(mktemp -d "$RUNNER_TEMP/bloomshot-ios-signing.XXXXXX")"
+          keychain="$signing_dir/release.keychain-db"
+          installed_profile=""
+          original_keychains=()
+          security list-keychains -d user > "$signing_dir/keychains.txt"
+          while IFS= read -r entry; do
+            entry="$(printf '%s' "$entry" | sed 's/^[[:space:]]*"//; s/"[[:space:]]*$//')"
+            [ -z "$entry" ] || original_keychains+=("$entry")
+          done < "$signing_dir/keychains.txt"
+          cleanup() {
+            status=$?
+            trap - EXIT
+            set +e
+            [ -z "$installed_profile" ] || rm -f "$installed_profile"
+            security list-keychains -d user -s "${original_keychains[@]}" >/dev/null 2>&1
+            security delete-keychain "$keychain" >/dev/null 2>&1
+            case "$signing_dir" in "$RUNNER_TEMP"/bloomshot-ios-signing.*) rm -rf "$signing_dir" ;; esac
+            exit "$status"
+          }
+          trap cleanup EXIT
+          printf '%s' "$IOS_DISTRIBUTION_CERTIFICATE_BASE64" | base64 --decode > "$signing_dir/distribution.p12"
+          printf '%s' "$IOS_PROVISIONING_PROFILE_BASE64" | base64 --decode > "$signing_dir/profile.mobileprovision"
+          keychain_password="$(openssl rand -hex 24)"
+          echo "::add-mask::$keychain_password"
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          security import "$signing_dir/distribution.p12" -P "$IOS_CERTIFICATE_PASSWORD" -k "$keychain" -T /usr/bin/codesign -T /usr/bin/security >/dev/null
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain" >/dev/null
+          security list-keychains -d user -s "$keychain" "${original_keychains[@]}"
+          security find-identity -v -p codesigning "$keychain" > "$signing_dir/identities.txt"
+          security cms -D -i "$signing_dir/profile.mobileprovision" > "$signing_dir/profile.plist"
+          export BLOOMSHOT_SIGNING_DIR="$signing_dir" BLOOMSHOT_KEYCHAIN="$keychain"
+          python3 <<'PY'
+          import datetime, hashlib, json, os, pathlib, plistlib, re
+          d = pathlib.Path(os.environ['BLOOMSHOT_SIGNING_DIR'])
+          identities = re.findall(r'^\s*\d+\)\s+([A-F0-9]{40})\s+"Apple Distribution:', (d / 'identities.txt').read_text(), re.M)
+          if len(identities) != 1:
+              raise SystemExit('The P12 must contain exactly one valid Apple Distribution certificate and its private key.')
+          identity = identities[0]
+          p = plistlib.loads((d / 'profile.plist').read_bytes())
+          team, app_id = os.environ['IOS_TEAM_ID'], os.environ['BLOOMSHOT_APP_ID']
+          ent = p.get('Entitlements', {})
+          if team not in p.get('TeamIdentifier', []) or ent.get('com.apple.developer.team-identifier') != team:
+              raise SystemExit('The provisioning profile belongs to a different Apple Team ID.')
+          if ent.get('application-identifier') != team + '.' + app_id:
+              raise SystemExit('The profile must use the explicit dev.bloomshot.game App ID; wildcard/other App IDs are refused.')
+          if 'iOS' not in p.get('Platform', []) or 'ProvisionedDevices' in p or p.get('ProvisionsAllDevices') or ent.get('get-task-allow') is not False:
+              raise SystemExit('Use an App Store Connect distribution profile, not development, ad hoc or enterprise.')
+          expiry = p.get('ExpirationDate')
+          if not isinstance(expiry, datetime.datetime) or expiry.replace(tzinfo=datetime.timezone.utc) <= datetime.datetime.now(datetime.timezone.utc):
+              raise SystemExit('The provisioning profile is expired or has no usable expiry.')
+          if identity not in {hashlib.sha1(cert).hexdigest().upper() for cert in p.get('DeveloperCertificates', [])}:
+              raise SystemExit('The distribution certificate is not included in the provisioning profile.')
+          uuid = p.get('UUID', '')
+          if not re.fullmatch(r'[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}', uuid):
+              raise SystemExit('Invalid provisioning-profile UUID.')
+          (d / 'profile-uuid.txt').write_text(uuid)
+          (d / 'certificate-sha1.txt').write_text(identity)
+          export = {'method': 'app-store-connect', 'destination': 'export', 'signingStyle': 'manual', 'teamID': team,
+                    'signingCertificate': identity, 'provisioningProfiles': {app_id: uuid},
+                    'manageAppVersionAndBuildNumber': False, 'stripSwiftSymbols': True, 'uploadSymbols': True}
+          (d / 'ExportOptions.plist').write_bytes(plistlib.dumps(export))
+          PY
+          profile_uuid="$(cat "$signing_dir/profile-uuid.txt")"
+          profile_dir="$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
+          mkdir -p "$profile_dir"
+          candidate="$profile_dir/$profile_uuid.mobileprovision"
+          [ ! -e "$candidate" ] || { echo "::error::The runner already contains this profile; it will not be overwritten."; exit 1; }
+          installed_profile="$candidate"
+          cp "$signing_dir/profile.mobileprovision" "$installed_profile"
+          # Set signing only on the App target's Release configuration. A global profile override would
+          # also reach package/framework targets that cannot use an application provisioning profile.
+          node <<'JS'
+          const fs = require('node:fs'), path = require('node:path'), xcode = require('xcode');
+          const file = 'ios/App/App.xcodeproj/project.pbxproj', project = xcode.project(file);
+          project.parseSync();
+          const uuid = fs.readFileSync(path.join(process.env.BLOOMSHOT_SIGNING_DIR, 'profile-uuid.txt'), 'utf8');
+          let count = 0;
+          for (const config of Object.values(project.pbxXCBuildConfigurationSection())) {
+            if (!config || typeof config !== 'object' || config.name !== 'Release') continue;
+            const s = config.buildSettings;
+            if (!s || String(s.PRODUCT_BUNDLE_IDENTIFIER || '').replace(/"/g, '') !== process.env.BLOOMSHOT_APP_ID) continue;
+            s.CODE_SIGN_STYLE = 'Manual'; s.DEVELOPMENT_TEAM = process.env.IOS_TEAM_ID;
+            s.CODE_SIGN_IDENTITY = '"Apple Distribution"'; s.PROVISIONING_PROFILE_SPECIFIER = uuid;
+            s.OTHER_CODE_SIGN_FLAGS = JSON.stringify('--keychain "' + process.env.BLOOMSHOT_KEYCHAIN + '"');
+            s.CURRENT_PROJECT_VERSION = process.env.BLOOMSHOT_IOS_BUILD; s.MARKETING_VERSION = process.env.BLOOMSHOT_IOS_VERSION;
+            count++;
+          }
+          if (count !== 1) throw new Error('Expected exactly one App Release configuration for the retained bundle ID.');
+          fs.writeFileSync(file, project.writeSync());
+          JS
+          output="$RUNNER_TEMP/bloomshot-ios-out"
+          mkdir -p "$output"
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
+            -destination 'generic/platform=iOS' -derivedDataPath "$RUNNER_TEMP/bloomshot-ios-derived" \
+            -archivePath "$output/Bloomshot.xcarchive" archive
+          app="$output/Bloomshot.xcarchive/Products/Applications/App.app"
+          test -f "$app/PrivacyInfo.xcprivacy"
+          grep -q NSPrivacyAccessedAPICategoryUserDefaults "$app/PrivacyInfo.xcprivacy"
+          test -f "$app/public/native.js"
+          test -f "$app/public/privacy.html"
+          codesign --verify --deep --strict "$app"
+          xcodebuild -exportArchive -archivePath "$output/Bloomshot.xcarchive" \
+            -exportOptionsPlist "$signing_dir/ExportOptions.plist" -exportPath "$output/export"
+          ipa="$(find "$output/export" -maxdepth 1 -name '*.ipa' -print)"
+          [ -n "$ipa" ] && [ "$(printf '%s\n' "$ipa" | wc -l | tr -d ' ')" = 1 ] && [ -s "$ipa" ] || { echo "::error::Expected one non-empty exported IPA."; exit 1; }
+          export BLOOMSHOT_IPA="$ipa" BLOOMSHOT_IOS_OUTPUT="$output"
+          python3 <<'PY'
+          import json, os, pathlib, plistlib, zipfile
+          ipa = pathlib.Path(os.environ['BLOOMSHOT_IPA'])
+          with zipfile.ZipFile(ipa) as z:
+              infos = [n for n in z.namelist() if n.startswith('Payload/') and n.count('/') == 2 and n.endswith('.app/Info.plist')]
+              if len(infos) != 1: raise SystemExit('Expected exactly one exported application.')
+              info = plistlib.loads(z.read(infos[0]))
+              expected = {'CFBundleIdentifier': os.environ['BLOOMSHOT_APP_ID'], 'CFBundleVersion': os.environ['BLOOMSHOT_IOS_BUILD'], 'CFBundleShortVersionString': os.environ['BLOOMSHOT_IOS_VERSION']}
+              if any(str(info.get(k)) != v for k, v in expected.items()): raise SystemExit('Exported bundle identity/version does not match the requested build.')
+          metadata = dict(expected, source_commit=os.environ['GITHUB_SHA'], workflow_run=os.environ['GITHUB_RUN_ID'], upload_requested=os.environ['BLOOMSHOT_IOS_UPLOAD'] == 'true', upload_completed=False)
+          (pathlib.Path(os.environ['BLOOMSHOT_IOS_OUTPUT']) / 'ReleaseMetadata.json').write_text(json.dumps(metadata, indent=2) + '\n')
+          PY
+          # A valid exported artifact remains available for diagnosis/manual delivery if optional upload fails.
+          echo "output=$output" >> "$GITHUB_OUTPUT"
+          if [ "$BLOOMSHOT_IOS_UPLOAD" = true ]; then
+            # altool locates API keys in ./private_keys. Work inside the private temporary directory,
+            # so the decoded key never enters the checkout or release artifacts.
+            mkdir -p "$signing_dir/private_keys"
+            printf '%s' "$APP_STORE_CONNECT_API_KEY_BASE64" | base64 --decode > "$signing_dir/private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8"
+            (cd "$signing_dir" && xcrun altool --validate-app -f "$ipa" -t ios --apiKey "$APP_STORE_CONNECT_API_KEY_ID" --apiIssuer "$APP_STORE_CONNECT_API_ISSUER_ID")
+            (cd "$signing_dir" && xcrun altool --upload-app -f "$ipa" -t ios --apiKey "$APP_STORE_CONNECT_API_KEY_ID" --apiIssuer "$APP_STORE_CONNECT_API_ISSUER_ID")
+            python3 -c 'import json,os,pathlib; p=pathlib.Path(os.environ["BLOOMSHOT_IOS_OUTPUT"])/"ReleaseMetadata.json"; d=json.loads(p.read_text()); d["upload_completed"]=True; p.write_text(json.dumps(d,indent=2)+"\n")'
+          fi
+          {
+            echo '## iOS archive and IPA exported'
+            echo "App: $BLOOMSHOT_APP_ID; version: $BLOOMSHOT_IOS_VERSION; build: $BLOOMSHOT_IOS_BUILD; commit: $GITHUB_SHA."
+            if [ "$BLOOMSHOT_IOS_UPLOAD" = true ]; then
+              echo 'Upload command completed. Confirm processing and the build in App Store Connect; this is not review submission or approval.'
+            else
+              echo 'Export only. Nothing was uploaded or submitted to Apple.'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Keep signed archive and exported IPA
+        if: always() && steps.archive.outputs.output != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: bloomshot-ios-${{ inputs.version_name }}-${{ inputs.build_number }}
+          path: ${{ steps.archive.outputs.output }}
+          if-no-files-found: error
+          retention-days: 14
