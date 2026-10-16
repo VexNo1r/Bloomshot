@@ -1581,6 +1581,8 @@
     const dryAge = podded && Number.isFinite(state.dryAt) ? time - state.dryAt : Infinity;
     const dry = dryAge >= 0 && dryAge < .24 ? 1 - dryAge / .24 : 0;
     ctx.save();
+    // A larger cup reads at phone size; its center, seed tray and hearts keep their authored positions.
+    ctx.translate(x, y); ctx.scale(1.12, 1.12); ctx.translate(-x, -y);
     if (dry && !reducedMotion) ctx.translate(Math.sin(dryAge * 75) * 3 * dry, 0);
     const pull = reducedMotion ? null : podPose(ctx, state, time, x, y);
     // A shot pushes the pod down and wide for a blink before it springs back, with a puff of air around it.
@@ -3002,12 +3004,17 @@
     if (lifeAtlas.size >= 48) lifeAtlas.delete(lifeAtlas.keys().next().value);
     lifeAtlas.set(key, sprite); warmMark(surface); return sprite;
   }
-  function drawSceneLife(ctx, w, h, theme, time, reducedMotion) {
-    if (!ctx || !(w > 0 && h > 0)) return;
-    ctx.save(); ctx.clearRect(0, 0, w, h);
+  function drawSceneLife(ctx, w, h, theme, time, reducedMotion, wasPainted = true) {
+    if (!ctx || !(w > 0 && h > 0)) return false;
     const painter = root.BloomScenery;
-    if (reducedMotion || !painter || !painter.lifePlan) { ctx.restore(); return; }
-    const plan = painter.lifePlan(theme, time, false), size = clamp(Math.min(w / 432, h / 768), .7, 1.65);
+    const plan = !reducedMotion && painter && painter.lifePlan ? painter.lifePlan(theme, time, false) : [];
+    const visible = plan.some(visitor => visitor.opacity > .001);
+    // An empty transparent layer needs no GPU clear. Clear once when the last visitor leaves, or when motion
+    // is switched off, so a cached critter can never be left behind.
+    if (!visible && !wasPainted) return false;
+    ctx.save(); ctx.clearRect(0, 0, w, h);
+    if (!visible) { ctx.restore(); return false; }
+    const size = clamp(Math.min(w / 432, h / 768), .7, 1.65);
     for (const visitor of plan) {
       if (visitor.opacity <= .001) continue;
       ctx.save(); ctx.globalAlpha *= visitor.opacity;
@@ -3023,7 +3030,7 @@
       draw(['gopher', 'mouse', 'gecko', 'salamander', 'seed-sprite'].includes(visitor.kind) && visitor.age % 3.6 < .13 ? 'blink' : 'body');
       ctx.restore();
     }
-    ctx.restore();
+    ctx.restore(); return true;
   }
 
   // Koi lanes: translucent water ribbons whose streaks and chevrons travel
@@ -4757,8 +4764,10 @@
     }
     return {
       step(ms, target) {
-        const end = warmClock() + (Number(ms) > 0 ? Number(ms) : 3);
-        while (next < jobs.length) {
+        const budget = ms == null ? 3 : Number(ms);
+        if (!(budget > 0) || !Number.isFinite(budget)) return next >= jobs.length;
+        const end = warmClock() + budget;
+        while (next < jobs.length && warmClock() < end) {
           warmDirty = dirty;
           try { jobs[next++](); } catch (error) { /* a sprite that cannot be painted ahead is painted when first drawn */ }
           warmDirty = null;

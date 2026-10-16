@@ -1,12 +1,12 @@
 # Bloomshot: Trevor's launch steps
 
-Updated October 15, 2026. Trevor chose **Individual enrollment under his personal legal name**, with **free downloads on iPhone and Android**. The game name remains **Bloomshot**, and the application identifier remains `dev.bloomshot.game`. Optional purchases retain their approved contents and prices; none are live. No developer or RevenueCat account has been created or verified.
+Updated October 16, 2026. Trevor chose **Individual enrollment under his personal legal name**, with **free downloads on iPhone and Android**. The game name remains **Bloomshot**, and the application identifier remains `dev.bloomshot.game`. Optional purchases retain their approved contents and prices; none are live. Trevor reports submitting Apple enrollment; membership payment and activation are not yet verified. Google Play and RevenueCat setup remain outstanding at the last confirmation.
 
 This is the owner checklist. The engineer prepares and checks code, builds and media; Trevor handles identity, agreements, payments, banking/tax details, real-phone testing, merges and final release decisions. Do not paste passwords, private keys, payment details or identity documents into chat or the public repository.
 
 ## 1. Play on your iPhone now
 
-1. Open **Settings → General → About**. Record **Model Name** and **iOS Version**. Serial number and IMEI are not needed.
+1. Trevor reported **iPhone 13, iOS 26.6.2** on October 15. For future tests, confirm those fields at **Settings → General → About**. Serial number and IMEI are not needed.
 2. Scan the QR shown in the private project chat with the Camera app. Tap its link and open it in Safari. The private address is deliberately omitted from this public guide.
 3. Sign in with the same ChatGPT account if the hosting service asks. You do not need to find this Codex chat on your phone.
 4. If an older layout appears, open the game's **Settings → Restart and update** when offered. This restarts the current run and preserves saved progress.
@@ -19,7 +19,7 @@ This is the owner checklist. The engineer prepares and checks code, builds and m
 1. On the laptop, open [Apple Developer enrollment](https://developer.apple.com/programs/enroll/) and choose **Start your enrollment**.
 2. Sign in with the Apple Account you will keep as the publisher's owner. Complete Apple's two-factor authentication prompts.
 3. Choose **Individual**. Enter your actual legal name and contact details in Apple's form. Do not substitute Harborline's trade name for your personal name. Apple shows the individual's legal name as seller; the app title can still be Bloomshot.
-4. Review Apple's agreement and complete its identity and membership-payment steps yourself. Apple lists **US$99 per membership year**; local pricing and any tax appear during enrollment. Tell the engineer when membership is active; an application or payment receipt alone is not proof of activation.
+4. Review Apple's agreement and complete its identity and membership-payment steps yourself. Apple lists **US$99 per membership year**; local pricing and any tax appear during enrollment. On October 16 the web checkout showed an Apple Store waiting banner saying 5:00 a.m. Pacific. Resume the existing enrollment from [Apple Developer Account](https://developer.apple.com/account/) once checkout is available. If an order acknowledgment already exists, check its status instead of paying again. Apple sends membership confirmation after processing; its [enrollment guidance](https://developer.apple.com/help/account/membership/program-enrollment/) directs owners to support if confirmation has not arrived within 24 hours of purchase. Tell the engineer when membership is active; an application or payment receipt alone is not proof of activation.
 5. Follow [iPhone launch](IOS-LAUNCH.md) to register the exact bundle ID, create the App Store Connect app record and prepare signing. Use **Bloomshot** as the app name if accepted. Do not choose a replacement name or bundle ID without reviewing it together.
 6. Set the app download price to **Free** when pricing is configured. For purchases later, complete the Paid Apps agreement, banking and tax tasks in App Store Connect yourself. These are separate from the download price.
 

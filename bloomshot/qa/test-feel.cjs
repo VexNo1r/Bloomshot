@@ -230,12 +230,14 @@ test('After the first frame, seeds and their trails make no gradients and no sha
 
 // ---- the finale through app.js ----
 
-function boot({ motion = true } = {}) {
+function boot({ motion = true, render = null } = {}) {
   const storage = new Map();
   storage.set('bloomshot.save.v1', JSON.stringify({ version: 1, tutorial: true, powersMet: true, rush: { best: 0, bestWave: 1, runs: 1, blooms: 0 },
-    settings: { sound: false, haptics: false, motion } }));
+    depths: render?.depths, settings: { sound: false, haptics: false, motion } }));
   const nodes = new Map(), games = [], cues = [], draws = [];
-  let nextFrame, now = 0;
+  let nextFrame, now = 0, work = 0, paints = 0;
+  const windowHandlers = new Map();
+  if (render) { render.warms = []; render.allocations = []; render.scenes = []; render.boardReads = 0; render.meadowDraws = 0; }
   const noop = () => {};
   const brush = new Proxy({ globalAlpha: 1, createLinearGradient: () => ({ addColorStop: noop }),
     createRadialGradient: () => ({ addColorStop: noop }) }, { get: (target, name) => name in target ? target[name] : noop });
@@ -258,12 +260,20 @@ function boot({ motion = true } = {}) {
       },
       closest: selector => selector.startsWith('[data-') && Object.keys(node.dataset).some(k => selector.includes('data-' + k)) ? node : null,
       getContext: () => brush, toDataURL: () => 'data:image/png;base64,test',
-      getBoundingClientRect: () => ({ left: 0, top: 0, width: 420, height: 560, right: 420, bottom: 560 }),
+      getBoundingClientRect: () => {
+        if (render && id === 'game-canvas') render.boardReads++;
+        const rect = render?.rects?.[id] || {};
+        return { left: 0, top: 0, width: 420, height: 560, right: 420, bottom: 560, ...rect };
+      },
       hasPointerCapture: () => false, releasePointerCapture: noop, setPointerCapture: noop, focus: noop,
       showModal: () => { node.open = true; }, close: () => { node.open = false; },
       parentElement: { insertBefore: child => nodes.set(child.id, child) }
     };
     Object.defineProperty(node, 'innerHTML', { get: () => node.html || '', set: value => { node.html = value; node.children = value ? [{}] : []; } });
+    if (render && id.endsWith('canvas')) for (const dimension of ['width', 'height']) {
+      let size = 0;
+      Object.defineProperty(node, dimension, { get: () => size, set: value => { size = value; render.allocations.push({ id, dimension, value }); } });
+    }
     return node;
   }
   const $ = id => { if (!nodes.has(id)) nodes.set(id, element(id)); return nodes.get(id); };
@@ -273,7 +283,8 @@ function boot({ motion = true } = {}) {
   const context = vm.createContext({ console, structuredClone, URLSearchParams, Date, Math, Map, Set,
     document, location: { search: '', reload: noop }, navigator: {}, crypto: { randomUUID: () => 'feel-run' },
     localStorage: { getItem: name => storage.get(name) || null, setItem: (name, value) => storage.set(name, value) },
-    performance: { now: () => now }, devicePixelRatio: 1,
+    performance: { now: () => now + work }, devicePixelRatio: 1,
+    ...(render ? { innerWidth: 420, innerHeight: 560 } : {}),
     matchMedia: () => ({ matches: false, addEventListener: noop }),
     requestAnimationFrame: fn => { nextFrame = fn; }, setTimeout: () => 1, clearTimeout: noop,
     BloomLevels: Levels, BloomMoon: Moon, BloomKoi: Koi, BloomGarden: Garden, BloomGoals: QuietGoals,
@@ -282,19 +293,79 @@ function boot({ motion = true } = {}) {
     BloomFeel: Feel,
     BloomSound: { wake: noop, setEnabled: noop, play: (type, detail) => cues.push({ type, detail, at: now }), muffle: (amount, seconds) => cues.push({ type: 'muffle', detail: { amount, seconds }, at: now }) },
     BloomKeepsakes: Keepsakes,
-    BloomArt: { draw: (ctx, state, time, options) => draws.push({ time, camera: options.camera ? { ...options.camera } : null, vignette: options.vignette, danger: { ...options.danger }, quality: options.quality, flash: options.flash }),
-      drawFlower: noop, drawMoon: noop, koiFish: noop, drawGarden: noop, drawProjectile: noop, drawParticle: noop, drawSeed: noop, drawPowerIcon: noop, podSlot: () => ({ x: 210, y: 498 }) },
+    BloomArt: { draw: (ctx, state, time, options) => { draws.push({ time, camera: options.camera ? { ...options.camera } : null, vignette: options.vignette, danger: { ...options.danger }, quality: options.quality, flash: options.flash }); work += render?.drawCost || 0; paints++; },
+      ...(render ? { paints: () => paints, prewarm: () => ({ step(ms) { render.warms.push(ms); work += render.warmCost || 0; return false; } }) } : {}),
+      drawFlower: noop, drawMoon: noop, koiFish: noop, drawGarden: (ctx, w, h, theme, options) => { if (render && options?.frame === false) render.scenes.push({ theme, mode: options.mode }); }, drawProjectile: noop, drawParticle: noop, drawSeed: noop, drawPowerIcon: noop, podSlot: () => ({ x: 210, y: 498 }) },
     BloomMeadow: { plots: Garden.plots.map((p, i) => ({ id: p.id, x: 65 + i * 50, y: 150, labelY: 180, accent: p.color })),
       decor: Garden.decor.map((d, i) => ({ id: d.id, x: 40 + i * 60, y: 200, accent: '#ffffff', icon: [40 + i * 60, 190, 40] })),
       friends: Garden.decor.map((d, i) => ({ id: d.friend.id, decorId: d.id, x: 40 + i * 60, y: 180 })), reactSeconds: 1.1,
-      drawDecorIcon: noop, drawFriendIcon: noop, draw: noop }
+      drawDecorIcon: noop, drawFriendIcon: noop, draw: () => { if (render) render.meadowDraws++; } }
   });
-  context.window = context; context.addEventListener = noop;
+  context.window = context; context.addEventListener = (name, fn) => { if (!windowHandlers.has(name)) windowHandlers.set(name, []); windowHandlers.get(name).push(fn); };
   vm.runInContext(source, context, { filename: 'app.js' });
-  function frame(milliseconds = 1000 / 60) { now += milliseconds; const fn = nextFrame; assert.equal(typeof fn, 'function'); fn(now); }
+  function frame(milliseconds = 1000 / 60) { now += milliseconds; work = 0; const fn = nextFrame; assert.equal(typeof fn, 'function'); fn(now); }
   function click(id, dataset) { const target = dataset ? Object.assign(element(), { dataset }) : $(id); $(id).emit('click', { target }); }
-  return { $, click, frame, games, cues, draws, now: () => now };
+  return { $, click, frame, games, cues, draws, now: () => now, emit: name => { for (const fn of windowHandlers.get(name) || []) fn(); },
+    setViewport: (width, height) => { context.innerWidth = width; context.innerHeight = height; } };
 }
+
+test('A busy frame skips warming; a nearly full frame offers only the time still available', () => {
+  const render = { drawCost: 13 }, app = boot({ render });
+  app.click('depth-map', { depth: '1' }); app.frame();
+  assert.equal(render.warms.length, 0, 'over-budget gameplay performs no warm-up job');
+  render.drawCost = 10; app.frame();
+  assert.deepEqual(render.warms, [2], 'only two milliseconds remain, with no minimum extra work');
+  render.drawCost = 1; app.frame();
+  assert.equal(render.warms.at(-1), 8, 'an idle frame still caps warming at eight milliseconds');
+});
+
+test('The quality governor includes warming and fresh paints in sustained CPU cost, then recovers', () => {
+  const render = { drawCost: 4, warmCost: 10 }, app = boot({ render });
+  app.click('depth-map', { depth: '1' });
+  for (let i = 0; i < 160; i++) app.frame();
+  assert.equal(app.games.at(-1).quality, 1, 'sustained 14 ms total work lowers costly effects even when sprites paint');
+  render.warmCost = 0;
+  for (let i = 0; i < 600; i++) app.frame();
+  assert.equal(app.games.at(-1).quality, 0, 'smooth frames restore the full artwork');
+});
+
+test('Resize storms coalesce without reallocating or canceling unchanged aiming; real changes cancel safely', () => {
+  const render = { rects: {}, depths: { 1: { stars: 3, best: 1000 } } }, app = boot({ render });
+  app.click('depth-map', { depth: '1' }); app.frame();
+  const game = app.games.at(-1), canvas = app.$('game-canvas');
+  canvas.emit('pointerdown', { pointerId: 7, isPrimary: true, clientX: 200, clientY: 300 });
+  assert(game.aim.length > 1, 'a real held aim is active');
+  const before = { allocations: render.allocations.length, scenes: render.scenes.length };
+  render.boardReads = 0;
+  for (let i = 0; i < 20; i++) app.emit('resize');
+  assert.equal(render.boardReads, 0, 'events defer sizing until the next frame');
+  app.frame();
+  assert.equal(render.boardReads, 1, 'the event burst sizes once');
+  assert.equal(render.allocations.length, before.allocations, 'unchanged backing stores are reused');
+  assert.equal(render.scenes.length, before.scenes, 'unchanged scenery is reused');
+  assert(game.aim.length > 1, 'an unchanged event does not lose the held aim');
+  render.rects['game-canvas'] = { width: 360, height: 480 };
+  render.rects['scene-canvas'] = { width: 390, height: 844 };
+  for (let i = 0; i < 20; i++) app.emit('resize');
+  app.frame();
+  assert.equal(game.aim.length, 0, 'changed geometry cancels the old aim before rendering');
+  assert.equal(game.balls.length, 0, 'resizing never fires');
+  assert.equal(render.scenes.length, before.scenes + 1, 'the new viewport paints once');
+  const allocations = render.allocations.length;
+  app.click('depth-map', { depth: '2' });
+  assert.equal(render.allocations.length, allocations, 'a same-size level keeps its backing stores');
+  assert.equal(render.scenes.at(-1).theme, 'depth-roots', 'a new theme paints immediately, before its first frame');
+});
+
+test('A real viewport resize still refreshes the Garden when the hidden game board has a zero rect', () => {
+  const render = { rects: { 'game-canvas': { width: 0, height: 0, right: 0, bottom: 0 } } }, app = boot({ render, motion: false });
+  app.click('garden-btn'); app.emit('resize'); app.frame();
+  const before = render.meadowDraws;
+  app.setViewport(390, 844); app.emit('resize'); app.frame();
+  assert.equal(render.meadowDraws, before + 1, 'changed viewport dirties the visible Garden even though the board rect stayed zero');
+  app.emit('resize'); app.frame();
+  assert.equal(render.meadowDraws, before + 1, 'an unchanged viewport reuses the still Garden');
+});
 
 // Level 1's boss wave with the boss on its last ring and one seed just under it, flying straight up.
 function bossShot(app, { awake = true } = {}) {

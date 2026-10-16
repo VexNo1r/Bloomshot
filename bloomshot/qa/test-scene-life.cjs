@@ -80,6 +80,27 @@ test('Reduced motion removes every visitor and immediately clears the overlay', 
     assert.deepEqual(rec.calls, [['save'], ['clearRect', 0, 0, 430, 932], ['restore']]); assert(rec.balanced());
   }
 });
+
+test('Blank ambient frames do no canvas work; visible visitors clear once and erase their last frame', () => {
+  for (const theme of themes) {
+    let painted = false, active = 0, exits = 0;
+    for (let step = 0; step < 600; step++) {
+      const time = step / 10, rec = rig.brush();
+      const visible = rig.Scenery.lifePlan(theme, time, false).some(visitor => visitor.opacity > .001);
+      const result = rig.Art.drawSceneLife(rec.ctx, 390, 844, theme, time, false, painted);
+      assert.equal(result, visible);
+      assert.equal(rec.calls.filter(call => call[0] === 'clearRect').length, visible || painted ? 1 : 0);
+      if (!visible && !painted) assert.deepEqual(rec.calls, [], 'a quiet layer is untouched');
+      if (visible) active++;
+      if (painted && !visible) exits++;
+      assert(rec.balanced()); painted = result;
+    }
+    assert(active > 0 && exits > 0, 'both visits and their final erase are exercised');
+    const rec = rig.brush();
+    assert.equal(rig.Art.drawSceneLife(rec.ctx, 390, 844, theme, 12, true, true), false);
+    assert.equal(rec.calls.filter(call => call[0] === 'clearRect').length, 1, 'disabling motion erases an existing visitor');
+  }
+});
 test('Portrait phone and tablet draws use finite coordinates and balanced Canvas state', () => {
   for (const [w, h] of [[320, 568], [430, 932], [1032, 1376]]) for (const theme of themes) for (let time = 0; time < 60; time += .25) {
     const rec = rig.brush(); rig.Art.drawSceneLife(rec.ctx, w, h, theme, time, false); assert(rec.balanced()); assert.equal(rec.ctx.globalAlpha, 1);

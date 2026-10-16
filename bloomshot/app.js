@@ -92,6 +92,8 @@
   const sceneCanvas = $('scene-canvas'), sceneCtx = sceneCanvas?.getContext('2d');
   const lifeCanvas = $('life-canvas'), lifeCtx = lifeCanvas?.getContext('2d');
   let fullScene = false, lifeFrame = 0, lifeWidth = 0, lifeHeight = 0, lifePainted = false;
+  if (lifeCanvas) put(lifeCanvas.style, 'visibility', 'hidden');
+  let resizePending = false, resizeKey = '', sceneKey = '';
   const meadowCanvas = $('meadow-canvas'), meadowCtx = meadowCanvas.getContext('2d');
   let meadowDirty = true, meadowFrame = 0, growth = null, bubbleTimer = 0;
   const friendPokes = {};
@@ -1281,7 +1283,8 @@
   const feel = Feel ? Feel.create({ motion: save.settings.motion }) : null;
   // The governor measures the work each frame costs (the step and the draw, in ms), not how often frames come, so a
   // phone capped at 30 Hz by a battery saver keeps the full finale; a slow phone that later runs warm and smooth for
-  // eight seconds gets its effects back. Frames that paid for a first paint, and paused frames, are not counted.
+  // eight seconds gets its effects back. Warming is included; the governor's sustained threshold absorbs isolated
+  // first paints. Paused frames are not counted.
   const hitStop = Feel ? Feel.createHitStop() : null, governor = Feel ? Feel.createGovernor({ slow: 11, slower: 15, recover: 8 }) : null;
   const danger = { redFlash: 0, mintFlash: 0, lastLife: false };
   let redFlash = 0, mintFlash = 0, feelGame = null, beatAt = 0, aimNotch = null, aimTickAt = -1, aimBuzzAt = -1, aimTarget = null;
@@ -2428,35 +2431,52 @@
   for (const key of ['settings', 'help', 'world']) $(`close-${key}`).addEventListener('click', () => closeDialog(`${key}-dialog`));
   dialogs.forEach(id => $(id).addEventListener('click', event => { if (event.target === $(id)) { const r = $(id).getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) closeDialog(id); } }));
   function resize() {
-    cancelInteraction();
+    resizePending = false;
     // The board's backing store matches the device pixels it is shown at (a small phone shows it well under 420 css
     // px wide, so the scale comes first and the 2.5 cap after it): one board pixel per screen pixel, never more.
     const shown = canvas.getBoundingClientRect ? canvas.getBoundingClientRect() : null, cssWidth = shown && shown.width > 40 ? shown.width : 420;
     const dpr = clamp((devicePixelRatio || 1) * Math.min(1, cssWidth / 420), 1, 2.5);
     const width = Math.round(420 * dpr), height = Math.round(560 * dpr);
-    if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
+    const nextFullScene = Boolean(sceneCanvas && sceneCtx && typeof innerWidth === 'number' && route === 'game');
+    const rect = nextFullScene ? sceneCanvas.getBoundingClientRect() : null, sceneDpr = Math.min(devicePixelRatio || 1, 2);
+    const sw = rect ? rect.width : 0, sh = rect ? rect.height : 0;
+    const key = [route, theme, game.mode, dpr, cssWidth, shown?.height, shown?.left, shown?.top, sw, sh, sceneDpr,
+      typeof innerWidth === 'number' ? innerWidth : 0, typeof innerHeight === 'number' ? innerHeight : 0].join('|');
+    if (key === resizeKey) return;
+    resizeKey = key; cancelInteraction();
+    if (canvas.width !== width) canvas.width = width;
+    if (canvas.height !== height) canvas.height = height;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    fullScene = Boolean(sceneCanvas && sceneCtx && typeof innerWidth === 'number' && route === 'game');
+    fullScene = nextFullScene;
     if (fullScene) {
-      const rect = sceneCanvas.getBoundingClientRect(), sceneDpr = Math.min(devicePixelRatio || 1, 2);
-      const sw = rect.width, sh = rect.height;
       if (sw > 0 && sh > 0) {
-        sceneCanvas.width = Math.round(sw * sceneDpr); sceneCanvas.height = Math.round(sh * sceneDpr);
-        if (lifeCanvas && lifeCtx) {
-          lifeCanvas.width = sceneCanvas.width; lifeCanvas.height = sceneCanvas.height;
-          lifeCtx.setTransform(sceneDpr, 0, 0, sceneDpr, 0, 0);
-          lifeWidth = sw; lifeHeight = sh; lifeFrame = 0; lifePainted = false;
+        const nextSceneKey = [sw, sh, sceneDpr, theme, game.mode].join('|');
+        if (sceneKey !== nextSceneKey) {
+          sceneKey = nextSceneKey;
+          const sceneWidth = Math.round(sw * sceneDpr), sceneHeight = Math.round(sh * sceneDpr);
+          if (sceneCanvas.width !== sceneWidth) sceneCanvas.width = sceneWidth;
+          if (sceneCanvas.height !== sceneHeight) sceneCanvas.height = sceneHeight;
+          if (lifeCanvas && lifeCtx) {
+            const resized = lifeCanvas.width !== sceneWidth || lifeCanvas.height !== sceneHeight;
+            if (lifeCanvas.width !== sceneWidth) lifeCanvas.width = sceneWidth;
+            if (lifeCanvas.height !== sceneHeight) lifeCanvas.height = sceneHeight;
+            lifeCtx.setTransform(sceneDpr, 0, 0, sceneDpr, 0, 0);
+            if (lifePainted && !resized) lifeCtx.clearRect(0, 0, lifeWidth, lifeHeight);
+            lifeWidth = sw; lifeHeight = sh; lifeFrame = 0; lifePainted = false;
+            put(lifeCanvas.style, 'visibility', 'hidden');
+          }
+          sceneCtx.setTransform(sceneDpr, 0, 0, sceneDpr, 0, 0);
+          const cover = Math.max(sw / 420, sh / 560);
+          sceneCtx.translate((sw - 420 * cover) / 2, (sh - 560 * cover) / 2);
+          BloomArt.drawGarden(sceneCtx, 420 * cover, 560 * cover, theme, { mode: game.mode, frame: false });
         }
-        sceneCtx.setTransform(sceneDpr, 0, 0, sceneDpr, 0, 0);
-        const cover = Math.max(sw / 420, sh / 560);
-        sceneCtx.translate((sw - 420 * cover) / 2, (sh - 560 * cover) / 2);
-        BloomArt.drawGarden(sceneCtx, 420 * cover, 560 * cover, theme, { mode: game.mode, frame: false });
       }
     }
     aimHarvest();
     // The petal shower was laid out for the old screen; a rotation ends it rather than stretching it.
     if (party && party.shower && (narrowLandscape.matches || party.vw !== innerWidth || party.vh !== innerHeight)) endParty();
-    if (meadowCanvas.width !== width || meadowCanvas.height !== Math.round(330 * dpr)) { meadowCanvas.width = width; meadowCanvas.height = Math.round(330 * dpr); }
+    if (meadowCanvas.width !== width) meadowCanvas.width = width;
+    if (meadowCanvas.height !== Math.round(330 * dpr)) meadowCanvas.height = Math.round(330 * dpr);
     meadowCtx.setTransform(dpr, 0, 0, dpr, 0, 0); meadowDirty = true;
   }
   // The harvest orbs fly to the score readout: its middle, mapped into board space (above the board, so y < 0).
@@ -2467,10 +2487,13 @@
     const exit = BloomArt.setHarvestTarget((score.left + score.width / 2 - board.left) / board.width * 420, (score.top + score.height / 2 - board.top) / board.height * 560);
     if (exit && Number.isFinite(exit.x) && Number.isFinite(exit.y)) harvestExit = exit;
   }
-  window.addEventListener('resize', resize);
+  // Safari can emit several resize events while its toolbar moves. Size once at the next paint; route changes
+  // still resize immediately, before the first frame of their new scene.
+  window.addEventListener('resize', () => { resizePending = true; });
   document.addEventListener('visibilitychange', () => { lastFrame = 0; accumulator = 0; cancelInteraction(); musicFrame(performance.now(), true); });
   function frame(timestamp) {
     requestAnimationFrame(frame);
+    if (resizePending) resize();
     if (restartArmed !== null && (performance.now() - restartArmed > 2000 || route !== 'game')) armRestart(false);
     partyFrame(timestamp);
     musicFrame(timestamp);
@@ -2478,7 +2501,7 @@
     if (!document.hidden && route === 'garden' && (meadowDirty || save.settings.motion && timestamp - meadowFrame >= 1000 / 30)) drawMeadow(timestamp);
     if (document.hidden || route !== 'game') { lastFrame = timestamp; return; }
     const dt = Math.min(lastFrame ? (timestamp - lastFrame) / 1000 : 0, .06); lastFrame = timestamp;
-    const workFrom = performance.now(), paintsFrom = artPaints();
+    const workFrom = performance.now();
     feelStep(dt);
     const paused = narrowLandscape.matches || dialogs.some(id => $(id).open);
     // In the tutorial the whole board (seeds, flowers, petals and sparkles) runs at the speed its card sets.
@@ -2503,9 +2526,12 @@
     updateHud(); renderTutorial(); pulseTime += dt;
     if (fullScene && lifeCtx && typeof BloomArt.drawSceneLife === 'function') {
       if (save.settings.motion && !paused && timestamp - lifeFrame >= 1000 / 30) {
-        lifeFrame = timestamp; lifeCtx.clearRect(0, 0, lifeWidth, lifeHeight);
-        BloomArt.drawSceneLife(lifeCtx, lifeWidth, lifeHeight, theme, pulseTime, false); lifePainted = true;
-      } else if (!save.settings.motion && lifePainted) { lifeCtx.clearRect(0, 0, lifeWidth, lifeHeight); lifePainted = false; }
+        lifeFrame = timestamp;
+        lifePainted = BloomArt.drawSceneLife(lifeCtx, lifeWidth, lifeHeight, theme, pulseTime, false, lifePainted);
+      } else if (!save.settings.motion && lifePainted) {
+        BloomArt.drawSceneLife(lifeCtx, lifeWidth, lifeHeight, theme, pulseTime, true, lifePainted); lifePainted = false;
+      }
+      put(lifeCanvas.style, 'visibility', lifePainted ? 'visible' : 'hidden');
     }
     if (remembered) {
       // Holding still re-aims where the finger is, the same as moving it; left alone, a remembered aim fades after a while.
@@ -2522,13 +2548,13 @@
     if (fullScene) ctx.clearRect(0, 0, 420, 560);
     BloomArt.draw(ctx, game, game.time, { theme, backdrop: !fullScene, reducedMotion: !save.settings.motion, keepsake: worn.seed ? worn : null, pointer, shake, flash, kick, showAim: isRush() ? aiming || game.aim.length > 0 : game.status === 'aiming', selectedBumper: isRush() ? game.rotateCooldown <= 0 ? game.bumpers[0]?.id : null : game.status === 'aiming' && !game.rotationUsed ? game.bumpers[0]?.id : null,
       camera: view && view.zoom > 1.001 ? view : null, vignette: view ? view.vignette : 0, quality: game.quality || 0, ahead: view && view.scale < .99 ? accumulator : 0, danger, realTime: nt });
-    if (governor) game.quality = !paused && dt > 0 && artPaints() === paintsFrom ? governor.sample((performance.now() - workFrom) / 1000, dt) : governor.tier;
     // Warm-up a frame at a time until everything the level can need is painted (and rasterized on the board's own
     // context, so the first bloom that uses a sprite does not pay for it): what is left of about 12 ms after this
-    // frame's own work, never less than 3 ms nor more than 8.
-    if (warm && !paused && warm.step(clamp(12 - (performance.now() - workFrom), 3, 8), ctx)) warm = null;
+    // frame's own work, up to 8 ms. A busy frame owes no warm-up work.
+    const warmBudget = Math.min(8, 12 - (performance.now() - workFrom));
+    if (warm && !paused && warmBudget > 0 && warm.step(warmBudget, ctx)) warm = null;
+    if (governor) game.quality = !paused && dt > 0 ? governor.sample((performance.now() - workFrom) / 1000, dt) : governor.tier;
   }
-  const artPaints = () => typeof BloomArt.paints === 'function' ? BloomArt.paints() : 0;
   updateSettings(); persist(); renderMeadow(); renderDaily();
   // The game opens on the level map; an endless Rush board waits behind it until a level is picked.
   const initial = { id: 'rush', name: 'Meadow Rush' };

@@ -1,10 +1,10 @@
 {
   "passed": true,
-  "testedAt": "2026-10-15T21:28:39.006Z",
+  "testedAt": "2026-10-16T07:34:56.057Z",
   "node": "v24.20.0",
-  "workerSha256": "c7f6960f3927c9b2cc7a38caa86f13fdc92afe7a43afefb9e71fcec96fd5dbd9",
+  "workerSha256": "ffb85edb92cea41835ef9878961120be66d2f6bb824bab794238a6a477a6b3fa",
   "maxConnections": 3,
-  "workerVersion": "codex-garden-20261015-1",
+  "workerVersion": "codex-garden-20261015-3",
   "assetCount": 37,
   "imageCount": 6,
   "negativeControl": {
@@ -13,15 +13,15 @@
     "consumed": 0,
     "bytes": 0,
     "peakConnections": 3,
-    "elapsedMs": 292.74
+    "elapsedMs": 335.65
   },
   "actualInstall": {
     "headers": 37,
     "consumed": 37,
-    "bytes": 1598663,
+    "bytes": 1603139,
     "peakConnections": 3,
     "cached": 37,
-    "elapsedMs": 95.78,
+    "elapsedMs": 102.89,
     "deadlineMs": 15000,
     "allBodyHashesMatch": true
   },
@@ -46,8 +46,8 @@
     },
     {
       "path": "/styles.css",
-      "bytes": 79558,
-      "sha256": "dfe7ba71ef56142db9be0717ccdeb484e6517af4e175e13393235b8bd0606064",
+      "bytes": 79974,
+      "sha256": "1d95e614837938ead18fbc77d4b3066e5f5310f51e7463adf9773076c87f1b97",
       "type": "text/css; charset=utf-8"
     },
     {
@@ -58,8 +58,8 @@
     },
     {
       "path": "/store.js",
-      "bytes": 28898,
-      "sha256": "c9ad95cce15b0b8d4db92a3f7f83fc9451814848fa2b14b73adfb623df763099",
+      "bytes": 29885,
+      "sha256": "07d58d5fe6f88e38734a5bbb7345aabd3609e986646737edb52930b2d08b6825",
       "type": "text/javascript; charset=utf-8"
     },
     {
@@ -148,8 +148,8 @@
     },
     {
       "path": "/art.js",
-      "bytes": 337197,
-      "sha256": "3263d939b180ea0bb2e2cf93e2ed76fef942a849b4640bf7e61a063dc6033ef4",
+      "bytes": 337873,
+      "sha256": "ebc7d53c4a0f5c6009b7431f2f1ef9c4151816f6a51a72c665ef3454025799a1",
       "type": "text/javascript; charset=utf-8"
     },
     {
@@ -178,14 +178,14 @@
     },
     {
       "path": "/app.js",
-      "bytes": 209206,
-      "sha256": "6617d8a3e2077c28fdf130c155b79e399b2e52ae7a1f86b5c5d39c34fc6727ab",
+      "bytes": 210721,
+      "sha256": "761a184f4a9571db2014286238e3e17b0d4f5839ba88df18b83d3ecd0a71035b",
       "type": "text/javascript; charset=utf-8"
     },
     {
       "path": "/store-ui.js",
-      "bytes": 3596,
-      "sha256": "18f773284154f0f8b504dd51d3d3395b9be8b06336406dbb84acc67b74fa8fc6",
+      "bytes": 4478,
+      "sha256": "54063c7c081c616770cb69057601b9b2cb921aad8feac50f46f7483a9a1513b2",
       "type": "text/javascript; charset=utf-8"
     },
     {

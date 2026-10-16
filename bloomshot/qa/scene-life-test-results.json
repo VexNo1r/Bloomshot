@@ -1,5 +1,5 @@
 {
-  "passed": 7,
+  "passed": 8,
   "failed": 0,
   "spriteSurfaces": 33,
   "spriteDecodedBytes": 2299968,
@@ -18,6 +18,10 @@
     },
     {
       "name": "Reduced motion removes every visitor and immediately clears the overlay",
+      "passed": true
+    },
+    {
+      "name": "Blank ambient frames do no canvas work; visible visitors clear once and erase their last frame",
       "passed": true
     },
     {
