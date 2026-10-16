@@ -1,10 +1,10 @@
 {
   "passed": true,
-  "testedAt": "2026-10-16T07:34:56.057Z",
+  "testedAt": "2026-10-16T21:11:25.464Z",
   "node": "v24.20.0",
-  "workerSha256": "ffb85edb92cea41835ef9878961120be66d2f6bb824bab794238a6a477a6b3fa",
+  "workerSha256": "35e8f72956f42ebe4ce928b113eb68277c520fca60d2dd0a03afff2f7c213762",
   "maxConnections": 3,
-  "workerVersion": "codex-garden-20261015-3",
+  "workerVersion": "codex-garden-20261016-1",
   "assetCount": 37,
   "imageCount": 6,
   "negativeControl": {
@@ -13,29 +13,29 @@
     "consumed": 0,
     "bytes": 0,
     "peakConnections": 3,
-    "elapsedMs": 335.65
+    "elapsedMs": 298.97
   },
   "actualInstall": {
     "headers": 37,
     "consumed": 37,
-    "bytes": 1603139,
+    "bytes": 1612268,
     "peakConnections": 3,
     "cached": 37,
-    "elapsedMs": 102.89,
+    "elapsedMs": 68.88,
     "deadlineMs": 15000,
     "allBodyHashesMatch": true
   },
   "assets": [
     {
       "path": "/",
-      "bytes": 29278,
-      "sha256": "3998e0d845d8aefefd103f9550955c55c93c8db1add3d5cea9fac30047b74369",
+      "bytes": 30149,
+      "sha256": "2f0c4c38c54297f1f46a50aea7ade3844a49af9a61ee9bf5a31204693695e15a",
       "type": "text/html; charset=utf-8"
     },
     {
       "path": "/index.html",
-      "bytes": 29278,
-      "sha256": "3998e0d845d8aefefd103f9550955c55c93c8db1add3d5cea9fac30047b74369",
+      "bytes": 30149,
+      "sha256": "2f0c4c38c54297f1f46a50aea7ade3844a49af9a61ee9bf5a31204693695e15a",
       "type": "text/html; charset=utf-8"
     },
     {
@@ -46,8 +46,8 @@
     },
     {
       "path": "/styles.css",
-      "bytes": 79974,
-      "sha256": "1d95e614837938ead18fbc77d4b3066e5f5310f51e7463adf9773076c87f1b97",
+      "bytes": 80541,
+      "sha256": "3c3649ac0996ca5414d289ed159da22f34f5e27ef4b271c1c35811d5f6df0e1e",
       "type": "text/css; charset=utf-8"
     },
     {
@@ -136,8 +136,8 @@
     },
     {
       "path": "/feel.js",
-      "bytes": 13950,
-      "sha256": "3a58ec154ecc9ba718e19df36db1dcb22289a902a05661ded7c56ac62de75d45",
+      "bytes": 16396,
+      "sha256": "d19952c1b1fa073d33db4e4757adde7397fc016c8667289d9fc5be08d56ae33b",
       "type": "text/javascript; charset=utf-8"
     },
     {
@@ -148,8 +148,8 @@
     },
     {
       "path": "/art.js",
-      "bytes": 337873,
-      "sha256": "ebc7d53c4a0f5c6009b7431f2f1ef9c4151816f6a51a72c665ef3454025799a1",
+      "bytes": 339368,
+      "sha256": "66d4ddf24618e3b31913a6d91e73b8431ae81152c17a76386d4300f5687a72e4",
       "type": "text/javascript; charset=utf-8"
     },
     {
@@ -178,8 +178,8 @@
     },
     {
       "path": "/app.js",
-      "bytes": 210721,
-      "sha256": "761a184f4a9571db2014286238e3e17b0d4f5839ba88df18b83d3ecd0a71035b",
+      "bytes": 213600,
+      "sha256": "8d8e2c50e17487c40fe37d053e36ace38c6fa9ec2f9bdfefb5f015593bcef173",
       "type": "text/javascript; charset=utf-8"
     },
     {
