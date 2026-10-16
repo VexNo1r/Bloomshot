@@ -1,5 +1,5 @@
 {
-  "passed": 48,
+  "passed": 52,
   "failed": 0,
   "results": [
     {
@@ -192,6 +192,22 @@
     },
     {
       "name": "the shipped catalog is consistent: unique ids, bundles only grant entitlements that single products sell, and a bundle is cheaper than its parts",
+      "passed": true
+    },
+    {
+      "name": "Restore distinguishes newly confirmed powerups from saved grants and does not report them twice",
+      "passed": true
+    },
+    {
+      "name": "Restore reports a confirmed but unaccepted grant as owed, never as delivered",
+      "passed": true
+    },
+    {
+      "name": "Restore retries an already owed grant after the game can save, without another payment or receipt replay",
+      "passed": true
+    },
+    {
+      "name": "Restore reports an unresolved payment separately and preserves its durable intent",
       "passed": true
     }
   ]

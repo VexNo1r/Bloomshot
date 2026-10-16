@@ -402,22 +402,31 @@
     async function restore() {
       await init();
       if (!live()) return { ok: false, reason: 'unavailable' };
-      var before = ownedIds();
+      var before = ownedIds(), waitingBefore = ledger.owed.map(function (g) { return g.transaction; }), confirmed = [];
       try {
         if (mode === 'native') {
           var info = (await plugin.restorePurchases()).customerInfo;
           setOwned(activeFrom(info));
-          reconcile(info); // settles a pending powerup payment; old powerups are noted, never paid out again
+          confirmed = reconcile(info); // settles a pending powerup payment; old powerups are noted, never paid out again
         } else {
           await new Promise(function (resolve) { setTimeout(resolve, env.mockDelay == null ? 350 : env.mockDelay); });
           // The simulated account remembers its purchases, like the real one: restoring grants everything they include.
           setOwned(mockBought.reduce(function (all, id) { return byId[id] ? union(all, byId[id].entitlements) : all; }, ownedIds()));
-          reconcile(mockInfo());
+          confirmed = reconcile(mockInfo());
         }
+        // A confirmed grant may have been waiting for room or a writable save. Restore retries the
+        // same atomic handler, just as a relaunch does; it never recreates a delivered transaction.
+        if (!confirmed.length && consumableHandler) deliver(consumableHandler);
       } catch (error) { return classify(error); }
       var after = ownedIds();
       var restored = after.filter(function (id) { return before.indexOf(id) < 0; });
-      return { ok: true, restored: restored, names: restored.map(nameOf), total: after.length };
+      var waiting = ledger.owed.map(function (g) { return g.transaction; });
+      var checked = union(waitingBefore, confirmed.map(function (g) { return g.transaction; }));
+      // These are purchase/transaction counts, not individual powerup counts. Unresolved payment
+      // intents remain separate from confirmed grants and must not be described as delivered.
+      return { ok: true, restored: restored, names: restored.map(nameOf), total: after.length,
+        consumables: { confirmed: confirmed.length, delivered: checked.filter(function (id) { return waiting.indexOf(id) < 0; }).length, pending: waiting.length },
+        confirmationPending: ledger.inflight.length };
     }
 
     var api = {

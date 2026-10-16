@@ -4,7 +4,7 @@
 // Captures the shipping game in a fresh, disposable browser profile. No game files are changed.
 // Dependencies: playwright, sharp; Chromium (BLOOMSHOT_CHROME or installed Google Chrome).
 // NODE_PATH may point at the Codex bundled node_modules directory.
-// Run from any directory: node docs/store/graphics/capture-google-play.cjs [target]
+// Run from any directory: node docs/store/graphics/capture-google-play.cjs [target] [draft-output-root]
 // Targets: google-play (default), apple-iphone-1290, apple-iphone-large, apple-iphone-medium,
 // apple-ipad-13. The 1290 target is the requested ten-level set; Play contains eight images.
 const fs = require('node:fs');
@@ -16,6 +16,7 @@ const sharp = require('sharp');
 const root = path.resolve(__dirname, '../../..');
 const gameRoot = path.join(root, 'bloomshot');
 const target = process.argv[2] || 'google-play';
+const draftOutputRoot = process.argv[3] ? path.resolve(process.argv[3]) : null;
 const profiles = {
   'google-play': { output: 'google-play', width: 432, height: 768, dpr: 2.5, pixels: [1080, 1920] },
   'apple-iphone-1290': { output: 'apple/iphone-1290', width: 430, height: 932, dpr: 3, pixels: [1290, 2796] },
@@ -25,9 +26,12 @@ const profiles = {
 };
 const profile = profiles[target];
 if (!profile) throw new Error(`Unknown capture target: ${target}`);
-const output = path.join(__dirname, profile.output);
+const output = path.join(draftOutputRoot || __dirname, profile.output);
 const chrome = process.env.BLOOMSHOT_CHROME || (process.platform === 'win32' ? 'C:/Program Files/Google/Chrome/Application/chrome.exe' : undefined);
 const sourceCommit = cp.execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
+if (process.env.BLOOMSHOT_SOURCE_COMMIT && sourceCommit !== process.env.BLOOMSHOT_SOURCE_COMMIT) throw new Error('The requested frozen source commit is not checked out.');
+const gameSourceMatchesCommit = cp.spawnSync('git', ['diff', '--quiet', sourceCommit, '--', 'bloomshot'], { cwd: root }).status === 0;
+if (draftOutputRoot && !gameSourceMatchesCommit) throw new Error('Draft captures require the game files to match the recorded source commit.');
 const source = fs.readFileSync(path.join(gameRoot, 'app.js'), 'utf8');
 const sha256 = file => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 const sourceHashes = Object.fromEntries(fs.readdirSync(gameRoot).filter(name => /\.(?:js|html|css)$/.test(name)).map(name => [name, sha256(path.join(gameRoot, name))]));
@@ -48,6 +52,7 @@ let browser;
 
 async function main() {
   fs.mkdirSync(output, { recursive: true });
+  if (draftOutputRoot && target === 'google-play') fs.copyFileSync(path.join(__dirname, 'google-play/icon-512.png'), path.join(output, 'icon-512.png'));
   const origin = 'http://localhost';
   browser = await chromium.launch({ headless: true, executablePath: chrome, args: ['--autoplay-policy=no-user-gesture-required'] });
   const context = await browser.newContext({ viewport: { width: profile.width, height: profile.height }, deviceScaleFactor: profile.dpr, isMobile: true, hasTouch: true, serviceWorkers: 'block' });
@@ -90,8 +95,8 @@ async function main() {
     list.push({ file: name, description, width: metadata.width, height: metadata.height, channels: metadata.channels, sha256: sha256(file), state });
   };
   await page.clock.runFor(400);
-  if (target === 'google-play') await capture('extras/level-map.png', 'Optional campaign map, going from Sunny Meadow underground. QA profile has prior clears.', extras);
-  else if (target !== 'apple-iphone-1290') await capture('phone-1-level-map.png', 'Campaign map, going from Sunny Meadow underground. QA profile has prior clears.');
+  if (!draftOutputRoot && target === 'google-play') await capture('extras/level-map.png', 'Optional campaign map, going from Sunny Meadow underground. QA profile has prior clears.', extras);
+  else if (!draftOutputRoot && target !== 'apple-iphone-1290') await capture('phone-1-level-map.png', 'Campaign map, going from Sunny Meadow underground. QA profile has prior clears.');
   const start = async (level, wave = 1) => { await page.evaluate(({ level, wave }) => window.__storeCapture.startDepth(level, false, wave), { level, wave }); await page.clock.runFor(2200); };
   const pointer = async (x, y, down) => {
     const bounds = await page.locator('#game-canvas').boundingBox();
@@ -162,7 +167,7 @@ async function main() {
   const scenes = target === 'apple-iphone-1290' ? levelScenes : levelScenes.filter(scene => [1, 4, 10].includes(scene.level));
   for (const [index, scene] of scenes.entries()) {
     await renderScene(scene);
-    const name = target === 'apple-iphone-1290' ? `iphone-${String(scene.level).padStart(2, '0')}-${scene.slug}.png` : `phone-${index + 2}-${scene.slug}.png`;
+    const name = target === 'apple-iphone-1290' ? `iphone-${String(scene.level).padStart(2, '0')}-${scene.slug}.png` : `phone-${index + (draftOutputRoot ? 1 : 2)}-${scene.slug}.png`;
     await capture(name, `${scene.name}, level ${scene.level} wave ${scene.wave}: an actual launched seed and next-shot aim.${scene.power ? ' Dandelion powerup used against the final boss.' : ''} Authored wave selected in a disposable QA profile.`);
     await page.mouse.up();
     console.log(`Captured ${target}: ${scene.name}`);
@@ -193,7 +198,19 @@ async function main() {
   featureInfo = { file: 'feature-graphic.png', width: 1024, height: 500, channels: 3, sha256: sha256(feature), source: 'High-resolution BloomArt.draw frame from Sunny Meadow, cropped to upper playfield.' };
   }
   if (errors.length) throw new Error(`Browser errors: ${errors.join('\n')}`);
-  const manifest = { target, capturedAt: new Date().toISOString(), sourceCommit, sourceHashes, appJsSha256: sourceHashes['app.js'], browser: await browser.version(), viewport: { width: profile.width, height: profile.height, deviceScaleFactor: profile.dpr }, method: 'Actual current game in headless Chromium. Fresh localhost QA/mockstore profile, seeded randomness, virtual clock and a capture-only startDepth/state export. Each target is rerendered at its own viewport and DPR. No shipping code edits, fabricated art, added prices or changed mechanics. Play contains six direct captures and two clearly framed marketing composites of actual gameplay crops labelled only with real level names; Apple captures have no added labels. These are browser captures of the app UI, not evidence of an iOS native/device test.', specifications: target.startsWith('apple-') ? { url: 'https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications', verifiedOn: '2026-10-12', sizeClass: ['apple-iphone-large', 'apple-iphone-1290'].includes(target) ? 'iPhone with Dynamic Island (large display)' : target === 'apple-iphone-medium' ? 'iPhone with Dynamic Island (medium display)' : 'iPad 13-inch display' } : null, feature: featureInfo, iconSha256: target === 'google-play' ? sha256(path.join(output, 'icon-512.png')) : null, captures, extras };
+  const manifest = {
+    target, status: 'draft', ownerApproved: false, actualDeviceTested: false, purchaseVerified: false,
+    capturedAt: new Date().toISOString(), sourceCommit, gameSourceMatchesCommit, sourceHashes, appJsSha256: sourceHashes['app.js'],
+    captureScriptSha256: sha256(__filename), browser: await browser.version(),
+    viewport: { width: profile.width, height: profile.height, deviceScaleFactor: profile.dpr },
+    method: 'Local draft of the actual current game in headless Chromium. Fresh localhost QA/mockstore profile, seeded randomness, virtual clock and a capture-only startDepth/state export. Each target is rerendered at its own viewport and DPR. No shipping code edits, fabricated art, added prices or changed mechanics. Play contains six direct captures and two clearly framed marketing composites of actual gameplay crops labelled only with real level names; Apple captures have no added labels. Mock ownership only opens authored scenes; these images do not demonstrate purchases. These are browser captures of the app UI, not iOS simulator/native/device screenshots. Owner iPhone approval and native safe-area verification remain required.',
+    specifications: target.startsWith('apple-') ? {
+      url: 'https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications/', verifiedOn: '2026-10-15',
+      sizeClass: ['apple-iphone-large', 'apple-iphone-1290'].includes(target) ? 'iPhone with Dynamic Island (large display)' : target === 'apple-iphone-medium' ? 'iPhone with Dynamic Island (medium display)' : 'iPad 13-inch display',
+      requiredClass: ['apple-iphone-medium', 'apple-ipad-13'].includes(target)
+    } : null,
+    feature: featureInfo, iconSha256: target === 'google-play' ? sha256(path.join(output, 'icon-512.png')) : null, captures, extras
+  };
   for (const [name, hash] of Object.entries(sourceHashes)) if (sha256(path.join(gameRoot, name)) !== hash) throw new Error(`Game source changed during capture; rerun after edits finish: ${name}`);
   fs.writeFileSync(path.join(output, 'CAPTURE-MANIFEST.json'), JSON.stringify(manifest, null, 2) + '\n');
   const currentNames = new Set(captures.map(capture => capture.file));

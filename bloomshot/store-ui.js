@@ -54,13 +54,23 @@
     paintList();
   }
 
+  function restoredMessage(result) {
+    var messages = [], powers = result.consumables || {};
+    if (result.restored.length) messages.push('Restored ' + sentence(result.names && result.names.length ? result.names : result.restored) + '.');
+    else if (result.total > 0) messages.push('Your purchased unlocks are already restored.');
+    if (powers.delivered > 0) messages.push(powers.delivered === 1 ? 'Recovered one powerup purchase.' : 'Recovered ' + powers.delivered + ' powerup purchases.');
+    if (powers.pending > 0) messages.push((powers.pending === 1 ? 'One powerup purchase is' : powers.pending + ' powerup purchases are') + ' waiting to be saved. Make room if your bag is full, then reopen Bloomshot or try Restore again.');
+    if (result.confirmationPending > 0) messages.push('A purchase is still being confirmed. Reopen Bloomshot or try Restore purchases later.');
+    return messages.length ? messages.join(' ') : 'No purchases are available to restore. Powerups and local progress are not restored.';
+  }
+
   restore.addEventListener('click', async function () {
     restore.disabled = true; status.dataset.auto = '0';
     status.textContent = 'Checking with the store…';
     var result = await store.restore();
     restore.disabled = false;
     if (!result.ok) status.textContent = 'Could not reach the store. Check your connection and try again.';
-    else status.textContent = result.restored.length ? 'Restored ' + sentence(result.names && result.names.length ? result.names : result.restored) + '.' : 'No earlier purchases were found for this account.';
+    else status.textContent = restoredMessage(result);
   });
 
   store.subscribe(paint);

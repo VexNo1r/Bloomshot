@@ -225,9 +225,9 @@ const ledgerOf = storage => JSON.parse(storage.data['bloomshot.grants.v1']);
     const plugin = fakePlugin({ restoreTo: ['e_live'] });
     const store = Store.create(nativeEnv(plugin));
     const result = await store.restore();
-    assert.deepEqual(result, { ok: true, restored: ['e_live'], names: ['Live World'], total: 1 });
+    assert.deepEqual(result, { ok: true, restored: ['e_live'], names: ['Live World'], total: 1, consumables: { confirmed: 0, delivered: 0, pending: 0 }, confirmationPending: 0 });
     assert.equal(store.owns('e_live'), true);
-    assert.deepEqual(await store.restore(), { ok: true, restored: [], names: [], total: 1 });
+    assert.deepEqual(await store.restore(), { ok: true, restored: [], names: [], total: 1, consumables: { confirmed: 0, delivered: 0, pending: 0 }, confirmationPending: 0 });
   });
 
   await test('a refund is honored: the store answer replaces the cache on next launch', async () => {
@@ -330,7 +330,7 @@ const ledgerOf = storage => JSON.parse(storage.data['bloomshot.grants.v1']);
   await test('bundle: restore brings back every entitlement of a bundle bought earlier, and names them', async () => {
     const plugin = fakePlugin({ grants: GRANTS, restoreTo: ['e_a', 'e_b'] });
     const store = Store.create(bundleEnv(plugin));
-    assert.deepEqual(await store.restore(), { ok: true, restored: ['e_a', 'e_b'], names: ['World A', 'Style B'], total: 2 });
+    assert.deepEqual(await store.restore(), { ok: true, restored: ['e_a', 'e_b'], names: ['World A', 'Style B'], total: 2, consumables: { confirmed: 0, delivered: 0, pending: 0 }, confirmationPending: 0 });
     assert.equal(store.owns('e_a') && store.owns('e_b'), true);
     assert.equal(find(store, 'p.both').owned, true);
   });
@@ -347,11 +347,11 @@ const ledgerOf = storage => JSON.parse(storage.data['bloomshot.grants.v1']);
     again.dev.forgetLocal(); // the device lost its ownership, the account still has the purchase
     assert.equal(again.owns('e_a') || again.owns('e_b'), false);
     const restored = await again.restore();
-    assert.deepEqual(restored, { ok: true, restored: ['e_a', 'e_b'], names: ['World A', 'Style B'], total: 2 });
+    assert.deepEqual(restored, { ok: true, restored: ['e_a', 'e_b'], names: ['World A', 'Style B'], total: 2, consumables: { confirmed: 0, delivered: 0, pending: 0 }, confirmationPending: 0 });
     assert.equal(again.owns('e_a') && again.owns('e_b'), true);
-    assert.deepEqual(await again.restore(), { ok: true, restored: [], names: [], total: 2 });
+    assert.deepEqual(await again.restore(), { ok: true, restored: [], names: [], total: 2, consumables: { confirmed: 0, delivered: 0, pending: 0 }, confirmationPending: 0 });
     again.dev.reset(); // a fresh store account has nothing to restore
-    assert.deepEqual(await again.restore(), { ok: true, restored: [], names: [], total: 0 });
+    assert.deepEqual(await again.restore(), { ok: true, restored: [], names: [], total: 0, consumables: { confirmed: 0, delivered: 0, pending: 0 }, confirmationPending: 0 });
     assert.equal(again.owns('e_a'), false);
   });
 
@@ -764,6 +764,42 @@ const ledgerOf = storage => JSON.parse(storage.data['bloomshot.grants.v1']);
     }
     assert.equal(products.find(p => p.id === 'bloomshot.pack.bag20').count, 20);
     assert(!products.some(p => p.id === 'bloomshot.pack.bag12'), 'retired twelve-pack is not offered');
+  });
+
+  await test('Restore distinguishes newly confirmed powerups from saved grants and does not report them twice', async () => {
+    const plugin = powerPlugin({ mode: 'pending' }), store = Store.create(powerEnv(plugin)), saved = [];
+    store.onConsumable(grant => { saved.push(grant); return true; }); await store.init();
+    assert.equal((await store.purchase('p.rain')).reason, 'pending'); plugin.charge('p.rain');
+    const result = await store.restore();
+    assert.deepEqual(result.consumables, { confirmed: 1, delivered: 1, pending: 0 }); assert.equal(result.confirmationPending, 0); assert.equal(result.total, 0);
+    assert.deepEqual(saved.map(g => [g.productId, g.count]), [['p.rain', 3]]);
+    assert.deepEqual((await store.restore()).consumables, { confirmed: 0, delivered: 0, pending: 0 }); assert.equal(saved.length, 1);
+  });
+
+  await test('Restore reports a confirmed but unaccepted grant as owed, never as delivered', async () => {
+    const plugin = powerPlugin({ mode: 'pending' }), store = Store.create(powerEnv(plugin)); await store.init();
+    store.onConsumable(() => false); await store.purchase('p.bomb'); plugin.charge('p.bomb');
+    const result = await store.restore();
+    assert.deepEqual(result.consumables, { confirmed: 1, delivered: 0, pending: 1 }); assert.equal(result.confirmationPending, 0);
+    assert.equal(store.pendingGrants()[0].transaction, 'GPA.1');
+  });
+
+  await test('Restore retries an already owed grant after the game can save, without another payment or receipt replay', async () => {
+    const plugin = powerPlugin(), store = Store.create(powerEnv(plugin)); let saving = false, accepted = 0;
+    store.onConsumable(() => { if (saving) accepted++; return saving; }); await store.init(); await store.purchase('p.rain');
+    assert.deepEqual((await store.restore()).consumables, { confirmed: 0, delivered: 0, pending: 1 });
+    saving = true;
+    assert.deepEqual((await store.restore()).consumables, { confirmed: 0, delivered: 1, pending: 0 }); assert.equal(accepted, 1);
+    assert.deepEqual((await store.restore()).consumables, { confirmed: 0, delivered: 0, pending: 0 }); assert.equal(accepted, 1);
+    assert.equal(plugin.calls.filter(c => c[0] === 'purchase').length, 1);
+  });
+
+  await test('Restore reports an unresolved payment separately and preserves its durable intent', async () => {
+    const plugin = powerPlugin({ mode: 'pending' }), env = powerEnv(plugin), store = Store.create(env); await store.init(); await store.purchase('p.bomb');
+    const result = await store.restore();
+    assert.deepEqual(result.consumables, { confirmed: 0, delivered: 0, pending: 0 }); assert.equal(result.confirmationPending, 1);
+    assert.equal(ledgerOf(env.storage).inflight.length, 1); assert.equal((await store.purchase('p.bomb')).reason, 'confirmation-pending');
+    assert.equal(plugin.calls.filter(c => c[0] === 'purchase').length, 1);
   });
 
   const failed = results.filter(r => !r.passed);
