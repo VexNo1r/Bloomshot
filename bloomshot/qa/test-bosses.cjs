@@ -178,6 +178,18 @@ test('Lantern Lily crits once through her lantern, gutters it five seconds and f
   const lane=lanes[0];g.spawnBall({x:lane.x,y:lane.y,angle:-Math.PI/2,speed:520});const seed=g.balls.at(-1);advance(g,1/60);
   assert(Math.abs(seed.vx)>1,'a real seed bends in the whirlpool');assert(Math.abs(Math.hypot(seed.vx,seed.vy)-520)<1e-6);
 });
+test('Lantern Lily marks only the whirlpool and the real flowers she lifts', () => {
+  const g=new RushGame({plan:bot.plan(5),startWave:10});g.started=true;g.status='flying';
+  g.descentSpeed=0;g.drops=[];g.bossState.boss.bossFall=0;g.bossState.next=0;advance(g,1/120);
+  const w=g.bossWarning,marks=w.targets.filter(t=>!t.effect);
+  assert.deepEqual(marks.map(t=>t.role),['swirl'],'no footprint warns of an obsolete lure attack');
+  assert(w.flowerTargets.length>0,'the real ordinary-flower lift still has targets');
+  const lifted=w.flowerTargets.map(t=>g.buds.find(p=>p.id===t.id)),ys=lifted.map(p=>p.y);
+  while(g.time<w.until+1/120)g.step(1/120);
+  assert.equal(g.currents.filter(p=>p.bossSwirl).length,8,'the warned whirlpool still activates');
+  assert(lifted.every(p=>p.bossFlowerEffect?.kind==='lotus'),'each flower mark becomes its promised effect');
+  advance(g,.5);assert(lifted.every((p,i)=>p.y<ys[i]),'the marked colliders rise');
+});
 test('Ammonite Queen needs the mouth click, then a second aligned ring before taking damage', () => {
   const g=arena(6),s=g.bossState,b=s.boss,hp=b.hp; b.shellAngle=Math.PI/2; b.shellSpin=0; s.lockAngle=Math.PI/2;
   hit(g,b); assert.equal(b.hp,hp); assert.equal(s.lockStage,1); assert.equal(s.mode,'lock-plates');

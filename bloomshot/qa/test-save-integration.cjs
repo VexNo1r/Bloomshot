@@ -826,7 +826,7 @@ test('Played through on the real board, the tutorial finishes in under 46 second
   app.click('tutorial-go');
   const game = depthGame(app); assert.equal(game.plan.id, 1); assert.equal(app.context.document.body.dataset.tutorial, '');
   assert.equal(app.$('tutorial').hidden, true); assert.equal(app.saved().tutorial, true); assert.equal(app.saved().powersMet, true, 'no powerups tip after learning them');
-  assert.notEqual(app.$('toast').textContent, 'New: powerups! Tap one above the board, then fire.');
+  assert.notEqual(app.$('toast').textContent, 'New: powerups! Tap one above Split, then fire.');
   assert.equal(boot(app.saved()).context.bloomshotState.route, 'levels', 'it plays once');
 });
 test('While a card waits, only the control it names works; anything else just nudges the card', () => {
@@ -993,9 +993,9 @@ test('A save from before powerups starts with one of each, and counts survive a 
 });
 test('The powerups tip waits for the first level, not the level map', () => {
   const app = boot(legacySave());
-  assert.equal(app.saved().powersMet, false); assert.notEqual(app.$('toast').textContent, 'New: powerups! Tap one above the board, then fire.');
+  assert.equal(app.saved().powersMet, false); assert.notEqual(app.$('toast').textContent, 'New: powerups! Tap one above Split, then fire.');
   app.click('depth-map', { depth: '1' });
-  assert.equal(app.$('toast').textContent, 'New: powerups! Tap one above the board, then fire.'); assert.equal(app.saved().powersMet, true);
+  assert.equal(app.$('toast').textContent, 'New: powerups! Tap one above Split, then fire.'); assert.equal(app.saved().powersMet, true);
 });
 test('Picking a powerup and firing spends exactly one; picking it again first puts it back', () => {
   const app = boot(cleared(1)); app.click('depth-map', { depth: '1' });

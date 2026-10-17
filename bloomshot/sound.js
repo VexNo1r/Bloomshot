@@ -57,7 +57,7 @@
   const FLOWER_VOICES = { gold: ['bell', 1], coral: ['marimba', 1], lilac: ['harp', 0.88], sky: ['glass', 0.8], poppy: ['pan', 0.9] };
   // Short noise transients under the notes: [bandpass Hz, seconds, level]. Every band stays at or under 3.6 kHz.
   const CRUNCH = { crack: [1200, 0.03, 0.09], pop: [2000, 0.025, 0.07], thock: [300, 0.02, 0.12], click: [2400, 0.012, 0.06], burst: [1800, 0.16, 0.11] };
-  let context, master, cueBus = null, sends = null, enabled = true, resuming = null;
+  let context, master, cueBus = null, sends = null, enabled = true, resuming = null, suspending = null;
   // The master fade is tracked here, so every new fade starts exactly where the last one is now.
   // (A ramp with no anchor before it would start from the context's time zero and jump: a click.)
   let fade = { from: 0, to: 0, start: 0, end: 0 };
@@ -176,21 +176,33 @@
     for (const key of Object.keys(recent)) delete recent[key];
   }
   function flush() {
-    if (!context || context.state !== 'running' || !enabled) return;
+    if (!context || context.state !== 'running' || !enabled || asleep) return;
     const queued = waiting; waiting = [];
     for (const event of queued) if (Date.now() - event.at < 200) play(event.type, event.data);
   }
   function wake() {
-    if (!enabled) return;
+    if (!enabled || asleep) return;
     try {
       if (!context || context.state === 'closed') {
         for (const voice of voices) release(voice, true);
-        voices.clear(); resuming = null; sends = null; createContext();
+        voices.clear(); resuming = null; suspending = null; sends = null; createContext();
       }
-      if (!context) return;
+      // A quick return can arrive before the audio thread finishes suspending. Its completion wakes us;
+      // checking state here alone would see 'running', then leave the returning game silent.
+      if (!context || suspending) return;
       if (context.state === 'running') { flush(); return; }
       if (!resuming) {
-        resuming = Promise.resolve(context.resume()).then(() => { resuming = null; flush(); }, () => { resuming = null; waiting = []; });
+        const owner = context, task = Promise.resolve(owner.resume()); resuming = task;
+        task.then(() => {
+          if (resuming !== task) return;
+          resuming = null;
+          if (context !== owner) return;
+          if (asleep) suspendContext(); else flush();
+        }, () => {
+          if (resuming !== task) return;
+          resuming = null; waiting = [];
+          if (context === owner && asleep) suspendContext();
+        });
       }
     } catch (_) { waiting = []; /* Audio failure never interrupts play. */ }
   }
@@ -399,9 +411,9 @@
     ember: ['marimba', 3, 1], geode: ['wood', 0, -3], briar: ['harp', 1, 3], core: ['chime', 5, 2]
   };
   function play(type, data = {}) {
-    if (!enabled || !context) return;
+    if (!enabled || !context || asleep) return;
     if (!data || typeof data !== 'object') data = {};
-    if (context.state !== 'running') {
+    if (context.state !== 'running' || suspending) {
       // Keep the first gesture's sound through resume, not a backlog of old audio.
       if (waiting.length < 8) {
         const kept = { x: data.bud ? data.bud.x : data.x, bud: data.bud ? { x: data.bud.x, type: data.bud.type } : undefined };
@@ -1263,12 +1275,25 @@
     const now = context.currentTime, track = mixer.bus;
     laneHold(track, now); laneRamp(track, now + 0.03, MUSIC_BUS * DUCK); laneSet(track, now + 0.28, MUSIC_BUS * DUCK); laneRamp(track, now + 0.5, MUSIC_BUS);
   }
+  function suspendContext() {
+    if (!context || context.state === 'closed' || suspending || resuming || typeof context.suspend !== 'function') return;
+    const owner = context;
+    try {
+      const task = Promise.resolve(owner.suspend()); suspending = task;
+      const finished = () => {
+        if (suspending !== task) return;
+        suspending = null;
+        if (context === owner && !asleep) wake();
+      };
+      task.then(finished, finished);
+    } catch (_) { /* A refused suspension must not interrupt play. */ }
+  }
   function sleep(hidden) {
-    if (!context || context.state === 'closed') return;
+    if (!context || context.state === 'closed') { asleep = Boolean(hidden); if (asleep) waiting = []; return; }
     if (hidden) {
       if (asleep) return;
-      asleep = true;
-      try { if (typeof context.suspend === 'function') Promise.resolve(context.suspend()).catch(() => {}); } catch (_) {}
+      asleep = true; waiting = [];
+      suspendContext();
     } else if (asleep) { asleep = false; wake(); }
   }
   // The chord the music is playing right now, or null when no music is sounding.

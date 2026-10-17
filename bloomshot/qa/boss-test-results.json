@@ -1,5 +1,5 @@
 {
-  "passed": 35,
+  "passed": 36,
   "failed": 0,
   "results": [
     {
@@ -64,6 +64,10 @@
     },
     {
       "name": "Lantern Lily crits once through her lantern, gutters it five seconds and forms a whirlpool",
+      "passed": true
+    },
+    {
+      "name": "Lantern Lily marks only the whirlpool and the real flowers she lifts",
       "passed": true
     },
     {

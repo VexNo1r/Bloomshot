@@ -1,14 +1,18 @@
-# Compiles the iOS app for the simulator with no Apple account and no signing. It proves the project
-# builds; the result cannot be installed on a real iPhone. Capacitor 8 needs Xcode 26 or newer, so the
+# Compiles and launches the iOS app in a simulator with no Apple account and no signing.
+# The result cannot be installed on a real iPhone. Capacitor 8 needs Xcode 26 or newer, so the
 # first step prints the runner's Xcode version: if it is older, switch to a newer macOS image.
 name: iOS simulator build
 
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: macos-latest
+    timeout-minutes: 35
     defaults:
       run:
         working-directory: native
@@ -35,3 +39,126 @@ jobs:
           test -f "$app/PrivacyInfo.xcprivacy" || { echo "::error::PrivacyInfo.xcprivacy is not in the built app"; exit 1; }
           grep -q NSPrivacyAccessedAPICategoryUserDefaults "$app/PrivacyInfo.xcprivacy"
           test -f "$app/public/native.js" || { echo "::error::native.js is not in the built app"; exit 1; }
+
+      # This is a simulator startup check, not real-phone performance, signing or billing acceptance.
+      # A fresh temporary simulator keeps its save and diagnostics separate from any existing device.
+      - name: Boot, install and launch the app in an iPhone simulator
+        id: smoke
+        env:
+          BLOOMSHOT_SMOKE_DIR: ${{ runner.temp }}/bloomshot-ios-simulator-smoke
+        run: |
+          python3 <<'PY'
+          import json, os, pathlib, plistlib, re, subprocess, time
+
+          output = pathlib.Path(os.environ['BLOOMSHOT_SMOKE_DIR'])
+          output.mkdir(parents=True, exist_ok=True)
+          app = pathlib.Path('ios/DerivedData/Build/Products/Debug-iphonesimulator/App.app').resolve()
+          report = {
+              'source_commit': os.environ['GITHUB_SHA'],
+              'workflow_run': os.environ['GITHUB_RUN_ID'],
+              'scope': 'Unsigned iOS simulator startup only; no phone, frame-rate, signing or purchase acceptance.',
+              'status': 'running', 'commands': [], 'cleanup': [],
+          }
+          device = None
+
+          def clean(value):
+              # Keep diagnostics limited to this fresh test, without runner/user paths.
+              value = str(value)
+              for variable in ('RUNNER_TEMP', 'GITHUB_WORKSPACE', 'HOME'):
+                  prefix = os.environ.get(variable)
+                  if prefix:
+                      value = value.replace(prefix, '$' + variable)
+              return value
+
+          def run(label, args, timeout=60):
+              started = time.monotonic()
+              item = {'step': label}
+              report['commands'].append(item)
+              try:
+                  result = subprocess.run(args, text=True, stdout=subprocess.PIPE,
+                                          stderr=subprocess.PIPE, timeout=timeout)
+                  item.update(exit_code=result.returncode, seconds=round(time.monotonic() - started, 2))
+                  if result.returncode:
+                      # These are simctl tool diagnostics, never raw application/system logs.
+                      item['diagnostic'] = clean(result.stderr or result.stdout)[-4000:]
+                      raise RuntimeError(label + ' failed (exit ' + str(result.returncode) + ').')
+                  return result.stdout
+              except subprocess.TimeoutExpired:
+                  item.update(timed_out=True, seconds=round(time.monotonic() - started, 2))
+                  raise RuntimeError(label + ' exceeded its ' + str(timeout) + '-second limit.')
+
+          try:
+              info = plistlib.loads((app / 'Info.plist').read_bytes())
+              app_id = info.get('CFBundleIdentifier')
+              if app_id != 'dev.bloomshot.game':
+                  raise RuntimeError('Built app has an unexpected bundle identifier.')
+              report['bundle_identifier'] = app_id
+
+              runtimes = json.loads(run('List available runtimes', ['xcrun', 'simctl', 'list', 'runtimes', '--json']))['runtimes']
+              devices = json.loads(run('List available devices', ['xcrun', 'simctl', 'list', 'devices', 'available', '--json']))['devices']
+              choices = []
+              for runtime in runtimes:
+                  identifier = runtime.get('identifier', '')
+                  version = tuple(int(n) for n in re.findall(r'\d+', runtime.get('version', '')))
+                  if not runtime.get('isAvailable') or '.iOS-' not in identifier or version < (15,):
+                      continue
+                  for candidate in devices.get(identifier, []):
+                      if (candidate.get('isAvailable') and candidate.get('name', '').startswith('iPhone')
+                              and candidate.get('deviceTypeIdentifier')):
+                          choices.append((version, runtime, candidate))
+              if not choices:
+                  raise RuntimeError('No available iOS 15-or-newer iPhone simulator runtime/device type was found.')
+              newest = max(choice[0] for choice in choices)
+              _, runtime, template = sorted((choice for choice in choices if choice[0] == newest),
+                                            key=lambda choice: (choice[2]['name'] != 'iPhone 13', choice[2]['name']))[0]
+              report['simulator'] = {'device_name': template['name'], 'runtime': runtime['name'],
+                                     'runtime_version': runtime['version']}
+              name = 'Bloomshot smoke ' + os.environ['GITHUB_RUN_ID'] + '-' + os.environ['GITHUB_RUN_ATTEMPT']
+              created = run('Create isolated simulator', ['xcrun', 'simctl', 'create', name,
+                            template['deviceTypeIdentifier'], runtime['identifier']]).strip()
+              if not re.fullmatch(r'[A-Fa-f0-9]{8}(?:-[A-Fa-f0-9]{4}){3}-[A-Fa-f0-9]{12}', created):
+                  raise RuntimeError('simctl did not return a usable simulator UUID.')
+              device = created
+              run('Boot simulator', ['xcrun', 'simctl', 'boot', device])
+              run('Wait for simulator boot', ['xcrun', 'simctl', 'bootstatus', device, '-b'], timeout=240)
+              run('Install current built app', ['xcrun', 'simctl', 'install', device, str(app)], timeout=120)
+              launch = run('Launch app', ['xcrun', 'simctl', 'launch', device, app_id]).strip()
+              match = re.fullmatch(re.escape(app_id) + r':\s*(\d+)', launch)
+              if not match:
+                  raise RuntimeError('simctl launch did not return the expected application process.')
+              report['launch_process_id'] = int(match.group(1))
+              time.sleep(8)
+              run('Capture startup screenshot', ['xcrun', 'simctl', 'io', device, 'screenshot',
+                                                '--type=png', str(output / 'startup.png')], timeout=30)
+              if not (output / 'startup.png').is_file() or (output / 'startup.png').stat().st_size == 0:
+                  raise RuntimeError('The simulator did not produce a startup screenshot.')
+              report['screenshot_after_launch_seconds'] = 8
+              report['status'] = 'passed'
+              report['visual_review_required'] = 'Inspect startup.png for the actual game screen; process launch alone cannot prove gameplay.'
+          except Exception as error:
+              report['status'] = 'failed'
+              report['error'] = clean(error)
+              raise
+          finally:
+              if device:
+                  for operation in ('shutdown', 'delete'):
+                      try:
+                          result = subprocess.run(['xcrun', 'simctl', operation, device], text=True,
+                                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
+                          report['cleanup'].append({'operation': operation, 'exit_code': result.returncode})
+                          if result.returncode:
+                              print('::warning::Temporary simulator ' + operation + ' did not complete.')
+                      except subprocess.TimeoutExpired:
+                          report['cleanup'].append({'operation': operation, 'timed_out': True})
+                          print('::warning::Temporary simulator ' + operation + ' timed out.')
+              (output / 'startup-diagnostics.json').write_text(json.dumps(report, indent=2) + '\n')
+          PY
+
+      - name: Keep simulator startup evidence
+        if: always() && (steps.smoke.outcome == 'success' || steps.smoke.outcome == 'failure')
+        uses: actions/upload-artifact@v4
+        with:
+          name: bloomshot-ios-simulator-startup
+          path: ${{ runner.temp }}/bloomshot-ios-simulator-smoke
+          if-no-files-found: error
+          retention-days: 7

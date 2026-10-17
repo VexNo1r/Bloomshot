@@ -272,7 +272,7 @@
         if (game.buds.every(p => p.bloomed || p.hidden || Math.hypot(p.x - x,p.y - 70) > p.r + 40)) targets.push({ x,y:70,r:32,role:'shard' });
       }
     }
-    if (kind === 'lotus') { targets = [{ x: 210, y: 305, r: 50, role: 'swirl' }]; const lure = game.buds.filter(p => !p.bloomed && !p.boss && !p.bossPart && !p.puff).sort((a, z) => z.y - a.y)[0]; if (lure) { s.lureGroup = lure.group; targets.push({ x: lure.x, y: lure.y, r: 24, role: 'lure' }); } }
+    if (kind === 'lotus') targets = [{ x: 210, y: 305, r: 50, role: 'swirl' }];
     if (kind === 'fossil') { targets = [{ x: b.x, y: b.y, r: b.r + 12, role: 'lock' },{ x:s.action%2?128:292,y:b.y,r:b.r,role:'station' }]; }
     if (kind === 'ember') { const destination=s.action%2?128:292; targets = [{ x:(b.x+destination)/2,y:b.y+44,r:b.r,role:'dive' },{ x:destination,y:b.y,r:b.r,role:'alcove' }];
     }
@@ -392,7 +392,6 @@
     }
     game.bumpers = game.bumpers.filter(p => !p.bossWall || p.expires > s.age);
     game.currents = game.currents.filter(p => !p.bossSwirl || p.expires > s.age);
-    for (const p of game.buds) if (p.bossLureUntil > s.age && !p.bloomed && !(game.lullaby > 0)) p.y += 6 * dt;
     // Ignited clusters visibly hurry for three seconds; Lullaby freezes them with every other flower.
     for (const p of game.buds) if (p.bossFlameUntil > s.age && !p.bloomed && !(game.lullaby > 0)) p.y += game.descentSpeed * (p.fall || 1) * .25 * dt;
     if (game.lullaby > 0) { s.next += dt; if (s.warning) s.warning.until += dt; if(s.flowerWarning)s.flowerWarning.until+=dt; }
@@ -490,7 +489,7 @@
     clearFlowerEffects(game,s);
     s.warning = null; game.bossWarning = null; s.boss.bossWarning = null;
     game.bumpers = game.bumpers.filter(p => !p.bossWall); game.currents = game.currents.filter(p => !p.bossSwirl);
-    for(const p of game.buds) { p.bossFlameUntil=0;p.bossLureUntil=0; }
+    for(const p of game.buds) p.bossFlameUntil=0;
     if (s.kind === 'crystal' && s.boss.bloomed) {
       const heart = s.parts.find(p => p.real); if (heart) { s.boss.x = heart.x; s.boss.y = heart.y; }
       s.boss.hidden = false; s.boss.visible = true;

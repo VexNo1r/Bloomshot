@@ -1,10 +1,10 @@
 {
   "passed": true,
-  "testedAt": "2026-10-16T21:11:25.464Z",
+  "testedAt": "2026-10-17T03:05:58.239Z",
   "node": "v24.20.0",
-  "workerSha256": "35e8f72956f42ebe4ce928b113eb68277c520fca60d2dd0a03afff2f7c213762",
+  "workerSha256": "ddfcd0b65b4149b8d65d9f623edddfc4658b1e5ee3433a41b0fbddbb5290351e",
   "maxConnections": 3,
-  "workerVersion": "codex-garden-20261016-1",
+  "workerVersion": "codex-garden-20261016-2",
   "assetCount": 37,
   "imageCount": 6,
   "negativeControl": {
@@ -13,29 +13,29 @@
     "consumed": 0,
     "bytes": 0,
     "peakConnections": 3,
-    "elapsedMs": 298.97
+    "elapsedMs": 281.21
   },
   "actualInstall": {
     "headers": 37,
     "consumed": 37,
-    "bytes": 1612268,
+    "bytes": 1613021,
     "peakConnections": 3,
     "cached": 37,
-    "elapsedMs": 68.88,
+    "elapsedMs": 78.43,
     "deadlineMs": 15000,
     "allBodyHashesMatch": true
   },
   "assets": [
     {
       "path": "/",
-      "bytes": 30149,
-      "sha256": "2f0c4c38c54297f1f46a50aea7ade3844a49af9a61ee9bf5a31204693695e15a",
+      "bytes": 30145,
+      "sha256": "7b6f80d79f474e285a1122b09fa17c8d4735e6261077fcec3dbd525709a014e3",
       "type": "text/html; charset=utf-8"
     },
     {
       "path": "/index.html",
-      "bytes": 30149,
-      "sha256": "2f0c4c38c54297f1f46a50aea7ade3844a49af9a61ee9bf5a31204693695e15a",
+      "bytes": 30145,
+      "sha256": "7b6f80d79f474e285a1122b09fa17c8d4735e6261077fcec3dbd525709a014e3",
       "type": "text/html; charset=utf-8"
     },
     {
@@ -118,8 +118,8 @@
     },
     {
       "path": "/bosses.js",
-      "bytes": 37861,
-      "sha256": "c9673466e16331b6d929b5807ddcace6af332a9775206f6f2b148da50bbc6a8a",
+      "bytes": 37508,
+      "sha256": "d05e0830b20b9cdd08df5db1193102c8ee4aeed6fb86a7a3df2cc63ae7f03c58",
       "type": "text/javascript; charset=utf-8"
     },
     {
@@ -166,8 +166,8 @@
     },
     {
       "path": "/sound.js",
-      "bytes": 92416,
-      "sha256": "6333cfc7e8ee0978515069321c8d23985f347947f0eba9f6fc660d5407314e14",
+      "bytes": 93554,
+      "sha256": "591def15ad7ba007097c425c64fb8d2117367a3cfa931acd5302d8cdff7a421c",
       "type": "text/javascript; charset=utf-8"
     },
     {
@@ -178,8 +178,8 @@
     },
     {
       "path": "/app.js",
-      "bytes": 213600,
-      "sha256": "8d8e2c50e17487c40fe37d053e36ace38c6fa9ec2f9bdfefb5f015593bcef173",
+      "bytes": 213576,
+      "sha256": "286b45ec11419d91d98151661dc045d1856f823387fb97f4f5594f373e4e7407",
       "type": "text/javascript; charset=utf-8"
     },
     {
