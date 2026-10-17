@@ -133,6 +133,34 @@ jobs:
               if not (output / 'startup.png').is_file() or (output / 'startup.png').stat().st_size == 0:
                   raise RuntimeError('The simulator did not produce a startup screenshot.')
               report['screenshot_after_launch_seconds'] = 8
+              container = pathlib.Path(run('Find app data container', ['xcrun', 'simctl', 'get_app_container', device, app_id, 'data'], timeout=30).strip()).resolve()
+              device_data = (pathlib.Path.home() / 'Library/Developer/CoreSimulator/Devices' / device / 'data/Containers/Data/Application').resolve()
+              if container.parent != device_data or not container.is_dir():
+                  raise RuntimeError('The app data container is outside the isolated simulator.')
+              preferences = (container / 'Library/Preferences' / (app_id + '.plist')).resolve()
+              if not preferences.is_relative_to(container):
+                  raise RuntimeError('The Preferences plist is outside the app container.')
+              deadline, backup, stored = time.monotonic() + 15, {}, None
+              while time.monotonic() < deadline:
+                  try:
+                      stored = plistlib.loads(preferences.read_bytes()).get('CapacitorStorage.bloomshot.save.v1')
+                      backup = json.loads(stored) if isinstance(stored, str) else {}
+                      if isinstance(backup, dict) and backup.get('version') == 1:
+                          break
+                  except (FileNotFoundError, ValueError, plistlib.InvalidFileException):
+                      pass
+                  time.sleep(0.5)
+              backup = backup if isinstance(backup, dict) else {}
+              settings = backup.get('settings') if isinstance(backup.get('settings'), dict) else {}
+              powers = backup.get('powers') if isinstance(backup.get('powers'), dict) else {}
+              counts = {key: powers.get(key) if type(powers.get(key)) is int and 0 <= powers[key] <= 999 else None
+                        for key in ('sunburst', 'dandelion', 'beeline', 'lullaby')}
+              report['native_preferences_backup'] = {'present': isinstance(stored, str) and bool(stored),
+                  'version_1': backup.get('version') == 1, 'maximum_graphics': settings.get('graphics') == 'maximum',
+                  'frame_rate_off': settings.get('frameRate') is False, 'power_counts': counts}
+              if (not all(value for key, value in report['native_preferences_backup'].items() if key != 'power_counts')
+                      or not all(count == 1 for count in counts.values())):
+                  raise RuntimeError('Native Preferences backup did not contain the fresh version-1 save, graphics defaults and starter powers.')
               report['status'] = 'passed'
               report['visual_review_required'] = 'Inspect startup.png for the actual game screen; process launch alone cannot prove gameplay.'
           except Exception as error:

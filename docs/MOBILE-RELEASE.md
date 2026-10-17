@@ -25,7 +25,7 @@ PR #31 includes main after the #30 merge. Its checks must pass against current m
 | iOS distribution | Archive/export/upload workflow prepared. No real certificate/profile import, signed Release export, Apple upload, TestFlight installation or sandbox purchase is verified. |
 | Android return path | MainActivity now uses singleTop. The packaging guard rejects singleTask, following [RevenueCat's bank-verification return requirement](https://www.revenuecat.com/docs/getting-started/installation/capacitor). Actual banking-app return remains a sandbox test. |
 
-This independent release branch deliberately does not contain unmerged game revisions; its older local catalog is not the launch configuration. The approved game update supplies [Product setup](store/PRODUCT-SETUP.md) and [Sandbox test plan](store/SANDBOX-TEST-PLAN.md).
+The native release preparation is merged, while PR #31 contains the current game and approved catalog. Use that PR's [Product setup](store/PRODUCT-SETUP.md) and [Sandbox test plan](store/SANDBOX-TEST-PLAN.md); verify the final merged catalog before configuring store products.
 
 ## iPhone first
 
