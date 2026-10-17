@@ -57,7 +57,7 @@
   const FLOWER_VOICES = { gold: ['bell', 1], coral: ['marimba', 1], lilac: ['harp', 0.88], sky: ['glass', 0.8], poppy: ['pan', 0.9] };
   // Short noise transients under the notes: [bandpass Hz, seconds, level]. Every band stays at or under 3.6 kHz.
   const CRUNCH = { crack: [1200, 0.03, 0.09], pop: [2000, 0.025, 0.07], thock: [300, 0.02, 0.12], click: [2400, 0.012, 0.06], burst: [1800, 0.16, 0.11] };
-  let context, master, cueBus = null, sends = null, enabled = true, resuming = null;
+  let context, master, cueBus = null, sends = null, enabled = true, resuming = null, suspending = null;
   // The master fade is tracked here, so every new fade starts exactly where the last one is now.
   // (A ramp with no anchor before it would start from the context's time zero and jump: a click.)
   let fade = { from: 0, to: 0, start: 0, end: 0 };
@@ -176,21 +176,33 @@
     for (const key of Object.keys(recent)) delete recent[key];
   }
   function flush() {
-    if (!context || context.state !== 'running' || !enabled) return;
+    if (!context || context.state !== 'running' || !enabled || asleep) return;
     const queued = waiting; waiting = [];
     for (const event of queued) if (Date.now() - event.at < 200) play(event.type, event.data);
   }
   function wake() {
-    if (!enabled) return;
+    if (!enabled || asleep) return;
     try {
       if (!context || context.state === 'closed') {
         for (const voice of voices) release(voice, true);
-        voices.clear(); resuming = null; sends = null; createContext();
+        voices.clear(); resuming = null; suspending = null; sends = null; createContext();
       }
-      if (!context) return;
+      // A quick return can arrive before the audio thread finishes suspending. Its completion wakes us;
+      // checking state here alone would see 'running', then leave the returning game silent.
+      if (!context || suspending) return;
       if (context.state === 'running') { flush(); return; }
       if (!resuming) {
-        resuming = Promise.resolve(context.resume()).then(() => { resuming = null; flush(); }, () => { resuming = null; waiting = []; });
+        const owner = context, task = Promise.resolve(owner.resume()); resuming = task;
+        task.then(() => {
+          if (resuming !== task) return;
+          resuming = null;
+          if (context !== owner) return;
+          if (asleep) suspendContext(); else flush();
+        }, () => {
+          if (resuming !== task) return;
+          resuming = null; waiting = [];
+          if (context === owner && asleep) suspendContext();
+        });
       }
     } catch (_) { waiting = []; /* Audio failure never interrupts play. */ }
   }
@@ -391,10 +403,17 @@
   const LEVEL_GROOVES = [null, 'meadow', 'roots', 'grotto', 'crystal', 'lake', 'fossil', 'ember', 'geode', 'briar', 'core'];
   // The relative minor of a chord, for the darker colors (danger toms, the boss): C and A go to A, D and F to D, the rest to E.
   const MINOR_OF = [5, 1, 2, 1, 2, 5, 2];
+  // One recognizable two-note warning, colored by the guardian using the existing C-major instruments.
+  // This is an immediate response to the controller's telegraph event, never a delayed attack cue.
+  const BOSS_WARNINGS = {
+    sunny: ['marimba', 1, -1], root: ['wood', -3, -5], puff: ['drop', 2, 0],
+    crystal: ['glass', 4, 2], lotus: ['drop', 5, 4], fossil: ['bell', 0, -2],
+    ember: ['marimba', 3, 1], geode: ['wood', 0, -3], briar: ['harp', 1, 3], core: ['chime', 5, 2]
+  };
   function play(type, data = {}) {
-    if (!enabled || !context) return;
+    if (!enabled || !context || asleep) return;
     if (!data || typeof data !== 'object') data = {};
-    if (context.state !== 'running') {
+    if (context.state !== 'running' || suspending) {
       // Keep the first gesture's sound through resume, not a backlog of old audio.
       if (waiting.length < 8) {
         const kept = { x: data.bud ? data.bud.x : data.x, bud: data.bud ? { x: data.bud.x, type: data.bud.type } : undefined };
@@ -482,6 +501,28 @@
     // with a full rising chord, and reinforcements land with two small plops.
     else if (type === 'puff' && allowed('puff', 0.12)) { note(hz(-5), 0, 0.2, 0.08, pan, 'drop'); note(hz(14), 0.06, 0.26, 0.04, pan, 'chime'); note(hz(21), 0.12, 0.22, 0.028, pan, 'chime'); }
     else if (type === 'shield' && allowed('shield', 0.09)) { note(hz(16), 0, 0.08, 0.07, pan, 'marimba', 0); note(hz(11), 0.035, 0.1, 0.058, pan, 'marimba', 0); }
+    else if (type === 'bossWarning' && allowed('bossWarning', 0.35)) {
+      const [style, first, second] = BOSS_WARNINGS[data.kind] || BOSS_WARNINGS.sunny;
+      duck(); // Briefly make room in the music so a quiet warning still reads during an active boss fight.
+      // Reserved result-priority room lets the warning begin during a busy bloom chain. The quiet click
+      // also gives its onset definition without a siren, sustained alarm or new audio dependency.
+      note(step(first), 0, 0.19, 0.085, pan * .5, style, 2, { bright: .7, space: 'low' });
+      note(step(second), 0.12, 0.27, 0.068, pan * .5, style, 2, { bright: .65, space: 'mid' });
+      crunch('click', 0, pan, .45);
+    }
+    else if (type === 'bossGuard' && allowed('bossImpact', 0.09)) {
+      note(step(-2), 0, 0.10, 0.062, pan, 'wood', 0, { bright: .65, space: 'low' });
+      crunch('thock', 0, pan, .55);
+    }
+    else if (type === 'bossCritical' && allowed('bossCritical', 0.14)) {
+      note(step(7), 0, 0.18, 0.078, pan * .7, 'bell', 1, { bright: .8 });
+      note(step(9), 0.045, 0.25, 0.052, pan * .7, 'chime', 1, { bright: .8 });
+    }
+    else if (type === 'bossBurn' && allowed('bossImpact', 0.09)) {
+      // A soft pitched fall and a tiny seeded-noise fizz communicate a spent seed without punishment.
+      note(step(-5), 0, 0.15, 0.057, pan, 'wood', 0, { from: 1.16, bend: .09, bright: .5, space: 'low' });
+      crunch('burst', 0, pan, .35);
+    }
     else if (type === 'boss' && allowed('boss', 0.8)) {
       duck();
       pad([0, 4, 9], 0, 0.95, 0.032);
@@ -1234,12 +1275,25 @@
     const now = context.currentTime, track = mixer.bus;
     laneHold(track, now); laneRamp(track, now + 0.03, MUSIC_BUS * DUCK); laneSet(track, now + 0.28, MUSIC_BUS * DUCK); laneRamp(track, now + 0.5, MUSIC_BUS);
   }
+  function suspendContext() {
+    if (!context || context.state === 'closed' || suspending || resuming || typeof context.suspend !== 'function') return;
+    const owner = context;
+    try {
+      const task = Promise.resolve(owner.suspend()); suspending = task;
+      const finished = () => {
+        if (suspending !== task) return;
+        suspending = null;
+        if (context === owner && !asleep) wake();
+      };
+      task.then(finished, finished);
+    } catch (_) { /* A refused suspension must not interrupt play. */ }
+  }
   function sleep(hidden) {
-    if (!context || context.state === 'closed') return;
+    if (!context || context.state === 'closed') { asleep = Boolean(hidden); if (asleep) waiting = []; return; }
     if (hidden) {
       if (asleep) return;
-      asleep = true;
-      try { if (typeof context.suspend === 'function') Promise.resolve(context.suspend()).catch(() => {}); } catch (_) {}
+      asleep = true; waiting = [];
+      suspendContext();
     } else if (asleep) { asleep = false; wake(); }
   }
   // The chord the music is playing right now, or null when no music is sounding.

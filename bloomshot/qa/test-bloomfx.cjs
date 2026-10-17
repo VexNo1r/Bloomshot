@@ -76,8 +76,8 @@ class OffscreenCanvas {
   constructor(width, height) { this.width = width; this.height = height; this.id = ++totals.surfaces; this.context = null; this.styles = new Set(); }
   getContext() { if (!this.context) { this.rec = recorder(this); this.context = this.rec.ctx; } return this.context; }
 }
-function loadArt(withCanvas) {
-  const context = vm.createContext({ console, Math, Map, Set, WeakMap, Array, Object, Number, String, JSON, Uint8ClampedArray, ...(withCanvas ? { OffscreenCanvas } : {}) });
+function loadArt(withCanvas, extras = {}) {
+  const context = vm.createContext({ console, Math, Map, Set, WeakMap, Array, Object, Number, String, JSON, Uint8ClampedArray, ...(withCanvas ? { OffscreenCanvas } : {}), ...extras });
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../art.js'), 'utf8'), context, { filename: 'art.js' });
   return context.BloomArt;
 }
@@ -412,6 +412,18 @@ test('Sheets never churn: a boss takes no slot, and boards that mix sizes reuse 
   for (let i = 0; i < 200; i++) frame(mixed);
   assert.equal(frame(mixed).size, 10, 'idle sheets make room for the gems and geodes now on the board');
 });
+test('A zero or elapsed warm budget executes no sprite job and leaves the queue intact', () => {
+  let now = 0;
+  const Fresh = loadArt(true, { performance: { now: () => now++ } }), board = recorder();
+  const warm = Fresh.prewarm({ flowers: [{ type: 'sky', r: 12 }] });
+  const left = warm.left, paints = Fresh.paints();
+  for (const budget of [0, -1, NaN, Infinity, .5]) assert.equal(warm.step(budget, board.ctx), false);
+  assert.equal(warm.left, left, 'zero time and a deadline elapsed before the first job preserve the queue');
+  assert.equal(Fresh.paints(), paints); assert.equal(board.images.length, 0);
+  warm.step(1000, board.ctx);
+  assert(warm.left < left, 'a later available budget resumes the same queue');
+});
+
 test('Warmed up for a level, its flowers open in every variation and the boss blooms without painting anything new', () => {
   const Fresh = loadArt(true);
   const warm = Fresh.prewarm({ flowers: [{ type: 'sky', r: 12 }, { type: 'gold', r: 11 }], boss: { type: 'poppy', r: 27, max: 9 } });

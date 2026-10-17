@@ -1,5 +1,5 @@
 {
-  "passed": 74,
+  "passed": 87,
   "failed": 0,
   "methodology": "Executes the complete current app.js in an isolated Node VM using real garden/level/engine modules, fake localStorage, and DOM/canvas adapters. Completion fixtures exercise actual engine completion events and app handlers. No real browser or user saves are read or changed.",
   "limitations": [
@@ -7,6 +7,10 @@
     "Completion fixtures do not measure gameplay difficulty; dedicated physics and Rush tests cover mechanics."
   ],
   "results": [
+    {
+      "name": "The privacy policy is readable without leaving the app or changing the save",
+      "passed": true
+    },
     {
       "name": "Startup migrates an old save once and preserves all existing progress and preferences",
       "passed": true
@@ -148,10 +152,6 @@
       "passed": true
     },
     {
-      "name": "Native bridge: a restored backup reloads the page once, and no restore means no reload",
-      "passed": true
-    },
-    {
       "name": "Native bridge: the real bridge in its web form changes nothing, vibrating exactly as before only while the Vibration setting is on",
       "passed": true
     },
@@ -160,15 +160,19 @@
       "passed": true
     },
     {
-      "name": "Native bridge: once a backup has been restored and a reload is pending, the page saves nothing, so it cannot overwrite the restore",
-      "passed": true
-    },
-    {
       "name": "The game opens on the level map: level 1 is open, the rest wait their turn, and a locked card never starts",
       "passed": true
     },
     {
       "name": "A brand-new player starts in the tutorial; a returning player goes straight to the levels",
+      "passed": true
+    },
+    {
+      "name": "The all-levels web preview opens every level in separate progress and never unlocks a native install",
+      "passed": true
+    },
+    {
+      "name": "The web boss-review link starts wave ten and cannot bypass native purchases",
       "passed": true
     },
     {
@@ -240,7 +244,7 @@
       "passed": true
     },
     {
-      "name": "Packs on the shelf: five of one kind or the bag with three of each, shown in full, each counted once",
+      "name": "Packs on the shelf: five of one kind or the bag with five of each, shown in full, each counted once",
       "passed": true
     },
     {
@@ -276,7 +280,19 @@
       "passed": true
     },
     {
+      "name": "Two losses at a paid-level boss offer a free boss-only run and remember the offer after reloading",
+      "passed": true
+    },
+    {
+      "name": "Boss retry history is additive, validates individual fields, and never removes existing stars",
+      "passed": true
+    },
+    {
       "name": "Super Bloom, trick shots and long chains reach the board, the hint line and the run summary",
+      "passed": true
+    },
+    {
+      "name": "Boss tells name the flower change in the hint and announce both the attack and the change",
       "passed": true
     },
     {
@@ -288,7 +304,39 @@
       "passed": true
     },
     {
+      "name": "Native bridge: a restored backup reloads the page once, and no restore means no reload",
+      "passed": true
+    },
+    {
+      "name": "Native bridge: once a backup has been restored and a reload is pending, the page saves nothing, so it cannot overwrite the restore",
+      "passed": true
+    },
+    {
+      "name": "Native paid receipts never enter or acknowledge a QA save",
+      "passed": true
+    },
+    {
+      "name": "Native paid receipts wait for a delayed missing-backup answer, then deliver automatically once",
+      "passed": true
+    },
+    {
+      "name": "A recovered native backup reloads with its paid balance intact; the owed receipt is delivered only on the new page",
+      "passed": true
+    },
+    {
+      "name": "Unreadable, foreign, unanswered or unverifiable native backup decisions keep paid receipts pending",
+      "passed": true
+    },
+    {
       "name": "Buying says exactly what arrived: one, five, or the bag",
+      "passed": true
+    },
+    {
+      "name": "A paid powerup or pack must fit entirely before the store can open",
+      "passed": true
+    },
+    {
+      "name": "A powerup purchase requires a verified game save, including storage that silently drops writes",
       "passed": true
     },
     {
@@ -301,6 +349,10 @@
     },
     {
       "name": "The daily garden shares its number, stars and a tiny picture of each shot, like a word-game grid",
+      "passed": true
+    },
+    {
+      "name": "Private test builds hide Share and never send an unpublished link, even after a new best",
       "passed": true
     }
   ]

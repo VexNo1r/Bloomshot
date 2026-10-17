@@ -1,5 +1,5 @@
 {
-  "passed": 12,
+  "passed": 38,
   "failed": 0,
   "limits": "Instrumented Web Audio API scheduling/graph tests, not a rendered browser audio capture or a listening assessment. Device speakers, perceptual loudness, and audio-to-screen latency still require on-device listening.",
   "results": [
@@ -18,12 +18,12 @@
     {
       "name": "Stress measurement",
       "passed": true,
-      "eventsSubmitted": 16800,
+      "eventsSubmitted": 63000,
       "maxVoices": 16,
-      "maxOscillators": 32
+      "maxOscillators": 40
     },
     {
-      "name": "Dense mixed events stay within sixteen voices and thirty-two oscillators",
+      "name": "Dense mixed events stay within sixteen voices and forty oscillators, at most four per note",
       "passed": true
     },
     {
@@ -31,7 +31,31 @@
       "passed": true
     },
     {
+      "name": "The mix bus runs master, filters, a gentle compressor and a fixed trim into the ceiling",
+      "passed": true
+    },
+    {
+      "name": "One shared reverb: a generated dark stereo impulse on three sends, returning into the master",
+      "passed": true
+    },
+    {
+      "name": "Reverb missing, rejected or throwing falls back to a dry mix without interrupting play",
+      "passed": true
+    },
+    {
+      "name": "Every cue type plays without throwing, stays under the caps, and lands every pitch in C major",
+      "passed": true
+    },
+    {
+      "name": "Variation is gentle and safe: a stubbed Math.random never breaks a cue or makes it louder",
+      "passed": true
+    },
+    {
       "name": "Bloom cues begin immediately with soft attacks and moderate harmonic frequencies",
+      "passed": true
+    },
+    {
+      "name": "Chains walk the bloom chords, and shimmer and fever arpeggiate the chord the chain is on",
       "passed": true
     },
     {
@@ -43,6 +67,46 @@
       "passed": true
     },
     {
+      "name": "All ten guardian warnings start immediately with distinct restrained colors and finish before the attack",
+      "passed": true
+    },
+    {
+      "name": "Actual controller warning events retain at least 1.2 seconds of lead and all reach the sound handler",
+      "passed": true
+    },
+    {
+      "name": "Guard, weakspot and burned-seed sounds differ, debounce fast impacts, and obey mute",
+      "passed": true
+    },
+    {
+      "name": "A boss warning retains reserved room during a dense bloom chain without exceeding caps",
+      "passed": true
+    },
+    {
+      "name": "Koi currents play two quiet rising water drops and debounce lane re-entry",
+      "passed": true
+    },
+    {
+      "name": "Each meadow friend has its own short, quiet voice; taps are debounced and unknown friends stay silent",
+      "passed": true
+    },
+    {
+      "name": "Rush waves climb one C major scale step per wave up to a fifth, and a cleared wave rings a bounded rising chord",
+      "passed": true
+    },
+    {
+      "name": "Big moments flourish over a soft chord, finish within about a second, and stay soft",
+      "passed": true
+    },
+    {
+      "name": "Losing stays gentle: falling notes that land on home, quieter than a win",
+      "passed": true
+    },
+    {
+      "name": "Result stars chime upward one by one, the third a touch fuller, and three in a row all play",
+      "passed": true
+    },
+    {
       "name": "Position changes restrained stereo pan, with mono fallback for older implementations",
       "passed": true
     },
@@ -51,7 +115,47 @@
       "passed": true
     },
     {
+      "name": "setEnabled(false) fades every voice and the master smoothly, anchored at the current time (no clicks)",
+      "passed": true
+    },
+    {
+      "name": "Nodes are disconnected when voices end; only the shared bus stays connected",
+      "passed": true
+    },
+    {
+      "name": "The room is built just after the first gesture, so the first sound never waits on it",
+      "passed": true
+    },
+    {
       "name": "Repeated wake calls reuse the context and closed contexts recover safely",
+      "passed": true
+    },
+    {
+      "name": "Crisp transients run through one seeded noise buffer and a band at or under 3.6 kHz, then clean up",
+      "passed": true
+    },
+    {
+      "name": "A new best cuts the tail of the losing phrase and plays its sparkle fanfare",
+      "passed": true
+    },
+    {
+      "name": "The seed ladder climbs the chord (root, third, fifth, octave) and stays in it, within 140 Hz to 1.1 kHz",
+      "passed": true
+    },
+    {
+      "name": "Each flower blooms in its own instrument: gold bell, coral marimba, lilac harp, sky glass, poppy pan",
+      "passed": true
+    },
+    {
+      "name": "Finale cues: the roll swells and is cut by the impact; won waits for the sweep; a finale wave adds no cleared cue",
+      "passed": true
+    },
+    {
+      "name": "Rising cues climb: sweep, plucks, tally, sun petals and the multiplier all go up in C major",
+      "passed": true
+    },
+    {
+      "name": "Without an offline renderer the music is silently off, and the music calls never throw",
       "passed": true
     }
   ]

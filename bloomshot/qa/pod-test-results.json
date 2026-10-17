@@ -1,13 +1,15 @@
 {
-  "passed": 19,
+  "passed": 23,
   "failed": 0,
   "observations": {
-    "wild": "L1 W3 L1 W2 L1 W1 L1 W1 L2 W1 L2 Lw8 L2 Lw5 L2 Lw5 L3 Lw7 L3 Lw3 L3 Lw9 L3 W2 L4 Lw4 L4 Lw5 L4 W1 L4 Lw4 L5 Lw3 L5 Lw3 L5 Lw9 L5 Lw6 L6 Lw6 L6 Lw6 L6 Lw6 L6 Lw6 L7 Lw7 L7 Lw7 L7 Lw6 L7 Lw6 L8 Lw5 L8 Lw6 L8 Lw3 L8 W1 L9 Lw7 L9 Lw4 L9 Lw5 L9 Lw5 L10 Lw8 L10 Lw4 L10 Lw2 L10 Lw2",
-    "wildRate": 1.38,
-    "lazy": "L1 W2 L1 W2 L1 W1 L1 W3 L2 W3 L2 W3 L2 W3 L2 W1 L3 Lw3 L3 Lw9 L3 Lw3 L3 Lw9 L4 Lw4 L4 Lw4 L4 Lw7 L4 Lw3 L5 W1 L5 Lw7 L5 Lw3 L5 Lw9 L6 Lw6 L6 Lw6 L6 Lw7 L6 Lw6 L7 Lw4 L7 Lw7 L7 Lw6 L7 Lw2 L8 W3 L8 Lw9 L8 Lw10 L8 Lw7 L9 W2 L9 Lw4 L9 Lw8 L9 W2 L10 Lw10 L10 Lw6 L10 W1 L10 W2",
-    "lazyRate": 1.38,
-    "fast": "L1 W3 1.78 L1 W3 1.68 L2 W3 1.63 L2 W3 1.55 L3 W3 1.8 L3 W2 1.67 L4 Lw9 1.63 L4 W3 1.81 L5 W3 1.88 L5 W3 1.71 L6 W3 1.77 L6 W3 1.55 L7 W3 1.79 L7 W3 1.6 L8 W2 1.86 L8 W3 1.73 L9 W3 1.89 L9 W3 2.04 L10 W2 1.91 L10 W3 1.96",
-    "runtimeSeconds": 22
+    "wild": "L1 Lw3 L1 Lw10 L1 Lw6 L1 Lw8 L2 Lw9 L2 Lw2 L2 Lw1 L2 Lw5 L3 Lw8 L3 Lw5 L3 Lw7 L3 W2 L4 Lw5 L4 Lw6 L4 Lw5 L4 Lw3 L5 Lw4 L5 Lw7 L5 Lw3 L5 Lw3 L6 Lw4 L6 Lw3 L6 Lw4 L6 Lw2 L7 Lw2 L7 Lw4 L7 Lw3 L7 Lw5 L8 Lw3 L8 Lw2 L8 Lw2 L8 Lw3 L9 Lw2 L9 Lw3 L9 Lw4 L9 Lw4 L10 Lw2 L10 Lw2 L10 Lw2 L10 Lw3",
+    "wildRate": 1.06,
+    "lazy": "L1 W2 L1 W3 L1 W2 L1 W3 L2 Lw1 L2 Lw8 L2 Lw1 L2 W3 L3 Lw9 L3 Lw8 L3 Lw5 L3 W1 L4 Lw7 L4 Lw6 L4 Lw7 L4 Lw4 L5 Lw7 L5 Lw9 L5 Lw9 L5 Lw9 L6 Lw4 L6 Lw4 L6 Lw3 L6 Lw5 L7 Lw4 L7 Lw7 L7 Lw5 L7 Lw6 L8 Lw5 L8 Lw3 L8 Lw7 L8 Lw10 L9 Lw3 L9 Lw3 L9 Lw3 L9 Lw4 L10 Lw2 L10 Lw2 L10 Lw2 L10 Lw6",
+    "lazyRate": 1.15,
+    "fast": "L1 W3 1.38 L1 W3 1.67 L2 W3 1.28 L2 W3 1.44 L3 W3 1.41 L3 W3 1.54 L4 W1 1.44 L4 W2 1.52 L5 W2 1.56 L5 W3 1.57 L6 W3 1.4 L6 W2 1.4 L7 W1 1.41 L7 W2 1.52 L8 W3 1.82 L8 W3 1.78 L9 W3 1.73 L9 W2 1.41 L10 W2 1.68 L10 W1 1.93",
+    "fastMeanRate": 1.544,
+    "fastMinimumRate": 1.28,
+    "runtimeSeconds": 34.1
   },
   "results": [
     {
@@ -32,6 +34,22 @@
     },
     {
       "name": "A full pod takes nothing more, and a strike no seed earned (a test, the script) feeds nothing",
+      "passed": true
+    },
+    {
+      "name": "A timely flight refunds a ringed bud once; a fresh aimed seed can earn the next ring",
+      "passed": true
+    },
+    {
+      "name": "An old first ricochet still blooms and chains, but neither it nor its chain refills the pod",
+      "passed": true
+    },
+    {
+      "name": "A timely crown keeps every chain refill after its seed has gone",
+      "passed": true
+    },
+    {
+      "name": "A quick first hit does not let its late direct ricochets refill; stale or repeated shell glances feed nothing",
       "passed": true
     },
     {
@@ -75,7 +93,7 @@
       "passed": true
     },
     {
-      "name": "Rough aim at full speed, for these seeds: it nearly always loses levels 3, 4, 6 and 7, mostly 10, and its wins cost lives; levels 2, 5, 8 and 9 stay winnable that way about half the time",
+      "name": "Rough aim at full speed mostly loses later levels; the eased introductory Level 2 may have a clean clear",
       "passed": true
     },
     {

@@ -21,7 +21,6 @@
   var MOCK_KEY = 'bloomshot.mockstore.v1';
   var GRANTS_KEY = 'bloomshot.grants.v1';
   var MOCK_GRANTS_KEY = 'bloomshot.mockgrants.v1';
-  var INFLIGHT_DAYS = 7; // Google Play lets a slow payment method stay pending for a few days
 
   // A consumable's items, or [] when any part of its definition is not a positive whole count of a named power.
   function itemsOf(p) {
@@ -89,7 +88,14 @@
       return null;
     }
     function read(key) { try { return storage ? JSON.parse(storage.getItem(key) || 'null') : null; } catch (_) { return null; } }
-    function write(key, value) { try { if (storage) storage.setItem(key, JSON.stringify(value)); } catch (_) { /* storage can be blocked; the store stays the source of truth */ } }
+    function write(key, value) {
+      try {
+        if (!storage) return false;
+        var json = JSON.stringify(value);
+        storage.setItem(key, json);
+        return storage.getItem(key) === json; // some storage implementations silently discard writes
+      } catch (_) { return false; }
+    }
     function emit(type) {
       listeners.slice().forEach(function (fn) { try { fn({ type: type }); } catch (_) { /* a broken listener must not break purchases */ } });
     }
@@ -121,26 +127,33 @@
       return active && typeof active === 'object' ? Object.keys(active) : [];
     }
     function classify(error) {
-      if (error && (error.userCancelled === true || (error.data && error.data.userCancelled === true))) return { ok: false, cancelled: true, reason: 'cancelled' };
+      var data = (error && error.data) || {};
+      var code = String(error && error.code != null ? error.code : data.code);
+      if (code === '1' || error && (error.userCancelled === true || data.userCancelled === true)) return { ok: false, cancelled: true, reason: 'cancelled' };
       // Google Play: the player chose a slow payment method (cash, some carriers). Nothing is charged yet; RevenueCat
       // reports the transaction once it clears, and the next launch or Restore turns it into a grant.
-      var data = (error && error.data) || {};
       if (String(error && error.code) === '20' || String(data.code) === '20' || [error && error.readableErrorCode, data.readableErrorCode, data.readable_error_code].indexOf('PAYMENT_PENDING_ERROR') >= 0) return { ok: false, pending: true, reason: 'pending' };
       return { ok: false, reason: 'error', message: String((error && error.message) || error || 'Store error') };
     }
 
     function loadLedger() {
       var saved = read(grantsKey) || {};
-      var oldest = now() - INFLIGHT_DAYS * 24 * 60 * 60 * 1000;
       ledger = {
         baseline: saved.baseline === true,
         seen: Array.isArray(saved.seen) ? saved.seen.filter(function (id) { return typeof id === 'string'; }) : [],
-        inflight: Array.isArray(saved.inflight) ? saved.inflight.filter(function (f) { return f && byId[f.product] && byId[f.product].consumable && f.at >= oldest; }) : [],
+        // A receipt can reach RevenueCat after weeks offline. An unresolved purchase never expires locally.
+        inflight: Array.isArray(saved.inflight) ? saved.inflight.filter(function (f) { return f && byId[f.product] && byId[f.product].consumable && Number.isFinite(f.at) && f.at >= 0; }) : [],
         owed: Array.isArray(saved.owed) ? saved.owed.map(readGrant).filter(Boolean) : []
       };
     }
-    function saveLedger() { write(grantsKey, { v: 1, baseline: ledger.baseline, seen: ledger.seen, inflight: ledger.inflight, owed: ledger.owed }); }
-    function startInflight(p) { ledger.inflight.push({ product: p.id, at: now() }); saveLedger(); }
+    function saveLedger() { return write(grantsKey, { v: 1, baseline: ledger.baseline, seen: ledger.seen, inflight: ledger.inflight, owed: ledger.owed }); }
+    function startInflight(p) {
+      ledger.inflight.push({ product: p.id, at: now() });
+      if (saveLedger()) return true;
+      ledger.inflight.pop();
+      saveLedger();
+      return false; // never open the store sheet without a durable recovery record
+    }
     function endInflight(p) {
       var at = -1;
       ledger.inflight.forEach(function (f, i) { if (f.product === p.id) at = i; }); // the newest one: the purchase that just settled
@@ -168,6 +181,7 @@
       consumableTxs(info).forEach(function (t) {
         var id = t.transactionIdentifier, p = byId[t.productIdentifier];
         if (ledger.seen.indexOf(id) >= 0) return;
+        // The durable baseline of transaction IDs is authoritative; a phone's clock can be wrong.
         var started = ledger.inflight.some(function (f) { return f.product === p.id; });
         if (!started) { ledger.seen.push(id); return; } // not bought from this install: a Restore or another device
         endInflight(p);
@@ -315,7 +329,7 @@
         if (outcome === 'cancel') return { ok: false, cancelled: true, reason: 'cancelled' };
         if (outcome === 'fail') return { ok: false, reason: 'error', message: 'Simulated store failure' };
         var tx = { transactionIdentifier: 'mock-' + now() + '-' + (mockTxs.length + 1), productIdentifier: p.id };
-        startInflight(p);
+        if (!startInflight(p)) return { ok: false, reason: 'storage-unavailable' };
         mockTxs.push(tx); saveMock(); // the simulated account has been charged
         // pending: the payment clears later. crash: the app closed before it heard back. Either way the next
         // launch or Restore finds the transaction and grants it.
@@ -328,16 +342,27 @@
       }
       var product = state.storeProducts[p.id];
       if (!product) return { ok: false, reason: 'product-not-found' }; // not live in the store yet
+      if (ledger.inflight.some(function (f) { return f.product === p.id; })) {
+        // Confirm the earlier sheet before opening another one for the same consumable.
+        try {
+          var recovered = reconcile((await plugin.getCustomerInfo()).customerInfo).filter(function (g) { return g.productId === p.id; })[0];
+          if (recovered) return bought(recovered);
+        } catch (_) { /* keep the durable intent while the account cannot be checked */ }
+        if (ledger.inflight.some(function (f) { return f.product === p.id; })) return { ok: false, reason: 'confirmation-pending' };
+      }
       // Note the account's earlier transactions before buying, so this purchase is the only new one.
       if (!ledger.baseline) reconcile((await plugin.getCustomerInfo()).customerInfo);
-      startInflight(p);
+      if (!startInflight(p)) return { ok: false, reason: 'storage-unavailable' };
       var result;
       try {
         result = await plugin.purchaseStoreProduct({ product: product });
       } catch (error) {
         var failed = classify(error);
-        if (!failed.pending) { endInflight(p); saveLedger(); } // a pending payment keeps its place until it clears
-        return failed;
+        var data = error && error.data || {};
+        var code = String(error && error.code != null ? error.code : data.code);
+        // These responses explicitly refuse the sheet. Network/backend/receipt errors can follow a charge.
+        if (failed.cancelled || ['3', '4', '5'].indexOf(code) >= 0) { endInflight(p); saveLedger(); return failed; }
+        return failed.pending ? failed : { ok: false, reason: 'confirmation-pending' };
       }
       var info = result && result.customerInfo;
       if (info) setOwned(activeFrom(info));
@@ -377,22 +402,31 @@
     async function restore() {
       await init();
       if (!live()) return { ok: false, reason: 'unavailable' };
-      var before = ownedIds();
+      var before = ownedIds(), waitingBefore = ledger.owed.map(function (g) { return g.transaction; }), confirmed = [];
       try {
         if (mode === 'native') {
           var info = (await plugin.restorePurchases()).customerInfo;
           setOwned(activeFrom(info));
-          reconcile(info); // settles a pending powerup payment; old powerups are noted, never paid out again
+          confirmed = reconcile(info); // settles a pending powerup payment; old powerups are noted, never paid out again
         } else {
           await new Promise(function (resolve) { setTimeout(resolve, env.mockDelay == null ? 350 : env.mockDelay); });
           // The simulated account remembers its purchases, like the real one: restoring grants everything they include.
           setOwned(mockBought.reduce(function (all, id) { return byId[id] ? union(all, byId[id].entitlements) : all; }, ownedIds()));
-          reconcile(mockInfo());
+          confirmed = reconcile(mockInfo());
         }
+        // A confirmed grant may have been waiting for room or a writable save. Restore retries the
+        // same atomic handler, just as a relaunch does; it never recreates a delivered transaction.
+        if (!confirmed.length && consumableHandler) deliver(consumableHandler);
       } catch (error) { return classify(error); }
       var after = ownedIds();
       var restored = after.filter(function (id) { return before.indexOf(id) < 0; });
-      return { ok: true, restored: restored, names: restored.map(nameOf), total: after.length };
+      var waiting = ledger.owed.map(function (g) { return g.transaction; });
+      var checked = union(waitingBefore, confirmed.map(function (g) { return g.transaction; }));
+      // These are purchase/transaction counts, not individual powerup counts. Unresolved payment
+      // intents remain separate from confirmed grants and must not be described as delivered.
+      return { ok: true, restored: restored, names: restored.map(nameOf), total: after.length,
+        consumables: { confirmed: confirmed.length, delivered: checked.filter(function (id) { return waiting.indexOf(id) < 0; }).length, pending: waiting.length },
+        confirmationPending: ledger.inflight.length };
     }
 
     var api = {

@@ -1,15 +1,15 @@
 (function (root, factory) {
   'use strict';
-  if (typeof module === 'object' && module.exports) module.exports = factory(require('./engine.js'));
-  else root.BloomRush = factory(root.BloomEngine);
-})(typeof globalThis !== 'undefined' ? globalThis : this, function (Engine) {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./engine.js'), require('./bosses.js'));
+  else root.BloomRush = factory(root.BloomEngine, root.BloomBosses);
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (Engine, Bosses) {
   'use strict';
   if (!Engine || !Engine.Game) throw new Error('Load engine.js before rush.js.');
   const { Game, RADIUS, BOUNDS } = Engine;
   const TICK = 1 / 120, CAP = 5, FIRE_DELAY = 0.65, BALL_LIFE = 4, PUFF_REACH = 74;
   // The seed pod. The launcher holds POD seeds and each shot takes one; seeds leave it at least POD_GAP apart, so a
-  // burst is quick but never instant. Every flower a seed touches (a bloom or a crack) or sets off (a crown or puffcap
-  // chain) puts REFUND of a seed back, so good aim keeps the pod full and mashing empties it. An empty slot also
+  // burst is quick but never instant. Each flower a timely seed touches (a bloom or a crack), once a flight,
+  // or sets off (a crown or puffcap chain) puts REFUND back. Old ricochets still bloom without feeding the pod. An empty slot also
   // regrows on its own, one at a time, in POD_REGROW times the wave's reload (about 3.4 s on level 1, 2.5 s by level 9).
   // Super Bloom fires from the sun instead: a seed every SUPER_DELAY, and the pod keeps regrowing meanwhile.
   // A tap at most KEEP seconds before the next shot is allowed is kept and fires the moment it is, with the latest aim, so
@@ -22,8 +22,8 @@
   const SHELL_OPEN = .34, REGROW = 4;
   // Powerups. Sunburst blooms everything within reach of its first touch, Dandelion fans into three seeds,
   // Bee Line flies through flowers (cups and shells too) and blooms each one, Lullaby stops the falling for a
-  // few seconds. A gift bubble holding one sometimes floats down in a wave; shooting it keeps the powerup.
-  const SUN_REACH = 82, FAN = .2, LULLABY = 6, GIFT_CHANCE = .06, GIFT_R = 14;
+  // few seconds. A free gift floats down every other regular wave; shooting it keeps the powerup.
+  const SUN_REACH = 82, FAN = .2, LULLABY = 6, GIFT_EVERY = 2, GIFT_R = 14;
   const SHOT_POWERS = ['sunburst', 'dandelion', 'beeline'], GIFTS = ['sunburst', 'dandelion', 'beeline', 'lullaby'];
   const open = bud => !bud.bloomed && !bud.gift;
   const PALETTES = ['gold', 'coral', 'lilac', 'sky', 'poppy'];
@@ -40,7 +40,7 @@
     close: { name: 'Close call!', bonus: 500 }, tunnel: { name: 'Tunnel shot!', bonus: 400 }, rebound: { name: 'Rebound!', bonus: 400 }, bank: { name: 'Bank shot!', bonus: 300 } };
   const multFor = combo => Math.max(1, Math.min(5, 1 + Math.floor((combo - 1) / 4)));
   // A Super Bloom seed flies through plain buds only; bosses, gifts, geodes, cups and shells stop it as usual.
-  const pierceable = bud => !bud.boss && !bud.gift && !bud.geode && !bud.shield && !bud.shell;
+  const pierceable = bud => !bud.boss && !bud.bossPart && !bud.gift && !bud.geode && !bud.shield && !bud.shell;
   // Tempo: each wave adds a tenth to every score (up to x2 at wave 11) and reloads a little faster
   // (0.65 s down to 0.45 s by wave 9), so the run speeds up for the player as well as against them.
   const tempoFor = wave => Math.min(2, 1 + (wave - 1) * 0.1);
@@ -48,6 +48,24 @@
   // The opening curve is unchanged through wave 9; after it the flowers keep falling faster, so a
   // quick-firing player still meets rising pressure instead of a plateau.
   const descentFor = wave => wave <= 9 ? Math.min(32, 10.2 + (wave - 1) * 2.8) : Math.min(46, 32 + (wave - 9) * 1.8);
+
+  // Continuous, bounded guardian paths. The collider follows this exact path; decoration never moves it.
+  // Pure so the practice player can lead a guardian using the same visible motion as a human.
+  function bossMotion(kind, time, amplitude, rate) {
+    const t = time * rate, s = Math.sin, c = Math.cos;
+    switch (kind) {
+      case 'root': return { x: amplitude * Math.pow(s(t), 3), y: 0 };
+      case 'puff': return { x: amplitude * .85 * s(t), y: 9 * (1 - c(2 * t)) };
+      case 'crystal': return { x: amplitude * 2 / Math.PI * Math.asin(s(t)), y: 4 * (1 - c(2 * t)) };
+      case 'lotus': return { x: amplitude * s(t), y: 12 * s(2 * t) };
+      case 'fossil': return { x: amplitude * .7 * (s(t) + .3 * s(3 * t)), y: 5 * (1 - c(t)) };
+      case 'ember': return { x: amplitude * s(t) * c(t * .5), y: 8 * s(t * 1.5) };
+      case 'geode': return { x: amplitude * (.8 * s(t) + .2 * s(3 * t)), y: 7 * (1 - c(2 * t)) };
+      case 'briar': return { x: amplitude * s(t * .8) * c(t * 1.7), y: 10 * s(t * 1.4) };
+      case 'core': return { x: amplitude * (.65 * s(t) + .35 * s(2.3 * t)), y: 14 * s(t * 1.7) };
+      default: return { x: amplitude * s(t), y: 0 };
+    }
+  }
 
   function waveBuds(wave) {
     let anchors;
@@ -91,10 +109,13 @@
       this.guideCharge = 0; this.guideTarget = null;
       this.waveBreaches = 0; this.nextWaveAt = null; this.lastHitAt = -100; this.bossDown = false;
       this.speed = 460; this.descentSpeed = 10.2; this.waveFireDelay = FIRE_DELAY; this.waveHint = '';
-      // Gifts need a source of chance from the app; without one (tests, the practice bot) none appear.
+      // The app supplies randomness for placement and the first gift's type. A regular cadence avoids
+      // long unlucky droughts; no gifts appear in simulations that omit this source.
       this.random = options && typeof options.random === 'function' ? options.random : null;
-      this.giftChance = this.random ? Number.isFinite(options.giftChance) ? options.giftChance : GIFT_CHANCE : 0;
-      this.giftsLeft = 1; this.giftAt = null; this.armed = null; this.lullaby = 0; this.powersUsed = 0;
+      // An explicit probability remains available to visual QA; normal play always uses the cadence.
+      this.giftChance = this.random ? Number.isFinite(options.giftChance) ? Math.max(0, Math.min(1, options.giftChance)) : null : 0;
+      this.giftWave = 0; this.giftsGiven = 0; this.giftOffset = null;
+      this.giftAt = null; this.armed = null; this.lullaby = 0; this.powersUsed = 0;
       // A scripted run (the tutorial) has no waves of its own: its script sets the board, and it never clears or loses.
       this.scripted = Boolean(options && options.scripted);
       // The sun, Super Bloom and tricks. striker is the seed whose touch is being resolved and due the chain link
@@ -112,7 +133,11 @@
       // Water currents and tunnel mouths belong to the wave; the engine checks every one of them.
       this.currents = Engine.currentsFor(spec.currents || []); this.gates = Engine.gatesFor(spec.gates || []);
       this.regrowAfter = spec.regrow || REGROW; this.briarTimers = new Map();
+      this.bossWarning = null; this.bossAbility = null; this.bossTurns = 0; this.bossActions = 0;
+      this.bossNextAt = this.time + 4.5;
+      if (Bosses) Bosses.init(this);
     }
+    _bossStep(dt) { if (this.bossWave && Bosses) Bosses.step(this, dt); }
     // Reinforcements arrive at the top once their time comes and there is room above the live buds.
     _dropIn(waveTime) {
       const next = this.drops && this.drops[0];
@@ -121,12 +146,12 @@
       if (!(waveTime >= next.at || !live.length) || !live.every(bud => bud.y - bud.r >= bottom + 12)) return;
       this.drops.shift();
       // Flowers that bloomed a while ago and still sit where the drop lands make way for it.
-      this.buds = this.buds.filter(bud => !(bud.bloomed && this.time - bud.bloomAt > 1 && bud.y < bottom + 24));
+      this.buds = this.buds.filter(bud => !(!bud.bossPart && bud.bloomed && this.time - bud.bloomAt > 1 && bud.y < bottom + 24));
       for (const bud of next.buds) this.buds.push({ ...bud, hitAt: -100, bloomed: false, bloomAt: -100, spawnAt: this.time });
       this.event('drop', { wave: this.wave, buds: next.buds.length });
     }
     get bloomedCount() { return this.totalBlooms || 0; }
-    get stars() { return this.plan && this.status === 'won' ? Math.max(0, Math.min(this.startWave > 1 ? 2 : 3, this.lives)) : 0; }
+    get stars() { return this.plan && this.status === 'won' ? Math.max(0, Math.min(this.startWave >= 10 ? 1 : this.startWave > 1 ? 2 : 3, this.lives)) : 0; }
     get over() { return this.status === 'lost' || this.status === 'won'; }
     get tempo() { return tempoFor(this.wave); }
     get mult() { return multFor(this.combo); }
@@ -160,6 +185,21 @@
       this.podGrow += amount; this.refunds = (this.refunds || 0) + 1;
       this._growPod(0);
       this.event('podRefund', { amount, slot, pod: this.pod, grow: this.podGrow, x: bud ? bud.x : this.launcher.x, y: bud ? bud.y : this.launcher.y });
+    }
+    // A timely first hit earns the flight's refill, including the crown/puff chains it starts.
+    // Returning to the same ringed bud cannot farm more seeds, and old accidental ricochets still
+    // score and bloom normally without refilling the pod. Chain credit survives the seed's flight.
+    _refundCredit(credit, bud) {
+      if (!credit) return;
+      const record = this._record(credit.by);
+      if (record.refundEligible === undefined && credit.ball) record.refundEligible = (credit.ball.age || 0) <= BANK_TIME;
+      if (!record.refundEligible || credit.ball && (credit.ball.age || 0) > BANK_TIME || record.refundedBuds.has(bud.id)) return;
+      record.refundedBuds.add(bud.id); this._refund(REFUND, bud);
+    }
+    _refundGlance(ball, bud) {
+      if (!ball || ball.glanced) return;
+      ball.glanced = true;
+      if ((ball.age || 0) <= BANK_TIME) this._refund(GLANCE, bud);
     }
     _growPod(dt) {
       if (this.pod >= POD) { this.podGrow = 0; return; }
@@ -227,41 +267,76 @@
     }
     _rollGift() {
       this.giftAt = null;
-      if (!this.random || this.giftsLeft <= 0 || this.bossWave) return;
-      if (this.random() < this.giftChance) this.giftAt = 2 + this.random() * 4;
+      if (!this.random || this.giftWave === this.wave || this.bossWave || this.scripted) return;
+      const due = this.giftChance === null ? this.wave % GIFT_EVERY === 0 : this.random() < this.giftChance;
+      if (due) this.giftAt = 2 + this.random() * 2;
     }
-    // The gift floats in near the top, clear of the flowers, and drifts down a little faster than they do.
+    // The gift floats in near the top, clear of the flowers, and drifts slowly enough to line up a shot.
     _spawnGift() {
       this.giftAt = null;
       const live = this.buds.filter(bud => !bud.bloomed);
       for (let tries = 0; tries < 10; tries++) {
         const x = 70 + this.random() * 280, y = 50;
         if (live.some(bud => Math.hypot(bud.x - x, bud.y - y) < bud.r + GIFT_R + 12)) continue;
-        const power = GIFTS[Math.min(GIFTS.length - 1, Math.floor(this.random() * GIFTS.length))];
-        this.giftsLeft--;
+        // Cycle through all four free powers before repeating, from a random starting point.
+        if (this.giftOffset === null) this.giftOffset = Math.min(GIFTS.length - 1, Math.floor(this.random() * GIFTS.length));
+        const power = GIFTS[(this.giftOffset + this.giftsGiven) % GIFTS.length];
+        this.giftWave = this.wave; this.giftsGiven++;
         this.buds.push({ id: `gift-${this.wave}-${this.ballSerial}`, group: `gift-${this.wave}`, x, y, baseX: x, startY: y, r: GIFT_R, type: 'gold',
-          gift: power, relay: false, hp: 1, maxHp: 1, fall: 1.35, sway: 16, swayW: 1.4, swayPhase: this.random() * 6, hitAt: -100, bloomed: false, bloomAt: -100, spawnAt: this.time });
+          gift: power, relay: false, hp: 1, maxHp: 1, fall: .85, sway: 16, swayW: 1.4, swayPhase: this.random() * 6, hitAt: -100, bloomed: false, bloomAt: -100, spawnAt: this.time });
         this.event('giftAppear', { power, x, y });
         return;
       }
+      // A crowded entrance delays the gift instead of silently consuming this wave's free drop.
+      this.giftAt = this.time - this.waveStart + .75;
     }
     _collect(gift) {
       this.buds = this.buds.filter(bud => bud !== gift);
       this.event('gift', { power: gift.gift, x: gift.x, y: gift.y });
     }
-    // A bee blooms whatever it touches; a big bloom only loses three of its rings to it.
+    _bossLastLifeGift() {
+      if (!this.bossWave || this.lives !== 1 || this.bossLastLifeGift || this.bossDown || this.over) return;
+      const spot = [70, 350, 210].map(x => ({ x, y: 150 })).find(p => this.buds.every(b => b.bloomed || b.hidden || Math.hypot(b.x - p.x, b.y - p.y) > b.r + GIFT_R + 8));
+      if (!spot) return;
+      this.bossLastLifeGift = true;
+      this.buds.push({ id: 'boss-lullaby-' + this.wave, group: 'boss-lullaby-' + this.wave, ...spot, baseX: spot.x, startY: spot.y, r: GIFT_R, type: 'gold',
+        gift: 'lullaby', freeBossGift: true, relay: false, hp: 1, maxHp: 1, fall: .5, sway: 0, hitAt: -100, bloomed: false, bloomAt: -100, spawnAt: this.time });
+      this.event('giftAppear', { power: 'lullaby', ...spot, freeBossGift: true });
+    }
+    _powerBossFor(bud) {
+      return bud.boss ? bud : bud.bossPart ? this.buds.find(b => b.boss && b.id === bud.bossId) : null;
+    }
+    // A multi-part guardian is one opponent for paid ring damage. Its real proxy may be the only
+    // hittable surface (Crystal), so route the stated dose to the owner once, without critical bonuses.
+    _powerBossHit(boss, rings, ball, power) {
+      const key=power+':'+boss.id;
+      if (ball) { if (!ball.powerBosses) ball.powerBosses=[]; if (ball.powerBosses.includes(key)) return; ball.powerBosses.push(key); }
+      const previous=this.powerBoss;this.powerBoss={boss,power};
+      try { for(let n=0;n<rings && !boss.bloomed;n++)this.strike(boss); }
+      finally { this.powerBoss=previous; }
+    }
+    _powerPartHit(bud) {
+      const previous=this.powerPart;this.powerPart=true;
+      try { bud.hp=1;this.strike(bud); }
+      finally { this.powerPart=previous; }
+    }
+    // A bee blooms whatever it touches; each whole guardian loses three rings once this flight.
     _beeHit(bud) {
-      if (bud.boss) { for (let i = 0; i < 3 && !bud.bloomed; i++) this.strike(bud); }
-      else { bud.hp = 1; this.strike(bud); }
+      const boss=this._powerBossFor(bud);
+      if (boss) this._powerBossHit(boss,3,this.striker,'beeline');
+      if (!bud.boss) this._powerPartHit(bud);
       this.event('bee', { x: bud.x, y: bud.y });
     }
     // A sunburst opens at its first touch: that flower and every one within reach bloom in a ripple.
     _sunburst(ball, bud) {
       const x = ball.x, y = ball.y;
       ball.dead = true;
-      const reach = this.buds.filter(other => open(other) && Math.hypot(other.x - x, other.y - y) <= SUN_REACH + other.r);
+      const reach = this.buds.filter(other => open(other) && !other.hidden && Math.hypot(other.x - x, other.y - y) <= SUN_REACH + other.r);
+      const bosses=new Set();
+      for(const other of reach){const boss=this._powerBossFor(other);if(boss && !bosses.has(boss)){bosses.add(boss);this._powerBossHit(boss,4,ball,'sunburst');}}
       for (const other of reach) {
-        if (other.boss) { for (let i = 0; i < 4 && !other.bloomed; i++) this.strike(other); continue; }
+        if (other.boss) continue;
+        if (other.bossPart && (other.bossPart==='heart' || other.bossPart==='lantern')) { this._powerPartHit(other);continue; }
         if (other === bud) { other.hp = 1; this.strike(other); continue; }
         if (!this.pending.some(item => item.id === other.id)) this.pending.push(this._link(other.id, this.time + .05 + Math.hypot(other.x - x, other.y - y) / 700, { x, y }, 'sun', true));
       }
@@ -291,21 +366,24 @@
     strike(bud, chain = false) {
       if (!bud || bud.bloomed || this.over) return;
       if (bud.gift) { this._collect(bud); return; }
+      const impact = Bosses ? Bosses.resolve(this, bud, chain) : { target: bud, damage: 1 };
+      if (impact.blocked) { if (impact.feed && this._credit(false)) this._refundGlance(this.striker, bud); return; }
+      bud = impact.target || bud;
       if (!chain) { this.directHits++; this.splitCharge = Math.min(1, this.splitCharge + 1 / 6); }
-      // Every flower a seed touches or sets off feeds the pod.
+      // A timely aimed flight feeds the pod once per flower, including its earned chains.
       const credit = this._credit(chain);
-      if (credit) this._refund(REFUND, bud);
+      this._refundCredit(credit, bud);
       if (this.splitCharge > 1 - 1e-8) this.splitCharge = 1;
       if (this.time - this.lastHitAt > COMBO_WINDOW) this.combo = 0;
       this.lastHitAt = this.time;
-      if (bud.hp > 1) {
+      if (bud.hp > (impact.damage || 1)) {
         const gain = Math.round(50 * this.tempo);
-        bud.hp--; bud.hitAt = this.time; this.score += gain;
+        bud.hp -= impact.damage || 1; bud.hitAt = this.time; this.score += gain;
         this.event('crack', { bud, chain, gain, hits: Math.max(0, (bud.maxHp || bud.hp + 1) - bud.hp) });
         if (bud.boss) this._charge(CHARGE.crack, credit);
         return;
       }
-      this.bloom(bud, chain);
+      bud.hp = 1; this.bloom(bud, chain);
     }
     // Who earned what is resolving now: the seed touching it, or the seed that started the chain coming due.
     // A strike with neither (a test, the tutorial's script) earns nothing and behaves exactly as it always has.
@@ -345,7 +423,7 @@
     _endSuper() { this.superBloom = 0; this.feverTime = 0; this.superQueued = false; }
     _record(by) {
       let record = this.credits.get(by);
-      if (!record) { record = { blooms: 0, direct: 0, hat: false, slam: false }; this.credits.set(by, record); }
+      if (!record) { record = { blooms: 0, direct: 0, hat: false, slam: false, refundedBuds: new Set() }; this.credits.set(by, record); }
       return record;
     }
     // Each trick pays once a wave (a grand slam every time), so a wave rewards variety and every stamp stays special.
@@ -395,6 +473,7 @@
         this.event('geode', { bud, count: gems.length });
       }
       if (bud.briar) this._briarBloomed(bud);
+      if (Bosses) Bosses.bloomed(this, bud);
       // A puffcap blooms everything within reach a moment later; puffcaps it reaches go off in turn.
       if (bud.puff) {
         const near = this.buds.filter(other => other !== bud && open(other) && !queued(other) && Math.hypot(other.x - bud.x, other.y - bud.y) <= PUFF_REACH)
@@ -409,7 +488,7 @@
           .forEach((other, index) => this.pending.push(this._link(other.id, this.time + .25 + index * .06, bud, 'boss', true)));
         // It is the wave's last beat: reinforcements still to come never arrive, and a sun that fills in the cascade
         // waits for the next wave instead of starting a Super Bloom over a garden that is already won.
-        this.drops = []; this.bossDown = true;
+        this.drops = []; this.bossDown = true; this.bossWarning = null; this.bossAbility = null; bud.bossWarning = null;
         this.event('boss', { bud, gain, name: bud.name || null });
       }
       if (bud.relay && !chain) {
@@ -428,10 +507,11 @@
     _gems(bud) {
       const spots = (bud.gems || 3) === 2 ? [[-20, 6], [20, 6]] : [[-22, 2], [22, 2], [0, 22]];
       return spots.map(([ox, oy], i) => {
-        const x = Math.max(44, Math.min(376, bud.x + ox)), y = Math.min(this.dangerY - 40, bud.y + oy);
+        // A last-second crack must leave time to see and catch its new gems before they cross the line.
+        const x = Math.max(44, Math.min(376, bud.x + ox)), y = Math.min(this.dangerY - 70, bud.y + oy);
         return { id: bud.id + '-gem-' + i, group: bud.group, x, y, baseX: x, startY: y, r: 9, type: PALETTES[i % PALETTES.length],
           relay: false, hp: 1, maxHp: 1, gem: true, shield: false, fall: bud.fall || 1, sway: 0, swayW: 0, swayPhase: 0,
-          hitAt: -100, bloomed: false, bloomAt: -100, spawnAt: this.time };
+          hitAt: -100, bloomed: false, bloomAt: -100, spawnAt: this.time, bossSummon: Boolean(bud.bossSummon) };
       });
     }
     // The first bloom in a briar patch starts its clock; blooming the whole patch stops it for good.
@@ -458,6 +538,7 @@
     }
     // Cups guard the underside of a bud; a shell guards everything but its turning opening.
     _guarded(bud, hit) {
+      if ((bud.boss || bud.bossPart) && Bosses && this.bossState) return !Bosses.canHit(this, bud, hit, this.striker || {});
       if (bud.shield && hit.ny > .28) return true;
       return Boolean(bud.shell) && hit.nx * Math.cos(bud.shellAngle || 0) + hit.ny * Math.sin(bud.shellAngle || 0) < SHELL_OPEN;
     }
@@ -491,7 +572,9 @@
     }
     _lose() {
       if (this.over) return;
+      if (Bosses) Bosses.cleanup(this);
       this.status = 'lost'; this.lives = 0; this.balls = []; this.ball = null; this.armed = null; this.lullaby = 0; this._endSuper(); this.kept = null;
+      this.bossWarning = null; this.bossAbility = null; this.buds.forEach(bud => { bud.bossWarning = null; });
       this.pending = []; this.pendingBalls = []; this.aim = []; this.nextWaveAt = null;
       this.event('lost', { wave: this.wave, elapsed: this.elapsed });
     }
@@ -500,6 +583,7 @@
     win() { if (this.started && !this.over && this.nextWaveAt === null) this.nextWaveAt = this.time + 0.7; }
     _clearLevel() {
       this.status = 'won'; this.balls = []; this.ball = null; this.armed = null; this.lullaby = 0; this.pending = []; this.aim = []; this.nextWaveAt = null; this._endSuper(); this.kept = null;
+      this.bossWarning = null; this.bossAbility = null;
       this.event('won', { wave: this.wave, lives: this.lives, stars: this.stars, elapsed: this.elapsed });
     }
     step(dt) {
@@ -551,16 +635,17 @@
       if (this.giftAt !== null && waveTime >= this.giftAt) this._spawnGift();
       // During a Lullaby nothing falls; flowers still sway and shells still turn.
       for (const bud of this.buds) {
-        if (this.lullaby <= 0) bud.y += this.descentSpeed * (bud.fall || 1) * dt;
-        if (bud.sway) bud.x = bud.baseX + Math.sin(waveTime * bud.swayW + bud.swayPhase) * bud.sway;
+        if (this.lullaby <= 0 && !bud.bossKind && !bud.bossPart) bud.y += this.descentSpeed * (bud.fall || 1) * dt;
+        if (bud.sway && !bud.bossKind) bud.x = bud.baseX + Math.sin(waveTime * bud.swayW + bud.swayPhase) * bud.sway;
         if (bud.shellSpin) bud.shellAngle += bud.shellSpin * dt;
       }
+      this._bossStep(dt);
       for (const rock of this.bumpers) if (rock.slide) rock.x = rock.baseX + Math.sin(waveTime * rock.slideW) * rock.slide;
       if (this.plan) this._dropIn(waveTime);
 
       // In a scripted run flowers stop just above the line instead of costing a life.
       if (this.scripted) for (const bud of this.buds) if (!bud.bloomed) bud.y = Math.min(bud.y, this.dangerY - bud.r - 4);
-      const breached = new Set(this.scripted ? [] : this.buds.filter(bud => !bud.bloomed && bud.y + bud.r >= this.dangerY).map(bud => bud.group));
+      const breached = new Set(this.scripted ? [] : this.buds.filter(bud => !bud.bloomed && !bud.bossPart && (!bud.hidden || bud.boss && bud.bossKind==='crystal') && bud.y + bud.r >= this.dangerY).map(bud => bud.group));
       for (const group of breached) {
         if (this.status === 'lost' || this.waveBreaches >= 3) break;
         const member = this.buds.find(bud => bud.group === group && !bud.bloomed);
@@ -571,7 +656,8 @@
         // A boss that reaches the line costs a life and climbs back to the top to try again.
         if (member.boss) {
           const lost = [{ x: member.x, y: member.y, type: member.type, r: member.r }];
-          member.y = member.startY; member.spawnAt = this.time; this.waveBreaches++; this.lives--;
+          if (Bosses && this.bossState && this.bossState.boss===member) Bosses.breach(this); else member.y = member.startY;
+          member.spawnAt = this.time; this.waveBreaches++; this.lives--;
           this.event('life', { lives: this.lives, group, x: member.x, y: this.dangerY, wave: this.wave, boss: true, buds: lost, index: this.lives });
           if (this.lives <= 0) { this._lose(); return; }
           continue;
@@ -585,6 +671,7 @@
         if (this.lives <= 0) { this._lose(); return; }
       }
 
+      this._bossLastLifeGift();
       for (const ball of this.balls) {
         ball.age += dt;
         // A current bends a shot toward its flow at a steady rate; the speed never changes.
@@ -626,7 +713,7 @@
           if (hit.kind === 'bud' && hit.item.gift) { this._collect(hit.item); continue; }
           // Every touch below is resolved with this seed as the striker, so its blooms and chains are credited to it.
           if (hit.kind === 'bud') hit.item.impactAngle = Math.atan2(hit.item.y - ball.y, hit.item.x - ball.x);
-          this.striker = ball;
+          ball.bossContact = { nx: hit.nx, ny: hit.ny }; this.striker = ball;
           if (hit.kind === 'bud' && ball.power === 'beeline') { ball.passed.push(hit.item.id); this._beeHit(hit.item); ball.touches++; this.striker = null; continue; }
           if (hit.kind === 'bud' && ball.power === 'sunburst') { this._sunburst(ball, hit.item); this.striker = null; break; }
           // In a Super Bloom a seed blooms plain buds outright and flies on through them, PIERCE times a flight. A pierce
@@ -636,10 +723,14 @@
           }
           // An acorn cup turns away any shot that meets it from below; a shell, any shot that misses its opening.
           if (hit.kind === 'bud' && this._guarded(hit.item, hit)) {
+            if (Bosses && Bosses.burns(this, hit.item, ball)) {
+              ball.dead = true; ball.touches++; this.striker = null;
+              this.event('bossBurn', { bud: hit.item, x: ball.x, y: ball.y, kind: 'ember' }); break;
+            }
             this.event('shield', { bud: hit.item, x: ball.x, y: ball.y, shell: Boolean(hit.item.shell) });
             // A turning shell is a timing shot, so the first time one turns a seed away the seed still wins back a little; a
             // cup, aimed at from below, wins nothing.
-            if (hit.item.shell && !ball.glanced && this._credit(false)) { ball.glanced = true; this._refund(GLANCE, hit.item); }
+            if (hit.item.shell && this._credit(false)) this._refundGlance(ball, hit.item);
           }
           else if (hit.kind === 'bud') this.strike(hit.item);
           if (hit.kind === 'bud') ball.touches++;
@@ -671,12 +762,12 @@
         fireCooldown: this.fireCooldown, pod: this.pod, podGrow: this.podGrow, podSize: POD, kept: Boolean(this.kept), rotateCooldown: this.rotateCooldown, splitCharge: this.splitCharge, splitReady: this.splitReady,
         combo: this.combo, bestCombo: this.bestCombo, bloomedCount: this.bloomedCount,
         directHits: this.directHits, rotationUsed: this.rotationUsed, armed: this.armed, lullaby: this.lullaby, powersUsed: this.powersUsed,
-        sun: this.sun, superBloom: this.superBloom, mult: this.mult, tricks: this.trickCount, startWave: this.startWave,
-        buds: this.buds.map(({ id, x, y, hp, relay, bloomed, shield, puff, boss, shell, geode, gem, briar, gift }) => ({ id, x, y, hp, relay, bloomed,
+        sun: this.sun, superBloom: this.superBloom, mult: this.mult, tricks: this.trickCount, startWave: this.startWave, bossWarning: this.bossWarning || null, bossReached: Boolean(this.bossReached), bossDefeated: Boolean(this.bossDefeated), bossLastLifeGift: Boolean(this.bossLastLifeGift),
+        buds: this.buds.map(({ id, x, y, hp, relay, bloomed, shield, puff, boss, bossKind, shell, geode, gem, briar, gift }) => ({ id, x, y, hp, relay, bloomed, bossKind: bossKind || null,
           shield: Boolean(shield), puff: Boolean(puff), boss: Boolean(boss), shell: Boolean(shell), geode: Boolean(geode), gem: Boolean(gem), briar: Boolean(briar), gift: gift || null })),
         rocks: this.bumpers.filter(item => item.kind === 'rock').map(({ id, x, y, length, angle }) => ({ id, x, y, length, angle })) };
     }
   }
-  return { RushGame, tempoFor, fireDelayFor, descentFor, SUN_REACH, LULLABY, GIFT_CHANCE, SHOT_POWERS,
-    COMBO_WINDOW, SUN_FULL, FIRST_FILL, SUPER_TIME, SUPER_DELAY, PIERCE, CLOSE_BAND, TRICKS, POD, POD_GAP, POD_REGROW, REFUND, GLANCE, KEEP, HELD, AIM_KEEP };
+  return { RushGame, tempoFor, fireDelayFor, descentFor, SUN_REACH, LULLABY, GIFT_EVERY, SHOT_POWERS,
+    COMBO_WINDOW, SUN_FULL, FIRST_FILL, SUPER_TIME, SUPER_DELAY, PIERCE, CLOSE_BAND, TRICKS, POD, POD_GAP, POD_REGROW, REFUND, GLANCE, KEEP, HELD, AIM_KEEP, bossMotion };
 });

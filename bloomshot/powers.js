@@ -7,15 +7,15 @@
   'use strict';
 
   // Powerups for the levels and Meadow Rush. Three change your next shot; Lullaby stops the flowers falling
-  // for a moment. Players start with one of each, catch more as rare gifts in the waves, and can buy any
+  // for a moment. Players start with one of each, catch more as regular free gifts, and can buy any
   // one they choose (one consumable store product each). Buying happens only on the shelf, never mid-run.
   var LIST = [
     { id: 'sunburst', name: 'Sunburst', shot: true, product: 'bloomshot.power.sunburst',
-      text: 'Your next shot bursts and blooms the flowers around it.', tip: 'Sunburst ready. Fire into a crowd!' },
+      text: 'Blooms nearby flowers; takes 4 rings off each boss in reach.', tip: 'Sunburst ready. Fire into a crowd!' },
     { id: 'dandelion', name: 'Dandelion', shot: true, product: 'bloomshot.power.dandelion',
       text: 'Your next shot splits into three seeds.', tip: 'Dandelion ready. Three seeds at once!' },
     { id: 'beeline', name: 'Bee Line', shot: true, product: 'bloomshot.power.beeline',
-      text: 'Your next shot flies through flowers, cups and shells.', tip: 'Bee Line ready. It flies through everything!' },
+      text: 'Pierces flowers and guards; takes 3 rings off each boss.', tip: 'Bee Line ready. It flies through everything!' },
     { id: 'lullaby', name: 'Lullaby', shot: false, product: 'bloomshot.power.lullaby',
       text: 'The flowers stop falling for 6 seconds.', tip: 'Shh. The flowers are dozing.' }
   ];
@@ -24,14 +24,16 @@
   LIST.forEach(function (p) { BY_ID[p.id] = p; BY_PRODUCT[p.product] = p; });
   var MAX = 999, STARTER = 1, KEEP_RECEIPTS = 50;
   // Packs hold fixed contents, always shown before buying, and nothing in them is random: five of one kind,
-  // or the bag with three of each. Like the singles, they are sold only on the shelf.
+  // or the bag with five of each. Like the singles, they are sold only on the shelf.
   var PACKS = LIST.map(function (p) {
     var contents = {}; contents[p.id] = 5;
     return { id: p.id + '5', product: 'bloomshot.pack.' + p.id + '5', name: '5 ' + p.name, contents: contents, single: p.id };
-  }).concat([{ id: 'bag', product: 'bloomshot.pack.bag12', name: 'Powerup Bag', single: null,
-    contents: IDS.reduce(function (all, id) { all[id] = 3; return all; }, {}) }]);
+  }).concat([{ id: 'bag', product: 'bloomshot.pack.bag20', name: '20-powerup Bag', single: null,
+    contents: IDS.reduce(function (all, id) { all[id] = 5; return all; }, {}) }]);
   var PACK_BY_PRODUCT = {};
   PACKS.forEach(function (p) { PACK_BY_PRODUCT[p.product] = p; });
+  // Retired draft product: still recognize a saved grant without changing what its receipt promises.
+  PACK_BY_PRODUCT['bloomshot.pack.bag12'] = { contents: IDS.reduce(function (all, id) { all[id] = 3; return all; }, {}) };
   // What a product gives, as { powerId: count }, or null for a product that is not a powerup.
   function contents(product) {
     if (BY_PRODUCT[product]) { var one = {}; one[BY_PRODUCT[product].id] = 1; return one; }
@@ -66,7 +68,10 @@
     var next = normalize(counts), kept = receipts(list), keys = Object.keys(adds);
     if (!valid || !keys.length || keys.some(function (key) { return adds[key] < 1; })) return { ok: false, counts: next, receipts: kept };
     if (id && kept.indexOf(id) >= 0) return { ok: true, repeat: true, counts: next, receipts: kept };
-    keys.forEach(function (key) { next[key] = Math.min(MAX, next[key] + adds[key]); });
+    // Paid contents must fit in full. Leave an overflowing grant waiting, with its receipt unused,
+    // so it can be delivered after the player makes room instead of losing paid powerups.
+    if (keys.some(function (key) { return next[key] + adds[key] > MAX; })) return { ok: false, reason: 'capacity', counts: next, receipts: kept };
+    keys.forEach(function (key) { next[key] += adds[key]; });
     if (id) kept = kept.concat(id).slice(-KEEP_RECEIPTS);
     return { ok: true, counts: next, receipts: kept, added: adds };
   }

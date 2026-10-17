@@ -1,19 +1,102 @@
 {
   "published": true,
   "audience": "owner-private",
-  "url": "https://bloomshot-meadow.trevor-owens1996.chatgpt.site",
+  "url_location": "Owner-private playtest address is shared with Trevor in the project chat.",
   "project_id": "appgprj_6ac04fc69fa881919f50dedb89a70cd6",
-  "deployment_id": "appgdep_6ac06be95a10819191e10f8774a54fea",
-  "version_id": "appgprj_6ac04fc69fa881919f50dedb89a70cd6~appgver_11582ca3b7988191bab8cdcdcf742637",
-  "source_commit": "3d12655f71f9a1d366c3cceee4f9ad44e795a286",
-  "worker_version": "dd9f6269858015fa",
-  "confirmed_at": "2026-10-03T02:44:00.357038+00:00",
+  "deployment_id": "appgdep_6ad2e6fed7048191b88db72b7a3d9d00",
+  "version_id": "appgprj_6ac04fc69fa881919f50dedb89a70cd6~appgver_5586a722953c819189ac6444f89afe63",
+  "source_commit": "f597905195f68f2c3ee7dc7de1e1540013cabfa1",
+  "game_source_commit": "d647d922aaba7d13578953218b4462d34eddec4b",
+  "worker_version": "570443dc5aa3284b",
+  "confirmed_at": "2026-10-17T03:09:58.782278+00:00",
   "physical_devices_verified": false,
+  "owner_safari_report": {
+    "device": "iPhone 13",
+    "os_as_reported": "iOS 26.6.2",
+    "low_power_mode": "off",
+    "previous_build_feedback": "Playfield and objects felt too small; consistently low perceived frame rate.",
+    "refreshed_build_approved": false
+  },
+  "native_phone_install_verified": false,
   "payments_live": false,
-  "local_browser_offline_reload": true,
-  "local_explicit_update": true,
-  "local_meadow_progression_verified": true,
-  "local_moon_chapter_available_offline": true,
+  "graphics": {
+    "default": "maximum",
+    "choices": [
+      "maximum",
+      "balanced",
+      "performance"
+    ],
+    "target_fps": 60,
+    "installed_device_fps_verified": false
+  },
+  "earlier_layout_evidence": {
+    "matrix_checks": 235,
+    "tutorial_prompt_checks": 60,
+    "later_source_touch_checks": 14,
+    "evidence": "qa/mobile-layout-results.json",
+    "scope": "Historical mobile-layout source stages retain their original hashes. They do not describe the newer graphics settings/runtime."
+  },
+  "automated_suites_passed": 32,
+  "automated_suites_source_commit": "d647d922aaba7d13578953218b4462d34eddec4b",
+  "ci_test_runs_passed": [
+    38997570146,
+    38997572238
+  ],
+  "ci_pages_build_passed": 38997572222,
+  "public_pages_deploy": "skipped",
+  "moon_pointer_check_passed": true,
   "native_source_generated": true,
-  "native_compilation_verified": false
+  "native_packaging_assets": 34,
+  "native_compilation_verified": true,
+  "evidence": [
+    "qa/reliability-results.json",
+    "qa/reliability-deployment-results.json",
+    "qa/native-reliability-results.json",
+    "qa/precache-stream-test-results.json"
+  ],
+  "earlier_mobile_evidence": [
+    "qa/mobile-layout-results.json",
+    "qa/mobile-render-results.json",
+    "qa/mobile-deployment-results.json"
+  ],
+  "served_source_verified": {
+    "assets_byte_identical": 35,
+    "html_documents_preserved_with_hosting_addition": 3,
+    "failed": 0
+  },
+  "earlier_evidence": {
+    "game_source_commit": "2bbfe89321338f49f3d5cdbb17e8cf34b3bdf472",
+    "evidence": "qa/playtest-feedback-results.json",
+    "local_browser_offline_reload": true,
+    "local_explicit_update": true,
+    "boss_art_states": 20,
+    "boss_smoke_cases": 30,
+    "gift_entrance_cases": 80,
+    "note": "Historical browser checks retain their original fingerprints. The later billing source stage is recorded in qa/billing-release-prep-results.json. Current PWA logic, precache and packaging checks are recorded in qa/mobile-render-results.json and current CI."
+  },
+  "source_note": "source_commit identifies the pushed Sites artifact repository; game_source_commit identifies the reviewed GitHub source used for the static build. The build replaces the development worker VERSION with the asset hash. Exact checked game-file hashes are recorded in each staged evidence file. Older store media retains its own source fingerprints and does not depict the refreshed layout.",
+  "playtest_gate": "Trevor approves the game before public release. Installed iPhone and Android performance acceptance, signing, device installs and real sandbox purchase gates remain open; no native 60 FPS claim is established.",
+  "earlier_graphics_evidence": {
+    "game_source_commit": "98850b69d789fb6e6e2a1ccee6ce21e2d3bf94d5",
+    "final_source_gameplay_windows": 8,
+    "packaged_asset_gameplay_windows": 2,
+    "ci_test_runs_passed": [
+      38964349326,
+      38964353527
+    ],
+    "ci_pages_build_passed": 38964353565,
+    "evidence": [
+      "qa/graphics-performance-results.json",
+      "qa/graphics-deployment-results.json"
+    ],
+    "scope": "Earlier graphics source retains its own exact fingerprints and desktop timing limitations."
+  },
+  "native_compilation_source_commit": "d647d922aaba7d13578953218b4462d34eddec4b",
+  "native_compilation": {
+    "ios_unsigned_simulator": true,
+    "ios_simulator_startup_visually_reviewed": true,
+    "android_debug": true,
+    "physical_phone_install": false,
+    "release_signing": false
+  }
 }
