@@ -339,7 +339,9 @@
       put(split, 'disabled', !game.splitReady);
       // Once the run is over the bar empties, so a full gold Split no longer looks pressable behind the finale.
       putVar(split, '--split-charge', `${game.over ? 0 : game.splitCharge * 100}%`);
-      put(split, 'textContent', game.over ? 'Split' : game.splitReady ? 'Split! +2' : game.splitCharge >= 1 ? game.balls.length ? 'No room' : 'Fire first' : `Split ${Math.round(game.splitCharge * 6)}/6`);
+      put(split, 'textContent', game.over ? 'Split' : game.splitReady ? 'Split! +2' : game.splitCharge >= 1 ? game.balls.length ? 'Too many seeds' : 'Fire first' : `Split ${Math.round(game.splitCharge * 6)}/6`);
+      // Charged but not usable this instant (no seed flying, or too many): the gold dims, so it never looks ready.
+      putClass(split, 'waiting', !game.over && !game.splitReady && game.splitCharge >= 1);
       putData(canvas, 'sun', (game.sun || 0).toFixed(2)); putData(canvas, 'mult', game.mult || 1); putData(canvas, 'superBloom', (game.superBloom || 0).toFixed(1));
       put(banner, 'hidden', game.feverTime <= 0);
       put(banner, 'textContent', 'Super Bloom!');
