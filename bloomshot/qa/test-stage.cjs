@@ -132,7 +132,8 @@ test('A level opens on its title ribbon, the intro cue plays and the first wave 
   assert(plops.length >= 1 && plops.length <= 8, `${plops.length} plops`);
   for (let i = 1; i < plops.length; i++) assert(plops[i].at - plops[i - 1].at >= .04 - 1e-9, 'plops are at least 40 ms apart');
   assert(plops.every((p, i) => p.data.i === i && Number.isFinite(p.data.x)));
-  assert.equal(titles(game).length, 0, 'the title has gone');
+  // The level title has gone, and the first wave's tip has taken the top edge.
+  assert.deepEqual(plain(titles(game).map(f => [f.text, f.label, f.size, f.y])), [['Wave 1 of 10', Depths.wave(1, 1).hint, 'small', 32]], 'the title has gone and the tip is up');
   assert(game.buds.every(b => b.enterAt === undefined), 'enter fields clear once landed, so a later respawn pops in as before');
   assert.equal(app.cues('intro').length, 1, 'the intro plays once');
 });

@@ -336,8 +336,11 @@ test('Invalid graphics values fall back to Maximum, while valid saved choices an
   }
 });
 
+// The opening vine curtain ignores taps (a seed fired blind under it was never aimed), so aiming tests start once it lifts.
+function pastCurtain(app) { for (let i = 0; i < 40; i++) app.frame(); }
+
 test('Rapid Rush moves defer collision traces until the next paint and release uses the latest angle', () => {
-  const app = boot(); app.click('depth-map', { depth: '1' }); app.frame();
+  const app = boot(); app.click('depth-map', { depth: '1' }); pastCurtain(app);
   const game = app.games.at(-1), canvas = app.$('game-canvas'), trace = game.trace.bind(game);
   let traces = 0; game.trace = (...args) => { traces++; return trace(...args); };
   canvas.emit('pointerdown', { pointerId: 7, isPrimary: true, clientX: 200, clientY: 220 });
@@ -386,7 +389,7 @@ test('The quality governor includes warming and fresh paints in sustained CPU co
 
 test('Resize storms coalesce without reallocating or canceling unchanged aiming; real changes cancel safely', () => {
   const render = { rects: {}, depths: { 1: { stars: 3, best: 1000 } } }, app = boot({ render });
-  app.click('depth-map', { depth: '1' }); app.frame();
+  app.click('depth-map', { depth: '1' }); pastCurtain(app);
   const game = app.games.at(-1), canvas = app.$('game-canvas');
   canvas.emit('pointerdown', { pointerId: 7, isPrimary: true, clientX: 200, clientY: 300 });
   assert(game.aim.length > 1, 'a real held aim is active');
@@ -539,7 +542,8 @@ test('The boss is the last flower: its bloom calls off the reinforcements, the f
   assert(light, 'a warm light on the flower instead');
   assert.equal(popsAfter, 0, 'no score pop, banner, stamp or praise over the finale');
   assert(title, 'the level title came up'); assert.equal(title.text, 'Level 1 clear!'); assert.equal(title.label, 'Old Sunny bloomed!');
-  assert(title.y >= 300, `the ribbon sits clear of the boss (y ${title.y})`);
+  assert(Math.abs(title.y - boss.y) > 29 + boss.r * 1.3, `the ribbon sits clear of the boss (y ${title.y}, boss ${boss.y})`);
+  assert(game.bumpers.length && game.bumpers.every(b => Math.abs(title.y - b.y) > 29 + Math.abs(Math.sin(b.angle || 0)) * b.length / 2), 'and clear of the petal');
   assert(!app.cues.some(c => c.type === 'trick'), 'no stamps');
 });
 

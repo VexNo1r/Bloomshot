@@ -751,7 +751,8 @@ test('The game opens on the level map: level 1 is open, the rest wait their turn
   const started = app.games.length;
   app.click('depth-map', { depth: '2' }); assert.equal(app.games.length, started); assert.equal(app.$('toast').textContent, 'Clear level 1 to open Root Tunnels.');
   app.click('depth-map', { depth: '5' }); assert.equal(app.games.length, started); assert.equal(app.$('toast').textContent, 'Clear level 4 to try Glowworm Lake free.');
-  app.click('depth-map', { depth: '6' }); assert.equal(app.games.length, started); assert.equal(app.$('toast').textContent, 'Fossil Beds is part of levels 5 to 10.');
+  // A deeper level scrolls to the unlock card instead of putting a toast over it; screen readers still hear why.
+  app.click('depth-map', { depth: '6' }); assert.equal(app.games.length, started); assert.equal(app.$('announcement').textContent, 'Fossil Beds is part of levels 5 to 10.');
   assert.equal(app.$('depth-unlock').scrolled, 2, 'and the map shows what the unlock holds');
   app.click('depth-map', { depth: '1' }); const game = depthGame(app);
   assert.equal(game.plan.id, 1); assert.equal(app.context.bloomshotState.theme, 'depth-meadow'); assert.equal(app.context.bloomshotState.route, 'game');
@@ -765,7 +766,7 @@ function tapTutorial(app, action, finger) {
   if (action === 'fire') {
     const [x, y] = finger, canvas = app.$('game-canvas');
     canvas.emit('pointerdown', { isPrimary: true, pointerId: 1, clientX: x, clientY: y }); canvas.emit('pointerup', { pointerId: 1, clientX: x, clientY: y });
-  } else if (action === 'rotate') app.click('rotate-btn');
+  } else if (action === 'rotate') { assert(!app.$('rotate-btn').hidden, 'the Turn petal button is there to tap'); app.click('rotate-btn'); }
   else if (action === 'split') app.click('split-btn');
   else app.click(TRAY_GROUP[action.slice(6)], { power: action.slice(6) });
 }
