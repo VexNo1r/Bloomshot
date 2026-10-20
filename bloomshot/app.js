@@ -512,15 +512,19 @@
     return powerIcons.get(id);
   }
   const TRAY = { 'power-left': ['sunburst', 'dandelion'], 'power-right': ['beeline', 'lullaby'] };
-  let trayKey = '';
+  let trayKey = '', chipGot = null;
   function powerChip(id) {
     const def = Powers.byId[id], n = powerCount(id), armed = game.armed === id, playing = id === 'lullaby' && game.lullaby > 0;
+    // A powerup just caught from a gift bubble bounces in its slot, so the reward lands where it can be used.
+    const got = chipGot && chipGot.id === id && performance.now() < chipGot.until ? ' got' : '';
     const label = `${def.name}, ${n} left. ${def.text}${armed ? ' Ready on your next shot.' : playing ? ' Playing now.' : ''}`;
-    return `<button class="power-chip${armed ? ' armed' : playing ? ' active' : n ? '' : ' empty'}" type="button" data-power="${id}" aria-label="${escape(label)}" aria-pressed="${armed || playing}">`
+    return `<button class="power-chip${armed ? ' armed' : playing ? ' active' : n ? '' : ' empty'}${got}" type="button" data-power="${id}" aria-label="${escape(label)}" aria-pressed="${armed || playing}">`
       + `<img src="${powerIcon(id)}" alt=""><span class="power-count" aria-hidden="true">${n}</span></button>`;
   }
   function renderTray() {
     if (!isRush() || preview) return;
+    // Once the bounce has played the chip is rebuilt without it, so showing the board again does not replay it.
+    if (chipGot && performance.now() >= chipGot.until) { chipGot = null; trayKey = ''; }
     const key = `${Powers.ids.map(powerCount).join()}|${game.armed}|${game.lullaby > 0}|${isTutorial()}`;
     if (key === trayKey) return;
     trayKey = key;
@@ -1708,10 +1712,13 @@
         burst({ x: event.x, y: event.y, type: 'gold', r: 6 }, 8);
       } else if (event.type === 'giftAppear') {
         $('game-hint').textContent = `A gift bubble! Shoot it to keep the ${Powers.byId[event.power].name}.`;
-        say($('game-hint').textContent);
+        // The bubble floats in at the top among score pops, so it announces itself: two gold rings and a note up top.
+        if (save.settings.motion) for (const slow of [0, .3]) game.particles.push({ x: event.x, y: event.y, vx: 0, vy: 0, life: .7 + slow, maxLife: .7 + slow, kind: 'ring', color: '#ffd148', size: 16, grow: 26 + slow * 50, gravity: 0, drag: 0 });
+        if (!isTutorial()) toast(`Gift bubble! Shoot it for a free ${Powers.byId[event.power].name}.`); else say($('game-hint').textContent);
       } else if (event.type === 'gift') {
         const def = Powers.byId[event.power];
         save.powers = Powers.add(save.powers, event.power, 1); persist(); trayKey = '';
+        if (save.settings.motion) chipGot = { id: event.power, until: performance.now() + 450 };
         burst({ x: event.x, y: event.y, type: 'gold', r: 12 }, 30); burst({ x: event.x, y: event.y, type: 'lilac', r: 8 }, 14); jolt(.18, .04, .4); haptic('surge');
         game.floaters = game.floaters.filter(item => item.kind !== 'bonus');
         headline({ x: 210, y: 250, text: `+1 ${def.name}`, label: 'a free gift!', life: 1.2, maxLife: 1.2, kind: 'wave' });
