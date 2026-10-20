@@ -42,7 +42,7 @@ function recorder(surface) {
     putImageData() {},
     beginPath() { points = []; },
     moveTo(x, y) { points.push([...apply(x, y), 'moveTo']); },
-    arc(x, y, radius) { points.push([...apply(x, y), 'arc']); arcs.push({ x, y, radius }); },
+    arc(x, y, radius) { points.push([...apply(x, y), 'arc']); arcs.push({ x, y, radius, alpha: state.globalAlpha }); },
     quadraticCurveTo(cx, cy, x, y) { points.push([...apply(x, y), 'quad']); },
     fill() { const [x, y] = apply(0, 0); fills.push({ style: state.fillStyle, alpha: state.globalAlpha, x, y, points: points.slice() }); if (surface) surface.styles.add(state.fillStyle); },
     drawImage(img, ...args) {
@@ -221,7 +221,7 @@ test('Cracks and casing shards fly from the struck side; quality and animations 
   assert.equal(once.fills.filter(f => SEPALS.has(f.style)).length, 1, 'one fill for all of them');
 });
 test('Animations off: blooms open at once with no shards, nothing trembles and nothing flares', () => {
-  const now = 20, blooming = bud({ bloomed: true, bloomAt: now - .1 }), flaring = bud({ type: 'gold', bloomed: true, bloomAt: 10, flareAt: now - .1 });
+  const now = 20, blooming = bud({ bloomed: true, bloomAt: now - .1 }), flaring = bud({ type: 'gold', bloomed: true, bloomAt: now - .7, flareAt: now - .1 });
   const low = bud({ type: 'sky', y: 448 - 11 - 4 });
   const moving = recorder(), still = recorder();
   Art.draw(moving.ctx, rush([blooming, flaring, low]), now, { showAim: false });
@@ -262,8 +262,9 @@ test('Only the group about to cross the line trembles, by at most 1.5 px, and ne
   assert(near(tutorial, low.x), 'calm in the scripted tutorial, where flowers stop above the line');
 });
 test('Finale flares: gold light from 2.6r to 3.5r fading out over .35 s, a gold ring per flower, and a glint unless quality is lowered', () => {
-  const b = bud({ type: 'coral', r: 12, bloomed: true, bloomAt: 1, flareAt: 5 });
-  const glow = t => { const { ctx, images, fills, arcs } = recorder(); Art.draw(ctx, rush([b]), t, { showAim: false }); return { light: images.filter(i => i.op === 'lighter'), fills, rings: arcs.filter(a => near(a.x, b.x, .01) && near(a.y, b.y, .01) && a.radius > 12 * 1.15) }; };
+  // The sweep runs once the level is won (a flower in full bloom here; spent ones are below).
+  const b = bud({ type: 'coral', r: 12, bloomed: true, bloomAt: 4.3, flareAt: 5 }), won = rush([b], { status: 'won' });
+  const glow = t => { const { ctx, images, fills, arcs } = recorder(); Art.draw(ctx, won, t, { showAim: false }); return { light: images.filter(i => i.op === 'lighter'), fills, rings: arcs.filter(a => near(a.x, b.x, .01) && near(a.y, b.y, .01) && a.radius > 12 * 1.15) }; };
   const start = glow(5.001).light[0], end = glow(5.34).light[0];
   assert(start && end, 'a glow is drawn');
   assert(near(start.w / 2, 12 * 2.6, .3) && start.alpha > .95, `starts at 2.6r, full strength (${(start.w / 2).toFixed(1)})`);
@@ -278,11 +279,15 @@ test('Finale flares: gold light from 2.6r to 3.5r fading out over .35 s, a gold 
     const xs = f.points.map(p => p[0]), ys = f.points.map(p => p[1]);
     return xs.length >= 5 && Math.hypot((Math.min(...xs) + Math.max(...xs)) / 2 - spot[0], (Math.min(...ys) + Math.max(...ys)) / 2 - spot[1]) < 1.5;
   };
-  const glint = q => { const { ctx, fills } = recorder(); Art.draw(ctx, rush([b]), 5.12, { showAim: false, quality: q }); return fills.filter(f => f.style === '#ffffff' && centered(f)); };
+  const glint = q => { const { ctx, fills } = recorder(); Art.draw(ctx, won, 5.12, { showAim: false, quality: q }); return fills.filter(f => f.style === '#ffffff' && centered(f)); };
   assert.equal(glint(0).length, 1, 'a glint on the upper right petal');
   assert.equal(glint(1).length, 0, 'tier 1 drops the glint');
+  // A flower spent before a wave clear in endless Rush stays gone, and no light hangs where it was.
+  const spent = recorder(); Art.draw(spent.ctx, rush([bud({ type: 'coral', r: 12, bloomed: true, bloomAt: 1, flareAt: 5 })], { nextWaveAt: 6 }), 5.12, { showAim: false });
+  assert.equal(spent.images.filter(i => i.op === 'lighter').length, 0, 'a spent flower flares nothing');
   // A flower that has sunk out of sight past the danger line (448) flares no light, ring or glint on the soil.
-  const sunk = bud({ type: 'coral', r: 12, bloomed: true, bloomAt: 1, flareAt: 5, y: 480 });
+  // (Its bloom ring is over and it has only begun to fade: the sink alone hides it.)
+  const sunk = bud({ type: 'coral', r: 12, bloomed: true, bloomAt: 4.2, flareAt: 5, y: 480 });
   const { ctx, images, fills, arcs } = recorder(); Art.draw(ctx, rush([sunk]), 5.12, { showAim: false });
   assert.equal(images.filter(i => i.op === 'lighter').length, 0, 'no light');
   assert.equal(arcs.filter(a => near(a.x, sunk.x, .01) && near(a.y, sunk.y, .01)).length, 0, 'no ring');
@@ -349,12 +354,13 @@ test('Links: at most 24, 12 at quality 1, none at quality 2, and a still dotted 
 });
 test('After warm-up a worst-case frame (16 unfurls, 24 links, 40 flares) adds no gradients', () => {
   const now = 50, buds = [];
-  for (let i = 0; i < 40; i++) buds.push(bud({ type: TYPES[i % 5], x: 40 + (i % 10) * 36, y: 80 + Math.floor(i / 10) * 60, bloomed: true, bloomAt: i < 16 ? now - .05 - i * .02 : now - 3, flareAt: now - .1 }));
+  // Spent flowers fade away, so the open ones that flare are still in full bloom (.7 s old).
+  for (let i = 0; i < 40; i++) buds.push(bud({ type: TYPES[i % 5], x: 40 + (i % 10) * 36, y: 80 + Math.floor(i / 10) * 60, bloomed: true, bloomAt: i < 16 ? now - .05 - i * .02 : now - .7, flareAt: now - .1 }));
   for (let i = 0; i < 24; i++) buds.push(bud({ type: TYPES[i % 5], x: 40 + (i % 12) * 30, y: 340 + Math.floor(i / 12) * 40 }));
   const pending = buds.slice(40).map((b, i) => ({ id: b.id, at: now - .1, when: now + .2, via: ['relay', 'puff', 'boss', 'sun'][i % 4], from: { x: 210, y: 60 } }));
   const busy = rush(buds, { pending });
   // The same board at rest: every flower open, nothing queued, nothing flaring.
-  const calm = rush(buds.map(b => ({ ...b, bloomAt: b.bloomed ? now - 3 : -100, flareAt: undefined })));
+  const calm = rush(buds.map(b => ({ ...b, bloomAt: b.bloomed ? now - .7 : -100, flareAt: undefined })));
   for (const state of [busy, calm]) Art.draw(recorder().ctx, state, now, { showAim: false }); // warm-up
   const count = state => { const before = totals.gradients; Art.draw(recorder().ctx, state, now, { showAim: false }); return totals.gradients - before; };
   assert.equal(count(busy), count(calm), 'the bloom features add no gradients to a frame');
@@ -509,6 +515,145 @@ test('Briar vines wither once their patch has bloomed for good, and sink out wit
   assert.equal(fills.filter(f => f.style === THORN).length, 0, 'with animations off it goes at once');
   const sunk = patch(() => ({ bloomed: true, bloomAt: 5, regrowAt: 13, regrowSpan: 4, y: 470 }));
   assert.equal(vine(sunk, 10).length, 0, 'a spent patch past the danger line takes its vine with it');
+});
+// Spent flowers fade away on the falling board, so it shows only what still needs a seed.
+const smoothstep = t => { t = Math.min(1, Math.max(0, t)); return t * t * (3 - 2 * t); };
+// The resting flower drawn for b: its sprite, centered on it, and how strongly it shows (0 once it is not drawn).
+const flowerAt = (images, b) => images.filter(i => i.op === 'source-over' && Math.hypot(i.cx - b.x, i.cy - b.y) < 3 && i.w > b.r);
+const shows = (images, b) => Math.max(0, ...flowerAt(images, b).map(i => i.alpha));
+test('A spent flower holds through its bloom, then fades away by 1.4 s, drawing in a little; animations off fade it alone', () => {
+  const b = bud({ type: 'gold', x: 150, y: 200, bloomed: true, bloomAt: 10 });
+  const look = (time, reducedMotion) => { const { ctx, images } = recorder(); Art.draw(ctx, rush([b]), time, { showAim: false, reducedMotion }); return flowerAt(images, b); };
+  const expected = time => 1 - smoothstep((time - 10 - .85) / .55);
+  for (const reducedMotion of [false, true]) {
+    for (const time of [10.6, 10.85, 11, 11.15, 11.3, 11.39]) {
+      const seen = look(time, reducedMotion);
+      assert(seen.length === 1 && near(seen[0].alpha, expected(time), 1e-9), `${reducedMotion ? 'still' : 'moving'} at ${time}: ${seen.map(i => i.alpha.toFixed(3))} for ${expected(time).toFixed(3)}`);
+    }
+    assert(near(look(10.85, reducedMotion)[0].alpha, 1), 'in full bloom until its ring is over');
+    for (const time of [11.41, 11.5, 14]) assert.equal(look(time, reducedMotion).length, 0, `gone at ${time}`);
+  }
+  assert(look(11.3, false)[0].w < look(10.6, false)[0].w * .9, 'with animations on it draws in as it goes');
+  assert(near(look(11.3, true)[0].w, look(10.6, true)[0].w, 1e-9), 'with animations off only its opacity changes');
+});
+test('A bloomed briar on its clock keeps full strength and its ring, then fades with its patch from when the clock stops', () => {
+  const patch = [0, 1, 2].map(i => bud({ briar: true, group: 'thorny', type: 'lilac', x: 120 + i * 60, y: 200 })), [a, b, c] = patch, board = rush(patch);
+  Object.assign(a, { bloomed: true, bloomAt: 10, regrowAt: 14, regrowSpan: 4 }); Object.assign(b, { bloomed: true, bloomAt: 10.5, regrowAt: 14, regrowSpan: 4 });
+  const frame = time => { const rec = recorder(); Art.draw(rec.ctx, board, time, { showAim: false }); return rec; };
+  const ring = (rec, x) => rec.arcs.some(r => near(r.x, x.x) && near(r.y, x.y) && near(r.radius, x.r + 7));
+  for (let time = 11.1; time < 13; time += .1) {
+    const rec = frame(time);
+    assert(near(shows(rec.images, a), 1) && near(shows(rec.images, b), 1), `held in full bloom at ${time.toFixed(1)}`);
+    assert(ring(rec, a) && ring(rec, b), 'with its countdown ring');
+  }
+  // The last briar blooms at 13: the patch has bloomed for good and its clock stops.
+  frame(12.99);
+  Object.assign(c, { bloomed: true, bloomAt: 13 }); patch.forEach(p => { p.regrowAt = null; });
+  const rows = [];
+  for (let i = 0; i <= 48; i++) { const time = 13 + i / 30, rec = frame(time); rows.push({ time, a: shows(rec.images, a), b: shows(rec.images, b), c: shows(rec.images, c), ring: ring(rec, a), vine: rec.fills.some(f => f.style === '#4a261b') }); }
+  for (let i = 1; i < rows.length; i++) assert(rows[i].a <= rows[i - 1].a + 1e-12 && rows[i].b <= rows[i - 1].b + 1e-12, `no flower comes back at ${rows[i].time.toFixed(2)}`);
+  assert(rows.every(r => !r.ring), 'the ring goes with the clock');
+  const at = time => rows.find(r => r.time >= time - 1e-9);
+  assert(near(at(13.8).a, 1) && near(at(13.8).b, 1) && near(at(13.8).c, 1), 'the whole patch is still in full bloom .8 s on');
+  assert(!at(13.7).vine, 'by then its vine has withered');
+  const mid = at(14.1);
+  assert(mid.a > 0 && mid.a < 1 && Math.abs(mid.a - mid.c) < .05 && Math.abs(mid.b - mid.c) < .05, `then they fade together (${mid.a.toFixed(2)}, ${mid.b.toFixed(2)}, ${mid.c.toFixed(2)})`);
+  const end = at(14.43);
+  assert.deepEqual([end.a, end.b, end.c], [0, 0, 0], 'and are gone 1.4 s after it bloomed for good');
+  // A thorn spell (Thornmother) holds only the flowers it made briars, which fade from when it ends; its clock stamped
+  // on a flower of the group that bloomed earlier, never a briar, brings nothing back.
+  const made = bud({ briar: true, group: 'spell', x: 200, y: 300, bloomed: true, bloomAt: 20, regrowAt: 23, regrowSpan: 2 });
+  const before = bud({ group: 'spell', x: 260, y: 300, bloomed: true, bloomAt: 18, regrowAt: 23, regrowSpan: 2 }), spell = rush([made, before]);
+  const see = (time, x) => { const rec = recorder(); Art.draw(rec.ctx, spell, time, { showAim: false }); return shows(rec.images, x); };
+  assert.equal(see(21.5, before), 0, 'the flower that bloomed before the spell stays gone');
+  assert(near(see(22, made), 1), 'the spell holds the flower it made a briar');
+  delete made.regrowAt; delete made.regrowSpan; delete made.briar;
+  assert(near(see(22.8, made), 1) && see(23.2, made) > 0 && see(23.2, made) < 1 && see(23.45, made) === 0, 'then it fades from when the spell ended');
+});
+test('Once nothing is left to shoot, flowers in full bloom stay and fading ones finish; nothing comes back on its own', () => {
+  for (const extra of [{ status: 'won' }, { bossDown: true }, { nextWaveAt: 12 }]) {
+    const fading = bud({ x: 100, y: 200, bloomed: true, bloomAt: 9 }), full = bud({ x: 200, y: 200, bloomed: true, bloomAt: 9.6 });
+    const late = bud({ x: 300, y: 200, bloomed: true, bloomAt: 10.3 }), board = rush([fading, full, late], { ...extra, time: 10 });
+    const name = Object.keys(extra)[0];
+    assert(Art.spentFlower(board, fading) && !Art.spentFlower(board, full) && !Art.spentFlower(board, late), `${name}: the app sees which flowers are spent`);
+    let last = 1;
+    for (const time of [10, 10.1, 10.2, 10.3, 10.39, 10.41, 11, 12, 20]) {
+      const { ctx, images } = recorder(); Art.draw(ctx, board, time, { showAim: false });
+      const seen = shows(images, fading);
+      assert(seen <= last + 1e-12, `${name}: the fading flower never comes back (${time})`); last = seen;
+      assert(near(shows(images, full), 1), `${name}: the flower in full bloom stays at ${time}`);
+      if (time >= 10.9) assert(near(shows(images, late), 1), `${name}: so does one the clear itself bloomed, at ${time}`);
+    }
+    assert.equal(last, 0, `${name}: the fading flower finished`);
+    board.time = 20;
+    assert(!Art.spentFlower(board, full) && !Art.spentFlower(board, late), `${name}: still in bloom for the app`);
+  }
+  // The app asks at the clear itself (its harvest and sweep); frames drawn a moment later keep the same flowers.
+  const edge = bud({ x: 150, y: 260, bloomed: true, bloomAt: 9.18 }), cleared = rush([edge], { nextWaveAt: 10.7, time: 10 });
+  assert(!Art.spentFlower(cleared, edge), 'in full bloom at the clear (.82 s)');
+  for (const time of [10.05, 10.5]) {
+    const { ctx, images } = recorder(); Art.draw(ctx, cleared, time, { showAim: false });
+    assert(near(shows(images, edge), 1), `so it stays for the harvest (${time})`);
+  }
+  const playing = bud({ bloomed: true, bloomAt: 9.6 }), { ctx, images } = recorder();
+  Art.draw(ctx, rush([playing]), 11.1, { showAim: false });
+  assert.equal(shows(images, playing), 0, 'while the wave plays on the same flower is gone by now');
+});
+test('A won level\'s light brings each spent flower back as it reaches it: full flare, back over .3 s, drawn back to size', () => {
+  // The app sets backAt with flareAt as the sweep's light reaches each flower (bloomed long before the win at 4.9).
+  const b = bud({ type: 'coral', r: 12, x: 150, y: 200, bloomed: true, bloomAt: 1, flareAt: 5, backAt: 5 }), won = rush([b], { status: 'won' });
+  const look = (time, reducedMotion) => { const { ctx, images, arcs } = recorder(); Art.draw(ctx, won, time, { showAim: false, reducedMotion }); return { images, flower: flowerAt(images, b), light: images.filter(i => i.op === 'lighter' && Math.hypot(i.cx - b.x, i.cy - b.y) < 3), rings: arcs.filter(a => near(a.x, b.x, .01) && near(a.y, b.y, .01) && a.radius > 12 * 1.15) }; };
+  for (const reducedMotion of [false, true]) {
+    assert.equal(shows(look(4.9, reducedMotion).images, b), 0, 'faded away before the light reaches it');
+    for (const time of [5.06, 5.15, 5.24]) {
+      const seen = shows(look(time, reducedMotion).images, b);
+      assert(near(seen, smoothstep((time - 5) / .3), 1e-9), `${reducedMotion ? 'still' : 'moving'} at ${time}: ${seen.toFixed(3)}`);
+    }
+    for (const time of [5.3, 6, 9]) assert(near(shows(look(time, reducedMotion).images, b), 1), `back in full bloom at ${time}`);
+  }
+  const start = look(5.001);
+  assert(start.light[0] && start.light[0].alpha > .95, 'its gold light starts at full strength, as for a flower that never left');
+  assert(start.rings[0] && start.rings[0].alpha > .85, `and so does its gold ring (${start.rings[0] && start.rings[0].alpha.toFixed(2)})`);
+  assert(look(5.15).flower[0].w < look(6).flower[0].w * .95, 'it grows back to size as it returns');
+  const kept = recorder(); Art.draw(kept.ctx, rush([b], { status: 'won', scripted: true }), 6, { showAim: false });
+  assert(near(look(6).flower[0].w, flowerAt(kept.images, b)[0].w, 1e-9), 'the same size as if it had never faded');
+  // A flower still fading when the level is won never dips as the light reaches it: it climbs back from where it was.
+  const late = bud({ type: 'gold', r: 12, x: 280, y: 220, bloomed: true, bloomAt: 9, flareAt: 10.15, backAt: 10.15 }), clear = rush([late], { status: 'won' });
+  const fading = time => 1 - smoothstep((time - 9 - .85) / .55);
+  let last = fading(10);
+  for (let i = 0; i <= 50; i++) {
+    const time = 10 + i / 100, { ctx, images } = recorder(); Art.draw(ctx, clear, time, { showAim: false });
+    const seen = shows(images, late);
+    assert(seen >= fading(time) - 1e-9 && seen >= last - .03, `no dip at ${time.toFixed(2)}: ${seen.toFixed(3)} after ${last.toFixed(3)}`);
+    last = seen;
+  }
+  assert(near(last, 1), 'and is back in full bloom');
+  // Only the app's backAt brings a flower back: a flare alone (endless Rush's sweep) does not.
+  const flared = bud({ type: 'coral', r: 12, x: 150, y: 300, bloomed: true, bloomAt: 1, flareAt: 5 });
+  assert.equal(shows(look(6).images, flared), 0, 'not drawn on a board it is not part of');
+  { const { ctx, images } = recorder(); Art.draw(ctx, rush([flared], { status: 'won' }), 6, { showAim: false }); assert.equal(shows(images, flared), 0, 'a flare without backAt brings nothing back'); }
+  // The light stands in for the app: endless Rush and a level still playing bring nothing back.
+  for (const extra of [{ nextWaveAt: 6 }, { bossDown: true }, {}]) {
+    const { ctx, images } = recorder(); Art.draw(ctx, rush([b], extra), 6, { showAim: false });
+    assert.equal(shows(images, b), 0, `nothing back with ${JSON.stringify(extra)}`);
+  }
+});
+test('The boss, the calm boards and the scripted tutorial keep their flowers, and the tutorial still fades its own', () => {
+  const at = (state, b) => { const { ctx, images } = recorder(); Art.draw(ctx, state, 10, { showAim: false }); return shows(images, b); };
+  const boss = bud({ type: 'gold', r: 24, x: 210, y: 140, boss: true, hp: 0, maxHp: 6, bloomed: true, bloomAt: 1 });
+  const calm = bud({ bloomed: true, bloomAt: 1 }), taught = bud({ bloomed: true, bloomAt: 1 }), leaving = bud({ bloomed: true, bloomAt: 1, fade: .4 });
+  const calmBoard = { buds: [calm], bumpers: [], balls: [], particles: [], floaters: [], launcher: { x: 210, y: 498 }, status: 'aiming' };
+  assert(near(at(rush([boss]), boss), 1), 'the boss stays in bloom');
+  assert(near(at(calmBoard, calm), 1), 'a calm board keeps its flowers');
+  assert(near(at(rush([taught], { scripted: true }), taught), 1), 'the tutorial keeps its flowers');
+  assert(near(at(rush([leaving], { scripted: true }), leaving), .4), 'and fades a finished step with bud.fade');
+  for (const [state, b] of [[rush([boss]), boss], [calmBoard, calm], [rush([taught], { scripted: true }), taught]]) assert(!Art.spentFlower({ ...state, time: 10 }, b));
+});
+test('Flowers spent and gone cost a frame nothing but the skip', () => {
+  const now = 30, gone = Array.from({ length: 40 }, (_, i) => bud({ type: TYPES[i % 5], x: 40 + (i % 10) * 36, y: 80 + Math.floor(i / 10) * 60, bloomed: true, bloomAt: now - 2 - i * .05 }));
+  const empty = recorder(), spent = recorder();
+  Art.draw(empty.ctx, rush([]), now, { showAim: false }); Art.draw(spent.ctx, rush(gone), now, { showAim: false });
+  assert.deepEqual(spent.calls, empty.calls, 'the same calls as an empty board');
 });
 test('The harvest leaves the board at its top edge under the score, wherever the score sits above it', () => {
   const Fresh = loadArt(true);

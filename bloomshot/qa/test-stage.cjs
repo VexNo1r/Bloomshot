@@ -25,7 +25,8 @@ function test(name, fn) {
 }
 const player = (motion = true) => ({ version: 1, tutorial: true, powersMet: true, depths: { 1: { stars: 3, best: 3000, wave: 10 }, 2: { stars: 2, best: 2000, wave: 10 } },
   settings: { sound: true, haptics: true, motion } });
-function boot(raw) {
+// art: BloomArt pieces to add to the stand-in, such as the real art's spentFlower.
+function boot(raw, art = {}) {
   const storage = new Map();
   if (raw !== undefined) storage.set('bloomshot.save.v1', JSON.stringify(raw));
   const nodes = new Map(), games = [], sounds = [];
@@ -74,7 +75,7 @@ function boot(raw) {
     // The spy keeps each cue with the game clock it played at.
     BloomSound: { wake: noop, setEnabled: noop, play: (type, data) => sounds.push({ type, data: plain(data || {}), at: games.length ? games.at(-1).time : 0 }) },
     BloomKeepsakes: Keepsakes,
-    BloomArt: { draw: noop, drawFlower: noop, drawMoon: noop, koiFish: noop, drawGarden: noop, drawProjectile: noop, drawParticle: noop, drawSeed: noop, drawPowerIcon: noop, podSlot: () => ({ x: 210, y: 498 }) },
+    BloomArt: { draw: noop, drawFlower: noop, drawMoon: noop, koiFish: noop, drawGarden: noop, drawProjectile: noop, drawParticle: noop, drawSeed: noop, drawPowerIcon: noop, podSlot: () => ({ x: 210, y: 498 }), ...art },
     BloomMeadow: { plots: Garden.plots.map((p, i) => ({ id: p.id, x: 65 + i * 50, y: 150, labelY: 180, accent: p.color })),
       decor: Garden.decor.map((d, i) => ({ id: d.id, x: 40 + i * 60, y: 200, accent: '#ffffff', icon: [40 + i * 60, 190, 40] })),
       friends: Garden.decor.map((d, i) => ({ id: d.friend.id, decorId: d.id, x: 40 + i * 60, y: 180 })), reactSeconds: 1.1,
@@ -92,7 +93,7 @@ function boot(raw) {
 const titles = game => game.floaters.filter(f => f.kind === 'title');
 // Values made inside the app's sandbox carry its own Object and Array, so they are copied out before a deep compare.
 function plain(value) { return JSON.parse(JSON.stringify(value)); }
-const level = (raw, id) => { const app = boot(raw); app.click('depth-map', { depth: String(id) }); app.frame(); return app; };
+const level = (raw, id, art) => { const app = boot(raw, art); app.click('depth-map', { depth: String(id) }); app.frame(); return app; };
 // Blooms every open flower so the wave clears on the next frame, after adding extra spent blooms when asked.
 function clearWave(app, extra = 0) {
   const game = app.game(); game.started = true; game.drops = [];
@@ -362,6 +363,15 @@ test('A boss only loses leaves, so the vine lets go of the sprite for the count 
   assert.equal(surfaces, before, 'the current count stays cached');
   Art.draw(recordingContext([]), stageBoard(20.6, 4), 20.6, options);
   assert.equal(surfaces, before + 1, 'the old count was let go');
+});
+test('With the real art, a clear harvests only the flowers still in full bloom: spent ones have faded away', () => {
+  const app = level(player(), 1, { spentFlower: Art.spentFlower }), game = app.game(); app.run(1.3);
+  clearWave(app, 30);
+  assert(app.run(3, () => (game.harvest || []).length > 0), 'the wave clears');
+  const fresh = game.buds.filter(b => b.bloomed && !b.gift && b.group !== 'extra');
+  assert(fresh.length >= 4, `the wave's own blooms (${fresh.length})`);
+  assert.equal(game.harvest.length, fresh.length, 'one orb for each flower still in full bloom');
+  assert(game.harvest.every(orb => orb.bud.group !== 'extra'), 'none from the blooms 1.7 to 2 s old, faded by now');
 });
 
 const report = { passed: results.filter(r => r.passed).length, failed: results.filter(r => !r.passed).length, results };

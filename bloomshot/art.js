@@ -1029,7 +1029,8 @@
   function trembles(bud) { return trembleKey !== null && !bud.bloomed && !bud.gift && !bud.puff && (bud.group == null ? bud : bud.group) === trembleKey; }
   // The finale sweep: each bloomed flower flares with gold light and a white glint as feel's wave passes it. The glows
   // are added in one 'lighter' pass; the glints, which grow and shrink as they twinkle, are one path and one fill.
-  // A flower that has sunk out of sight past the danger line gets no flare (its light would hang on the soil).
+  // A flower that has sunk out of sight past the danger line gets no flare (its light would hang on the soil); a spent
+  // flower the light brings back gets its full flare as it returns.
   function drawFlares(ctx, buds, time, options, line = Infinity) {
     if (options.reducedMotion) return;
     const glints = !((Number(options.quality) || 0) >= 1);
@@ -1041,7 +1042,7 @@
       if (!(age >= 0 && age < .5)) continue;
       if (!started) { started = true; ctx.save(); alpha = ctx.globalAlpha; op = ctx.globalCompositeOperation; ctx.globalCompositeOperation = 'lighter'; glow = goldSprite(); }
       if (age >= .35) continue;
-      const seen = sinkAlpha(bud, time, line, false);
+      const seen = sinkAlpha(bud, time, line, false, true);
       if (!(seen > 0)) continue;
       const q = age / .35, r = Number(bud.r) || 13, x = Number(bud.x) || 0, y = Number(bud.y) || 0, radius = r * (2.6 + q * .9);
       ctx.globalAlpha = alpha * (1 - q) * seen;
@@ -1055,7 +1056,7 @@
     ctx.strokeStyle = '#ffe08a';
     for (const bud of buds) {
       if (!bud || typeof bud.flareAt !== 'number') continue;
-      const q = (time - bud.flareAt) / .5, seen = q >= 0 && q < 1 ? sinkAlpha(bud, time, line, false) : 0;
+      const q = (time - bud.flareAt) / .5, seen = q >= 0 && q < 1 ? sinkAlpha(bud, time, line, false, true) : 0;
       if (!(seen > 0)) continue;
       const r = Number(bud.r) || 13;
       ctx.globalAlpha = alpha * (1 - q) * .9 * seen; ctx.lineWidth = 2.6 * (1 - q) + .6;
@@ -1068,7 +1069,7 @@
       for (const bud of buds) {
         if (!bud || typeof bud.flareAt !== 'number') continue;
         const q = (time - bud.flareAt) / .35, r = Number(bud.r) || 13;
-        if (!(q >= 0 && q < 2 / 3) || !(sinkAlpha(bud, time, line, false) > 0)) continue;
+        if (!(q >= 0 && q < 2 / 3) || !(sinkAlpha(bud, time, line, false, true) > 0)) continue;
         const twinkle = Math.sin(Math.PI * q * 1.5);
         if (twinkle > .02) starPath(ctx, (Number(bud.x) || 0) + r * .42, (Number(bud.y) || 0) - r * .46, r * .95 * twinkle, q * .9);
       }
@@ -2487,13 +2488,63 @@
     sparkle(ctx, -r * .34, -r * .52, 2.6, '#ffffff', .3);
     ctx.restore();
   }
-  // How much of a spent flower still shows: it fades as it sinks to the danger line once it has finished opening,
-  // gone 26 px past it (and the tutorial fades a step's flowers out with bud.fade).
-  function sinkAlpha(bud, time, line, still) {
+  // Spent flowers on the falling board fade away, so the board shows only what still needs a seed. A flower holds
+  // through its whole bloom (flash, unfurl and ring are over by .85 s), then fades over the .55 s it took to open, in
+  // game time, so a hit-stop and the finale's slow motion hold it too (a Lullaby only stops the falling, so spent
+  // flowers still fade during one). A bloomed briar whose patch can still grow back is not spent: it keeps its
+  // countdown ring at full strength and counts from the last frame its clock held it, so a patch that blooms for good
+  // fades together, after its vine has withered. Once nothing is left to shoot (a boss has bloomed, the wave is clear,
+  // the level is won) flowers still in full bloom stay for the sweep, the harvest and the result, and ones already
+  // fading finish. When a level is won every spent flower comes back from bud.backAt, which the app sets: as the
+  // finale's gold light reaches it, or all together at the win when there is no light (Animations off, or a win with
+  // no final bloom), so the whole garden is there for the celebration and the result. The boss and its parts, the calm
+  // boards and the scripted tutorial (which clears each step itself with bud.fade) keep their flowers. Seeds already
+  // pass through bloomed flowers, so none of this touches play.
+  const SPENT_HOLD = .85, SPENT_FADE = .55, GLOW_BACK = .3, spentHeld = new WeakMap(), spentStops = new WeakMap();
+  let spentOn = false, spentWon = false, spentStop = Infinity;
+  // Since when a board has had nothing left to shoot, set the first time a frame or the app sees it so, so both agree.
+  function clearedAt(state, time) {
+    if (!(state.bossDown || state.nextWaveAt != null || state.status === 'won')) { spentStops.delete(state); return Infinity; }
+    if (!spentStops.has(state)) spentStops.set(state, time);
+    return spentStops.get(state);
+  }
+  // Once a frame, before the briar vines (the first reader): whether this board fades its flowers, and since when.
+  function findSpent(state, time) {
+    spentOn = state.mode === 'rush' && !state.scripted;
+    spentWon = spentOn && state.status === 'won';
+    spentStop = spentOn ? clearedAt(state, time) : Infinity;
+  }
+  // How long a bloomed flower has been spent at `time`: -Infinity for one that never fades or whose clock still runs.
+  function spentAge(bud, time) {
+    if (bud.boss || bud.bossPart || bud.briar && bud.regrowAt || typeof bud.bloomAt !== 'number') return -Infinity;
+    const held = spentHeld.get(bud);
+    return time - (held > bud.bloomAt ? held : bud.bloomAt);
+  }
+  // lit: as the finale's light sees it, which counts a flower it is bringing back as already back.
+  function spentAlpha(bud, time, lit) {
+    if (!spentOn) return 1;
+    if (bud.briar && bud.regrowAt) { spentHeld.set(bud, time); return 1; }
+    const age = spentAge(bud, time);
+    if (age <= SPENT_HOLD || spentStop - time + age <= SPENT_HOLD) return 1;
+    const left = 1 - smooth((age - SPENT_HOLD) / SPENT_FADE);
+    if (!spentWon || !(time >= bud.backAt)) return left;
+    return lit ? 1 : Math.max(left, smooth((time - bud.backAt) / GLOW_BACK));
+  }
+  // For the app: whether a bloomed flower has begun to fade (or is gone), so the harvest's orbs and the sweep's light
+  // and notes start only from flowers still in full bloom.
+  function spentFlower(state, bud) {
+    if (!state || !bud || !bud.bloomed || state.mode !== 'rush' || state.scripted) return false;
+    const time = Number(state.time) || 0;
+    return spentAge(bud, Math.min(time, clearedAt(state, time))) > SPENT_HOLD;
+  }
+  // How much of a bloomed flower still shows: it fades once spent (above), and as it sinks to the danger line once it
+  // has finished opening, gone 26 px past it (and the tutorial fades a step's flowers out with bud.fade).
+  function sinkAlpha(bud, time, line, still, lit) {
     let sink = 1;
     if (bud.bloomed && line < Infinity) {
       const over = bud.y + (bud.r || 16) - (line - 8), age = typeof bud.bloomAt === 'number' ? time - bud.bloomAt : Infinity;
       if (over > 0) sink = 1 - clamp(over / 26, 0, 1) * (still ? 1 : clamp((age - UNFURL) / .25, 0, 1));
+      sink *= spentAlpha(bud, time, lit);
     }
     if (typeof bud.fade === 'number') sink *= clamp(bud.fade, 0, 1);
     return Math.max(0, sink);
@@ -4480,6 +4531,7 @@
     drawCurrents(ctx, state.currents, time, options.reducedMotion, options.theme);
     if (scenery(options.theme)) drawBurrows(ctx, state.gates, time, options.reducedMotion, options.theme);
     else drawGates(ctx, state.gates, time, options.reducedMotion);
+    findSpent(state, time);
     drawBriars(ctx, buds, time, rush ? Number(state.dangerY) || 448 : Infinity, options.reducedMotion);
     if (rush) drawBossSupports(ctx, state, time, Boolean(options.reducedMotion));
     if (rush && state.lullaby > 0) drawBoardLight(ctx, options, light => drawLullaby(light, state, time, options.reducedMotion, buds, false));
@@ -4530,14 +4582,15 @@
     for (const bud of buds) {
       if (bud.hidden || bud.visible === false || bud.bossPart) continue;
       if (bud.gift) { if (!bud.bloomed) drawGift(ctx, bud, time, options.reducedMotion); continue; }
+      // A spent flower fades away once its bloom has played, and one that has finished opening fades as it sinks to
+      // the danger line, gone 26 px past it; a flower already gone costs nothing more than this.
+      // The tutorial fades the last step's flowers out (bud.fade, 1 to 0 in real time) as the next card comes up.
+      const sink = sinkAlpha(bud, time, line, options.reducedMotion);
+      if (sink <= 0) continue;
       const effect = bossFlowerEffect(bud, time), age = typeof bud.bloomAt === 'number' ? time - bud.bloomAt : Infinity;
       // Every bloom takes the same .55 s, whether it unfurls petal by petal or crossfades (over budget).
       const openness = bud.bloomed ? (options.reducedMotion || typeof bud.bloomAt !== 'number' ? 1 : clamp(age / UNFURL, 0, 1)) : 0;
       const hp = Math.max(1, Number(bud.hp) || 1), maxHp = Math.max(hp, Number(bud.maxHp) || 1), radius = bud.r || 16;
-      // A spent flower that has finished opening fades as it sinks to the danger line, gone 26 px past it.
-      // The tutorial fades the last step's flowers out (bud.fade, 1 to 0 in real time) as the next card comes up.
-      const sink = sinkAlpha(bud, time, line, options.reducedMotion);
-      if (sink <= 0) continue;
       ctx.save();
       if (sink < 1) ctx.globalAlpha *= sink;
       // A wave tumbles in from above (stage sets enterAt): a ghost waits in place, then the bud drops onto it.
@@ -4601,6 +4654,8 @@
         if (bud.bloomed) {
           sway = nod + (Math.sin(time * 1.1 + ph) * .05 - nod) * smooth(age / UNFURL);
           breathe = 1 + Math.sin(time * 1.7 + ph) * .035 * clamp((age - UNFURL) / .5, 0, 1);
+          // A spent flower draws in a little as it fades, so it reads as leaving, not as a pale bud still to shoot.
+          if (age > SPENT_HOLD && sink < 1) breathe *= .8 + .2 * spentAlpha(bud, time);
         }
         ctx.translate(bud.x, bud.y); ctx.rotate(sway); ctx.scale(breathe, breathe); ctx.translate(-bud.x, -bud.y);
       }
@@ -4809,7 +4864,7 @@
   }
 
   root.BloomArt = { draw, drawSceneLife, drawFlower, drawGarden, drawMoon, koiFish, drawProjectile, drawParticle, drawSeed, drawPowerIcon, drawUnfurl, drawChainLinks,
-    prewarm, setHarvestTarget, paints: () => painted,
+    prewarm, setHarvestTarget, spentFlower, paints: () => painted,
     // Where a pod seed sits: slot 0 is the cup, 1-3 the tray beside it.
     podSlot: i => i >= 1 && i <= 3 ? { x: TRAY.slots[i - 1], y: TRAY.sy } : { x: 210, y: 498 } };
 })(typeof window !== 'undefined' ? window : globalThis);

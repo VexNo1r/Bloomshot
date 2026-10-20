@@ -1082,9 +1082,11 @@
     });
     stage.entering.sort((a, b) => a.doneAt - b.doneAt);
   }
-  // A cleared wave cashes in: up to 24 of its blooms, latest first, fly into the score as orbs of light.
+  // Spent flowers fade away on the falling board (art.js), so light only comes from flowers still in full bloom.
+  const spent = bud => typeof BloomArt.spentFlower === 'function' && BloomArt.spentFlower(game, bud);
+  // A cleared wave cashes in: up to 24 of its blooms still in flower, latest first, fly into the score as orbs of light.
   function startHarvest() {
-    const blooms = game.buds.filter(bud => bud.bloomed && !bud.gift).sort((a, b) => b.bloomAt - a.bloomAt).slice(0, STAGE.harvest);
+    const blooms = game.buds.filter(bud => bud.bloomed && !bud.gift && !spent(bud)).sort((a, b) => b.bloomAt - a.bloomAt).slice(0, STAGE.harvest);
     if (!blooms.length) return;
     if (!save.settings.motion) { BloomSound.play('pluck', { i: 0, n: 1 }); return; }
     aimHarvest();
@@ -1447,8 +1449,9 @@
       }
     }
   }
-  // After the final bloom a gold light runs out from the impact: each open flower flares in turn (the flower art draws
-  // it from bud.flareAt), up to ten notes climb, blossoms fall, and a level gets its title ribbon.
+  // After the final bloom a gold light runs out from the impact: each flower still in bloom flares in turn (the flower
+  // art draws it from bud.flareAt), up to ten notes climb, blossoms fall, and a level gets its title ribbon. A won
+  // level's light also brings back the flowers that faded during play, so the whole garden fills the celebration.
   function startSweep() {
     const f = feelState(), origin = f.impact;
     if (!origin || f.sweepWave === game.wave) return;
@@ -1461,9 +1464,12 @@
         x: 210, y: origin.y < 260 ? 330 : 150, life: 3.4, maxLife: 3.4 });
     }
     if (!save.settings.motion || !feel) return;
-    const rush = !isDepth();
-    const list = game.buds.filter(bud => bud.bloomed && !bud.gift).map(bud => ({ bud, d: Math.hypot(bud.x - origin.x, bud.y - origin.y) })).sort((a, b) => a.d - b.d);
-    for (const item of list) item.bud.flareAt = game.time + .08 + (rush ? Math.min(.6, item.d / 900) : item.d / 650);
+    const rush = !isDepth(), back = game.status === 'won';
+    const list = game.buds.filter(bud => bud.bloomed && !bud.gift && (back || !spent(bud))).map(bud => ({ bud, d: Math.hypot(bud.x - origin.x, bud.y - origin.y) })).sort((a, b) => a.d - b.d);
+    for (const item of list) {
+      item.bud.flareAt = game.time + .08 + (rush ? Math.min(.6, item.d / 900) : item.d / 650);
+      if (back) item.bud.backAt = item.bud.flareAt;
+    }
     const n = Math.min(10, list.length);
     f.sounds = Array.from({ length: n }, (_, k) => list[Math.floor(k * list.length / n)].bud); f.sounded = 0; f.noteAt = -Infinity;
     f.sweep = list.map(item => item.bud);
@@ -1735,6 +1741,9 @@
       } else if (event.type === 'won' || event.type === 'lost') {
         if (!isRush() && game.bloomedCount > trailTotal) { shotTrail.push(game.bloomedCount - trailTotal); trailTotal = game.bloomedCount; }
         if (event.type === 'won') {
+          // Flowers that faded during play come back for the result: the sweep brings each back as its light arrives
+          // (bud.backAt); with no light (Animations off, or no final bloom) they all come back now.
+          if (isRush()) for (const bud of game.buds) if (bud.bloomed && !bud.gift && typeof bud.backAt !== 'number') bud.backAt = game.time;
           // A finale win already had its impact; a plain one gets the confetti. Either way the hint says so.
           if (!event.finale) { burst({ x: 110, y: 210, type: 'coral' }, 70); burst({ x: 310, y: 210, type: 'gold' }, 70); burst({ x: 210, y: 150, type: 'lilac' }, 60); jolt(.45, .14, .6); }
           $('game-hint').textContent = isTaste() ? 'Nice run!' : isDepth() ? 'Level clear!' : 'Cleared!';
