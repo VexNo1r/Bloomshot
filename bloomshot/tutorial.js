@@ -168,7 +168,7 @@
       // What the card should show right now.
       view() {
         const step = this.step;
-        if (this.phase === 'finale' || this.phase === 'end') return { phase: this.phase, number: STEPS.length, total: STEPS.length, title: "You're ready!", text: 'Four levels are ready, with six more deeper down.', target: null };
+        if (this.phase === 'finale' || this.phase === 'end') return { phase: this.phase, number: STEPS.length, total: STEPS.length, title: "You're ready!", text: 'Each level you clear opens the next one.', target: null };
         if (!step) return { phase: this.phase, number: 0, total: STEPS.length, title: '', text: '', target: null };
         const p = step.prompts[this.prompt];
         const text = this.phase === 'show' ? step.done : this.phase === 'watch' ? 'Watch it go…' : p.text;

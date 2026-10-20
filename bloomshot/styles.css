@@ -641,7 +641,7 @@ dialog[open]{animation:dialog-in .34s var(--press)}
 .tutorial-finger{position:fixed;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;background:#fffaf0e8;box-shadow:0 0 0 3px var(--green),0 4px 10px #1d3a2e55;animation:tutorial-drag 1.6s ease-in-out infinite}
 /* The card is the only guide while it plays: the hint line, the tabs and Back/Restart step aside, and the buttons go
    once the last card is up. */
-body[data-tutorial="on"] :is(.bottom-nav,#back-btn,#restart-btn,#game-hint),body[data-tutorial-phase="finale"] .game-actions,body[data-tutorial-phase="end"] .game-actions{visibility:hidden}
+body[data-tutorial="on"] :is(.bottom-nav,#back-btn,#restart-btn,#game-hint),body[data-tutorial-phase="finale"] :is(.game-actions,.power-tray),body[data-tutorial-phase="end"] :is(.game-actions,.power-tray){visibility:hidden}
 /* A card at the top covers the header; its logo and round buttons would peek out around it, so they step aside until it moves. */
 body:has(.tutorial:not([hidden]):not([data-place="low"])) .app-header>*{visibility:hidden}
 @keyframes tutorial-dim{from{opacity:0}}

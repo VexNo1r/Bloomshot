@@ -2289,8 +2289,9 @@
       $('tutorial-go').hidden = v.phase !== 'end'; $('tutorial-skip').hidden = done;
       $('tutorial-go').textContent = save.depths[1]?.stars ? 'Back to the levels' : 'Play level 1';
       box.dataset.phase = v.phase; document.body.dataset.tutorialPhase = v.phase;
-      // Every taught control now sits below the card, including the bottom power row.
-      box.dataset.place = 'high';
+      // Every taught control sits below the card, including the bottom power row. The last card moves to the bottom,
+      // where the controls have stepped aside, so the closing burst at the top stays in view and its button is in reach.
+      box.dataset.place = done ? 'low' : 'high';
       $('tutorial-dim').hidden = $('tutorial-spot').hidden = !v.target; $('tutorial-spot-2').hidden = !v.also;
       $('tutorial-finger').hidden = !v.finger || !save.settings.motion;
       if (fresh) { say(`${v.title}. ${v.text}`); if (tutorial.index > 0 || tutorial.prompt > 0) BloomSound.play('tap'); }
