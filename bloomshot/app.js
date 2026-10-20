@@ -1797,14 +1797,17 @@
           continue;
         }
         if (isDepth()) {
-          const id = game.plan.id, won = event.type === 'won', previousStars = save.depths[id]?.stars || 0;
+          const id = game.plan.id, won = event.type === 'won', previousStars = save.depths[id]?.stars || 0, previousBest = save.depths[id]?.best || 0;
           if (!won && game.bossReached && !game.bossLossRecorded) {
             save.bossLosses[id] = Math.min(Number.MAX_SAFE_INTEGER, (save.bossLosses[id] || 0) + 1);
             game.bossLossRecorded = true;
           }
           const recorded = Depths.record(save.depths, id, { won, lives: game.startWave === 10 ? Math.min(1, game.lives) : game.startWave > 1 ? Math.min(2, game.lives) : game.lives, score: game.score, wave: game.wave });
           save.depths = recorded.progress;
-          depthNews = { firstClear: recorded.firstClear, newStars: recorded.newStars, opened: recorded.firstClear && Depths.level(id + 1) && depthOpen(id + 1) ? id + 1 : null };
+          depthNews = { firstClear: recorded.firstClear, newStars: recorded.newStars, opened: recorded.firstClear && Depths.level(id + 1) && depthOpen(id + 1) ? id + 1 : null,
+            best: previousBest > 0 && game.score > previousBest, previousBest };
+          // A replay that beats the level's best score gets the record chime, like a new best in endless Rush.
+          if (depthNews.best) BloomSound.play('record', {});
           if (depthNews.opened) { freshDepth = depthNews.opened; freshShown = false; }
           else if (recorded.firstClear && id + 1 === TASTE.level && tasteOpen()) { freshDepth = TASTE.level; freshShown = false; }
           awardSeeds({ mode: 'depths', levelId: id, stars: won ? game.stars : 0, previousStars, blooms: game.bloomedCount, wave: game.wave - (game.startWave || 1) + 1 });
@@ -1962,7 +1965,8 @@
     if (k >= 1 && !party.shower && party.chimed >= party.stars) party = null;
   }
   function showResult() {
-    resultShown = true; const won = game.status === 'won';
+    resultShown = true; const won = game.status === 'won', scoreLabel = $('result-dialog').querySelector('.score-label');
+    scoreLabel.textContent = 'Score'; scoreLabel.classList.remove('best');
     $('next-btn').classList.add('button-primary'); $('next-btn').classList.remove('button-secondary');
     $('result-offer').hidden = true; $('share-btn').hidden = !canShare(won);
     $('garden-reward').hidden = preview || runAward <= 0;
@@ -1990,6 +1994,9 @@
         : `${game.bloomedCount} blooms. ${game.wave >= game.finalWave - 2 ? 'So close!' : 'Try a new angle.'}`;
       $('result-stars').innerHTML = resultStars(game.stars); $('result-stars').setAttribute('aria-label', `${game.stars} of 3 stars`);
       $('result-score').textContent = fmt(game.score);
+      // On a replay the score is measured against the level's best: 'New best!' when it beats it, else the best to beat.
+      if (depthNews?.best) { scoreLabel.textContent = 'New best!'; scoreLabel.classList.add('best'); }
+      else if (depthNews?.previousBest > 0) scoreLabel.textContent = `Score · best ${fmt(depthNews.previousBest)}`;
       $('reward-flower').hidden = true;
       $('next-btn').hidden = !won || !(nextOpen || next && !nextPaid); $('next-btn').textContent = nextPaid ? `Level ${id + 1}` : taste ? 'Try it free' : `See levels ${Depths.free + 1} to ${Depths.total}`;
       // Pointing at the unlock is a quiet button under Replay, never the big one. The free taste is play, so it can be.

@@ -545,6 +545,7 @@ dialog[open]{animation:dialog-in .34s var(--press)}
 .result-offer .bundle-offer{margin-top:12px;text-align:left}
 .result-score-box{display:inline-flex;flex-direction:column;align-items:center;gap:2px;min-width:180px;margin:14px auto 4px;padding:8px 24px 10px;border-radius:18px;background:#fff;box-shadow:inset 0 0 0 2px var(--edge)}
 .score-label{font:600 12.5px/1 var(--display);color:var(--ink-soft)}
+.score-label.best{font-weight:700;color:#ef4f7f}
 .result-score-box strong{font:700 36px/1.05 var(--display);font-variant-numeric:tabular-nums;color:#ef4f7f}
 .reward-flower{display:flex;align-items:center;gap:14px;margin:16px 0 4px;padding:10px 14px;border-radius:18px;background:#fff;box-shadow:inset 0 0 0 2px var(--edge);text-align:left}
 .reward-flower svg{width:64px;height:78px;flex:0 0 64px}
