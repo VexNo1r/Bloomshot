@@ -933,11 +933,13 @@
   }
   function renderChapter(world) {
     const id = world.id, chapter = chapters[id], koi = id === 'koi', records = save[id];
+    // While the pools can't be bought they look locked (grey), not gold and ready to tap.
+    const offer = koi ? offerFor(BloomKoi.product) : null, unsold = Boolean(offer && !(offer.live && offer.available));
     const rows = chapter.levels.map((level, index) => {
       const paid = trialPaid(id, level), open = paid && trialCleared(id, index), stars = records[level.id]?.stars || 0;
       const state = !paid ? 'included with the full Koi Conservatory' : open ? `${stars} stars` : 'locked';
       const tag = koi && level.free && !koiOwned() ? '<small class="free-tag">Free</small>' : '';
-      return `<button class="moon-trial${paid ? '' : ' paid-lock'}" data-trial="${level.id}" data-chapter="${id}" ${open || !paid ? '' : 'disabled'} aria-label="${koi ? 'Koi pool' : 'Moon trial'} ${index + 1}, ${escape(level.name)}, ${state}"><span class="moon-trial-number">${String(index + 1).padStart(2, '0')}</span><span class="moon-trial-name">${escape(level.name)}${tag}</span><span class="moon-trial-stars" aria-hidden="true">${!paid ? '❀' : open ? starHTML(stars) : '<i class="level-lock"></i>'}</span></button>`;
+      return `<button class="moon-trial${paid ? '' : unsold ? ' paid-lock not-sold' : ' paid-lock'}" data-trial="${level.id}" data-chapter="${id}" ${open || !paid ? '' : 'disabled'} aria-label="${koi ? 'Koi pool' : 'Moon trial'} ${index + 1}, ${escape(level.name)}, ${state}"><span class="moon-trial-number">${String(index + 1).padStart(2, '0')}</span><span class="moon-trial-name">${escape(level.name)}${tag}</span><span class="moon-trial-stars" aria-hidden="true">${!paid ? '❀' : open ? starHTML(stars) : '<i class="level-lock"></i>'}</span></button>`;
     }).join('');
     const intro = koi
       ? `<span class="card-tag koi">${koiOwned() ? `All ${chapter.levels.length} pools` : `${BloomKoi.freeBoards} free pools`}</span><h2>Koi Conservatory</h2><p>${escape(world.description)}</p><p class="moon-route-hint koi-hint">Your aim line bends with the water, so you see the curve before you shoot.</p>`

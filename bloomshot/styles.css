@@ -612,6 +612,8 @@ dialog[open]{animation:dialog-in .34s var(--press)}
 .moon-trial:disabled{opacity:.55;box-shadow:inset 0 0 0 2px var(--edge)}
 .moon-trial:disabled .moon-trial-number{background:#cfc4ae;box-shadow:none}
 .moon-trial.paid-lock .moon-trial-number{background:var(--gold);color:var(--gold-ink);box-shadow:0 2px 0 var(--gold-edge)}
+.moon-trial.paid-lock.not-sold{opacity:.7}
+.moon-trial.paid-lock.not-sold .moon-trial-number{background:#cfc4ae;color:#fff;box-shadow:none}
 .moon-trial.paid-lock .moon-trial-stars{width:15px;height:17px;background:url("assets/ui/lock.svg") center/contain no-repeat;color:transparent;overflow:hidden}
 .free-tag{display:inline-block;margin-left:8px;padding:1px 7px 2px;border-radius:999px;background:var(--green);color:#fff;font:600 10.5px/1.2 var(--display);vertical-align:2px}
 
