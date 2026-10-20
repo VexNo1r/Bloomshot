@@ -46,8 +46,8 @@
     { id: 'petal', title: 'Turn the petal', leaf: 135,
       setup: game => bunch(game, 't2-a', 344, 298, 'line', 'lilac'),
       prompts: [
-        { text: 'This petal bounces seeds. Tap Turn petal.', target: 'petal', also: 'rotate-btn', allow: ['rotate'], until: (g, s) => s.rotate > 0 },
-        { text: 'Fire straight up and watch it bounce.', target: 'board', finger: [210, 200], allow: ['fire'], until: (g, s) => s.launch > 0 }],
+        { text: 'Falling seeds bounce off this petal. Tap Turn petal.', target: 'petal', also: 'rotate-btn', allow: ['rotate'], until: (g, s) => s.rotate > 0 },
+        { text: 'Fire straight up. It bounces on the way down.', target: 'board', finger: [210, 200], allow: ['fire'], until: (g, s) => s.launch > 0 }],
       works: s => s.bloom > 0, retry: 1, show: 1.1, done: 'Rocks and walls bounce seeds too.' },
     { id: 'split', title: 'Split', charge: true,
       setup: game => [...bunch(game, 't3-a', 140, 154, 'line', 'gold'), ...bunch(game, 't3-b', 280, 154, 'line', 'coral'), ...bunch(game, 't3-c', 210, 96, 'crown', 'lilac')],
