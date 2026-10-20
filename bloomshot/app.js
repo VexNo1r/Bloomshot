@@ -1467,6 +1467,13 @@
   // After the final bloom a gold light runs out from the impact: each flower still in bloom flares in turn (the flower
   // art draws it from bud.flareAt), up to ten notes climb, blossoms fall, and a level gets its title ribbon. A won
   // level's light also brings back the flowers that faded during play, so the whole garden fills the celebration.
+  // Praise goes where it hides the fewest flowers still to shoot: its usual place near the top, where each wave
+  // lands, or a lower band ('Wave clear!' uses 290) while new flowers are still up there.
+  function praiseY() {
+    const open = game.buds.filter(bud => !bud.bloomed && !bud.gift && !bud.hidden && Math.abs(bud.x - 210) < 150);
+    const covers = y => open.filter(bud => Math.abs(bud.y - y) < 46).length;
+    return [92, 290, 200].reduce((best, y) => covers(y) < covers(best) ? y : best, 92);
+  }
   function startSweep() {
     const f = feelState(), origin = f.impact;
     if (!origin || f.sweepWave === game.wave) return;
@@ -1601,7 +1608,7 @@
           game.floaters = game.floaters.filter(item => item.kind !== 'combo');
           // Long chains earn a bigger word at each milestone, each in a new flower's color.
           const tier = milestone;
-          headline({ x: 210, y: 92, text: PRAISE[tier], label: `${event.combo} in a row`, tier, life: 1.05, maxLife: 1.05, kind: 'combo' });
+          headline({ x: 210, y: praiseY(), text: PRAISE[tier], label: `${event.combo} in a row`, tier, life: 1.05, maxLife: 1.05, kind: 'combo' });
         }
         if (event.combo % 3 === 1) haptic('tick');
         $('game-hint').textContent = game.bossWarning?.text || (isKoi() ? 'Ride it!' : isMoon() ? 'Nice path!' : isRush() ? isDepth() ? game.splitReady ? 'Split is ready!' : depthHint() : game.superBloom > 0 || game.splitReady ? rushHint() : 'Crowns bloom their whole bunch.' : game.guideCharge > 0 ? 'Drag to steer!' : 'Keep the chain going!');
@@ -1756,7 +1763,7 @@
         haptic('tick');
       } else if (event.type === 'chainEnd') {
         if (event.chain >= 8 && !finaleHeld()) {
-          headline({ x: 210, y: 92, text: `${event.chain} in a row!`, life: 1.05, maxLife: 1.05, kind: 'combo' });
+          headline({ x: 210, y: praiseY(), text: `${event.chain} in a row!`, life: 1.05, maxLife: 1.05, kind: 'combo' });
           say(`${event.chain} in a row!`);
         }
       } else if (event.type === 'trick') {
