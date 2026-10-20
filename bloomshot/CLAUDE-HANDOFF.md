@@ -114,6 +114,12 @@ Screenshots: `docs/screenshots/storybook/` (interface), `docs/screenshots/levels
 
 **The faded flowers come back when a level is won (October 20).** Trevor chose to bring them back for the level-clear celebration. On a won board `art.js` brings each spent flower back from `bud.backAt` over .3 s (`GLOW_BACK`), never dipping below where its fade had reached, and growing back to full size. `app.js` sets `backAt`: `startSweep()` lights every bloomed flower on a won level and sets each one's `backAt` to its `flareAt`, so it returns under its full gold flare as the light reaches it (`drawFlares` counts it as back); the 'won' handler sets `backAt` to the win time for any flower still without one, which covers Animations off and a win with no final bloom (the Level 5 taste can end on a breach). The whole garden is there for the result card, and the sweep and its notes take as long as before the fade. Endless Rush never wins, so nothing comes back there. Covered in `qa/test-bloomfx.cjs` and `qa/test-feel.cjs`.
 
+**Three rough waves smoothed (October 20).** A practice-bot check on October 17 found three spikes in an otherwise steady climb, and Trevor asked for all three to be smoothed. `depths.js` only, no rule changes:
+- Level 5 wave 3, the last free wave before the unlock card: the far-right cluster loses its acorn cup (`cup: [0, 1, 3]`). The average bot loses about half as many lives on that wave.
+- Level 9 wave 8 was the hardest wave in the game. It now opens with one-ring buds (`hp: 1`), and its second drop and wave 9's opening get three rings (`hp: 3`), so the pressure is spread over two waves instead of one. Lives lost per 100 arrivals at wave 8 fell from about 85 to about 55.
+- Level 10 wave 2: one-ring opening buds and one cup on its drop instead of three. Wave 3 gains two side cups (`cup: [0, 4]`) and wave 5 opens with three rings. Lives lost at wave 2 roughly halved, from about 23 to 12 per 100 arrivals.
+Average-bot clear rates move by a few points at most, and both of `test-depths`' fixed good-player seeds still clear every level. The October 15 corpus in `qa/campaign-measurement-results.json` predates this for Levels 5, 9 and 10. These are software players, not real ones.
+
 ## Code map
 
 | File | Responsibility |
