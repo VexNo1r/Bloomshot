@@ -1242,7 +1242,8 @@
   // and credited chains never pop a fake; an uncredited strike pops it quietly, so a script's strike loop still ends.
   //   Calm (tier 0): today's shuffle.
   //   Shining (tier 1): the shuffle, then Mirror Shards: two glass blades low on the board (y 356, clear of the sliding
-  //     rock at 304) that hold still for .8 s, then turn .7 rad over .2 s, every second for 6 s. A seed that banks off
+  //     rock at 304, or lower once she has sunk near them; too near the line, she rests instead) that hold still for
+  //     .8 s, then turn .7 rad over .2 s, every second for 6 s. A seed that banks off
   //     one and reaches the real heart within 1.2 s lands double: "Mirror shot!" (the mood clamp still applies).
   //   Racing (tier 2): Heartbeat Hues (a shuffle, then the real heart takes only one color, always one of the next three
   //     seeds, until her next move) alternating with the mirrors.

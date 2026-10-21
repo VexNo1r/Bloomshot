@@ -37,7 +37,7 @@ foreach ($f in Get-ChildItem qa/test-*.cjs) { node $f; if ($LASTEXITCODE) { thro
 node qa/check-moon-pointer.cjs
 ```
 
-Every suite must exit 0: 31 suites as of October 15, 2026, plus the Moon pointer check, the same list CI runs in `../.github/workflows/web-tests.yml`. Running them rewrites several `qa/*-results.json` files; commit only the ones your change affects. Then, from `../native/`: `npm ci && npm run sync && npm run check`. These checks do not establish physical-device performance, perceived audio quality, fun, retention or revenue. The latest gameplay changes and evidence are described in `../docs/PLAYTEST-2026-10-15.md`.
+Every suite must exit 0: 37 suites as of October 21, 2026, plus the Moon pointer check, the same list CI runs in `../.github/workflows/web-tests.yml`. Running them rewrites several `qa/*-results.json` files; commit only the ones your change affects. Then, from `../native/`: `npm ci && npm run sync && npm run check`. These checks do not establish physical-device performance, perceived audio quality, fun, retention or revenue. The latest gameplay changes and evidence are described in `../docs/PLAYTEST-2026-10-15.md`.
 
 Read `CLAUDE-HANDOFF.md` for the technical map and `../docs/LAUNCH-PLAN.md` for who does what next. `ART-PROVENANCE.md` contains the art provenance, UI prompts and generation modes. Moon is a free playable chapter; the Koi Conservatory has eight pools, the first two free and the rest behind a purchase that is not on sale yet.
 

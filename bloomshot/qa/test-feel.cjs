@@ -445,6 +445,8 @@ function bossShot(app, { awake = true } = {}) {
     game.strike(bubble); game.striker = null;
     assert.equal(game.bossState.mode, 'dizzy'); assert(bubble.bloomed);
   }
+  // One health point is only reachable in a guardian's last mood, so the fixture puts it there.
+  if (game.bossState.tierAt) game.bossState.tier = 2;
   boss.hp = 1; boss.sway = 0; boss.x = boss.baseX = 210; boss.shield = false; boss.shell = false;
   game.buds = game.buds.filter(bud => bud === boss || bud.bossPart || bud.bloomed || bud.y < boss.y);
   game.bumpers = game.bumpers.filter(item => item.y > boss.y + 120 || item.y < boss.y - 60);

@@ -120,6 +120,21 @@ Screenshots: `docs/screenshots/storybook/` (interface), `docs/screenshots/levels
 - Level 10 wave 2: one-ring opening buds and one cup on its drop instead of three. Wave 3 gains two side cups (`cup: [0, 4]`) and wave 5 opens with three rings. Lives lost at wave 2 roughly halved, from about 23 to 12 per 100 arrivals.
 Average-bot clear rates move by a few points at most, and both of `test-depths`' fixed good-player seeds still clear every level. The October 15 corpus in `qa/campaign-measurement-results.json` predates this for Levels 5, 9 and 10. These are software players, not real ones.
 
+**New enemies and attacking guardians (October 21).** Trevor, after playing 4076ce2: "The bosses are still far too easy and die way too fast. The Gameplay gets boring in the second level because the gameplay is all the same." He asked for two new falling enemy types per level up to Level 5, then one per level to Level 10, and guardians that attack the player (portals sending more seeds, seeds that rotate, decoys that pop instead of bloom), each building on the last while staying unique, with "creativity and uniqueness" and animations "satisfying to the eye and ears". This first batch covers Levels 2 to 5 and the first five guardians; Levels 6 to 10 and their guardians come next (their fights are still the shorter October ones). Level 1's waves are unchanged.
+- **Enemies** (`foes.js` rules, `foe-art.js` looks, `FOE_CUES` in `sound.js`, `FOE_FX` in `app.js`). Each has a hint the first time it shows up, never touches the seed pod, never uses `Math.random`, plays the same at 30, 60 and 144 FPS, is frozen by a Lullaby (the foe clock), and is valued and forecast for the practice bot. A chain, a power or an uncredited strike always ends one plainly, so scripts and strike loops still finish.
+  - Level 2: **Rolypoly** (W2; back in W5, W8 and L3 W7): a credited touch curls it and it rolls away from the touch as a ghost, bowling the flowers it crosses as credited chains. **Peekaboo Mole** (W5; W7, W9 and L4 W6): three solid molehills (a seed bounces off with no refund); one rumbles, he pops up through it for 1.5 s and that hill lets seeds through; bonk him and his hills bloom after him. He stays up once he is low or has no other hill.
+  - Level 3: **Fibcap** (W4; W6, W9, L4 W5, W9 and L5 W5): a striped lilac decoy; an aimed seed makes it sneeze, and its gust shoves nearby flowers away. **Drippy Inkcap** (W6; W8, W9 and L4 W7): a real two-hit bud that drips ink drops; a drop gulps a plain seed, and a power seed pops it.
+  - Level 4: **Chroma Crystal** (W3; W5, W7 and W9): opens only for a seed of its own color (each color has a glyph, and from Level 4 the launcher shows the next colors). **Echo Bat** (W4; W8 and W9): perches, wakes, shows its swoop as a dashed arc and ring, then swoops; catch it mid-air for a bonus.
+  - Level 5: **Moon Jelly** (from vents in W2; W6, W8 and W9): rises in pulses, slick in its thrust and open in its glide; one nobody catches bursts into three glowdrops. **Glowworm** (W3; W4, W7, W8 and W9): five pieces on a serpentine track; hit the head and the light ripples down the body, hit a bead and the worm snaps in two.
+- **Guardians** (`bosses.js` kits, `foe-art.js` kit looks). Each fights in three moods (a "Phase Bloom" at two thirds and one third health, announced, with damage held until the new mood starts), each mood opens on its new move, every move is shown before it lands, and every kit runs on a kit clock a Lullaby stops. Health: Old Sunny 40, Rootknot 40, Mother Morel 62, Crystal Heart 50, Lantern Lily 100. Average practice-bot fights now run about 27, 40, 44, 71 and 55 s, with no lives lost in the first three and a fraction of a life per fight in Levels 4 and 5.
+  - **Old Sunny** (Sleepy, Cranky, Wide awake): sprout volley and nap; then a Big yawn opens sun portals that each drop a sprout and spit another unless shut; then a snooze Z drifts to the launcher (pop it and he is dizzy for 3 s; let it land and the aim guide naps).
+  - **Rootknot** (Grumpy, Tangled, Furious): burrows and tosses rolypolies that land as real ones; then the Root Carousel spins the biggest clump (or three seedlings he roots up himself) round a knot you snap with two hits; then a root snare blocks one side.
+  - **Mother Morel** (Graceful, Tricky, Stormy): a puffcap partner waltzes round her; then the fakeout lobs one real spotted cap and two sneezing fibcaps; then ink rain and the painted waltz.
+  - **Crystal Heart** (Calm, Shining, Racing): the shuffle; then Mirror Shards, two turning glass blades to bank seeds off for a double hit; then Heartbeat Hues, where the real heart takes only one color.
+  - **Lantern Lily** (Dreamy, Glowing, Moonlit): the moon gate (aim low to hit high); then lily pads that release jellies unless shut; then her lantern crawls off as a glowworm and a rising tide lifts the danger line.
+- **Checks.** `qa/test-foes-level2.cjs` to `qa/test-foes-level5.cjs` cover each enemy; `qa/test-kits.cjs` covers each guardian's moves, tells, Lullaby, frame-rate sameness, cleanup when beaten and a bot win. An adversarial review of every piece found real bugs; all are fixed, most with a check that fails without its fix.
+- `qa/test-feel.cjs`'s `bossShot` fixture now puts a kit guardian in its last mood before setting one health point (Trevor's OK, October 21), since one point is unreachable in an earlier mood.
+
 ## Code map
 
 | File | Responsibility |
@@ -127,12 +142,15 @@ Average-bot clear rates move by a few points at most, and both of `test-depths`'
 | depths.js | The ten levels and their waves, progress records, unlock rule, product ids |
 | powers.js | The four powerups, their product ids, counts and the once-only purchase grant |
 | petals.js | The petal shower over a won result (create, step, draw) |
+| foes.js | The new falling enemies (Levels 2 to 5): rules, hints, bot forecasts and values |
+| bosses.js | The ten guardians: moves, warnings, moods and the kits (attacks) of the first five |
 | rush.js | Endless Rush with tempo, and the level runner: waves, drops, bosses, shells, geodes, briars, powerups, gift bubbles and the seed pod |
 | tutorial.js | The first-time tutorial: seven scripted steps, the slow-down and what each card says |
 | feel.js | Camera, slow motion, hit-stop budget, finale prediction and the quality governor (no DOM) |
 | engine.js | Puzzle physics, currents and gates (shared with the levels) |
 | scenery.js | The painter's kit, the ten painted level scenes, the garden boards and the rocks |
 | art.js | All other canvas art: flowers, board pieces, seeds and styles, particles, callouts |
+| foe-art.js | The new enemies' looks and the guardian kits' attack art, drawn with art.js's kit (`FOE_KIT`) |
 | garden.js / meadow.js | Seeds, plots, decorations, friends, rewards for every mode |
 | goals.js | Today's three goals |
 | keepsakes.js / koi.js / moon.js / levels.js | Seed styles; Koi boards; Moon trials; garden puzzles and worlds |
@@ -141,13 +159,13 @@ Average-bot clear rates move by a few points at most, and both of `test-depths`'
 | native.js | Haptics and the native save mirror (shipping thread) |
 | store*.js | Purchases (shipping thread; send requests instead of editing) |
 
-Script order: store-config → store → levels → moon → koi → keepsakes → garden → goals → depths → powers → engine → rush → tutorial → feel → scenery → art → meadow → petals → sound → native → app → store-ui → pwa. `sw.js` ASSETS lists every shipped file; bump `VERSION` whenever an asset changes (the Pages build replaces it with a content hash). The native copy step derives its file list from ASSETS.
+Script order: store-config → store → levels → moon → koi → keepsakes → garden → goals → powers → engine → foes → bosses → depths → rush → tutorial → feel → scenery → art → foe-art → meadow → petals → sound → native → app → store-ui → pwa. `sw.js` ASSETS lists every shipped file; bump `VERSION` whenever an asset changes (the Pages build replaces it with a content hash). The native copy step derives its file list from ASSETS.
 
 Every new buzz goes through `haptic(kind)` in `app.js`, never `navigator.vibrate`, or iPhone stays silent.
 
 ## Verification
 
-From `bloomshot/`, every suite must exit 0 (CI runs the same list in `.github/workflows/web-tests.yml`): every `node qa/test-*.cjs` (24 suites, including `test-depths`, `test-pod`, `test-powers`, `test-petals`, `test-scenery`, `test-tutorial`, `test-goals` and `test-keepsakes`) and `node qa/check-moon-pointer.cjs`. Then in `native/`: `npm ci && npm run sync && npm run check`. Running the suites rewrites several `qa/*-results.json` files with new timestamps; commit only the ones your change actually affects. None of this is physical-device proof.
+From `bloomshot/`, every suite must exit 0 (CI runs the same list in `.github/workflows/web-tests.yml`): every `node qa/test-*.cjs` (37 suites, including `test-kits`, `test-foes-level2` to `test-foes-level5`, `test-depths`, `test-pod`, `test-powers`, `test-petals`, `test-scenery`, `test-tutorial`, `test-goals` and `test-keepsakes`) and `node qa/check-moon-pointer.cjs`. Then in `native/`: `npm ci && npm run sync && npm run check`. Running the suites rewrites several `qa/*-results.json` files with new timestamps; commit only the ones your change actually affects. None of this is physical-device proof.
 
 ## Store state
 
