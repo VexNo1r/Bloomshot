@@ -286,8 +286,169 @@
   // ── Drippy Inkcap (Level 3, `inkcap`) ──
 
   // ── Chroma Crystal (Level 4, `chroma`) ──
+  // A flower bud locked in a crystal prism of one color, the color's glyph on its face (sun-dot gold, heart coral,
+  // crescent lilac, drop sky, star poppy, so it reads without seeing color). It opens only for a seed of its own color:
+  // any other seed glances off it (a guard: no refund). A matching seed cracks it open: it blooms as usual and pays
+  // CHROMA.bonus extra sun charge on top ("Perfect match!"). A chain, a power or an uncredited strike blooms it plainly,
+  // so strike loops end. From Level 4 the launcher and the seed tray show the next seeds' colors and glyphs.
+  const CHROMA = { r: 12, bonus: 1, worth: 10, urgent: 60, soon: 12, colors: ['gold', 'coral', 'lilac', 'sky', 'poppy'] };
+  // The color a seed would bring: its own, or (for the app's look ahead, which has no seed yet) the launcher's.
+  const seedColor = (game, seed) => seed && seed.type || game.nextType;
+  define('chroma', {
+    r: CHROMA.r, hp: 1, fall: 1, hint: 'Crystals open only for a seed of their color.',
+    // The color is required ([chroma, x, y, {type}]); a crystal of no known color is not made at all.
+    make(spot, tag, i) {
+      const id = `${tag}-foe${i}`, type = (spot[3] || {}).type;
+      return CHROMA.colors.includes(type) ? [piece('chroma', id, id, spot[1], spot[2], { type })] : [];
+    },
+    // A seed of another color glances off. Powers always open it; the tutorial's script never meets one.
+    guard: (game, bud, hit, seed) => !game.scripted && !isPower(game, seed) && seedColor(game, seed) !== bud.type,
+    // The ball loop asks guard() first, so a seed reaching here matches; a mismatched seed struck straight in (no flight)
+    // is turned away the same way.
+    hit(game, bud, chain, isCredited, seed) {
+      return direct(game, chain, isCredited, seed) && seedColor(game, seed) !== bud.type ? { blocked: true } : null;
+    },
+    bloomed(game, bud, chain, credit) {
+      const seed = credit && credit.ball;
+      if (chain || !seed || seed.type !== bud.type || isPower(game, seed)) return;
+      // The match: one more sun charge than the bloom's own (1/48 of a full sun), and the crack-open payoff.
+      bud.matched = true;
+      game._charge(CHROMA.bonus, credit);
+      game.event('foe', { kind: 'chroma:match', bud, x: bud.x, y: bud.y, color: bud.type });
+    },
+    // The bot shoots a crystal only with the seed that opens it, and wants to more the nearer it is to the line: its
+    // color comes round only one seed in five, so a low crystal may not get another chance.
+    value(game, bud) {
+      if (game.nextType !== bud.type) return -1;
+      const left = (game.dangerY - bud.r - bud.y) / Math.max(1, (game.descentSpeed || 0) * (bud.fall || 1));
+      return CHROMA.worth + CHROMA.urgent * clamp((CHROMA.soon - left) / 8, 0, 1);
+    }
+  });
 
   // ── Echo Bat (Level 4, `bat`) ──
+  // A sleepy bat hugging a crystal. It perches (falls with the wave) for BAT.perch s, then wakes: for BAT.tell s it
+  // hangs still, flapping, its swoop drawn as a dashed arc to a ringed landing spot. Then it swoops along that arc
+  // (a dip of BAT.dip toward the launcher) for BAT.swoop s and perches again where it landed. A credited seed on a
+  // perched two-hit bat startles it: it cracks and swoops at once after a BAT.startle s tell. Any hit while it swoops
+  // blooms it outright, and an aimed seed's catch pays BAT.pay (times the tempo) plus one sun charge ("Catch!").
+  // Bats reserve their landings: two never land within BAT.reserve px of each other or swoop on the same tick.
+  // Everything is closed-form on the foe clock, so the bot forecasts the arc exactly.
+  const BAT = { r: 11, perch: 1.8, tell: .8, startle: .25, swoop: 1, dip: 100, drop: 34, gap: .05, reserve: 30, clear: 8, pay: 300, lookahead: 1.5, eps: 1e-7 };
+  // Where a quadratic arc from P0 through control C to P2 is at u (0..1, eased by smoothstep).
+  function batPose(b, t) {
+    const u = smooth((t - b.t0) / BAT.swoop), v = 1 - u;
+    return { x: v * v * b.x0 + 2 * v * u * b.cx + u * u * b.x2, y: v * v * b.y0 + 2 * v * u * b.cy + u * u * b.y2, u };
+  }
+  // How close (x, y) comes to a rock (a capsule), wherever a sliding rock may be.
+  function rockGap(rock, x, y) {
+    const half = (rock.length || 0) / 2, ux = Math.cos(rock.angle || 0), uy = Math.sin(rock.angle || 0);
+    let best = Infinity;
+    for (const k of rock.slide ? [-1, -.5, 0, .5, 1] : [0]) {
+      const cx = (rock.slide ? rock.baseX : rock.x) + k * (rock.slide || 0), along = clamp((x - cx) * ux + (y - rock.y) * uy, -half, half);
+      best = Math.min(best, Math.hypot(x - cx - ux * along, y - rock.y - uy * along));
+    }
+    return best;
+  }
+  // A landing spot is free when no open piece is within its radius plus the bat's plus BAT.clear, no rock is close,
+  // and no other bat is already heading within BAT.reserve px of it.
+  function batRoom(game, bud, x, y) {
+    for (const other of game.buds) {
+      if (other === bud || other.bloomed || other.gift || other.inert || other.ghost) continue;
+      if (Math.hypot(other.x - x, other.y - y) < other.r + BAT.r + BAT.clear) return false;
+      const b = other.bat;
+      if (b && b.mode !== 'perch' && Math.hypot(b.x2 - x, b.y2 - y) < BAT.reserve) return false;
+    }
+    for (const rock of game.bumpers || []) if (rockGap(rock, x, y) < BAT.r + 11.5) return false;
+    return true;
+  }
+  // Across the board first (or a long hop sideways from the middle), then a shorter hop each way; 34 px lower, and
+  // never lower than 120 px above the line.
+  function batLanding(game, bud) {
+    const s = Math.sign(210 - bud.x) || 1, y = Math.min(bud.y + BAT.drop, game.dangerY - 120);
+    for (const tx of [Math.abs(bud.x - 210) < 60 ? bud.x + 120 * s : 420 - bud.x, bud.x + 90 * s, bud.x - 90 * s]) {
+      const x = clamp(tx, 60, 360);
+      if (batRoom(game, bud, x, y)) return { x, y };
+    }
+    return null;
+  }
+  // Wakes the bat: picks its landing and draws its arc on this tick, then swoops after `length` s. Its swoop never
+  // starts within BAT.gap s of another bat's. Returns false (and changes nothing) when there is nowhere to land.
+  function batTell(game, bud, length, kind) {
+    const spot = batLanding(game, bud), now = game.foeClock;
+    if (!spot) return false;
+    let t0 = now + length;
+    for (let k = 0; k < 8; k++) {
+      const clash = game.buds.some(o => o !== bud && o.bat && !o.bloomed && o.bat.mode === 'tell' && Math.abs(o.bat.t0 - t0) < BAT.gap);
+      if (!clash) break;
+      t0 += BAT.gap;
+    }
+    // The arc dips BAT.dip below the middle of the hop, but never so low that the swoop itself would reach the line.
+    const mx = (bud.x + spot.x) / 2, my = (bud.y + spot.y) / 2, cy = Math.min(my + BAT.dip, 2 * (game.dangerY - BAT.r - 24) - my);
+    Object.assign(bud.bat, { mode: 'tell', tellAt: now, t0, until: t0, x0: bud.x, y0: bud.y, cx: mx, cy, x2: spot.x, y2: spot.y, startled: kind === 'bat:startle' });
+    game.event('foe', { kind, bud, x: bud.x, y: bud.y, x2: spot.x, y2: spot.y });
+    return true;
+  }
+  // The first tick at or after foe time `at` (the rush tick runs at 1/120 s), seen from foe time `now`. The foe clock is
+  // a running sum, so a time is reached once the clock is within BAT.eps of it, live and in the forecast alike.
+  const tickAfter = (now, at) => now + Math.max(0, Math.ceil((at - BAT.eps - now) * 120)) / 120;
+  define('bat', {
+    r: BAT.r, hp: 2, fall: 1, type: 'sky', hint: 'Bats swoop! Catch one mid-air for a bonus.',
+    make(spot, tag, i) { const id = `${tag}-foe${i}`; return [piece('bat', id, id, spot[1], spot[2], { bat: null, caught: false })]; },
+    // Bats of one wave start out of step: each has already perched up to 1.2 s when it arrives.
+    init(game, bud) {
+      bud.born = (game.foeClock || 0) - hash01(bud.id, 0) * 1.2;
+      bud.bat = { mode: 'perch', until: bud.born + BAT.perch, t0: -100, tellAt: -100, landAt: -100, x0: bud.x, y0: bud.y, cx: bud.x, cy: bud.y, x2: bud.x, y2: bud.y, startled: false };
+    },
+    owns: bud => Boolean(!bud.bloomed && bud.bat && bud.bat.mode !== 'perch'),
+    step(game, bud, dt) {
+      const b = bud.bat, clock = game.foeClock, now = clock + BAT.eps;
+      if (!b || dt <= 0) return;
+      if (b.mode === 'perch' && now >= b.until) { if (!batTell(game, bud, BAT.tell, 'bat:ping')) b.until += BAT.perch; return; }
+      if (b.mode === 'tell' && now >= b.t0) { b.mode = 'swoop'; b.until = b.t0 + BAT.swoop; game.event('foe', { kind: 'bat:swoop', bud, x: bud.x, y: bud.y, x2: b.x2, y2: b.y2 }); }
+      if (b.mode !== 'swoop') return;
+      const p = batPose(b, Math.min(clock, b.until));
+      bud.x = bud.baseX = p.x; bud.y = p.y;
+      if (now >= b.until) { b.mode = 'perch'; b.landAt = b.until; b.until += BAT.perch; b.startled = false; bud.x = bud.baseX = b.x2; bud.y = b.y2; }
+    },
+    hit(game, bud, chain, isCredited, seed) {
+      const b = bud.bat;
+      if (!b) return null;
+      // Mid-swoop any hit blooms it; only an aimed seed's own touch is a catch.
+      if (b.mode === 'swoop') { bud.hp = 1; bud.caught = direct(game, chain, isCredited, seed); return null; }
+      // A credited seed on a perched two-hit bat cracks it and startles it into the air.
+      if (b.mode === 'perch' && bud.hp >= 2 && direct(game, chain, isCredited, seed)) batTell(game, bud, BAT.startle, 'bat:startle');
+      return null;
+    },
+    bloomed(game, bud, chain, credit) {
+      if (!bud.caught) return;
+      const bonus = Math.round(BAT.pay * game.tempo);
+      game.score += bonus;
+      game._charge(1, credit);
+      game.event('foe', { kind: 'bat:catch', bud, x: bud.x, y: bud.y, bonus });
+    },
+    // The bot follows it while it is awake, and from a little before it wakes.
+    moving: (game, bud) => Boolean(bud.bat && (bud.bat.mode !== 'perch' || bud.bat.until - (game.foeClock || 0) < BAT.lookahead)),
+    predict(game, bud, seconds, out) {
+      const b = bud.bat;
+      if (!b) return;
+      const now = game.foeClock || 0, T = now + Math.max(0, seconds - Math.max(0, game.lullaby || 0)), fall = (game.descentSpeed || 0) * (bud.fall || 1);
+      if (b.mode === 'perch') {
+        // Falling with the wave until its tell starts, then hanging still; where it will swoop is not chosen yet.
+        const tell = tickAfter(now, b.until);
+        out.y = bud.y + fall * (Math.min(T, tell) - now);
+        if (T >= tell + BAT.tell) out.flags |= 1;
+        return;
+      }
+      if (T < b.t0) return;
+      if (T < b.t0 + BAT.swoop) { const p = batPose(b, T); out.x = p.x; out.y = p.y; return; }
+      out.x = b.x2; out.y = b.y2 + fall * Math.max(0, T - tickAfter(now, b.t0 + BAT.swoop));
+    },
+    // A swooping bat is the prize (a catch); a perched one is an ordinary target.
+    value(game, bud, hit) {
+      const b = bud.bat, T = (game.foeClock || 0) + Math.max(0, (hit.time || 0) - Math.max(0, game.lullaby || 0));
+      return b && b.mode !== 'perch' && T >= b.t0 && T < b.t0 + BAT.swoop ? 35 : 10;
+    }
+  });
 
   // ── Moon Jelly (Level 5, `jelly`) ──
 

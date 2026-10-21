@@ -1561,19 +1561,80 @@
   // Full slots hold a seed, empty ones are dimples, and the next one to regrow fills like a clock. It sits right of
   // the pod, clear of the sun fan above it, the hearts below, the trick stamps' lane on the left and the badge.
   const TRAY = { x: 242, y: 498, w: 74, h: 30, slots: [257, 279, 301], sy: 513 };
+  // The seed color glyphs (spec 1.11): from Level 4 (state.colorAhead) every waiting seed wears its color as a tinted
+  // disc and a glyph, so a crystal's color reads without seeing color: a sun-dot (gold), heart (coral), crescent (lilac),
+  // drop (sky) and star (poppy). White, inked in the color's dark, GLYPH.size board px tall (7.3 CSS px at 360 px).
+  // Each shape spans exactly -size/2..size/2 in y, so its height is the glyph size.
+  const GLYPH = Object.freeze({ size: 8.5, box: 6.2, disc: 10, launcher: 9 });
+  function paintGlyph(c, type, s = GLYPH.size) {
+    const color = FLOWERS[type] || FLOWERS.gold, h = s / 2;
+    c.beginPath();
+    if (type === 'gold') {
+      c.arc(0, 0, s * .26, 0, TAU);
+      for (let k = 0; k < 8; k++) {
+        const a = k * Math.PI / 4, ux = Math.cos(a), uy = Math.sin(a), w = s * .085, b = s * .31;
+        c.moveTo(ux * b - uy * w, uy * b + ux * w); c.lineTo(ux * h, uy * h); c.lineTo(ux * b + uy * w, uy * b - ux * w); c.closePath();
+      }
+    } else if (type === 'coral') {
+      c.moveTo(0, h); c.arc(-s * .24, -s * .23, s * .27, Math.PI * .75, Math.PI * 1.89); c.arc(s * .24, -s * .23, s * .27, Math.PI * 1.11, Math.PI * 2.25); c.closePath();
+    } else if (type === 'lilac') {
+      // The outer disc with a bite (a smaller disc up and to the right) taken out of it.
+      const dx = s * .26, dy = -s * .08, R = h, r = s * .4, d = Math.hypot(dx, dy), a = (R * R - r * r + d * d) / (2 * d), k = Math.sqrt(R * R - a * a);
+      const px = dx * a / d, py = dy * a / d, p1 = [px - k * dy / d, py + k * dx / d], p2 = [px + k * dy / d, py - k * dx / d], bite = Math.atan2(dy, dx);
+      const turn = (from, to) => ((to - from) % TAU + TAU) % TAU;
+      let A = p1, B = p2;
+      if (turn(Math.atan2(A[1], A[0]), bite) < turn(Math.atan2(A[1], A[0]), Math.atan2(B[1], B[0]))) { A = p2; B = p1; }
+      const a0 = Math.atan2(A[1], A[0]), a1 = Math.atan2(B[1], B[0]), b0 = Math.atan2(B[1] - dy, B[0] - dx), b1 = Math.atan2(A[1] - dy, A[0] - dx);
+      c.arc(0, 0, R, a0, a1); c.arc(dx, dy, r, b0, b1, turn(b0, bite + Math.PI) >= turn(b0, b1)); c.closePath();
+    } else if (type === 'sky') {
+      const r = s * .3, cy = h - r, t = Math.acos(r / (cy + h));
+      c.moveTo(0, -h); c.arc(0, cy, r, -Math.PI / 2 + t, Math.PI * 1.5 - t); c.closePath();
+    } else {
+      const R = s / (1 + Math.cos(Math.PI / 5)), cy = R - h;
+      for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? R * .45 : R; c.lineTo(Math.cos(a) * rr, cy + Math.sin(a) * rr); }
+      c.closePath();
+    }
+    c.lineJoin = 'round'; c.lineWidth = 2.4; c.strokeStyle = color.dark; c.stroke(); c.fillStyle = '#ffffff'; c.fill();
+  }
+  const glyphSprite = type => atlasSprite(`glyph:${type}`, -GLYPH.box, -GLYPH.box, GLYPH.box, GLYPH.box, c => paintGlyph(c, type));
+  // The tinted disc behind a waiting seed: its color at .85 with a 1.2 px ring in its dark, r GLYPH.disc, so a 2.6 px
+  // halo of color shows around the 7.4 px seed.
+  function paintGlyphDisc(c, type) {
+    const color = FLOWERS[type] || FLOWERS.gold;
+    c.globalAlpha = .85; c.beginPath(); c.arc(0, 0, GLYPH.disc, 0, TAU); c.fillStyle = color.base; c.fill();
+    c.globalAlpha = 1; c.beginPath(); c.arc(0, 0, GLYPH.disc - .6, 0, TAU); c.lineWidth = 1.2; c.strokeStyle = color.dark; c.stroke();
+  }
+  const glyphDisc = type => atlasSprite(`glyph-disc:${type}`, -GLYPH.disc - .8, -GLYPH.disc - .8, GLYPH.disc + .8, GLYPH.disc + .8, c => paintGlyphDisc(c, type));
+  // A cached piece at (x, y), scaled; painted live where there is no canvas (node).
+  function glyphAt(ctx, sprite, paint, x, y, scale = 1) {
+    ctx.save(); ctx.translate(x, y); if (scale !== 1) ctx.scale(scale, scale);
+    if (sprite) blit(ctx, sprite); else paint(ctx);
+    ctx.restore();
+  }
+  const drawGlyph = (ctx, type, x, y, scale = 1) => glyphAt(ctx, glyphSprite(type), c => paintGlyph(c, type), x, y, scale);
+  const drawGlyphDisc = (ctx, type, x, y) => glyphAt(ctx, glyphDisc(type), c => paintGlyphDisc(c, type), x, y);
+  function paintTrayBody(c, x, y) {
+    c.save(); c.shadowColor = 'rgba(20,70,64,.28)'; c.shadowBlur = 5; c.shadowOffsetY = 1.5;
+    roundRect(c, x, y, TRAY.w, TRAY.h, TRAY.h / 2); c.fillStyle = 'rgba(255,251,240,.94)'; c.fill(); c.restore();
+  }
+  const trayBody = () => stageSprite('tray', TRAY.w + 12, TRAY.h + 12, c => paintTrayBody(c, 6, 6));
   function drawSeedTray(ctx, state, time, style, reducedMotion, dry) {
     const pod = Math.max(0, Math.min(4, Math.floor(Number(state.pod) || 0))), grow = clamp(Number(state.podGrow) || 0, 0, 1);
     ctx.save();
-    ctx.shadowColor = 'rgba(20,70,64,.28)'; ctx.shadowBlur = 5; ctx.shadowOffsetY = 1.5;
-    roundRect(ctx, TRAY.x, TRAY.y, TRAY.w, TRAY.h, TRAY.h / 2); ctx.fillStyle = 'rgba(255,251,240,.94)'; ctx.fill();
-    ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
-    ctx.lineWidth = 2; ctx.strokeStyle = dry ? `rgb(${Math.round(14 + 241 * dry)},${Math.round(143 - 23 * dry)},${Math.round(134 - 30 * dry)})` : '#0e8f86'; ctx.stroke();
+    // The tray's shadowed body is painted once (spec 1.11), so no shadowBlur runs per frame; the dry-tint rim stays live.
+    const body = trayBody();
+    if (body) ctx.drawImage(body.surface, TRAY.x - 6, TRAY.y - 6, body.w, body.h); else paintTrayBody(ctx, TRAY.x, TRAY.y);
+    roundRect(ctx, TRAY.x, TRAY.y, TRAY.w, TRAY.h, TRAY.h / 2); ctx.lineWidth = 2; ctx.strokeStyle = dry ? `rgb(${Math.round(14 + 241 * dry)},${Math.round(143 - 23 * dry)},${Math.round(134 - 30 * dry)})` : '#0e8f86'; ctx.stroke();
+    // From Level 4, the color each waiting seed will grow into (a tinted disc under it, its glyph over it).
+    const ahead = state.colorAhead && typeof state.typeAhead === 'function';
     TRAY.slots.forEach((sx, i) => {
       const slot = i + 1;
       if (pod > slot) {
         const since = Number.isFinite(state.podAt) && pod === slot + 1 ? time - state.podAt : Infinity;
-        const pop = !reducedMotion && since >= 0 && since < .2 ? 1 + .3 * (1 - since / .2) : 1;
+        const pop = !reducedMotion && since >= 0 && since < .2 ? 1 + .3 * (1 - since / .2) : 1, type = ahead ? state.typeAhead(slot) : null;
+        if (FLOWERS[type]) drawGlyphDisc(ctx, type, sx, TRAY.sy);
         drawSeed(ctx, sx, TRAY.sy, 7.4 * pop, time, false, style, 7.4);
+        if (FLOWERS[type]) drawGlyph(ctx, type, sx, TRAY.sy, pop);
         return;
       }
       circle(ctx, sx, TRAY.sy, 7.6, dry ? `rgba(255,138,122,${.25 + .35 * dry})` : 'rgba(14,143,134,.14)', 'rgba(14,143,134,.55)', 1.3);
@@ -1637,6 +1698,8 @@
       const since = podded && Number.isFinite(state.podAt) && state.pod === 1 ? time - state.podAt : Infinity;
       const pop = !reducedMotion && since >= 0 && since < .2 ? 1 + .3 * (1 - since / .2) : 1;
       drawSeed(ctx, x + (pull ? pull.x : 0), y + (pull ? pull.y : 0), 8.4 * pop, time, false, style, 8.4);
+      // From Level 4 the cup seed wears its color's glyph, GLYPH.launcher board px tall (the cup is drawn at 1.12).
+      if (state.colorAhead && rush && FLOWERS[state.nextType]) drawGlyph(ctx, state.nextType, x + (pull ? pull.x : 0), y + (pull ? pull.y : 0), pop * GLYPH.launcher / GLYPH.size / 1.12);
     }
     ctx.restore();
     if (podded) drawSeedTray(ctx, state, time, style, reducedMotion, dry);
@@ -4823,6 +4886,7 @@
     add(() => curtainSprite('top')); add(() => curtainSprite('bottom'));
     // The level's new pieces (foe-art.js), one job each, and the guardian's kit.
     for (const item of plan.foes || []) add(() => { if (root.BloomFoeArt) root.BloomFoeArt.warm([item], FOE_KIT); });
+    add(() => { trayBody(); for (const type of Object.keys(FLOWERS)) { glyphSprite(type); glyphDisc(type); } }); // the tray body and seed color glyphs (spec 1.11)
     if (plan.boss && plan.boss.bossKind) add(() => { if (root.BloomFoeArt && root.BloomFoeArt.kits) root.BloomFoeArt.kits.warm(plan.boss.bossKind, FOE_KIT); });
     // Lettering: titles, the boss's card, stamps and life bands (each only once its font is in).
     for (const floater of plan.callouts || []) add(() => warmCallout(sctx, floater));
@@ -4909,9 +4973,9 @@
 
   // The toolbox foe-art.js draws with, so the new pieces share the atlas, the flowers and the palette.
   const FOE_KIT = Object.freeze({ atlasSprite, blit, drawFlower, circle, sparkle, starPath, roundRect, shade, FLOWERS, TAU, clamp, ease, smooth, easeBounce, easeBack,
-    drawPuffcap, paintTargetPart, drawBossFace, BOSS_LOOKS });
+    drawPuffcap, paintTargetPart, drawBossFace, BOSS_LOOKS, paintGlyph, GLYPH }); // paintGlyph and GLYPH: the Chroma Crystal wears its color's glyph
   root.BloomArt = { draw, drawSceneLife, drawFlower, drawGarden, drawMoon, koiFish, drawProjectile, drawParticle, drawSeed, drawPowerIcon, drawUnfurl, drawChainLinks,
-    prewarm, setHarvestTarget, spentFlower, paints: () => painted,
+    prewarm, setHarvestTarget, spentFlower, paints: () => painted, GLYPH, glyphSprite, glyphDisc, // the seed color glyphs, which qa/test-seed-art.cjs measures
     // Where a pod seed sits: slot 0 is the cup, 1-3 the tray beside it.
     podSlot: i => i >= 1 && i <= 3 ? { x: TRAY.slots[i - 1], y: TRAY.sy } : { x: 210, y: 498 } };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -1360,6 +1360,7 @@
       if (state.kind === 'fossil' && state.lockStage === 0 && !ball.power) return true;
       return !window.BloomBosses.canHit(game, bud, { ...hit, time: hit.t }, ball);
     }
+    if (bud.foe && window.BloomFoes && window.BloomFoes.guard(game, bud, hit, ball)) return true; // a foe's guard (a crystal turning a seed of another color away) is no finale either
     if (bud.shield && hit.ny > .28) return true;
     if (!bud.shell) return false;
     const a = (bud.shellAngle || 0) + (bud.shellSpin || 0) * hit.t;
@@ -1623,7 +1624,7 @@
     const bud = event.bud || {}, spot = { x: event.x ?? bud.x ?? 210, y: event.y ?? bud.y ?? 200, type: bud.type || 'lilac', r: bud.r || 10 };
     if (act === 'pop') { burst(spot, 12, game.particles, currentKeepsake(), false); foeRing(spot.x, spot.y, FOE_COLORS[spot.type] || FOE_COLORS.lilac, spot.r, 26, .4); haptic('tick'); }
     else if (act === 'fizzle') foeDust(spot.x, spot.y, 5, '#ffffff', 30);
-    else if (act === 'guard') { foeRing(spot.x, spot.y, FOE_COLORS[event.type || spot.type] || '#ffffff', 6, 14, .3); haptic('tick'); }
+    else if (act === 'guard') { foeRing(spot.x, spot.y, FOE_COLORS[event.color || spot.type] || '#ffffff', 6, 14, .3); haptic('tick'); }  // reads `color`: rush sends the guard's color under that name (a `type` key would rename the event)
   }
   // -----------------------------------------------------------------------------------------------------------------
   // The foe effects. Each lives in its own block: FOE_FX.<family> = { <act>(event) { ... } }.
@@ -1649,8 +1650,56 @@
   // ── Drippy Inkcap (Level 3, `inkcap`) ──
 
   // ── Chroma Crystal (Level 4, `chroma`) ──
+  // A seed of the wrong color: three rings of the crystal's own color ripple out and it shivers (the art reads
+  // bud.refusedAt, a presentation stamp), a little tick. The right color: a beat of hit-stop, a spray of glass sparks
+  // in its color and "Perfect match!" stamped over it (the art cracks it open and flings its shards).
+  // A stamp over the action ("Perfect match!", "Catch!"), also read out for screen readers.
+  function l4Stamp(x, y, text, trick, label = '', life = 1.1) {
+    game.floaters.push({ kind: 'trick', trick, text, label, x: clamp(x, 60, 360), y: clamp(y - 38, 40, 420), life, maxLife: life });
+    say(text);
+  }
+  FOE_FX.chroma = {
+    guard(e) {
+      const bud = e.bud || e, color = FOE_COLORS[e.color || bud.type] || '#ffffff';
+      if (e.bud) e.bud.refusedAt = game.time;
+      for (let k = 0; k < 3; k++) foeRing(bud.x, bud.y, color, 12, 18 - 2 * k, .35 - .07 * k);
+      haptic('tick');
+    },
+    match(e) {
+      const type = e.color || e.bud && e.bud.type, color = FOE_COLORS[type] || FOE_COLORS.sky, light = { gold: '#fff3a8', coral: '#ffc2d4', lilac: '#e2d3ff', sky: '#c6e9ff', poppy: '#ffd0a8' }[type] || '#ffffff';
+      jolt(.12, .07, .14); haptic('tick');
+      if (save.settings.motion) {
+        foeRing(e.x, e.y, color, 10, 34, .45); foeRing(e.x, e.y, '#ffffff', 8, 22, .3);
+        const n = Math.max(4, Math.round(10 * [1, .6, .35][game.quality || 0]));
+        for (let i = 0; i < n; i++) {
+          const a = i / n * Math.PI * 2 + .3, v = 90 + (i % 3) * 30, life = .45 + (i % 2) * .15;
+          game.particles.push({ x: e.x, y: e.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 20, life, maxLife: life, kind: i % 2 ? 'spark' : 'star', color: i % 2 ? light : color, size: 2.6, rotation: a, spin: 3, drag: 2.4, gravity: 40, phase: i });
+        }
+      }
+      l4Stamp(e.x, e.y, 'Perfect match!', 'slam');
+    }
+  };
 
   // ── Echo Bat (Level 4, `bat`) ──
+  // It wakes with a soft pulse, puffs a little dust as it launches, and a startled bat bursts off its perch in a puff
+  // of lilac fluff. An aimed catch mid-air: hit-stop, a ring of gold stars and "Catch!" with the bonus on its tag.
+  FOE_FX.bat = {
+    ping(e) { foeRing(e.x, e.y - 3, '#c9b8ee', 9, 12, .3); },
+    swoop(e) { foeDust(e.x, e.y + 8, 3, '#e6f7ff', 40); },
+    startle(e) { foeDust(e.x, e.y, 6, '#c9b8ee', 70); foeRing(e.x, e.y, '#8f7ac2', 10, 16, .25); haptic('tick'); },
+    catch(e) {
+      jolt(.16, .08, .16); haptic('surge');
+      if (save.settings.motion) {
+        foeRing(e.x, e.y, '#ffd148', 11, 36, .45); foeRing(e.x, e.y, '#ffffff', 9, 24, .3);
+        const n = Math.max(3, Math.round(7 * [1, .6, .35][game.quality || 0]));
+        for (let i = 0; i < n; i++) {
+          const a = -Math.PI / 2 + (i - (n - 1) / 2) * .55, v = 110 + (i % 2) * 40;
+          game.particles.push({ x: e.x, y: e.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: .7, maxLife: .7, kind: 'star', color: i % 2 ? '#fff7be' : '#ffd148', size: 3, rotation: a, spin: 4, drag: 2, gravity: 60, phase: i });
+        }
+      }
+      l4Stamp(e.x, e.y, 'Catch!', 'rebound', e.bonus ? `+${e.bonus}` : '');
+    }
+  };
 
   // ── Moon Jelly (Level 5, `jelly`) ──
 

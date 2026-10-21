@@ -450,8 +450,28 @@
   // ── Drippy Inkcap (Level 3, `inkcap`) ──
 
   // ── Chroma Crystal (Level 4, `chroma`) ──
+  // Each crystal rings in its own key (N: gold 0, coral 2, lilac 4, sky 7, poppy 9). A seed of the wrong color gets a
+  // dull woody "no" with a faint glassy echo; the right one cracks it open with three rising glass notes and a chime:
+  // "yes!". The color comes from data.color, or from the bud (which a cue held through a resume keeps).
+  const CHROMA_KEY = { gold: 0, coral: 2, lilac: 4, sky: 7, poppy: 9 };
+  const chromaKey = data => CHROMA_KEY[data.color || data.bud && data.bud.type] ?? 7;
+  FOE_CUES['chroma:guard'] = (data, pan) => {
+    const n = chromaKey(data);
+    foeRows([['wood', step(-2), 0, .07, .05], ['crunch', 'thock', 0, .6], ['glass', step(n), .03, .05, .025]], pan);
+  };
+  FOE_CUES['chroma:match'] = (data, pan) => {
+    const n = chromaKey(data);
+    foeRows([['glass', step(n + 3), 0, .1, .06], ['glass', step(n + 5), .07, .1, .06], ['glass', step(n + 7), .14, .14, .06],
+      ['crunch', 'crack', .14, .7], ['chime', step(14), .2, .25, .04]], pan);
+  };
 
   // ── Echo Bat (Level 4, `bat`) ──
+  // Two high glassy pings as it wakes (echolocation), a falling whoosh as it swoops, a bright marimba run up the
+  // pentatonic when an aimed seed catches it mid-air, and a woody flinch when a seed startles it off its perch.
+  FOE_CUES['bat:ping'] = [['glass', step(14), 0, .06, .045], ['glass', step(16), .07, .06, .045]];
+  FOE_CUES['bat:swoop'] = (data, pan) => { note(step(7), 0, .3, .05, pan, 'drop', 1, { from: 1.3 }); };
+  FOE_CUES['bat:catch'] = [['bell', step(9), 0, .2, .07], ['marimba', pent(10), .06, .1, .06], ['marimba', pent(11), .12, .1, .06], ['marimba', pent(12), .18, .12, .06]];
+  FOE_CUES['bat:startle'] = [['wood', step(5), 0, .05, .05], ['crunch', 'click', 0, .6]];
 
   // ── Moon Jelly (Level 5, `jelly`) ──
 
