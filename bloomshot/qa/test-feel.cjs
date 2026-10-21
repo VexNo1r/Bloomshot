@@ -289,7 +289,7 @@ function boot({ motion = true, render = null, settings = {}, art = {} } = {}) {
     matchMedia: () => ({ matches: false, addEventListener: noop }),
     requestAnimationFrame: fn => { nextFrame = fn; }, setTimeout: () => 1, clearTimeout: noop,
     BloomLevels: Levels, BloomMoon: Moon, BloomKoi: Koi, BloomGarden: Garden, BloomGoals: QuietGoals,
-    BloomEngine: Engine, BloomRush: { RushGame: ObservedRush }, BloomBosses: require('../bosses.js'), BloomDepths: Depths, BloomPowers: Powers,
+    BloomEngine: Engine, BloomRush: { RushGame: ObservedRush }, BloomBosses: require('../bosses.js'), BloomFoes: require('../foes.js'), BloomDepths: Depths, BloomPowers: Powers,
     BloomTutorial: require('../tutorial.js'), BloomPetals: require('../petals.js'), BloomScenery: { paint: noop, has: () => true },
     BloomFeel: Feel,
     BloomSound: { wake: noop, setEnabled: noop, play: (type, detail) => cues.push({ type, detail, at: now }), muffle: (amount, seconds) => cues.push({ type: 'muffle', detail: { amount, seconds }, at: now }) },

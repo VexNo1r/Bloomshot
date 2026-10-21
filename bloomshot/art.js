@@ -1021,7 +1021,7 @@
     const speed = Number(state.descentSpeed) || 0;
     let best = .8;
     for (const bud of Array.isArray(state.buds) ? state.buds : []) {
-      if (!bud || bud.bloomed || bud.gift || bud.puff || !Number.isFinite(bud.y)) continue;
+      if (!bud || bud.bloomed || bud.gift || bud.puff || bud.inert || bud.hidden || bud.ghost || !Number.isFinite(bud.y)) continue;
       const t = (line - (bud.y + (Number(bud.r) || 11))) / Math.max(1, speed * (Number(bud.fall) || 1));
       if (t < best) { best = t; trembleKey = bud.group == null ? bud : bud.group; trembleTime = t; }
     }
@@ -1687,7 +1687,7 @@
   function threatOf(state, y) {
     let threat = 0;
     for (const bud of Array.isArray(state.buds) ? state.buds : []) {
-      if (!bud || bud.bloomed || bud.gift || !Number.isFinite(bud.y)) continue;
+      if (!bud || bud.bloomed || bud.gift || bud.inert || bud.hidden || bud.ghost || !Number.isFinite(bud.y)) continue;
       threat = Math.max(threat, clamp(1 - (y - bud.y - (Number(bud.r) || 11)) / 110, 0, 1));
     }
     return threat;
@@ -4500,7 +4500,7 @@
     if (!over) { ctx.globalAlpha = .2 * fade; ctx.fillStyle = '#5b47b8'; ctx.fillRect(0, 0, 420, 560); ctx.restore(); return; }
     let shown = 0;
     for (const bud of buds) {
-      if (bud.bloomed || bud.gift || shown >= 12) continue;
+      if (bud.bloomed || bud.gift || bud.inert || bud.hidden || shown >= 12) continue;
       const first = bud.group ? buds.find(other => other.group === bud.group && !other.bloomed) : bud;
       if (first !== bud) continue;
       shown++;

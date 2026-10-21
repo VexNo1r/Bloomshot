@@ -33,9 +33,12 @@ function started(id, wave = 1) {
 
 test('Browser and CommonJS builds expose the same API', () => {
   const context = vm.createContext({});
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../foes.js'), 'utf8'), context);
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../bosses.js'), 'utf8'), context);
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../depths.js'), 'utf8'), context);
   assert.deepEqual(Object.keys(context.BloomDepths).sort(), Object.keys(Depths).sort());
+  // The browser build places the same foes as the CommonJS one.
+  assert.deepEqual(JSON.parse(JSON.stringify(context.BloomDepths.wave(2, 2).buds)), JSON.parse(JSON.stringify(Depths.wave(2, 2).buds)));
 });
 test('Ten levels of ten waves, the first four free, the rest one product', () => {
   assert.equal(Depths.total, 10); assert.equal(Depths.free, 4); assert.equal(Depths.waveCount, 10);

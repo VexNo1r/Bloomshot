@@ -185,7 +185,9 @@
   }
   // A vent with jellies still to send holds the wave open.
   const holding = game => Boolean(game.vents && game.vents.some(v => v.made < v.count));
+  // The first-contact hint of a family, or of the family a kind belongs to (hint('molehill') is the mole's).
   function hint(family) {
+    if (FOES[family]) family = familyOf(family);
     for (const name in FOES) if (familyOf(name) === family && FOES[name].hint) return FOES[name].hint;
     return '';
   }

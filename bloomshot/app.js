@@ -1591,13 +1591,13 @@
   function meetFoes(shown = '') {
     if (!game.foeWave || !game.foeHint) return;
     const seen = game.foesSeen || (game.foesSeen = new Set());
+    if (shown) seen.add(shown);
     for (const bud of game.buds) {
       if (!bud.foe || bud.bloomed || bud.hidden) continue;
-      const family = bud.foeFamily || bud.foe;
-      if (seen.has(family)) continue;
-      seen.add(family);
-      const hint = game.foeHint(family);
-      if (hint && hint !== shown) { $('game-hint').textContent = hint; say(hint); return; }
+      // A family's hint (a molehill's is the mole's) is said once a run.
+      const hint = game.foeHint(bud.foe);
+      if (!hint || seen.has(hint)) continue;
+      seen.add(hint); $('game-hint').textContent = hint; say(hint); return;
     }
   }
   // Small shared pieces for the effects: a ring, a few motes of dust, a quick sparkle.
