@@ -57,6 +57,12 @@ module.exports = [
   ['bossAbility', { kind: 'root', move: 'snare', act: 'wither', x: 275 }], ['bossAbility', { kind: 'root', move: 'toss', act: 'start', x: 292 }],
 
   // ── Mother Morel (Level 3, `puff`) ──
+  ['bossAbility', { kind: 'puff', move: 'waltz', act: 'start', x: 268 }], ['bossAbility', { kind: 'puff', move: 'fakeout', act: 'start', x: 210 }],
+  ['bossAbility', { kind: 'puff', move: 'fibwaltz', act: 'start', x: 150 }], ['bossAbility', { kind: 'puff', move: 'fakeout', act: 'land', x: 250 }],
+  ['bossAbility', { kind: 'puff', move: 'fibwaltz', act: 'paint', x: 210 }], ['bossAbility', { kind: 'puff', move: 'ink', act: 'ink', x: 170 }],
+  ['bossAbility', { kind: 'puff', move: 'ink', act: 'start', x: 210 }], ['bossAbility', { kind: 'puff', move: 'puff', act: 'start', x: 320 }],
+  ['bossStage', { kind: 'puff', stage: 1, mood: 'Tricky', x: 210 }], ['bossStage', { kind: 'puff', stage: 2, mood: 'Stormy', x: 190 }],
+  ['bossCritical', { kind: 'puff', via: 'waltz', damage: 2, x: 240 }],
 
   // ── Crystal Heart (Level 4, `crystal`) ──
   ['bossAbility', { kind: 'crystal', move: 'heart', act: 'fake', x: 150 }], ['bossAbility', { kind: 'crystal', move: 'heart', act: 'reform', x: 270 }],

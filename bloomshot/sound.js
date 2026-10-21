@@ -553,6 +553,15 @@
   BOSS_ACTS['root:snare:wither'] = [['drop', step(1), 0, .14, .04]];
 
   // ── Mother Morel (Level 3, `puff`) ──
+  // A marimba oom-pah-pah strikes up her waltz (a step higher and sly for the painted one); three water drops climb as
+  // she winds up a fakeout and fall back as the caps land; a rising harp glissando as the paint dries into fibcaps;
+  // and two deep plops as the ink clouds open. The waltz pop itself rings the shared critical bell and chime.
+  BOSS_ACTS['puff:waltz:start'] = [['marimba', step(0), 0, .12, .055], ['marimba', step(4), .2, .08, .045], ['marimba', step(4), .3, .08, .045]];
+  BOSS_ACTS['puff:fakeout:start'] = [['drop', step(0), 0, .1, .05], ['drop', step(2), .08, .1, .05], ['drop', step(4), .16, .1, .05]];
+  BOSS_ACTS['puff:fibwaltz:start'] = [['marimba', step(2), 0, .12, .055], ['marimba', step(6), .2, .08, .045], ['marimba', step(6), .3, .08, .045]];
+  BOSS_ACTS['puff:fakeout:land'] = [['drop', step(4), 0, .1, .05], ['drop', step(2), .1, .1, .045], ['drop', step(0), .2, .12, .045]];
+  BOSS_ACTS['puff:fibwaltz:paint'] = [['harp', step(7), 0, .12, .05], ['harp', step(9), .06, .12, .05], ['harp', step(11), .12, .2, .045]];
+  BOSS_ACTS['puff:ink:ink'] = [['drop', step(2), 0, .14, .05], ['drop', step(-1), .12, .16, .045]];
 
   // ── Crystal Heart (Level 4, `crystal`) ──
   // All glass. A fake shatters as a falling glass pop on a crack, with glitter chiming up over it; re-forming, it climbs

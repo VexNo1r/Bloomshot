@@ -518,7 +518,8 @@
       if (bud.puff) {
         const near = this.buds.filter(other => other !== bud && (open(other) || other.foe && !other.bloomed && Foes.chainable(other)) && !queued(other) && Math.hypot(other.x - bud.x, other.y - bud.y) <= PUFF_REACH)
           .sort((a, b) => Math.hypot(a.x - bud.x, a.y - bud.y) - Math.hypot(b.x - bud.x, b.y - bud.y));
-        near.forEach((other, index) => this.pending.push(this._link(other.id, this.time + .09 + index * .045, bud, 'puff')));
+        // Links from Mother Morel's dancing partner carry `waltz`, so her kit names the hit a "Waltz pop!" (spec 1.5).
+        near.forEach((other, index) => { const item = this._link(other.id, this.time + .09 + index * .045, bud, 'puff'); if (bud.bossPart === 'waltz') item.waltz = true; this.pending.push(item); });
         this.event('puff', { bud, count: near.length });
       }
       // Blooming a boss blooms the rest of its wave, in a gold wave travelling outward from it.

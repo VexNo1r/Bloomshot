@@ -1017,6 +1017,187 @@
   });
 
   // ── Mother Morel (Level 3, `puff`) ──
+  // A grand, motherly morel who dances with her spores. Graceful (tier 0) plays her original bonnet (she pulls her cap
+  // down, so only seeds from above land, and drops a cupped bunch and a puffcap beside her; it now alternates sides) and
+  // the spore waltz: a puffcap partner twirls round her at MOREL.R px, inside a puffcap's 74 px reach, a turn every 2π s,
+  // for MOREL.dance s. Popping it sets the puffcap chain off into her: two damage and "Waltz pop!". Tricky (tier 1) adds
+  // the fakeout: she lobs three caps along shown arcs to three marks below her, one real spotted puffcap and two striped
+  // fibcaps that sneeze when a seed is aimed at them. Stormy (tier 2) brings ink rain (three lanes of falling ink drops
+  // for MOREL.rain s; each drop gulps a plain seed) and the painted waltz: three partners, and MOREL.paintAt s in a stripe
+  // wipe paints two of them into fibcap decoys. Only the spotty one is real; a seed aimed at a painted one makes it
+  // sneeze and slams her bonnet shut. Every pose, flight and drip is on the kit clock (a Lullaby holds them all), and
+  // every choice comes from hash01.
+  const MOREL = { R: 58, spin: 1, capR: 12, dance: 8, paintAt: 2.3, toss: 64, tossT: .9, tossAt: [40, 90, 140], lane: 60,
+    rain: 4, drip: .8, stagger: .27, dropGap: 8, bonnet: 2, gone: 1 };
+  // A dancing partner's pose: a closed-form orbit round her pose of the moment.
+  const morelOrbit = (p, bx, by, clock) => Foes.orbitAt(bx, by, MOREL.R, MOREL.spin, p.a0, clock - p.born);
+  // Where her partners would open (a0 each), round where she will be when the tell ends.
+  function morelMarks(s, starts) {
+    const q = positions(s, TELEGRAPH).get(s.boss.id);
+    return starts.map(a0 => { const at = Foes.orbitAt(q.x, q.y, MOREL.R, MOREL.spin, a0, 0); return { x: at.x, y: at.y, r: 14, role: 'waltz' }; });
+  }
+  // A partner joins the dance (a one-hit puffcap part) and twirls home quietly after MOREL.dance s.
+  function morelPartner(game, s, a0, extra) {
+    const b = s.boss, at = Foes.orbitAt(b.x, b.y, MOREL.R, MOREL.spin, a0, 0);
+    const p = part(game, 'waltz', at.x, at.y, MOREL.capR, 1, { born: s.kitAge, a0, puff: true, type: 'lilac', ...extra });
+    s.partners.push(p); after(s, MOREL.dance, 'close', p); return p;
+  }
+  // One drop of ink rain from the cloud over lane k: an inkdrop with no cap, its own group, falling as an inkcap's does.
+  function morelDrop(game, s, k) {
+    const b = s.boss, x = s.ink.lanes[k], y = b.y + b.r + MOREL.dropGap;
+    const [drop] = Foes.make('inkdrop', ['inkdrop', x, y, {}], `${b.id}-ink-${s.serial++}`, null);
+    if (!drop) return;
+    drop.lane = k; Foes.place(game, drop); s.ink.last[k] = s.kitAge;
+    game.event('foe', { kind: 'inkcap:drip', bud: drop, x, y, n: k });
+  }
+  // The fakeout's marks: below where she stands as she tosses, each clear of every piece now and as the caps land
+  // (`ahead` s from now). They are checked again as she tosses, so the warning only ever shows spots that get a cap.
+  function morelTossMarks(game, s) {
+    const q = positions(s, TELEGRAPH).get(s.boss.id);
+    return MOREL.tossAt.map(deg => {
+      const a = deg * Math.PI / 180;
+      return { x: clamp(q.x + MOREL.toss * Math.cos(a), 34, 386), y: Math.min(q.y + MOREL.toss * Math.sin(a), game.dangerY - 120), r: MOREL.capR, role: 'fakeout' };
+    }).filter(m => morelClear(game, s, m, TELEGRAPH + MOREL.tossT));
+  }
+  function morelClear(game, s, m, ahead) {
+    const later = positions(s, ahead);
+    return game.buds.every(p => {
+      if (!open(p) || p.hidden || p.ghost || p.boss) return true;
+      const pose = p.bossPart ? later.get(p.id) : null, gap = p.r + m.r + 6;
+      if (Math.hypot(p.x - m.x, p.y - m.y) < gap) return false;
+      return Math.hypot((pose ? pose.x : p.x) - m.x, (pose ? pose.y : p.y + game.descentSpeed * (p.fall || 1) * ahead) - m.y) >= gap;
+    });
+  }
+  kit('puff', {
+    hp: 33,
+    moods: ['Graceful', 'Tricky', 'Stormy'],
+    stageText: [null, 'Mother Morel gets tricky!', 'Mother Morel brings the rain!'],
+    text: { waltz: 'Spore waltz! Pop her dancing cap.', fakeout: 'Which cap is real? Find the spots!', ink: 'Ink rain! Mind the drips.',
+      fibwaltz: 'Watch the paint! Pop the spotty cap.' },
+    moves: [['puff', 'waltz'], ['puff', 'waltz', 'fakeout'], ['ink', 'puff', 'fibwaltz']],
+    init(game, s) { s.partners = []; s.puffs = 0; },
+    plan: {
+      // Her original bonnet, its bunch and puffcap swapping sides each time (the first is the familiar right-hand one).
+      puff(game, s) { const action = s.action; s.action = s.puffs; try { return legacyPlan(game, s, 'puff'); } finally { s.action = action; } },
+      waltz(game, s) { if (s.parts.some(p => p.bossPart === 'waltz' && !p.bloomed)) return null; return { targets: morelMarks(s, [0]) }; },
+      fibwaltz(game, s) { if (s.parts.some(p => (p.bossPart === 'waltz' || p.bossPart === 'fibwaltz') && !p.bloomed)) return null; return { targets: morelMarks(s, [0, 1, 2].map(i => i * TAU / 3)) }; },
+      fakeout(game, s) {
+        const marks = morelTossMarks(game, s); if (!marks.length) return null;
+        // Which mark gets the real puffcap is fixed by the guardian and the move count, never by chance.
+        marks[Math.floor(Foes.hash01(s.boss.id, s.action) * marks.length)].real = true;
+        return { targets: marks };
+      },
+      ink(game, s) {
+        if (s.ink && s.ink.until > s.kitAge) return null;
+        const q = positions(s, TELEGRAPH).get(s.boss.id);
+        return { targets: [-1, 0, 1].map(k => ({ x: clamp(q.x + k * MOREL.lane, 40, 380), y: 300, r: 18, role: 'ink' })) };
+      }
+    },
+    act: {
+      puff(game, s, w) { s.puffs++; return legacyAct(game, s, w); },
+      // The partners open where she actually is (a tick from the forecast mark); the start ring shows those spots.
+      waltz(game, s, w) { const p = morelPartner(game, s, 0); w.targets = [{ x: p.x, y: p.y, r: 14, role: 'waltz' }]; },
+      fibwaltz(game, s, w) {
+        // The partner that stays real is chosen now; the art shows the wipe coming over the other two.
+        const real = Math.floor(Foes.hash01(s.boss.id, s.action) * 3), parts = [0, 1, 2].map(i => morelPartner(game, s, i * TAU / 3, { painting: i !== real }));
+        w.targets = parts.map(p => ({ x: p.x, y: p.y, r: 14, role: 'waltz' })); after(s, MOREL.paintAt, 'paint', parts);
+      },
+      fakeout(game, s, w) {
+        // Only spots still clear get a cap (written back, so the start ring shows exactly those); if the real one's spot
+        // filled up, the real cap goes to another, still by hash01.
+        const b = s.boss, marks = w.targets.filter(t => t.role === 'fakeout' && morelClear(game, s, t, MOREL.tossT));
+        w.targets = marks; if (!marks.length) return;
+        if (!marks.some(m => m.real)) marks[Math.floor(Foes.hash01(b.id, s.action) * marks.length)].real = true;
+        marks.forEach((m, i) => lob(s, m.real ? 'puffcap' : 'fibcap', b.x, b.y, m.x, m.y, MOREL.tossT, { real: Boolean(m.real), turn: i % 2 ? -1 : 1 }));
+        after(s, MOREL.tossT, 'land', marks);
+      },
+      ink(game, s, w) {
+        const b = s.boss, lanes = w.targets.filter(t => t.role === 'ink').map(t => t.x);
+        s.ink = { lanes, t0: s.kitAge, until: s.kitAge + MOREL.rain, made: lanes.map(() => 0), last: lanes.map(() => -9) };
+        game.event('bossAbility', { kind: s.kind, move: 'ink', act: 'ink', x: b.x, y: b.y, lanes });
+      }
+    },
+    timer: {
+      // The caps land where they were shown going: the spotted one a real puffcap, the striped ones fibcaps. A mark a
+      // piece has fallen onto meanwhile gets nothing.
+      land(game, s, marks) {
+        const b = s.boss; let landed = 0, real = null;
+        for (const m of marks) {
+          if (!clearSpot(game, m.x, m.y, m.r)) continue;
+          const id = `${b.id}-fake-${s.serial++}`;
+          if (m.real) {
+            real = { id, group: id, x: m.x, y: m.y, baseX: m.x, startY: m.y, r: m.r, hp: 1, maxHp: 1, type: 'lilac', puff: true, relay: false,
+              fall: .8, sway: 0, hitAt: -100, bloomed: false, bloomAt: -100, bossSummon: true, bossSource: b.id };
+            game.buds.push(real);
+          } else {
+            const [fake] = Foes.make('fibcap', ['fibcap', m.x, m.y, {}], id, null); if (!fake) continue;
+            fake.bossSummon = true; fake.bossSource = b.id; Foes.place(game, fake);
+            game.event('foe', { kind: 'fibcap:land', bud: fake, x: m.x, y: m.y });
+          }
+          landed++;
+        }
+        if (!landed) return;
+        s.summons++;
+        game.event('bossAbility', { kind: s.kind, move: 'fakeout', act: 'land', x: real ? real.x : marks[0].x, y: real ? real.y : marks[0].y, marks: marks.map(m => ({ x: m.x, y: m.y, real: Boolean(m.real) })) });
+      },
+      // The wipe ends: every partner still dancing but the real one is painted into a striped decoy.
+      paint(game, s, parts) {
+        let painted = 0;
+        for (const p of parts) {
+          if (p.bloomed || p.closed) continue;
+          // The real one only twinkles (art), so the player can find the spots.
+          if (!p.painting) { p.spottedAt = s.kitAge; continue; }
+          p.bossPart = 'fibwaltz'; p.puff = false; p.decoy = p.inert = true; p.paintedAt = s.kitAge; painted++;
+        }
+        if (painted) game.event('bossAbility', { kind: s.kind, move: 'fibwaltz', act: 'paint', x: s.boss.x, y: s.boss.y });
+      }
+    },
+    pose(s, p, bx, by, clock) {
+      if (p.bossPart !== 'waltz' && p.bossPart !== 'fibwaltz') return null;
+      // A popped partner stays where it burst while its burst plays.
+      if (p.bloomed) return { x: p.x, y: p.y };
+      const at = morelOrbit(p, bx, by, clock); return { x: at.x, y: at.y };
+    },
+    step(game, s) {
+      // Ink rain: lane k drips at t0 + stagger k + drip n until the rain stops (nothing drips while the kit clock waits).
+      const ink = s.ink;
+      if (ink) {
+        for (let k = 0; k < ink.lanes.length; k++) {
+          for (let at = ink.t0 + MOREL.stagger * k + MOREL.drip * ink.made[k]; at < ink.until - 1e-9 && s.kitAge >= at - 1e-9; at = ink.t0 + MOREL.stagger * k + MOREL.drip * ink.made[k]) {
+            morelDrop(game, s, k); ink.made[k]++;
+          }
+        }
+        // The clouds stay a moment after the last drop so the art can blow them away.
+        if (s.kitAge >= ink.until + .6) s.ink = null;
+      }
+      // Partners that were popped leave the board once their burst has played; the art keeps the rest a moment longer.
+      if (s.parts.some(p => (p.bossPart === 'waltz' || p.bossPart === 'fibwaltz') && p.bloomed && game.time - p.bloomAt > MOREL.gone)) {
+        const gone = new Set(s.parts.filter(p => (p.bossPart === 'waltz' || p.bossPart === 'fibwaltz') && p.bloomed && game.time - p.bloomAt > MOREL.gone));
+        s.parts = s.parts.filter(p => !gone.has(p)); game.buds = game.buds.filter(p => !gone.has(p));
+      }
+      if (s.partners.length) s.partners = s.partners.filter(p => p.closed ? s.kitAge - p.closedAt < .6 : !p.bloomed || game.time - p.bloomAt < 1.2);
+    },
+    // A painted partner is a decoy: a seed aimed at it makes it sneeze (the gust scatters nearby buds) and slams her
+    // bonnet shut for MOREL.bonnet s, and it does her no harm. A chain, a power or a script just pops it quietly.
+    resolve(game, s, bud, chain, seed) {
+      if (bud.bossPart !== 'fibwaltz') return null;
+      if (Foes.direct(game, chain, Foes.credited(game, chain), seed)) {
+        game._pop(bud, 'fibcap:sneeze'); Foes.FOES.fibcap.sneeze(game, bud.x, bud.y);
+        s.mode = 'bonnet'; s.modeUntil = Math.max(s.modeUntil, s.age + MOREL.bonnet);
+      } else game._pop(bud, 'fibcap:pop');
+      return { blocked: true };
+    },
+    // A chain set off by a waltz partner (its links carry `waltz`) is the critical: "Waltz pop!".
+    damage(game, s, bud, chain, result) {
+      if (chain && game.due && game.due.waltz && bud === s.boss && result.target === s.boss && result.damage > 1) {
+        s.crits++; game.event('bossCritical', { kind: s.kind, bud, damage: result.damage, via: 'waltz' });
+      }
+      return result;
+    },
+    // The bot: a dancing partner is worth chasing (it also counts as a puffcap); painted ones are decoys (never listed).
+    targets(game, s, list) { for (const t of list) if (t.bud.bossPart === 'waltz') t.priority = 75; },
+    cleanup(game, s) { s.partners = []; }
+  });
 
   // ── Crystal Heart (Level 4, `crystal`) ──
   // The free levels' wall: three glass hearts, and only one of them is real. The two fakes are glass decoys: a seed's

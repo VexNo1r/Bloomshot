@@ -1900,6 +1900,29 @@
   };
 
   // ── Mother Morel (Level 3, `puff`) ──
+  // A lilac ring where each dancing partner will appear, a puff of spores as she tosses the fakeout caps and a ring
+  // where each lands (cream for the real one, lilac for the fibs), lilac poofs as the paint dries into fibcaps, and a
+  // navy splash under each ink cloud with a little shake as the rain opens. A waltz pop is called "Waltz pop!".
+  CRIT_TEXT.waltz = 'Waltz pop!';
+  BOSS_FX.puff = {
+    'waltz:start'(e) { for (const t of (e.targets || []).filter(t => t.role === 'waltz')) { foeRing(t.x, t.y, '#cbbfff', 8, 22, .4); foeDust(t.x, t.y, 4, '#f4ecff', 40); } haptic('tick'); },
+    'fibwaltz:start'(e) { for (const t of (e.targets || []).filter(t => t.role === 'waltz')) foeRing(t.x, t.y, '#cbbfff', 8, 22, .4); haptic('tick'); },
+    'fakeout:start'(e) { foeDust(e.x, e.y - 30, 6, '#f4ecff', 50); foeRing(e.x, e.y - 30, '#d6bdf3', 6, 18, .3); },
+    'fakeout:land'(e) {
+      for (const m of e.marks || []) { foeRing(m.x, m.y, m.real ? '#fff0cf' : '#b58be0', 6, 16, .3); foeDust(m.x, m.y + 8, 3, m.real ? '#e8d2b0' : '#d6bdf3', 36); }
+      haptic('tick');
+    },
+    'fibwaltz:paint'(e) {
+      const s = game.bossState;
+      for (const p of (s && s.parts || []).filter(p => p.bossPart === 'fibwaltz' && !p.bloomed)) { foeRing(p.x, p.y, '#b58be0', 10, 16, .35); foeDust(p.x, p.y, 4, '#fff7ff', 40); }
+      haptic('tick');
+    },
+    'ink:ink'(e) {
+      const boss = game.bossState && game.bossState.boss, y = (boss ? boss.y + boss.r : e.y + 25) - 2;
+      for (const x of e.lanes || []) { foeRing(x, y, '#5b4a73', 8, 18, .35); foeDust(x, y, 3, '#2f2a6b', 36); }
+      jolt(.08, 0, 0); haptic('warn');
+    }
+  };
 
   // ── Crystal Heart (Level 4, `crystal`) ──
   // A fake shatters into tumbling, glinting glass (clear, ice and pink) inside a white flash ring; re-forming, a few
