@@ -446,8 +446,24 @@
   // ── Peekaboo Mole (Level 2, `mole`) ──
 
   // ── Fibcap (Level 3, `fibcap`) ──
+  // The sneeze is a comic "ah... ah... CHOO!": two rising marimba breaths, then a water-drop sneeze under a burst of
+  // noise, landing with the gust (.18 s). A quiet pop is a dull wooden pff (a decoy gives nothing), a fizzle a soft
+  // knock, and one landing from Mother Morel's fakeout a light woody tap.
+  FOE_CUES['fibcap:sneeze'] = [['marimba', hz(4), 0, .08, .06], ['marimba', hz(7), .09, .08, .06], ['drop', step(-3), .18, .2, .07], ['crunch', 'burst', .18, .7]];
+  FOE_CUES['fibcap:pop'] = [['wood', step(2), 0, .08, .05], ['crunch', 'pop', 0, .5]];
+  FOE_CUES['fibcap:fizzle'] = [['wood', step(-1), 0, .06, .03, 0]];
+  FOE_CUES['fibcap:land'] = [['wood', step(4), 0, .06, .045], ['crunch', 'click', 0, .4]];
 
   // ── Drippy Inkcap (Level 3, `inkcap`) ──
+  // A drip is a high, soft water plink (its own slower throttle, so two caps dripping together make one). A gulp is a
+  // soft cartoon slurp: the drop note glides up into its pitch twice as slowly as a plain drop, over a muffled thock,
+  // with a low wooden "gulp" a moment later. A drop popped by a power is a light wooden tick.
+  FOE_CUES['inkcap:drip'] = (data, pan) => { if (allowed('inkcap:drip:slow', .18)) note(step(5), 0, .12, .04, pan, 'drop', 0); };
+  FOE_CUES['inkcap:gulp'] = (data, pan) => {
+    note(step(0), 0, .16, .07, pan, 'drop', 1, { from: .6, bend: .09 }); crunch('thock', 0, pan, .8);
+    note(step(-3), .05, .1, .04, pan, 'wood', 1);
+  };
+  FOE_CUES['inkdrop:pop'] = [['wood', step(4), 0, .05, .04], ['crunch', 'pop', 0, .4]];
 
   // ── Chroma Crystal (Level 4, `chroma`) ──
 

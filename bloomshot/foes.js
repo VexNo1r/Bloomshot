@@ -282,8 +282,164 @@
   // ── Peekaboo Mole (Level 2, `mole`) ──
 
   // ── Fibcap (Level 3, `fibcap`) ──
+  // A fibbing mushroom: lilac like a real bud, but it wears white zig-zag stripes and a sly wink, because it is a decoy.
+  // A seed the player aims at it makes it sneeze: it pops (it pays nothing) and, a beat later (SNEEZE.delay), a gust
+  // shoves every plain bud within SNEEZE.reach px SNEEZE.dist px straight away from it, scattering a cluster the player
+  // had lined up. A chain (a puffcap's, a roll's), a power or an uncredited strike pops it quietly: that is how to clear
+  // one. It never holds a wave or costs a life: at the line it fizzles, and when the wave ends it is swept away.
+  // bonus / skim*: the practice bot's view (a puffcap beside a fibcap is worth more; a shot skimming one is risky).
+  const SNEEZE = { delay: .18, dur: .25, dist: 26, reach: 74, floor: 44, edge: 22, keep: .7, bonus: 20, skim: 40, skimAlong: 160, skimSide: 14 };
+  // Queues a sneeze at (x, y) on the foe clock. Mother Morel's painted caps sneeze through it too
+  // (Foes.FOES.fibcap.sneeze(game, x, y)); a record is { at, from, x, y, dur, dist } and the art plays its gust from it.
+  function sneeze(game, x, y) {
+    const now = game.foeClock || 0;
+    if (!game.sneezes) game.sneezes = [];
+    game.sneezes.push({ at: now + SNEEZE.delay, from: now, x, y, dur: SNEEZE.dur, dist: SNEEZE.dist });
+    game.foeWave = true;
+  }
+  // Who a sneeze blows away: plain unbloomed buds only. Guardians and their parts, gifts, carried buds and every foe keep
+  // their own closed-form tracks, so the gust never touches them.
+  const blowable = bud => !bud.bloomed && !bud.gift && !bud.inert && !bud.boss && !bud.bossPart && !bud.foe && !bud.carried;
+  // The world step after the buds: each sneeze, once due, pushes its targets radially with a smoothstep over `dur`.
+  // Every tick adds only the eased step since the last one, so the push is the same at any frame rate and simply waits
+  // through a Lullaby (the foe clock stops). A push never shoves a bud down past dangerY - SNEEZE.floor - r (a bud
+  // already lower is left there, never pulled up), nor out past the side walls.
+  onTick('after', game => {
+    const list = game.sneezes;
+    if (!list || !list.length) return;
+    const clock = game.foeClock;
+    for (const s of list) {
+      if (clock < s.at - 1e-9 || s.e >= 1) continue;
+      if (!s.targets) {
+        s.e = 0; s.targets = [];
+        for (const bud of game.buds) {
+          if (!blowable(bud)) continue;
+          const dx = bud.x - s.x, dy = bud.y - s.y, d = Math.hypot(dx, dy);
+          if (d > SNEEZE.reach) continue;
+          // A bud right on the spot is blown a stable way (never Math.random).
+          const a = d > 1e-6 ? null : hash01(bud.id, 7) * TAU;
+          s.targets.push({ bud, ux: a === null ? dx / d : Math.cos(a), uy: a === null ? dy / d : Math.sin(a) });
+        }
+        s.n = s.targets.length;
+        game.event('foe', { kind: 'fibcap:gust', x: s.x, y: s.y, n: s.n });
+      }
+      const e = smooth((clock - s.at) / Math.max(1e-6, s.dur)), push = (e - s.e) * s.dist;
+      s.e = e;
+      for (const { bud, ux, uy } of s.targets) {
+        if (bud.bloomed) continue;
+        const r = bud.r || 11, x = clamp(bud.x + ux * push, SNEEZE.edge + r, 420 - SNEEZE.edge - r);
+        bud.baseX += x - bud.x; bud.x = x;
+        bud.y = Math.min(bud.y + uy * push, Math.max(bud.y, game.dangerY - SNEEZE.floor - r));
+      }
+    }
+    // A finished sneeze stays a moment for its gust art, then goes.
+    if (list.some(s => clock >= s.at + SNEEZE.keep)) game.sneezes = list.filter(s => clock < s.at + SNEEZE.keep);
+  });
+  define('fibcap', {
+    r: 12, hp: 1, fall: 1, type: 'lilac', inert: true, decoy: true, hint: "Striped caps are fibcaps. Don't shoot them!",
+    // A guardian's spawn passes i = null and gets id = group = tag.
+    make(spot, tag, i) { const id = i == null ? tag : `${tag}-foe${i}`; return [piece('fibcap', id, id, spot[1], spot[2])]; },
+    // A puffcap or a roll may take it (and pops it quietly), so a chain is the clean way to clear one.
+    chainable: () => true,
+    // A Sunburst opens at its first touch but only blooms open buds, so the fibcap it touched pops quietly right here.
+    contact(game, bud, ball) { if (ball && ball.power === 'sunburst') game._pop(bud, 'fibcap:pop'); return null; },
+    hit(game, bud, chain, isCredited, seed) {
+      if (!direct(game, chain, isCredited, seed)) return { pop: true, quiet: true };
+      sneeze(game, bud.x, bud.y);
+      return { pop: true, kind: 'sneeze' };
+    },
+    breach: () => 'fizzle',
+    // The bot never shoots a fibcap (it is a decoy, so Foes.value is -1), but a real puffcap beside one is worth more:
+    // its bloom pops the fibcap for free. Like a careful player it also shies away from a shot whose last stretch skims
+    // past a fibcap just before its target, where a little aim error would make it sneeze.
+    valueAny(game, hit) {
+      const bud = hit && hit.bud;
+      if (!bud || bud.foe === 'fibcap') return 0;
+      const nx = hit.nx || 0, ny = hit.ny || 0, reach = (bud.r || 11) + SNEEZE.skimSide;
+      let bonus = 0, skim = false;
+      for (const other of game.buds) {
+        if (other.foe !== 'fibcap' || other.bloomed) continue;
+        const vx = other.x - bud.x, vy = other.y - bud.y, along = vx * nx + vy * ny;
+        if (bud.puff && Math.hypot(vx, vy) <= SNEEZE.reach) bonus = SNEEZE.bonus;
+        if (along > 0 && along < SNEEZE.skimAlong && Math.abs(vx * ny - vy * nx) < other.r + reach) skim = true;
+      }
+      return bonus - (skim ? SNEEZE.skim : 0);
+    },
+    sneeze, SNEEZE
+  });
 
   // ── Drippy Inkcap (Level 3, `inkcap`) ──
+  // A shaggy ink cap that weeps. It is a real 2-hit bud (it costs a life at the line and blooms like any other), but
+  // every INK.every s (from INK.first s after it arrives) it wobbles, swells a bead of ink under its fringe for
+  // INK.swell s and lets a drop fall. A drop falls INK.speed px/s and gulps any plain seed that touches it: the seed is
+  // gone and nothing blooms. A power seed (Bee Line, Sunburst, Dandelion) pops a drop instead. Drops are inert, each its
+  // own group (so one reaching the line fizzles alone and never costs a life or takes its cap with it), at most INK.max
+  // alive per cap (a drip is skipped while the cap has that many), and each dries up INK.life s after it falls.
+  const INK = { first: 1.5, every: 2.2, swell: .5, max: 3, speed: 110, life: 3.2, r: 6, gap: 4 };
+  function inkAlive(game, cap) {
+    let n = 0;
+    for (const bud of game.buds) if (bud.foe === 'inkdrop' && bud.cap === cap.id && !bud.bloomed) n++;
+    return n;
+  }
+  // The drip clock: dripAt and swellAt are on the foe clock, so the art's wobble and bead match the rule exactly.
+  function inkInit(game, cap) { cap.drips = 0; cap.dripAt = cap.born + INK.first; cap.swellAt = cap.dripAt - INK.swell; }
+  function inkDrip(game, cap, n) {
+    const y = cap.y + cap.r + INK.gap, id = `${cap.id}-ink-${n}`;
+    // No spawnAt: the drop is the bead that was already hanging there, so it must not pop in from nothing.
+    const drop = piece('inkdrop', id, id, cap.x, y, { y0: y, cap: cap.id, hitAt: -100, bloomed: false, bloomAt: -100 });
+    place(game, drop);
+    cap.drippedAt = game.foeClock;
+    game.event('foe', { kind: 'inkcap:drip', bud: cap, x: cap.x, y, n });
+  }
+  define('inkcap', {
+    r: 12, hp: 2, fall: .9, type: 'lilac', hint: 'Inkcaps drip! Drops gobble your seeds.', INK,
+    make(spot, tag, i) { const id = i == null ? tag : `${tag}-foe${i}`; return [piece('inkcap', id, id, spot[1], spot[2])]; },
+    init: inkInit,
+    step(game, bud) {
+      if (bud.dripAt == null) inkInit(game, bud);
+      while (game.foeClock >= bud.dripAt - 1e-9) {
+        const n = bud.drips++;
+        if (inkAlive(game, bud) < INK.max) inkDrip(game, bud, n);
+        bud.dripAt = bud.born + INK.first + INK.every * bud.drips; bud.swellAt = bud.dripAt - INK.swell;
+      }
+      // The art skips the swell while the next drip would be skipped.
+      bud.inkFull = inkAlive(game, bud) >= INK.max;
+    },
+    value: () => 10
+  });
+  define('inkdrop', {
+    r: INK.r, hp: 1, fall: 0, type: 'lilac', inert: true, family: 'inkcap',
+    // Mother Morel's ink rain makes drops with no cap: Foes.make('inkdrop', ['inkdrop', x, y], tag, null), then place().
+    make(spot, tag, i) {
+      const id = i == null ? tag : `${tag}-foe${i}`;
+      return [piece('inkdrop', id, id, spot[1], spot[2], { y0: spot[2], cap: null, hitAt: -100, bloomed: false, bloomAt: -100 })];
+    },
+    init(game, bud) { if (!Number.isFinite(bud.y0)) bud.y0 = bud.y; },
+    owns: () => true,
+    step(game, bud) {
+      const t = game.foeClock - bud.born;
+      if (t >= INK.life - 1e-9) { game._pop(bud, 'inkdrop:fizzle'); return; }
+      bud.y = bud.y0 + INK.speed * t;
+    },
+    // It meets a seed before every other rule: a plain seed is gulped (gone, a touch, nothing blooms); a power seed goes
+    // on to pop it (a Bee Line through its strike, a Sunburst right here, since a Sunburst only blooms open buds).
+    contact(game, bud, ball) {
+      if (isPower(game, ball)) { if (ball && ball.power === 'sunburst') game._pop(bud, 'inkdrop:pop'); return null; }
+      game._pop(bud, 'inkcap:gulp');
+      return 'absorb';
+    },
+    // Any strike that reaches it (a power, a scripted loop) pops it quietly.
+    hit: () => ({ pop: true, quiet: true }),
+    breach: () => 'fizzle',
+    moving: () => true,
+    // Closed form: where it will be `seconds` from now (it waits out a Lullaby), hidden once it has dried up or reached the line.
+    predict(game, bud, seconds, out) {
+      const t = game.foeClock - bud.born + Math.max(0, seconds - Math.max(0, game.lullaby || 0));
+      out.y = bud.y0 + INK.speed * t;
+      if (t >= INK.life - 1e-9 || out.y + bud.r >= game.dangerY) out.flags |= 1;
+    },
+    value: () => -1
+  });
 
   // ── Chroma Crystal (Level 4, `chroma`) ──
 

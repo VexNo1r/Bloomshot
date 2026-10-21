@@ -1,0 +1,116 @@
+{
+  "passed": 22,
+  "failed": 0,
+  "results": [
+    {
+      "name": "Fibcaps debut in Level 3 wave 4 with their hint, and come back in L3 W6, L3 W9, L4 W5, L4 W9 and L5 W5",
+      "passed": true,
+      "ms": 6
+    },
+    {
+      "name": "A credited seed makes it sneeze: it pops for nothing, and .18 s later the gust comes",
+      "passed": true,
+      "ms": 7
+    },
+    {
+      "name": "A Bee Line, a Sunburst, a chain or an uncredited strike pops it quietly, with no sneeze",
+      "passed": true,
+      "ms": 13
+    },
+    {
+      "name": "A sneeze blows plain buds within 74 px 26 px straight away, and leaves guardians, gifts, carried buds and foes",
+      "passed": true,
+      "ms": 5
+    },
+    {
+      "name": "A sneeze never shoves a bud past dangerY - 44 - r, and never lifts one already lower",
+      "passed": true,
+      "ms": 3
+    },
+    {
+      "name": "A Lullaby holds a sneeze mid-push, and it finishes after",
+      "passed": true,
+      "ms": 2
+    },
+    {
+      "name": "A wave with only fibcaps left clears, and the fibcaps fizzle away",
+      "passed": true,
+      "ms": 1
+    },
+    {
+      "name": "A fibcap and an ink drop at the line fizzle and cost no life",
+      "passed": true,
+      "ms": 2
+    },
+    {
+      "name": "The bot never shoots a fibcap, values a puffcap beside one 20 more, and shies from a shot that skims one",
+      "passed": true,
+      "ms": 3
+    },
+    {
+      "name": "Sneezes and drips play out the same at 30, 60 and 144 FPS",
+      "passed": true,
+      "ms": 547
+    },
+    {
+      "name": "Inkcaps debut in Level 3 wave 6 with their hint, and come back in L3 W8, L3 W9 and L4 W7",
+      "passed": true,
+      "ms": 1
+    },
+    {
+      "name": "Drops fall at 1.5, 3.7 and 5.9 s, each its own group, from under the cap",
+      "passed": true,
+      "ms": 4
+    },
+    {
+      "name": "A cap with three drops still falling skips its drip, and the schedule carries on",
+      "passed": true,
+      "ms": 3
+    },
+    {
+      "name": "A drop gulps a plain seed: the seed is gone, nothing blooms, and the drop pops",
+      "passed": true,
+      "ms": 5
+    },
+    {
+      "name": "A Bee Line flies through a drop and pops it; a Sunburst or a Dandelion pops it too",
+      "passed": true,
+      "ms": 12
+    },
+    {
+      "name": "A drop dries up 3.2 s after it falls; one at the line fizzles alone, costing no life and leaving its cap",
+      "passed": true,
+      "ms": 4
+    },
+    {
+      "name": "A Lullaby holds the drip clock and every drop",
+      "passed": true,
+      "ms": 1
+    },
+    {
+      "name": "The cap is a plain 2-hit bud; any strike that reaches a drop pops it quietly",
+      "passed": true,
+      "ms": 3
+    },
+    {
+      "name": "The bot forecasts each drop and never aims at one; a cap is worth 10",
+      "passed": true,
+      "ms": 1505
+    },
+    {
+      "name": "Mother Morel can rain drops and throw fibcaps mid-fight: make() with no index, then place()",
+      "passed": true,
+      "ms": 1
+    },
+    {
+      "name": "Their art draws from cached sprites only, keeps its canvas state balanced and holds still with Animations off",
+      "passed": true,
+      "ms": 42
+    },
+    {
+      "name": "foes.js never touches the seed pod and never uses Math.random",
+      "passed": true,
+      "ms": 4
+    }
+  ]
+}

@@ -1645,8 +1645,39 @@
   // ── Peekaboo Mole (Level 2, `mole`) ──
 
   // ── Fibcap (Level 3, `fibcap`) ──
+  // The sneeze itself (wind-up, CHOO, gust ring, confetti, wind streaks, "Achoo!") is drawn by foe-art.js from the
+  // sneeze's own record, so it waits through a Lullaby with the push. Here: a nudge when the seed lands on the fibcap,
+  // and a shake and a buzz on the CHOO (the gust event). A quiet pop is a harmless puff of lilac and white, not a bloom.
+  // The fibcap look keeps drawing after the last fibcap is gone (game.foeLooks), so its sneeze always finishes.
+  FOE_FX.fibcap = {
+    sneeze(e) {
+      const looks = game.foeLooks || (game.foeLooks = []);
+      if (!looks.includes('fibcap')) looks.push('fibcap');
+      haptic('tick');
+    },
+    gust(e) { jolt(.12, 0, 0); haptic('warn'); },
+    pop(e) { foeDust(e.x, e.y, 6, '#b58be0', 46); foeDust(e.x, e.y, 3, '#fff7ff', 30); foeRing(e.x, e.y, '#d6bdf3', 8, 16, .3); }
+  };
 
   // ── Drippy Inkcap (Level 3, `inkcap`) ──
+  // A drip teaches the inkcap the first time one is seen (Mother Morel's ink rain included) with a tiny ink ring where
+  // the drop lets go. A gulp is a cartoon slurp: a pale ring sucks in to the drop, then foe-art.js splats a six-lobed blot
+  // there (game.inkBlots). A drop a power pops bursts into a few specks of ink.
+  FOE_FX.inkcap = {
+    drip(e) { meetFoes(); foeRing(e.x, e.y - 2, '#5b4a73', 3, 7, .22); },
+    gulp(e) {
+      const blots = (game.inkBlots || []).filter(blot => game.time - blot.at < .6);
+      blots.push({ x: e.x, y: e.y, at: game.time, turn: (e.x * 7 + e.y * 3) % 6.283 });
+      game.inkBlots = blots;
+      const looks = game.foeLooks || (game.foeLooks = []);
+      if (!looks.includes('inkdrop')) looks.push('inkdrop');
+      foeRing(e.x, e.y, '#e9dcff', 14, -12, .14); haptic('tick');
+    }
+  };
+  FOE_FX.inkdrop = {
+    pop(e) { foeRing(e.x, e.y, '#2f2a6b', 5, 16, .3); foeDust(e.x, e.y, 5, '#2f2a6b', 60); },
+    fizzle(e) { foeRing(e.x, e.y, '#5b4a73', 4, 9, .25); }
+  };
 
   // ── Chroma Crystal (Level 4, `chroma`) ──
 
