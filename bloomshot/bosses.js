@@ -691,11 +691,12 @@
     game.buds.push(sprout); return sprout;
   }
   kit('sunny', {
-    hp: 18,
+    hp: 40,
     moods: ['Sleepy', 'Cranky', 'Wide awake'],
     stageText: [null, 'Old Sunny is cranky now!', 'Old Sunny is wide awake!'],
     text: { yawn: 'Big yawn! Shut the sun portals.', snooze: 'A snooze Z! Pop it before it lands.' },
-    moves: [['sprouts', 'nap'], ['yawn', 'nap'], ['yawn', 'snooze', 'nap']],
+    // Each new mood opens with its new move (stage() starts every mood's list from the top).
+    moves: [['sprouts', 'nap'], ['yawn', 'nap'], ['snooze', 'yawn', 'nap']],
     init(game, s) { s.portals = []; },
     plan: {
       // The volley's two sprout spots, each with a sun portal just above it (dropped where a piece is in the way).
@@ -885,7 +886,30 @@
     const e = rootSmooth((clock - c.until) / ROOT.throwT);
     return { x: clamp(ring.x + Math.cos(ring.a) * ROOT.out * e, 22 + p.r, 398 - p.r), y: clamp(ring.y + Math.sin(ring.a) * ROOT.out * e, 30 + p.r, c.floor) };
   }
+  // Where his own seedlings come up when the board has no clump: the first ring spot (the middle, then the sides, then
+  // higher and lower) well clear of where he will be as the tell ends, its three seedlings clear now and after the tell.
+  const ROOT_SEEDLING_SPOTS = [[210, 210], [120, 200], [300, 200], [210, 150], [120, 260], [300, 260], [210, 270], [120, 140], [300, 140]];
+  function rootSeedlingPlan(game, s) {
+    const q = positions(s, TELEGRAPH).get(s.boss.id), r = 10;
+    for (const [cx, cy] of ROOT_SEEDLING_SPOTS) {
+      if (q && Math.hypot(cx - q.x, cy - q.y) < s.boss.r + ROOT.ring + r + 20) continue;
+      const marks = [0, 1, 2].map(k => { const a = -Math.PI / 2 + TAU * k / 3; return { x: cx + ROOT.ring * Math.cos(a), y: cy + ROOT.ring * Math.sin(a), r, role: 'seedling' }; });
+      if (marks.every(m => sunnyClear(game, s, m.x, m.y, r, 6, true))) return { targets: [{ x: cx, y: cy, r: 40, role: 'knot' }, ...marks] };
+    }
+    return null;
+  }
   function rootCarousel(game, s, w) {
+    const seedlings = w.targets.filter(t => t.role === 'seedling');
+    if (seedlings.length) {
+      // His own seedlings pop up on the ring where the tell showed them (a piece drifting onto a spot: a short rest).
+      if (rootKnot(s) || !seedlings.every(t => clearSpot(game, t.x, t.y, t.r, s.boss))) { w.targets = []; return 1.5; }
+      const knot = w.targets.find(t => t.role === 'knot'), group = `${s.boss.id}-seedling-${s.serial++}`;
+      const made = seedlings.map((t, i) => ({ id: `${group}-${i}`, group, x: t.x, y: t.y, baseX: t.x, startY: t.y, r: t.r, type: s.boss.type, hp: 1, maxHp: 1,
+        relay: false, fall: .85, sway: 0, hitAt: -100, bloomed: false, bloomAt: -100, spawnAt: game.time, bossSummon: true, bossSource: s.boss.id, rootSeedling: true }));
+      game.buds.push(...made); s.summons++;
+      w.targets = [knot, ...made.map(p => ({ id: p.id, x: p.x, y: p.y, r: p.r, role: 'carried' }))];
+      game.event('bossAbility', { kind: s.kind, move: 'carousel', act: 'sprout', x: knot.x, y: knot.y, marks: made.map(p => ({ x: p.x, y: p.y })) });
+    }
     const riders = w.targets.filter(t => t.role === 'carried').map(t => game.buds.find(p => p.id === t.id)).filter(p => p && plainFlower(p) && open(p));
     // Shot down to one flower during the warning (or another ring still turning): nothing to carry, a short rest.
     if (riders.length < 2 || rootKnot(s)) return 1.5;
@@ -922,19 +946,22 @@
     return { targets: [{ x: ROOT.snare.x[side], y: ROOT.snare.y, r: 42, role: 'snare', side }] };
   }
   kit('root', {
-    hp: 26,
+    hp: 40,
     moods: ['Grumpy', 'Tangled', 'Furious'],
     stageText: [null, 'Rootknot is tangling up!', 'Rootknot is furious!'],
     text: { toss: 'Rootknot is tossing a rolypoly!', toss2: 'Rootknot is tossing rolypolies!', carousel: 'Root carousel! Snap the knot.', snare: 'A root snare blocks one side!' },
-    moves: [['root', 'toss'], ['toss2', 'carousel'], ['toss2', 'carousel', 'snare']],
+    // Each new mood opens with its new move (stage() starts every mood's list from the top).
+    moves: [['root', 'toss'], ['carousel', 'toss2'], ['snare', 'carousel', 'toss2']],
     plan: {
       root: (game, s, b) => rootBurrowPlan(game, s, b, 'root', 0),
       toss: (game, s, b) => rootBurrowPlan(game, s, b, 'toss', 1),
       toss2: (game, s, b) => rootBurrowPlan(game, s, b, 'toss2', 2),
       carousel(game, s, b) {
-        // Decided now, so the warning is true: with no clump to take (or a ring still turning) he tosses two instead.
-        const clump = !rootKnot(s) && !s.carried.length ? rootClump(game) : null;
-        if (!clump) return rootBurrowPlan(game, s, b, 'toss2', 2);
+        // Decided now, so the warning is true. With no clump to take he roots up three seedlings of his own to spin; with
+        // no room for those either (or a ring still turning) he tosses two instead.
+        if (rootKnot(s) || s.carried.length) return rootBurrowPlan(game, s, b, 'toss2', 2);
+        const clump = rootClump(game);
+        if (!clump) return rootSeedlingPlan(game, s) || rootBurrowPlan(game, s, b, 'toss2', 2);
         const cx = clump.reduce((n, p) => n + p.x, 0) / clump.length, cy = clump.reduce((n, p) => n + p.y, 0) / clump.length;
         return { targets: [{ x: cx, y: cy, r: 40, role: 'knot' }, ...clump.map(p => ({ id: p.id, x: p.x, y: p.y, r: p.r, role: 'carried' }))] };
       },
@@ -1256,7 +1283,7 @@
     return m.angle0 + m.dir * CRYSTAL.turn * (k + Foes.smooth((u - k - CRYSTAL.hold) / (CRYSTAL.every - CRYSTAL.hold)));
   }
   kit('crystal', {
-    hp: 36,
+    hp: 50,
     moods: ['Calm', 'Shining', 'Racing'],
     stageText: [null, 'Crystal Heart is shining!', 'Crystal Heart is racing!'],
     text: { mirrors: 'Mirror shards! Bank a seed off one.', hues: 'The heart wants one color!' },
@@ -1412,12 +1439,13 @@
     if (lantern) { lantern.hidden = false; lantern.visible = true; lantern.bloomed = true; lantern.bloomAt = game.time; }
   }
   kit('lotus', {
-    hp: 46,
+    hp: 100,
     moods: ['Dreamy', 'Glowing', 'Moonlit'],
     stageText: [null, 'Lantern Lily is glowing!', 'Lantern Lily calls the moon!'],
     text: { reflect: 'Moon gate! Aim low to hit high.', jellies: 'Lily pads! Shut them or catch the jellies.',
       worm: 'Her lantern is a glowworm! Hit the head.', tide: 'Rising tide! The line creeps up.' },
-    moves: [['lotus', 'reflect'], ['lotus', 'jellies', 'reflect'], ['worm', 'tide']],
+    // Each new mood opens with its new move (stage() starts every mood's list from the top).
+    moves: [['lotus', 'reflect'], ['jellies', 'reflect', 'lotus'], ['worm', 'tide']],
     init(game, s) { s.pads = []; s.worm = null; s.flight = null; },
     plan: {
       reflect(game, s, b) {

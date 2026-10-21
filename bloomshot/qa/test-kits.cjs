@@ -103,37 +103,38 @@ function sunnyMove(tier, cycle, g = arena(1)) {
 }
 const acts = (events, act) => events.filter(e => e.type === 'bossAbility' && e.act === act);
 test('Old Sunny: a power that reaches a portal or the snooze Z blooms it but takes no rings off him', () => {
-  for (const [tier, cycle, role] of [[1, 0, 'portal'], [2, 1, 'z']]) {
+  for (const [tier, cycle, role] of [[1, 0, 'portal'], [2, 0, 'z']]) {
     const { g, s } = sunnyMove(tier, cycle), b = s.boss, part = s.parts.find(p => p.bossPart === role && !p.bloomed), hp = b.hp;
     if (role === 'z') advance(g, 2.5);
     g.spawnBall({ x: part.x, y: part.y + 40, angle: -Math.PI / 2, speed: 520, power: 'sunburst' }); advance(g, .5);
     assert(part.bloomed, `the ${role} bloomed`); assert.equal(b.hp, hp, `the ${role} passed no rings to him`);
   }
 });
-test('Old Sunny: 18 health turning Cranky at 12 and Wide awake at 6, with his own words for each mood', () => {
-  const g = arena(1), s = g.bossState, k = Bosses.kits.sunny;
-  assert.equal(Bosses.health.sunny, 18); assert.equal(s.boss.maxHp, 18); assert.deepEqual(s.tierAt, [12, 6]);
+test('Old Sunny: turning Cranky at two-thirds health and Wide awake at a third, each mood opening on its new move, with his own words for each', () => {
+  const g = arena(1), s = g.bossState, k = Bosses.kits.sunny, hp = Bosses.health.sunny;
+  assert(hp > 18, 'he lasts longer than his old 18'); assert.equal(s.boss.maxHp, hp); assert.deepEqual(s.tierAt, [Math.ceil(2 * hp / 3), Math.ceil(hp / 3)]);
   assert.deepEqual(k.moods, ['Sleepy', 'Cranky', 'Wide awake']); assert.deepEqual(k.stageText, [null, 'Old Sunny is cranky now!', 'Old Sunny is wide awake!']);
-  assert.deepEqual(k.moves, [['sprouts', 'nap'], ['yawn', 'nap'], ['yawn', 'snooze', 'nap']]);
+  assert.deepEqual(k.moves, [['sprouts', 'nap'], ['yawn', 'nap'], ['snooze', 'yawn', 'nap']]);
   for (const text of [...Object.values(k.text), ...k.stageText.slice(1)]) assert(text.length <= 52, text);
   assert.equal(k.text.yawn, 'Big yawn! Shut the sun portals.'); assert.equal(k.text.snooze, 'A snooze Z! Pop it before it lands.');
 });
-test('Old Sunny: a credited seed stops at 12 and the stage is announced next tick; his portals can still be shot', () => {
-  let g = dizzySunny(13), s = g.bossState, b = s.boss; s.next = s.age + 9;
+test('Old Sunny: a credited seed stops at his first mood line and the stage is announced next tick; his portals can still be shot', () => {
+  const line = arena(1).bossState.tierAt[0];
+  let g = dizzySunny(line + 1), s = g.bossState, b = s.boss; s.next = s.age + 9;
   // A portal open on the board (as a yawn leaves one), to show his attacks stay answerable while he is held.
   const [portal] = (Bosses.kits.sunny.act.yawn(g, s, { targets: [{ x: 120, y: 190, r: 16, role: 'portal' }] }), s.parts.filter(p => p.bossPart === 'portal'));
   assert(portal); s.next = s.age + 9; g.drainEvents();
-  hit(g, b); assert.equal(b.hp, 12, 'a double hit stops at the threshold'); assert(s.shiftPending);
+  hit(g, b); assert.equal(b.hp, line, 'a double hit stops at the threshold'); assert(s.shiftPending);
   g.step(1 / 120); assert.equal(s.warning && s.warning.move, 'stage', 'the mood change is announced at once, not after the 9 s cooldown');
-  hit(g, b); assert.equal(b.hp, 12); assert(g.drainEvents().some(e => e.type === 'bossGuard' && e.mode === 'stage'));
+  hit(g, b); assert.equal(b.hp, line); assert(g.drainEvents().some(e => e.type === 'bossGuard' && e.mode === 'stage'));
   assert.equal(Bosses.canHit(g, b, { nx: 0, ny: 1 }, {}), false); assert.equal(Bosses.canHit(g, portal, { nx: 0, ny: 1 }, {}), true);
-  g.strike(b); assert.equal(b.hp, 11, 'an uncredited strike still lands');
-  g = dizzySunny(13); b = g.bossState.boss;
+  g.strike(b); assert.equal(b.hp, line - 1, 'an uncredited strike still lands');
+  g = dizzySunny(line + 1); b = g.bossState.boss;
   g.spawnBall({ x: b.x, y: b.y + 55, angle: -Math.PI / 2, speed: 520, power: 'sunburst' }); advance(g, .7);
-  assert.equal(b.hp, 9, 'a Sunburst passes the threshold');
+  assert.equal(b.hp, line + 1 - 4, 'a Sunburst passes the threshold');
 });
 test('Old Sunny: the change to Cranky is a guarded 1.3 s warning, then Phase Bloom, a dizzy Sunny stays dizzy, and he yawns next', () => {
-  const g = dizzySunny(13), s = g.bossState, b = s.boss, dizzyLeft = s.modeUntil - s.age; s.next = s.age + 9;
+  const g = dizzySunny(arena(1).bossState.tierAt[0] + 1), s = g.bossState, b = s.boss, dizzyLeft = s.modeUntil - s.age; s.next = s.age + 9;
   hit(g, b); g.step(1 / 120);
   const w = s.warning; assert.equal(w.move, 'stage'); assert(w.until - w.at >= 1.3 - 1e-9); assert.equal(w.text, 'Old Sunny is cranky now!');
   assert(Math.abs(s.modeUntil - s.age - dizzyLeft - 1.3) < .02, 'the dizzy window is paused for the warning, not lost');
@@ -144,8 +145,8 @@ test('Old Sunny: the change to Cranky is a guarded 1.3 s warning, then Phase Blo
   assert.equal(s.tier, 1); assert.equal(s.mode, 'dizzy');
   for (let n = 0; n < 240 && !s.warning; n++) g.step(1 / 120);
   assert.equal(s.warning.move, 'yawn'); assert.equal(s.warning.text, 'Big yawn! Shut the sun portals.');
-  // Wide awake at 6 the same way.
-  b.hp = 7; hit(g, b); assert.equal(b.hp, 6); for (let n = 0; n < 600 && s.tier < 2; n++) g.step(1 / 120);
+  // Wide awake at a third the same way.
+  b.hp = s.tierAt[1] + 1; hit(g, b); assert.equal(b.hp, s.tierAt[1]); for (let n = 0; n < 600 && s.tier < 2; n++) g.step(1 / 120);
   assert.equal(s.tier, 2);
 });
 test('Old Sunny: a yawn drops the volley and opens a sun portal above each sprout; each spits one more 1.6 s later, then closes', () => {
@@ -183,7 +184,7 @@ test('Old Sunny: shutting a portal stops its spit and pays exactly one more sun 
   advance(g, 1); assert(!s.parts.includes(left) && !g.buds.includes(left), 'a shut portal leaves the board once its bloom has played');
 });
 test('Old Sunny: a yawn never cuts short a dizzy window, and a portal is dropped where a flower is in its way', () => {
-  const g = dizzySunny(18), s = g.bossState; s.modeUntil = s.age + 6;
+  const g = dizzySunny(Bosses.health.sunny), s = g.bossState; s.modeUntil = s.age + 6;
   const { s: t } = sunnyMove(1, 0, g); assert(t.next >= t.modeUntil + .8 - 1e-9, 'the next move waits for the dizzy window');
   const h = arena(1), u = h.bossState; u.tier = 1; u.cycle = 0;
   const plan = Bosses.kits.sunny.plan.yawn(h, u, u.boss), mark = plan.targets.find(t => t.role === 'portal');
@@ -192,7 +193,7 @@ test('Old Sunny: a yawn never cuts short a dizzy window, and a portal is dropped
   assert.equal(again.length, 1); assert(!again.some(t => t.x === mark.x && t.y === mark.y));
 });
 test('Old Sunny: the snooze Z drifts from beside his face to just above the launcher; landing naps the aim guide only', () => {
-  const { g, s, w, events } = sunnyMove(2, 1), b = s.boss;
+  const { g, s, w, events } = sunnyMove(2, 0), b = s.boss;
   assert.equal(w.move, 'snooze'); assert.equal(w.text, 'A snooze Z! Pop it before it lands.');
   assert.deepEqual(w.targets.map(t => t.role), ['z', 'zland']); assert.deepEqual([w.targets[1].x, w.targets[1].y, w.targets[1].r], [210, 430, 20]);
   assert.equal(acts(events, 'start').filter(e => e.move === 'snooze').length, 1);
@@ -208,7 +209,7 @@ test('Old Sunny: the snooze Z drifts from beside his face to just above the laun
   assert.equal(g.pod, pod, 'the seed pod is untouched'); assert.equal(s.mode, 'sleeping', 'no reward for letting it land');
 });
 test('Old Sunny: popping the Z wakes him dizzy for 3 s (his nap bubble goes too); double hits still stop at a threshold', () => {
-  const { g, s } = sunnyMove(2, 1), b = s.boss, z = s.parts.find(p => p.bossPart === 'z'), bubble = s.parts.find(p => p.bossPart === 'bubble');
+  const { g, s } = sunnyMove(2, 0), b = s.boss, z = s.parts.find(p => p.bossPart === 'z'), bubble = s.parts.find(p => p.bossPart === 'bubble');
   assert.equal(s.mode, 'sleeping'); b.hp = 13;
   hit(g, z); assert(z.bloomed); assert.equal(s.mode, 'dizzy'); assert(s.vulnerable); assert(Math.abs(s.modeUntil - s.age - 3) < 1e-9);
   assert(bubble.bloomed, 'the jolt pops his nap bubble'); const events = g.drainEvents();
@@ -216,13 +217,13 @@ test('Old Sunny: popping the Z wakes him dizzy for 3 s (his nap bubble goes too)
   s.tier = 0; s.tierAt = [12, 6]; hit(g, b); assert.equal(b.hp, 12, 'a dizzy double hit stops at the threshold'); s.shiftPending = false; s.warning = null; g.bossWarning = null;
   b.hp = 16; s.tier = 1; s.next = s.age + 20; hit(g, b); assert.equal(b.hp, 14, 'double damage'); advance(g, 3.05); assert.notEqual(s.mode, 'dizzy');
   // A Z popped while already dizzy never shortens the window.
-  const h = dizzySunny(18), u = h.bossState; u.modeUntil = u.age + 5;
-  const { s: v } = sunnyMove(2, 1, h); hit(h, v.parts.find(p => p.bossPart === 'z')); assert(v.modeUntil - v.age > 3.5);
+  const h = dizzySunny(Bosses.health.sunny), u = h.bossState; u.modeUntil = u.age + 5;
+  const { s: v } = sunnyMove(2, 0, h); hit(h, v.parts.find(p => p.bossPart === 'z')); assert(v.modeUntil - v.age > 3.5);
 });
 test('Old Sunny: from Cranky on his nap bubble takes two hits; Sleepy keeps the one-hit bubble', () => {
   let { s } = sunnyMove(0, 0, (() => { const g = arena(1); g.bossState.action = 1; return g; })());
   assert.equal(s.parts.find(p => p.bossPart === 'bubble').maxHp, 1);
-  const g = dizzySunny(18); ({ s } = sunnyMove(1, 1, g)); const bubble = s.parts.find(p => p.bossPart === 'bubble');
+  const g = dizzySunny(Bosses.health.sunny); ({ s } = sunnyMove(1, 1, g)); const bubble = s.parts.find(p => p.bossPart === 'bubble');
   assert.equal(s.mode, 'sleeping'); assert.equal(bubble.maxHp, 2); assert.equal(bubble.hp, 2); assert(!bubble.bloomed);
   hit(g, bubble); assert(!bubble.bloomed); assert.equal(s.mode, 'sleeping'); hit(g, bubble); assert(bubble.bloomed); assert.equal(s.mode, 'dizzy');
 });
@@ -231,13 +232,13 @@ test('Old Sunny: the bot ranks a portal about to spit at 70, the Z at 80, and hi
   assert.equal(rank().get('portal'), 70); assert.equal(rank().get('bubble'), 95);
   for (const p of g.buds.filter(p => p.sunnySprout)) p.y += 60;
   advance(g, 1.7); assert.equal(rank().get('portal'), 45, 'after its spit a portal is an ordinary part');
-  const { g: h, s: u } = sunnyMove(2, 1), z = u.parts.find(p => p.bossPart === 'z'), prepared = bot.prepareTrace(h);
+  const { g: h, s: u } = sunnyMove(2, 0), z = u.parts.find(p => p.bossPart === 'z'), prepared = bot.prepareTrace(h);
   assert.equal(prepared.priorities.get(z.id), 80); assert(prepared.moving.some(m => m.original === z), 'the bot forecasts the Z in flight');
 });
 test('Old Sunny: tier 2 plays the same at 30, 60 and 144 FPS', () => {
   const runs = [30, 60, 144].map(fps => {
     const g = arena(1), s = g.bossState; s.tier = 2; s.cycle = 0; s.next = 0; g.descentSpeed = 12; const log = [];
-    for (let n = 0; n < 12 * fps; n++) { g.step(1 / fps); for (const e of g.drainEvents()) if (e.type === 'bossAbility' || e.type === 'bossWarning') log.push(`${e.type}:${e.move}:${e.act || ''}:${(+e.x).toFixed(3)}`); }
+    for (let n = 0; n < 14 * fps; n++) { g.step(1 / fps); for (const e of g.drainEvents()) if (e.type === 'bossAbility' || e.type === 'bossWarning') log.push(`${e.type}:${e.move}:${e.act || ''}:${(+e.x).toFixed(3)}`); }
     return { log: log.join(' '), mode: s.mode, action: s.action, cycle: s.cycle, kit: s.kitAge.toFixed(6), poses: g.buds.map(p => `${p.id}@${p.x.toFixed(4)},${p.y.toFixed(4)}`).join(' ') };
   });
   assert(runs[0].log.includes('snooze') && runs[0].log.includes('yawn:spit'), 'the run saw a yawn and a snooze');
@@ -249,7 +250,7 @@ test('Old Sunny: a Lullaby holds the portals, their spit and the Z in flight; th
   g.lullaby = 1; advance(g, .9); assert(Math.abs(s.kitAge - kit - .5) < 1e-6, 'the kit clock stopped'); assert(!acts(g.drainEvents(), 'spit').length);
   let at = null; for (let n = 0; n < 240 && at == null; n++) { g.step(1 / 120); if (acts(g.drainEvents(), 'spit').length) at = g.time; }
   assert(at != null && Math.abs(s.kitAge - spit) < .01, 'it spat on the kit clock, a second late');
-  const { g: h, s: u } = sunnyMove(2, 1), z = u.parts.find(p => p.bossPart === 'z'); advance(h, 1); const pose = [z.x, z.y];
+  const { g: h, s: u } = sunnyMove(2, 0), z = u.parts.find(p => p.bossPart === 'z'); advance(h, 1); const pose = [z.x, z.y];
   h.lullaby = 1; advance(h, .9); assert.deepEqual([z.x, z.y], pose, 'the Z waits in the air');
 });
 // art.js and foe-art.js in a VM with a recording canvas (as test-boss-art.cjs): every number finite, transforms
@@ -310,13 +311,13 @@ test('Old Sunny: his moods, portals, Z and napping aim guide draw balanced, fini
   ({ g, s } = sunnyMove(1, 0)); snap('portals pop', g); advance(g, .05); snap('portals open', g); advance(g, 1); snap('peek', g);
   for (const p of g.buds.filter(p => p.sunnySprout)) p.y += 60; advance(g, .5); snap('spit', g);
   hit(g, s.parts.find(p => p.bossPart === 'portal')); advance(g, .05); snap('shut', g); advance(g, .95); snap('closing', g);
-  ({ g, s } = sunnyMove(2, 1)); advance(g, 2); snap('z', g);
+  ({ g, s } = sunnyMove(2, 0)); advance(g, 2); snap('z', g);
   for (let n = 0; n < 900 && !(g.aimNapUntil > 0); n++) g.step(1 / 120);
   assert(g.aimNapUntil > g.time, 'the Z landed'); g.aim = [{ x: 210, y: 498 }, { x: 150, y: 300 }, { x: 100, y: 120 }]; snap('nap', g);
   for (const hook of ['face', 'portal', 'z', 'over', 'aim']) assert(drawn.has(hook), hook);
 });
 test('Old Sunny: beaten mid-attack, he leaves no portal, Z, timer or napping aim guide behind', () => {
-  const { g, s } = sunnyMove(1, 0); const { s: t } = sunnyMove(2, 1, g); g.aimNapUntil = g.time + 2;
+  const { g, s } = sunnyMove(1, 0); const { s: t } = sunnyMove(2, 0, g); g.aimNapUntil = g.time + 2;
   assert(t.parts.some(p => p.bossPart === 'z') && t.timers.length);
   for (let n = 0; n < 200 && !s.boss.bloomed; n++) g.strike(s.boss, true);
   assert(s.boss.bloomed); assert.equal(s.timers.length + s.lobs.length + s.portals.length, 0); assert(s.parts.every(p => p.bloomed));
@@ -343,22 +344,22 @@ test('Old Sunny: beaten mid-attack, he leaves no portal, Z, timer or napping aim
   const tossed = g => g.buds.filter(p => p.rootToss);
   const bud = (g, id) => g.buds.find(p => p.id === id);
 
-  test('Rootknot has 26 health and turns Tangled at 18 and Furious at 9; every warning fits a phone', () => {
-    const g = arena(2), s = g.bossState, k = Bosses.kits.root;
-    assert.equal(s.boss.maxHp, 26); assert.equal(s.boss.hp, 26); assert.deepEqual(s.tierAt, [18, 9]);
+  test('Rootknot turns Tangled at two-thirds health and Furious at a third, each mood opening on its new move; every warning fits a phone', () => {
+    const g = arena(2), s = g.bossState, k = Bosses.kits.root, hp = Bosses.health.root;
+    assert(hp > 26, 'he lasts longer than his old 26'); assert.equal(s.boss.maxHp, hp); assert.equal(s.boss.hp, hp); assert.deepEqual(s.tierAt, [Math.ceil(2 * hp / 3), Math.ceil(hp / 3)]);
     assert.deepEqual(k.moods, ['Grumpy', 'Tangled', 'Furious']); assert.deepEqual(k.stageText, [null, 'Rootknot is tangling up!', 'Rootknot is furious!']);
-    assert.deepEqual(k.moves, [['root', 'toss'], ['toss2', 'carousel'], ['toss2', 'carousel', 'snare']]);
+    assert.deepEqual(k.moves, [['root', 'toss'], ['carousel', 'toss2'], ['snare', 'carousel', 'toss2']]);
     for (const text of [...Object.values(k.text), ...k.stageText.slice(1)]) assert(text.length <= 52, text);
   });
-  test('A credited seed stops Rootknot at each mood line; the change is announced, then his next tier opens with two tosses', () => {
-    for (const [tier, hp, line, text, mood] of [[0, 19, 18, 'Rootknot is tangling up!', 'Tangled'], [1, 10, 9, 'Rootknot is furious!', 'Furious']]) {
-      const g = arena(2), s = g.bossState, b = s.boss; s.tier = tier; b.hp = hp; s.next = s.age + 9;
+  test('A credited seed stops Rootknot at each mood line; the change is announced, then Tangled opens with the carousel and Furious with the snare', () => {
+    for (const [tier, text, mood, move, words] of [[0, 'Rootknot is tangling up!', 'Tangled', 'carousel', 'Root carousel! Snap the knot.'], [1, 'Rootknot is furious!', 'Furious', 'snare', 'A root snare blocks one side!']]) {
+      const g = arena(2), s = g.bossState, b = s.boss, line = s.tierAt[tier], hp = line + 1; s.tier = tier; b.hp = hp; s.next = s.age + 9;
       hit(g, b); hit(g, b); assert.equal(b.hp, line, 'held at the line'); assert(s.shiftPending);
       g.step(1 / 120); const w = s.warning;
       assert.equal(w.move, 'stage'); assert.equal(w.text, text); assert(w.until - w.at >= 1.3 - 1e-9);
       const stage = play(g).find(e => e.type === 'bossStage');
       assert(stage && stage.kind === 'root' && stage.stage === tier + 1 && stage.mood === mood); assert.equal(s.tier, tier + 1);
-      until(g, () => s.warning, 2); assert.equal(s.warning.move, 'toss2'); assert.equal(s.warning.text, 'Rootknot is tossing rolypolies!');
+      until(g, () => s.warning, 2); assert.equal(s.warning.move, move); assert.equal(s.warning.text, words);
     }
   });
   test('He comes up at holes 292, 128 and 210 in turn; Grumpy, every other burrow lobs a rolypoly that lands as a real one at +.6 s', () => {
@@ -380,14 +381,14 @@ test('Old Sunny: beaten mid-attack, he leaves no portal, Z, timer or napping aim
     assert(landing.some(e => e.type === 'foe' && e.kind === 'rolypoly:land' && e.bud === roly)); assert.equal(acts(landing, 'land').length, 1);
   });
   test('Tangled, he lobs two (.18 s apart); a blocked hole stays quiet, a drifted flower moves a landing aside, and four is the most', () => {
-    let g = rootknot(1, 0), s = g.bossState, b = s.boss;
+    let g = rootknot(1, 1), s = g.bossState, b = s.boss;
     assert.equal(s.warning.text, 'Rootknot is tossing rolypolies!');
     assert.deepEqual(s.warning.targets.filter(t => t.role === 'toss').map(t => [t.x, t.y]), [[210, b.y + 70], [128, b.y + 70]]);
     play(g); const t0 = s.kitAge, landed = [];
     for (let n = 0; n < 120; n++) { const count = tossed(g).length; g.step(1 / 120); if (tossed(g).length > count) landed.push(s.kitAge - t0); }
     // (to the tick: the second lob leaves on the first tick after .18 s)
     assert.equal(landed.length, 2); assert(landed[0] >= .6 - 1e-9 && landed[0] < .6 + 2 / 120 && landed[1] >= .78 - 1e-9 && landed[1] < .78 + 2 / 120, landed.join());
-    const marks = buds => rootknot(1, 0, { flowers: false, buds }).bossState.warning;
+    const marks = buds => rootknot(1, 1, { flowers: false, buds }).bossState.warning;
     let w = marks([flower('x', 210, 160)]);
     assert.deepEqual(w.targets.filter(t => t.role === 'toss').map(t => [t.x, t.y]), [[210, b.y + 100], [128, b.y + 70]], 'else 100 px below');
     w = marks([flower('x', 210, 174), flower('y', 210, 204)]);
@@ -406,22 +407,22 @@ test('Old Sunny: beaten mid-attack, he leaves no portal, Z, timer or napping aim
   });
   test('Bowled over: a rolypoly rolled into Rootknot deals 3 with a critical, never while he is underground, and stops at the mood line', () => {
     const roll = (g, b) => { g.due = { id: b.id, via: 'roll', by: 'seed-roll', depth: 1, from: { x: b.x, y: b.y + 70 } }; g.strike(b, true); g.due = null; };
-    let g = arena(2), s = g.bossState, b = s.boss;
-    roll(g, b); assert.equal(b.hp, 23); assert.equal(s.crits, 1);
+    let g = arena(2), s = g.bossState, b = s.boss; const full = b.maxHp, line = s.tierAt[0];
+    roll(g, b); assert.equal(b.hp, full - 3); assert.equal(s.crits, 1);
     const crit = g.drainEvents().find(e => e.type === 'bossCritical'); assert(crit && crit.kind === 'root' && crit.via === 'roll' && crit.damage === 3);
-    b.hp = 20; roll(g, b); assert.equal(b.hp, 18, 'stops at the line'); assert(s.shiftPending);
+    b.hp = line + 2; roll(g, b); assert.equal(b.hp, line, 'stops at the line'); assert(s.shiftPending);
     g = rootknot(0, 0); s = g.bossState; b = s.boss; play(g); assert.equal(s.mode, 'burrow'); g.drainEvents();
-    roll(g, b); assert.equal(b.hp, 26); assert(!g.drainEvents().some(e => e.type === 'bossCritical'), 'not underground');
+    roll(g, b); assert.equal(b.hp, full); assert(!g.drainEvents().some(e => e.type === 'bossCritical'), 'not underground');
     // End to end: a tossed rolypoly, bumped by a seed toward him once he is up, bowls him over.
     g = rootknot(0, 1, { flowers: false }); s = g.bossState; b = s.boss; play(g);
     until(g, () => s.mode !== 'burrow' && tossed(g).length, 4);
     const [ball] = tossed(g), at = Bosses.predictVisible(g, .4).get(b.id), d = Math.hypot(at.x - ball.x, at.y - ball.y);
     g.drainEvents(); hit(g, ball, { nx: -(at.x - ball.x) / d, ny: -(at.y - ball.y) / d });
-    const events = until(g, () => b.hp < 26, 1.5), bowled = events.find(e => e.type === 'bossCritical');
-    assert(bowled && bowled.via === 'roll'); assert.equal(b.hp, 23);
+    const events = until(g, () => b.hp < full, 1.5), bowled = events.find(e => e.type === 'bossCritical');
+    assert(bowled && bowled.via === 'roll'); assert.equal(b.hp, full - 3);
   });
   test('Tangled, the Root Carousel takes the biggest clump round a 30 px ring that sinks with the descent, evenly spaced, as forecast', () => {
-    const g = rootknot(1, 1, { descent: 10.5 }), s = g.bossState, w = s.warning, mark = w.targets.find(t => t.role === 'knot');
+    const g = rootknot(1, 0, { descent: 10.5 }), s = g.bossState, w = s.warning, mark = w.targets.find(t => t.role === 'knot');
     assert.equal(w.move, 'carousel'); assert.equal(w.text, 'Root carousel! Snap the knot.'); assert.equal(mark.r, 40);
     assert.deepEqual(w.targets.filter(t => t.role === 'carried').map(t => t.id).sort(), ['a', 'b', 'c'], 'the stray stays');
     const riders = ['a', 'b', 'c'].map(id => bud(g, id)), mean = key => riders.reduce((n, p) => n + p[key], 0) / 3;
@@ -442,7 +443,7 @@ test('Old Sunny: beaten mid-attack, he leaves no portal, Z, timer or napping aim
     }
   });
   test('Left alone, the carousel flings its flowers 40 px outward at 3.5 s; they fall 1.3x for 2 s. Furious it spins 7 s, or less near the line', () => {
-    let g = rootknot(1, 1, { descent: 10.5 }), s = g.bossState; play(g);
+    let g = rootknot(1, 0, { descent: 10.5 }), s = g.bossState; play(g);
     const knot = knotOf(s), riders = s.carried.slice(), events = until(g, () => !knotOf(s), 4);
     assert(s.kitAge >= knot.until - 1e-9 && s.kitAge < knot.until + 1 / 120 + 1e-9); assert.equal(acts(events, 'fling')[0].n, 3);
     assert(!g.buds.includes(knot), 'the knot closes quietly'); assert(riders.every(p => !p.bloomed));
@@ -460,12 +461,32 @@ test('Old Sunny: beaten mid-attack, he leaves no portal, Z, timer or napping aim
     assert(D < 7 && Math.abs(D - (g.dangerY - 70 - 42 - low.cy) / (.85 * 10.5)) < 1e-6, 'it ends early');
     until(g, () => !knotOf(s), 8); assert(low.y + 42 <= g.dangerY - 70 + .1); until(g, () => !s.carried.length, 1);
     assert(low3.every(p => !p.carried && p.y <= g.dangerY - 70 + .2), 'flung flowers stay above 70 px over the line');
-    // One flower is no carousel, and nor is a second ring while one turns: he tosses two instead.
-    assert.equal(rootknot(1, 1, { flowers: false, buds: [flower('a', 200, 200)] }).bossState.warning.move, 'toss2');
-    g = rootknot(1, 1); s = g.bossState; play(g); s.cycle = 1; s.next = s.age; g.step(1 / 120); assert.equal(s.warning.move, 'toss2');
+    // A second ring while one turns is no carousel: he tosses two instead.
+    g = rootknot(1, 0); s = g.bossState; play(g); s.cycle = 0; s.next = s.age; g.step(1 / 120); assert.equal(s.warning.move, 'toss2');
+  });
+  test('With no clump to take he roots up three seedlings of his own on a clear ring and spins them; a seedling spot filled during the tell is a short rest', () => {
+    for (const buds of [[], [flower('a', 200, 200)]]) {
+      const g = rootknot(1, 0, { flowers: false, descent: 10.5, buds }), s = g.bossState, b = s.boss, w = s.warning;
+      assert.equal(w.move, 'carousel'); assert.equal(w.text, 'Root carousel! Snap the knot.');
+      const knotMark = w.targets.find(t => t.role === 'knot'), marks = w.targets.filter(t => t.role === 'seedling');
+      assert.equal(marks.length, 3); assert(!w.targets.some(t => t.role === 'carried'), 'a lone flower is no clump');
+      for (const m of marks) assert(Math.abs(Math.hypot(m.x - knotMark.x, m.y - knotMark.y) - 30) < 1e-6 && m.r === 10);
+      const at = Bosses.predictVisible(g, s.warning.until - g.time).get(b.id); assert(Math.hypot(knotMark.x - at.x, knotMark.y - at.y) > b.r + 30 + 10 + 20 - 1e-6, 'well clear of him');
+      const events = play(g), sprout = acts(events, 'sprout'), start = acts(events, 'start')[0], knot = knotOf(s);
+      assert.equal(sprout.length, 1); assert.deepEqual(sprout[0].marks.map(m => [m.x, m.y]), marks.map(m => [m.x, m.y]));
+      const seedlings = g.buds.filter(p => p.rootSeedling); assert.equal(seedlings.length, 3);
+      assert(seedlings.every(p => p.bossSummon && p.r === 10 && p.hp === 1 && p.carried && p.carried.knot === knot.id), 'they ride his ring');
+      assert.equal(new Set(seedlings.map(p => p.group)).size, 1); assert.deepEqual(start.targets.filter(t => t.role === 'carried').map(t => t.id).sort(), seedlings.map(p => p.id).sort());
+      assert(Math.abs(knot.cx - knotMark.x) < 1e-6 && Math.abs(knot.cy - knotMark.y) < 1e-6); assert(!buds.some(p => p.carried));
+      advance(g, .5); for (const p of seedlings) assert(Math.abs(Math.hypot(p.x - knot.x, p.y - knot.y) - 30) <= .5, 'turning on the ring');
+    }
+    // A piece drifting onto a seedling spot during the tell: none come up, and he rests a moment.
+    const g = rootknot(1, 0, { flowers: false }), s = g.bossState, [m] = s.warning.targets.filter(t => t.role === 'seedling');
+    g.buds.push(flower('drift', m.x, m.y)); const events = play(g);
+    assert(!g.buds.some(p => p.rootSeedling)); assert.equal(knotOf(s), null); assert(!acts(events, 'sprout').length); assert(s.next - s.age <= 1.5 * 1.01 + 1e-9);
   });
   test('Snap the knot (two hits) and its flowers bloom in a cascade credited within .4 s; shot singly they leave the ring; the bot wants the knot', () => {
-    let g = rootknot(1, 1, { descent: 10.5 }), s = g.bossState; play(g); advance(g, .5); g.drainEvents();
+    let g = rootknot(1, 0, { descent: 10.5 }), s = g.bossState; play(g); advance(g, .5); g.drainEvents();
     let knot = knotOf(s);
     assert.deepEqual(Bosses.targets(g).filter(t => t.bud === knot).map(t => [t.priority, t.reason]), [[90, 'knot']]);
     hit(g, knot); assert.equal(knot.hp, 1); assert(!knot.bloomed);
@@ -475,22 +496,22 @@ test('Old Sunny: beaten mid-attack, he leaves no portal, Z, timer or napping aim
     assert.deepEqual(blooms.map(e => e.bud.id).sort(), ['a', 'b', 'c']); assert(blooms.every(e => e.seed === seed && g.time - at <= .4));
     assert.equal(acts(events, 'snap')[0].n, 3); assert.equal(s.carried.length, 0);
     assert.equal(acts(until(g, () => false, 4), 'fling').length, 0, 'a snapped knot never flings');
-    g = rootknot(1, 1, { descent: 10.5 }); s = g.bossState; play(g); advance(g, .5); g.drainEvents(); knot = knotOf(s);
+    g = rootknot(1, 0, { descent: 10.5 }); s = g.bossState; play(g); advance(g, .5); g.drainEvents(); knot = knotOf(s);
     g.strike(knot); g.strike(knot); events = [...g.drainEvents(), ...until(g, () => false, .5)];
     blooms = events.filter(e => e.type === 'bloom' && e.via === 'knot'); assert.equal(blooms.length, 3); assert(blooms.every(e => e.seed === null), 'uncredited: a plain chain');
-    g = rootknot(1, 1, { descent: 10.5 }); s = g.bossState; play(g); advance(g, .5); knot = knotOf(s);
+    g = rootknot(1, 0, { descent: 10.5 }); s = g.bossState; play(g); advance(g, .5); knot = knotOf(s);
     hit(g, bud(g, 'a')); g.step(1 / 120);
     assert(bud(g, 'a').bloomed && !bud(g, 'a').carried); assert.deepEqual(s.carried.map(p => p.id).sort(), ['b', 'c']);
     assert.equal(Bosses.targets(g).find(t => t.bud === knot).priority, 80);
   });
   test('Furious, the Root Snare blocks the busier side of the fan for 4 s: 82 px at y 405.65 and 35°, never below 430', () => {
     const fan = (side, d) => { const a = 55 * Math.PI / 180; return [210 + side * d * Math.cos(a), 498 - d * Math.sin(a)]; };
-    let g = rootknot(2, 2, { flowers: false }), w = g.bossState.warning;
+    let g = rootknot(2, 0, { flowers: false }), w = g.bossState.warning;
     assert.equal(w.move, 'snare'); assert.equal(w.text, 'A root snare blocks one side!'); assert.deepEqual(w.targets.map(t => [t.x, t.y, t.r]), [[145.3, 405.65, 42]], 'ties go left');
-    g = rootknot(2, 2, { flowers: false, buds: [flower('r1', ...fan(1, 200)), flower('r2', ...fan(1, 240)), flower('l1', ...fan(-1, 220))] });
+    g = rootknot(2, 0, { flowers: false, buds: [flower('r1', ...fan(1, 200)), flower('r2', ...fan(1, 240)), flower('l1', ...fan(-1, 220))] });
     assert.equal(g.bossState.warning.targets[0].x, 274.7, 'the busier side');
     for (const side of [-1, 1]) {
-      g = rootknot(2, 2, { flowers: false, buds: side > 0 ? [flower('r1', ...fan(1, 200))] : [] }); const s = g.bossState, b = s.boss; play(g); const t0 = s.kitAge;
+      g = rootknot(2, 0, { flowers: false, buds: side > 0 ? [flower('r1', ...fan(1, 200))] : [] }); const s = g.bossState, b = s.boss; play(g); const t0 = s.kitAge;
       const snare = g.bumpers.find(p => p.bossSnare);
       assert.deepEqual([snare.id, snare.kind, snare.bossWall, snare.length, snare.y, snare.x, snare.angle], [b.id + '-snare', 'rock', true, 82, 405.65, side < 0 ? 145.3 : 274.7, side * .6109]);
       const ends = [-41, 41].map(k => [snare.x + k * Math.cos(snare.angle), snare.y + k * Math.sin(snare.angle)]);
@@ -501,11 +522,11 @@ test('Old Sunny: beaten mid-attack, he leaves no portal, Z, timer or napping aim
       assert(Math.abs(s.kitAge - t0 - 4) < 1 / 120 + 1e-9, 'gone at 4 s'); assert.equal(acts(events, 'wither').length, 1);
     }
     // A burrow's walls replace the last walls, never a standing snare.
-    g = rootknot(2, 2, { flowers: false }); const s = g.bossState; play(g); s.cycle = 0; s.next = s.age; g.step(1 / 120); play(g);
+    g = rootknot(2, 0, { flowers: false }); const s = g.bossState; play(g); s.cycle = 2; s.next = s.age; g.step(1 / 120); play(g);
     assert.equal(g.bumpers.filter(p => p.bossWall).length, 3); assert(g.bumpers.some(p => p.bossSnare));
   });
   test('Rootknot plays the same at 30, 60 and 144 FPS', () => {
-    for (const index of [0, 1]) {
+    for (const index of [1, 2]) {
       const run = fps => { const g = rootknot(2, index, { descent: 10.5 }); advance(g, 12, fps); return g; };
       const sign = g => { const s = g.bossState; return { mode: s.mode, action: s.action, cycle: s.cycle, tier: s.tier, hp: s.boss.hp, carried: s.carried.map(p => p.id), parts: s.parts.map(p => p.bossPart), walls: g.bumpers.filter(p => p.bossWall).map(p => p.id), buds: g.buds.filter(p => !p.bloomed).map(p => p.id).sort() }; };
       const base = run(60);
@@ -520,19 +541,19 @@ test('Old Sunny: beaten mid-attack, he leaves no portal, Z, timer or napping aim
     const flight = JSON.stringify(s.lobs), age = s.kitAge, t = g.time; g.lullaby = 1; advance(g, .9);
     assert.equal(s.kitAge, age); assert.equal(JSON.stringify(s.lobs), flight); assert.equal(tossed(g).length, 0);
     until(g, () => tossed(g).length, 2); assert(Math.abs(g.time - t - .4 - 1) < 2 / 120, 'lands late by the Lullaby');
-    g = rootknot(1, 1, { descent: 10.5 }); s = g.bossState; play(g); const acted = g.time; advance(g, 1);
+    g = rootknot(1, 0, { descent: 10.5 }); s = g.bossState; play(g); const acted = g.time; advance(g, 1);
     const knot = knotOf(s), poses = () => JSON.stringify([knot, ...s.carried].map(p => [p.x, p.y]));
     const before = poses(); g.lullaby = 1; advance(g, .9); assert.equal(poses(), before, 'the ring stands still');
     until(g, () => !knotOf(s), 5); assert(Math.abs(g.time - acted - 3.5 - 1) < 2 / 120, 'flings late by the Lullaby');
-    g = rootknot(2, 2, { flowers: false }); s = g.bossState; play(g); const raised = g.time; g.lullaby = 1;
+    g = rootknot(2, 0, { flowers: false }); s = g.bossState; play(g); const raised = g.time; g.lullaby = 1;
     until(g, () => !g.bumpers.some(p => p.bossSnare), 7); assert(Math.abs(g.time - raised - 4 - 1) < 2 / 120, 'withers late by the Lullaby');
   });
   test('Beaten mid-move, Rootknot leaves nothing behind: no carried flowers, knot, lobs, timers, snare or hurried falls', () => {
-    let g = rootknot(1, 1, { descent: 10.5 }), s = g.bossState; play(g); until(g, () => !knotOf(s), 4); advance(g, .4);
+    let g = rootknot(1, 0, { descent: 10.5 }), s = g.bossState; play(g); until(g, () => !knotOf(s), 4); advance(g, .4);
     assert(['a', 'b', 'c'].every(id => bud(g, id).fall === 1.3));
-    s.tier = 2; s.cycle = 2; s.next = s.age; g.step(1 / 120); play(g);
+    s.tier = 2; s.cycle = 0; s.next = s.age; g.step(1 / 120); play(g);
     g.buds.push(flower('e', 150, 200), flower('f', 175, 200)); s.cycle = 1; s.next = s.age; g.step(1 / 120); play(g);
-    s.cycle = 0; s.next = s.age; g.step(1 / 120); play(g);
+    s.cycle = 2; s.next = s.age; g.step(1 / 120); play(g);
     assert(s.lobs.length && s.carried.length && knotOf(s) && g.bumpers.some(p => p.bossSnare), 'a lob, a ring and a snare are up');
     const b = s.boss; for (let n = 0; n < 200 && !b.bloomed; n++) g.strike(b);
     assert(b.bloomed); assert.equal(s.carried.length + s.lobs.length + s.timers.length, 0); assert(!g.buds.some(p => p.carried || p.kitHurry != null));
@@ -589,7 +610,7 @@ test('Old Sunny: beaten mid-attack, he leaves no portal, Z, timer or napping aim
   test("Rootknot's art draws every move, Animations on and off, with no gradient or blur per frame; his three moods are three faces", () => {
     const { tally, frame } = rootArt(true), seen = new Set();
     const film = (g, seconds) => { for (let n = 0; n < seconds * 120; n++) { g.step(1 / 120); if (n % 15 === 0) { frame(g, false, n % 30 ? 0 : 2); frame(g, true); } } };
-    for (const [tier, index, seconds] of [[0, 0, 3], [0, 1, 3], [1, 0, 3], [1, 1, 5], [2, 1, 1.5], [2, 2, 5.5]]) {
+    for (const [tier, index, seconds] of [[0, 0, 3], [0, 1, 3], [1, 1, 3], [1, 0, 5], [2, 1, 1.5], [2, 0, 5.5]]) {
       const g = rootknot(tier, index, { descent: 10.5 }), s = g.bossState; seen.add(s.warning.move);
       film(g, 1.4 + seconds);
       if (tier === 2 && index === 1) { const knot = knotOf(s); g.strike(knot); g.strike(knot); film(g, 1); }
@@ -865,13 +886,13 @@ function crystalMove(g, tier, cycle) {
   const events = []; while (s.warning) { g.step(1 / 120); events.push(...g.drainEvents()); }
   return events;
 }
-test('Crystal Heart: HP 36; a credited touch shatters a fake into two coral shards, no damage, and it re-forms 2.0 s later', () => {
-  const g = arena(4), s = g.bossState, b = s.boss;
-  assert.equal(b.maxHp, 36); assert.deepEqual(s.tierAt, [24, 12]);
+test('Crystal Heart: longer-lived than her old 36; a credited touch shatters a fake into two coral shards, no damage, and it re-forms 2.0 s later', () => {
+  const g = arena(4), s = g.bossState, b = s.boss, full = Bosses.health.crystal;
+  assert(full > 36); assert.equal(b.maxHp, full); assert.deepEqual(s.tierAt, [Math.ceil(2 * full / 3), Math.ceil(full / 3)]);
   assert.equal(s.parts.filter(p => p.real).length, 1);
   for (const p of s.parts) assert.equal(Boolean(p.decoy && p.inert), !p.real, 'the fakes are glass decoys, the real heart is not');
   const fake = heartOf(s, false); hit(g, fake);
-  assert.equal(b.hp, 36); assert(fake.popped && fake.bloomed);
+  assert.equal(b.hp, full); assert(fake.popped && fake.bloomed);
   const events = g.drainEvents(), shards = shardsOf(g);
   assert(events.some(e => e.type === 'foe' && e.kind === 'crystal:fake'));
   assert(events.some(e => e.type === 'bossAbility' && e.move === 'heart' && e.act === 'fake'));
@@ -905,19 +926,19 @@ test('Crystal Heart: no shards while six are loose; powers and credited chains n
   g.strike(fake); assert(fake.popped, 'an uncredited strike pops it, so strike loops end');
   assert.equal(shardsOf(g).length, 0); assert(!g.drainEvents().some(e => e.type === 'bossAbility' && e.act === 'fake'));
 });
-test('Crystal Heart stops at 24: the held real heart turns seeds away while a fake still shatters; a mirror shot clamps too', () => {
-  let g = arena(4), s = g.bossState, b = s.boss; b.hp = 25;
-  hit(g, heartOf(s)); assert.equal(b.hp, 24); assert(s.shiftPending);
-  g.drainEvents(); hit(g, heartOf(s)); assert.equal(b.hp, 24, 'held');
+test('Crystal Heart stops at her first mood line: the held real heart turns seeds away while a fake still shatters; a mirror shot clamps too', () => {
+  let g = arena(4), s = g.bossState, b = s.boss; const line = s.tierAt[0]; b.hp = line + 1;
+  hit(g, heartOf(s)); assert.equal(b.hp, line); assert(s.shiftPending);
+  g.drainEvents(); hit(g, heartOf(s)); assert.equal(b.hp, line, 'held');
   assert(g.drainEvents().some(e => e.type === 'bossGuard' && e.mode === 'stage'));
   assert.equal(Bosses.canHit(g, heartOf(s), { nx: 0, ny: 1 }, { type: g.nextType }), false);
   const fake = heartOf(s, false); assert.equal(Bosses.canHit(g, fake, { nx: 0, ny: 1 }, { type: g.nextType }), true);
-  hit(g, fake); assert(fake.popped, 'a fake can still be shot'); assert.equal(b.hp, 24);
-  g = arena(4); s = g.bossState; b = s.boss; b.hp = 25;
-  hit(g, heartOf(s), { mirrorAt: g.time }); assert.equal(b.hp, 24, 'a mirror shot stops at the threshold'); assert(s.shiftPending);
+  hit(g, fake); assert(fake.popped, 'a fake can still be shot'); assert.equal(b.hp, line);
+  g = arena(4); s = g.bossState; b = s.boss; b.hp = line + 1;
+  hit(g, heartOf(s), { mirrorAt: g.time }); assert.equal(b.hp, line, 'a mirror shot stops at the threshold'); assert(s.shiftPending);
 });
 test('Crystal Heart turns Shining, then Racing, each with its own words; Shining opens with the shuffle', () => {
-  const g = arena(4), s = g.bossState, b = s.boss; b.hp = 25; hit(g, heartOf(s)); g.drainEvents();
+  const g = arena(4), s = g.bossState, b = s.boss; b.hp = s.tierAt[0] + 1; hit(g, heartOf(s)); g.drainEvents();
   for (let n = 0; n < 240 && !(s.warning && s.warning.move === 'stage'); n++) g.step(1 / 120);
   assert.equal(s.warning.text, 'Crystal Heart is shining!'); assert(s.warning.until - s.warning.at >= 1.3 - 1e-9);
   let events = []; while (s.warning) { g.step(1 / 120); events.push(...g.drainEvents()); }
@@ -928,7 +949,7 @@ test('Crystal Heart turns Shining, then Racing, each with its own words; Shining
   for (let n = 0; n < 1200 && !s.warning; n++) g.step(1 / 120);
   assert.equal(s.warning.move, 'mirrors'); assert.equal(s.warning.text, 'Mirror shards! Bank a seed off one.');
   while (s.warning) g.step(1 / 120); advance(g, 1);
-  b.hp = 13; hit(g, heartOf(s)); assert.equal(b.hp, 12); g.drainEvents();
+  b.hp = s.tierAt[1] + 1; hit(g, heartOf(s)); assert.equal(b.hp, s.tierAt[1]); g.drainEvents();
   for (let n = 0; n < 240 && !(s.warning && s.warning.move === 'stage'); n++) g.step(1 / 120);
   assert.equal(s.warning.text, 'Crystal Heart is racing!');
   events = []; while (s.warning) { g.step(1 / 120); events.push(...g.drainEvents()); }
@@ -963,14 +984,14 @@ test('A seed banked off a mirror into the real heart is a Mirror shot: two damag
   const ux = Math.cos(m.angle), uy = Math.sin(m.angle), L = Math.hypot(real.x - m.x, real.y - m.y), dx = (real.x - m.x) / L, dy = (real.y - m.y) / L;
   const dot = -dx * uy + dy * ux, ix = dx + 2 * dot * uy, iy = dy - 2 * dot * ux;
   g.spawnBall({ x: m.x - ix * 60, y: m.y - iy * 60, angle: Math.atan2(iy, ix), speed: 520 });
-  const events = []; for (let n = 0; n < 120 && b.hp === 36; n++) { g.step(1 / 120); events.push(...g.drainEvents()); }
+  const full = b.hp, events = []; for (let n = 0; n < 120 && b.hp === full; n++) { g.step(1 / 120); events.push(...g.drainEvents()); }
   g.step(1 / 120); events.push(...g.drainEvents());
-  assert.equal(b.hp, 34); assert(Number.isFinite(m.flashAt));
+  assert.equal(b.hp, full - 2); assert(Number.isFinite(m.flashAt));
   assert(events.some(e => e.type === 'bossCritical' && e.via === 'mirror' && e.damage === 2));
   for (const act of ['bank', 'shot']) assert(events.some(e => e.type === 'bossAbility' && e.move === 'mirrors' && e.act === act), act);
   advance(g, 1);
-  hit(g, heartOf(s), { mirrorAt: g.time - 1.3 }); assert.equal(b.hp, 33, 'more than 1.2 s after the bank, a plain hit');
-  advance(g, 1); hit(g, heartOf(s), { mirrorAt: g.time - .5 }); assert.equal(b.hp, 31);
+  hit(g, heartOf(s), { mirrorAt: g.time - 1.3 }); assert.equal(b.hp, full - 3, 'more than 1.2 s after the bank, a plain hit');
+  advance(g, 1); hit(g, heartOf(s), { mirrorAt: g.time - .5 }); assert.equal(b.hp, full - 5);
 });
 test('Heartbeat Hues: the real heart wants one of the next three seeds; other colors glance off and the bot holds them', () => {
   const g = arena(4), s = g.bossState, b = s.boss, types = ['gold', 'coral', 'lilac', 'sky', 'poppy'];
@@ -1041,31 +1062,31 @@ test('Crystal Heart replays identically at 30, 60 and 144 FPS, and a strike loop
     if (setup) setup(ball); return ball;
   }
 
-  test('Lantern Lily has 46 health and turns Glowing at 31 and Moonlit at 16; every warning fits a phone; she still opens with her whirlpool', () => {
-    const g = arena(5), s = g.bossState, k = Bosses.kits.lotus;
-    assert.equal(Bosses.health.lotus, 46); assert.equal(s.boss.maxHp, 46); assert.deepEqual(s.tierAt, [31, 16]);
+  test('Lantern Lily turns Glowing at two-thirds health and Moonlit at a third, each mood opening on its new move; every warning fits a phone; she still opens with her whirlpool', () => {
+    const g = arena(5), s = g.bossState, k = Bosses.kits.lotus, hp = Bosses.health.lotus;
+    assert(hp > 46 && hp < Bosses.health.core, 'longer than her old 46, still under the last guardian'); assert.equal(s.boss.maxHp, hp); assert.deepEqual(s.tierAt, [Math.ceil(2 * hp / 3), Math.ceil(hp / 3)]);
     assert.deepEqual(k.moods, ['Dreamy', 'Glowing', 'Moonlit']); assert.deepEqual(k.stageText, [null, 'Lantern Lily is glowing!', 'Lantern Lily calls the moon!']);
-    assert.deepEqual(k.moves, [['lotus', 'reflect'], ['lotus', 'jellies', 'reflect'], ['worm', 'tide']]);
+    assert.deepEqual(k.moves, [['lotus', 'reflect'], ['jellies', 'reflect', 'lotus'], ['worm', 'tide']]);
     assert.deepEqual(k.text, { reflect: 'Moon gate! Aim low to hit high.', jellies: 'Lily pads! Shut them or catch the jellies.',
       worm: 'Her lantern is a glowworm! Hit the head.', tide: 'Rising tide! The line creeps up.' });
     for (const text of [...Object.values(k.text), ...k.stageText.slice(1)]) assert(text.length <= 52, text);
     s.next = 0; g.step(1 / 120); assert.equal(s.warning.move, 'lotus'); assert.deepEqual(s.warning.targets.map(t => t.role), ['swirl']);
   });
-  test('A credited seed stops Lily at 31; while the change is announced her lantern is held (it stays lit), a pad can still be shot', () => {
-    let g = arena(5), s = g.bossState, b = s.boss, lantern = lanternOf(s); b.hp = 33; s.next = s.age + 9;
-    hit(g, lantern); assert.equal(b.hp, 31, 'a lantern hit stops at the threshold'); assert(s.shiftPending); assert.equal(s.mode, 'gutter');
+  test('A credited seed stops Lily at her first mood line; while the change is announced her lantern is held (it stays lit), a pad can still be shot', () => {
+    let g = arena(5), s = g.bossState, b = s.boss, lantern = lanternOf(s); const line = s.tierAt[0]; b.hp = line + 2; s.next = s.age + 9;
+    hit(g, lantern); assert.equal(b.hp, line, 'a lantern hit stops at the threshold'); assert(s.shiftPending); assert.equal(s.mode, 'gutter');
     const left = s.gutterUntil - s.age; g.step(1 / 120);
     assert.equal(s.warning.move, 'stage'); assert.equal(s.warning.text, 'Lantern Lily is glowing!');
     assert(Math.abs(s.gutterUntil - s.age - left - 1.3) < .02, 'the open gutter is paused for the warning, not lost');
-    g = arena(5); s = g.bossState; b = s.boss; lantern = lanternOf(s); b.hp = 31; s.shiftPending = true; s.next = s.age + 9; g.drainEvents();
-    hit(g, lantern); assert(!lantern.bloomed, 'a held lantern stays lit'); assert.equal(b.hp, 31); assert.equal(s.mode, 'open');
+    g = arena(5); s = g.bossState; b = s.boss; lantern = lanternOf(s); b.hp = line; s.shiftPending = true; s.next = s.age + 9; g.drainEvents();
+    hit(g, lantern); assert(!lantern.bloomed, 'a held lantern stays lit'); assert.equal(b.hp, line); assert.equal(s.mode, 'open');
     assert(g.drainEvents().some(e => e.type === 'bossGuard' && e.mode === 'stage'));
     Bosses.kits.lotus.act.jellies(g, s, { targets: [{ x: 110, y: 384, r: 18, role: 'pad' }] });
     const pad = padsOf(s)[0]; assert.equal(Bosses.canHit(g, pad, { nx: 0, ny: 1 }, {}), true); hit(g, pad); assert(pad.bloomed, 'her attackers stay answerable');
     const events = until(g, () => s.tier === 1, 3); const stage = events.find(e => e.type === 'bossStage');
     assert(stage && stage.mood === 'Glowing' && stage.stage === 1); assert(!events.some(e => e.type === 'bossAbility' && e.move === 'stage'));
-    until(g, () => s.warning, 3); assert.equal(s.warning.move, 'lotus', 'Glowing opens with the whirlpool');
-    b.hp = 17; hit(g, b, { ny: -1 }); assert.equal(b.hp, 16); assert(s.shiftPending);
+    until(g, () => s.warning, 3); assert.equal(s.warning.move, 'jellies', 'Glowing opens with her lily pads');
+    b.hp = s.tierAt[1] + 1; hit(g, b, { ny: -1 }); assert.equal(b.hp, s.tierAt[1]); assert(s.shiftPending);
     until(g, () => s.tier === 2, 12); until(g, () => s.warning, 3); assert.equal(s.warning.move, 'worm', 'Moonlit opens with the glowworm');
   });
   test('Moon Gate: a low moon on the lake and a high one over her, both legal tunnel mouths, for 5 s of her clock', () => {
@@ -1097,8 +1118,8 @@ test('Crystal Heart replays identically at 30, 60 and 144 FPS, and a strike loop
     ({ b, hp } = run(seed => { seed.age = 1.7; })); assert.equal(b.hp, hp - 1, 'a seed that wandered in late');
     ({ b, hp } = run(seed => { seed.power = 'sunburst'; })); assert(b.hp >= hp - 4, 'a power keeps its own stated damage');
     // It stops at the mood line like any credited hit.
-    const g = lily(0, 1, { still: true }), s = g.bossState; play(g); s.boss.hp = 32; const low = moons(g).find(m => m.moonLow); shoot(g, low.x, low.y);
-    until(g, () => s.boss.hp !== 32, 2); assert.equal(s.boss.hp, 31); assert(s.shiftPending);
+    const g = lily(0, 1, { still: true }), s = g.bossState, line = s.tierAt[0]; play(g); s.boss.hp = line + 1; const low = moons(g).find(m => m.moonLow); shoot(g, low.x, low.y);
+    until(g, () => s.boss.hp !== line + 1, 2); assert.equal(s.boss.hp, line); assert(s.shiftPending);
     // The bot values the moon: the same hit on her is worth 30 more through a gate (on a fresh board: the bot also sees
     // the mood-change hold above, which makes every hit on her worthless until Phase Bloom).
     const h = lily(0, 1, { still: true }), v = h.bossState; play(h);
@@ -1107,7 +1128,7 @@ test('Crystal Heart replays identically at 30, 60 and 144 FPS, and a strike loop
     assert.equal(Math.round(moon - plain), 30);
   });
   test('Lily Pads: two pads open low on the lake; each sends up a moon jelly at +.9 s and +2.1 s, then sinks at +2.6 s', () => {
-    const g = lily(1, 1, { descent: 10 }), s = g.bossState, w = s.warning;
+    const g = lily(1, 0, { descent: 10 }), s = g.bossState, w = s.warning;
     assert.equal(w.move, 'jellies'); assert.equal(w.text, 'Lily pads! Shut them or catch the jellies.');
     assert.deepEqual(w.targets.map(t => [t.role, t.x, t.y, t.r]), [['pad', 110, 384, 18], ['pad', 310, 384, 18]]);
     const events = play(g), pads = padsOf(s); assert.equal(acts(events, 'start').filter(e => e.move === 'jellies').length, 1);
@@ -1124,22 +1145,22 @@ test('Crystal Heart replays identically at 30, 60 and 144 FPS, and a strike loop
     assert.equal(acts(g.drainEvents(), 'shut').length, 0, 'sinking is not a shut');
   });
   test('Shooting a pad shut stops its jellies and pays exactly one more sun than a plain part bloom; uncredited pays nothing', () => {
-    const g = lily(1, 1), s = g.bossState; play(g); const [left, right] = padsOf(s);
+    const g = lily(1, 0), s = g.bossState; play(g); const [left, right] = padsOf(s);
     let charge = g.sunCharge; hit(g, left); assert(left.bloomed); const shut = g.sunCharge - charge;
     const e = acts(g.drainEvents(), 'shut'); assert.equal(e.length, 1); assert.equal(e[0].move, 'jellies');
     // The plain part bloom to compare with: the same pad without its bonus.
-    const h = lily(1, 1), t = h.bossState; play(h); const bare = padsOf(t)[0]; delete bare.sunBonus;
+    const h = lily(1, 0), t = h.bossState; play(h); const bare = padsOf(t)[0]; delete bare.sunBonus;
     charge = h.sunCharge; hit(h, bare); assert.equal(shut - (h.sunCharge - charge), 1, 'one more sun');
     advance(g, 1); assert.deepEqual(jellies(g).map(j => j.x0), [310], 'only the open pad sent one');
     charge = g.sunCharge; g.strike(right); assert(right.bloomed); assert.equal(g.sunCharge, charge, 'an uncredited shut pays no sun');
     advance(g, 1.5); assert.equal(jellies(g).length, 1, 'shut pads send nothing'); assert(!s.parts.includes(left) && !g.buds.includes(left), 'a shut pad leaves the board');
     // A piece sitting on a pad's bud holds that jelly back.
-    const k = lily(1, 1), u = k.bossState; play(k); k.buds.push(flower('sit', 110, 350)); advance(k, 1); assert.deepEqual(jellies(k).map(j => j.x0), [310]);
+    const k = lily(1, 0), u = k.bossState; play(k); k.buds.push(flower('sit', 110, 350)); advance(k, 1); assert.deepEqual(jellies(k).map(j => j.x0), [310]);
     // The bot: a pad with a jelly still to send is worth 70, then 35.
     const rank = () => new Map(Bosses.targets(k).filter(r => r.bud.bossPart === 'pad').map(r => [r.bud.x, r.priority]));
     assert.equal(rank().get(310), 70); advance(k, 1.3); assert.equal(rank().get(310), 35);
     // A piece that drifts onto a pad's spot during the warning: that pad stays shut, and the start ring shows only the other.
-    const m = lily(1, 1); m.buds.push(flower('on-pad', 110, 384)); const st = acts(play(m), 'start').find(e => e.move === 'jellies');
+    const m = lily(1, 0); m.buds.push(flower('on-pad', 110, 384)); const st = acts(play(m), 'start').find(e => e.move === 'jellies');
     assert.deepEqual(padsOf(m.bossState).map(p => p.x), [310]); assert.deepEqual(st.targets.map(t => [t.role, t.x]), [['pad', 310]]);
   });
   test('Glowworm Lantern: her lantern crawls off as a glowworm\'s head, 70 px below her at x 300 (else 100); no room, the tide comes', () => {
@@ -1174,10 +1195,10 @@ test('Crystal Heart replays identically at 30, 60 and 144 FPS, and a strike loop
     advance(g, 4.9); assert.equal(s.mode, 'open'); assert(!lantern.bloomed, 'relit when the gutter ends');
     advance(g, 2); assert.equal(acts(g.drainEvents(), 'puffback').length, 0, 'a spent worm does not puff back');
     // At a mood line it stops there, but the lantern still comes home and the gutter still opens.
-    g = lily(2, 0); s = g.bossState; b = s.boss; play(g); s.tier = 1; b.hp = 18; hit(g, g.buds.find(p => p.bossLantern)); advance(g, .2);
-    assert.equal(b.hp, 16); assert(s.shiftPending); assert.equal(s.mode, 'gutter');
+    g = lily(2, 0); s = g.bossState; b = s.boss; play(g); s.tier = 1; b.hp = s.tierAt[1] + 2; hit(g, g.buds.find(p => p.bossLantern)); advance(g, .2);
+    assert.equal(b.hp, s.tierAt[1]); assert(s.shiftPending); assert.equal(s.mode, 'gutter');
     // Uncredited (a script), it is a plain hit.
-    g = lily(2, 0); s = g.bossState; b = s.boss; play(g); g.strike(g.buds.find(p => p.bossLantern)); advance(g, .2); assert.equal(b.hp, 45);
+    g = lily(2, 0); s = g.bossState; b = s.boss; play(g); g.strike(g.buds.find(p => p.bossLantern)); advance(g, .2); assert.equal(b.hp, b.maxHp - 1);
   });
   test('Left alone for 7 s the worm puffs away, pieces split off it too, with no life lost; the lantern floats home lit', () => {
     const g = lily(2, 0, { descent: 10 }), s = g.bossState, lantern = lanternOf(s); play(g); const lives = g.lives;
@@ -1215,7 +1236,7 @@ test('Crystal Heart replays identically at 30, 60 and 144 FPS, and a strike loop
     const st = acts(play(lo), 'start').find(e => e.move === 'tide'); assert.equal(v.tide.offset, 24); assert.deepEqual(st.targets.map(t => [t.y, t.offset]), [[424, 24]]);
   });
   test('Lily plays the same at 30, 60 and 144 FPS', () => {
-    for (const [tier, index] of [[1, 1], [2, 0], [2, 1]]) {
+    for (const [tier, index] of [[1, 0], [2, 0], [2, 1]]) {
       const run = fps => {
         const g = arena(5), s = g.bossState; g.descentSpeed = 10.5; g.buds.push(flower('a', 120, 300), flower('b', 260, 260), flower('c', 330, 140));
         s.tier = tier; s.cycle = index; s.next = 0; const log = [];
@@ -1230,7 +1251,7 @@ test('Crystal Heart replays identically at 30, 60 and 144 FPS, and a strike loop
     }
   });
   test('A Lullaby holds her clock: moons, pad jellies, the worm\'s puffback and the tide all wait, then carry on late by its length', () => {
-    let g = lily(1, 1), s = g.bossState; play(g); const acted = g.time; g.lullaby = 1; advance(g, 1.5);
+    let g = lily(1, 0), s = g.bossState; play(g); const acted = g.time; g.lullaby = 1; advance(g, 1.5);
     assert.equal(jellies(g).length, 0, 'no jelly while the lake sleeps'); until(g, () => jellies(g).length, 1); assert(Math.abs(g.time - acted - .9 - 1) < 2 / 120);
     g = lily(2, 0); s = g.bossState; play(g); const out = g.time; g.lullaby = 1;
     until(g, () => s.worm.done, 9); assert(Math.abs(g.time - out - 7 - 1) < 2 / 120, 'puffs back late');
@@ -1238,8 +1259,8 @@ test('Crystal Heart replays identically at 30, 60 and 144 FPS, and a strike loop
     assert.equal(g.dangerY, line); assert.equal(s.kitAge, kit);
   });
   test('Beaten mid-move, Lily leaves nothing behind: no moons, pads, worm, timers or raised line, and her lantern back on its stem', () => {
-    const g = lily(1, 1, { descent: 10.5 }), s = g.bossState, b = s.boss; play(g); advance(g, .95);
-    s.cycle = 2; s.next = s.age; g.step(1 / 120); play(g);
+    const g = lily(1, 0, { descent: 10.5 }), s = g.bossState, b = s.boss; play(g); advance(g, .95);
+    s.cycle = 1; s.next = s.age; g.step(1 / 120); play(g);
     s.tier = 2; s.cycle = 0; s.next = s.age; g.step(1 / 120); play(g); s.cycle = 1; s.next = s.age; g.step(1 / 120); play(g);
     assert(moons(g).length && s.tide && lanternOf(s).hidden && s.timers.length, 'moons, the tide and the worm are up');
     for (let n = 0; n < 200 && !b.bloomed; n++) g.strike(b);
@@ -1293,7 +1314,7 @@ test('Crystal Heart replays identically at 30, 60 and 144 FPS, and a strike loop
   test("Lily's art draws every move, Animations on and off, with no gradient or blur per frame; her three moods are three faces", () => {
     const { tally, frame, drawn } = lilyArt(), seen = new Set();
     const film = (g, seconds) => { for (let n = 0; n < seconds * 120; n++) { g.step(1 / 120); if (n % 12 === 0) { frame(g, false, n % 24 ? 0 : 2); frame(g, true); } } };
-    for (const [tier, index, seconds] of [[0, 1, 5.5], [1, 1, 3.2], [2, 0, 2], [2, 1, 7]]) {
+    for (const [tier, index, seconds] of [[0, 1, 5.5], [1, 0, 3.2], [2, 0, 2], [2, 1, 7]]) {
       const g = lily(tier, index, { descent: 10.5, still: tier === 0 }), s = g.bossState; seen.add(s.warning.move);
       film(g, 1.4);
       if (s.warning === null && index === 1 && tier === 0) { const low = moons(g).find(m => m.moonLow); shoot(g, low.x, low.y); }

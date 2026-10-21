@@ -1885,6 +1885,8 @@
       const knot = (e.targets || []).find(t => t.role === 'knot') || e;
       foeRing(knot.x, knot.y, ROOT_BARK, 10, 34, .45); foeDust(knot.x, knot.y, 4, ROOT_DIRT, 40); haptic('warn');
     },
+    // His own seedlings, when the board has no clump to take: a puff of soil under each as it pops up.
+    'carousel:sprout'(e) { for (const m of e.marks || []) { foeDust(m.x, m.y + 6, 4, ROOT_DIRT, 50); foeRing(m.x, m.y, ROOT_DUST, 6, 18, .3); } haptic('tick'); },
     fling(e) { foeRing(e.x, e.y, ROOT_DUST, 16, 56, .4); foeDust(e.x, e.y, 6, ROOT_DUST, 90); jolt(.1); haptic('warn'); },
     snap(e) {
       bossCallout(e.x, e.y, 'Snap!', 1.1); say('Snap!');

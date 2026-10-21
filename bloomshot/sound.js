@@ -544,6 +544,8 @@
   // outward, snapping it a crack and a bright chime; the snare cracks up out of the soil with a plucked twang and sighs
   // as it withers.
   BOSS_ACTS['toss:toss'] = BOSS_ACTS['toss2:toss'] = [['wood', step(0), 0, .08, .06], ['crunch', 'thock', 0, .7], ['wood', step(4), .12, .1, .05]];
+  // With no clump to take, his own three seedlings pop up out of the soil: three soft rising plucks over a muffled thock.
+  BOSS_ACTS['root:carousel:sprout'] = [['crunch', 'thock', 0, .45], ['marimba', step(0), 0, .06, .04], ['marimba', step(2), .06, .06, .04], ['marimba', step(4), .12, .1, .045]];
   BOSS_ACTS['root:carousel:start'] = [['wood', step(0), 0, .07, .05], ['wood', step(2), .1, .07, .05], ['wood', step(4), .2, .07, .05], ['wood', step(2), .3, .1, .045], ['crunch', 'thock', 0, .6]];
   // A soft two-knock creak, a step lower every other quarter turn so the turning sways rather than ticks.
   BOSS_ACTS['root:carousel:creak'] = (data, pan) => { const low = num(data.n, 1) % 2 ? -3 : -2; note(step(low), 0, .07, .028, pan, 'wood', 0); note(step(low + 1), .045, .08, .022, pan, 'wood', 0); };
