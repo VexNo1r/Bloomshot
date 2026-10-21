@@ -1583,33 +1583,61 @@
     aimTarget = target;
     if (target && (target.relay || target.boss || target.gift)) { BloomSound.play('aimLock', { type: target.type }); haptic('tick'); }
   }
-  // The level campaign's new pieces (foes.js). Each foe event is `name:act`; its look lives in FOE_FX below, and a pop,
-  // fizzle or sweep without one gets a small shared puff. A foe met for the first time in a run says what it does once,
-  // unless the wave's own hint already introduced it.
-  const FOE_FX = Object.create(null);
-  function meetFoes(introduced = false) {
-    if (!game.foeWave || !window.BloomFoes) return;
+  // The level campaign's new pieces (foes.js). Each foe event is `family:act`; its look lives in FOE_FX below, and a
+  // pop, fizzle or guard without one gets a small shared effect. The first time a run shows a foe family, the hint line
+  // says what it does once (the wave's own hint may already have), so even a checkpoint start teaches it before it
+  // costs a seed.
+  const FOE_FX = Object.create(null), FOE_COLORS = { coral: '#ff5d94', gold: '#ffd148', lilac: '#a47dff', sky: '#45adff', poppy: '#ff7433' };
+  function meetFoes(shown = '') {
+    if (!game.foeWave || !game.foeHint) return;
     const seen = game.foesSeen || (game.foesSeen = new Set());
     for (const bud of game.buds) {
-      if (!bud.foe || bud.bloomed || seen.has(bud.foe)) continue;
-      seen.add(bud.foe);
-      const hint = BloomFoes.hintFor(bud.foe);
-      if (hint && !introduced) { $('game-hint').textContent = hint; say(hint); introduced = true; }
+      if (!bud.foe || bud.bloomed || bud.hidden) continue;
+      const family = bud.foeFamily || bud.foe;
+      if (seen.has(family)) continue;
+      seen.add(family);
+      const hint = game.foeHint(family);
+      if (hint && hint !== shown) { $('game-hint').textContent = hint; say(hint); return; }
+    }
+  }
+  // Small shared pieces for the effects: a ring, a few motes of dust, a quick sparkle.
+  function foeRing(x, y, color, size = 10, grow = 24, life = .4) {
+    if (save.settings.motion) game.particles.push({ x, y, vx: 0, vy: 0, life, maxLife: life, kind: 'ring', color, size, grow, gravity: 0, drag: 0 });
+  }
+  function foeDust(x, y, count = 4, color = '#d8c9a8', spread = 50) {
+    if (!save.settings.motion) return;
+    count = Math.max(1, Math.round(count * [1, .6, .35][game?.quality || 0]));
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * Math.PI * 2, v = spread * (.4 + Math.random() * .6), life = .3 + Math.random() * .25;
+      game.particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 12, life, maxLife: life, kind: 'pollen', color, size: 1.4 + Math.random() * 1.6, gravity: -8, drag: 3 });
     }
   }
   function foeEvent(event) {
     const kind = String(event.kind || ''), at = kind.indexOf(':'), name = kind.slice(0, at), act = kind.slice(at + 1);
+    if (act === 'spawn' || act === 'land') meetFoes();
     const fx = FOE_FX[name] && FOE_FX[name][act];
     if (fx) { fx(event); return; }
-    const spot = { x: event.x ?? event.bud?.x ?? 210, y: event.y ?? event.bud?.y ?? 200, type: event.bud?.type || 'lilac', r: event.bud?.r || 10 };
-    if (act === 'pop') { burst(spot, 10, game.particles, currentKeepsake(), false); haptic('tick'); }
-    else if (act === 'fizzle' || act === 'sweep') burst(spot, 5, game.particles, currentKeepsake(), false);
+    const bud = event.bud || {}, spot = { x: event.x ?? bud.x ?? 210, y: event.y ?? bud.y ?? 200, type: bud.type || 'lilac', r: bud.r || 10 };
+    if (act === 'pop') { burst(spot, 12, game.particles, currentKeepsake(), false); foeRing(spot.x, spot.y, FOE_COLORS[spot.type] || FOE_COLORS.lilac, spot.r, 26, .4); haptic('tick'); }
+    else if (act === 'fizzle') foeDust(spot.x, spot.y, 5, '#ffffff', 30);
+    else if (act === 'guard') { foeRing(spot.x, spot.y, FOE_COLORS[event.type || spot.type] || '#ffffff', 6, 14, .3); haptic('tick'); }
   }
   // -----------------------------------------------------------------------------------------------------------------
-  // The foe effects. Each lives in its own block: FOE_FX.<name> = { <act>(event) { ... } }.
+  // The foe effects. Each lives in its own block: FOE_FX.<family> = { <act>(event) { ... } }.
   // -----------------------------------------------------------------------------------------------------------------
 
   // ── Rolypoly (Level 2, `rolypoly`) ──
+  // A puff as it curls, dust where it bumps, a lilac squash ring on every pin, and a cheer when it takes all four.
+  FOE_FX.rolypoly = {
+    curl(e) { foeRing(e.x, e.y, '#b9a8d6', 8, 12, .25); haptic('tick'); },
+    roll(e) { foeDust(e.x - (e.dx || 0) * 10, e.y - (e.dy || 0) * 10, 4); },
+    bump(e) { foeDust(e.x - (e.nx || 0) * 12, e.y - (e.ny || 0) * 12, 3); },
+    bowl(e) {
+      foeRing(e.x, e.y, '#a47dff', 9, 20 + 4 * (e.k || 1), .35); foeDust(e.x, e.y, 3, '#e4dcf2', 70); haptic('tick');
+      if (e.k >= 4 && save.settings.motion) game.floaters.push({ kind: 'trick', trick: 'strike', text: 'Strike!', label: '', x: clamp(e.x, 60, 360), y: Math.max(40, e.y - 34), life: 1, maxLife: 1 });
+    },
+    end(e) { foeRing(e.x, e.y, '#ffffff', 10, 16, .3); }
+  };
 
   // ── Peekaboo Mole (Level 2, `mole`) ──
 
@@ -1691,7 +1719,7 @@
       } else if (event.type === 'wave') {
         const bossName = event.boss ? event.bossName || (game.buds.find(bud => bud.boss) || {}).name || '' : '';
         if (isDepth()) {
-          meetFoes(Boolean(event.hint));
+          meetFoes(event.hint || '');
           $('game-hint').textContent = event.hint || `Wave ${game.wave} of ${game.finalWave}.`;
           say(`Wave ${game.wave} of ${game.finalWave}. ${bossName ? `${bossName}! ` : ''}${event.hint || ''} ${game.lives} ${game.lives === 1 ? 'life' : 'lives'} left.`);
         } else {
@@ -1730,7 +1758,6 @@
       } else if (event.type === 'shield') {
         burst({ x: event.x, y: event.y, type: 'gold', r: 6 }, 6); haptic('tick');
         if (event.bud?.bossKind) $('game-hint').textContent = game.bossWarning?.text || bossOpeningTip(event.bud);
-        else if (event.foe) foeEvent({ ...event, kind: event.foe + ':guard' });
         else if (event.shell && !game.shellSeen) { game.shellSeen = true; $('game-hint').textContent = 'Shells only open on one side. Wait for the gap.'; }
         else if (!event.shell && !game.shieldSeen) { game.shieldSeen = true; $('game-hint').textContent = 'Cups block shots from below. Hit them from the side.'; }
       } else if (event.type === 'geode') {

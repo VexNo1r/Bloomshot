@@ -11,7 +11,7 @@ const { RushGame, bossMotion } = require('../rush.js');
 const Depths = require('../depths.js');
 const Bosses = require('../bosses.js');
 const Foes = require('../foes.js');
-// Each forecast slice holds x, y, r and whether the piece is hidden (a mole underground) at that moment.
+// Each forecast slice holds x, y, r and flags (1: hidden, like a mole underground; 2: a ghost seeds pass through) at that moment.
 const TRACE_STEPS = 90, TRACE_DT = 1 / 60, STRIDE = 4;
 
 function rng(seed) {
@@ -23,7 +23,7 @@ function plan(id) { const level = Depths.level(id); return { id, name: level.nam
 // in currents and passing through tunnels the way the game does.
 function prepareTrace(game) {
   // A foe that moves on its own (a rolling rolypoly, a mole about to pop up) is forecast by foes.js, hidden or not.
-  const foreseen = bud => game.foeWave && bud.foe && Foes.forecasts(bud);
+  const movers = new Set(game.foeWave ? Foes.moves(game) : []), foreseen = bud => movers.has(bud);
   const originals = game.buds.filter(bud => !bud.bloomed && (!bud.hidden || foreseen(bud)) && bud.visible !== false);
   const rich = Boolean(game.bossState), moving = [], predicted = originals.map(bud => {
     const boss = bud.boss || rich && bud.bossPart;
@@ -31,7 +31,7 @@ function prepareTrace(game) {
     const copy = { ...bud }, future = new Float64Array(TRACE_STEPS * STRIDE);
     moving.push({ original: bud, bud: copy, future, foe: !boss }); return copy;
   });
-  const out = { x: 0, y: 0, r: 0, hidden: false };
+  const out = { x: 0, y: 0, r: 0, flags: 0 };
   // All angle candidates share these visible-position predictions. No next attack, shuffle, revival or
   // future vulnerability is simulated; the module caps predictions at an advertised transition.
   for (let step = 0; moving.length && step < TRACE_STEPS; step++) {
@@ -40,7 +40,7 @@ function prepareTrace(game) {
       const b = m.original, at = step * STRIDE;
       if (m.foe) {
         Foes.predict(game, b, seconds, out);
-        m.future[at] = out.x; m.future[at + 1] = out.y; m.future[at + 2] = out.r || b.r; m.future[at + 3] = out.hidden ? 1 : 0;
+        m.future[at] = out.x; m.future[at + 1] = out.y; m.future[at + 2] = out.r || b.r; m.future[at + 3] = out.flags;
         continue;
       }
       let pos = poses && poses.get(b.id);
@@ -59,7 +59,10 @@ function trace(game, angle, bounces = 3, prepared = prepareTrace(game)) {
   let vx = Math.cos(angle) * game.speed, vy = Math.sin(angle) * game.speed;
   const { state, moving, currents } = prepared;
   for (let step = 0; step < TRACE_STEPS; step++) {
-    for (const m of moving) { const at = step * STRIDE; m.bud.x = m.future[at]; m.bud.y = m.future[at + 1]; m.bud.r = m.future[at + 2]; m.bud.hidden = m.future[at + 3] > 0; }
+    for (const m of moving) {
+      const at = step * STRIDE, flags = m.future[at + 3];
+      m.bud.x = m.future[at]; m.bud.y = m.future[at + 1]; m.bud.r = m.future[at + 2]; m.bud.hidden = Boolean(flags & 1); m.bud.ghost = Boolean(flags & 2);
+    }
     const lane = currents.length && Engine.laneAt(currents, p.x, p.y);
     if (lane) { const v = Engine.steer(vx, vy, lane, dt); vx = v.x; vy = v.y; }
     let remaining = dt;
@@ -91,8 +94,9 @@ function value(game, hit, timing, prepared) {
   if (prepared && prepared.rich && (bud.boss || bud.bossPart) && !Bosses.canHit(game, bud, hit, { gateHops: hit.gateHops })) return -1;
   if (bud.bossPart === 'satellite' && bud.lit === false) return -1;
   // A foe knows its own rules: a decoy is never worth a seed, and some shots are better than others.
-  const foe = bud.foe ? Foes.value(game, bud, hit, prepared) : 0;
-  if (foe < 0) return -1;
+  if (bud.decoy) return -1;
+  const foe = game.foeWave ? Foes.value(game, hit, prepared) : 0;
+  if (foe === -1) return -1;
   if (bud.shield && hit.ny > .28) return -1;
   // A shell keeps turning while the shot flies, so check where its opening will be on arrival.
   if (bud.shell && !(prepared && prepared.rich && (bud.boss || bud.bossPart))) {

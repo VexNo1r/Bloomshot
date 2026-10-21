@@ -10,7 +10,7 @@ const { RushGame } = require('../rush.js');
 function waveWith(levelId, number, foes = [], { keepBuds = true, keepDrops = false, hint } = {}) {
   const base = Depths.wave(levelId, number), tag = `t${levelId}-${number}`;
   const buds = keepBuds ? base.buds.map(bud => ({ ...bud })) : [];
-  foes.forEach((foe, i) => { for (const bud of Foes.make(foe, tag, i, levelId, number, ['gold', 'coral', 'lilac', 'sky', 'poppy'][i % 5])) buds.push(bud); });
+  foes.forEach((spot, i) => { for (const bud of Foes.make(spot[0], spot, tag, i, levelId, number)) buds.push(bud); });
   return { ...base, buds, drops: keepDrops ? base.drops : [], hint: hint ?? base.hint };
 }
 // A game playing just that wave (one wave long), started and ready to fire.

@@ -107,8 +107,9 @@
     }
     return best;
   }
-  // radius is the moving body's own size: a seed by default, or a bigger body (a rolling rolypoly).
-  function earliest(state, p, d, includeBuds = true, radius = RADIUS) {
+  // radius is the moving body's own size: a seed by default, or a bigger body (a rolling rolypoly), which passes
+  // `skip`, its own bud. A ghost (a rolling rolypoly) is passed through like a hidden piece.
+  function earliest(state, p, d, includeBuds = true, radius = RADIUS, skip = null) {
     let hit = null;
     const consider = (candidate, kind, item) => {
       if (candidate && candidate.t >= 0 && candidate.t <= 1 && (!hit || candidate.t < hit.t)) hit = { ...candidate, kind, item };
@@ -126,7 +127,7 @@
       consider(capsuleHit(p, d, bumper, radius + 6), 'bumper', bumper);
     }
     if (includeBuds) for (const bud of state.buds) {
-      if (bud.bloomed || bud.hidden) continue;
+      if (bud.bloomed || bud.hidden || bud.ghost || bud === skip) continue;
       const span = radius + bud.r;
       if (Math.abs(bud.x - p.x) > span + reachX || Math.abs(bud.y - p.y) > span + reachY) continue;
       consider(circleHit(p, d, bud, span), 'bud', bud);

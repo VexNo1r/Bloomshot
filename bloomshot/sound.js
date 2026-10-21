@@ -410,24 +410,38 @@
     crystal: ['glass', 4, 2], lotus: ['drop', 5, 4], fossil: ['bell', 0, -2],
     ember: ['marimba', 3, 1], geode: ['wood', 0, -3], briar: ['harp', 1, 3], core: ['chime', 5, 2]
   };
-  // The level campaign's new pieces (foes.js). Each foe event is `name:act` (rolypoly:roll, mole:pop, fibcap:sneeze);
-  // its cue lives in that foe's own block below, and a pop, fizzle or sweep without one gets the shared soft voice.
-  // Every cue stays inside the C-major garden so it sits in the music, and is rate-limited by allowed().
+  // The level campaign's new pieces (foes.js). Each foe event is `family:act` (rolypoly:roll, mole:bonk, fibcap:sneeze);
+  // its cue lives in that foe's own block below, and a pop, fizzle or guard without one gets the shared soft voice.
+  // A cue is either rows [[timbre, pitch, delay, dur, vol], ..., ['crunch', kind, delay, scale]] or a function
+  // (data, pan) for one that depends on the event (a rising note per pin). Every cue stays in the C-major garden.
   const FOE_CUES = Object.create(null);
+  function foeRows(rows, pan) {
+    for (const row of rows) {
+      if (row[0] === 'crunch') crunch(row[1], row[2], pan, row[3]);
+      else note(row[1], row[2], row[3], row[4], pan, row[0], row[5] ?? 1);
+    }
+  }
   function foeCue(kind, data, pan) {
-    const at = kind.indexOf(':'), name = at < 0 ? kind : kind.slice(0, at), act = at < 0 ? '' : kind.slice(at + 1);
-    const voice = FOE_CUES[name] && FOE_CUES[name][act];
-    if (voice) { if (allowed('foe:' + kind, voice.gap ?? 0.06)) voice.play(data, pan); return; }
+    const cue = FOE_CUES[kind];
+    if (cue) { if (allowed('foe:' + kind, 0.06)) typeof cue === 'function' ? cue(data, pan) : foeRows(cue, pan); return; }
+    const act = kind.slice(kind.indexOf(':') + 1);
     // A decoy that pops: a soft pff and a little falling third, so it reads as "nothing" rather than a reward.
-    if (act === 'pop' && allowed('foe:pop', 0.08)) { crunch('pop', 0, pan, 0.7); note(hz(9), 0.02, 0.12, 0.05, pan, 'marimba', 0); note(hz(7), 0.07, 0.16, 0.04, pan, 'marimba', 0); }
-    else if ((act === 'fizzle' || act === 'sweep') && allowed('foe:fade', 0.12)) note(hz(12), 0, 0.18, 0.025, pan, 'chime', 0);
+    if (act === 'pop' && allowed('foe:pop', 0.08)) { crunch('pop', 0, pan, 0.7); note(hz(9), 0, 0.12, 0.05, pan, 'marimba', 0); note(hz(7), 0.07, 0.16, 0.04, pan, 'marimba', 0); }
+    else if (act === 'fizzle' && allowed('foe:fade', 0.12)) note(hz(12), 0, 0.18, 0.025, pan, 'chime', 0);
     else if (act === 'guard' && allowed('shield', 0.09)) { note(hz(16), 0, 0.08, 0.07, pan, 'marimba', 0); note(hz(11), 0.035, 0.1, 0.058, pan, 'marimba', 0); }
   }
   // -----------------------------------------------------------------------------------------------------------------
-  // The foe voices. Each lives in its own block: FOE_CUES.<name> = { <act>: { gap, play(data, pan) } }.
+  // The foe voices. Each lives in its own block: FOE_CUES['family:act'] = rows or (data, pan) => { ... }.
   // -----------------------------------------------------------------------------------------------------------------
 
   // ── Rolypoly (Level 2, `rolypoly`) ──
+  // A woody curl, a two-step roll-away, a marimba note that climbs with every pin, and a bell as it uncurls and blooms.
+  FOE_CUES['rolypoly:curl'] = [['wood', step(4), 0, .06, .05], ['crunch', 'click', 0, .6]];
+  FOE_CUES['rolypoly:roll'] = [['wood', step(0), 0, .09, .06], ['wood', step(4), .09, .09, .05], ['crunch', 'thock', 0, .7]];
+  FOE_CUES['rolypoly:bowl'] = (data, pan) => { note(pent(4 + Math.min(data.k || 1, 4)), 0, .14, .07, pan, 'marimba', 1); crunch('pop', 0, pan, .5); };
+  FOE_CUES['rolypoly:bump'] = [['wood', step(2), 0, .05, .035]];
+  FOE_CUES['rolypoly:end'] = [['bell', pent(9), 0, .22, .06], ['chime', step(11), .06, .25, .04]];
+  FOE_CUES['rolypoly:land'] = [['wood', step(2), 0, .07, .05], ['crunch', 'thock', 0, .8]];
 
   // ── Peekaboo Mole (Level 2, `mole`) ──
 
@@ -451,7 +465,7 @@
       // Keep the first gesture's sound through resume, not a backlog of old audio.
       if (waiting.length < 8) {
         const kept = { x: data.bud ? data.bud.x : data.x, bud: data.bud ? { x: data.bud.x, type: data.bud.type } : undefined };
-        for (const key of ['combo', 'chain', 'kind', 'wave', 'power', 'index', 'stars', 'boss', 'seedStep', 'type', 'mult', 'petal', 'notch', 'i', 'n', 'dur', 'finale', 'level', 'left', 'super', 'foe', 'step', 'count']) if (data[key] !== undefined) kept[key] = data[key];
+        for (const key of ['combo', 'chain', 'kind', 'wave', 'power', 'index', 'stars', 'boss', 'seedStep', 'type', 'mult', 'petal', 'notch', 'i', 'n', 'dur', 'finale', 'level', 'left', 'super', 'k', 'move', 'act', 'stage']) if (data[key] !== undefined) kept[key] = data[key];
         waiting.push({ type, data: kept, at: Date.now() });
       }
       return;
@@ -534,7 +548,7 @@
     // Level pieces: a puffcap pops with a soft low drop and a sparkle, an acorn cup clinks, the boss blooms
     // with a full rising chord, and reinforcements land with two small plops.
     else if (type === 'puff' && allowed('puff', 0.12)) { note(hz(-5), 0, 0.2, 0.08, pan, 'drop'); note(hz(14), 0.06, 0.26, 0.04, pan, 'chime'); note(hz(21), 0.12, 0.22, 0.028, pan, 'chime'); }
-    else if (type === 'foe' || type === 'shield' && data.foe) foeCue(type === 'shield' ? data.foe + ':guard' : String(data.kind || ''), data, pan);
+    else if (type === 'foe') foeCue(String(data.kind || ''), data, pan);
     else if (type === 'shield' && allowed('shield', 0.09)) { note(hz(16), 0, 0.08, 0.07, pan, 'marimba', 0); note(hz(11), 0.035, 0.1, 0.058, pan, 'marimba', 0); }
     else if (type === 'bossWarning' && allowed('bossWarning', 0.35)) {
       const [style, first, second] = BOSS_WARNINGS[data.kind] || BOSS_WARNINGS.sunny;

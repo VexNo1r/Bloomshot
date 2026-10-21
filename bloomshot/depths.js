@@ -82,7 +82,8 @@
   // [x, y, exit x, exit y, exit degrees]: a straight shot into the first hole leaves the second at that heading),
   // shell (clusters in turning shells that only open on one side) with spin (radians a second), geodes
   // ([x, y, hp, gems]: they crack into gems that must be bloomed too), and briar (crownless clusters that grow
-  // back unless all three bloom within regrow seconds).
+  // back unless all three bloom within regrow seconds). Levels 2-5 add foes ([name, x, y, opts]: the new pieces of
+  // foes.js, added beside the clusters) and vents ([x, y, first s, every s, count]: Moon Jelly vents).
   var LEVELS = [
     lv(1, 'meadow', 'Sunny Meadow', 'Learn the ropes', 1.55, [
       { f: 'square', s: 'tri', d: 9, then: [{ t: 6, f: 'top3', s: 'tri' }], hint: 'Drag up and let go. Crowns bloom their whole bunch.' },
@@ -98,14 +99,14 @@
     ]),
     lv(2, 'roots', 'Root Tunnels', 'Bank around rocks', 1.4, [
       { f: 'square', s: 'tri', d: 10, rocks: [[150, 330, 50, 0], [270, 330, 50, 0]], then: [{ t: 6, f: 'top4', s: 'tri', hp: 1 }], hint: 'Rocks! Bounce your shots around them.' },
-      { f: 'wall', s: 'tri', d: 10.5, hp: 1, rocks: [[106, 298, 74, -22], [314, 298, 74, 22]], petal: [210, 372, 45], then: [{ t: 6, f: 'top5', s: 'line', hp: 1 }] },
+      { f: 'wall', s: 'tri', d: 10.5, hp: 1, rocks: [[106, 298, 74, -22], [314, 298, 74, 22]], petal: [210, 372, 45], then: [{ t: 6, f: 'top5', s: 'line', hp: 1 }], foes: [['rolypoly', 110, 222], ['rolypoly', 310, 222]], hint: 'Bump a rolypoly and it bowls into the rest!' },
       { f: 'grid', s: 'tri', d: 10.5, hp: 2, rocks: [[210, 296, 60, 0], [86, 352, 44, 90]], then: [{ t: 7, f: 'top4', s: 'tri', hp: 2 }, { t: 13, f: 'top3', s: 'stack' }] },
       { f: 'stacks', s: 'stack', d: 11, hp: 1, rocks: [[124, 318, 46, 30], [296, 318, 46, -30]], then: [{ t: 6, f: 'topstacks', s: 'stack', hp: 1 }], hint: 'Crowns on top. Crack them from below or go around.' },
-      { f: 'vee', s: 'tri', d: 11.5, hp: 2, sway: 14, rocks: [[210, 290, 84, 0]], petal: [210, 380, 135], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2 }, { t: 12, f: 'topvee', s: 'line', sway: 14 }] },
+      { f: 'vee', s: 'tri', d: 11.5, hp: 2, sway: 14, rocks: [[210, 290, 84, 0]], petal: [210, 380, 135], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2 }, { t: 12, f: 'topvee', s: 'line', sway: 14 }], foes: [['mole', 210, 252], ['rolypoly', 84, 200]], hint: 'Moles pop up! Watch which hill rumbles.' },
       { f: 'zigzag', s: 'tri', d: 11.5, hp: 2, rocks: [[92, 332, 110, 36], [328, 332, 110, -36]], petal: [210, 384, 45], then: [{ t: 6, f: 'top4', s: 'stack', hp: 2 }, { t: 12, f: 'top5', s: 'tri', fast: [2] }] },
-      { f: 'ring', s: 'tri', d: 12, hp: 2, fast: [3], rocks: [[210, 172, 40, 0], [210, 330, 50, 90]], petal: [150, 380, 45], then: [{ t: 6, f: 'topsides', s: 'tri', hp: 2 }, { t: 12, f: 'top3', s: 'stack', hp: 2, fast: [1] }] },
-      { f: 'columns', s: 'stack', d: 12.5, hp: 3, sway: 16, rocks: [[150, 300, 40, 0], [270, 300, 40, 0]], then: [{ t: 6, f: 'topstacks', s: 'stack', hp: 2 }, { t: 12, f: 'top5', s: 'tri', hp: 3, sway: 12 }] },
-      { f: 'grid', s: ['tri', 'stack', 'tri', 'stack', 'tri', 'stack'], d: 13, hp: 3, fast: [1], rocks: [[110, 322, 46, 0], [210, 292, 46, 0], [310, 322, 46, 0]], petal: [210, 384, 135], then: [{ t: 6, f: 'topvee', s: 'tri', hp: 3 }, { t: 12, f: 'topstacks', s: 'stack', hp: 2, fast: [0, 3] }] },
+      { f: 'ring', s: 'tri', d: 12, hp: 2, fast: [3], rocks: [[210, 172, 40, 0], [210, 330, 50, 90]], petal: [150, 380, 45], then: [{ t: 6, f: 'topsides', s: 'tri', hp: 2 }, { t: 12, f: 'top3', s: 'stack', hp: 2, fast: [1] }], foes: [['mole', 110, 280]] },
+      { f: 'columns', s: 'stack', d: 12.5, hp: 3, sway: 16, rocks: [[150, 300, 40, 0], [270, 300, 40, 0]], then: [{ t: 6, f: 'topstacks', s: 'stack', hp: 2 }, { t: 12, f: 'top5', s: 'tri', hp: 3, sway: 12 }], foes: [['rolypoly', 153, 262], ['rolypoly', 267, 262]] },
+      { f: 'grid', s: ['tri', 'stack', 'tri', 'stack', 'tri', 'stack'], d: 13, hp: 3, fast: [1], rocks: [[110, 322, 46, 0], [210, 292, 46, 0], [310, 322, 46, 0]], petal: [210, 384, 135], then: [{ t: 6, f: 'topvee', s: 'tri', hp: 3 }, { t: 12, f: 'topstacks', s: 'stack', hp: 2, fast: [0, 3] }], foes: [['mole', 210, 262]] },
       { f: [[70, 182], [350, 182], [140, 236], [280, 236]], s: ['stack', 'stack', 'tri', 'tri'], d: 7.5, hp: 1, rocks: [[150, 304, 44, -25], [270, 304, 44, 25]], boss: { name: 'Rootknot', hp: 8, r: 24, type: 'coral', sway: 56, x: 210, y: 104 }, then: [{ t: 8, f: 'topsides', s: 'stack', hp: 2 }, { t: 16, f: 'topsides', s: 'tri', hp: 2 }], hint: 'Big bloom! Eight hits.' }
     ]),
     // Cups arrive in small patches, with exposed crowns and puffcaps between them.
@@ -113,35 +114,35 @@
       { f: 'grid', s: 'tri', d: 11, puffs: [[210, 158]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 1, puffs: [[175, 104]] }], hint: 'Pop a puffcap to bloom everything near it.' },
       { f: 'wall', s: 'tri', d: 11.5, cup: [1, 3], then: [{ t: 6, f: 'top4', s: 'tri', cup: [1, 2] }], hint: 'Cups block shots from below. Hit the crowns!' },
       { f: 'vee', s: 'tri', d: 11.5, cup: [1, 3], puffs: [[210, 100], [210, 210]], then: [{ t: 7, f: 'top5', s: 'line', hp: 2, cup: [2] }], hint: 'Bank around cups, or pop a nearby puffcap.' },
-      { f: 'ring', s: 'tri', d: 12, hp: 2, sway: 14, puffs: [[156, 181], [264, 181]], then: [{ t: 6, f: 'top4', s: 'tri', hp: 2, cup: [1, 2] }, { t: 12, f: 'top5', s: 'tri', puffs: [[210, 112]] }] },
+      { f: 'ring', s: 'tri', d: 12, hp: 2, sway: 14, puffs: [[156, 181], [264, 181]], then: [{ t: 6, f: 'top4', s: 'tri', hp: 2, cup: [1, 2] }, { t: 12, f: 'top5', s: 'tri', puffs: [[210, 112]] }], foes: [['fibcap', 210, 146], ['fibcap', 210, 196]], hint: "Striped caps are fibcaps. Don't shoot them!" },
       { f: 'columns', s: 'tri', d: 12, hp: 1, cup: [1, 5], cupAll: [0], puffs: [[96,150],[324,150]], rocks: [[96, 300, 50, 0], [324, 300, 50, 0]], then: [{ t: 6, f: 'topvee', s: 'tri', hp: 2, cup: [2] }, { t: 12, f: 'top3', s: 'stack', cup: [1] }], hint: 'Fully cupped? Bank above or pop the puffcap.' },
-      { f: 'stairs', s: 'line', d: 12.5, hp: 2, fast: [0, 4], puffs: [[124, 196], [296, 140]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, fast: [1, 3] }, { t: 12, f: 'top4', s: 'line', cup: [1, 2], puffs: [[210, 104]] }] },
-      { f: 'diamond', s: 'tri', d: 12.5, hp: 2, sway: 18, cup: [0, 3], rocks: [[210, 300, 60, 0]], petal: [210, 384, 45], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, cup: [2], sway: 14 }, { t: 12, f: 'topvee', s: 'tri', cupAll: [2], puffs: [[140, 114], [260, 116]] }] },
-      { f: 'zigzag', s: 'tri', d: 13, hp: 3, cup: [1, 3], cupAll: [0], puffs: [[140, 112], [280, 112]], then: [{ t: 6, f: 'topstacks', s: 'stack', hp: 2, cup: [0, 3] }, { t: 12, f: 'top5', s: 'tri', hp: 3, fast: [0, 4] }] },
-      { f: 'grid', s: 'tri', d: 13.5, hp: 2, cup: [0, 2, 4], puffs: [[150, 158], [270, 158]], rocks: [[210, 322, 50, 0]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 3, cup: [1, 3] }, { t: 12, f: 'topvee', s: 'line', hp: 2, cupAll: [2], puffs: [[165, 116]] }] },
+      { f: 'stairs', s: 'line', d: 12.5, hp: 2, fast: [0, 4], puffs: [[124, 196], [296, 140]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, fast: [1, 3] }, { t: 12, f: 'top4', s: 'line', cup: [1, 2], puffs: [[210, 104]] }], foes: [['inkcap', 150, 252], ['inkcap', 300, 262], ['fibcap', 240, 110]], hint: 'Inkcaps drip! Drops gobble your seeds.' },
+      { f: 'diamond', s: 'tri', d: 12.5, hp: 2, sway: 18, cup: [0, 3], rocks: [[210, 300, 60, 0]], petal: [210, 384, 45], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, cup: [2], sway: 14 }, { t: 12, f: 'topvee', s: 'tri', cupAll: [2], puffs: [[140, 114], [260, 116]] }], foes: [['rolypoly', 110, 240], ['rolypoly', 310, 240]] },
+      { f: 'zigzag', s: 'tri', d: 13, hp: 3, cup: [1, 3], cupAll: [0], puffs: [[140, 112], [280, 112]], then: [{ t: 6, f: 'topstacks', s: 'stack', hp: 2, cup: [0, 3] }, { t: 12, f: 'top5', s: 'tri', hp: 3, fast: [0, 4] }], foes: [['inkcap', 210, 240]] },
+      { f: 'grid', s: 'tri', d: 13.5, hp: 2, cup: [0, 2, 4], puffs: [[150, 158], [270, 158]], rocks: [[210, 322, 50, 0]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 3, cup: [1, 3] }, { t: 12, f: 'topvee', s: 'line', hp: 2, cupAll: [2], puffs: [[165, 116]] }], foes: [['fibcap', 150, 214], ['fibcap', 270, 214], ['inkcap', 210, 262]] },
       { f: [[78, 176], [342, 176]], s: 'tri', d: 8, hp: 2, cup: [0, 1], puffs: [[146, 140], [274, 140]], rocks: [[150, 312, 40, 0], [270, 312, 40, 0]], boss: { name: 'Mother Morel', hp: 9, r: 25, type: 'lilac', sway: 56, x: 210, y: 100 }, then: [{ t: 8, f: 'topsides', s: 'tri', hp: 2, cup: [0, 1, 2, 3] }, { t: 16, f: 'topsides', s: 'tri', hp: 2, puffs: [[210, 66]] }], hint: 'Big bloom! Puffcaps hurt it too.' }
     ]),
     lv(4, 'crystal', 'Crystal Caves', 'Everything at once', 1.15, [
       { f: 'grid', s: 'tri', d: 12.5, hp: 2, rocks: [[210, 312, 56, 0, 92, .25]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2 }, { t: 12, f: 'top4', s: 'line', hp: 3 }], hint: 'Moving crystals. Time your shots.' },
       { f: 'wall', s: 'tri', d: 13, hp3: 2, cup: [0, 4], then: [{ t: 6, f: 'top5', s: 'tri', hp3: 2, cup: [1, 3] }, { t: 12, f: 'topvee', s: 'line', hp: 2 }], hint: 'Double rings take three hits.' },
-      { f: 'vee', s: 'tri', d: 13, hp: 2, sway: 16, rocks: [[120, 322, 44, 0, 50, .3], [300, 322, 44, 0, 50, .3]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 3, sway: 14 }, { t: 12, f: 'topstacks', s: 'stack', hp: 2 }] },
-      { f: 'stacks5', s: 'stack', d: 13.5, hp: 1, cup: [0, 1, 2, 3, 4], puffs: [[174, 214], [246, 214]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, cup: [0, 2, 4] }, { t: 12, f: 'topstacks', s: 'stack', hp3: 1, cup: [0, 1, 2, 3] }] },
-      { f: 'ring', s: 'tri', d: 13.5, hp: 2, hp3: 1, fast: [2, 3], rocks: [[210, 171, 46, 90]], then: [{ t: 6, f: 'topvee', s: 'tri', hp: 2, fast: [0, 4] }, { t: 12, f: 'top5', s: 'line', hp3: 2 }] },
-      { f: 'columns', s: 'tri', d: 14, hp: 3, sway: 16, rocks: [[150, 300, 40, 30], [270, 300, 40, -30], [210, 352, 40, 0, 70, .35]], petal: [210, 400, 45], then: [{ t: 6, f: 'top5', s: 'tri', hp: 3, sway: 16 }, { t: 12, f: 'top4', s: 'stack', hp: 2, fast: [1, 2] }] },
-      { f: 'zigzag', s: 'tri', d: 14, hp: 1, cup: [0, 2, 4], cupAll: [1, 3], puffs: [[105, 140], [245, 140]], rocks: [[210, 302, 60, 0, 80, .3]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, cupAll: [0, 4], puffs: [[140, 112], [280, 112]] }, { t: 12, f: 'topvee', s: 'tri', hp3: 2, cup: [1, 2, 3] }] },
-      { f: 'stairs', s: 'line', d: 14.5, hp: 2, hp3: 2, fast: [0, 2, 4], sway: 18, then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, hp3: 1, fast: [1, 3], sway: 14 }, { t: 12, f: 'topstacks', s: 'stack', hp3: 2, fast: [0, 3] }] },
-      { f: 'grid', s: 'tri', d: 15, hp: 2, hp3: 1, sway: 10, cup: [0, 2], cupAll: [4], puffs: [[210, 158]], rocks: [[210, 322, 50, 0, 90, .3]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, hp3: 1, cup: [0, 2, 4], sway: 12 }, { t: 12, f: 'topvee', s: 'tri', hp3: 2, cupAll: [2], fast: [0, 4], puffs: [[120, 116], [280, 114]] }] },
+      { f: 'vee', s: 'tri', d: 13, hp: 2, sway: 16, rocks: [[120, 322, 44, 0, 50, .3], [300, 322, 44, 0, 50, .3]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 3, sway: 14 }, { t: 12, f: 'topstacks', s: 'stack', hp: 2 }], foes: [['chroma', 110, 250, { type: 'sky' }], ['chroma', 210, 250, { type: 'gold' }], ['chroma', 310, 250, { type: 'poppy' }]], hint: 'Crystals open only for a seed of their color.' },
+      { f: 'stacks5', s: 'stack', d: 13.5, hp: 1, cup: [0, 1, 2, 3, 4], puffs: [[174, 214], [246, 214]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, cup: [0, 2, 4] }, { t: 12, f: 'topstacks', s: 'stack', hp3: 1, cup: [0, 1, 2, 3] }], foes: [['bat', 110, 236], ['bat', 310, 236]], hint: 'Bats swoop! Catch one mid-air for a bonus.' },
+      { f: 'ring', s: 'tri', d: 13.5, hp: 2, hp3: 1, fast: [2, 3], rocks: [[210, 171, 46, 90]], then: [{ t: 6, f: 'topvee', s: 'tri', hp: 2, fast: [0, 4] }, { t: 12, f: 'top5', s: 'line', hp3: 2 }], foes: [['fibcap', 110, 262], ['chroma', 310, 262, { type: 'lilac' }]] },
+      { f: 'columns', s: 'tri', d: 14, hp: 3, sway: 16, rocks: [[150, 300, 40, 30], [270, 300, 40, -30], [210, 352, 40, 0, 70, .35]], petal: [210, 400, 45], then: [{ t: 6, f: 'top5', s: 'tri', hp: 3, sway: 16 }, { t: 12, f: 'top4', s: 'stack', hp: 2, fast: [1, 2] }], foes: [['mole', 90, 262, { up: 1.2 }], ['bat', 324, 250]] },
+      { f: 'zigzag', s: 'tri', d: 14, hp: 1, cup: [0, 2, 4], cupAll: [1, 3], puffs: [[105, 140], [245, 140]], rocks: [[210, 302, 60, 0, 80, .3]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, cupAll: [0, 4], puffs: [[140, 112], [280, 112]] }, { t: 12, f: 'topvee', s: 'tri', hp3: 2, cup: [1, 2, 3] }], foes: [['inkcap', 210, 206], ['chroma', 340, 240, { type: 'coral' }]] },
+      { f: 'stairs', s: 'line', d: 14.5, hp: 2, hp3: 2, fast: [0, 2, 4], sway: 18, then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, hp3: 1, fast: [1, 3], sway: 14 }, { t: 12, f: 'topstacks', s: 'stack', hp3: 2, fast: [0, 3] }], foes: [['bat', 100, 220], ['bat', 320, 140]] },
+      { f: 'grid', s: 'tri', d: 15, hp: 2, hp3: 1, sway: 10, cup: [0, 2], cupAll: [4], puffs: [[210, 158]], rocks: [[210, 322, 50, 0, 90, .3]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, hp3: 1, cup: [0, 2, 4], sway: 12 }, { t: 12, f: 'topvee', s: 'tri', hp3: 2, cupAll: [2], fast: [0, 4], puffs: [[120, 116], [280, 114]] }], foes: [['fibcap', 150, 158], ['fibcap', 270, 158], ['chroma', 150, 262, { type: 'sky' }], ['bat', 270, 262]] },
       { f: [[76, 192], [344, 192], [140, 252], [280, 252]], s: 'tri', d: 8.5, hp: 2, cup: [0, 1, 2, 3], puffs: [[150, 138], [270, 138]], rocks: [[210, 304, 60, 0, 100, .3]], boss: { name: 'Crystal Heart', hp: 12, r: 26, type: 'coral', sway: 60, x: 210, y: 98 }, then: [{ t: 8, f: 'topsides', s: 'tri', hp: 2, hp3: 1, cup: [0, 1, 2, 3] }, { t: 16, f: 'topsides', s: 'stack', hp3: 2, fast: [0, 3] }, { t: 24, f: 'topsides', s: 'tri', hp: 3, puffs: [[210, 66]] }], hint: 'Crystal heart! Twelve hits.' }
     ]),
     lv(5, 'lake', 'Glowworm Lake', 'Ride the currents', 2.15, [
       { f: 'square', s: 'tri', d: 10.5, currents: [[210, 330, 330, 60, 0, 4]], then: [{ t: 6, f: 'top3', s: 'tri' }], hint: 'Currents bend shots. Follow the aim line.' },
-      { f: 'wall', s: 'tri', d: 11, hp: 1, currents: [[118, 320, 170, 60, 180, 4.5], [302, 320, 170, 60, 0, 4.5]], then: [{ t: 6, f: 'top4', s: 'line', hp: 1 }] },
+      { f: 'wall', s: 'tri', d: 11, hp: 1, currents: [[118, 320, 170, 60, 180, 4.5], [302, 320, 170, 60, 0, 4.5]], then: [{ t: 6, f: 'top4', s: 'line', hp: 1 }], vents: [[110, 400, 2, 4, 2], [310, 400, 4, 4, 2]], hint: 'Moon jellies rise. Catch them low!' },
       { f: 'vee', s: 'tri', d: 11.5, hp: 1, cup: [0, 1, 3], currents: [[210, 262, 340, 48, 180, 6]], then: [{ t: 7, f: 'top5', s: 'tri', cup: [1, 3] }], hint: 'Let the current carry shots sideways.' },
-      { f: 'arch', s: 'line', d: 11.5, hp: 2, sway: 12, currents: [[112, 360, 160, 56, -55, 4], [308, 360, 160, 56, -125, 4]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 1 }, { t: 12, f: 'topvee', s: 'tri', hp: 2 }] },
-      { f: 'grid', s: 'tri', d: 12, hp: 2, puffs: [[210, 158]], currents: [[210, 296, 80, 130, 90, 6]], then: [{ t: 6, f: 'top4', s: 'tri', hp: 2, puffs: [[210, 104]] }], hint: 'Falling water pushes shots aside.' },
-      { f: 'columns', s: 'stack', d: 12, hp: 2, currents: [[210, 380, 330, 50, 0, 5], [210, 286, 330, 50, 180, 5]], then: [{ t: 6, f: 'topstacks', s: 'stack', hp: 2 }, { t: 12, f: 'top5', s: 'tri', fast: [1, 3] }], hint: 'Two currents, two ways. Plan the S-bend.' },
-      { f: 'ring', s: 'tri', d: 12.5, hp: 2, cupAll: [0], cup: [3], currents: [[58, 300, 280, 36, -90, 5], [362, 300, 280, 36, -90, 5]], then: [{ t: 6, f: 'topsides', s: 'tri', hp: 2 }, { t: 12, f: 'top3', s: 'tri', cupAll: [1] }], hint: 'Ride the side streams up and over.' },
-      { f: 'zigzag', s: 'tri', d: 12, hp: 2, hp3: 1, sway: 14, currents: [[140, 350, 200, 56, -30, 4.5], [290, 258, 200, 56, -150, 4.5]], then: [{ t: 6, f: 'top5', s: 'line', hp: 2 }, { t: 12, f: 'topvee', s: 'tri', hp3: 1, sway: 12 }] },
+      { f: 'arch', s: 'line', d: 11.5, hp: 2, sway: 12, currents: [[112, 360, 160, 56, -55, 4], [308, 360, 160, 56, -125, 4]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 1 }, { t: 12, f: 'topvee', s: 'tri', hp: 2 }], foes: [['glowworm', 250, 250, { dir: -1 }]], hint: 'Glowworms! Hit the glowing head.' },
+      { f: 'grid', s: 'tri', d: 12, hp: 2, puffs: [[210, 158]], currents: [[210, 296, 80, 130, 90, 6]], then: [{ t: 6, f: 'top4', s: 'tri', hp: 2, puffs: [[210, 104]] }], hint: 'Falling water pushes shots aside.', foes: [['fibcap', 150, 150], ['fibcap', 270, 150]] },
+      { f: 'columns', s: 'stack', d: 12, hp: 2, currents: [[210, 380, 330, 50, 0, 5], [210, 286, 330, 50, 180, 5]], then: [{ t: 6, f: 'topstacks', s: 'stack', hp: 2 }, { t: 12, f: 'top5', s: 'tri', fast: [1, 3] }], hint: 'Two currents, two ways. Plan the S-bend.', vents: [[90, 404, 1.5, 4.5, 2], [330, 404, 3.75, 4.5, 2]] },
+      { f: 'ring', s: 'tri', d: 12.5, hp: 2, cupAll: [0], cup: [3], currents: [[58, 300, 280, 36, -90, 5], [362, 300, 280, 36, -90, 5]], then: [{ t: 6, f: 'topsides', s: 'tri', hp: 2 }, { t: 12, f: 'top3', s: 'tri', cupAll: [1] }], hint: 'Ride the side streams up and over.', foes: [['glowworm', 250, 171, { dir: -1 }]] },
+      { f: 'zigzag', s: 'tri', d: 12, hp: 2, hp3: 1, sway: 14, currents: [[140, 350, 200, 56, -30, 4.5], [290, 258, 200, 56, -150, 4.5]], then: [{ t: 6, f: 'top5', s: 'line', hp: 2 }, { t: 12, f: 'topvee', s: 'tri', hp3: 1, sway: 12 }], foes: [['glowworm', 150, 236, { dir: 1 }]], vents: [[320, 404, 3, 5, 2]] },
       { f: 'grid', s: ['tri', 'line', 'tri', 'line', 'tri', 'line'], d: 12.5, hp: 2, hp3: 1, cup: [0, 2, 3, 5], puffs: [[150, 158], [270, 158]], currents: [[210, 262, 340, 44, 180, 6], [210, 372, 330, 50, 0, 4]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, cup: [1, 3] }, { t: 12, f: 'topvee', s: 'line', hp3: 2 }] },
       { f: [[76, 192], [344, 192], [140, 250], [280, 250]], s: 'tri', d: 8, hp: 2, cup: [2, 3], currents: [[210, 352, 330, 56, 0, 4.5]], boss: { name: 'Lantern Lily', hp: 13, r: 26, type: 'lilac', sway: 56, x: 210, y: 100 }, then: [{ t: 8, f: 'topsides', s: 'tri', hp: 2, cup: [0, 1, 2, 3] }, { t: 16, f: 'topsides', s: 'line', hp: 2 }], hint: 'Big bloom! Thirteen hits.' }
     ]),
@@ -249,9 +250,9 @@
       buds.push({ id: tag + '-puff-' + i, group: tag + '-puff-' + i, x: spot[0], y: spot[1], baseX: spot[0], startY: spot[1], r: 12,
         type: 'gold', relay: false, hp: 1, maxHp: 1, puff: true, shield: false, fall: 1, sway: 0, swayW: 0, swayPhase: 0 });
     });
-    // The new pieces (foes.js): [name, x, y, options]. Each foe builds its own buds with ids `<tag>-<name>-<n>`.
-    if (Foes) (spec.foes || []).forEach(function (foe, i) {
-      Foes.make(foe, tag, i, levelId, number, TYPES[(i + number + levelId + 2) % TYPES.length]).forEach(function (bud) { buds.push(bud); });
+    // The new pieces (foes.js): [name, x, y, options]. A foe's buds share the group `<tag>-foe<i>`.
+    if (Foes) (spec.foes || []).forEach(function (spot, i) {
+      Foes.make(spot[0], spot, tag, i, levelId, number).forEach(function (bud) { buds.push(bud); });
     });
     return buds;
   }
@@ -289,7 +290,9 @@
       gates.push({ id: a, pair: z, x: pair[0], y: pair[1], r: r, angle: Math.atan2(pair[1] - LAUNCHER.y, pair[0] - LAUNCHER.x) });
       gates.push({ id: z, pair: a, x: pair[2], y: pair[3], r: r, angle: pair[4] * Math.PI / 180 });
     });
-    return { level: levelId, wave: number, buds: buds, drops: drops, bumpers: bumpers, currents: currents, gates: gates,
+    // Moon Jelly vents: [x, y, first s, every s, count] of wave time.
+    var vents = (spec.vents || []).map(function (v, i) { return { id: tag + '-vent-' + i, x: v[0], y: v[1], first: v[2], every: v[3], count: v[4] }; });
+    return { level: levelId, wave: number, buds: buds, drops: drops, bumpers: bumpers, currents: currents, gates: gates, vents: vents,
       descent: Math.round(spec.d * level.pace * 10) / 10, regrow: spec.regrow || 4,
       speed: Math.min(640, 470 + levelId * 12 + number * 5), fireDelay: Math.max(.42, .6 - levelId * .02 - number * .008),
       boss: Boolean(spec.boss), hint: spec.boss ? BOSSES[levelId - 1].warning : spec.hint || '' };

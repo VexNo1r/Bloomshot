@@ -33,7 +33,9 @@ const CUES = [
   ['lullabyTick', { left: 3 }], ['lullabyTick', { left: 1 }], ['lullabyWake', {}], ['briarTick', { left: 2, x: 100 }], ['briarTick', { left: 0.5, x: 300 }],
   ['podSeed', { pod: 2 }], ['podSeed', { pod: 4 }], ['dry', { wait: 1.2, grow: .3 }],
   ['bossWarning', { kind: 'sunny', x: 150, at: 4, until: 5.2 }], ['bossGuard', { kind: 'fossil', bud: { x: 300 } }],
-  ['bossCritical', { kind: 'lotus', bud: { x: 160 }, damage: 3 }], ['bossBurn', { kind: 'ember', x: 310, y: 150 }]
+  ['bossCritical', { kind: 'lotus', bud: { x: 160 }, damage: 3 }], ['bossBurn', { kind: 'ember', x: 310, y: 150 }],
+  // Every new piece's cues (qa/foe-cues.cjs) meet the same rules.
+  ...require('./foe-cues.cjs')
 ];
 const FLOWERS = ['gold', 'coral', 'lilac', 'sky', 'poppy'];
 function fixture(options = {}) {

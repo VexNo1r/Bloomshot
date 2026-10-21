@@ -4598,8 +4598,8 @@
     unfurlOptions.time = time; unfurlOptions.reducedMotion = Boolean(options.reducedMotion); unfurlOptions.quality = Number(options.quality) || 0;
     findTremble(state);
     // The level campaign's new pieces (foe-art.js) draw only on a wave that has them.
-    const foeArt = rush && state.foeWave && root.BloomFoeArt ? root.BloomFoeArt : null, still = Boolean(options.reducedMotion);
-    if (foeArt) foeArt.under(ctx, state, time, still, FOE_KIT);
+    const foeArt = rush && state.foeWave && root.BloomFoeArt ? root.BloomFoeArt : null, still = Boolean(options.reducedMotion), foeQuality = Number(options.quality) || 0;
+    if (foeArt) foeArt.under(ctx, state, time, still, FOE_KIT, foeQuality);
     for (const bud of buds) {
       if (bud.hidden || bud.visible === false || bud.bossPart) continue;
       if (bud.gift) { if (!bud.bloomed) drawGift(ctx, bud, time, options.reducedMotion); continue; }
@@ -4686,7 +4686,7 @@
       if (bud.briar && !bud.bloomed) drawThorns(ctx, bud);
       if (bud.boss && !bud.bloomed && bossLook(bud)) drawBossBody(ctx, bud, time, Boolean(options.reducedMotion));
       else if (bud.puff) { if (!bud.bloomed) drawPuffcap(ctx, bud, time, options.reducedMotion); }
-      else if (foeArt && !bud.bloomed && foeArt.has(bud)) foeArt.bud(ctx, bud, time, still, state, FOE_KIT);
+      else if (foeArt && !bud.bloomed && foeArt.has(bud)) foeArt.bud(ctx, bud, time, still, state, FOE_KIT, foeQuality);
       else if (bud.geode && !bud.bloomed) drawGeode(ctx, bud, time);
       else if (bud.gem && !bud.bloomed) drawGem(ctx, bud, time, options.reducedMotion);
       else if (bud.bloomed && unfurling.has(bud)) drawUnfurl(ctx, bud, age, unfurlOptions);
@@ -4720,7 +4720,7 @@
     // Flower-specific tells sit above the buds so their small marks cannot be buried by crowns or armor.
     if (rush) drawBossFlowerWarning(ctx, state, time, Boolean(options.reducedMotion));
     for (const bud of buds) if (bud.bossPart) drawBossTarget(ctx, bud, state, time, Boolean(options.reducedMotion));
-    if (foeArt) foeArt.over(ctx, state, time, still, FOE_KIT);
+    if (foeArt) foeArt.over(ctx, state, time, still, FOE_KIT, foeQuality);
     drawFlares(ctx, buds, time, options, line);
     if (rush) drawLullaby(ctx, state, time, options.reducedMotion, buds, true);
     for (const bumper of state.bumpers || []) {
@@ -4731,7 +4731,7 @@
     if (options.showAim !== false && state.aim && (state.status !== 'flying' || options.showAim === true)) {
       const hollow = rush && Number(state.podSize) > 0 && Number.isFinite(state.pod) && state.pod < 1 && !(Number(state.superBloom) > 0);
       drawAim(ctx, state.aim, colors, time, state.nextType, options.reducedMotion, hollow);
-      if (foeArt) foeArt.aim(ctx, state, time, still, FOE_KIT);
+      if (foeArt) foeArt.aim(ctx, state, time, still, FOE_KIT, foeQuality);
     }
     drawLauncher(ctx, state, time, colors, options.keepsake, options.kick, options.reducedMotion);
 
