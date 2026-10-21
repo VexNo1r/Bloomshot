@@ -1,0 +1,34 @@
+{
+  "passed": 7,
+  "failed": 0,
+  "results": [
+    {
+      "name": "Guardians without a kit keep no tiers; a kit guardian turns at two thirds and one third of its health",
+      "passed": true
+    },
+    {
+      "name": "A credited seed stops at a threshold and the next is guarded; powers and uncredited strikes pass it",
+      "passed": true
+    },
+    {
+      "name": "The mood change is a 1.3 s guarded warning, then Phase Bloom: the next tier, a beat of rest, faster moves",
+      "passed": true
+    },
+    {
+      "name": "A guardian dropped past both thresholds at once changes one mood per warning",
+      "passed": true
+    },
+    {
+      "name": "Kit timers and lob flights keep the guardian clock: a Lullaby holds them",
+      "passed": true
+    },
+    {
+      "name": "A beaten kit guardian leaves nothing behind: no moon gates, carried flowers, timers or raised line",
+      "passed": true
+    },
+    {
+      "name": "bosses.js never touches the seed pod and never uses Math.random",
+      "passed": true
+    }
+  ]
+}

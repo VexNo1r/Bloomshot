@@ -1,0 +1,38 @@
+{
+  "passed": 8,
+  "failed": 0,
+  "results": [
+    {
+      "name": "Rolypolies debut in Level 2 wave 2 with their hint, and come back in L2 W5, L2 W8 and L3 W7",
+      "passed": true
+    },
+    {
+      "name": "A credited touch curls it, it rolls away from the touch as a ghost, bowls pins as credited chains, then blooms",
+      "passed": true
+    },
+    {
+      "name": "A roll plays out the same at 30, 60 and 144 FPS",
+      "passed": true
+    },
+    {
+      "name": "A chain, a power or an uncredited strike blooms it plainly, with no roll",
+      "passed": true
+    },
+    {
+      "name": "Seeds pass through a rolling rolypoly, and a roll aimed at the line turns back without costing a life",
+      "passed": true
+    },
+    {
+      "name": "A Lullaby freezes a roll where it is, and it carries on after",
+      "passed": true
+    },
+    {
+      "name": "The bot values a rolypoly by the pins its roll would cross, and forecasts a rolling one as a ghost",
+      "passed": true
+    },
+    {
+      "name": "foes.js never touches the seed pod and never uses Math.random",
+      "passed": true
+    }
+  ]
+}
