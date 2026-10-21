@@ -1064,9 +1064,11 @@ test('Crystal Heart replays identically at 30, 60 and 144 FPS, and a strike loop
     // It stops at the mood line like any credited hit.
     const g = lily(0, 1, { still: true }), s = g.bossState; play(g); s.boss.hp = 32; const low = moons(g).find(m => m.moonLow); shoot(g, low.x, low.y);
     until(g, () => s.boss.hp !== 32, 2); assert.equal(s.boss.hp, 31); assert(s.shiftPending);
-    // The bot values the moon: the same hit on her is worth 30 more through a gate.
-    const plain = bot.value(g, { bud: { ...s.boss }, nx: 0, ny: -1, time: .5, gateHops: 0 }, 0, bot.prepareTrace(g));
-    const moon = bot.value(g, { bud: { ...s.boss }, nx: 0, ny: -1, time: .5, gateHops: 1 }, 0, bot.prepareTrace(g));
+    // The bot values the moon: the same hit on her is worth 30 more through a gate (on a fresh board: the bot also sees
+    // the mood-change hold above, which makes every hit on her worthless until Phase Bloom).
+    const h = lily(0, 1, { still: true }), v = h.bossState; play(h);
+    const plain = bot.value(h, { bud: { ...v.boss }, nx: 0, ny: -1, time: .5, gateHops: 0 }, 0, bot.prepareTrace(h));
+    const moon = bot.value(h, { bud: { ...v.boss }, nx: 0, ny: -1, time: .5, gateHops: 1 }, 0, bot.prepareTrace(h));
     assert.equal(Math.round(moon - plain), 30);
   });
   test('Lily Pads: two pads open low on the lake; each sends up a moon jelly at +.9 s and +2.1 s, then sinks at +2.6 s', () => {
