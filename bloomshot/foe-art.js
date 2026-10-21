@@ -1215,6 +1215,433 @@
   // ── Rootknot (Level 2, `root`) ──
 
   // ── Mother Morel (Level 3, `puff`) ──
+  // A grand, motherly morel who dances. Her face shows her mood (s.tier) on her cream stem: Graceful has soft arched
+  // brows, lashes and a gentle smile while spores twirl up around her cap; Tricky raises one brow over sideways eyes and
+  // a lopsided smirk, with a twinkle; Stormy knits her brows over lidded eyes and a pout under her own grumpy rain cloud.
+  // She hums with her eyes shut (little notes rising) while a partner dances, winks through a fakeout or a paint job,
+  // puffs her cheeks to call the rain, peeks up from under her lowered bonnet, and squeezes her eyes when hit.
+  // Her waltz partner is a puffcap in a lilac bow that leans into the turn (+-10 degrees), steps on the beat (three
+  // beats a bar, six bars a turn, the downbeat deeper), trails spores and sheds a music note every bar on a faint
+  // dance-floor ring; through the warning that ring shows dotted (#cbbfff, alpha .5) with three chevrons and a ghost
+  // partner at each spot. Popped, it bursts into music notes; left alone, it twirls back into her. In Stormy's painted
+  // waltz an invisible brush paints stripes across two partners (6 cached frames from +1.0 s for 1.3 s), which then
+  // poof into fibcaps with the decoy grammar; the real one twinkles. A fakeout draws dotted arcs and "?" bubbles to its
+  // three spots, then tosses the caps spinning, each landing spot glowing as it nears. Ink rain gathers three grumpy
+  // cloudlets over dashed lanes through the warning; through the rain each cloud swells a bead of ink exactly where the
+  // next drop appears and squashes as it lets go, then the clouds thin away. Animations off: no tilt, step, trail,
+  // notes or spin; the wipe jumps at +2.3 s; every tell stays as a still mark.
+  const MOREL_ART = { R: 58, spin: 1, bars: 6, ring: '#cbbfff', lilac: '#b58be0', lilacInk: '#6b4a9a', bowLight: '#dcc4fa', note: '#8f66d1',
+    spore: '#f4ecff', ink: '#603f4d', eye: '#79576f', lid: '#ecd2ab', cheek: '#e6a28e', storm: '#de7476', mouth: '#7e4656',
+    cloud: '#3d356b', cloudTop: '#6b61a6', cloudRim: '#e9dcff', drop: '#2f2a6b', fringe: '#5b4a73', stripe: '#fff7ff', wood: '#b07a4a' };
+  const MOREL_FACES = ['graceful', 'graceful-blink', 'tricky', 'tricky-blink', 'stormy', 'stormy-blink', 'hum', 'wink', 'blow', 'bonnet', 'hurt'];
+  // Where a partner dances (the same closed form as bosses.js and foes.js orbitAt; art keeps no dependency on the rules).
+  function morelSpot(bx, by, a0, t) { const a = a0 + MOREL_ART.spin * t; return { x: bx + MOREL_ART.R * Math.cos(a), y: by + MOREL_ART.R * Math.sin(a), a }; }
+  function morelBrow(c, r, side, shape) {
+    const B = { soft: [[.11, -.24], [.25, -.36], [.39, -.25]], high: [[.1, -.31], [.24, -.45], [.39, -.32]], low: [[.1, -.19], [.25, -.23], [.41, -.2]],
+      v: [[.08, -.14], [.25, -.24], [.42, -.33]], worry: [[.08, -.3], [.25, -.3], [.4, -.21]] }[shape];
+    c.beginPath(); c.moveTo(side * r * B[0][0], r * B[0][1]); c.quadraticCurveTo(side * r * B[1][0], r * B[1][1], side * r * B[2][0], r * B[2][1]);
+    c.strokeStyle = MOREL_ART.ink; c.lineWidth = shape === 'v' ? 2.2 : 1.45; c.lineCap = 'round'; c.stroke();
+  }
+  // kind: lash (open, with lashes), side (pupils glancing aside), half (a level lid), stern (a lid slanting to the nose),
+  // up (pupils raised), shut (a happy closed arc with lashes), blink, squeeze (a chevron).
+  function morelEye(c, r, side, kind) {
+    const x = side * r * .24, rx = r * .11, ry = r * .13, A = MOREL_ART;
+    c.lineCap = 'round'; c.lineJoin = 'round'; c.strokeStyle = A.ink;
+    if (kind === 'shut' || kind === 'blink') {
+      c.beginPath();
+      if (kind === 'shut') c.arc(x, r * .05, rx * 1.05, Math.PI + .4, -.4); else { c.moveTo(x - rx * 1.1, r * .01); c.quadraticCurveTo(x, r * .05, x + rx * 1.1, r * .01); }
+      c.lineWidth = 1.6; c.stroke();
+      const ex = x + side * rx * (kind === 'shut' ? .97 : 1.1), ey = kind === 'shut' ? r * .01 : r * .01;
+      c.beginPath(); c.moveTo(ex, ey); c.lineTo(ex + side * r * .075, ey - r * .03); c.moveTo(ex - side * r * .01, ey - r * .02); c.lineTo(ex + side * r * .045, ey - r * .085);
+      c.lineWidth = 1; c.stroke();
+      return;
+    }
+    if (kind === 'squeeze') {
+      c.beginPath(); c.moveTo(x + side * rx * 1.1, -r * .08); c.lineTo(x - side * rx * .8, 0); c.lineTo(x + side * rx * 1.1, r * .08); c.lineWidth = 1.8; c.stroke();
+      return;
+    }
+    const glance = kind === 'side' ? r * .04 : 0, up = kind === 'up' ? -r * .05 : 0;
+    c.beginPath(); c.ellipse(x, 0, rx, ry, 0, 0, TAU); c.fillStyle = '#ffffff'; c.fill();
+    c.beginPath(); c.arc(x + glance - side * r * .01, r * .025 + up, r * .068, 0, TAU); c.fillStyle = A.eye; c.fill();
+    c.beginPath(); c.arc(x + glance - side * r * .03, -r * .02 + up, r * .026, 0, TAU); c.fillStyle = '#ffffff'; c.fill();
+    if (kind === 'half' || kind === 'stern') {
+      const inner = kind === 'stern' ? r * .03 : -r * .015, outer = kind === 'stern' ? -r * .08 : -r * .015;
+      c.save(); c.beginPath(); c.ellipse(x, 0, rx, ry, 0, 0, TAU); c.clip();
+      c.beginPath(); c.moveTo(x - side * rx * 1.2, inner); c.lineTo(x + side * rx * 1.2, outer); c.lineTo(x + side * rx * 1.2, -ry * 1.2); c.lineTo(x - side * rx * 1.2, -ry * 1.2); c.closePath();
+      c.fillStyle = A.lid; c.fill(); c.restore();
+      c.beginPath(); c.moveTo(x - side * rx * 1.1, inner); c.lineTo(x + side * rx * 1.1, outer); c.lineWidth = 1.5; c.stroke();
+    }
+    c.beginPath(); c.ellipse(x, 0, rx, ry, 0, 0, TAU); c.lineWidth = 1.15; c.stroke();
+    if (kind === 'lash' || kind === 'side' || kind === 'up') {
+      // Two lashes at the outer top corner: she is a lady.
+      for (const k of [0, 1]) {
+        const a = -Math.PI / 2 + side * (.75 + k * .45), px = x + rx * Math.cos(a), py = ry * Math.sin(a);
+        c.beginPath(); c.moveTo(px, py); c.lineTo(px + Math.cos(a) * r * .07, py + Math.sin(a) * r * .07); c.lineWidth = 1; c.stroke();
+      }
+    }
+  }
+  function morelMouth(c, r, kind) {
+    const A = MOREL_ART;
+    c.lineCap = 'round'; c.lineJoin = 'round'; c.strokeStyle = A.ink;
+    if (kind === 'smile') { c.beginPath(); c.arc(0, r * .22, r * .11, .35, Math.PI - .35); c.lineWidth = 1.5; c.stroke(); }
+    else if (kind === 'smirk') {
+      c.beginPath(); c.moveTo(-r * .11, r * .29); c.quadraticCurveTo(r * .03, r * .37, r * .15, r * .23); c.lineWidth = 1.5; c.stroke();
+      c.beginPath(); c.moveTo(r * .13, r * .2); c.lineTo(r * .18, r * .25); c.lineWidth = 1; c.stroke();
+    } else if (kind === 'pout') { c.beginPath(); c.arc(0, r * .41, r * .09, Math.PI + .55, -.55); c.lineWidth = 1.7; c.stroke(); }
+    else if (kind === 'hum' || kind === 'oh') {
+      c.beginPath(); c.ellipse(0, r * .3, r * (kind === 'hum' ? .05 : .04), r * (kind === 'hum' ? .065 : .05), 0, 0, TAU); c.fillStyle = A.mouth; c.fill(); c.lineWidth = 1; c.stroke();
+    } else if (kind === 'blow') {
+      c.beginPath(); c.ellipse(r * .05, r * .3, r * .065, r * .055, 0, 0, TAU); c.fillStyle = A.mouth; c.fill(); c.lineWidth = 1.7; c.stroke();
+    } else if (kind === 'ouch') { c.beginPath(); c.ellipse(0, r * .31, r * .08, r * .07, 0, 0, TAU); c.fillStyle = A.mouth; c.fill(); c.lineWidth = 1.2; c.stroke(); }
+  }
+  function paintMorelFace(c, r, variant) {
+    const A = MOREL_ART, blink = variant.endsWith('-blink'), base = blink ? variant.slice(0, -6) : variant, puffed = base === 'blow';
+    for (const side of [-1, 1]) {
+      c.save(); c.globalAlpha = base === 'stormy' ? .85 : puffed ? .8 : .65;
+      c.beginPath(); c.ellipse(side * r * (puffed ? .4 : .42), r * .17, r * (puffed ? .15 : .1), r * (puffed ? .11 : .055), side * -.25, 0, TAU);
+      c.fillStyle = base === 'stormy' ? A.storm : A.cheek; c.fill(); c.restore();
+    }
+    const brows = { graceful: ['soft', 'soft'], tricky: ['high', 'low'], stormy: ['v', 'v'], hum: ['high', 'high'], wink: ['high', 'low'], blow: ['v', 'v'],
+      bonnet: ['worry', 'worry'], hurt: ['v', 'v'] }[base];
+    morelBrow(c, r, -1, brows[0]); morelBrow(c, r, 1, brows[1]);
+    const eyes = blink ? ['blink', 'blink'] : { graceful: ['lash', 'lash'], tricky: ['side', 'half'], stormy: ['stern', 'stern'], hum: ['shut', 'shut'],
+      wink: ['side', 'shut'], blow: ['squeeze', 'squeeze'], bonnet: ['up', 'up'], hurt: ['squeeze', 'squeeze'] }[base];
+    morelEye(c, r, -1, eyes[0]); morelEye(c, r, 1, eyes[1]);
+    morelMouth(c, r, { graceful: 'smile', tricky: 'smirk', stormy: 'pout', hum: 'hum', wink: 'smirk', blow: 'blow', bonnet: 'oh', hurt: 'ouch' }[base]);
+  }
+  // The partner's lilac bow (drawn after any paint, so it stays on top).
+  function paintMorelBow(c, k) {
+    const A = MOREL_ART;
+    c.lineJoin = 'round'; c.lineWidth = 1;
+    for (const side of [-1, 1]) {
+      c.beginPath(); c.moveTo(side * .6 * k, .8 * k); c.lineTo(side * 2.8 * k, 5.6 * k); c.lineTo(side * 1.1 * k, 5.1 * k); c.closePath();
+      c.fillStyle = A.lilac; c.fill(); c.strokeStyle = A.lilacInk; c.stroke();
+    }
+    for (const side of [-1, 1]) {
+      c.beginPath(); c.moveTo(0, 0); c.bezierCurveTo(side * 4.6 * k, -4.2 * k, side * 7.2 * k, -1 * k, side * 6.2 * k, 2.4 * k); c.bezierCurveTo(side * 4.8 * k, 3.8 * k, side * 2.4 * k, 2 * k, 0, 0); c.closePath();
+      c.fillStyle = A.lilac; c.fill(); c.strokeStyle = A.lilacInk; c.stroke();
+      c.beginPath(); c.moveTo(side * 1.6 * k, -.6 * k); c.quadraticCurveTo(side * 3.8 * k, -2.2 * k, side * 5 * k, -.6 * k); c.strokeStyle = A.bowLight; c.lineWidth = .9; c.stroke(); c.lineWidth = 1;
+    }
+    c.beginPath(); c.arc(0, .3 * k, 1.7 * k, 0, TAU); c.fillStyle = A.bowLight; c.fill(); c.strokeStyle = A.lilacInk; c.stroke();
+  }
+  // Wipe frame f (0..5): the left (f + 1) / 6 of the puffcap painted fibcap lilac with three white zig-zag stripes.
+  function paintMorelWipe(c, r, f) {
+    const A = MOREL_ART, k = r / 12, edge = -r + 2 * r * (f + 1) / 6;
+    c.save(); c.beginPath(); c.ellipse(0, 0, r + .8, r * .9 + .8, 0, 0, TAU); c.clip();
+    const brush = () => { c.beginPath(); c.moveTo(-r - 3, -r - 3); for (let i = 0; i <= 8; i++) c.lineTo(edge + (i % 2 ? 1.7 : -1.1) * k, -r + i * r / 4); c.lineTo(-r - 3, r + 3); c.closePath(); };
+    brush(); c.fillStyle = A.lilac; c.fill();
+    c.save(); brush(); c.clip();
+    c.beginPath(); c.ellipse(r * .55, r * .2, r * .7, r * 1.1, 0, 0, TAU); c.fillStyle = '#9469c9'; c.fill();
+    c.strokeStyle = A.stripe; c.lineWidth = 2.1 * k; c.lineJoin = 'miter'; c.lineCap = 'butt';
+    for (const y of [-.58, -.08, .42]) {
+      c.beginPath();
+      for (let i = 0, x = -r - 2.6 * k; x <= r + 2.6 * k; i++, x += 2.6 * k) { const py = (y + (i % 2 ? -.12 : .12)) * r; if (i) c.lineTo(x, py); else c.moveTo(x, py); }
+      c.stroke();
+    }
+    c.restore();
+    brush(); c.strokeStyle = '#7f58b3'; c.lineWidth = 1; c.stroke();
+    c.restore();
+  }
+  function paintMorelNote(c) {
+    const A = MOREL_ART, head = () => { c.beginPath(); c.ellipse(-1.6, 3.6, 2.9, 2.1, -.4, 0, TAU); }, stem = () => { c.beginPath(); c.moveTo(1, 3.2); c.lineTo(1, -6); c.quadraticCurveTo(4, -4.6, 5.2, -1.4); };
+    c.lineCap = 'round'; c.lineJoin = 'round';
+    c.strokeStyle = '#ffffff'; c.lineWidth = 3.4; head(); c.stroke(); stem(); c.stroke();
+    c.fillStyle = A.note; head(); c.fill(); c.strokeStyle = A.note; c.lineWidth = 1.5; stem(); c.stroke();
+  }
+  // A "?" bubble over a fakeout spot (a path, so it never waits on a web font).
+  function paintMorelAsk(c) {
+    const A = MOREL_ART;
+    c.beginPath(); c.arc(0, 0, 8, 0, TAU); c.fillStyle = 'rgba(255,255,255,.94)'; c.fill(); c.strokeStyle = A.lilac; c.lineWidth = 1.6; c.stroke();
+    c.beginPath(); c.moveTo(-.8, 7.6); c.lineTo(-3.6, 11.4); c.lineTo(2.2, 7.4); c.closePath(); c.fillStyle = 'rgba(255,255,255,.94)'; c.fill();
+    c.beginPath(); c.arc(0, -2.1, 2.7, Math.PI * 1.02, Math.PI * 2.42); c.lineTo(0, 1.7); c.strokeStyle = A.lilacInk; c.lineWidth = 1.9; c.lineCap = 'round'; c.stroke();
+    c.beginPath(); c.arc(0, 4.4, 1.15, 0, TAU); c.fillStyle = A.lilacInk; c.fill();
+  }
+  // A grumpy little ink cloud, with a pale rim so it reads on the dark Grotto.
+  function paintMorelCloud(c) {
+    const A = MOREL_ART, blobs = [[-9.5, 1.5, 6.5], [-3, -3.5, 7.5], [5, -2.5, 7], [10.5, 2, 5.5], [0, 3, 7.5]];
+    for (const [x, y, r] of blobs) { c.beginPath(); c.arc(x, y, r + 1.5, 0, TAU); c.fillStyle = A.cloudRim; c.fill(); }
+    for (const [x, y, r] of blobs) { c.beginPath(); c.arc(x, y, r, 0, TAU); c.fillStyle = A.cloud; c.fill(); }
+    for (const [x, y, r] of blobs.slice(0, 4)) { c.beginPath(); c.arc(x - r * .2, y - r * .38, r * .48, 0, TAU); c.fillStyle = A.cloudTop; c.fill(); }
+    c.lineCap = 'round'; c.strokeStyle = A.cloudRim; c.fillStyle = A.cloudRim;
+    for (const side of [-1, 1]) {
+      c.beginPath(); c.arc(side * 3.6, 2.4, 1.2, 0, TAU); c.fill();
+      c.beginPath(); c.moveTo(side * 5.6, -.8); c.lineTo(side * 1.9, .4); c.lineWidth = 1.1; c.stroke();
+    }
+    c.beginPath(); c.moveTo(-2, 6.2); c.quadraticCurveTo(0, 4.9, 2, 6.2); c.lineWidth = 1; c.stroke();
+  }
+  // A bead of ink, the same navy and pale rim as an inkcap's drop.
+  function paintMorelBead(c) {
+    const A = MOREL_ART, r = 4;
+    c.beginPath(); c.moveTo(0, -r * 1.7); c.bezierCurveTo(r * .4, -r, r, -r * .2, r, r * .25); c.arc(0, r * .25, r, 0, Math.PI); c.bezierCurveTo(-r, -r * .2, -r * .4, -r, 0, -r * 1.7); c.closePath();
+    c.fillStyle = A.drop; c.fill(); c.strokeStyle = A.cloudRim; c.lineWidth = 1.1; c.stroke();
+    c.beginPath(); c.arc(-r * .35, 0, r * .28, 0, TAU); c.fillStyle = 'rgba(255,255,255,.85)'; c.fill();
+  }
+  // The invisible painter's brush: a lilac tip at the origin on a little wooden handle.
+  function paintMorelBrush(c) {
+    const A = MOREL_ART;
+    c.lineCap = 'round';
+    c.beginPath(); c.moveTo(3, -3); c.lineTo(12, -12); c.strokeStyle = '#ffffff'; c.lineWidth = 4.4; c.stroke(); c.strokeStyle = A.wood; c.lineWidth = 2.4; c.stroke();
+    c.beginPath(); c.moveTo(1.6, -1.6); c.lineTo(4.2, -4.2); c.strokeStyle = '#c9c9d6'; c.lineWidth = 3.2; c.stroke();
+    c.beginPath(); c.ellipse(0, 0, 2.6, 4.2, Math.PI / 4, 0, TAU); c.fillStyle = A.lilac; c.fill(); c.strokeStyle = A.lilacInk; c.lineWidth = .9; c.stroke();
+  }
+  const morelFace = (r, v) => [`kit:puff:face:${r}:${v}`, [-r * .64, -r * .52, r * .64, r * .5], c => paintMorelFace(c, r, v)];
+  const MOREL_SPRITES = {
+    cap: (kit, r) => [`kit:puff:cap:${r}`, [-r - 7, -r - 7, r + 7, r + 8], c => kit.drawPuffcap(c, { x: 0, y: 0, r }, 0, true)],
+    bow: r => [`kit:puff:bow:${r}`, [-r * .66, -r * .5, r * .66, r * .56], c => paintMorelBow(c, r / 12)],
+    wipe: (r, f) => [`kit:puff:wipe:${r}:${f}`, [-r - 4, -r - 4, r + 4, r + 4], c => paintMorelWipe(c, r, f)],
+    note: () => ['kit:puff:note', [-6, -9, 8, 8], paintMorelNote],
+    ask: () => ['kit:puff:ask', [-10, -10, 10, 13], paintMorelAsk],
+    cloud: () => ['kit:puff:cloud', [-18, -13, 18, 12], paintMorelCloud],
+    bead: () => ['kit:puff:bead', [-6, -9, 6, 7], paintMorelBead],
+    brush: () => ['kit:puff:brush', [-4, -15, 15, 4], paintMorelBrush]
+  };
+  const morelStamp = (ctx, kit, [key, box, paint], x, y, turn, sx, sy) => stamp(ctx, kit, key, box, paint, x, y, turn, sx, sy);
+  // A puffcap in its bow, at the current origin.
+  function morelCap(ctx, kit, r) { morelStamp(ctx, kit, MOREL_SPRITES.cap(kit, r), 0, 0); morelStamp(ctx, kit, MOREL_SPRITES.bow(r), r * .38, -r * .7, .35); }
+  // A painted partner: the fibcap look (matte disc, rock, glint) at the current origin.
+  function morelFib(ctx, state, id, r, time, still, kit, quality) {
+    const look = LOOKS.fibcap;
+    if (look && look.bud) { ctx.save(); look.bud(ctx, { id, foe: 'fibcap', x: 0, y: 0, r }, time, still, state, kit, quality); ctx.restore(); }
+    else morelStamp(ctx, kit, MOREL_SPRITES.cap(kit, r), 0, 0);
+  }
+  // The dance floor: a dotted ring at R around her, flowing with the dancers (phase), and three chevrons on a warning.
+  function morelFloor(ctx, x, y, alpha, phase, chevrons, turn) {
+    const R = MOREL_ART.R, pts = [];
+    for (let i = 0; i <= 48; i++) { const a = i / 48 * TAU; pts.push([x + R * Math.cos(a), y + R * Math.sin(a)]); }
+    ctx.save(); ctx.globalAlpha *= alpha; dotted(ctx, pts, MOREL_ART.ring, 1.7, TAU * R / 40, phase); ctx.restore();
+    if (!chevrons) return;
+    ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    for (let i = 0; i < 3; i++) {
+      const a = turn + i * TAU / 3;
+      ctx.save(); ctx.translate(x + R * Math.cos(a), y + R * Math.sin(a)); ctx.rotate(a + Math.PI / 2);
+      ctx.beginPath(); ctx.moveTo(-3, -4.5); ctx.lineTo(2.5, 0); ctx.lineTo(-3, 4.5);
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 4.2; ctx.stroke(); ctx.strokeStyle = MOREL_ART.ring; ctx.lineWidth = 2.2; ctx.stroke();
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+  const morelDancing = s => (s.parts || []).some(p => (p.bossPart === 'waltz' || p.bossPart === 'fibwaltz') && !p.bloomed);
+  const morelCloudY = b => b.y + (b.r || 25) - 2;
+  kitLook('puff', {
+    warm(kit) {
+      const r = 25, jobs = [...MOREL_FACES.map(v => morelFace(r, v)), MOREL_SPRITES.cap(kit, 12), MOREL_SPRITES.bow(12), MOREL_SPRITES.note(), MOREL_SPRITES.ask(),
+        MOREL_SPRITES.cloud(), MOREL_SPRITES.bead(), MOREL_SPRITES.brush()];
+      for (let f = 0; f < 6; f++) jobs.push(MOREL_SPRITES.wipe(12, f));
+      for (const [key, box, paint] of jobs) kit.atlasSprite(key, box[0], box[1], box[2], box[3], paint);
+      if (LOOKS.fibcap && LOOKS.fibcap.warm) LOOKS.fibcap.warm(kit, 12);
+    },
+    face(ctx, state, s, bud, time, still, kit, quality) {
+      if (!bud.boss) return false;
+      const r = Number(bud.r) || 25, look = kit.BOSS_LOOKS.puff, health = (Number(bud.hp) || 0) / Math.max(1, Number(bud.maxHp) || 1), clock = Number(s.kitAge) || 0;
+      const w = s.warning && time < s.warning.until ? s.warning : null, tier = clamp(s.tier | 0, 0, 2), bonnet = s.mode === 'bonnet';
+      const hurt = typeof bud.hitAt === 'number' && time - bud.hitAt >= 0 && time - bud.hitAt < .3;
+      const dancing = (s.parts || []).some(p => p.bossPart === 'waltz' && !p.bloomed);
+      const painting = (s.parts || []).some(p => p.painting && p.bossPart === 'waltz' && !p.bloomed && clock - p.born >= 1 && clock - p.born < 2.3);
+      const tossing = (s.lobs || []).some(l => l.look === 'puffcap' || l.look === 'fibcap'), blink = !still && (time + r * .1) % 3.7 < .12;
+      const variant = hurt ? 'hurt' : bonnet ? 'bonnet' : w && w.move === 'ink' ? 'blow' : w && (w.move === 'fakeout' || w.move === 'fibwaltz') || tossing || painting ? 'wink'
+        : tier < 2 && (dancing || w && w.move === 'waltz') ? 'hum' : ['graceful', 'tricky', 'stormy'][tier] + (blink ? '-blink' : '');
+      // The face turns with her body: a shiver when nearly beaten (as art.js poses her).
+      ctx.translate(bud.x, bud.y); if (!still && health <= .2) ctx.rotate(Math.sin(time * TAU * 6) * .04);
+      const capTop = -r * (bonnet ? 1.37 : 1.67);
+      // Mood marks, around her body: Graceful's twirling spores, Stormy's own grumpy cloud with a drizzle on her cap.
+      const alpha = ctx.globalAlpha;
+      if (tier === 0 && !still && quality === 0) {
+        for (let i = 0; i < 5; i++) {
+          const ph = (time * .28 + i / 5) % 1, a = time * 1.2 + i * TAU / 5;
+          ctx.globalAlpha = alpha * Math.sin(Math.PI * ph) * .85;
+          kit.circle(ctx, Math.cos(a) * r * (1.02 + .38 * ph), -r * .3 - r * 1.45 * ph + Math.sin(a) * r * .12, 1.4 + .9 * (1 - ph), MOREL_ART.spore, MOREL_ART.lilac, .7);
+        }
+        ctx.globalAlpha = alpha;
+      } else if (tier === 2) {
+        const cx = r * .34, cy = capTop - 7 + (still ? 0 : Math.sin(time * 1.3) * 1.2);
+        ctx.lineCap = 'round'; ctx.strokeStyle = MOREL_ART.cloudRim; ctx.lineWidth = 1.2;
+        for (let i = 0; i < 3; i++) {
+          const k = still ? .45 : (time * 1.6 + i / 3) % 1, x = cx - 5 + i * 5 - k * 1.5, y = cy + 4 + k * 9;
+          ctx.globalAlpha = alpha * (still ? .8 : (1 - k) * .9); ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 1, y + 3); ctx.stroke();
+        }
+        ctx.globalAlpha = alpha; morelStamp(ctx, kit, MOREL_SPRITES.cloud(), cx, cy, 0, .52);
+      }
+      // Humming: a note drifts up from her mouth now and then.
+      if (variant === 'hum' && !still && quality <= 1) {
+        for (let j = 0; j < 2; j++) {
+          const ph = (time * .8 + j * .5) % 1;
+          ctx.save(); ctx.globalAlpha *= Math.sin(Math.PI * ph); morelStamp(ctx, kit, MOREL_SPRITES.note(), r * .55 + ph * 9, r * .62 - ph * 24, Math.sin(ph * 6) * .3, .75); ctx.restore();
+        }
+      }
+      ctx.translate(r * (look.faceX || 0), r * look.faceY + (bonnet ? r * .06 : 0));
+      morelStamp(ctx, kit, morelFace(r, variant), 0, 0);
+      if (variant === 'tricky' || variant === 'tricky-blink') {
+        const k = still ? .9 : .55 + .45 * Math.abs(Math.sin(time * 2.6));
+        kit.sparkle(ctx, r * .47, -r * .3, r * .12 * k, '#ffffff', .2);
+      }
+      return true;
+    },
+    part(ctx, state, s, bud, time, still, kit, quality) {
+      if (bud.bossPart !== 'waltz' && bud.bossPart !== 'fibwaltz') return false;
+      const clock = Number(s.kitAge) || 0, age = clock - (Number(bud.born) || 0), r = bud.r || 12, a0 = Number(bud.a0) || 0, b = s.boss, alpha = ctx.globalAlpha;
+      // A trail of spores behind it on the floor, and a music note shed at every bar.
+      if (!still && quality <= 1 && b) {
+        const n = quality ? 4 : 8;
+        for (let k = 1; k <= n; k++) {
+          const t = age - k * .07; if (t < 0) break;
+          const at = morelSpot(b.x, b.y, a0, t);
+          ctx.globalAlpha = alpha * .6 * (1 - k / (n + 1)); kit.circle(ctx, at.x, at.y + r * .25, 2.5 - 1.5 * k / n, MOREL_ART.spore);
+        }
+        ctx.globalAlpha = alpha;
+        const bar = TAU / (MOREL_ART.spin * MOREL_ART.bars), now = Math.floor(age / bar);
+        for (let j = now; j >= now - 1 && j >= 1; j--) {
+          const k = (age - j * bar) / .9; if (k < 0 || k >= 1) continue;
+          const at = morelSpot(b.x, b.y, a0, j * bar), side = j % 2 ? 1 : -1;
+          ctx.save(); ctx.globalAlpha *= k < .15 ? k / .15 : 1 - (k - .15) / .85;
+          morelStamp(ctx, kit, MOREL_SPRITES.note(), at.x + side * (5 + 7 * k) + Math.sin(k * 7) * 2, at.y - r - 16 * k, Math.sin(k * 5) * .3 * side, .8 + .2 * k);
+          ctx.restore();
+        }
+      }
+      // It leans into the turn and steps on the beat: three beats a bar, six bars a turn, the downbeat deeper.
+      let tilt = 0, sx = 1, sy = 1;
+      if (!still) {
+        tilt = -.1745 * Math.cos(a0 + MOREL_ART.spin * age);
+        const beats = age * MOREL_ART.spin * MOREL_ART.bars * 3 / TAU, beat = Math.floor(beats), f = beats - beat, q = (beat % 3 === 0 ? .12 : .05) * (1 - f) * (1 - f);
+        const pop = age < .3 ? kit.easeBack(clamp(age / .3, 0, 1)) : 1;
+        sx = (1 + q) * pop; sy = (1 - q) * pop;
+      }
+      ctx.save(); ctx.translate(bud.x, bud.y + r * .9); if (tilt) ctx.rotate(tilt); if (sx !== 1 || sy !== 1) ctx.scale(sx, sy); ctx.translate(0, -r * .9);
+      if (bud.bossPart === 'fibwaltz') {
+        // Painted: it poofs into a fibcap.
+        const since = clock - (Number.isFinite(bud.paintedAt) ? bud.paintedAt : -9), poof = still || since >= .25 ? 1 : kit.easeBack(clamp(since / .25, 0, 1));
+        if (poof !== 1) ctx.scale(poof, poof);
+        morelFib(ctx, state, bud.id, r, time, still, kit, quality);
+        ctx.restore();
+        if (!still && since >= 0 && since < .35) {
+          const k = since / .35; ctx.globalAlpha = alpha * (1 - k);
+          kit.circle(ctx, bud.x, bud.y, r + 4 + 14 * k, null, '#ffffff', 2.6); kit.circle(ctx, bud.x, bud.y, r + 4 + 14 * k, null, MOREL_ART.lilac, 1.2);
+          ctx.globalAlpha = alpha;
+        }
+        return true;
+      }
+      morelStamp(ctx, kit, MOREL_SPRITES.cap(kit, r), 0, 0);
+      const wipe = age - 1;
+      if (bud.painting && !still && wipe >= 0 && wipe < 1.3) {
+        morelStamp(ctx, kit, MOREL_SPRITES.wipe(r, Math.min(5, Math.floor(wipe / 1.3 * 6))), 0, 0);
+        morelStamp(ctx, kit, MOREL_SPRITES.brush(), -r + 2 * r * clamp(wipe / 1.3, 0, 1), Math.sin(time * 16) * r * .5, Math.sin(time * 16) * .25);
+      }
+      morelStamp(ctx, kit, MOREL_SPRITES.bow(r), r * .38, -r * .7, .35);
+      ctx.restore();
+      // The real one twinkles as the others are painted: find the spots!
+      const spotted = clock - (Number.isFinite(bud.spottedAt) ? bud.spottedAt : -9);
+      if (spotted >= 0 && spotted < 1.2) {
+        const k = still ? 1 : Math.sin(Math.PI * spotted / 1.2);
+        kit.sparkle(ctx, bud.x + r * .75, bud.y - r * .75, r * .5 * k, '#ffffff', .2); kit.sparkle(ctx, bud.x - r * .85, bud.y - r * .05, r * .3 * k, '#fff3b0', .5);
+      }
+      return true;
+    },
+    under(ctx, state, s, time, still, kit) {
+      const b = s.boss, clock = Number(s.kitAge) || 0;
+      if (!b || b.bloomed) return;
+      // The dance floor while a partner dances.
+      if (morelDancing(s)) morelFloor(ctx, b.x, b.y, .3, still ? 0 : -clock * MOREL_ART.R * MOREL_ART.spin, false, 0);
+      // Ink clouds: gathering over their lanes through the warning, raining, then thinning away. Under the buds, so the
+      // middle one gathers behind her skirt.
+      const w = s.warning && time < s.warning.until ? s.warning : null, cy = morelCloudY(b);
+      if (w && w.move === 'ink') {
+        const p = clamp((time - w.at) / Math.max(.1, w.until - w.at), 0, 1), grow = still ? 1 : .3 + .7 * kit.smooth(p);
+        for (const t of w.targets || []) if (t.role === 'ink') { ctx.save(); ctx.globalAlpha *= still ? 1 : .35 + .65 * p; morelStamp(ctx, kit, MOREL_SPRITES.cloud(), t.x, cy, 0, grow); ctx.restore(); }
+      }
+      const ink = s.ink;
+      if (ink && Array.isArray(ink.lanes)) {
+        const fade = clock > ink.until ? clamp(1 - (clock - ink.until) / .6, 0, 1) : 1;
+        ctx.save(); ctx.globalAlpha *= .3 * fade; ctx.setLineDash([5, 9]); ctx.lineDashOffset = still ? 0 : -time * 30; ctx.lineCap = 'round';
+        for (const x of ink.lanes) { ctx.beginPath(); ctx.moveTo(x, cy + 14); ctx.lineTo(x, (Number(state.dangerY) || 448) - 8); ctx.strokeStyle = MOREL_ART.cloudRim; ctx.lineWidth = 1.6; ctx.stroke(); }
+        ctx.restore();
+        ink.lanes.forEach((x, k) => {
+          const since = clock - (ink.last ? ink.last[k] : -9), sq = !still && since >= 0 && since < .2 ? Math.sin(since / .2 * Math.PI) : 0;
+          const bob = still ? 0 : Math.sin(time * 2 + k * 1.7) * 1.2, spread = (1 - fade) * 10 * (k - (ink.lanes.length - 1) / 2);
+          ctx.save(); ctx.globalAlpha *= fade; morelStamp(ctx, kit, MOREL_SPRITES.cloud(), x + spread, cy + bob, 0, (1 + .12 * sq) * (1 + .2 * (1 - fade)), (1 - .12 * sq) * (1 + .2 * (1 - fade))); ctx.restore();
+        });
+      }
+    },
+    over(ctx, state, s, time, still, kit, quality) {
+      const b = s.boss, clock = Number(s.kitAge) || 0;
+      if (!b || b.bloomed) return;
+      const w = s.warning && time < s.warning.until ? s.warning : null;
+      if (w) {
+        const p = clamp((time - w.at) / Math.max(.1, w.until - w.at), 0, 1);
+        if (w.move === 'waltz' || w.move === 'fibwaltz') {
+          // The dance floor, three chevrons turning the way she will dance, and a ghost partner at each starting spot.
+          morelFloor(ctx, b.x, b.y, .5, still ? 0 : -time * MOREL_ART.R * MOREL_ART.spin, true, still ? 0 : time * MOREL_ART.spin);
+          for (const t of w.targets || []) {
+            if (t.role !== 'waltz') continue;
+            ctx.save(); ctx.globalAlpha *= still ? .45 : .2 + .35 * p; ctx.translate(t.x, t.y); if (!still) ctx.scale(.6 + .4 * p, .6 + .4 * p); morelCap(ctx, kit, 12); ctx.restore();
+          }
+        } else if (w.move === 'fakeout') {
+          // Dotted arcs from her to each spot, and a "?" bubble bobbing over it.
+          for (const t of w.targets || []) {
+            if (t.role !== 'fakeout') continue;
+            const pts = []; for (let i = 0; i <= 20; i++) { const at = lobAt(b.x, b.y, t.x, t.y, 1, i / 20, 40); pts.push([at.x, at.y]); }
+            ctx.save(); ctx.globalAlpha *= .85; dotted(ctx, pts.slice(2), MOREL_ART.lilac, 1.6, 8, still ? 0 : -time * 16); ctx.restore();
+            const pop = still ? 1 : kit.easeBack(clamp(p / .3, 0, 1)), bob = still ? 0 : Math.sin(time * 4 + t.x * .1) * 1.6;
+            morelStamp(ctx, kit, MOREL_SPRITES.ask(), t.x, t.y - (t.r || 12) - 13 + bob, still ? 0 : Math.sin(time * 3 + t.x) * .12, pop);
+          }
+        } else if (w.move === 'ink') {
+          // Three dashed lanes flowing down from where the clouds gather, with a first bead hanging under each.
+          const cy = morelCloudY(b);
+          ctx.save(); ctx.setLineDash([7, 7]); ctx.lineDashOffset = still ? 0 : -time * 24; ctx.lineCap = 'round'; const base = ctx.globalAlpha;
+          for (const t of w.targets || []) {
+            if (t.role !== 'ink') continue;
+            for (const [color, width, alpha] of [['#ffffff', 4, .55], [MOREL_ART.fringe, 2, 1]]) {
+              ctx.globalAlpha = base * alpha; ctx.beginPath(); ctx.moveTo(t.x, cy + 16); ctx.lineTo(t.x, t.y - 20); ctx.strokeStyle = color; ctx.lineWidth = width; ctx.stroke();
+            }
+          }
+          ctx.restore();
+          for (const t of w.targets || []) if (t.role === 'ink') morelStamp(ctx, kit, MOREL_SPRITES.bead(), t.x, b.y + (b.r || 25) + 8, 0, still ? .8 : .3 + .5 * p);
+        }
+      }
+      // Caps in flight: tossed up out of her, spinning once, each landing spot glowing as it nears.
+      for (const l of s.lobs || []) {
+        if (l.look !== 'puffcap' && l.look !== 'fibcap') continue;
+        const t = clock - l.t0; if (t < 0) continue;
+        const at = lobAt(l.x0, l.y0, l.x1, l.y1, l.T, t, 40), u = at.u;
+        ctx.save(); ctx.globalAlpha *= .25 + .45 * u; ctx.beginPath(); ctx.ellipse(l.x1, l.y1 + 11, 4 + 8 * u, 1.8 + 2.4 * u, 0, 0, TAU); ctx.fillStyle = MOREL_ART.cloudRim; ctx.fill(); ctx.restore();
+        if (!still && quality === 0) for (let k = 1; k <= 3; k++) {
+          const back = lobAt(l.x0, l.y0, l.x1, l.y1, l.T, t - k * .05, 40); if (back.u <= 0) break;
+          ctx.save(); ctx.globalAlpha *= .5 - k * .12; kit.circle(ctx, back.x, back.y, 2.3 - k * .4, MOREL_ART.spore); ctx.restore();
+        }
+        ctx.save(); ctx.translate(at.x, at.y); if (!still) ctx.rotate((l.turn || 1) * u * TAU); ctx.scale(.55 + .45 * u, .55 + .45 * u);
+        if (l.look === 'fibcap') morelFib(ctx, state, 'morel-lob', 12, time, true, kit, quality); else morelStamp(ctx, kit, MOREL_SPRITES.cap(kit, 12), 0, 0);
+        ctx.restore();
+      }
+      // Ink rain: under each cloud a bead swells exactly where the next drop appears.
+      const ink = s.ink;
+      if (ink && Array.isArray(ink.lanes) && clock < ink.until) {
+        ink.lanes.forEach((x, k) => {
+          const next = ink.t0 + .27 * k + .8 * (ink.made ? ink.made[k] : 0), lead = next - clock;
+          if (next >= ink.until || lead < 0 || lead >= .35) return;
+          morelStamp(ctx, kit, MOREL_SPRITES.bead(), x, b.y + (b.r || 25) + 8, 0, still ? 1 : .3 + .7 * (1 - lead / .35));
+        });
+      }
+      // Partners: popped ones burst into music notes; ones left to the end twirl back into her.
+      for (const p of s.partners || []) {
+        const r = p.r || 12;
+        if (p.closed) {
+          const since = clock - (Number(p.closedAt) || 0); if (!(since >= 0 && since < .5)) continue;
+          const k = since / .5, e = kit.smooth(k);
+          ctx.save(); ctx.globalAlpha *= 1 - k * k; ctx.translate(p.x + (b.x - p.x) * e, p.y + (b.y - p.y) * e); if (!still) ctx.rotate(k * TAU); ctx.scale(1 - .6 * e, 1 - .6 * e);
+          if (p.bossPart === 'fibwaltz') morelFib(ctx, state, p.id, r, time, true, kit, quality); else morelCap(ctx, kit, r);
+          ctx.restore();
+          continue;
+        }
+        if (!p.bloomed || p.bossPart !== 'waltz' || still || quality > 1) continue;
+        const since = time - (Number(p.bloomAt) || -9); if (!(since >= 0 && since < .9)) continue;
+        const k = since / .9, out = 6 + 34 * (1 - Math.pow(1 - k, 3));
+        for (let i = 0; i < 6; i++) {
+          const a = -Math.PI / 2 + (i - 2.5) * .55;
+          ctx.save(); ctx.globalAlpha *= 1 - k * k;
+          morelStamp(ctx, kit, MOREL_SPRITES.note(), p.x + Math.cos(a) * out, p.y + Math.sin(a) * out * .8 - 10 * k, Math.sin(k * 6 + i) * .35, .7 + .5 * (1 - k));
+          ctx.restore();
+        }
+      }
+    }
+  });
 
   // ── Crystal Heart (Level 4, `crystal`) ──
 
