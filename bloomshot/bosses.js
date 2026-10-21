@@ -1,8 +1,8 @@
 (function (root, factory) {
   'use strict';
-  if (typeof module === 'object' && module.exports) module.exports = factory();
-  else root.BloomBosses = factory();
-})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./foes.js'));
+  else root.BloomBosses = factory(root.BloomFoes);
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (Foes) {
   'use strict';
   // Deterministic guardian encounters. All vulnerable parts are real seed colliders, all changes announce
   // their exact landing points, and no encounter changes the seed pod or needs a bought powerup.

@@ -232,7 +232,7 @@
     if (!isRush()) for (const key of ['wave', 'lives', 'elapsed', 'splitReady']) delete canvas.dataset[key];
     $('split-btn').hidden = !isRush();
     angle = -Math.PI / 2; pointer = null; aiming = false; guiding = false; resultAt = Infinity; resultShown = false; remembered = null; pressPoint = null;
-    displayScore = 0; hudKey = ''; newFlower = null; newKeepsake = null; accumulator = 0; rushRecordBroken = false; depthNews = null; game.shieldSeen = false; game.shellSeen = false; game.geodeSeen = false;
+    displayScore = 0; hudKey = ''; newFlower = null; newKeepsake = null; accumulator = 0; rushRecordBroken = false; depthNews = null; game.shieldSeen = false; game.shellSeen = false; game.geodeSeen = false; game.foesSeen = new Set();
     runId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`; runAward = 0; runBouquet = null; runGoals = null; shotTrail = []; trailTotal = 0;
     if (!preview && typeof level.id === 'number') { save.lastLevel = level.id; persist(); }
     $('level-name').textContent = level.name;
@@ -1049,7 +1049,11 @@
   // The warm-up: while the intro plays, every sprite the level can need is painted a few ms at a time (art.js prewarm).
   let warm = null;
   function warmPlan() {
-    const flowers = new Map(), callouts = [], add = bud => { if (bud && bud.type && !bud.boss && !bud.geode && !bud.gift && !(bud.r > 16)) flowers.set(`${bud.type}:${bud.r || 11}`, { type: bud.type, r: bud.r || 11 }); };
+    const flowers = new Map(), foes = new Map(), callouts = [], add = bud => {
+      // A foe paints its own sprites ahead (foe-art.js warm); it still blooms as a flower of its color.
+      if (bud && bud.foe) foes.set(`${bud.foe}:${bud.r || 11}:${bud.type}`, [bud.foe, bud.r || 11, bud.type]);
+      if (bud && bud.type && !bud.boss && !bud.geode && !bud.gift && !(bud.r > 16)) flowers.set(`${bud.type}:${bud.r || 11}`, { type: bud.type, r: bud.r || 11 });
+    };
     let boss = null, gems = false;
     if (isDepth()) {
       for (let w = 1; w <= game.finalWave; w++) {
@@ -1069,7 +1073,7 @@
     const tricks = (window.BloomRush && BloomRush.TRICKS) || {};
     for (const [kind, def] of Object.entries(tricks)) callouts.push({ kind: 'trick', trick: kind, text: def.name, label: '' });
     for (const text of ['2 lives left', '1 life left', 'Out of lives']) callouts.push({ kind: 'life', text });
-    return { flowers: [...flowers.values()].slice(0, 12), board: game.buds.filter(bud => !bud.boss && !bud.gift), boss, callouts, keepsake: currentKeepsake() };
+    return { flowers: [...flowers.values()].slice(0, 12), foes: [...foes.values()].slice(0, 16), board: game.buds.filter(bud => !bud.boss && !bud.gift), boss, callouts, keepsake: currentKeepsake() };
   }
   function warmUp() {
     warm = null;
@@ -1362,7 +1366,7 @@
     if (bud.boss) return true;
     if (game.drops && game.drops.length) return false;
     const queued = game.pending.length ? new Set(game.pending.map(item => item.id)) : null;
-    return !game.buds.some(other => !other.bloomed && !other.gift && !(queued && queued.has(other.id) && oneHit(other)));
+    return !game.buds.some(other => !other.bloomed && !other.gift && !other.inert && !(queued && queued.has(other.id) && oneHit(other)));
   }
   // The final flower's own motion (a boss sways 40 px/s or more), measured frame to frame in game time so the
   // prediction leads it; a jump (a boss climbing back up) counts as standing still. Until a new target has been
@@ -1556,7 +1560,7 @@
     // On the last life the heart beats while a flower hangs close over the line (a sound, so Animations off keeps it).
     if (danger.lastLife && game.started) {
       let low = -Infinity;
-      for (const bud of game.buds) if (!bud.bloomed && !bud.gift) low = Math.max(low, bud.y + (bud.r || 11));
+      for (const bud of game.buds) if (!bud.bloomed && !bud.gift && !bud.inert && !bud.hidden) low = Math.max(low, bud.y + (bud.r || 11));
       const now = performance.now() / 1000;
       if (low >= game.dangerY - 90 && now - beatAt >= .83) { beatAt = now; BloomSound.play('heartbeat', {}); }
     }
@@ -1577,6 +1581,32 @@
     aimTarget = target;
     if (target && (target.relay || target.boss || target.gift)) { BloomSound.play('aimLock', { type: target.type }); haptic('tick'); }
   }
+  // The level campaign's new pieces (foes.js). Each foe event is `name:act`; its look lives in FOE_FX below, and a pop,
+  // fizzle or sweep without one gets a small shared puff. A foe met for the first time in a run says what it does once,
+  // unless the wave's own hint already introduced it.
+  const FOE_FX = Object.create(null);
+  function meetFoes(introduced = false) {
+    if (!game.foeWave || !window.BloomFoes) return;
+    const seen = game.foesSeen || (game.foesSeen = new Set());
+    for (const bud of game.buds) {
+      if (!bud.foe || bud.bloomed || seen.has(bud.foe)) continue;
+      seen.add(bud.foe);
+      const hint = BloomFoes.hintFor(bud.foe);
+      if (hint && !introduced) { $('game-hint').textContent = hint; say(hint); introduced = true; }
+    }
+  }
+  function foeEvent(event) {
+    const kind = String(event.kind || ''), at = kind.indexOf(':'), name = kind.slice(0, at), act = kind.slice(at + 1);
+    const fx = FOE_FX[name] && FOE_FX[name][act];
+    if (fx) { fx(event); return; }
+    const spot = { x: event.x ?? event.bud?.x ?? 210, y: event.y ?? event.bud?.y ?? 200, type: event.bud?.type || 'lilac', r: event.bud?.r || 10 };
+    if (act === 'pop') { burst(spot, 10, game.particles, currentKeepsake(), false); haptic('tick'); }
+    else if (act === 'fizzle' || act === 'sweep') burst(spot, 5, game.particles, currentKeepsake(), false);
+  }
+  // -----------------------------------------------------------------------------------------------------------------
+  // The foe effects. Each lives in its own block: FOE_FX.<name> = { <act>(event) { ... } }.
+  // -----------------------------------------------------------------------------------------------------------------
+
   function processEvents() {
     for (const event of game.drainEvents()) {
       if (isTutorial()) tutorial.observe(event);
@@ -1642,6 +1672,7 @@
       } else if (event.type === 'wave') {
         const bossName = event.boss ? event.bossName || (game.buds.find(bud => bud.boss) || {}).name || '' : '';
         if (isDepth()) {
+          meetFoes(Boolean(event.hint));
           $('game-hint').textContent = event.hint || `Wave ${game.wave} of ${game.finalWave}.`;
           say(`Wave ${game.wave} of ${game.finalWave}. ${bossName ? `${bossName}! ` : ''}${event.hint || ''} ${game.lives} ${game.lives === 1 ? 'life' : 'lives'} left.`);
         } else {
@@ -1662,6 +1693,8 @@
             game.floaters.push({ kind: 'title', size: 'small', x: 210, y: 32, life: tip ? 2.6 : .9, maxLife: tip ? 2.6 : .9, text: isDepth() ? `Wave ${game.wave} of ${game.finalWave}` : `Wave ${game.wave}`, label: isDepth() ? tip : `×${game.tempo.toFixed(1)}` });
           }
         }
+      } else if (event.type === 'foe') {
+        foeEvent(event);
       } else if (event.type === 'bossWarning') {
         $('game-hint').textContent = event.flowerText || event.text;
         say(`${event.name}: ${event.text}${event.flowerText ? ` ${event.flowerText}` : ''}`);
@@ -1678,6 +1711,7 @@
       } else if (event.type === 'shield') {
         burst({ x: event.x, y: event.y, type: 'gold', r: 6 }, 6); haptic('tick');
         if (event.bud?.bossKind) $('game-hint').textContent = game.bossWarning?.text || bossOpeningTip(event.bud);
+        else if (event.foe) foeEvent({ ...event, kind: event.foe + ':guard' });
         else if (event.shell && !game.shellSeen) { game.shellSeen = true; $('game-hint').textContent = 'Shells only open on one side. Wait for the gap.'; }
         else if (!event.shell && !game.shieldSeen) { game.shieldSeen = true; $('game-hint').textContent = 'Cups block shots from below. Hit them from the side.'; }
       } else if (event.type === 'geode') {
@@ -1737,6 +1771,7 @@
         $('game-hint').textContent = 'The gift bubble floated away.';
       } else if (event.type === 'drop') {
         $('game-hint').textContent = 'More flowers dropping in!';
+        meetFoes();
       } else if (event.type === 'life') {
         jolt(.45, .06, 0); addWilts(event); game.heartBreak = { index: event.index ?? game.lives, at: game.time }; redFlash = 1; headline(livesNote());
         $('game-hint').textContent = !game.lives ? 'The flowers reached the line.' : event.boss ? `The big bloom touched the line and climbed back up! ${game.lives} ${game.lives === 1 ? 'life' : 'lives'} left.` : `Flowers crossed the line! ${game.lives} ${game.lives === 1 ? 'life' : 'lives'} left.`;
@@ -1912,7 +1947,7 @@
       state.heat = Math.max((game.combo || 0) / 12, state.superBloom ? 1 : 0) + ((game.balls || []).length >= 2 ? .15 : 0);
       if (isRush() && !isTutorial()) {
         let lowest = -Infinity;
-        for (const bud of game.buds) if (!bud.bloomed && bud.y > lowest) lowest = bud.y;
+        for (const bud of game.buds) if (!bud.bloomed && !bud.inert && !bud.hidden && bud.y > lowest) lowest = bud.y;
         state.threat = (Number.isFinite(lowest) ? clamp((lowest - (game.dangerY - 120)) / 120, 0, 1) : 0) + (game.lives === 1 ? .3 : 0);
       }
       state.boss = Boolean(game.bossWave);

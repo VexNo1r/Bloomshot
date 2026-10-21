@@ -15,7 +15,7 @@ let browser;
   await page.route('**/*', async route => {
     const url = new URL(route.request().url());
     if (url.pathname === '/__art-review__') {
-      await route.fulfill({ contentType: 'text/html', body: '<!doctype html><link rel="stylesheet" href="/styles.css"><body>' + ['engine', 'bosses', 'rush', 'depths', 'scenery', 'art'].map(name => `<script src="/${name}.js"></script>`).join('') }); return;
+      await route.fulfill({ contentType: 'text/html', body: '<!doctype html><link rel="stylesheet" href="/styles.css"><body>' + ['engine', 'foes', 'bosses', 'rush', 'depths', 'scenery', 'art'].map(name => `<script src="/${name}.js"></script>`).join('') }); return;
     }
     const file = path.resolve(gameRoot, '.' + decodeURIComponent(url.pathname));
     if (!file.startsWith(gameRoot + path.sep) || !fs.existsSync(file)) { await route.fulfill({ status: 404, body: '' }); return; }

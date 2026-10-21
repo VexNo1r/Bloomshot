@@ -1,9 +1,10 @@
 (function (root, factory) {
   'use strict';
-  var depths = factory(typeof module === 'object' && module.exports ? require('./bosses.js') : root.BloomBosses);
+  var node = typeof module === 'object' && module.exports;
+  var depths = factory(node ? require('./bosses.js') : root.BloomBosses, node ? require('./foes.js') : root.BloomFoes);
   if (typeof module === 'object' && module.exports) module.exports = depths;
   else root.BloomDepths = depths;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function (Bosses) {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (Bosses, Foes) {
   'use strict';
   if (!Bosses) throw new Error('Load bosses.js before depths.js.');
 
@@ -247,6 +248,10 @@
     (spec.puffs || []).forEach(function (spot, i) {
       buds.push({ id: tag + '-puff-' + i, group: tag + '-puff-' + i, x: spot[0], y: spot[1], baseX: spot[0], startY: spot[1], r: 12,
         type: 'gold', relay: false, hp: 1, maxHp: 1, puff: true, shield: false, fall: 1, sway: 0, swayW: 0, swayPhase: 0 });
+    });
+    // The new pieces (foes.js): [name, x, y, options]. Each foe builds its own buds with ids `<tag>-<name>-<n>`.
+    if (Foes) (spec.foes || []).forEach(function (foe, i) {
+      Foes.make(foe, tag, i, levelId, number, TYPES[(i + number + levelId + 2) % TYPES.length]).forEach(function (bud) { buds.push(bud); });
     });
     return buds;
   }

@@ -4579,6 +4579,9 @@
     const unfurling = pickUnfurls(buds, time, options), line = rush ? Number(state.dangerY) || 448 : Infinity;
     unfurlOptions.time = time; unfurlOptions.reducedMotion = Boolean(options.reducedMotion); unfurlOptions.quality = Number(options.quality) || 0;
     findTremble(state);
+    // The level campaign's new pieces (foe-art.js) draw only on a wave that has them.
+    const foeArt = rush && state.foeWave && root.BloomFoeArt ? root.BloomFoeArt : null, still = Boolean(options.reducedMotion);
+    if (foeArt) foeArt.under(ctx, state, time, still, FOE_KIT);
     for (const bud of buds) {
       if (bud.hidden || bud.visible === false || bud.bossPart) continue;
       if (bud.gift) { if (!bud.bloomed) drawGift(ctx, bud, time, options.reducedMotion); continue; }
@@ -4665,6 +4668,7 @@
       if (bud.briar && !bud.bloomed) drawThorns(ctx, bud);
       if (bud.boss && !bud.bloomed && bossLook(bud)) drawBossBody(ctx, bud, time, Boolean(options.reducedMotion));
       else if (bud.puff) { if (!bud.bloomed) drawPuffcap(ctx, bud, time, options.reducedMotion); }
+      else if (foeArt && !bud.bloomed && foeArt.has(bud)) foeArt.bud(ctx, bud, time, still, state, FOE_KIT);
       else if (bud.geode && !bud.bloomed) drawGeode(ctx, bud, time);
       else if (bud.gem && !bud.bloomed) drawGem(ctx, bud, time, options.reducedMotion);
       else if (bud.bloomed && unfurling.has(bud)) drawUnfurl(ctx, bud, age, unfurlOptions);
@@ -4698,6 +4702,7 @@
     // Flower-specific tells sit above the buds so their small marks cannot be buried by crowns or armor.
     if (rush) drawBossFlowerWarning(ctx, state, time, Boolean(options.reducedMotion));
     for (const bud of buds) if (bud.bossPart) drawBossTarget(ctx, bud, state, time, Boolean(options.reducedMotion));
+    if (foeArt) foeArt.over(ctx, state, time, still, FOE_KIT);
     drawFlares(ctx, buds, time, options, line);
     if (rush) drawLullaby(ctx, state, time, options.reducedMotion, buds, true);
     for (const bumper of state.bumpers || []) {
@@ -4708,6 +4713,7 @@
     if (options.showAim !== false && state.aim && (state.status !== 'flying' || options.showAim === true)) {
       const hollow = rush && Number(state.podSize) > 0 && Number.isFinite(state.pod) && state.pod < 1 && !(Number(state.superBloom) > 0);
       drawAim(ctx, state.aim, colors, time, state.nextType, options.reducedMotion, hollow);
+      if (foeArt) foeArt.aim(ctx, state, time, still, FOE_KIT);
     }
     drawLauncher(ctx, state, time, colors, options.keepsake, options.kick, options.reducedMotion);
 
@@ -4780,6 +4786,8 @@
     for (const hex of ['#ff5d94', '#ffd148', '#a47dff', '#45adff', '#ff7433']) add(() => glowMote(hex));
     for (const rgb of VEILS) add(() => veilSprite(rgb));
     add(() => curtainSprite('top')); add(() => curtainSprite('bottom'));
+    // The level's new pieces (foe-art.js), one job each.
+    for (const item of plan.foes || []) add(() => { if (root.BloomFoeArt) root.BloomFoeArt.warm([item], FOE_KIT); });
     // Lettering: titles, the boss's card, stamps and life bands (each only once its font is in).
     for (const floater of plan.callouts || []) add(() => warmCallout(sctx, floater));
     // The boss's vine.
@@ -4863,6 +4871,8 @@
     };
   }
 
+  // The toolbox foe-art.js draws with, so the new pieces share the atlas, the flowers and the palette.
+  const FOE_KIT = Object.freeze({ atlasSprite, blit, drawFlower, circle, sparkle, starPath, roundRect, shade, FLOWERS, TAU, clamp, ease, smooth, easeBounce, easeBack });
   root.BloomArt = { draw, drawSceneLife, drawFlower, drawGarden, drawMoon, koiFish, drawProjectile, drawParticle, drawSeed, drawPowerIcon, drawUnfurl, drawChainLinks,
     prewarm, setHarvestTarget, spentFlower, paints: () => painted,
     // Where a pod seed sits: slot 0 is the cup, 1-3 the tray beside it.

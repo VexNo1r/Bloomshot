@@ -4,7 +4,7 @@
 const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
 const { Worker, isMainThread, parentPort } = require('node:worker_threads');
 const gameRoot = path.resolve(__dirname, '..');
-const hashSources = () => Object.fromEntries(['engine.js','rush.js','depths.js','bosses.js','qa/depths-bot.cjs','qa/measure-spam.cjs'].map(file => [file, crypto.createHash('sha256').update(fs.readFileSync(path.join(gameRoot,file))).digest('hex')]));
+const hashSources = () => Object.fromEntries(['engine.js','foes.js','rush.js','depths.js','bosses.js','qa/depths-bot.cjs','qa/measure-spam.cjs'].map(file => [file, crypto.createHash('sha256').update(fs.readFileSync(path.join(gameRoot,file))).digest('hex')]));
 if (!isMainThread) {
   const Bot = require('./depths-bot.cjs');
   parentPort.on('message', task => {

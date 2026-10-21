@@ -3,7 +3,7 @@
 const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
 const { chromium } = require('playwright');
 const gameRoot = path.resolve(__dirname, '..'), output = path.resolve(process.argv[2] || path.join(gameRoot, '../../../outputs/bloomshot-boss-flower-review'));
-const files = ['engine.js', 'bosses.js', 'rush.js', 'depths.js', 'scenery.js', 'art.js', 'styles.css'];
+const files = ['engine.js', 'foes.js', 'bosses.js', 'rush.js', 'depths.js', 'scenery.js', 'art.js', 'foe-art.js', 'styles.css'];
 const sources = Object.fromEntries(files.map(name => [name, fs.readFileSync(path.join(gameRoot, name))]));
 const sha = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 const sourceHashes = Object.fromEntries(Object.entries(sources).map(([name, bytes]) => [name, sha(bytes)]));

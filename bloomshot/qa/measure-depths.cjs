@@ -10,7 +10,7 @@ const profiles = {
   average: { noise: 4, think: .5, thinkSpread: .5, bounces: 1 },
   good: { noise: 2.5, think: .3, thinkSpread: .3, bounces: 2 }
 };
-const hashSources = () => Object.fromEntries(['engine.js', 'rush.js', 'depths.js', 'bosses.js', 'qa/depths-bot.cjs', 'qa/measure-depths.cjs'].map(file => [file, crypto.createHash('sha256').update(fs.readFileSync(path.join(gameRoot, file))).digest('hex')]));
+const hashSources = () => Object.fromEntries(['engine.js', 'foes.js', 'rush.js', 'depths.js', 'bosses.js', 'qa/depths-bot.cjs', 'qa/measure-depths.cjs'].map(file => [file, crypto.createHash('sha256').update(fs.readFileSync(path.join(gameRoot, file))).digest('hex')]));
 if (!isMainThread) {
   const Bot = require('./depths-bot.cjs');
   parentPort.on('message', task => {

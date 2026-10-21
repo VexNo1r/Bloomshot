@@ -10,7 +10,9 @@ const Engine = require('../engine.js');
 const { RushGame, bossMotion } = require('../rush.js');
 const Depths = require('../depths.js');
 const Bosses = require('../bosses.js');
-const TRACE_STEPS = 90, TRACE_DT = 1 / 60;
+const Foes = require('../foes.js');
+// Each forecast slice holds x, y, r and whether the piece is hidden (a mole underground) at that moment.
+const TRACE_STEPS = 90, TRACE_DT = 1 / 60, STRIDE = 4;
 
 function rng(seed) {
   return () => { seed |= 0; seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
@@ -20,23 +22,33 @@ function plan(id) { const level = Depths.level(id); return { id, name: level.nam
 // Follows one shot until it first touches a bud (or gives up), bouncing off walls, the leaf and rocks, bending
 // in currents and passing through tunnels the way the game does.
 function prepareTrace(game) {
-  const originals = game.buds.filter(bud => !bud.bloomed && !bud.hidden && bud.visible !== false);
+  // A foe that moves on its own (a rolling rolypoly, a mole about to pop up) is forecast by foes.js, hidden or not.
+  const foreseen = bud => game.foeWave && bud.foe && Foes.forecasts(bud);
+  const originals = game.buds.filter(bud => !bud.bloomed && (!bud.hidden || foreseen(bud)) && bud.visible !== false);
   const rich = Boolean(game.bossState), moving = [], predicted = originals.map(bud => {
-    if (!(bud.boss || rich && bud.bossPart)) return bud;
-    const copy = { ...bud }, future = new Float64Array(TRACE_STEPS * 3);
-    moving.push({ original: bud, bud: copy, future }); return copy;
+    const boss = bud.boss || rich && bud.bossPart;
+    if (!boss && !foreseen(bud)) return bud;
+    const copy = { ...bud }, future = new Float64Array(TRACE_STEPS * STRIDE);
+    moving.push({ original: bud, bud: copy, future, foe: !boss }); return copy;
   });
+  const out = { x: 0, y: 0, r: 0, hidden: false };
   // All angle candidates share these visible-position predictions. No next attack, shuffle, revival or
   // future vulnerability is simulated; the module caps predictions at an advertised transition.
   for (let step = 0; moving.length && step < TRACE_STEPS; step++) {
     const seconds = step * TRACE_DT, poses = rich ? Bosses.predictVisible(game, seconds) : null;
     for (const m of moving) {
-      const b = m.original; let pos = poses && poses.get(b.id);
+      const b = m.original, at = step * STRIDE;
+      if (m.foe) {
+        Foes.predict(game, b, seconds, out);
+        m.future[at] = out.x; m.future[at + 1] = out.y; m.future[at + 2] = out.r || b.r; m.future[at + 3] = out.hidden ? 1 : 0;
+        continue;
+      }
+      let pos = poses && poses.get(b.id);
       if (!pos) {
         const motion = bossMotion(b.bossKind, game.time - game.waveStart + seconds, b.sway || 0, b.swayW || 1);
         pos = { x: b.baseX + motion.x, y: b.y + (game.lullaby > seconds ? 0 : game.descentSpeed * b.fall * Math.max(0, seconds - game.lullaby)) + motion.y - (b.bossBob || 0), r: b.r };
       }
-      const at = step * 3; m.future[at] = pos.x; m.future[at + 1] = pos.y; m.future[at + 2] = pos.r || b.r;
+      m.future[at] = pos.x; m.future[at + 1] = pos.y; m.future[at + 2] = pos.r || b.r;
     }
   }
   const targets = rich ? Bosses.targets(game) : [], priorities = new Map(targets.map(t => [t.bud.id, t.priority]));
@@ -47,7 +59,7 @@ function trace(game, angle, bounces = 3, prepared = prepareTrace(game)) {
   let vx = Math.cos(angle) * game.speed, vy = Math.sin(angle) * game.speed;
   const { state, moving, currents } = prepared;
   for (let step = 0; step < TRACE_STEPS; step++) {
-    for (const m of moving) { const at = step * 3; m.bud.x = m.future[at]; m.bud.y = m.future[at + 1]; m.bud.r = m.future[at + 2]; }
+    for (const m of moving) { const at = step * STRIDE; m.bud.x = m.future[at]; m.bud.y = m.future[at + 1]; m.bud.r = m.future[at + 2]; m.bud.hidden = m.future[at + 3] > 0; }
     const lane = currents.length && Engine.laneAt(currents, p.x, p.y);
     if (lane) { const v = Engine.steer(vx, vy, lane, dt); vx = v.x; vy = v.y; }
     let remaining = dt;
@@ -78,6 +90,9 @@ function value(game, hit, timing, prepared) {
   const bud = hit.bud;
   if (prepared && prepared.rich && (bud.boss || bud.bossPart) && !Bosses.canHit(game, bud, hit, { gateHops: hit.gateHops })) return -1;
   if (bud.bossPart === 'satellite' && bud.lit === false) return -1;
+  // A foe knows its own rules: a decoy is never worth a seed, and some shots are better than others.
+  const foe = bud.foe ? Foes.value(game, bud, hit, prepared) : 0;
+  if (foe < 0) return -1;
   if (bud.shield && hit.ny > .28) return -1;
   // A shell keeps turning while the shot flies, so check where its opening will be on arrival.
   if (bud.shell && !(prepared && prepared.rich && (bud.boss || bud.bossPart))) {
@@ -108,7 +123,7 @@ function value(game, hit, timing, prepared) {
     const innerDot = game.bossState.lockStage === 0 ? 1 : hit.nx * Math.cos(inner) + hit.ny * Math.sin(inner);
     safety = 24 * Math.max(0, Math.min(1, mouthDot, innerDot) - .25);
   }
-  return danger * 100 + Math.max(0, Math.min(95, tactical)) * .6 + safety + opportunity + (bud.relay ? 30 : 0) + (bud.puff ? 45 : 0) + (bud.boss ? 25 : 0) + (bud.regrowAt ? 40 : 0) + (bud.gem ? 15 : 0) - hit.time * 20;
+  return danger * 100 + Math.max(0, Math.min(95, tactical)) * .6 + safety + opportunity + (bud.relay ? 30 : 0) + (bud.puff ? 45 : 0) + (bud.boss ? 25 : 0) + (bud.regrowAt ? 40 : 0) + (bud.gem ? 15 : 0) + foe - hit.time * 20;
 }
 function play(levelId, options = {}) {
   const random = rng(options.seed || 1), noise = options.noise ?? 1.4;
@@ -131,7 +146,7 @@ function play(levelId, options = {}) {
       for (const target of prepared.targets.slice(0, 12)) {
         const moving = prepared.moving.find(m => m.original.id === target.bud.id); let x = target.bud.x, y = target.bud.y;
         if (moving) {
-          const seconds = Math.hypot(x - game.launcher.x, y - game.launcher.y) / game.speed, at = Math.min(TRACE_STEPS - 1, Math.round(seconds / TRACE_DT)) * 3;
+          const seconds = Math.hypot(x - game.launcher.x, y - game.launcher.y) / game.speed, at = Math.min(TRACE_STEPS - 1, Math.round(seconds / TRACE_DT)) * STRIDE;
           x = moving.future[at]; y = moving.future[at + 1];
         }
         const direct = Math.atan2(y - game.launcher.y, x - game.launcher.x);
