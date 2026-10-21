@@ -474,6 +474,15 @@
   }
 
   // ── Old Sunny (Level 1, `sunny`) ──
+  // A harp yawn that sighs down a step, a marimba "ptoo" as a portal spits, a wooden snap and a bright chime when one is
+  // shot shut, three rubbed-glass notes drifting down for the snooze Z, a rising bell triplet when it pops, and two
+  // slow falling water drops when it lands and the aim guide nods off.
+  BOSS_ACTS['sunny:yawn:start'] = [['harp', step(4), 0, .14, .05], ['harp', step(2), .12, .2, .045], ['crunch', 'click', .12, .4]];
+  BOSS_ACTS['sunny:snooze:start'] = [['glass', step(9), 0, .12, .04], ['glass', step(7), .1, .12, .04], ['glass', step(4), .2, .2, .035]];
+  BOSS_ACTS['sunny:yawn:spit'] = [['marimba', step(4), 0, .1, .06], ['marimba', step(2), .08, .12, .05], ['crunch', 'pop', .08, .6]];
+  BOSS_ACTS['sunny:yawn:shut'] = [['wood', step(4), 0, .07, .06], ['crunch', 'click', 0, .6], ['chime', step(11), .06, .3, .045]];
+  BOSS_ACTS['sunny:snooze:zpop'] = [['bell', step(7), 0, .14, .06], ['bell', step(9), .08, .16, .055], ['bell', step(11), .16, .3, .05], ['crunch', 'pop', 0, .6]];
+  BOSS_ACTS['sunny:snooze:nap'] = [['drop', step(2), 0, .3, .05], ['drop', step(0), .25, .35, .045]];
 
   // ── Rootknot (Level 2, `root`) ──
 

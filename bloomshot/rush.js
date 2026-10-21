@@ -535,7 +535,8 @@
       }
       if (!credit) return;
       // Tricks and the sun. Only blooms a seed earned count: a direct touch, or a chain that seed started.
-      let charge = (chain ? CHARGE.chained : CHARGE.direct) + (bud.puff ? CHARGE.puff : 0) + (bud.geode ? CHARGE.geode : 0);
+      // A guardian part that pays "+1 sun" when shot (Sunny's portals, Lily's pads) carries sunBonus (spec 1.5).
+      let charge = (chain ? CHARGE.chained : CHARGE.direct) + (bud.puff ? CHARGE.puff : 0) + (bud.geode ? CHARGE.geode : 0) + (bud.sunBonus || 0);
       const kind = !chain && credit.ball ? this._flightTrick(credit.ball, bud) : null;
       if (kind) charge += this._trick(kind, bud, credit.by);
       if (ball && ball.streak >= 3 && !record.hat) { record.hat = true; charge += this._trick('hat', bud, credit.by); }

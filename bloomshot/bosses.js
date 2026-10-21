@@ -657,6 +657,134 @@
   // s.kitAge (stopped by a Lullaby); a kit bumper or moon gate with kitUntil (and expires: Infinity) leaves at that time.
 
   // ── Old Sunny (Level 1, `sunny`) ──
+  // The first guardian, so every attack is slow, shown and answerable with one plain seed. Sleepy (tier 0) plays his
+  // original pair: a sprout volley (the art draws it dropping out of little sun portals) and a nap in his bubble. Cranky
+  // (tier 1) yawns real portals open: each drops a sprout at once and spits a second one 1.6 s later unless it is shot
+  // shut first ("Shut!", +1 sun), and closes by itself at 3 s. His nap bubble now takes two hits. Wide awake (tier 2)
+  // adds a snooze Z that drifts down to the launcher: popping it makes him dizzy for 3 s (double damage); if it gets
+  // there, the aim guide naps for 2.5 s (the seed pod is never touched). Portals and the Z are one-hit parts; all their
+  // timing and motion is on the kit clock, so a Lullaby holds them.
+  const SUNNY = { portalUp: 34, portalR: 16, spitAt: 1.6, closeAt: 3, sproutR: 14, zR: 13, zSpeed: 60, zSway: 30, zLand: { x: 210, y: 430 }, zSide: 30, zDrop: 22, nap: 2.5, dizzy: 3 };
+  // Where the snooze Z is u of the way along its lazy path: a straight drift to the launcher with two slow side sways.
+  function sunnyZ(p, clock) {
+    const dx = p.to.x - p.from.x, dy = p.to.y - p.from.y, u = clamp((clock - p.born) * SUNNY.zSpeed / p.len, 0, 1);
+    const w = SUNNY.zSway * Math.sin(4 * Math.PI * u);
+    return { x: p.from.x + dx * u - dy / p.len * w, y: p.from.y + dy * u + dx / p.len * w, u };
+  }
+  // A spot clear of every open piece, now and (ahead) once a tell has run: flowers fall and the guardian drifts.
+  function sunnyClear(game, s, x, y, r, pad, ahead, skip) {
+    const later = ahead ? positions(s, TELEGRAPH) : null;
+    return game.buds.every(p => {
+      if (p === skip || !open(p) || p.hidden) return true;
+      if (Math.hypot(p.x - x, p.y - y) < p.r + r + pad) return false;
+      if (!later) return true;
+      const pose = p.boss || p.bossPart ? later.get(p.id) : null;
+      return Math.hypot((pose ? pose.x : p.x) - x, (pose ? pose.y : p.y + game.descentSpeed * (p.fall || 1) * TELEGRAPH) - y) >= p.r + r + pad;
+    });
+  }
+  // One sprout dropped from a portal's mouth, with the volley's fall (five seconds to the line) and markings.
+  function sunnySprout(game, s, id, group, x, y) {
+    const r = SUNNY.sproutR, sprout = { id, group, x, y, baseX: x, startY: y, r, type: 'gold', hp: 1, maxHp: 1, relay: false,
+      fall: (game.dangerY - y - r) / (5 * Math.max(1, game.descentSpeed)), sway: 0, hitAt: -100, bloomAt: -100, bloomed: false,
+      spawnAt: game.time, bossSummon: true, bossSource: s.boss.id, sunnySprout: true };
+    game.buds.push(sprout); return sprout;
+  }
+  kit('sunny', {
+    hp: 18,
+    moods: ['Sleepy', 'Cranky', 'Wide awake'],
+    stageText: [null, 'Old Sunny is cranky now!', 'Old Sunny is wide awake!'],
+    text: { yawn: 'Big yawn! Shut the sun portals.', snooze: 'A snooze Z! Pop it before it lands.' },
+    moves: [['sprouts', 'nap'], ['yawn', 'nap'], ['yawn', 'snooze', 'nap']],
+    init(game, s) { s.portals = []; },
+    plan: {
+      // The volley's two sprout spots, each with a sun portal just above it (dropped where a piece is in the way).
+      yawn(game, s) {
+        const sprouts = sunnyTargets(game); if (!sprouts.length) return null;
+        const portals = sprouts.map(t => ({ x: t.x, y: t.y - SUNNY.portalUp, r: SUNNY.portalR, role: 'portal' }))
+          .filter(m => sunnyClear(game, s, m.x, m.y, 0, 20, true));
+        return { targets: [...sprouts, ...portals] };
+      },
+      // The Z leaves from beside his face (never over his nap bubble) and lands just above the launcher.
+      snooze(game, s, b) {
+        if (s.parts.some(p => p.bossPart === 'z' && !p.bloomed)) return null;
+        const at = positions(s, TELEGRAPH).get(b.id), side = at.x > 210 ? -1 : 1;
+        return { targets: [{ x: at.x + side * SUNNY.zSide, y: at.y + SUNNY.zDrop, r: 16, role: 'z' }, { x: SUNNY.zLand.x, y: SUNNY.zLand.y, r: 20, role: 'zland' }] };
+      }
+    },
+    act: {
+      yawn(game, s, w) {
+        // Portals open first, so the volley's own sprouts never count as something in their way.
+        const marks = w.targets.filter(t => t.role === 'portal' && sunnyClear(game, s, t.x, t.y, 0, 20, true));
+        sunnyVolley(game, w.targets.filter(t => t.role === 'sprout'));
+        const portals = marks.map(t => part(game, 'portal', t.x, t.y, SUNNY.portalR, 1, { born: s.kitAge, sunBonus: 1 }));
+        if (portals.length) { s.portals.push(...portals); after(s, SUNNY.spitAt, 'spit', portals); for (const p of portals) after(s, SUNNY.closeAt, 'close', p); }
+        // Like the volley, a yawn never cuts short a dizzy window the player earned: the next move waits for it.
+        return Math.max(2.5, (s.modeUntil + .8 - s.age) / TIER_PACE[s.tier]);
+      },
+      snooze(game, s) {
+        const b = s.boss, side = b.x > 210 ? -1 : 1, from = { x: b.x + side * SUNNY.zSide, y: b.y + SUNNY.zDrop }, to = { ...SUNNY.zLand };
+        part(game, 'z', from.x, from.y, SUNNY.zR, 1, { born: s.kitAge, from, to, len: Math.hypot(to.x - from.x, to.y - from.y) });
+      },
+      // From Cranky on, his nap bubble takes two hits.
+      nap(game, s, w) { const bubble = s.parts.find(p => p.bossPart === 'bubble'); if (bubble && s.tier) bubble.maxHp = 2; return legacyAct(game, s, w); }
+    },
+    timer: {
+      // Each portal still open spits its second sprout; a pair spat together is one life, like the volley.
+      spit(game, s, portals) {
+        const live = portals.filter(p => !p.bloomed && !p.closed); if (!live.length) return;
+        const group = `${s.boss.id}-spit-${s.serial++}`;
+        let spat = 0;
+        live.forEach((p, i) => {
+          // A piece sitting right under its mouth stops that portal spitting.
+          const x = p.x, y = p.y + SUNNY.portalUp; if (!sunnyClear(game, s, x, y, SUNNY.sproutR, 0, false, p)) return;
+          sunnySprout(game, s, `${group}-${i}`, group, x, y); p.spitAt = s.kitAge; spat++;
+          game.event('bossAbility', { kind: s.kind, move: 'yawn', act: 'spit', x: p.x, y: p.y });
+        });
+        if (spat) s.summons++;
+      }
+    },
+    pose(s, p, bx, by, clock) { return p.bossPart === 'z' ? sunnyZ(p, clock) : null; },
+    step(game, s) {
+      // A Z that reaches the launcher closes and naps the aim guide (presentation only; the pod is never touched).
+      for (const p of s.parts) if (p.bossPart === 'z' && !p.bloomed && sunnyZ(p, s.kitAge).u >= 1) {
+        close(game, s, p); game.aimNapUntil = game.time + SUNNY.nap;
+        game.event('bossAbility', { kind: s.kind, move: 'snooze', act: 'nap', x: p.x, y: p.y });
+      }
+      // Shut portals leave the board once their bloom has played; the art keeps a closing portal for half a second.
+      if (s.parts.some(p => p.bossPart === 'portal' && p.bloomed && game.time - p.bloomAt > 1)) {
+        const gone = new Set(s.parts.filter(p => p.bossPart === 'portal' && p.bloomed && game.time - p.bloomAt > 1));
+        s.parts = s.parts.filter(p => !gone.has(p)); game.buds = game.buds.filter(p => !gone.has(p));
+      }
+      if (s.portals.length) s.portals = s.portals.filter(p => !(p.closed || p.bloomed) || s.kitAge - (p.closed ? p.closedAt : p.shutAt) < .6);
+    },
+    bloomed(game, s, bud) {
+      if (bud.bossPart === 'portal') {
+        // Shut: its spit is off (the timer skips a bloomed portal), and a credited shut pays one more sun (sunBonus).
+        bud.shutAt = s.kitAge;
+        game.event('bossAbility', { kind: s.kind, move: 'yawn', act: 'shut', x: bud.x, y: bud.y });
+        return true;
+      }
+      if (bud.bossPart === 'z') {
+        // Popped: the jolt wakes him (his nap bubble goes too) and leaves him dizzy, so seeds land double.
+        s.mode = 'dizzy'; s.vulnerable = true; s.modeUntil = Math.max(s.modeUntil, s.age + SUNNY.dizzy);
+        const bubble = s.parts.find(p => p.bossPart === 'bubble');
+        if (bubble && !bubble.bloomed) { bubble.bloomed = bubble.popped = true; bubble.bloomAt = game.time; }
+        game.event('bossPhase', { kind: s.kind, mode: s.mode });
+        game.event('bossAbility', { kind: s.kind, move: 'snooze', act: 'zpop', x: bud.x, y: bud.y });
+        return true;
+      }
+      return false;
+    },
+    // The bot: a portal about to spit outranks the sprouts' escorts, the Z more so; the bubble (95) still comes first.
+    targets(game, s, list) {
+      const spitting = new Set(); for (const t of s.timers) if (t.act === 'spit') for (const p of t.data) spitting.add(p);
+      for (const t of list) {
+        if (t.bud.bossPart === 'portal' && spitting.has(t.bud)) t.priority = 70;
+        if (t.bud.bossPart === 'z') t.priority = 80;
+      }
+    },
+    cleanup(game, s) { s.portals = []; }
+  });
 
   // ── Rootknot (Level 2, `root`) ──
 

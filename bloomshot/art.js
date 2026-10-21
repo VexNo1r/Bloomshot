@@ -2674,6 +2674,15 @@
   }
 
   // hollow: the pod is empty, so the line is drawn as open rings (like the refill ring) until a seed is in the cup.
+  // The first `length` px of an aim path (to its first gate hop), with no target: the aim guide napping (spec 1.9).
+  function nappedAim(points, length) {
+    const out = [{ x: points[0].x, y: points[0].y }];
+    for (let i = 1, rest = length; i < points.length && rest > 0 && !points[i].move; i++) {
+      const a = points[i - 1], b = points[i], len = Math.hypot(b.x - a.x, b.y - a.y), k = len ? Math.min(1, rest / len) : 0;
+      out.push({ x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k }); rest -= len;
+    }
+    return out;
+  }
   function drawAim(ctx, points, colors, time, type, reducedMotion, hollow) {
     if (!Array.isArray(points) || points.length < 2) return;
     ctx.save(); ctx.lineCap = 'round';
@@ -4746,7 +4755,9 @@
     }
     if (options.showAim !== false && state.aim && (state.status !== 'flying' || options.showAim === true)) {
       const hollow = rush && Number(state.podSize) > 0 && Number.isFinite(state.pod) && state.pod < 1 && !(Number(state.superBloom) > 0);
-      drawAim(ctx, state.aim, colors, time, state.nextType, options.reducedMotion, hollow);
+      // Old Sunny's landed snooze Z naps the aim guide (spec 1.9): only its first 60 px show; his kit art adds the zz.
+      const napping = rush && Number(state.aimNapUntil) > Number(state.time) && Array.isArray(state.aim) && state.aim.length > 1;
+      drawAim(ctx, napping ? nappedAim(state.aim, 60) : state.aim, colors, time, state.nextType, options.reducedMotion, hollow);
       if (foeArt) foeArt.aim(ctx, state, time, still, FOE_KIT, foeQuality);
       if (kitArt) kitArt.aim(ctx, state, time, still, FOE_KIT, foeQuality);
     }

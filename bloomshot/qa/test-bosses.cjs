@@ -51,7 +51,7 @@ test('Sunny warns before an early two-sprout volley; ignoring the whole pair cos
   assert.equal(g.bossState.mode,'dizzy','the volley preserves the earned six-second critical window');
   const spawn=g.time,life=g.lives;while(g.time<spawn+4.7)g.step(1/120);assert.equal(g.lives,life,'the new player has time to change aim');
   while(g.time<spawn+5.2)g.step(1/120);assert.equal(g.lives,life-1);assert(!g.buds.some(p=>p.sunnySprout&&!p.bloomed));
-  assert.equal(b.maxHp,14,'the attack is not an HP inflation');
+  assert.equal(b.maxHp,18,'the attack is not an HP inflation'); // Old Sunny's kit health (spec 3.1, 4.2)
 });
 test('Two ordinary aimed seeds can stop Sunny’s whole volley before it takes a life', () => {
   const g=sunnyAttack(),until=g.bossWarning.until;while(g.time<until+1/120)g.step(1/120);
