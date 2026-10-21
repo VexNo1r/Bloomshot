@@ -1692,6 +1692,27 @@
   const CRIT_TEXT = { roll: 'Bowled over!', mirror: 'Mirror shot!', moon: 'Moon shot!' };
 
   // ── Old Sunny (Level 1, `sunny`) ──
+  // A warm ring as each sun portal pops open (Sleepy's art-only ones too), a puff of pollen as one spits, "Shut!" with a
+  // gold burst and a blink of hit-stop when one is shot shut, "Pop!" with a sky-blue burst when the snooze Z is popped,
+  // and when it lands, a sleepy ring at the launcher and the hint that the aim guide is napping.
+  BOSS_FX.sunny = {
+    'sprouts:start'(e) { for (const t of (e.targets || []).filter(t => t.role === 'sprout')) foeRing(t.x, t.y - 34, '#ffd65a', 8, 20, .35); },
+    'yawn:start'(e) { for (const t of (e.targets || []).filter(t => t.role === 'portal')) foeRing(t.x, t.y, '#ffd65a', 8, 24, .4); haptic('tick'); },
+    'yawn:spit'(e) { foeRing(e.x, e.y + 16, '#fff4aa', 6, 16, .3); foeDust(e.x, e.y + 18, 5, '#ffe9a0', 40); },
+    'yawn:shut'(e) {
+      burst({ x: e.x, y: e.y, type: 'gold', r: 16 }, 16, game.particles, currentKeepsake(), false); foeRing(e.x, e.y, '#ff9f43', 10, 30, .4);
+      bossCallout(e.x, e.y, 'Shut!', 1); jolt(.1, .04, .12); haptic('tick');
+    },
+    'snooze:start'(e) { const t = (e.targets || []).find(t => t.role === 'z'); if (t) foeRing(t.x, t.y, '#9fd6ff', 6, 18, .35); },
+    'snooze:zpop'(e) {
+      burst({ x: e.x, y: e.y, type: 'sky', r: 13 }, 18, game.particles, currentKeepsake(), false); foeRing(e.x, e.y, '#9fd6ff', 10, 34, .45);
+      bossCallout(e.x, e.y, 'Pop!', 1); jolt(.14, .06, .2); haptic('surge');
+    },
+    'snooze:nap'(e) {
+      foeRing(e.x, e.y, '#9fd6ff', 12, 26, .6); foeDust(e.x, e.y, 4, '#eaf7ff', 30); haptic('warn');
+      const hint = "Old Sunny's snooze made your aim guide nap!"; $('game-hint').textContent = hint; say(hint);
+    }
+  };
 
   // ── Rootknot (Level 2, `root`) ──
 
