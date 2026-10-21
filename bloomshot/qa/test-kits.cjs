@@ -368,9 +368,10 @@ test('Old Sunny: beaten mid-attack, he leaves no portal, Z, timer or napping aim
       assert.equal(w.move, move); assert.equal(w.targets.find(t => t.role === 'hole').x, x);
       assert.equal(w.targets.filter(t => t.role === 'wall').length, 2); assert.equal(w.targets.filter(t => t.role === 'toss').length, move === 'toss' ? 1 : 0);
     }
-    const g = rootknot(0, 1), s = g.bossState, b = s.boss, w = s.warning, mark = w.targets.find(t => t.role === 'toss');
+    const g = rootknot(0, 1, { flowers: false }), s = g.bossState, b = s.boss, w = s.warning, mark = w.targets.find(t => t.role === 'toss');
     assert.equal(w.text, 'Rootknot is tossing a rolypoly!');
-    assert.deepEqual([mark.x, mark.y, mark.r], [210, b.y + 70, 14], 'from the empty hole nearest the middle, 70 px below his row');
+    assert.deepEqual([mark.x, mark.y, mark.r], [210, b.y + 100, 14], 'from the empty hole nearest the middle, 100 px below his row');
+    assert(mark.y - mark.r - 7 > w.y + 61 + 13, 'its landing ring clears the move\'s words');
     const events = play(g), [flight] = s.lobs;
     assert.deepEqual(acts(events, 'toss').map(e => e.x), [210]); assert.equal(s.mode, 'burrow'); assert.equal(g.bumpers.filter(p => p.bossWall).length, 2);
     assert.equal(flight.look, 'rolypoly'); assert.deepEqual([flight.x0, flight.x1, flight.y1, flight.T], [210, 210, mark.y, .6]); assert(flight.y0 > b.y, 'out of the hole on his row');
@@ -381,16 +382,16 @@ test('Old Sunny: beaten mid-attack, he leaves no portal, Z, timer or napping aim
     assert(landing.some(e => e.type === 'foe' && e.kind === 'rolypoly:land' && e.bud === roly)); assert.equal(acts(landing, 'land').length, 1);
   });
   test('Tangled, he lobs two (.18 s apart); a blocked hole stays quiet, a drifted flower moves a landing aside, and four is the most', () => {
-    let g = rootknot(1, 1), s = g.bossState, b = s.boss;
+    let g = rootknot(1, 1, { flowers: false }), s = g.bossState, b = s.boss;
     assert.equal(s.warning.text, 'Rootknot is tossing rolypolies!');
-    assert.deepEqual(s.warning.targets.filter(t => t.role === 'toss').map(t => [t.x, t.y]), [[210, b.y + 70], [128, b.y + 70]]);
+    assert.deepEqual(s.warning.targets.filter(t => t.role === 'toss').map(t => [t.x, t.y]), [[210, b.y + 100], [128, b.y + 100]]);
     play(g); const t0 = s.kitAge, landed = [];
     for (let n = 0; n < 120; n++) { const count = tossed(g).length; g.step(1 / 120); if (tossed(g).length > count) landed.push(s.kitAge - t0); }
     // (to the tick: the second lob leaves on the first tick after .18 s)
     assert.equal(landed.length, 2); assert(landed[0] >= .6 - 1e-9 && landed[0] < .6 + 2 / 120 && landed[1] >= .78 - 1e-9 && landed[1] < .78 + 2 / 120, landed.join());
     const marks = buds => rootknot(1, 1, { flowers: false, buds }).bossState.warning;
-    let w = marks([flower('x', 210, 160)]);
-    assert.deepEqual(w.targets.filter(t => t.role === 'toss').map(t => [t.x, t.y]), [[210, b.y + 100], [128, b.y + 70]], 'else 100 px below');
+    let w = marks([flower('x', 210, b.y + 130)]);
+    assert.deepEqual(w.targets.filter(t => t.role === 'toss').map(t => [t.x, t.y]), [[210, b.y + 70], [128, b.y + 100]], 'else 70 px below');
     w = marks([flower('x', 210, 174), flower('y', 210, 204)]);
     assert.deepEqual(w.targets.filter(t => t.role === 'toss').map(t => t.x), [128]); assert.equal(w.text, 'Rootknot is tossing a rolypoly!');
     w = marks([flower('x', 210, 174), flower('y', 210, 204), flower('z', 128, 174), flower('q', 128, 204)]);
@@ -398,7 +399,7 @@ test('Old Sunny: beaten mid-attack, he leaves no portal, Z, timer or napping aim
     const live = n => Array.from({ length: n }, (_, i) => flower('t' + i, 40 + 40 * i, 300, { foe: 'rolypoly', rootToss: true }));
     assert.equal(marks(live(3)).targets.filter(t => t.role === 'toss').length, 1); assert.equal(marks(live(4)).targets.filter(t => t.role === 'toss').length, 0);
     // A flower that drifts onto the spot during the flight: it lands 18 px aside, or bounces off with no room at all.
-    for (const [x, y, landsAt] of [[220, 186, [192, b.y + 70]], [210, 174, null]]) {
+    for (const [x, y, landsAt] of [[220, b.y + 112, [192, b.y + 100]], [210, b.y + 100, null]]) {
       g = rootknot(0, 1, { flowers: false }); s = g.bossState; play(g); g.buds.push(flower('drift', x, y));
       const events = until(g, () => !s.lobs.length, 1);
       if (landsAt) assert.deepEqual(tossed(g).map(p => [p.x, p.y]), [landsAt]);
@@ -484,6 +485,10 @@ test('Old Sunny: beaten mid-attack, he leaves no portal, Z, timer or napping aim
     const g = rootknot(1, 0, { flowers: false }), s = g.bossState, [m] = s.warning.targets.filter(t => t.role === 'seedling');
     g.buds.push(flower('drift', m.x, m.y)); const events = play(g);
     assert(!g.buds.some(p => p.rootSeedling)); assert.equal(knotOf(s), null); assert(!acts(events, 'sprout').length); assert(s.next - s.age <= 1.5 * 1.01 + 1e-9);
+    assert(!acts(events, 'start').some(e => e.move === 'carousel'), 'and no carousel cue for a move that did nothing');
+    // The same for a clump shot down to one flower during the tell.
+    const shot = rootknot(1, 0); hit(shot, bud(shot, 'a')); hit(shot, bud(shot, 'b')); const left = play(shot);
+    assert(!acts(left, 'start').some(e => e.move === 'carousel'), 'no carousel cue with one flower left'); assert.equal(knotOf(shot.bossState), null);
   });
   test('Snap the knot (two hits) and its flowers bloom in a cascade credited within .4 s; shot singly they leave the ring; the bot wants the knot', () => {
     let g = rootknot(1, 0, { descent: 10.5 }), s = g.bossState; play(g); advance(g, .5); g.drainEvents();
@@ -491,6 +496,7 @@ test('Old Sunny: beaten mid-attack, he leaves no portal, Z, timer or napping aim
     assert.deepEqual(Bosses.targets(g).filter(t => t.bud === knot).map(t => [t.priority, t.reason]), [[90, 'knot']]);
     hit(g, knot); assert.equal(knot.hp, 1); assert(!knot.bloomed);
     hit(g, knot); assert(knot.bloomed); const seed = 'seed' + serial, at = g.time;
+    assert.equal(knot.snappedAt, g.time, 'the snap burst plays on game time, so a Lullaby cannot hold it');
     let events = [...g.drainEvents(), ...until(g, () => ['a', 'b', 'c'].every(id => bud(g, id).bloomed), .5)];
     let blooms = events.filter(e => e.type === 'bloom' && e.via === 'knot');
     assert.deepEqual(blooms.map(e => e.bud.id).sort(), ['a', 'b', 'c']); assert(blooms.every(e => e.seed === seed && g.time - at <= .4));
@@ -559,6 +565,11 @@ test('Old Sunny: beaten mid-attack, he leaves no portal, Z, timer or napping aim
     assert(b.bloomed); assert.equal(s.carried.length + s.lobs.length + s.timers.length, 0); assert(!g.buds.some(p => p.carried || p.kitHurry != null));
     assert(!g.bumpers.some(p => p.bossWall)); assert(!g.buds.some(p => p.bossPart === 'knot' && !p.bloomed));
     assert(['a', 'b', 'c'].every(id => bud(g, id).fall === 1)); assert.equal(g.dangerY, 448); assert.equal(g.aimNapUntil, 0);
+    // Flowers flung a moment ago are still hurried at the kill; cleanup puts them back to their own pace.
+    g = rootknot(1, 0, { descent: 10.5 }); s = g.bossState; play(g); until(g, () => !knotOf(s), 4); advance(g, .4);
+    assert(['a', 'b', 'c'].every(id => bud(g, id).kitHurry === 1 && bud(g, id).fall === 1.3), 'still hurried at the kill');
+    for (let n = 0; n < 200 && !s.boss.bloomed; n++) g.strike(s.boss);
+    assert(['a', 'b', 'c'].every(id => bud(g, id).fall === 1 && bud(g, id).kitHurry === undefined), 'cleanup restores their pace');
   });
   test('The good bot beats Rootknot', () => {
     for (const seed of [7, 19]) {
@@ -956,6 +967,19 @@ test('Crystal Heart turns Shining, then Racing, each with its own words; Shining
   assert(events.some(e => e.type === 'bossStage' && e.stage === 2 && e.mood === 'Racing'));
   for (let n = 0; n < 480 && !s.warning; n++) g.step(1 / 120);
   assert.equal(s.warning.move, 'hues'); assert.equal(s.warning.text, 'The heart wants one color!');
+});
+test('Mirror Shards open below the sunken guardian and her hearts, and she rests instead when that row would crowd the line', () => {
+  let g = arena(4), s = g.bossState; s.drift = 230;
+  crystalMove(g, 1, 1);
+  const mirrors = g.bumpers.filter(m => m.bossMirror), low = Math.max(...[s.boss, ...s.parts.filter(p => p.bossPart === 'heart')].map(p => p.y + p.r));
+  assert.equal(mirrors.length, 2); assert(low > 356 - 36, `she is low (${low})`);
+  for (const m of mirrors) assert(m.y >= low + 28 + 8 - 1e-6 && m.y <= g.dangerY - 40, `the blades (y ${m.y}) clear her (${low})`);
+  for (let n = 0; n < 6 * 120 && g.bumpers.some(m => m.bossMirror); n++) {
+    g.step(1 / 120); g.drainEvents();
+    for (const p of [s.boss, ...s.parts.filter(q => q.bossPart === 'heart')]) assert(p.y + p.r <= mirrors[0].y - 28, 'clear of the blades all their life');
+  }
+  g = arena(4); s = g.bossState; s.drift = 280; s.tier = 1; s.cycle = 1; s.next = 0; s.warning = null; g.step(1 / 120);
+  assert(!(s.warning && s.warning.move === 'mirrors') && !g.bumpers.some(m => m.bossMirror), 'too near the line: a rest');
 });
 test('Mirror Shards: two blades at y 356 hold still .8 s, turn .7 rad each second, freeze in a Lullaby and leave after 6 s', () => {
   const g = arena(4), s = g.bossState, events = crystalMove(g, 1, 1);

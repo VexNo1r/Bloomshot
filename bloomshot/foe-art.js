@@ -205,9 +205,10 @@
     star: '#ffe76b', starInk: '#c98a17' };
   // The hole on a hill (hill-local; the hill's center is the origin), and how far below it the mole hides.
   const HOLE = { y: -6.5, rx: 7, ry: 2.6, deep: 15, rumble: .7 };
-  // The mole perches 4 px above his hill's center, so the hole is 2.5 px above his. He is drawn a little larger than
-  // he is painted (SIZE), so his face reads at phone size; his round head still sits inside his r 10 body.
-  const PERCH = 4, SIZE = 1.15;
+  // The mole's center (his r 10 hitbox) is 13 px above his hill's center, on his drawn head; the hole he peeks from is
+  // 6.5 px below it. He is drawn a little larger than he is painted (SIZE), so his face reads at phone size; his head
+  // spans about 10 px above his center to the hole, inside his r 10 body apart from the hair tips.
+  const PERCH = 13, SIZE = 1.15;
   function moundPath(c) {
     c.beginPath(); c.moveTo(-15.5, 7.5);
     c.bezierCurveTo(-14.5, -2.5, -8.5, -10.5, 0, -10.5); c.bezierCurveTo(8.5, -10.5, 14.5, -2.5, 15.5, 7.5);
@@ -353,6 +354,13 @@
     mound: [`foe:molehill:12:mound`, [-18, -14, 18, 12], c => paintMound(c, false)],
     cracked: [`foe:molehill:12:cracked`, [-18, -14, 18, 12], c => paintMound(c, true)],
     patch: [`foe:mole:10:patch`, [-16, -13, 16, 3], paintPatch],
+    // The lost-anchor rumble's still tell: three cracks running out from the hole to the patch's edge.
+    patchCracked: [`foe:mole:10:patch-cracked`, [-16, -13, 16, 3], c => {
+      paintPatch(c); c.strokeStyle = MOLE_ART.ink; c.lineWidth = 1.2; c.lineCap = 'round';
+      for (const crack of [[[-7.4, -5.6], [-9.6, -4.3], [-11.4, -2.7]], [[1.4, -3.9], [3, -2.3], [2.1, -.8]], [[7.2, -7.2], [9.5, -5.7], [11.6, -3.5]]]) {
+        c.beginPath(); crack.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.stroke();
+      }
+    }],
     lip: [`foe:molehill:12:lip`, [-9, HOLE.y - 4, 9, HOLE.y + 4.5], paintLip],
     peek: [`foe:mole:10:peek`, [-11, -19, 11, 6], c => paintMole(c, false)],
     dazed: [`foe:mole:10:dazed`, [-11, -19, 11, 6], c => paintMole(c, true)],
@@ -377,7 +385,7 @@
     const p = clamp(1 - (until - clock) / HOLE.rumble, 0, 1), peeking = p > .6;
     let marks = 1;
     if (still) {
-      moleSprite(ctx, kit, base === 'mound' ? 'cracked' : base, x, y);
+      moleSprite(ctx, kit, base === 'mound' ? 'cracked' : 'patchCracked', x, y);
       for (const [dx, dy] of [[-6, -13.8], [5.5, -14.8]]) kit.circle(ctx, x + dx, y + dy, 1.9, MOLE_ART.top, MOLE_ART.ink, .9);
     } else {
       const shiver = Math.sin(clock * 18 * TAU) * (1 + p), wobble = Math.sin(clock * 9 * TAU + 1.3) * .05 * (.4 + p);
@@ -459,21 +467,20 @@
       moleSprite(ctx, kit, 'patch', mole.x, mole.y + PERCH);
       drawMolePeek(ctx, kit, mole, hx, hy, clock, still, quality);
     },
-    // A mole whose hills are all gone rumbles up through bare ground: the patch shivers where he will appear.
-    under(ctx, state, time, still, kit) {
+    // A mole whose hills are all gone rumbles up through bare ground: the patch shivers where he will appear. It is
+    // drawn over the buds, since his last hill has just bloomed on that spot.
+    // Bonk: flat for a beat (the hit-stop holds it), springs up tall with his glasses knocked crooked, then shrinks
+    // into his opening flower; three stars circle where his head was for .5 s (quality <= 1). His bud's white bloom
+    // flash is a disc that would cover his hill, so his ground is drawn back over it until the hill blooms itself.
+    over(ctx, state, time, still, kit, quality) {
       const clock = Number(state.foeClock) || 0;
       for (const mole of state.buds || []) {
         if (mole.foe !== 'mole' || mole.bloomed || !mole.hidden || !mole.anchor || !(mole.rumbleUntil > clock)) continue;
         drawMoleRumble(ctx, kit, mole.x, mole.y + PERCH, mole.rumbleUntil, clock, still, 'patch');
       }
-    },
-    // Bonk: flat for a beat (the hit-stop holds it), springs up tall with his glasses knocked crooked, then shrinks
-    // into his opening flower; three stars circle where his head was for .5 s (quality <= 1). His bud's white bloom
-    // flash is a disc that would cover his hill, so his ground is drawn back over it until the hill blooms itself.
-    over(ctx, state, time, still, kit, quality) {
       for (const mole of state.buds || []) {
         if (mole.foe !== 'mole' || !mole.bloomed || typeof mole.bloomAt !== 'number') continue;
-        const age = time - mole.bloomAt, hx = mole.x, hy = mole.y - PERCH + 1.5;
+        const age = time - mole.bloomAt, hx = mole.x, hy = mole.y + PERCH + HOLE.y;
         if (age >= 0 && age < (mole.bonked ? .1 : .04)) {
           let hill = null;
           for (const bud of state.buds) if (bud.foe === 'molehill' && bud.group === mole.group && bud.slot === mole.hill) hill = bud;
@@ -921,9 +928,11 @@
       const r = bud.r || 12, type = kit.FLOWERS[bud.type] ? bud.type : 'sky', x = bud.x, y = bud.y, R = r + 1;
       // Ready: the seed in the launcher is this color.
       if (state.nextType === type) {
-        ctx.globalAlpha = still ? .9 : .6 + .35 * (.5 + .5 * Math.sin(time * CHROMA_ART.ready));
+        // Relative to the wave's tumble-in fade, so a ghost crystal stays a ghost.
+        const a = ctx.globalAlpha;
+        ctx.globalAlpha = a * (still ? .9 : .6 + .35 * (.5 + .5 * Math.sin(time * CHROMA_ART.ready)));
         stampWith(ctx, kit, chromaGlow(r, type), x, y);
-        ctx.globalAlpha = 1;
+        ctx.globalAlpha = a;
       }
       // A wrong seed sets it shivering for .15 s.
       const refused = time - (Number.isFinite(bud.refusedAt) ? bud.refusedAt : -100);
@@ -1088,12 +1097,13 @@
         const land = clock - (b ? b.landAt : -100), hug = !still && land >= 0 && land < .2 ? Math.sin(land / .2 * Math.PI) : 0;
         const breathe = still ? 1 : 1 + Math.sin(time * Math.PI + x * .05) * .03;
         batStamp(ctx, kit, batFrame(r, 'perch'), x, y, 0, breathe * (1 + .12 * hug), (2 - breathe) * (1 - .12 * hug));
+        const a = ctx.globalAlpha;
         if (!still && quality <= 1) for (let k = 0; k < 3; k++) {
           const p = (((time + k * .5 + x * .003) % 1.5) + 1.5) % 1.5 / 1.5;
-          ctx.globalAlpha = Math.sin(p * Math.PI) * .9;
+          ctx.globalAlpha = a * Math.sin(p * Math.PI) * .9;
           batStamp(ctx, kit, BAT_Z, x + r * .7 + p * 4 + k * 1.5, y - r * .9 - p * 10, 0, .7 + .4 * p);
         }
-        ctx.globalAlpha = 1;
+        ctx.globalAlpha = a;
         return;
       }
       if (b.mode === 'tell') {
@@ -1381,11 +1391,15 @@
   const wormLamp = r => [`foe:glowworm:${r}:lamp`, [-r * 2.7, -r * 2.7, r * 2.7, r * 2.7], c => paintWormLamp(c, r)];
   const WORM_GROUPS = new Map();
   function drawWorm(ctx, pieces, time, clock, still, kit, quality) {
-    // Head first along the body; the bob runs as a little wave from the head back.
+    // Head first along the body; the bob runs as a little wave from the head back. Each piece tumbles in with its wave
+    // and trembles near the line as the per-bud pass would draw it (kit.budShift).
     pieces.sort((a, b) => b.off - a.off);
-    const at = pieces.map((p, k) => ({ p, k, x: p.x, y: p.y + (still ? 0 : 2 * Math.sin(TAU * 1.2 * time - .6 * k)) }));
+    const at = pieces.map((p, k) => {
+      const m = kit.budShift(p, time, still);
+      return { p, k, a: m.alpha, x: p.x + m.dx, y: p.y + m.dy + (still ? 0 : 2 * Math.sin(TAU * 1.2 * time - .6 * k)) };
+    });
     // The body: a dark teal band joining neighbors (a bloomed bead leaves a gap), under the beads.
-    ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = WORM_LOOK.ink; ctx.lineWidth = 9; ctx.globalAlpha = .75;
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = WORM_LOOK.ink; ctx.lineWidth = 9; ctx.globalAlpha = .75 * Math.min(...at.map(q => q.a));
     ctx.beginPath();
     for (let i = 1; i < at.length; i++) {
       const a = at[i - 1], b = at[i];
@@ -1395,14 +1409,15 @@
     ctx.stroke(); ctx.globalAlpha = 1;
     // Tail to head, so the head sits on top.
     for (let i = at.length - 1; i >= 0; i--) {
-      const { p, x, y } = at[i], r = p.r || 9;
+      const { p, x, y, a: fade } = at[i], r = p.r || 9;
       let s = 1;
+      ctx.save(); ctx.globalAlpha = fade;
       // A bead that has just become a head pops in over .15 s (0 -> 1.12 -> 1).
       if (!still && p.headAt != null) { const k = (clock - p.headAt) / .15; if (k >= 0 && k < 1) s = k < .7 ? 1.12 * kit.smooth(k / .7) : 1.12 - .12 * kit.smooth((k - .7) / .3); }
       if (p.head) {
         // Its lantern glow first, breathing slowly (steady with Animations off).
         const [lkey, lbox, lpaint] = wormLamp(r);
-        ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = still ? .6 : .5 + .15 * Math.sin(time * 3.1 + p.x * .02);
+        ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = fade * (still ? .6 : .5 + .15 * Math.sin(time * 3.1 + p.x * .02));
         stamp(ctx, kit, lkey, lbox, lpaint, x, y, 0, s); ctx.restore();
         // It faces the way it crawls and leans a little into the turns, antennae up.
         const a = Number.isFinite(p.heading) ? p.heading : 0, dx = Math.cos(a), face = dx < 0 ? -1 : 1, tilt = clamp(Math.atan2(Math.sin(a), Math.abs(dx)), -.3, .3);
@@ -1415,13 +1430,14 @@
         const [key, box, paint] = wormBead(r);
         stamp(ctx, kit, key, box, paint, x, y, 0, s);
       }
+      ctx.restore();
     }
     // The running light: one bead at a time, head to tail, .12 s each, once a second.
     if (still || quality > 1) return;
     const k = Math.floor(((time % 1) + 1) % 1 / .12);
     if (k >= at.length) return;
     const lit = at[k], [key, box, paint] = wormGlow(lit.p.r || 9);
-    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .55; stamp(ctx, kit, key, box, paint, lit.x, lit.y, 0, .8); ctx.restore();
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .55 * lit.a; stamp(ctx, kit, key, box, paint, lit.x, lit.y, 0, .8); ctx.restore();
   }
   BloomFoeLook('glowworm', {
     warm(kit, r) {
@@ -2082,10 +2098,20 @@
     over(ctx, state, s, time, still, kit, quality) {
       if (!s.boss || s.boss.bloomed) return;
       const clock = s.kitAge, row = rkRow(s), w = s.warning;
-      // Toss tells: a dotted arc from the hole to the landing mark, marching that way.
-      for (const t of rkTossTell(s)) {
-        const pts = []; for (let i = 0; i <= 16; i++) { const p = lobAt(t.fromX, row, t.x, t.y, .6, .6 * i / 16, 48); pts.push([p.x, p.y]); }
-        dotted(ctx, pts, RK.rim, 1.9, 7, still ? 0 : -time * 16);
+      // Toss tells: a dotted arc from the hole to the landing mark, marching that way. The move's label (art.js
+      // drawBossWarning) is drawn before this hook, so an arc running through it fades to keep the words readable.
+      const tells = rkTossTell(s);
+      if (tells.length) {
+        ctx.save(); ctx.font = '600 12px Fredoka';
+        const lw = Math.min(310, Math.max(130, ctx.measureText(String(w.text || 'A guardian is stirring')).width + 28));
+        ctx.restore();
+        const lx = clamp(w.x, lw / 2 + 10, 410 - lw / 2);
+        for (const t of tells) {
+          const pts = []; for (let i = 0; i <= 16; i++) { const p = lobAt(t.fromX, row, t.x, t.y, .6, .6 * i / 16, 48); pts.push([p.x, p.y]); }
+          ctx.save(); ctx.globalAlpha *= Math.abs(t.x - lx) < lw / 2 + 4 ? .35 : 1;
+          dotted(ctx, pts, RK.rim, 1.9, 7, still ? 0 : -time * 16);
+          ctx.restore();
+        }
       }
       // A carousel tell: the ring itself, dotted, with arrows the way it will turn.
       if (w && w.move === 'carousel') {
@@ -2159,7 +2185,7 @@
       // Snap! The knot bursts into wood chips, its tendrils whip back and a cream flash rings out.
       for (const k of s.parts) {
         if (k.bossPart !== 'knot' || k.snappedAt == null) continue;
-        const age = clock - k.snappedAt; if (age < 0 || age > .5) continue;
+        const age = time - k.snappedAt; if (age < 0 || age > .5) continue; // on game time, like the riders' blooms
         const e = rkOut(age / .5);
         if (!still) {
           ctx.save(); ctx.globalAlpha = 1 - e; ctx.beginPath(); ctx.arc(k.x, k.y, 10 + 30 * e, 0, TAU); rkStroke(ctx, 3 * (1 - e) + .5, RK.cream); ctx.restore();

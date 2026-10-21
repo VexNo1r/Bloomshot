@@ -372,7 +372,7 @@ function artScope() {
           if (name === 'save') stack.push({ ...state });
           else if (name === 'restore') { assert(stack.length, 'restore without save'); Object.assign(state, stack.pop()); }
           else if (name === 'measureText') return { width: String(args[0]).length * 7 };
-          else if (name === 'drawImage' && totals.hook) totals.images.push([totals.hook, args[0]]);
+          else if (name === 'drawImage' && totals.hook) totals.images.push([totals.hook, args[0], state.globalAlpha]);
           else if (/^create(Linear|Radial|Conic)Gradient$|^createPattern$/.test(name)) { if (totals.hook) totals.gradients++; return { addColorStop() {} }; }
         };
       },
@@ -402,6 +402,27 @@ function artScope() {
 function draw(Art, brush, board, time, still, quality = 0) {
   const rec = brush(); Art.draw(rec.ctx, board, time, { theme: 'meadow', reducedMotion: still, quality }); assert(rec.balanced(), 'saves balance');
 }
+test('Lily\'s last cascade blooms a worm piece by piece, with no ripple or split over the finale', () => {
+  const game = arena(5), s = game.bossState, b = s.boss;
+  const worm = Foes.make('glowworm', ['glowworm', 300, 170, { dir: -1 }], 'lily-w9', null);
+  for (const piece of worm) Foes.place(game, piece);
+  advance(game, .2, 120); game.drainEvents();
+  s.tier = 2; b.hp = 1; touch(game, b, 0, -1);
+  assert(b.bloomed, 'a credited seed beats her');
+  const events = game.drainEvents(); for (let n = 0; n < 240; n++) events.push(...tick(game));
+  assert(worm.every(p => p.bloomed), 'the cascade blooms every piece');
+  assert.deepEqual(foeKinds(events).filter(k => /^glowworm:(ripple|split)/.test(k)), [], 'no ripple or split');
+});
+test('A jelly\'s guard reads its phase when a forecast seed arrives (hit.time ahead), and now for a live touch', () => {
+  const game = level(5, 2); advance(game, 2.05, 120);
+  const [jelly] = foesOf(game, 'jelly'), seed = { id: 'seed-x' }, phase = t => ((game.foeClock - jelly.born + t) % .9 + .9) % .9;
+  let ahead = 0; while (phase(ahead) >= .3) ahead += 1 / 120;
+  const glide = phase(0) >= .3;
+  assert.equal(Foes.guard(game, jelly, { nx: 0, ny: 1 }, seed), !glide, 'a live touch reads now');
+  if (glide) assert.equal(Foes.guard(game, jelly, { nx: 0, ny: 1, time: ahead + .05 }, seed), true, 'a seed arriving in the thrust slides off');
+  let calm = 0; while (phase(calm) < .3) calm += 1 / 120;
+  assert.equal(Foes.guard(game, jelly, { nx: 0, ny: 1, time: calm + .05 }, seed), false, 'a seed arriving in the glide lands');
+});
 test('The jelly, its vents and glowdrops and the glowworm draw cheaply: finite, balanced, and no gradient, shadow or surface once warm', () => {
   const { Art, FoeArt, brush, totals } = artScope();
   for (const name of LOOKED) assert(FoeArt.LOOKS[name], name + ' has a look');
@@ -425,6 +446,14 @@ test('The jelly, its vents and glowdrops and the glowworm draw cheaply: finite, 
   const warm = { ...totals };
   for (const still of [false, true]) for (const quality of [0, 1, 2]) for (const dt of [.13, .41, .77, 1.9]) for (const board of boards) draw(Art, brush, board, board.time + dt, still, quality);
   assert.deepEqual([totals.gradients, totals.shadows, totals.surfaces], [warm.gradients, warm.shadows, warm.surfaces]);
+});
+test('A worm tumbling in with its wave is a ghost until it drops, then solid, like every other piece', () => {
+  const { Art, brush, totals } = artScope(), g = level(5, 4); advance(g, .5, 120);
+  for (const p of foesOf(g, 'glowworm')) { p.enterAt = g.time + 1; p.enterDur = .4; }
+  const alphas = t => { totals.images.length = 0; draw(Art, brush, g, t, false); return totals.images.filter(([hook]) => hook === 'glowworm:over').map(i => i[2]); };
+  const ghost = alphas(g.time), solid = alphas(g.time + 2);
+  assert(ghost.length && ghost.every(a => a <= .26), `a ghost before it drops (${Math.max(...ghost)})`);
+  assert(solid.some(a => a > .9), 'solid once it is in');
 });
 test('The jelly shows a different face in its thrust and its glide, with Animations on and off', () => {
   const { Art, brush, totals } = artScope();

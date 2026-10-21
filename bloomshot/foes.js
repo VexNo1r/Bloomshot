@@ -286,12 +286,12 @@
   // mound wobbles, a low thump twice), then the mole pops up out of it for `up` s while that hill lets seeds through to
   // him (a ghost), and ducks back down over MOLE.duck s, still hittable. Bonk him and he blooms, and each of his hills
   // blooms after him, MOLE.link s apart, as a chain the seed earned. Then the next hill rumbles. He stops ducking once
-  // he is low on the board (y + 10 past MOLE.deep) or has no other hill to go to, and if a chain blooms every hill while
+  // he is low on the board (his hill's y + 6 past MOLE.deep) or has no other hill to go to, and if a chain blooms every hill while
   // he hides, he rumbles up where the last one was and stays up. Chains, powers and uncredited strikes are plain: they
   // bloom a hill where it stands and reach the mole even underground. Every time here is on the foe clock, so a
   // Lullaby holds the whole dance still, and the next hill to pop is public from its rumble on (the bot leads it then).
   // Hill k of group G has id `${G}-${k}` and slot k; the mole is `${G}-3`, perched MOLE.lift px above its hill.
-  const MOLE = { wait: .5, rumble: .7, duck: .2, thump: .35, lift: 4, spread: 34, deep: 360, link: .1, up: 1.5 };
+  const MOLE = { wait: .5, rumble: .7, duck: .2, thump: .35, lift: 13, spread: 34, deep: 360, link: .1, up: 1.5 };
   function moleHills(game, mole) {
     const hills = [null, null, null];
     for (const bud of game.buds) if (bud.group === mole.group && bud.foe === 'molehill' && bud.slot >= 0 && bud.slot < 3) hills[bud.slot] = bud;
@@ -338,6 +338,17 @@
     mole.phase = 'stay'; mole.until = Infinity; mole.downAt = Infinity;
     if (hill && mole.hill >= 0) hill.downAt = Infinity;
   }
+  // Low on the board: his hill's y + 6 is past MOLE.deep, so the no-dive rule keeps him up.
+  const moleLow = y => y + MOLE.lift + 6 > MOLE.deep;
+  // When the bot should expect him under again: never, once the no-dive rule will keep him up.
+  function moleDownAt(game, mole) {
+    if (mole.phase !== 'rumble' && mole.phase !== 'up') return mole.downAt;
+    const hills = moleHills(game, mole), hill = mole.hill >= 0 ? hills[mole.hill] : null;
+    if (!hills.some(other => other !== hill && openHill(other))) return Infinity;
+    const v = (game.descentSpeed || 0) * (mole.fall ?? 1);
+    if (moleLow(mole.y)) return Infinity;
+    return v > 0 && game.foeClock + (MOLE.deep - MOLE.lift - 6 - mole.y) / v < mole.downAt - MOLE.duck ? Infinity : mole.downAt;
+  }
   function moleStep(game, mole, dt) {
     const hills = moleHills(game, mole);
     molePerch(mole, hills);
@@ -365,7 +376,7 @@
       }
       if (mole.phase === 'up') {
         // The no-dive rule: once he is low, or has no other open hill, he stays up.
-        if (mole.y + 10 > MOLE.deep || !open.some(other => other !== hill)) { moleStay(mole, hill); break; }
+        if (moleLow(mole.y) || !open.some(other => other !== hill)) { moleStay(mole, hill); break; }
         if (now < mole.until) break;
         mole.phase = 'duck'; mole.until += MOLE.duck;
         game.event('foe', { kind: 'mole:duck', bud: mole, x: mole.x, y: mole.y });
@@ -390,7 +401,8 @@
     predict(game, hill, seconds, out) {
       const ahead = Math.max(0, seconds - (game.lullaby || 0)), at = game.foeClock + ahead;
       out.y = hill.y + (game.descentSpeed || 0) * (hill.fall ?? 1) * ahead;
-      out.flags = at >= hill.rumbleUntil - 1e-9 && at < hill.downAt ? 2 : 0;
+      const mole = moleOf(game, hill), end = mole && !mole.bloomed && mole.hill === hill.slot ? moleDownAt(game, mole) : hill.downAt;
+      out.flags = at >= hill.rumbleUntil - 1e-9 && at < end - 1e-9 ? 2 : 0;
     },
     value: () => -1,
     bloomed(game, hill) {
@@ -436,7 +448,7 @@
     predict(game, mole, seconds, out) {
       const ahead = Math.max(0, seconds - (game.lullaby || 0)), at = game.foeClock + ahead;
       out.y = mole.y + (game.descentSpeed || 0) * (mole.fall ?? 1) * ahead;
-      out.flags = mole.phase !== 'wait' && at >= mole.rumbleUntil - 1e-9 && at < mole.downAt ? 0 : 1;
+      out.flags = mole.phase !== 'wait' && at >= mole.rumbleUntil - 1e-9 && at < moleDownAt(game, mole) - 1e-9 ? 0 : 1;
     },
     value: () => 30
   });
@@ -787,7 +799,7 @@
   const jellyPhase = t => t - JELLY.pulse * Math.floor(t / JELLY.pulse);
   const jellyAt = (bud, t, out) => { out.x = bud.x0 + JELLY.sway * Math.sin(TAU * t / JELLY.swayTime); out.y = bud.y0 - jellyRise(t); return out; };
   const jellyTime = (game, bud) => (game.foeClock || 0) - (bud.born || 0);
-  const jellyThrust = (game, bud) => jellyPhase(jellyTime(game, bud)) < JELLY.thrust;
+  const jellyThrust = (game, bud, ahead = 0) => jellyPhase(jellyTime(game, bud) + ahead) < JELLY.thrust;
   // A runtime piece joins the board the way rush's own spawns do (fresh hit and bloom clocks, so it pops in), and starts.
   // Jellies and worm pieces also do this in their own init, so a guardian's kit can simply place(game, make(...)[k]).
   function fresh(game, bud) {
@@ -830,8 +842,10 @@
       jellyAt(bud, jellyTime(game, bud), bud); bud.baseX = bud.x;
       if (bud.y <= JELLY.top) jellyBurst(game, bud);
     },
-    // Slippery in the thrust: an aimed seed glances off (rush emits jelly:guard). Powers and chains never slip.
-    guard: (game, bud, hit, seed) => !game.scripted && !isPower(game, seed) && jellyThrust(game, bud),
+    // Slippery in the thrust: an aimed seed glances off (rush emits jelly:guard). Powers and chains never slip. A
+    // forecast contact (the app's finale check) carries its time ahead; a live touch has none and reads the phase now.
+    guard: (game, bud, hit, seed) => !game.scripted && !isPower(game, seed)
+      && jellyThrust(game, bud, Math.max(0, ((hit && hit.time) || 0) - Math.max(0, game.lullaby || 0))),
     // It rises away from the line, so it never costs a life (its glowdrops do).
     breach: () => 'skip',
     predict(game, bud, seconds, out) {
@@ -943,6 +957,8 @@
       bud.x = bud.baseX = TRACK.x; bud.y = TRACK.y; bud.heading = TRACK.a;
     },
     bloomed(game, bud, chain, credit) {
+      // The guardian's last cascade blooms every piece itself: no ripple or split over the finale.
+      if (game.bossDown) return;
       if (bud.head) {
         // A head the player earned (or a power) sends the light down its body: each bead blooms .07 s after the last.
         if (!credit && !isPower(game, game.striker)) return;

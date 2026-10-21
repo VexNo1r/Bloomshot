@@ -135,7 +135,7 @@ test('Peekaboo Moles debut in Level 2 wave 5 with their hint, three hills and a 
   // Each pop spot has a clear straight line of fire from the launcher at the debut: with his hill letting seeds
   // through, the mole is the first thing a straight shot meets.
   for (let k = 0; k < 3; k++) {
-    const spot = { ...mole, x: hills[k].x, y: hills[k].y - 4, hidden: false };
+    const spot = { ...mole, x: hills[k].x, y: hills[k].y - 13, hidden: false };
     const buds = [...w.buds.filter(b => b.foe !== 'mole' && b !== hills[k]), spot], from = { x: 210, y: 498 };
     const d = { x: (spot.x - from.x) * 2, y: (spot.y - from.y) * 2 }, hit = Engine.earliest({ bumpers: w.bumpers, gates: [], buds }, from, d);
     assert(hit && hit.item === spot, `pop spot ${k} is in the clear`);
@@ -144,7 +144,7 @@ test('Peekaboo Moles debut in Level 2 wave 5 with their hint, three hills and a 
 test('A hidden mole rumbles under hill floor(hash01(G, 0) * 3) from .5 s, pops up there at 1.2 s, ducks and moves on', () => {
   const game = level(2, 5), { mole, hills } = moleParts(game), k = Math.floor(Foes.hash01(mole.group, 0) * 3);
   assert(mole.hidden && mole.phase === 'wait');
-  assert.deepEqual([mole.x, mole.y], [hills[k].x, hills[k].y - 4], 'he waits under his first hill');
+  assert.deepEqual([mole.x, mole.y], [hills[k].x, hills[k].y - 13], 'he waits under his first hill');
   let events = toClock(game, .49);
   assert(!foeKinds(events).length && hills.every(h => h.rumbleUntil < 0), 'no tell before .5 s');
   events = toClock(game, .51);
@@ -157,7 +157,7 @@ test('A hidden mole rumbles under hill floor(hash01(G, 0) * 3) from .5 s, pops u
   events = toClock(game, 1.21);
   assert.deepEqual(foeKinds(events), ['mole:pop']);
   assert(!mole.hidden && mole.phase === 'up', 'visible at 1.21 s');
-  assert.deepEqual([mole.x, mole.y], [hills[k].x, hills[k].y - 4], 'he peeks out of his hill');
+  assert.deepEqual([mole.x, mole.y], [hills[k].x, hills[k].y - 13], 'he peeks out of his hill');
   assert.deepEqual(hills.map(h => Boolean(h.ghost)), [0, 1, 2].map(j => j === k), 'his hill lets seeds through to him');
   // He ducks after `up` (1.5 s), still hittable for .2 s, then hides and the next hill takes up the rumble.
   events = toClock(game, 2.71);
@@ -220,14 +220,14 @@ test('Chains, powers and uncredited strikes reach the mole even underground and 
   touch(game, mole, 0, 1, { power: 'beeline' });
   assert(mole.bloomed && !foeKinds(game.drainEvents()).includes('mole:bonk'), 'a power seed blooms him, no bonk');
 });
-test('The no-dive rule: low on the board (y + 10 > 360) or with no other open hill, he stays up', () => {
+test('The no-dive rule: low on the board (his hill\'s y + 6 > 360) or with no other open hill, he stays up', () => {
   let game = level(2, 5), { mole, hills } = moleParts(game);
   game.descentSpeed = 8; toClock(game, 1.25);
   const drop = 355 - hills[0].y; for (const b of [...hills, mole]) b.y += drop;
   let hid = false, events = [];
   for (let t = 0; t < 5; t += 1 / 120) { game.step(1 / 120); events.push(...game.drainEvents()); hid = hid || mole.hidden; }
   assert(!hid && mole.phase === 'stay' && !mole.bloomed, 'up for all 5 s');
-  assert(mole.y + 10 > 360 && !foeKinds(events).includes('mole:duck') && hills[mole.hill].ghost);
+  assert(hills[mole.hill].y + 6 > 360 && Math.abs(mole.y - (hills[mole.hill].y - 13)) < 1e-9 && !foeKinds(events).includes('mole:duck') && hills[mole.hill].ghost);
   assert.equal(game.lives, 3);
   game = level(2, 5); ({ mole, hills } = moleParts(game)); toClock(game, 1.25);
   for (const h of hills) if (h !== hills[mole.hill]) strikeOut(game, h);
@@ -244,7 +244,7 @@ test('Every hill chain-bloomed while he hides: he rumbles .7 s where the last on
   const last = hills[2];
   assert(mole.anchor && mole.phase === 'rumble' && mole.hidden, 'a lost-anchor rumble');
   assert(Math.abs(mole.rumbleUntil - (start + 1 / 120 + .7)) < 1e-6 || Math.abs(mole.rumbleUntil - (start + .7)) < 1e-6, 'it lasts .7 s');
-  assert.deepEqual([mole.x, Math.round(mole.y - last.y)], [last.x, -4], 'at the last hill\'s pose');
+  assert.deepEqual([mole.x, Math.round(mole.y - last.y)], [last.x, -13], 'at the last hill\'s pose');
   assert.deepEqual(Foes.moves(game), [mole], 'his rumble is public');
   let events = toClock(game, mole.rumbleUntil - .02);
   assert(mole.hidden && foeKinds(events).every(k => k === 'mole:rumble') && foeKinds(events).length >= 1, 'the rumble thumps');
@@ -304,6 +304,22 @@ test('The bot sees a hidden mole once his rumble is public: hidden until rumbleU
   // The real bot plays the debut wave on through the level without error.
   const run = bot.play(2, { seed: 11, startWave: 5 });
   assert(run && typeof run === 'object' && run.wave >= 5);
+});
+
+test('The forecast knows the no-dive rule: a mole who will be low by his duck is forecast up, and his hill a ghost, past downAt', () => {
+  const game = level(2, 5), { mole, hills } = moleParts(game), k = mole.hill;
+  game.descentSpeed = 8; toClock(game, .9);
+  const drop = 348 - hills[k].y; for (const b of [...hills, mole]) b.y += drop;
+  const out = {}, after = mole.downAt - game.foeClock + .3;
+  Foes.predict(game, mole, after, out); assert.equal(out.flags & 1, 0, 'forecast up after downAt');
+  Foes.predict(game, hills[k], after, out); assert.equal(out.flags & 2, 2, 'his hill forecast a ghost');
+  toClock(game, game.foeClock + after);
+  assert(!mole.hidden && mole.phase === 'stay' && hills[k].ghost, 'and live he stays up');
+  // High on the board he ducks on time, and the forecast says so.
+  const high = level(2, 5), parts = moleParts(high); toClock(high, .9);
+  const end = parts.mole.downAt - high.foeClock;
+  Foes.predict(high, parts.mole, end + .05, out); assert.equal(out.flags & 1, 1, 'forecast under again after downAt');
+  Foes.predict(high, parts.mole, end - .05, out); assert.equal(out.flags & 1, 0, 'still up just before');
 });
 
 // Shared rules every foe keeps.

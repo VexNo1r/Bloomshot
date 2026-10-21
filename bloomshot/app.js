@@ -1343,7 +1343,8 @@
       if (count === 1) a = bud; else if (count === 2) b = bud; else if (count === 3) c = bud;
     }
     if (boss) return (boss.hp || 1) <= 1 ? boss : null;
-    if ((game.drops && game.drops.length) || !count || count > 3) return null;
+    // Nothing is final while a vent still has jellies to send.
+    if ((game.drops && game.drops.length) || (game.foeWave && window.BloomFoes && window.BloomFoes.holding(game)) || !count || count > 3) return null;
     if (count === 1) return oneHit(a) ? a : null;
     // A crown blooms up to two of its own cluster: the last cluster's crown ends the wave if every flower in it opens on one hit.
     const crown = [a, b, c].find(bud => bud && bud.relay);
@@ -1360,7 +1361,7 @@
       if (state.kind === 'fossil' && state.lockStage === 0 && !ball.power) return true;
       return !window.BloomBosses.canHit(game, bud, { ...hit, time: hit.t }, ball);
     }
-    if (bud.foe && window.BloomFoes && window.BloomFoes.guard(game, bud, hit, ball)) return true; // a foe's guard (a crystal turning a seed of another color away) is no finale either
+    if (bud.foe && window.BloomFoes && window.BloomFoes.guard(game, bud, { ...hit, time: hit.t }, ball)) return true; // a foe's guard (a crystal turning a seed of another color away) is no finale either
     if (bud.shield && hit.ny > .28) return true;
     if (!bud.shell) return false;
     const a = (bud.shellAngle || 0) + (bud.shellSpin || 0) * hit.t;
@@ -1659,13 +1660,14 @@
   }
   FOE_FX.mole = {
     rumble(e) { moleDirt(e.x, e.y - 12, 2, 55); },
-    pop(e) { moleDirt(e.x, e.y - 6, 6, 95); foeRing(e.x, e.y - 8, FOE_COLORS.coral, 7, 10, .25); haptic('tick'); },
-    duck(e) { moleDirt(e.x, e.y - 4, 2, 40); },
+    // His events are at his center, 13 px above his hill and 6.5 px above the hole he peeks from.
+    pop(e) { moleDirt(e.x, e.y + 3, 6, 95); foeRing(e.x, e.y + 1, FOE_COLORS.coral, 7, 10, .25); haptic('tick'); },
+    duck(e) { moleDirt(e.x, e.y + 5, 2, 40); },
     bonk(e) {
       jolt(.12, .06); haptic('warn');
       // His bloom's glow mote would wash out his dazed face through the hit-stop; the art's stars and squash are the show.
       game.particles = game.particles.filter(p => !(p.kind === 'glow' && Math.hypot(p.x - e.x, p.y - e.y) < 16));
-      game.floaters.push({ kind: 'trick', trick: 'bonk', text: 'Bonk!', label: '', x: clamp(e.x, 60, 360), y: Math.max(40, e.y - 54), life: 1, maxLife: 1 });
+      game.floaters.push({ kind: 'trick', trick: 'bonk', text: 'Bonk!', label: '', x: clamp(e.x, 60, 360), y: Math.max(40, e.y - 45), life: 1, maxLife: 1 });
     }
   };
   FOE_FX.molehill = {
@@ -1943,8 +1945,9 @@
   }
   // The wanted color, from the hues' start event (its `hue` target) or the guardian's state.
   function crystalHue(event) {
+    // The hue target names it (an event's own `type` is always the engine's event name, never a color).
     const t = event && Array.isArray(event.targets) && event.targets.find(item => item && item.role === 'hue');
-    const type = (event && event.type) || (t && t.type) || (game.bossState && game.bossState.kind === 'crystal' && game.bossState.hue);
+    const type = (t && t.type) || (game.bossState && game.bossState.kind === 'crystal' && game.bossState.hue);
     return FOE_COLORS[type] ? type : null;
   }
   BOSS_FX.crystal = {

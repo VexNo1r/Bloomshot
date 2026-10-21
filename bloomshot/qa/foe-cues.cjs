@@ -15,7 +15,7 @@ module.exports = [
   ['foe', { kind: 'mole:duck', x: 344 }], ['foe', { kind: 'mole:bonk', x: 310 }], ['foe', { kind: 'molehill:guard', x: 250 }],
 
   // ── Fibcap (Level 3, `fibcap`) ──
-  ['foe', { kind: 'fibcap:sneeze', x: 232 }], ['foe', { kind: 'fibcap:pop', x: 150 }], ['foe', { kind: 'fibcap:fizzle', x: 270 }],
+  ['foe', { kind: 'fibcap:sneeze', x: 232 }], ['foe', { kind: 'fibcap:gust', x: 232, n: 3 }], ['foe', { kind: 'fibcap:pop', x: 150 }], ['foe', { kind: 'fibcap:fizzle', x: 270 }],
   ['foe', { kind: 'fibcap:land', x: 300 }],
 
   // ── Drippy Inkcap (Level 3, `inkcap`) ──

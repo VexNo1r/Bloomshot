@@ -54,12 +54,12 @@ test('The launcher and tray show the seed colors from Level 4 only, and typeAhea
 });
 test('A seed of another color glances off with chroma:guard and no refund; the right color opens it', () => {
   let game = load(sandbox(4, 3, [['chroma', 210, 250, { type: 'sky' }]], { keepBuds: false }), 'gold');
-  const crystal = foesOf(game, 'chroma')[0], charge = game.sunCharge, pod = game.pod;
+  const crystal = foesOf(game, 'chroma')[0], charge = game.sunCharge;
   let events = shoot(game, 210, 250);
   const guard = events.find(e => e.kind === 'chroma:guard');
   assert(guard, 'the ball loop emits chroma:guard'); assert.equal(guard.type, 'foe', 'as a foe event'); assert.equal(guard.color, 'sky');
   assert(!crystal.bloomed && crystal.hp === 1, 'still closed'); assert(!events.some(e => e.type === 'bloom'));
-  assert.equal(game.sunCharge, charge, 'no sun'); assert(game.pod <= pod, 'no refund to the pod');
+  assert.equal(game.sunCharge, charge, 'no sun'); assert(!events.some(e => e.type === 'podRefund'), 'no refund to the pod');
   game = load(sandbox(4, 3, [['chroma', 210, 250, { type: 'sky' }]], { keepBuds: false }), 'sky');
   events = shoot(game, 210, 250);
   const opened = foesOf(game, 'chroma')[0];
@@ -293,12 +293,15 @@ function artRig() {
   class Canvas { constructor(w, h) { this.width = w; this.height = h; this.rec = brush(); totals.surfaces++; } getContext() { return this.rec.ctx; } }
   const scope = vm.createContext({ OffscreenCanvas: Canvas, console });
   for (const file of ['foe-art.js', 'art.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), scope, { filename: file });
-  return { Art: scope.BloomArt, totals, brush };
+  // Count the foe art's bud draws, so the test cannot pass without drawing a crystal or a bat.
+  const FoeArt = scope.BloomFoeArt, budArt = FoeArt.bud, drawn = { buds: 0 };
+  FoeArt.bud = (...args) => { drawn.buds++; return budArt.apply(FoeArt, args); };
+  return { Art: scope.BloomArt, totals, brush, drawn };
 }
 const snap = game => ({ mode: 'rush', status: 'playing', lives: game.lives, buds: game.buds, balls: [], bumpers: [], particles: [], floaters: [], launcher: { x: 210, y: 498 },
-  podSize: 4, pod: 4, podGrow: 0, nextType: game.nextType, typeAhead: k => game.typeAhead(k), colorAhead: game.colorAhead, dangerY: game.dangerY, foeClock: game.foeClock });
+  podSize: 4, pod: 4, podGrow: 0, nextType: game.nextType, typeAhead: k => game.typeAhead(k), colorAhead: game.colorAhead, dangerY: game.dangerY, foeClock: game.foeClock, foeWave: game.foeWave });
 test('Crystal and bat art: finite, balanced, nothing new once warm, and still under reduced motion', () => {
-  const { Art, totals, brush } = artRig(), frames = [];
+  const { Art, totals, brush, drawn } = artRig(), frames = [];
   // Crystals of every color, ready and not, a refusal and a match; bats perched, telling, swooping and caught.
   const crystals = sandbox(4, 3, PALETTES.map((type, i) => ['chroma', 60 + 75 * i, 230, { type }]), { keepBuds: false });
   load(crystals, 'sky'); crystals.buds[0].refusedAt = 0;
@@ -307,6 +310,8 @@ test('Crystal and bat art: finite, balanced, nothing new once warm, and still un
   for (let k = 0; k < 4; k++) { advance(bats, .9, 120); for (const reduced of [false, true]) { draw(crystals, k * .3, reduced); draw(bats, bats.time, reduced); } }
   touch(crystals, crystals.buds[3]); assert(crystals.buds[3].matched);
   for (let k = 0; k < 8; k++) { draw(crystals, crystals.time + k * .08, false); draw(crystals, crystals.time + k * .08, true); }
+  // The game prewarms each wave's foe sprites (plan.foes), the bat's 'awake' tell frame among them.
+  { const job = Art.prewarm({ foes: [...PALETTES.map(type => ['chroma', 12, type]), ['bat', 11]] }); while (!job.step(1000)); }
   const warm = { ...totals };
   for (let k = 0; k < 90; k++) {
     bats.step(1 / 60); bats.drainEvents();
@@ -318,6 +323,7 @@ test('Crystal and bat art: finite, balanced, nothing new once warm, and still un
   load(still, 'gold');
   assert.deepEqual(draw(still, 1, true), draw(still, 7.3, true), 'reduced motion: no twinkle, breathing or z\'s');
   assert.notDeepEqual(draw(still, 1, false), draw(still, 1.6, false), 'with Animations on it moves');
+  assert(drawn.buds > 1000, `the foe art draws the crystals and bats (${drawn.buds} bud draws)`);
 });
 
 const report = { passed: results.filter(r => r.passed).length, failed: results.filter(r => !r.passed).length, results };

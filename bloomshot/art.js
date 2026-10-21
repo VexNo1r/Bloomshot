@@ -1027,6 +1027,25 @@
     }
   }
   function trembles(bud) { return trembleKey !== null && !bud.bloomed && !bud.gift && !bud.puff && (bud.group == null ? bud : bud.group) === trembleKey; }
+  // The per-bud pass's tumble-in and tremble (below, in draw), for a foe drawn in a pass of its own (the glowworm):
+  // how far to move it and how faint to draw it. Animations off: in place and solid.
+  function budShift(bud, time, still) {
+    const out = { dx: 0, dy: 0, alpha: 1 };
+    if (still) return out;
+    if (typeof bud.enterAt === 'number') {
+      const span = Number(bud.enterDur) > 0 ? Number(bud.enterDur) : .4;
+      if (!(typeof bud.spawnAt === 'number' && bud.spawnAt > bud.enterAt + span)) {
+        const k = (time - bud.enterAt) / span;
+        if (k < 0) out.alpha = .25;
+        else if (k < 1) {
+          out.dy = -(Number.isFinite(bud.enterDrop) ? bud.enterDrop : 48) * (1 - (bud.enterBounce ? easeBounce(k) : bloomBack(k, 1.4)));
+          out.alpha = Math.min(1, .25 + k * 3);
+        }
+      }
+    }
+    if (trembles(bud)) out.dx = Math.sin(time * 22 * TAU + (flowerVariants.get(bud) || 0) * 2.1) * 1.5 * (.45 + .55 * clamp((.8 - trembleTime) / .35, 0, 1));
+    return out;
+  }
   // The finale sweep: each bloomed flower flares with gold light and a white glint as feel's wave passes it. The glows
   // are added in one 'lighter' pass; the glints, which grow and shrink as they twinkle, are one path and one fill.
   // A flower that has sunk out of sight past the danger line gets no flare (its light would hang on the soil); a spent
@@ -4987,7 +5006,7 @@
 
   // The toolbox foe-art.js draws with, so the new pieces share the atlas, the flowers and the palette.
   const FOE_KIT = Object.freeze({ atlasSprite, blit, drawFlower, circle, sparkle, starPath, roundRect, shade, FLOWERS, TAU, clamp, ease, smooth, easeBounce, easeBack,
-    drawPuffcap, paintTargetPart, drawBossFace, BOSS_LOOKS, paintGlyph, GLYPH }); // paintGlyph and GLYPH: the Chroma Crystal wears its color's glyph
+    drawPuffcap, paintTargetPart, drawBossFace, BOSS_LOOKS, paintGlyph, GLYPH, budShift }); // paintGlyph and GLYPH: the Chroma Crystal wears its color's glyph
   root.BloomArt = { draw, drawSceneLife, drawFlower, drawGarden, drawMoon, koiFish, drawProjectile, drawParticle, drawSeed, drawPowerIcon, drawUnfurl, drawChainLinks,
     prewarm, setHarvestTarget, spentFlower, paints: () => painted, GLYPH, glyphSprite, glyphDisc, // the seed color glyphs, which qa/test-seed-art.cjs measures
     // Where a pod seed sits: slot 0 is the cup, 1-3 the tray beside it.

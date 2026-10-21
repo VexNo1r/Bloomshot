@@ -366,7 +366,8 @@
     if (s.kind === 'sunny' && w.move === 'sprouts') s.next = Math.max(s.next, s.modeUntil + .8);
     // A mood change waiting behind this move comes next.
     if (s.shiftPending) s.next = Math.min(s.next, s.age);
-    game.event('bossAbility', { kind: s.kind, move: w.move, act: 'start', name: b.name, x: b.x, y: b.y, targets: w.targets });
+    // A move that gave up (w.quiet: its spot was taken, or nothing was left to work with) rests without a start cue.
+    if (!w.quiet) game.event('bossAbility', { kind: s.kind, move: w.move, act: 'start', name: b.name, x: b.x, y: b.y, targets: w.targets });
   }
   // Phase Bloom: the guardian changes mood, pauses a beat, and its next tier of moves begins. Whatever it was doing (a dizzy
   // Sunny, an open gutter, a burrowed Rootknot) carries on; that opening was paused while the change was announced.
@@ -804,7 +805,7 @@
   // the Root Snare: a thorny root across one side of the launcher's fan for four seconds, on the side with more to aim at.
   // Every motion is closed form on the kit clock (a Lullaby stops it all), so the carousel, its fling and the lobs are
   // exactly where the bot's forecast (positions) says they will be.
-  const ROOT = { holes: [128, 210, 292], land: [70, 100], lobT: .6, lobH: 48, stagger: .18, tossCap: 4, ring: 30, gather: .25,
+  const ROOT = { holes: [128, 210, 292], land: [100, 70], lobT: .6, lobH: 48, stagger: .18, tossCap: 4, ring: 30, gather: .25,
     spin: 1.6, spinFor: [3.5, 3.5, 7], sink: .85, out: 40, throwT: .3, hurry: 1.3, hurryFor: 2, knotHp: 2, knotR: 10,
     snare: { x: [145.3, 274.7], y: 405.65, length: 82, angle: .6109, life: 4, wither: .3 } };
   const rootSmooth = p => { p = clamp(p, 0, 1); return p * p * (3 - 2 * p); };
@@ -824,7 +825,8 @@
     return true;
   }
   // The burrow (walls and the station hole) plus up to `count` toss marks: the empty holes nearest the middle first (ties
-  // go left), each landing 70 px below his row, else 100 px, else that hole stays quiet.
+  // go left), each landing 100 px below his row (clear of the move's words under him), else 70 px, else that hole stays
+  // quiet.
   function rootBurrowPlan(game, s, b, move, count) {
     const plan = legacyPlan(game, s, 'root'), station = rootStation(s);
     for (const t of plan.targets) if (t.role === 'hole') t.x = station;
@@ -902,7 +904,7 @@
     const seedlings = w.targets.filter(t => t.role === 'seedling');
     if (seedlings.length) {
       // His own seedlings pop up on the ring where the tell showed them (a piece drifting onto a spot: a short rest).
-      if (rootKnot(s) || !seedlings.every(t => clearSpot(game, t.x, t.y, t.r, s.boss))) { w.targets = []; return 1.5; }
+      if (rootKnot(s) || !seedlings.every(t => clearSpot(game, t.x, t.y, t.r, s.boss))) { w.targets = []; w.quiet = true; return 1.5; }
       const knot = w.targets.find(t => t.role === 'knot'), group = `${s.boss.id}-seedling-${s.serial++}`;
       const made = seedlings.map((t, i) => ({ id: `${group}-${i}`, group, x: t.x, y: t.y, baseX: t.x, startY: t.y, r: t.r, type: s.boss.type, hp: 1, maxHp: 1,
         relay: false, fall: .85, sway: 0, hitAt: -100, bloomed: false, bloomAt: -100, spawnAt: game.time, bossSummon: true, bossSource: s.boss.id, rootSeedling: true }));
@@ -912,7 +914,7 @@
     }
     const riders = w.targets.filter(t => t.role === 'carried').map(t => game.buds.find(p => p.id === t.id)).filter(p => p && plainFlower(p) && open(p));
     // Shot down to one flower during the warning (or another ring still turning): nothing to carry, a short rest.
-    if (riders.length < 2 || rootKnot(s)) return 1.5;
+    if (riders.length < 2 || rootKnot(s)) { w.targets = []; w.quiet = true; return 1.5; }
     const cx = riders.reduce((n, p) => n + p.x, 0) / riders.length, cy = riders.reduce((n, p) => n + p.y, 0) / riders.length;
     const sink = game.descentSpeed * ROOT.sink, floor = game.dangerY - 70;
     // It lets go when its spin ends, or as soon as the ring's bottom would pass 70 px above the line.
@@ -1033,7 +1035,7 @@
       if (bud.bossPart !== 'knot') return false;
       // Snap! Every flower still on the ring blooms in a cascade, credited to whoever snapped the knot.
       const riders = rootRiders(s, bud).filter(p => !p.bloomed), by = game.striker ? game.striker.id : game.due && game.due.by != null ? game.due.by : null;
-      bud.snappedAt = s.kitAge; bud.ends = riders.map(p => ({ x: p.x, y: p.y, type: p.type }));
+      bud.snappedAt = game.time; bud.ends = riders.map(p => ({ x: p.x, y: p.y, type: p.type })); // game time: the burst plays out in a Lullaby too
       riders.forEach((p, k) => { release(game, p, false); game.pending.push(game._linkBy(p.id, game.time + .08 * k, bud, 'knot', by, true)); });
       game.event('bossAbility', { kind: s.kind, move: 'carousel', act: 'snap', x: bud.x, y: bud.y, n: riders.length });
       return true;
@@ -1268,11 +1270,11 @@
     return made;
   }
   // The pair of mirrors: one each side of the launcher's line, angled in, turning in opposite directions.
-  function crystalMirrors(game, s) {
+  function crystalMirrors(game, s, y = CRYSTAL.mirrorY) {
     game.bumpers = game.bumpers.filter(m => !m.bossMirror);
     CRYSTAL.mirrorX.forEach((x, i) => {
       const angle = i ? -.6 : .6;
-      game.bumpers.push({ id: s.boss.id + '-mirror-' + i, kind: 'rock', bossWall: true, bossMirror: true, x, y: CRYSTAL.mirrorY, baseX: x,
+      game.bumpers.push({ id: s.boss.id + '-mirror-' + i, kind: 'rock', bossWall: true, bossMirror: true, x, y, baseX: x,
         length: CRYSTAL.mirrorLength, angle0: angle, angle, dir: i ? -1 : 1, t0: s.kitAge, kitUntil: s.kitAge + CRYSTAL.mirrorLife,
         expires: Infinity, turns: 0, lead: i === 0, flashAt: null, flashSeen: null });
     });
@@ -1290,15 +1292,27 @@
     moves: [['crystal'], ['crystal', 'mirrors'], ['hues', 'mirrors']],
     init(game, s) { crystalMark(s); },
     plan: {
-      mirrors() { return { targets: CRYSTAL.mirrorX.map(x => ({ x, y: CRYSTAL.mirrorY, r: 30, role: 'mirror' })) }; },
+      // The blades' row: y 356, or lower if the sinking guardian and hearts would reach their sweep before they go. Too
+      // near the line for that, and she rests instead.
+      mirrors(game, s) {
+        let low = -Infinity;
+        for (let t = 0; t <= TELEGRAPH + CRYSTAL.mirrorLife + 1e-9; t += .25) {
+          const at = positions(s, t);
+          for (const p of [s.boss, ...crystalHearts(s)]) { const q = at.get(p.id); low = Math.max(low, (q ? q.y : p.y) + p.r); }
+        }
+        const y = Math.max(CRYSTAL.mirrorY, low + CRYSTAL.mirrorLength / 2 + 8);
+        if (y > game.dangerY - 40) return null;
+        return { targets: CRYSTAL.mirrorX.map(x => ({ x, y, r: 30, role: 'mirror' })) };
+      },
       // Today's shuffle (with its shard clusters below half health), under its own name.
       hues(game, s) { return { ...legacyPlan(game, s, 'crystal'), move: 'hues', text: null }; }
     },
     act: {
       crystal(game, s, w) { s.hue = null; legacyAct(game, s, w); crystalMark(s); },
-      mirrors(game, s) {
-        s.hue = null; crystalMirrors(game, s);
-        game.event('bossAbility', { kind: s.kind, move: 'mirrors', act: 'mirror', x: 210, y: CRYSTAL.mirrorY });
+      mirrors(game, s, w) {
+        const t = w.targets.find(q => q.role === 'mirror'), y = t ? t.y : CRYSTAL.mirrorY;
+        s.hue = null; crystalMirrors(game, s, y);
+        game.event('bossAbility', { kind: s.kind, move: 'mirrors', act: 'mirror', x: 210, y });
       },
       hues(game, s, w) {
         legacyAct(game, s, w); crystalMark(s);
@@ -1483,10 +1497,10 @@
       },
       worm(game, s, w) {
         const t = w.targets.find(t => t.role === 'worm'), lantern = lilyLantern(s);
-        if (!t || !lantern || lantern.hidden || lilyWormLive(s)) { w.targets = []; return 1.5; }
+        if (!t || !lantern || lantern.hidden || lilyWormLive(s)) { w.targets = []; w.quiet = true; return 1.5; }
         // Where it was shown, or the other height if a piece has drifted in; with no room the lantern stays home.
         const y = [t.y, ...LILY.wormDrop.map(dy => s.boss.y + dy)].find(y => lilyWormRoom(game, t.x, y));
-        if (y == null) { w.targets = []; return 1.5; }
+        if (y == null) { w.targets = []; w.quiet = true; return 1.5; }
         if (y !== t.y) w.targets = w.targets.map(p => ({ ...p, y }));
         const G = `${s.boss.id}-worm-${s.serial++}`, pieces = Foes.make('glowworm', ['glowworm', t.x, y, { dir: -1 }], G, null, null, null);
         pieces[0].bossLantern = true;
@@ -1500,7 +1514,7 @@
         const t = w.targets.find(t => t.role === 'tide');
         // Clamped once, now, looking over the .6 s rise; never higher than the warning showed.
         const now = lilyTideOffset(game, s, LILY.rise), offset = now == null ? null : Math.min(now, t ? t.offset : now);
-        if (offset == null) { w.targets = []; return 1.5; }
+        if (offset == null) { w.targets = []; w.quiet = true; return 1.5; }
         w.targets = [{ ...(t || { x: 210, r: 30, role: 'tide' }), y: 448 - offset, offset }];
         s.tide = { t0: s.kitAge, offset };
         after(s, LILY.rise + LILY.hold, 'recede', null);

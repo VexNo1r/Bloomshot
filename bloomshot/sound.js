@@ -455,9 +455,11 @@
 
   // ── Fibcap (Level 3, `fibcap`) ──
   // The sneeze is a comic "ah... ah... CHOO!": two rising marimba breaths, then a water-drop sneeze under a burst of
-  // noise, landing with the gust (.18 s). A quiet pop is a dull wooden pff (a decoy gives nothing), a fizzle a soft
-  // knock, and one landing from Mother Morel's fakeout a light woody tap.
-  FOE_CUES['fibcap:sneeze'] = [['marimba', hz(4), 0, .08, .06], ['marimba', hz(7), .09, .08, .06], ['drop', step(-3), .18, .2, .07], ['crunch', 'burst', .18, .7]];
+  // noise, played by the gust itself (.18 s later on the foe clock, so a Lullaby holds the CHOO with its gust). A quiet
+  // pop is a dull wooden pff (a decoy gives nothing), a fizzle a soft knock, and one landing from Mother Morel's fakeout
+  // a light woody tap.
+  FOE_CUES['fibcap:sneeze'] = [['marimba', hz(4), 0, .08, .06], ['marimba', hz(7), .09, .08, .06]];
+  FOE_CUES['fibcap:gust'] = [['drop', step(-3), 0, .2, .07], ['crunch', 'burst', 0, .7]];
   FOE_CUES['fibcap:pop'] = [['wood', step(2), 0, .08, .05], ['crunch', 'pop', 0, .5]];
   FOE_CUES['fibcap:fizzle'] = [['wood', step(-1), 0, .06, .03, 0]];
   FOE_CUES['fibcap:land'] = [['wood', step(4), 0, .06, .045], ['crunch', 'click', 0, .4]];
