@@ -4254,6 +4254,17 @@
     vineBlit(ctx, bud.bloomed ? null : vinePiece(leavesKey, paintLeaves), paintLeaves, VINE.left, right);
     // The leading leaf, partly spent, shrinks with what is left of it (drawn live: one leaf).
     if (!bud.bloomed && part > .02 && full < n && vineSlot(full, n) <= right) vineLeaf(ctx, full, n, .35 + .65 * part);
+    // Phase Bloom: the knot the guardian just passed pops open with a flash ring (drawn live for under half a second).
+    const knotAt = Array.isArray(vine.knotAt) ? vine.knotAt : [];
+    if (!still) knots.forEach((knot, j) => {
+      const age = time - (Number.isFinite(knotAt[j]) ? knotAt[j] : -100);
+      if (age < 0 || age > .45 || !knot.open) return;
+      const x = VINE.x + VINE.w * knot.at, y = vineY(x), k = age / .45, pop = 1 + .55 * Math.sin(Math.PI * Math.min(1, k * 1.4));
+      ctx.save(); ctx.globalAlpha *= 1 - k;
+      ctx.beginPath(); ctx.arc(x, y, 6 + 20 * k, 0, TAU); ctx.strokeStyle = '#fff6ce'; ctx.lineWidth = .8 + 3 * (1 - k); ctx.stroke();
+      ctx.translate(x, y - .5); ctx.scale(pop, pop); blossom(ctx, 0, 0, 9, (FLOWERS[type] || FLOWERS.coral).base, .3);
+      ctx.restore();
+    });
     // Lost leaves drop off and tumble away.
     const length = vineLeafSize(n);
     for (const fall of vine.fallen || []) {
