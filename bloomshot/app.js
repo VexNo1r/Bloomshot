@@ -9,12 +9,20 @@
   const store = window.BloomStore || null;
   const Keepsakes = window.BloomKeepsakes;
   const native = window.BloomNative || null;
-  const STORAGE = new URLSearchParams(location.search).has('qa') ? 'bloomshot.qa.v1' : 'bloomshot.save.v1';
+  // The handoff's all-levels web playtest has separate progress and cannot unlock the native app.
+  const reviewAll = !native?.isNative && new URLSearchParams(location.search).has('alllevels');
+  const reviewBosses = reviewAll && new URLSearchParams(location.search).has('bosses');
+  const STORAGE = reviewAll || new URLSearchParams(location.search).has('qa') ? 'bloomshot.qa.v1' : 'bloomshot.save.v1';
   const Goals = window.BloomGoals;
   const Depths = window.BloomDepths;
   const Tutorial = window.BloomTutorial;
   const Powers = window.BloomPowers;
-  const defaults = { version: 1, garden: BloomGarden.normalize(), goals: Goals.normalize(null, localDate()), progress: {}, moon: {}, koi: {}, daily: {}, rush: { best: 0, bestWave: 1, runs: 0, blooms: 0 }, depths: {}, powers: Powers.normalize(), powerReceipts: [], powersMet: false, podMet: false, tutorial: false, lastLevel: 1, keepsake: 'meadow', settings: { sound: true, haptics: true, motion: !matchMedia('(prefers-reduced-motion: reduce)').matches } };
+  const GRAPHICS = Object.freeze({
+    maximum: { board: 2.5, scene: 2, effects: 0, warm: 4 },
+    balanced: { board: 2, scene: 1.5, effects: 1, warm: 3 },
+    performance: { board: 1.5, scene: 1, effects: 2, warm: 2 }
+  });
+  const defaults = { version: 1, garden: BloomGarden.normalize(), goals: Goals.normalize(null, localDate()), progress: {}, moon: {}, koi: {}, daily: {}, rush: { best: 0, bestWave: 1, runs: 0, blooms: 0 }, depths: {}, bossLosses: {}, powers: Powers.normalize(), powerReceipts: [], powersMet: false, podMet: false, tutorial: false, lastLevel: 1, keepsake: 'meadow', settings: { sound: true, haptics: true, motion: !matchMedia('(prefers-reduced-motion: reduce)').matches, graphics: 'maximum', frameRate: false } };
   let storageAvailable = true;
   function readSave() {
     try {
@@ -24,6 +32,10 @@
       valid.garden = BloomGarden.normalize(raw.garden);
       valid.goals = Goals.normalize(raw.goals, localDate());
       valid.depths = Depths.normalize(raw.depths);
+      for (const level of Depths.levels) {
+        const losses = raw.bossLosses?.[level.id];
+        if (Number.isSafeInteger(losses) && losses >= 0) valid.bossLosses[level.id] = losses;
+      }
       // Powerups are counted, never reset; a save from before them starts with one of each.
       valid.powers = Powers.normalize(raw.powers); valid.powerReceipts = Powers.receipts(raw.powerReceipts); valid.powersMet = raw.powersMet === true;
       valid.podMet = raw.podMet === true;
@@ -39,7 +51,8 @@
       // The chosen style is kept even while locked (a refund or a restore in progress); play shows Meadow until it is owned.
       if (typeof raw.keepsake === 'string' && Keepsakes.byId[raw.keepsake]) valid.keepsake = raw.keepsake;
       for (const key of ['best', 'bestWave', 'runs', 'blooms']) if (Number.isFinite(raw.rush?.[key]) && raw.rush[key] >= 0) valid.rush[key] = Math.floor(raw.rush[key]);
-      for (const key of ['sound', 'haptics', 'motion', 'music']) if (typeof raw.settings?.[key] === 'boolean') valid.settings[key] = raw.settings[key];
+      for (const key of ['sound', 'haptics', 'motion', 'music', 'frameRate']) if (typeof raw.settings?.[key] === 'boolean') valid.settings[key] = raw.settings[key];
+      if (Object.hasOwn(GRAPHICS, raw.settings?.graphics)) valid.settings.graphics = raw.settings.graphics;
       if (raw.daily && typeof raw.daily === 'object') for (const [key, value] of Object.entries(raw.daily).slice(-14)) {
         if (!value || typeof value !== 'object' || Array.isArray(value)) continue;
         if (/^daily-\d{4}-\d{2}-\d{2}$/.test(key) && Number.isFinite(value.best) && value.best >= 0 && Number.isInteger(value.stars) && value.stars >= 0 && value.stars <= 3) valid.daily[key] = value;
@@ -51,18 +64,42 @@
     } catch (_) { return structuredClone(defaults); }
   }
   const save = readSave();
+  const nativeSavePending = () => native?.isNative && STORAGE === 'bloomshot.save.v1' && native.saveReady === false;
   function persist() {
-    if (native && native.reloading) return; // a restored save is about to replace this page, so nothing may overwrite it
+    if (native && native.reloading) return false; // a restored save is about to replace this page, so nothing may overwrite it
+    if (nativeSavePending()) {
+      storageAvailable = false;
+      $('settings-storage').textContent = "Your phone's save is still being checked. Reopen Bloomshot if it doesn't finish.";
+      return false;
+    }
     let json = '';
-    try { json = JSON.stringify(save); localStorage.setItem(STORAGE, json); }
+    try {
+      json = JSON.stringify(save); localStorage.setItem(STORAGE, json);
+      storageAvailable = localStorage.getItem(STORAGE) === json;
+      if (!storageAvailable) throw new Error('Save was not kept');
+      $('settings-storage').textContent = 'Saved on this device. No account needed.';
+    }
     catch (_) { storageAvailable = false; $('settings-storage').textContent = "This browser won't save, so progress lasts for this visit only."; }
     if (native && json) native.mirror(STORAGE, json); // the phone's own preferences may still work when web storage does not
+    return storageAvailable;
   }
   function haptic(kind) { if (save.settings.haptics && native) native.haptic(kind); }
   // In the native app a second copy of the save lives in the phone's preferences. If the OS wiped the web
   // storage, put that copy back and reload once so the game starts from it.
-  if (native) native.restore(STORAGE).then(restored => { if (restored) location.reload(); });
+  if (native) Promise.resolve(native.restore(STORAGE)).then(restored => {
+    if (restored) { location.reload(); return; }
+    if (native.isNative && STORAGE === 'bloomshot.save.v1' && native.saveReady === true) {
+      // Startup may have offered owed purchases while Preferences was still answering. Retry only after
+      // this copy wins; a restored backup reloads first and receives those purchases on the new page.
+      if (persist() && typeof store?.deliver === 'function') store.deliver(grantPower);
+    }
+  }, () => { /* an unresolved backup keeps saving and paid delivery closed for this page */ });
   const canvas = $('game-canvas'), ctx = canvas.getContext('2d');
+  const sceneCanvas = $('scene-canvas'), sceneCtx = sceneCanvas?.getContext('2d');
+  const lifeCanvas = $('life-canvas'), lifeCtx = lifeCanvas?.getContext('2d');
+  let fullScene = false, lifeFrame = 0, lifeWidth = 0, lifeHeight = 0, lifePainted = false;
+  if (lifeCanvas) put(lifeCanvas.style, 'visibility', 'hidden');
+  let resizePending = false, resizeKey = '', sceneKey = '';
   const meadowCanvas = $('meadow-canvas'), meadowCtx = meadowCanvas.getContext('2d');
   let meadowDirty = true, meadowFrame = 0, growth = null, bubbleTimer = 0;
   const friendPokes = {};
@@ -79,7 +116,10 @@
   const narrowLandscape = matchMedia('(orientation: landscape) and (max-height: 500px)');
   let lastFrame = 0, accumulator = 0, toastTimer, currentWorld = null, newFlower = null, newKeepsake = null;
   let displayScore = 0, hudKey = '', pulseTime = 0, rushRecordBroken = false;
-  const dialogs = ['result-dialog', 'settings-dialog', 'help-dialog', 'world-dialog'];
+  const graphics = () => GRAPHICS[save.settings.graphics] || GRAPHICS.maximum;
+  const frameMeter = typeof window.BloomFeel?.createFrameMeter === 'function' ? BloomFeel.createFrameMeter({ capacity: 1800, target: 60 }) : null;
+  let meterAt = 0;
+  const dialogs = ['result-dialog', 'settings-dialog', 'privacy-dialog', 'help-dialog', 'world-dialog'];
   // Three filled stars, the unearned ones dimmed, so a row of stars always reads the same width.
   const starHTML = n => '<span>★</span>'.repeat(n) + '<span class="off">★</span>'.repeat(3 - n);
   const fmt = number => Math.round(number).toLocaleString();
@@ -111,9 +151,9 @@
   const isTutorial = () => Boolean(tutorial) && isRush() && Boolean(game.scripted);
   const gate = action => !isTutorial() || tutorial.allows(action);
   const powerCount = id => isTutorial() ? tutorial.count(id) : save.powers[id];
-  const depthsOwned = () => Boolean(store && store.owns(Depths.entitlement));
+  const depthsOwned = () => reviewAll || Boolean(store && store.owns(Depths.entitlement));
   const depthPaid = id => id <= Depths.free || depthsOwned();
-  const depthOpen = id => Depths.unlocked(save.depths, id, depthsOwned());
+  const depthOpen = id => reviewAll && Boolean(Depths.level(id)) || Depths.unlocked(save.depths, id, depthsOwned());
   const depthTheme = id => `depth-${Depths.level(id).key}`;
   // A free taste: once level 4 is cleared, anyone can play the first three waves of level 5. It records no
   // progress; when it is played through, the unlock is offered on the result card, never during play.
@@ -192,7 +232,7 @@
     if (!isRush()) for (const key of ['wave', 'lives', 'elapsed', 'splitReady']) delete canvas.dataset[key];
     $('split-btn').hidden = !isRush();
     angle = -Math.PI / 2; pointer = null; aiming = false; guiding = false; resultAt = Infinity; resultShown = false; remembered = null; pressPoint = null;
-    displayScore = 0; hudKey = ''; newFlower = null; newKeepsake = null; accumulator = 0; rushRecordBroken = false; depthNews = null; game.shieldSeen = false; game.shellSeen = false; game.geodeSeen = false;
+    displayScore = 0; hudKey = ''; newFlower = null; newKeepsake = null; accumulator = 0; rushRecordBroken = false; depthNews = null; game.shieldSeen = false; game.shellSeen = false; game.geodeSeen = false; game.foesSeen = new Set();
     runId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`; runAward = 0; runBouquet = null; runGoals = null; shotTrail = []; trailTotal = 0;
     if (!preview && typeof level.id === 'number') { save.lastLevel = level.id; persist(); }
     $('level-name').textContent = level.name;
@@ -215,7 +255,8 @@
       $('game-hint').textContent = game.waveHint || depth.twist;
       canvas.setAttribute('aria-label', `Level ${depth.id}, ${depth.name}. ${isTaste() ? `The first ${TASTE.waves} waves, free to try.` : 'Ten waves of flowers.'} Keep them above the line: three clusters over it ends the level. Arrow keys aim, Space fires, S splits after six direct hits, R turns the petal.`);
     }
-    $('back-btn').querySelector('span').textContent = isRush() ? 'Levels' : 'Meadow';
+    $('back-btn').querySelector('span').textContent = isRush() ? 'Levels' : isChapter() ? 'Worlds' : 'Meadow';
+    $('back-btn').setAttribute('aria-label', isRush() ? 'Back to levels' : isChapter() ? 'Back to worlds' : 'Back to meadow');
     if (isChapter()) {
       const list = chapters[level.worldId].levels;
       $('level-label').textContent = `${CHAPTER_NAMES[level.worldId]} ${list.findIndex(item => item.id === level.id) + 1}/${list.length}`;
@@ -223,7 +264,7 @@
       canvas.setAttribute('aria-label', `${level.name}. Five single-seed shots. ${isKoi() ? 'Flowing currents turn your seed toward the way the water runs.' : 'Paired moon gates transport your seed.'} Aim with arrows, Space fires, R turns a leaf between shots. No in-flight steering.`);
     }
     setRoute('game'); trayKey = ''; updateHud();
-    if (isRush() && !preview && !options.behind && !tutorial && !save.powersMet) { save.powersMet = true; persist(); toast('New: powerups! Tap one above the board, then fire.'); }
+    if (isRush() && !preview && !options.behind && !tutorial && !save.powersMet) { save.powersMet = true; persist(); toast('New: powerups! Tap one above Split, then fire.'); }
   }
   // The HUD is written every frame, so each write only happens when the value changed: an unchanged text, flag,
   // attribute or style property costs no style, layout or paint work.
@@ -239,7 +280,7 @@
   function putClass(el, name, on) { if (el.classList.contains(name) !== Boolean(on)) el.classList.toggle(name, Boolean(on)); }
   function updateHud() {
     const rush = isRush();
-    const key = `${game.shotsLeft}|${game.bloomedCount}|${game.status}|${game.rotationUsed}|${game.wave}|${game.lives}`;
+    const key = `${game.shotsLeft}|${game.bloomedCount}|${game.status}|${game.rotationUsed}|${game.wave}|${game.lives}|${game.bumpers.length}`;
     if (key !== hudKey) {
       hudKey = key;
       const remaining = rush ? game.lives : game.shotsLeft;
@@ -251,6 +292,8 @@
       $('best-value').textContent = preview ? 'Preview' : record()?.best ? fmt(record().best) : '—';
       canvas.dataset.status = game.status; canvas.dataset.blooms = game.bloomedCount; canvas.dataset.level = game.level.id; canvas.dataset.shots = game.shotsLeft;
       $('rotate-btn').disabled = game.status !== 'aiming' || game.rotationUsed || !game.bumpers.length;
+      // A board with no petal (most Koi pools) has nothing to turn, so the button stays out of the way.
+      put($('rotate-btn'), 'hidden', !game.bumpers.length);
       $('rotate-btn').textContent = game.rotationUsed ? 'Petal turned' : 'Turn petal';
     }
     put($('score-value'), 'textContent', fmt(displayScore));
@@ -296,7 +339,9 @@
       put(split, 'disabled', !game.splitReady);
       // Once the run is over the bar empties, so a full gold Split no longer looks pressable behind the finale.
       putVar(split, '--split-charge', `${game.over ? 0 : game.splitCharge * 100}%`);
-      put(split, 'textContent', game.over ? 'Split' : game.splitReady ? 'Split! +2' : game.splitCharge >= 1 ? game.balls.length ? 'No room' : 'Fire first' : `Split ${Math.round(game.splitCharge * 6)}/6`);
+      put(split, 'textContent', game.over ? 'Split' : game.splitReady ? 'Split! +2' : game.splitCharge >= 1 ? game.balls.length ? 'Too many seeds' : 'Fire first' : `Split ${Math.round(game.splitCharge * 6)}/6`);
+      // Charged but not usable this instant (no seed flying, or too many): the gold dims, so it never looks ready.
+      putClass(split, 'waiting', !game.over && !game.splitReady && game.splitCharge >= 1);
       putData(canvas, 'sun', (game.sun || 0).toFixed(2)); putData(canvas, 'mult', game.mult || 1); putData(canvas, 'superBloom', (game.superBloom || 0).toFixed(1));
       put(banner, 'hidden', game.feverTime <= 0);
       put(banner, 'textContent', 'Super Bloom!');
@@ -427,7 +472,7 @@
   function renderLevels() {
     const list = Depths.levels, suggested = nextDepth();
     const cleared = list.filter(level => save.depths[level.id]?.stars).length, stars = list.reduce((n, level) => n + (save.depths[level.id]?.stars || 0), 0);
-    $('levels-summary').textContent = cleared ? `${cleared} of ${Depths.total} cleared · ${stars} ★` : 'Start at the top and dig down.';
+    $('levels-summary').textContent = reviewBosses ? 'Boss preview. Your progress here stays separate.' : reviewAll ? 'All levels preview. Your progress here stays separate.' : cleared ? `${cleared} of ${Depths.total} cleared · ${stars} ★` : 'Start at the top and dig down.';
     const resume = inProgress();
     $('resume-btn').hidden = !resume;
     if (resume) {
@@ -452,7 +497,7 @@
     $('levels-rush-best').textContent = save.rush.runs || save.rush.best > 0 ? `Best ${fmt(save.rush.best)} · wave ${save.rush.bestWave}` : 'Endless waves. How far can you go?';
     renderPowerShelf();
   }
-  // Powerups: four in a tray beside the Fire! sign in the levels and Meadow Rush, and a shelf on the Levels page.
+  // Powerups: four above Split in the levels and Meadow Rush, and a shelf on the Levels page.
   // Each one is drawn once by the board art and reused as a picture.
   const powerIcons = new Map();
   function powerIcon(id) {
@@ -467,15 +512,19 @@
     return powerIcons.get(id);
   }
   const TRAY = { 'power-left': ['sunburst', 'dandelion'], 'power-right': ['beeline', 'lullaby'] };
-  let trayKey = '';
+  let trayKey = '', chipGot = null;
   function powerChip(id) {
     const def = Powers.byId[id], n = powerCount(id), armed = game.armed === id, playing = id === 'lullaby' && game.lullaby > 0;
+    // A powerup just caught from a gift bubble bounces in its slot, so the reward lands where it can be used.
+    const got = chipGot && chipGot.id === id && performance.now() < chipGot.until ? ' got' : '';
     const label = `${def.name}, ${n} left. ${def.text}${armed ? ' Ready on your next shot.' : playing ? ' Playing now.' : ''}`;
-    return `<button class="power-chip${armed ? ' armed' : playing ? ' active' : n ? '' : ' empty'}" type="button" data-power="${id}" aria-label="${escape(label)}" aria-pressed="${armed || playing}">`
+    return `<button class="power-chip${armed ? ' armed' : playing ? ' active' : n ? '' : ' empty'}${got}" type="button" data-power="${id}" aria-label="${escape(label)}" aria-pressed="${armed || playing}">`
       + `<img src="${powerIcon(id)}" alt=""><span class="power-count" aria-hidden="true">${n}</span></button>`;
   }
   function renderTray() {
     if (!isRush() || preview) return;
+    // Once the bounce has played the chip is rebuilt without it, so showing the board again does not replay it.
+    if (chipGot && performance.now() >= chipGot.until) { chipGot = null; trayKey = ''; }
     const key = `${Powers.ids.map(powerCount).join()}|${game.armed}|${game.lullaby > 0}|${isTutorial()}`;
     if (key === trayKey) return;
     trayKey = key;
@@ -493,7 +542,7 @@
     if (game.lull()) { processEvents(); renderTray(); }
   }
   // The shelf says what each powerup does and how many you have. Once they are on sale in the app, each button
-  // says exactly what it buys (one, five of that kind, or the bag with three of each) at the price the store
+  // says exactly what it buys (one, five of that kind, or the bag with five of each) at the price the store
   // shows. Nothing is random, and nothing here appears during play.
   function renderPowerShelf() {
     const total = Powers.ids.reduce((n, id) => n + save.powers[id], 0);
@@ -503,7 +552,8 @@
       const offer = offerFor(product);
       if (!offer.live || !offer.available) return '';
       selling = true;
-      return `<button class="${classes}" type="button" data-buy="${product}" aria-label="${escape(aria)}${offer.price ? ` for ${escape(offer.price)}` : ''}">${label}${offer.price ? ` · ${escape(offer.price)}` : ''}</button>`;
+      const room = powerFits(Powers.contents(product));
+      return `<button class="${classes}" type="button" data-buy="${product}"${room ? '' : ' disabled'} aria-label="${escape(aria)}${offer.price ? ` for ${escape(offer.price)}` : ''}${room ? '' : '. Use some powerups to make room first.'}">${label}${offer.price ? ` · ${escape(offer.price)}` : ''}</button>`;
     };
     const tiles = Powers.list.map(def => {
       const five = Powers.packs.find(pack => pack.single === def.id);
@@ -517,8 +567,9 @@
       + `<span class="power-bag-copy"><strong>${escape(bag.name)}</strong><span>${each} of each, ${Object.values(bag.contents).reduce((n, c) => n + c, 0)} in all.</span></span>${bagBuy}</div>` : '';
     const live = Boolean(store && store.isLive()), mode = store?.mode || 'web';
     const note = selling ? mode === 'mock' ? 'Test mode: nothing is charged.' : 'Each button buys exactly what it says.' : live ? 'Not on sale yet.' : 'You can buy more in the Bloomshot app.';
-    $('power-shelf').innerHTML = `${tiles}${bagTile}<p class="power-note">${escape(note)} Gift bubbles in the waves hold more, free.</p>`;
+    $('power-shelf').innerHTML = `${tiles}${bagTile}<p class="power-note">${escape(note)} Gift bubbles in the waves hold more, free.${selling ? ` Your bag holds ${Powers.max} of each.` : ''}</p>`;
   }
+  const powerFits = contents => Boolean(contents && Object.keys(contents).every(id => save.powers[id] + contents[id] <= Powers.max));
   // The store hands every powerup purchase here. It keeps the grant waiting in its own ledger until this returns
   // true (the store itself finishes the payment straight away), so a crash before saving is offered again next
   // launch. A purchase that comes back again is recognized by its transaction id and adds nothing.
@@ -526,27 +577,36 @@
   // product id; whichever it is, everything in it is added together.
   const itemSet = items => Array.isArray(items) && items.length > 1 ? items.reduce((all, it) => ({ ...all, [it && it.power]: it && it.count }), {}) : null;
   function grantPower(info) {
+    // A review save must never acknowledge real paid items, and a pending backup can still replace this
+    // page's in-memory save. In either case the store keeps the receipt owed for the authoritative save.
+    if (native?.isNative && (STORAGE !== 'bloomshot.save.v1' || native.saveReady === false || native.reloading)) return false;
     const set = info && !info.power ? itemSet(info.items) || info.powers || (Powers.byProduct[info.productId] ? null : Powers.contents(info.productId)) : null;
     const power = info && (info.power || Powers.byProduct[info.productId]?.id);
     const result = Powers.grant(save.powers, save.powerReceipts, set ? { powers: set, transaction: info.transaction } : { power, count: info && info.count, transaction: info && info.transaction });
     if (!result.ok) return false;
-    if (!result.repeat) { save.powers = result.counts; save.powerReceipts = result.receipts; persist(); trayKey = ''; if (route === 'levels') renderPowerShelf(); }
-    return storageAvailable;
+    if (!result.repeat) { save.powers = result.counts; save.powerReceipts = result.receipts; }
+    const kept = persist(); // also retries a grant previously applied in memory while storage was unavailable
+    trayKey = ''; if (route === 'levels') renderPowerShelf();
+    return kept;
   }
   if (store && typeof store.onConsumable === 'function') store.onConsumable(grantPower);
   // not-granted: the store saw a payment it could not match yet. It keeps it waiting and grants it on the next launch.
-  const notBought = result => result.cancelled ? 'Purchase cancelled. Nothing was charged.' : result.reason === 'not-granted' ? 'Your purchase is being confirmed. It arrives the next time you open Bloomshot.' : "Purchase didn't go through. Nothing was charged.";
+  const notBought = result => result.cancelled ? 'Purchase cancelled. Nothing was charged.' : result.reason === 'storage-unavailable' ? 'Saving is unavailable. Reopen Bloomshot before buying. Nothing was charged.' : ['not-granted', 'confirmation-pending'].includes(result.reason) ? 'Your purchase is being confirmed. Reopen Bloomshot or use Restore purchases before trying again.' : 'The store could not confirm your purchase. Check Restore purchases before trying again.';
   async function buyPower(button) {
     const id = button.dataset.buy, contents = Powers.contents(id), product = contents && productInfo(id);
     if (!contents || !store || store.busy || !product || !product.available) return;
+    if (!powerFits(contents)) { toast('Use some powerups to make room first.'); renderPowerShelf(); return; }
+    if (!persist()) { toast('Saving is unavailable. Reopen Bloomshot before buying. Nothing was charged.'); return; }
     const kinds = Object.keys(contents), count = kinds.reduce((n, kind) => n + contents[kind], 0), one = kinds.length === 1 ? Powers.byId[kinds[0]] : null;
     button.disabled = true; button.textContent = 'Opening the store…';
     const before = Powers.ids.map(kind => save.powers[kind]).join();
     let result;
     try { result = await store.purchase(id); } catch (_) { result = { ok: false }; }
     // A store that only reports the purchase (without handing it over first) still gets it counted, once.
-    if (result.ok && Powers.ids.map(kind => save.powers[kind]).join() === before) grantPower({ productId: id, powers: contents, transaction: result.transaction });
-    if (result.ok) { BloomSound.wake(); BloomSound.play('gift'); toast(one ? `+${count} ${one.name}! You have ${save.powers[one.id]}.` : `+${count} powerups! ${contents[kinds[0]]} of each.`); }
+    let kept = result.delivered !== false;
+    if (result.ok && Powers.ids.map(kind => save.powers[kind]).join() === before) kept = grantPower({ productId: id, powers: contents, transaction: result.transaction });
+    if (result.ok && kept) { BloomSound.wake(); BloomSound.play('gift'); toast(one ? `+${count} ${one.name}! You have ${save.powers[one.id]}.` : `+${count} powerups! ${contents[kinds[0]]} of each.`); }
+    else if (result.ok) toast(powerFits(contents) ? 'Your purchase is waiting to save. Reopen Bloomshot to collect it.' : 'Your purchase is waiting. Use some powerups, then reopen Bloomshot to collect it.');
     else toast(result.pending ? `Your payment is waiting to clear. ${count === 1 ? `The ${one.name} arrives` : 'Your powerups arrive'} as soon as it does.` : notBought(result));
     renderPowerShelf();
   }
@@ -562,18 +622,10 @@
   }
   function depthUnlockCard() {
     const deeper = Depths.levels.filter(level => level.id > Depths.free), range = `${Depths.free + 1} to ${Depths.total}`, action = depthUnlockAction();
-    return `<li class="depth-stop depth-more depth-unlock" id="depth-unlock"><span class="depth-more-art" aria-hidden="true">${DEEPER}</span><div class="depth-more-copy"><span class="card-tag gold">Levels ${range}</span><strong>${deeper.length} deeper levels</strong>`
+    const previews = deeper.map(level => `<figure class="depth-preview"><img src="${sceneSlice(level)}" alt=""><figcaption>${escape(level.name)}</figcaption></figure>`).join('');
+    return `<li class="depth-stop depth-more depth-unlock" id="depth-unlock"><div class="depth-preview-grid" aria-label="Preview of the six deeper levels">${previews}</div><div class="depth-more-copy"><span class="card-tag gold">Levels ${range}</span><strong>${deeper.length} deeper levels</strong>`
       + `<p>From ${escape(deeper[0].name)} down to the ${escape(deeper.at(-1).name)}. Currents, turning shells, tunnels, geodes and briars, ten waves each. One-time purchase, no ads.</p>${action}</div></li>`;
   }
-  // Under the free levels: rock layers, a fossil and a few crystals, drawn as flat shapes like the scenes.
-  const DEEPER = '<svg viewBox="0 0 380 120" preserveAspectRatio="xMidYMid slice"><rect width="380" height="120" fill="#3a2b3d"/>'
-    + '<path d="M0 0H380V30C330 22 300 38 250 33S170 22 120 30 40 38 0 28Z" fill="#6b4a36"/><path d="M0 28C40 38 80 30 120 30S170 22 250 33 330 22 380 30V36C330 30 300 44 250 40S170 30 120 37 40 44 0 35Z" fill="#4f3832"/>'
-    + '<path d="M0 120V82C50 74 90 88 150 82S260 70 310 80 360 86 380 80V120Z" fill="#2a2036"/>'
-    + '<g fill="#8a6a52" stroke="#3a2b3d" stroke-width="1.4"><ellipse cx="40" cy="16" rx="7" ry="4.5"/><ellipse cx="150" cy="12" rx="5" ry="3.4"/><ellipse cx="282" cy="18" rx="8" ry="5"/><ellipse cx="350" cy="10" rx="4" ry="3"/></g>'
-    + '<g fill="none" stroke="#a48a75" stroke-width="2.4" stroke-linecap="round"><path d="M64 62a9 9 0 1 0 -9 -9a6 6 0 1 0 6 -6a3.5 3.5 0 1 0 -3 3"/><path d="M104 66h34M112 60v12M121 59v14M130 61v10"/><path d="M138 66l8-6v12Z" fill="#a48a75"/></g>'
-    + '<g stroke="#20324f" stroke-width="1.6" stroke-linejoin="round"><path d="M300 98l7-24 7 24Z" fill="#7fe0ff"/><path d="M314 98l5-15 5 15Z" fill="#b9f6ff"/><path d="M290 98l4-11 4 11Z" fill="#a98cf5"/></g>'
-    + '<g fill="#ffd979"><circle cx="190" cy="58" r="2.4"/><circle cx="214" cy="70" r="1.8"/><circle cx="168" cy="72" r="1.6"/></g>'
-    + '<path d="M190 0C176 30 206 52 190 120" fill="none" stroke="#e8c48a" stroke-width="3" stroke-dasharray="7 8" stroke-linecap="round" opacity=".7"/></svg>';
   function renderMeadow() {
     const data = BloomGarden.summary(save.garden), selected = data.plots.find(p => p.selected);
     $('garden-seeds').textContent = fmt(data.seeds);
@@ -881,11 +933,13 @@
   }
   function renderChapter(world) {
     const id = world.id, chapter = chapters[id], koi = id === 'koi', records = save[id];
+    // While the pools can't be bought they look locked (grey), not gold and ready to tap.
+    const offer = koi ? offerFor(BloomKoi.product) : null, unsold = Boolean(offer && !(offer.live && offer.available));
     const rows = chapter.levels.map((level, index) => {
       const paid = trialPaid(id, level), open = paid && trialCleared(id, index), stars = records[level.id]?.stars || 0;
       const state = !paid ? 'included with the full Koi Conservatory' : open ? `${stars} stars` : 'locked';
       const tag = koi && level.free && !koiOwned() ? '<small class="free-tag">Free</small>' : '';
-      return `<button class="moon-trial${paid ? '' : ' paid-lock'}" data-trial="${level.id}" data-chapter="${id}" ${open || !paid ? '' : 'disabled'} aria-label="${koi ? 'Koi pool' : 'Moon trial'} ${index + 1}, ${escape(level.name)}, ${state}"><span class="moon-trial-number">${String(index + 1).padStart(2, '0')}</span><span class="moon-trial-name">${escape(level.name)}${tag}</span><span class="moon-trial-stars" aria-hidden="true">${!paid ? '❀' : open ? starHTML(stars) : '<i class="level-lock"></i>'}</span></button>`;
+      return `<button class="moon-trial${paid ? '' : unsold ? ' paid-lock not-sold' : ' paid-lock'}" data-trial="${level.id}" data-chapter="${id}" ${open || !paid ? '' : 'disabled'} aria-label="${koi ? 'Koi pool' : 'Moon trial'} ${index + 1}, ${escape(level.name)}, ${state}"><span class="moon-trial-number">${String(index + 1).padStart(2, '0')}</span><span class="moon-trial-name">${escape(level.name)}${tag}</span><span class="moon-trial-stars" aria-hidden="true">${!paid ? '❀' : open ? starHTML(stars) : '<i class="level-lock"></i>'}</span></button>`;
     }).join('');
     const intro = koi
       ? `<span class="card-tag koi">${koiOwned() ? `All ${chapter.levels.length} pools` : `${BloomKoi.freeBoards} free pools`}</span><h2>Koi Conservatory</h2><p>${escape(world.description)}</p><p class="moon-route-hint koi-hint">Your aim line bends with the water, so you see the curve before you shoot.</p>`
@@ -964,12 +1018,20 @@
       stage.plops.shift(); stage.plopAt = game.time; BloomSound.play('plop', { i: plop.i, x: plop.x });
     }
     if (stage.land && game.time >= stage.land.at) bossLand();
+    // A tip popping up at the top (the first-run powerups note) goes first; the wave's tip waits for it.
+    if (game.stage.tipAt != null && game.time >= game.stage.tipAt && $('toast').classList.contains('visible')) game.stage.tipAt = game.time + .3;
+    else if (game.stage.tipAt != null && game.time >= game.stage.tipAt) {
+      game.stage.tipAt = null;
+      if (!game.over && game.waveHint && !game.bossWave) game.floaters.push({ kind: 'title', size: 'small', x: 210, y: 32, life: 3.2, maxLife: 3.2, text: `Wave ${game.wave} of ${game.finalWave}`, label: game.waveHint });
+    }
     const vine = game.stage.vine;
     if (vine) {
       const hp = vine.bud.bloomed ? 0 : Math.max(0, vine.bud.hp);
       // Each lost leaf falls off the vine; a lighter stretch of stem shows the damage, then shrinks in .4 s.
       if (hp < vine.hp) {
-        for (let i = vine.hp - 1; i >= hp; i--) vine.fallen.push({ i, at: game.time, spin: i % 2 ? 1 : -1 });
+        // The vine shows at most 20 leaves; a leaf falls once the health it holds is all gone.
+        const n = Math.min(20, Math.max(1, vine.max)), per = vine.max / n;
+        for (let i = n - 1; i >= 0; i--) if (i * per >= hp - 1e-9 && i * per < vine.hp - 1e-9) vine.fallen.push({ i, at: game.time, spin: i % 2 ? 1 : -1 });
         vine.hp = hp; vine.lagHold = .1; vine.lagSpeed = (vine.lag - hp) / .4;
       }
       if (vine.lagHold > 0) vine.lagHold -= dt;
@@ -989,19 +1051,26 @@
   // The warm-up: while the intro plays, every sprite the level can need is painted a few ms at a time (art.js prewarm).
   let warm = null;
   function warmPlan() {
-    const flowers = new Map(), callouts = [], add = bud => { if (bud && bud.type && !bud.boss && !bud.geode && !bud.gift && !(bud.r > 16)) flowers.set(`${bud.type}:${bud.r || 11}`, { type: bud.type, r: bud.r || 11 }); };
+    const flowers = new Map(), foes = new Map(), callouts = [], add = bud => {
+      // A foe paints its own sprites ahead (foe-art.js warm); it still blooms as a flower of its color.
+      if (bud && bud.foe) foes.set(`${bud.foe}:${bud.r || 11}:${bud.type}`, [bud.foe, bud.r || 11, bud.type]);
+      if (bud && bud.type && !bud.boss && !bud.geode && !bud.gift && !(bud.r > 16)) flowers.set(`${bud.type}:${bud.r || 11}`, { type: bud.type, r: bud.r || 11 });
+    };
     let boss = null, gems = false;
     if (isDepth()) {
       for (let w = 1; w <= game.finalWave; w++) {
         const spec = Depths.wave(game.plan.id, w), all = [...spec.buds, ...(spec.drops || []).flatMap(drop => drop.buds)];
-        for (const bud of all) { if (bud.boss) boss = { type: bud.type, r: bud.r, max: bud.hp, name: bud.name }; else add(bud); if (bud.geode) gems = true; }
-        if (w > game.wave && w < game.finalWave) callouts.push({ kind: 'title', size: 'small', text: `Wave ${w} of ${game.finalWave}`, label: '' });
+        for (const bud of all) { if (bud.boss) boss = { type: bud.type, r: bud.r, max: bud.hp, name: bud.name, bossKind: bud.bossKind }; else add(bud); if (bud.geode) gems = true; }
+        if (w >= game.wave && w < game.finalWave) callouts.push({ kind: 'title', size: 'small', text: `Wave ${w} of ${game.finalWave}`, label: spec.hint || '' });
       }
       // A geode cracks into small gems of the first three colors.
       if (gems) for (const type of ['gold', 'coral', 'lilac']) add({ type, r: 9 });
+      // A guardian's kit brings foes into its fight; they paint ahead with the level's own.
+      const kitFoes = { root: ['rolypoly'], puff: ['fibcap', 'inkdrop'], lotus: ['jelly', 'glowdrop', 'glowworm'] }[boss && boss.bossKind] || [];
+      for (const name of kitFoes) { const e = window.BloomFoes && BloomFoes.FOES[name]; if (e) add({ foe: name, r: e.r, type: e.type || 'lilac' }); }
       const name = boss && boss.name || '';
       callouts.push({ kind: 'title', text: isTaste() ? 'Nice run!' : `Level ${game.plan.id} clear!`, label: name ? `${name} bloomed!` : game.plan.name });
-      if (boss) callouts.push({ kind: 'title', boss: true, text: name || 'Big bloom', label: `${boss.max} ${boss.max === 1 ? 'hit' : 'hits'} to bloom` });
+      if (boss) callouts.push({ kind: 'title', boss: true, text: name || 'Big bloom', label: bossOpeningTip(boss) });
     } else {
       for (const bud of game.buds) add(bud);
       for (let w = game.wave + 1; w <= game.wave + 4; w++) callouts.push({ kind: 'title', size: 'small', text: `Wave ${w}`, label: `×${Math.min(2, 1 + (w - 1) * .1).toFixed(1)}` });
@@ -1009,7 +1078,7 @@
     const tricks = (window.BloomRush && BloomRush.TRICKS) || {};
     for (const [kind, def] of Object.entries(tricks)) callouts.push({ kind: 'trick', trick: kind, text: def.name, label: '' });
     for (const text of ['2 lives left', '1 life left', 'Out of lives']) callouts.push({ kind: 'life', text });
-    return { flowers: [...flowers.values()].slice(0, 12), board: game.buds.filter(bud => !bud.boss && !bud.gift), boss, callouts };
+    return { flowers: [...flowers.values()].slice(0, 12), foes: [...foes.values()].slice(0, 16), board: game.buds.filter(bud => !bud.boss && !bud.gift), boss, callouts, keepsake: currentKeepsake() };
   }
   function warmUp() {
     warm = null;
@@ -1018,7 +1087,8 @@
   }
   function intro() {
     const depth = isDepth() ? Depths.level(game.plan.id) : null;
-    game.stage = { introAt: game.time, glow: 0 };
+    // The first wave never fires a 'wave' event, so its tip follows the level's title ribbon from here (stageFrame).
+    game.stage = { introAt: game.time, glow: 0, tipAt: depth && game.waveHint ? game.time + 1 : null };
     warmUp();
     game.floaters.push({ kind: 'title', intro: true, x: 210, y: 210, life: 1.2, maxLife: 1.2, text: depth ? `Level ${depth.id}` : 'Rush', label: depth ? depth.name : 'how long can you last?' });
     BloomSound.play('intro', { level: stageLevel(), boss: false });
@@ -1038,9 +1108,11 @@
     });
     stage.entering.sort((a, b) => a.doneAt - b.doneAt);
   }
-  // A cleared wave cashes in: up to 24 of its blooms, latest first, fly into the score as orbs of light.
+  // Spent flowers fade away on the falling board (art.js), so light only comes from flowers still in full bloom.
+  const spent = bud => typeof BloomArt.spentFlower === 'function' && BloomArt.spentFlower(game, bud);
+  // A cleared wave cashes in: up to 24 of its blooms still in flower, latest first, fly into the score as orbs of light.
   function startHarvest() {
-    const blooms = game.buds.filter(bud => bud.bloomed && !bud.gift).sort((a, b) => b.bloomAt - a.bloomAt).slice(0, STAGE.harvest);
+    const blooms = game.buds.filter(bud => bud.bloomed && !bud.gift && !spent(bud)).sort((a, b) => b.bloomAt - a.bloomAt).slice(0, STAGE.harvest);
     if (!blooms.length) return;
     if (!save.settings.motion) { BloomSound.play('pluck', { i: 0, n: 1 }); return; }
     aimHarvest();
@@ -1092,16 +1164,23 @@
     flight.onfinish = finish; flight.oncancel = finish;
     return true;
   }
+  function bossOpeningTip(boss) {
+    // Short enough for the name ribbon; the wave hint explains the full encounter below the board.
+    const tips = { sunny: 'Pop the bubble first', root: 'Bank around the roots', puff: 'Pop a nearby puffcap', crystal: 'Find the beating heart',
+      lotus: 'Aim for the lantern', fossil: 'Open both turning locks', ember: 'Send seeds through a tunnel', geode: 'Break a plate, aim through',
+      briar: 'Clear a patch, cut its vine', core: 'Dim the stars, open the core' };
+    return tips[boss.bossKind] || `${Math.max(1, boss.maxHp || boss.max || boss.hp || 1)} bloom rings`;
+  }
   // A big bloom drops in from high above, lands with a thud, and its name card and health vine come up.
   function bossIntro(event) {
     const boss = game.buds.find(bud => bud.boss && !bud.bloomed);
     if (!boss) return;
     const name = (event && event.bossName) || boss.name || 'Big bloom', max = Math.max(1, boss.maxHp || boss.hp || 1);
     if (!game.stage) game.stage = { glow: 0 };
-    game.stage.vine = { bud: boss, name, max, hp: Math.max(0, boss.hp), lag: Math.max(0, boss.hp), lagHold: 0, lagSpeed: 0, shakeAt: -100, shownAt: null, fallen: [] };
+    game.stage.vine = { bud: boss, name, max, tiers: (game.bossState && game.bossState.tierAt) || [], hp: Math.max(0, boss.hp), lag: Math.max(0, boss.hp), lagHold: 0, lagSpeed: 0, shakeAt: -100, shownAt: null, fallen: [] };
     BloomSound.play('intro', { level: stageLevel(), boss: true });
     // The card sits clear of the boss (which lands near y 100), so the player can aim at it while the card is up.
-    const card = { kind: 'title', boss: true, text: name, label: `${max} ${max === 1 ? 'hit' : 'hits'} to bloom`, x: 210, y: 178, life: 1.6, maxLife: 1.6 };
+    const card = { kind: 'title', boss: true, text: name, label: bossOpeningTip(boss), x: 210, y: 178, life: 1.6, maxLife: 1.6 };
     if (!save.settings.motion) { stage.land = { bud: boss, card, at: -Infinity }; bossLand(); return; }
     boss.enterAt = game.time + .15; boss.enterDrop = 140; boss.enterDur = .8; boss.enterBounce = true;
     stage.land = { bud: boss, card, at: boss.enterAt + boss.enterDur * TOUCHDOWN.bounce };
@@ -1241,7 +1320,8 @@
   const feel = Feel ? Feel.create({ motion: save.settings.motion }) : null;
   // The governor measures the work each frame costs (the step and the draw, in ms), not how often frames come, so a
   // phone capped at 30 Hz by a battery saver keeps the full finale; a slow phone that later runs warm and smooth for
-  // eight seconds gets its effects back. Frames that paid for a first paint, and paused frames, are not counted.
+  // eight seconds gets its effects back. Warming is included; the governor's sustained threshold absorbs isolated
+  // first paints. Paused frames are not counted.
   const hitStop = Feel ? Feel.createHitStop() : null, governor = Feel ? Feel.createGovernor({ slow: 11, slower: 15, recover: 8 }) : null;
   const danger = { redFlash: 0, mintFlash: 0, lastLife: false };
   let redFlash = 0, mintFlash = 0, feelGame = null, beatAt = 0, aimNotch = null, aimTickAt = -1, aimBuzzAt = -1, aimTarget = null;
@@ -1263,14 +1343,25 @@
       if (count === 1) a = bud; else if (count === 2) b = bud; else if (count === 3) c = bud;
     }
     if (boss) return (boss.hp || 1) <= 1 ? boss : null;
-    if ((game.drops && game.drops.length) || !count || count > 3) return null;
+    // Nothing is final while a vent still has jellies to send.
+    if ((game.drops && game.drops.length) || (game.foeWave && window.BloomFoes && window.BloomFoes.holding(game)) || !count || count > 3) return null;
     if (count === 1) return oneHit(a) ? a : null;
     // A crown blooms up to two of its own cluster: the last cluster's crown ends the wave if every flower in it opens on one hit.
     const crown = [a, b, c].find(bud => bud && bud.relay);
     return crown && [a, b, c].every(bud => !bud || (bud.group === crown.group && oneHit(bud))) ? crown : null;
   }
   // Mirrors rush.js: a cup turns away shots from below, a shell everything but its turning gap.
-  function guardedHit(bud, hit) {
+  function guardedHit(bud, hit, ball) {
+    if (bud.bossKind && game.bossState && window.BloomBosses) {
+      const state = game.bossState;
+      // A visible phase change may close the target before contact. Wait for the real impact then.
+      if (state.warning && state.warning.until <= game.time + hit.t) return true;
+      if (state.modeUntil > state.age && state.modeUntil <= state.age + hit.t) return true;
+      // The first lock click earns access to the second lock; it does not damage the Queen.
+      if (state.kind === 'fossil' && state.lockStage === 0 && !ball.power) return true;
+      return !window.BloomBosses.canHit(game, bud, { ...hit, time: hit.t }, ball);
+    }
+    if (bud.foe && window.BloomFoes && window.BloomFoes.guard(game, bud, { ...hit, time: hit.t }, ball)) return true; // a foe's guard (a crystal turning a seed of another color away) is no finale either
     if (bud.shield && hit.ny > .28) return true;
     if (!bud.shell) return false;
     const a = (bud.shellAngle || 0) + (bud.shellSpin || 0) * hit.t;
@@ -1282,7 +1373,7 @@
     if (bud.boss) return true;
     if (game.drops && game.drops.length) return false;
     const queued = game.pending.length ? new Set(game.pending.map(item => item.id)) : null;
-    return !game.buds.some(other => !other.bloomed && !other.gift && !(queued && queued.has(other.id) && oneHit(other)));
+    return !game.buds.some(other => !other.bloomed && !other.gift && !other.inert && !(queued && queued.has(other.id) && oneHit(other)));
   }
   // The final flower's own motion (a boss sways 40 px/s or more), measured frame to frame in game time so the
   // prediction leads it; a jump (a boss climbing back up) counts as standing still. Until a new target has been
@@ -1309,7 +1400,7 @@
     if (!lead) return;
     for (let i = 0; i < Math.min(5, game.balls.length); i++) {
       const hit = Feel.predictHit(BloomEngine, game, game.balls[i], target, .2, lead);
-      if (!hit || guardedHit(target, hit)) continue;
+      if (!hit || guardedHit(target, hit, game.balls[i])) continue;
       if (!final) { f.dipWave = game.wave; feel.request('dip', hit); return; }
       if (f.buildWave !== game.wave) { f.buildWave = game.wave; f.builds = 0; }
       if (f.builds >= 3) return;
@@ -1386,23 +1477,39 @@
       }
     }
   }
-  // After the final bloom a gold light runs out from the impact: each open flower flares in turn (the flower art draws
-  // it from bud.flareAt), up to ten notes climb, blossoms fall, and a level gets its title ribbon.
+  // After the final bloom a gold light runs out from the impact: each flower still in bloom flares in turn (the flower
+  // art draws it from bud.flareAt), up to ten notes climb, blossoms fall, and a level gets its title ribbon. A won
+  // level's light also brings back the flowers that faded during play, so the whole garden fills the celebration.
+  // Praise goes where it hides the fewest flowers still to shoot: its usual place near the top, where each wave
+  // lands, or a lower band ('Wave clear!' uses 290) while new flowers are still up there.
+  function praiseY() {
+    const open = game.buds.filter(bud => !bud.bloomed && !bud.gift && !bud.hidden && Math.abs(bud.x - 210) < 150);
+    const covers = y => open.filter(bud => Math.abs(bud.y - y) < 46).length;
+    return [92, 290, 200].reduce((best, y) => covers(y) < covers(best) ? y : best, 92);
+  }
   function startSweep() {
     const f = feelState(), origin = f.impact;
     if (!origin || f.sweepWave === game.wave) return;
     f.sweepWave = game.wave;
     if (isDepth()) {
       game.floaters = game.floaters.filter(item => !['wave', 'combo', 'bonus', 'title', 'trick', 'pop', 'life'].includes(item.kind));
-      // The ribbon sits clear of the flower that ended the level, and stays up until the result card comes.
+      // The ribbon sits clear of the flower that ended the level and stays up until the result card comes. It takes the
+      // far half of the board, at the first height that also leaves the petal and any rocks uncovered.
       const bossName = f.bossName && f.impactWave === game.wave ? f.bossName : '';
+      const half = 33, reach = (origin.r || 12) * 1.3, far = origin.y < 260 ? 330 : 150;
+      const free = y => Math.abs(y - origin.y) > half + reach
+        && game.bumpers.every(b => Math.abs(y - b.y) > half + Math.abs(Math.sin(b.angle || 0)) * (b.length || 0) / 2 + 4);
+      const y = (origin.y < 260 ? [330, 290, 412, 250] : [150, 90, 210]).find(free) ?? far;
       game.floaters.push({ kind: 'title', text: isTaste() ? 'Nice run!' : `Level ${game.plan.id} clear!`, label: bossName ? `${bossName} bloomed!` : game.plan.name,
-        x: 210, y: origin.y < 260 ? 330 : 150, life: 3.4, maxLife: 3.4 });
+        x: 210, y, life: 3.4, maxLife: 3.4 });
     }
     if (!save.settings.motion || !feel) return;
-    const rush = !isDepth();
-    const list = game.buds.filter(bud => bud.bloomed && !bud.gift).map(bud => ({ bud, d: Math.hypot(bud.x - origin.x, bud.y - origin.y) })).sort((a, b) => a.d - b.d);
-    for (const item of list) item.bud.flareAt = game.time + .08 + (rush ? Math.min(.6, item.d / 900) : item.d / 650);
+    const rush = !isDepth(), back = game.status === 'won';
+    const list = game.buds.filter(bud => bud.bloomed && !bud.gift && (back || !spent(bud))).map(bud => ({ bud, d: Math.hypot(bud.x - origin.x, bud.y - origin.y) })).sort((a, b) => a.d - b.d);
+    for (const item of list) {
+      item.bud.flareAt = game.time + .08 + (rush ? Math.min(.6, item.d / 900) : item.d / 650);
+      if (back) item.bud.backAt = item.bud.flareAt;
+    }
     const n = Math.min(10, list.length);
     f.sounds = Array.from({ length: n }, (_, k) => list[Math.floor(k * list.length / n)].bud); f.sounded = 0; f.noteAt = -Infinity;
     f.sweep = list.map(item => item.bud);
@@ -1460,7 +1567,7 @@
     // On the last life the heart beats while a flower hangs close over the line (a sound, so Animations off keeps it).
     if (danger.lastLife && game.started) {
       let low = -Infinity;
-      for (const bud of game.buds) if (!bud.bloomed && !bud.gift) low = Math.max(low, bud.y + (bud.r || 11));
+      for (const bud of game.buds) if (!bud.bloomed && !bud.gift && !bud.inert && !bud.hidden) low = Math.max(low, bud.y + (bud.r || 11));
       const now = performance.now() / 1000;
       if (low >= game.dangerY - 90 && now - beatAt >= .83) { beatAt = now; BloomSound.play('heartbeat', {}); }
     }
@@ -1481,19 +1588,476 @@
     aimTarget = target;
     if (target && (target.relay || target.boss || target.gift)) { BloomSound.play('aimLock', { type: target.type }); haptic('tick'); }
   }
+  // The level campaign's new pieces (foes.js). Each foe event is `family:act`; its look lives in FOE_FX below, and a
+  // pop, fizzle or guard without one gets a small shared effect. The first time a run shows a foe family, the hint line
+  // says what it does once (the wave's own hint may already have), so even a checkpoint start teaches it before it
+  // costs a seed.
+  const FOE_FX = Object.create(null), FOE_COLORS = { coral: '#ff5d94', gold: '#ffd148', lilac: '#a47dff', sky: '#45adff', poppy: '#ff7433' };
+  function meetFoes(shown = '') {
+    if (!game.foeWave || !game.foeHint) return;
+    const seen = game.foesSeen || (game.foesSeen = new Set());
+    if (shown) seen.add(shown);
+    for (const bud of game.buds) {
+      if (!bud.foe || bud.bloomed || bud.hidden) continue;
+      // A family's hint (a molehill's is the mole's) is said once a run.
+      const hint = game.foeHint(bud.foe);
+      if (!hint || seen.has(hint)) continue;
+      seen.add(hint); $('game-hint').textContent = hint; say(hint); return;
+    }
+  }
+  // Small shared pieces for the effects: a ring, a few motes of dust, a quick sparkle.
+  function foeRing(x, y, color, size = 10, grow = 24, life = .4) {
+    if (save.settings.motion) game.particles.push({ x, y, vx: 0, vy: 0, life, maxLife: life, kind: 'ring', color, size, grow, gravity: 0, drag: 0 });
+  }
+  function foeDust(x, y, count = 4, color = '#d8c9a8', spread = 50) {
+    if (!save.settings.motion) return;
+    count = Math.max(1, Math.round(count * [1, .6, .35][game?.quality || 0]));
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * Math.PI * 2, v = spread * (.4 + Math.random() * .6), life = .3 + Math.random() * .25;
+      game.particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 12, life, maxLife: life, kind: 'pollen', color, size: 1.4 + Math.random() * 1.6, gravity: -8, drag: 3 });
+    }
+  }
+  function foeEvent(event) {
+    const kind = String(event.kind || ''), at = kind.indexOf(':'), name = kind.slice(0, at), act = kind.slice(at + 1);
+    if (act === 'spawn' || act === 'land') meetFoes();
+    const fx = FOE_FX[name] && FOE_FX[name][act];
+    if (fx) { fx(event); return; }
+    const bud = event.bud || {}, spot = { x: event.x ?? bud.x ?? 210, y: event.y ?? bud.y ?? 200, type: bud.type || 'lilac', r: bud.r || 10 };
+    if (act === 'pop') { burst(spot, 12, game.particles, currentKeepsake(), false); foeRing(spot.x, spot.y, FOE_COLORS[spot.type] || FOE_COLORS.lilac, spot.r, 26, .4); haptic('tick'); }
+    else if (act === 'fizzle') foeDust(spot.x, spot.y, 5, '#ffffff', 30);
+    else if (act === 'guard') { foeRing(spot.x, spot.y, FOE_COLORS[event.color || spot.type] || '#ffffff', 6, 14, .3); haptic('tick'); }
+  }
+  // -----------------------------------------------------------------------------------------------------------------
+  // The foe effects. Each lives in its own block: FOE_FX.<family> = { <act>(event) { ... } }.
+  // -----------------------------------------------------------------------------------------------------------------
+
+  // ── Rolypoly (Level 2, `rolypoly`) ──
+  // A puff as it curls, dust where it bumps, a lilac squash ring on every pin, and a cheer when it takes all four.
+  FOE_FX.rolypoly = {
+    curl(e) { foeRing(e.x, e.y, '#b9a8d6', 8, 12, .25); haptic('tick'); },
+    roll(e) { foeDust(e.x - (e.dx || 0) * 10, e.y - (e.dy || 0) * 10, 4); },
+    bump(e) { foeDust(e.x - (e.nx || 0) * 12, e.y - (e.ny || 0) * 12, 3); },
+    bowl(e) {
+      foeRing(e.x, e.y, '#a47dff', 9, 20 + 4 * (e.k || 1), .35); foeDust(e.x, e.y, 3, '#e4dcf2', 70); haptic('tick');
+      if (e.k >= 4 && save.settings.motion) game.floaters.push({ kind: 'trick', trick: 'strike', text: 'Strike!', label: '', x: clamp(e.x, 60, 360), y: Math.max(40, e.y - 34), life: 1, maxLife: 1 });
+    },
+    end(e) { foeRing(e.x, e.y, '#ffffff', 10, 16, .3); }
+  };
+
+  // ── Peekaboo Mole (Level 2, `mole`) ──
+  // Crumbs of dirt jump off the rumbling hill with each thump, a spray of dirt and a small coral ring when he pops out,
+  // a little puff as he ducks, and for a bonk a beat of hit-stop, a shake and the "Bonk!" stamp above his hill (the art
+  // squashes him and circles three stars round his head). A seed bouncing off a hill kicks up dirt.
+  const MOLE_DIRT = ['#b9875a', '#9a6a43', '#d2a676'];
+  function moleDirt(x, y, count, speed) {
+    if (!save.settings.motion) return;
+    count = Math.max(1, Math.round(count * [1, .6, .35][game?.quality || 0]));
+    for (let i = 0; i < count; i++) {
+      const a = -Math.PI / 2 + (Math.random() - .5) * 1.9, v = speed * (.55 + Math.random() * .45), life = .38 + Math.random() * .22;
+      game.particles.push({ x: x + (Math.random() - .5) * 10, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life, maxLife: life, kind: 'crumb',
+        color: MOLE_DIRT[i % MOLE_DIRT.length], size: 1.5 + Math.random() * 1.2, rotation: a, spin: (Math.random() - .5) * 12, gravity: 300, drag: 1.2 });
+    }
+  }
+  FOE_FX.mole = {
+    rumble(e) { moleDirt(e.x, e.y - 12, 2, 55); },
+    // His events are at his center, 13 px above his hill and 6.5 px above the hole he peeks from.
+    pop(e) { moleDirt(e.x, e.y + 3, 6, 95); foeRing(e.x, e.y + 1, FOE_COLORS.coral, 7, 10, .25); haptic('tick'); },
+    duck(e) { moleDirt(e.x, e.y + 5, 2, 40); },
+    bonk(e) {
+      jolt(.12, .06); haptic('warn');
+      // His bloom's glow mote would wash out his dazed face through the hit-stop; the art's stars and squash are the show.
+      game.particles = game.particles.filter(p => !(p.kind === 'glow' && Math.hypot(p.x - e.x, p.y - e.y) < 16));
+      game.floaters.push({ kind: 'trick', trick: 'bonk', text: 'Bonk!', label: '', x: clamp(e.x, 60, 360), y: Math.max(40, e.y - 45), life: 1, maxLife: 1 });
+    }
+  };
+  FOE_FX.molehill = {
+    guard(e) { moleDirt(e.x, e.y, 3, 50); foeRing(e.x, e.y, '#b9875a', 5, 12, .25); haptic('tick'); }
+  };
+
+  // ── Fibcap (Level 3, `fibcap`) ──
+  // The sneeze itself (wind-up, CHOO, gust ring, confetti, wind streaks, "Achoo!") is drawn by foe-art.js from the
+  // sneeze's own record, so it waits through a Lullaby with the push. Here: a nudge when the seed lands on the fibcap,
+  // and a shake and a buzz on the CHOO (the gust event). A quiet pop is a harmless puff of lilac and white, not a bloom.
+  // The fibcap look keeps drawing after the last fibcap is gone (game.foeLooks), so its sneeze always finishes.
+  FOE_FX.fibcap = {
+    sneeze(e) {
+      const looks = game.foeLooks || (game.foeLooks = []);
+      if (!looks.includes('fibcap')) looks.push('fibcap');
+      haptic('tick');
+    },
+    gust(e) { jolt(.12, 0, 0); haptic('warn'); },
+    pop(e) { foeDust(e.x, e.y, 6, '#b58be0', 46); foeDust(e.x, e.y, 3, '#fff7ff', 30); foeRing(e.x, e.y, '#d6bdf3', 8, 16, .3); }
+  };
+
+  // ── Drippy Inkcap (Level 3, `inkcap`) ──
+  // A drip teaches the inkcap the first time one is seen (Mother Morel's ink rain included) with a tiny ink ring where
+  // the drop lets go. A gulp is a cartoon slurp: a pale ring sucks in to the drop, then foe-art.js splats a six-lobed blot
+  // there (game.inkBlots). A drop a power pops bursts into a few specks of ink.
+  FOE_FX.inkcap = {
+    drip(e) { meetFoes(); foeRing(e.x, e.y - 2, '#5b4a73', 3, 7, .22); },
+    gulp(e) {
+      const blots = (game.inkBlots || []).filter(blot => game.time - blot.at < .6);
+      blots.push({ x: e.x, y: e.y, at: game.time, turn: (e.x * 7 + e.y * 3) % 6.283 });
+      game.inkBlots = blots;
+      const looks = game.foeLooks || (game.foeLooks = []);
+      if (!looks.includes('inkdrop')) looks.push('inkdrop');
+      foeRing(e.x, e.y, '#e9dcff', 14, -12, .14); haptic('tick');
+    }
+  };
+  FOE_FX.inkdrop = {
+    pop(e) { foeRing(e.x, e.y, '#2f2a6b', 5, 16, .3); foeDust(e.x, e.y, 5, '#2f2a6b', 60); },
+    fizzle(e) { foeRing(e.x, e.y, '#5b4a73', 4, 9, .25); }
+  };
+
+  // ── Chroma Crystal (Level 4, `chroma`) ──
+  // A seed of the wrong color: three rings of the crystal's own color ripple out and it shivers (the art reads
+  // bud.refusedAt, a presentation stamp), a little tick. The right color: a beat of hit-stop, a spray of glass sparks
+  // in its color and "Perfect match!" stamped over it (the art cracks it open and flings its shards).
+  // A stamp over the action ("Perfect match!", "Catch!"), also read out for screen readers.
+  function l4Stamp(x, y, text, trick, label = '', life = 1.1) {
+    game.floaters.push({ kind: 'trick', trick, text, label, x: clamp(x, 60, 360), y: clamp(y - 38, 40, 420), life, maxLife: life });
+    say(text);
+  }
+  FOE_FX.chroma = {
+    guard(e) {
+      const bud = e.bud || e, color = FOE_COLORS[e.color || bud.type] || '#ffffff';
+      if (e.bud) e.bud.refusedAt = game.time;
+      for (let k = 0; k < 3; k++) foeRing(bud.x, bud.y, color, 12, 18 - 2 * k, .35 - .07 * k);
+      haptic('tick');
+    },
+    match(e) {
+      const type = e.color || e.bud && e.bud.type, color = FOE_COLORS[type] || FOE_COLORS.sky, light = { gold: '#fff3a8', coral: '#ffc2d4', lilac: '#e2d3ff', sky: '#c6e9ff', poppy: '#ffd0a8' }[type] || '#ffffff';
+      jolt(.12, .07, .14); haptic('tick');
+      if (save.settings.motion) {
+        foeRing(e.x, e.y, color, 10, 34, .45); foeRing(e.x, e.y, '#ffffff', 8, 22, .3);
+        const n = Math.max(4, Math.round(10 * [1, .6, .35][game.quality || 0]));
+        for (let i = 0; i < n; i++) {
+          const a = i / n * Math.PI * 2 + .3, v = 90 + (i % 3) * 30, life = .45 + (i % 2) * .15;
+          game.particles.push({ x: e.x, y: e.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 20, life, maxLife: life, kind: i % 2 ? 'spark' : 'star', color: i % 2 ? light : color, size: 2.6, rotation: a, spin: 3, drag: 2.4, gravity: 40, phase: i });
+        }
+      }
+      l4Stamp(e.x, e.y, 'Perfect match!', 'slam');
+    }
+  };
+
+  // ── Echo Bat (Level 4, `bat`) ──
+  // It wakes with a soft pulse, puffs a little dust as it launches, and a startled bat bursts off its perch in a puff
+  // of lilac fluff. An aimed catch mid-air: hit-stop, a ring of gold stars and "Catch!" with the bonus on its tag.
+  FOE_FX.bat = {
+    ping(e) { foeRing(e.x, e.y - 3, '#c9b8ee', 9, 12, .3); },
+    swoop(e) { foeDust(e.x, e.y + 8, 3, '#e6f7ff', 40); },
+    startle(e) { foeDust(e.x, e.y, 6, '#c9b8ee', 70); foeRing(e.x, e.y, '#8f7ac2', 10, 16, .25); haptic('tick'); },
+    catch(e) {
+      jolt(.16, .08, .16); haptic('surge');
+      if (save.settings.motion) {
+        foeRing(e.x, e.y, '#ffd148', 11, 36, .45); foeRing(e.x, e.y, '#ffffff', 9, 24, .3);
+        const n = Math.max(3, Math.round(7 * [1, .6, .35][game.quality || 0]));
+        for (let i = 0; i < n; i++) {
+          const a = -Math.PI / 2 + (i - (n - 1) / 2) * .55, v = 110 + (i % 2) * 40;
+          game.particles.push({ x: e.x, y: e.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: .7, maxLife: .7, kind: 'star', color: i % 2 ? '#fff7be' : '#ffd148', size: 3, rotation: a, spin: 4, drag: 2, gravity: 60, phase: i });
+        }
+      }
+      l4Stamp(e.x, e.y, 'Catch!', 'rebound', e.bonus ? `+${e.bonus}` : '');
+    }
+  };
+
+  // ── Moon Jelly (Level 5, `jelly`) ──
+  // Bubbles as one leaves its vent; a slick little splash when a seed slides off a thrusting jelly; and when one
+  // bursts at the top of the lake, a ring, a few stars and a slow shower of soft gold and moon-blue light drifting down
+  // over the glowdrops it left.
+  // Motes of soft light that start on a small ring (so they never pile into one white blot) and drift out and down.
+  function foeGlow(x, y, count, colors, { spread = 30, fall = 30, life = 1.1, size = 2.2, ring = 10 } = {}) {
+    if (!save.settings.motion) return;
+    count = Math.max(2, Math.round(count * [1, .6, .35][game?.quality || 0]));
+    for (let i = 0; i < count; i++) {
+      const a = i / count * Math.PI * 2 + Math.random() * .5, v = spread * (.5 + Math.random() * .5), l = life * (.7 + Math.random() * .5);
+      game.particles.push({ x: x + Math.cos(a) * ring, y: y + Math.sin(a) * ring * .7, vx: Math.cos(a) * v, vy: Math.sin(a) * v * .5 + fall * (.4 + Math.random() * .6), life: l, maxLife: l, kind: 'glow',
+        color: colors[i % colors.length], size: size * (.75 + Math.random() * .5), gravity: 18, drag: 1.1 });
+    }
+  }
+  FOE_FX.jelly = {
+    spawn(e) {
+      foeRing(e.x, e.y, '#8ed2ff', 8, 18, .45);
+      if (save.settings.motion) for (let i = 0; i < 4; i++) {
+        const life = .5 + i * .08;
+        game.particles.push({ x: e.x + (i - 1.5) * 5, y: e.y - 4, vx: (i - 1.5) * 6, vy: -46 - i * 9, life, maxLife: life, kind: 'pollen', color: '#bfe8ff', size: 1.4 + (i % 2) * .6, gravity: -10, drag: 2 });
+      }
+    },
+    guard(e) {
+      const bud = e.bud || e;
+      foeRing(bud.x, bud.y, '#bfe8ff', 7, 12, .28); foeDust(e.x, e.y, 3, '#e6f6ff', 55); haptic('tick');
+    },
+    burst(e) {
+      foeRing(e.x, e.y, '#8ed2ff', 10, 30, .5); foeRing(e.x, e.y, '#fff4aa', 6, 18, .35);
+      if (save.settings.motion) for (let i = 0; i < 6; i++) {
+        const a = i / 6 * Math.PI * 2 + .3, life = .55 + (i % 3) * .1;
+        game.particles.push({ x: e.x + Math.cos(a) * 6, y: e.y + Math.sin(a) * 6, vx: Math.cos(a) * 70, vy: Math.sin(a) * 70 - 10, life, maxLife: life, kind: 'star', color: i % 2 ? '#fff4aa' : '#ffffff', size: 2.4, rotation: a, spin: 0, gravity: 30, drag: 2.4, phase: i });
+      }
+      foeGlow(e.x, e.y, 12, ['#ffd65a', '#bfe8ff', '#fff4aa'], { spread: 70, fall: 30, life: 1.4, ring: 12 });
+    }
+  };
+
+  // ── Glowworm (Level 5, `glowworm`) ──
+  // A head hit freezes for a blink and rings out gold as the light runs down the body (the art pops a little glow on
+  // each bead as it blooms, in time with the chime); the whole worm at once is "All aglow!". A snapped body flicks
+  // teal dust and the new head lights up. A guardian's worm arrives with a ring of light.
+  FOE_FX.glowworm = {
+    ripple(e) {
+      jolt(.08, .06, .16); haptic('surge');
+      foeRing(e.x, e.y, '#ffd65a', 10, 28, .45); foeGlow(e.x, e.y, 6, ['#ffd65a', '#fff4aa'], { spread: 40, fall: 6, life: .8 });
+      if (Number(e.n) >= 4 && save.settings.motion) game.floaters.push({ kind: 'trick', trick: 'glow', text: 'All aglow!', label: '', x: clamp(e.x, 70, 350), y: Math.max(44, e.y - 64), life: 1, maxLife: 1 });
+    },
+    split(e) {
+      foeRing(e.x, e.y, '#6fd3c4', 7, 16, .3); foeDust(e.x, e.y, 4, '#b9fff0', 45); haptic('tick');
+      const head = e.head; if (head) foeRing(head.x, head.y, '#ffd65a', 6, 14, .35);
+    },
+    spawn(e) { const bud = e.bud || e; foeRing(bud.x, bud.y, '#ffd65a', 9, 24, .5); foeGlow(bud.x, bud.y, 6, ['#ffd65a', '#6fd3c4'], { spread: 30, fall: 4, life: .8 }); },
+    puff(e) { foeDust(e.x, e.y, 4, '#b9fff0', 35); }
+  };
+
+  // -----------------------------------------------------------------------------------------------------------------
+  // The guardians' moves. A `bossAbility` event (move, act) gets BOSS_FX.<kind>['move:act'] or BOSS_FX.<kind>[act]; a mood
+  // change gets the shared Phase Bloom below. Each kit's effects live in its own block.
+  // -----------------------------------------------------------------------------------------------------------------
+  const BOSS_FX = Object.create(null);
+  // A short word over the action ("Shut!", "Snap!"), drawn like a trick callout.
+  function bossCallout(x, y, text, life = 1) {
+    if (!text) return;
+    game.floaters.push({ kind: 'trick', trick: 'boss', text, label: '', x: clamp(x ?? 210, 60, 360), y: clamp((y ?? 200) - 34, 40, 420), life, maxLife: life });
+  }
+  function bossFx(event) {
+    const fx = BOSS_FX[event.kind], own = fx && (fx[`${event.move}:${event.act}`] || fx[event.act]);
+    if (own) own(event);
+  }
+  // Phase Bloom: a beat of hit-stop, a ring of the guardian's petals, its new mood called out, and the vine's knot opening.
+  function phaseBloom(event) {
+    const boss = game.bossState && game.bossState.boss, x = event.x ?? boss?.x ?? 210, y = event.y ?? boss?.y ?? 160, type = boss?.type || 'gold';
+    jolt(.18, .09, .25); haptic('surge');
+    if (save.settings.motion) {
+      const r = (boss?.r || 26) + 10, color = FOE_COLORS[type] || FOE_COLORS.gold;
+      for (let i = 0; i < 12; i++) {
+        const a = i / 12 * Math.PI * 2;
+        game.particles.push({ x: x + Math.cos(a) * r, y: y + Math.sin(a) * r, vx: Math.cos(a) * 70, vy: Math.sin(a) * 70 - 20, life: .9, maxLife: .9, kind: 'petal', color, size: 4.5, rotation: a, spin: i % 2 ? 4 : -4, drag: 1.4, gravity: 40, flutter: 20, phase: i });
+      }
+      foeRing(x, y, color, r * .7, 46, .5); foeRing(x, y, '#fff7be', r * .5, 30, .35);
+    }
+    game.floaters = game.floaters.filter(f => f.kind !== 'trick');
+    bossCallout(x, y - 20, event.mood ? `${event.mood}!` : '', 1.3);
+    const vine = game.stage && game.stage.vine;
+    if (vine) { vine.knotAt = vine.knotAt || []; vine.knotAt[(event.stage || 1) - 1] = game.time; }
+    if (event.name && event.mood) say(`${event.name} is ${event.mood.toLowerCase()}!`);
+  }
+  // A special hit on a guardian says what made it special.
+  const CRIT_TEXT = { roll: 'Bowled over!', mirror: 'Mirror shot!', moon: 'Moon shot!' };
+
+  // ── Old Sunny (Level 1, `sunny`) ──
+  // A warm ring as each sun portal pops open (Sleepy's art-only ones too), a puff of pollen as one spits, "Shut!" with a
+  // gold burst and a blink of hit-stop when one is shot shut, "Pop!" with a sky-blue burst when the snooze Z is popped,
+  // and when it lands, a sleepy ring at the launcher and the hint that the aim guide is napping.
+  BOSS_FX.sunny = {
+    'sprouts:start'(e) { for (const t of (e.targets || []).filter(t => t.role === 'sprout')) foeRing(t.x, t.y - 34, '#ffd65a', 8, 20, .35); },
+    'yawn:start'(e) { for (const t of (e.targets || []).filter(t => t.role === 'portal')) foeRing(t.x, t.y, '#ffd65a', 8, 24, .4); haptic('tick'); },
+    'yawn:spit'(e) { foeRing(e.x, e.y + 16, '#fff4aa', 6, 16, .3); foeDust(e.x, e.y + 18, 5, '#ffe9a0', 40); },
+    'yawn:shut'(e) {
+      burst({ x: e.x, y: e.y, type: 'gold', r: 16 }, 16, game.particles, currentKeepsake(), false); foeRing(e.x, e.y, '#ff9f43', 10, 30, .4);
+      bossCallout(e.x, e.y, 'Shut!', 1); jolt(.1, .04, .12); haptic('tick');
+    },
+    'snooze:start'(e) { const t = (e.targets || []).find(t => t.role === 'z'); if (t) foeRing(t.x, t.y, '#9fd6ff', 6, 18, .35); },
+    'snooze:zpop'(e) {
+      burst({ x: e.x, y: e.y, type: 'sky', r: 13 }, 18, game.particles, currentKeepsake(), false); foeRing(e.x, e.y, '#9fd6ff', 10, 34, .45);
+      // The jolt wakes him: his nap bubble pops where it floats.
+      if (e.bubble) { burst({ x: e.bubble.x, y: e.bubble.y, type: 'sky', r: 18 }, 12, game.particles, currentKeepsake(), false); foeRing(e.bubble.x, e.bubble.y, '#ffffff', 16, 30, .35); }
+      bossCallout(e.x, e.y, 'Pop!', 1); jolt(.14, .06, .2); haptic('surge');
+    },
+    'snooze:nap'(e) {
+      foeRing(e.x, e.y, '#9fd6ff', 12, 26, .6); foeDust(e.x, e.y, 4, '#eaf7ff', 30); haptic('warn');
+      const hint = "Old Sunny's snooze made your aim guide nap!"; $('game-hint').textContent = hint; say(hint);
+    }
+  };
+
+  // ── Rootknot (Level 2, `root`) ──
+  // Dirt sprays out of the hole a rolypoly is tossed from and puffs up where it lands; the carousel's knot rings as it
+  // grabs; a fling throws a ring of dust; a snap is the payoff, a crack of wood chips with a beat of hit-stop and "Snap!";
+  // the snare bursts up out of the soil and crumbles away.
+  const ROOT_DIRT = '#8a6544', ROOT_DUST = '#c9ad82', ROOT_BARK = '#7a5537';
+  BOSS_FX.root = {
+    toss(e) { foeDust(e.x, e.y, 6, ROOT_DIRT, 70); foeRing(e.x, e.y, ROOT_DIRT, 6, 14, .25); haptic('tick'); },
+    land(e) { foeDust(e.x, e.y + 10, 5, ROOT_DUST, 55); foeRing(e.x, e.y + 8, ROOT_DUST, 9, 20, .32); jolt(.05); haptic('tick'); },
+    'carousel:start'(e) {
+      const knot = (e.targets || []).find(t => t.role === 'knot') || e;
+      foeRing(knot.x, knot.y, ROOT_BARK, 10, 34, .45); foeDust(knot.x, knot.y, 4, ROOT_DIRT, 40); haptic('warn');
+    },
+    // His own seedlings, when the board has no clump to take: a puff of soil under each as it pops up.
+    'carousel:sprout'(e) { for (const m of e.marks || []) { foeDust(m.x, m.y + 6, 4, ROOT_DIRT, 50); foeRing(m.x, m.y, ROOT_DUST, 6, 18, .3); } haptic('tick'); },
+    fling(e) { foeRing(e.x, e.y, ROOT_DUST, 16, 56, .4); foeDust(e.x, e.y, 6, ROOT_DUST, 90); jolt(.1); haptic('warn'); },
+    snap(e) {
+      bossCallout(e.x, e.y, 'Snap!', 1.1); say('Snap!');
+      foeDust(e.x, e.y, 10, ROOT_BARK, 120); foeRing(e.x, e.y, '#fff6ce', 10, 40, .35); foeRing(e.x, e.y, ROOT_BARK, 8, 28, .3);
+      jolt(.16, .07, .22); haptic('surge');
+    },
+    'snare:start'(e) {
+      const t = (e.targets || []).find(t => t.role === 'snare'); if (!t) return;
+      for (const k of [-1, 0, 1]) foeDust(t.x + k * 26, t.y - k * 18 * (t.x < 210 ? 1 : -1), 4, ROOT_DIRT, 50);
+      jolt(.12, .04, .1); haptic('warn');
+    },
+    wither(e) { foeDust(e.x, e.y, 7, '#9a6a43', 40); }
+  };
+
+  // ── Mother Morel (Level 3, `puff`) ──
+  // A lilac ring where each dancing partner will appear, a puff of spores as she tosses the fakeout caps and a ring
+  // where each lands (cream for the real one, lilac for the fibs), lilac poofs as the paint dries into fibcaps, and a
+  // navy splash under each ink cloud with a little shake as the rain opens. A waltz pop is called "Waltz pop!".
+  CRIT_TEXT.waltz = 'Waltz pop!';
+  BOSS_FX.puff = {
+    'waltz:start'(e) { for (const t of (e.targets || []).filter(t => t.role === 'waltz')) { foeRing(t.x, t.y, '#cbbfff', 8, 22, .4); foeDust(t.x, t.y, 4, '#f4ecff', 40); } haptic('tick'); },
+    'fibwaltz:start'(e) { for (const t of (e.targets || []).filter(t => t.role === 'waltz')) foeRing(t.x, t.y, '#cbbfff', 8, 22, .4); haptic('tick'); },
+    'fakeout:start'(e) { foeDust(e.x, e.y - 30, 6, '#f4ecff', 50); foeRing(e.x, e.y - 30, '#d6bdf3', 6, 18, .3); },
+    'fakeout:land'(e) {
+      for (const m of e.marks || []) { foeRing(m.x, m.y, m.real ? '#fff0cf' : '#b58be0', 6, 16, .3); foeDust(m.x, m.y + 8, 3, m.real ? '#e8d2b0' : '#d6bdf3', 36); }
+      haptic('tick');
+    },
+    'fibwaltz:paint'(e) {
+      const s = game.bossState;
+      for (const p of (s && s.parts || []).filter(p => p.bossPart === 'fibwaltz' && !p.bloomed)) { foeRing(p.x, p.y, '#b58be0', 10, 16, .35); foeDust(p.x, p.y, 4, '#fff7ff', 40); }
+      haptic('tick');
+    },
+    'ink:ink'(e) {
+      const boss = game.bossState && game.bossState.boss, y = (boss ? boss.y + boss.r : e.y + 25) - 2;
+      for (const x of e.lanes || []) { foeRing(x, y, '#5b4a73', 8, 18, .35); foeDust(x, y, 3, '#2f2a6b', 36); }
+      jolt(.08, 0, 0); haptic('warn');
+    }
+  };
+
+  // ── Crystal Heart (Level 4, `crystal`) ──
+  // A fake shatters into tumbling, glinting glass (clear, ice and pink) inside a white flash ring; re-forming, a few
+  // twinkles fly in. The mirrors arrive in an icy ring each and glint when a seed banks
+  // off one; a mirror shot adds a white flash ring and prism stars in every flower's color under the "Mirror shot!"
+  // callout. The hues ring the heart in the wanted color, and the hint line names it (again after a wrong seed).
+  const CRYSTAL_GLASS = ['#ffffff', '#9fb4e0', '#ffd3ec', '#e6ecf8', '#cfe0ff'], CRYSTAL_ICE = ['#eef8ff', '#cfe8ff', '#ffffff'];
+  function crystalGlass(x, y, count, speed, colors = CRYSTAL_GLASS, lift = 50) {
+    if (!save.settings.motion) return;
+    count = Math.max(3, Math.round(count * [1, .6, .35][game?.quality || 0]));
+    for (let i = 0; i < count; i++) {
+      const a = i / count * Math.PI * 2 + Math.random() * .4, v = speed * (.55 + Math.random() * .6), life = .55 + Math.random() * .35;
+      game.particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - lift, life, maxLife: life, kind: i % 3 === 2 ? 'star' : 'flake',
+        color: colors[i % colors.length], size: 2.4 + Math.random() * 1.8, rotation: a, spin: (Math.random() - .5) * 14, drag: 1.2, gravity: 260, phase: i });
+    }
+  }
+  // The wanted color, from the hues' start event (its `hue` target) or the guardian's state.
+  function crystalHue(event) {
+    // The hue target names it (an event's own `type` is always the engine's event name, never a color).
+    const t = event && Array.isArray(event.targets) && event.targets.find(item => item && item.role === 'hue');
+    const type = (t && t.type) || (game.bossState && game.bossState.kind === 'crystal' && game.bossState.hue);
+    return FOE_COLORS[type] ? type : null;
+  }
+  BOSS_FX.crystal = {
+    'heart:fake'(e) {
+      crystalGlass(e.x, e.y, 12, 150);
+      foeRing(e.x, e.y, '#ffffff', 8, 30, .28); foeRing(e.x, e.y, '#cfe0ff', 12, 26, .45);
+      jolt(.05, .03, .08); haptic('tick');
+    },
+    'heart:reform'(e) {
+      foeRing(e.x, e.y, '#ffffff', 20, -12, .3);
+      if (save.settings.motion) for (let i = 0; i < 5; i++) {
+        const a = i / 5 * Math.PI * 2 + .3;
+        game.particles.push({ x: e.x + Math.cos(a) * 30, y: e.y + Math.sin(a) * 30, vx: -Math.cos(a) * 95, vy: -Math.sin(a) * 95, life: .3, maxLife: .3, kind: 'star', color: '#ffffff', size: 2.6, rotation: a, spin: 0, drag: 0, gravity: 0, phase: i });
+      }
+    },
+    'mirrors:mirror'() {
+      for (const m of game.bumpers.filter(b => b.bossMirror)) { foeRing(m.x, m.y, '#cfe8ff', 10, 36, .5); foeRing(m.x, m.y, '#ffffff', 6, 22, .3); crystalGlass(m.x, m.y, 6, 80, CRYSTAL_ICE, 20); }
+      haptic('tick');
+    },
+    'mirrors:bank'(e) { foeRing(e.x, e.y, '#ffffff', 8, 24, .25); crystalGlass(e.x, e.y, 4, 70, CRYSTAL_ICE, 10); },
+    'mirrors:shot'(e) {
+      foeRing(e.x, e.y, '#ffffff', 16, 46, .4);
+      if (save.settings.motion) {
+        const prism = Object.values(FOE_COLORS);
+        for (let i = 0; i < 10; i++) {
+          const a = i / 10 * Math.PI * 2, life = .6 + (i % 3) * .1;
+          game.particles.push({ x: e.x, y: e.y, vx: Math.cos(a) * 150, vy: Math.sin(a) * 150 - 30, life, maxLife: life, kind: 'star', color: prism[i % prism.length], size: 3.2, rotation: a, spin: 3, drag: 2.4, gravity: 40, phase: i });
+        }
+      }
+    },
+    'hues:start'(e) {
+      const type = crystalHue(e), heart = game.bossState && game.bossState.parts.find(p => p.bossPart === 'heart' && p.real);
+      if (!type) return;
+      if (heart) { foeRing(heart.x, heart.y, FOE_COLORS[type], heart.r + 4, 30, .5); foeRing(heart.x, heart.y, '#ffffff', heart.r, 18, .3); burst({ x: heart.x, y: heart.y, type, r: heart.r }, 14, game.particles, currentKeepsake(), false); }
+      const text = BOSS_FX.crystal.tip(); $('game-hint').textContent = text; say(text); haptic('tick');
+    },
+    // The hint line while the hues are up (also after a seed of the wrong color glances off).
+    tip() { const type = crystalHue(null); return type ? `Crystal Heart wants ${type} seeds!` : ''; }
+  };
+
+  // ── Lantern Lily (Level 5, `lotus`) ──
+  // The moons arrive in rings of cream light with a few motes drifting off the high one; a Moon shot (its callout and
+  // jolt come with the critical) showers moonbeam stars down over her; the moons wane in a soft ring. Pads open in
+  // green ripples, every jelly leaves in a lilac ring and a few rising bubbles, and a pad shot shut is "Shut!" with a
+  // splash of petals and a blink of hit-stop. The worm leaves in a ring of lantern gold; its head hit sends the light
+  // home ("Lantern home!", a gold ring and a beat of hit-stop), a puffed-away worm leaves a little mint dust. The tide
+  // rises with spray all along the new line, a warning buzz and the hint to clear the lowest buds, and recedes in drips.
+  const LILY_FX = { moon: '#fff6ce', rim: '#e8d58a', pad: '#9be3a0', bud: '#cbbfff', lamp: '#ffd65a', mint: '#b9fff0', water: '#bfe3ff' };
+  function lilyBubbles(x, y, count) {
+    if (!save.settings.motion) return;
+    count = Math.max(1, Math.round(count * [1, .6, .35][game?.quality || 0]));
+    for (let i = 0; i < count; i++) {
+      const life = .55 + i * .07;
+      game.particles.push({ x: x + (i - (count - 1) / 2) * 6, y, vx: (i - (count - 1) / 2) * 5, vy: -40 - i * 8, life, maxLife: life, kind: 'pollen', color: LILY_FX.water, size: 1.4 + (i % 2) * .7, gravity: -10, drag: 2 });
+    }
+  }
+  BOSS_FX.lotus = {
+    'reflect:start'(e) {
+      for (const t of (e.targets || []).filter(t => t.role === 'moonIn' || t.role === 'moonOut')) { foeRing(t.x, t.y, LILY_FX.moon, 12, 30, .5); foeRing(t.x, t.y, LILY_FX.rim, 8, 18, .35); }
+      const high = (e.targets || []).find(t => t.role === 'moonOut'); if (high) foeGlow(high.x, high.y, 6, [LILY_FX.moon, '#ffffff'], { spread: 30, fall: 14, life: 1.1, ring: 16 });
+      haptic('tick');
+    },
+    'reflect:shot'(e) {
+      foeRing(e.x, e.y, '#ffffff', 14, 40, .4); foeRing(e.x, e.y, LILY_FX.moon, 10, 28, .5);
+      if (save.settings.motion) for (let i = 0; i < 9; i++) {
+        const a = Math.PI * (.15 + .7 * i / 8), life = .7 + (i % 3) * .1;
+        game.particles.push({ x: e.x, y: e.y - 10, vx: Math.cos(a) * 110, vy: Math.sin(a) * 60 - 70, life, maxLife: life, kind: 'star', color: i % 2 ? LILY_FX.moon : '#ffffff', size: 2.8, rotation: a, spin: 3, drag: 2, gravity: 160, phase: i });
+      }
+    },
+    'reflect:wane'() { for (const m of game.gates.filter(g => g.bossMoon)) foeRing(m.x, m.y, LILY_FX.moon, m.r, -8, .4); },
+    'jellies:start'(e) { for (const t of (e.targets || []).filter(t => t.role === 'pad')) { foeRing(t.x, t.y, LILY_FX.pad, 10, 26, .45); foeRing(t.x, t.y + 4, LILY_FX.water, 14, 22, .55); } haptic('tick'); },
+    'jellies:release'(e) { foeRing(e.x, e.y - 8, LILY_FX.bud, 6, 18, .35); lilyBubbles(e.x, e.y - 12, 3); },
+    'jellies:shut'(e) {
+      burst({ x: e.x, y: e.y, type: 'lilac', r: 14 }, 14, game.particles, currentKeepsake(), false);
+      foeRing(e.x, e.y, LILY_FX.pad, 10, 30, .4); foeRing(e.x, e.y + 4, LILY_FX.water, 16, 26, .5);
+      bossCallout(e.x, e.y, 'Shut!', 1); jolt(.1, .04, .12); haptic('tick');
+    },
+    'worm:start'(e) {
+      const t = (e.targets || []).find(t => t.role === 'worm');
+      if (t && t.from) foeRing(t.from.x, t.from.y, LILY_FX.lamp, 6, 18, .35);
+      if (t) foeGlow(t.x, t.y, 6, [LILY_FX.lamp, '#fff4aa'], { spread: 30, fall: 4, life: .8 });
+      haptic('tick');
+    },
+    'worm:home'(e) {
+      foeRing(e.x, e.y, LILY_FX.lamp, 10, 34, .45); foeGlow(e.x, e.y, 8, [LILY_FX.lamp, '#fff4aa', '#ffffff'], { spread: 50, fall: 10, life: .9 });
+      bossCallout(e.x, e.y, 'Lantern home!', 1.1); jolt(.14, .06, .2); haptic('surge');
+    },
+    'worm:puffback'(e) { foeDust(e.x, e.y, 6, LILY_FX.mint, 40); foeRing(e.x, e.y, LILY_FX.mint, 8, 18, .4); haptic('tick'); },
+    'tide:rise'(e) {
+      for (let x = 50; x <= 370; x += 64) foeDust(x, e.y, 2, LILY_FX.water, 40);
+      jolt(.06); haptic('warn');
+      const hint = 'The tide is up! Clear your lowest buds.'; $('game-hint').textContent = hint; say(hint);
+    },
+    'tide:recede'(e) { for (let x = 82; x <= 340; x += 86) foeDust(x, e.y, 2, LILY_FX.water, 25); }
+  };
+
+
   function processEvents() {
     for (const event of game.drainEvents()) {
       if (isTutorial()) tutorial.observe(event);
       if (feel && !isTutorial()) feelEvent(event);
-      BloomSound.play(event.type, event);
+      BloomSound.play(event.type === 'shield' && event.bud?.bossKind ? 'bossGuard' : event.type, event);
       if (event.type === 'launch') {
         // A kept tap launches a tick later with its own aim, so the recoil follows the shot, not the pointer.
         kick = 1; game.recoilAt = game.time; game.recoilAngle = event.angle ?? angle;
-        if (event.pod === 0 && isRush() && !(game.superBloom > 0) && !isTutorial() && !preview && !save.podMet) { save.podMet = true; persist(); toast('Your pod holds 4 seeds. Hits win them back!'); }
+        if (event.pod === 0 && isRush() && !(game.superBloom > 0) && !isTutorial() && !preview && !save.podMet) { save.podMet = true; persist(); toast('Your pod holds 4 seeds. Quick hits grow new ones!'); }
       }
       else if (event.type === 'dry') { if (!(game.time - game.dryTickAt < .25)) { game.dryTickAt = game.time; haptic('tick'); } }
       // A kept tap that could not fire in time says why, the same way a dropped tap does.
-      else if (event.type === 'dropped') { if (!aiming) $('game-hint').textContent = event.reason === 'cap' ? AIM_HINTS[2] : event.reason === 'dry' ? 'Out of seeds! Hit flowers to refill.' : 'Almost ready…'; }
+      else if (event.type === 'dropped') { if (!aiming) $('game-hint').textContent = event.reason === 'cap' ? AIM_HINTS[2] : event.reason === 'dry' ? 'Out of seeds! Aim for quick hits to refill.' : 'Almost ready…'; }
       else if (event.type === 'podRefund') podSpark(event);
       else if (event.type === 'bounce' && event.caught) {
         // The petal saved a falling seed: a bright little ring and a pop of sparks so the save reads.
@@ -1514,10 +2078,10 @@
           game.floaters = game.floaters.filter(item => item.kind !== 'combo');
           // Long chains earn a bigger word at each milestone, each in a new flower's color.
           const tier = milestone;
-          headline({ x: 210, y: 92, text: PRAISE[tier], label: `${event.combo} in a row`, tier, life: 1.05, maxLife: 1.05, kind: 'combo' });
+          headline({ x: 210, y: praiseY(), text: PRAISE[tier], label: `${event.combo} in a row`, tier, life: 1.05, maxLife: 1.05, kind: 'combo' });
         }
         if (event.combo % 3 === 1) haptic('tick');
-        $('game-hint').textContent = isKoi() ? 'Ride it!' : isMoon() ? 'Nice path!' : isRush() ? isDepth() ? game.splitReady ? 'Split is ready!' : depthHint() : game.superBloom > 0 || game.splitReady ? rushHint() : 'Crowns bloom their whole bunch.' : game.guideCharge > 0 ? 'Drag to steer!' : 'Keep the chain going!';
+        $('game-hint').textContent = game.bossWarning?.text || (isKoi() ? 'Ride it!' : isMoon() ? 'Nice path!' : isRush() ? isDepth() ? game.splitReady ? 'Split is ready!' : depthHint() : game.superBloom > 0 || game.splitReady ? rushHint() : 'Crowns bloom their whole bunch.' : game.guideCharge > 0 ? 'Drag to steer!' : 'Keep the chain going!');
       } else if (event.type === 'gate') {
         burst({ x: event.entry.x, y: event.entry.y, type: 'lilac' }, 12);
         burst({ x: event.exit.x, y: event.exit.y, type: 'gold' }, 16);
@@ -1546,6 +2110,7 @@
       } else if (event.type === 'wave') {
         const bossName = event.boss ? event.bossName || (game.buds.find(bud => bud.boss) || {}).name || '' : '';
         if (isDepth()) {
+          meetFoes(event.hint || '');
           $('game-hint').textContent = event.hint || `Wave ${game.wave} of ${game.finalWave}.`;
           say(`Wave ${game.wave} of ${game.finalWave}. ${bossName ? `${bossName}! ` : ''}${event.hint || ''} ${game.lives} ${game.lives === 1 ? 'life' : 'lives'} left.`);
         } else {
@@ -1554,11 +2119,35 @@
         }
         // The new buds tumble in; a boss wave drops its big bloom with a name card, any other wave shows its number.
         if (staged()) {
+          // A new wave's ribbon (or boss card) replaces the last wave's, and a first-wave tip still waiting is dropped.
+          game.floaters = game.floaters.filter(item => !(item.kind === 'title' && item.size === 'small'));
+          if (game.stage) game.stage.tipAt = null;
           tumble();
           if (event.boss) bossIntro(event);
-          // The wave's number rides the top edge, above where the new buds land, and fades before they come down.
-          else game.floaters.push({ kind: 'title', size: 'small', x: 210, y: 32, life: .9, maxLife: .9, text: isDepth() ? `Wave ${game.wave} of ${game.finalWave}` : `Wave ${game.wave}`, label: isDepth() ? '' : `×${game.tempo.toFixed(1)}` });
+          // The wave's number rides the top edge, above where the new buds land. In the levels it carries the wave's
+          // tip (what is new on this wave) and stays long enough to read; Rush shows its tempo and fades quickly.
+          else {
+            const tip = isDepth() ? event.hint || '' : '';
+            game.floaters.push({ kind: 'title', size: 'small', x: 210, y: 32, life: tip ? 2.6 : .9, maxLife: tip ? 2.6 : .9, text: isDepth() ? `Wave ${game.wave} of ${game.finalWave}` : `Wave ${game.wave}`, label: isDepth() ? tip : `×${game.tempo.toFixed(1)}` });
+          }
         }
+      } else if (event.type === 'foe') {
+        foeEvent(event);
+      } else if (event.type === 'bossAbility') {
+        bossFx(event);
+      } else if (event.type === 'bossStage') {
+        phaseBloom(event);
+      } else if (event.type === 'bossCritical') {
+        const bud = event.bud || {};
+        if (CRIT_TEXT[event.via]) { bossCallout(bud.x, bud.y, CRIT_TEXT[event.via], 1.1); jolt(.16, .06, .2); haptic('surge'); }
+      } else if (event.type === 'bossWarning') {
+        $('game-hint').textContent = event.flowerText || event.text;
+        say(`${event.name}: ${event.text}${event.flowerText ? ` ${event.flowerText}` : ''}`);
+        haptic('warn');
+      } else if (event.type === 'bossBurn') {
+        // A tiny ember puff makes a consumed seed readable without obscuring the warning or target.
+        burst({ x: event.x, y: event.y, type: 'coral', r: 4 }, 5, game.particles, currentKeepsake(), false);
+        if (game.time - (game.burnBuzzAt ?? -100) >= .2) { game.burnBuzzAt = game.time; haptic('tick'); }
       } else if (event.type === 'puff') {
         burst(event.bud, 34); jolt(.14, 0, .25);
         // A ring of spores shows exactly how far the puff reaches.
@@ -1566,7 +2155,9 @@
         $('game-hint').textContent = event.count ? `Puff! ${event.count} ${event.count === 1 ? 'flower' : 'flowers'} caught the spores.` : 'Puff!';
       } else if (event.type === 'shield') {
         burst({ x: event.x, y: event.y, type: 'gold', r: 6 }, 6); haptic('tick');
-        if (event.shell && !game.shellSeen) { game.shellSeen = true; $('game-hint').textContent = 'Shells only open on one side. Wait for the gap.'; }
+        // A kit may name its own tip for a turned-away seed (Crystal Heart's wanted color, in her block above).
+        if (event.bud?.bossKind) $('game-hint').textContent = game.bossWarning?.text || BOSS_FX[event.bud.bossKind]?.tip?.(event) || bossOpeningTip(event.bud);
+        else if (event.shell && !game.shellSeen) { game.shellSeen = true; $('game-hint').textContent = 'Shells only open on one side. Wait for the gap.'; }
         else if (!event.shell && !game.shieldSeen) { game.shieldSeen = true; $('game-hint').textContent = 'Cups block shots from below. Hit them from the side.'; }
       } else if (event.type === 'geode') {
         burst(event.bud, 30); burst({ x: event.bud.x, y: event.bud.y, type: 'lilac', r: 10 }, 18); jolt(.16, .04, .2);
@@ -1609,10 +2200,13 @@
         burst({ x: event.x, y: event.y, type: 'gold', r: 6 }, 8);
       } else if (event.type === 'giftAppear') {
         $('game-hint').textContent = `A gift bubble! Shoot it to keep the ${Powers.byId[event.power].name}.`;
-        say($('game-hint').textContent);
+        // The bubble floats in at the top among score pops, so it announces itself: two gold rings and a note up top.
+        if (save.settings.motion) for (const slow of [0, .3]) game.particles.push({ x: event.x, y: event.y, vx: 0, vy: 0, life: .7 + slow, maxLife: .7 + slow, kind: 'ring', color: '#ffd148', size: 16, grow: 26 + slow * 50, gravity: 0, drag: 0 });
+        if (!isTutorial()) toast(`Gift bubble! Shoot it for a free ${Powers.byId[event.power].name}.`); else say($('game-hint').textContent);
       } else if (event.type === 'gift') {
         const def = Powers.byId[event.power];
         save.powers = Powers.add(save.powers, event.power, 1); persist(); trayKey = '';
+        if (save.settings.motion) chipGot = { id: event.power, until: performance.now() + 450 };
         burst({ x: event.x, y: event.y, type: 'gold', r: 12 }, 30); burst({ x: event.x, y: event.y, type: 'lilac', r: 8 }, 14); jolt(.18, .04, .4); haptic('surge');
         game.floaters = game.floaters.filter(item => item.kind !== 'bonus');
         headline({ x: 210, y: 250, text: `+1 ${def.name}`, label: 'a free gift!', life: 1.2, maxLife: 1.2, kind: 'wave' });
@@ -1622,6 +2216,7 @@
         $('game-hint').textContent = 'The gift bubble floated away.';
       } else if (event.type === 'drop') {
         $('game-hint').textContent = 'More flowers dropping in!';
+        meetFoes();
       } else if (event.type === 'life') {
         jolt(.45, .06, 0); addWilts(event); game.heartBreak = { index: event.index ?? game.lives, at: game.time }; redFlash = 1; headline(livesNote());
         $('game-hint').textContent = !game.lives ? 'The flowers reached the line.' : event.boss ? `The big bloom touched the line and climbed back up! ${game.lives} ${game.lives === 1 ? 'life' : 'lives'} left.` : `Flowers crossed the line! ${game.lives} ${game.lives === 1 ? 'life' : 'lives'} left.`;
@@ -1650,7 +2245,7 @@
         haptic('tick');
       } else if (event.type === 'chainEnd') {
         if (event.chain >= 8 && !finaleHeld()) {
-          headline({ x: 210, y: 92, text: `${event.chain} in a row!`, life: 1.05, maxLife: 1.05, kind: 'combo' });
+          headline({ x: 210, y: praiseY(), text: `${event.chain} in a row!`, life: 1.05, maxLife: 1.05, kind: 'combo' });
           say(`${event.chain} in a row!`);
         }
       } else if (event.type === 'trick') {
@@ -1665,6 +2260,9 @@
       } else if (event.type === 'won' || event.type === 'lost') {
         if (!isRush() && game.bloomedCount > trailTotal) { shotTrail.push(game.bloomedCount - trailTotal); trailTotal = game.bloomedCount; }
         if (event.type === 'won') {
+          // Flowers that faded during play come back for the result: the sweep brings each back as its light arrives
+          // (bud.backAt); with no light (Animations off, or no final bloom) they all come back now.
+          if (isRush()) for (const bud of game.buds) if (bud.bloomed && !bud.gift && typeof bud.backAt !== 'number') bud.backAt = game.time;
           // A finale win already had its impact; a plain one gets the confetti. Either way the hint says so.
           if (!event.finale) { burst({ x: 110, y: 210, type: 'coral' }, 70); burst({ x: 310, y: 210, type: 'gold' }, 70); burst({ x: 210, y: 150, type: 'lilac' }, 60); jolt(.45, .14, .6); }
           $('game-hint').textContent = isTaste() ? 'Nice run!' : isDepth() ? 'Level clear!' : 'Cleared!';
@@ -1681,10 +2279,17 @@
           continue;
         }
         if (isDepth()) {
-          const id = game.plan.id, won = event.type === 'won', previousStars = save.depths[id]?.stars || 0;
-          const recorded = Depths.record(save.depths, id, { won, lives: game.startWave > 1 ? Math.min(2, game.lives) : game.lives, score: game.score, wave: game.wave });
+          const id = game.plan.id, won = event.type === 'won', previousStars = save.depths[id]?.stars || 0, previousBest = save.depths[id]?.best || 0;
+          if (!won && game.bossReached && !game.bossLossRecorded) {
+            save.bossLosses[id] = Math.min(Number.MAX_SAFE_INTEGER, (save.bossLosses[id] || 0) + 1);
+            game.bossLossRecorded = true;
+          }
+          const recorded = Depths.record(save.depths, id, { won, lives: game.startWave === 10 ? Math.min(1, game.lives) : game.startWave > 1 ? Math.min(2, game.lives) : game.lives, score: game.score, wave: game.wave });
           save.depths = recorded.progress;
-          depthNews = { firstClear: recorded.firstClear, newStars: recorded.newStars, opened: recorded.firstClear && Depths.level(id + 1) && depthOpen(id + 1) ? id + 1 : null };
+          depthNews = { firstClear: recorded.firstClear, newStars: recorded.newStars, opened: recorded.firstClear && Depths.level(id + 1) && depthOpen(id + 1) ? id + 1 : null,
+            best: previousBest > 0 && game.score > previousBest, previousBest };
+          // A replay that beats the level's best score gets the record chime, like a new best in endless Rush.
+          if (depthNews.best) BloomSound.play('record', {});
           if (depthNews.opened) { freshDepth = depthNews.opened; freshShown = false; }
           else if (recorded.firstClear && id + 1 === TASTE.level && tasteOpen()) { freshDepth = TASTE.level; freshShown = false; }
           awardSeeds({ mode: 'depths', levelId: id, stars: won ? game.stars : 0, previousStars, blooms: game.bloomedCount, wave: game.wave - (game.startWave || 1) + 1 });
@@ -1737,8 +2342,9 @@
   // A level run lost at wave 6 or later can start again from wave 6, free and as often as the player likes.
   // Stars from those runs stop at two, and the card says so.
   const checkpointOffered = won => isDepth() && !isTaste() && !won && game.wave >= Depths.checkpoint;
+  const bossRetryOffered = won => isDepth() && !isTaste() && !won && game.plan.id >= 5 && (save.bossLosses[game.plan.id] || 0) >= 2;
   const fromCheckpoint = () => isDepth() && (game.startWave || 1) > 1;
-  if ($('checkpoint-btn')) $('checkpoint-btn').addEventListener('click', () => { if (isDepth() && !isTaste()) startDepth(game.plan.id, false, Depths.checkpoint); });
+  if ($('checkpoint-btn')) $('checkpoint-btn').addEventListener('click', () => { if (isDepth() && !isTaste()) startDepth(game.plan.id, false, bossRetryOffered(false) ? 10 : Depths.checkpoint); });
   // A chain of one is not worth a mention.
   // Each stat keeps its words together (non-breaking spaces), so a line only wraps at a dot.
   const chainNote = () => game.bestCombo > 1 ? ` · best\u00a0chain\u00a0${game.bestCombo}` : '';
@@ -1786,7 +2392,7 @@
       state.heat = Math.max((game.combo || 0) / 12, state.superBloom ? 1 : 0) + ((game.balls || []).length >= 2 ? .15 : 0);
       if (isRush() && !isTutorial()) {
         let lowest = -Infinity;
-        for (const bud of game.buds) if (!bud.bloomed && bud.y > lowest) lowest = bud.y;
+        for (const bud of game.buds) if (!bud.bloomed && !bud.inert && !bud.hidden && bud.y > lowest) lowest = bud.y;
         state.threat = (Number.isFinite(lowest) ? clamp((lowest - (game.dangerY - 120)) / 120, 0, 1) : 0) + (game.lives === 1 ? .3 : 0);
       }
       state.boss = Boolean(game.bossWave);
@@ -1841,7 +2447,8 @@
     if (k >= 1 && !party.shower && party.chimed >= party.stars) party = null;
   }
   function showResult() {
-    resultShown = true; const won = game.status === 'won';
+    resultShown = true; const won = game.status === 'won', scoreLabel = $('result-dialog').querySelector('.score-label');
+    scoreLabel.textContent = 'Score'; scoreLabel.classList.remove('best');
     $('next-btn').classList.add('button-primary'); $('next-btn').classList.remove('button-secondary');
     $('result-offer').hidden = true; $('share-btn').hidden = !canShare(won);
     $('garden-reward').hidden = preview || runAward <= 0;
@@ -1852,30 +2459,34 @@
     if (news) $('result-goals').innerHTML = `<span class="goal-check" aria-hidden="true"></span><span>${starry(goalNews(runGoals))}</span>${runGoals.done < 3 ? `<span class="goal-today">${runGoals.done}/3 today</span>` : ''}`;
     $('result-stars').hidden = isRush() && !(isDepth() && won);
     $('result-dialog').classList.toggle('lost', isDepth() ? !won : isRush() ? !rushRecordBroken : !won);
-    $('result-garden-btn').textContent = isRush() ? 'All levels' : 'Back to the meadow';
+    $('result-garden-btn').textContent = isRush() ? 'All levels' : isChapter() ? isKoi() ? 'All pools' : 'All trials' : 'Back to the meadow';
     if (isTaste()) { showTasteResult(won); return; }
     if (isDepth()) {
       const id = game.plan.id, next = Depths.level(id + 1), nextOpen = Boolean(next && depthOpen(id + 1)), nextPaid = Boolean(next && depthPaid(id + 1));
       const taste = Boolean(won && next && !nextPaid && next.id === TASTE.level && tasteOpen());
       $('result-eyebrow').textContent = won ? `Level ${id} clear!` : 'Out of lives';
       $('result-title').textContent = won ? ['Cleared!', 'Cleared!', 'Great!', 'Perfect!'][game.stars] : `Wave ${game.wave} of ${game.finalWave}`;
-      const checkpoint = checkpointOffered(won), restarted = fromCheckpoint();
+      const bossRetry = bossRetryOffered(won), checkpoint = checkpointOffered(won), restarted = fromCheckpoint();
       $('result-message').textContent = won && restarted
         ? `Cleared from wave ${game.startWave}!${depthNews?.opened ? ` Level ${id + 1} is open.` : ''} Start at wave 1 for three stars.`
         : won
         ? depthNews?.opened ? `Level ${id + 1}, ${next.name}, is open!` : !next ? `${game.bloomedCount} blooms. You reached the Starseed Core!` : taste ? `Try the first ${TASTE.waves} waves of level ${next.id}, ${next.name}, free!` : !nextPaid ? `${next.name} and the levels below it come with a one-time unlock.` : game.stars < 3 ? `${game.bloomedCount} blooms. Keep all 3 lives for ★★★.` : `${game.bloomedCount} blooms${chainNote()}`
+        : bossRetry ? `${game.bloomedCount} blooms. Try the boss with three fresh lives, free. A boss-only run can earn one star.`
         : checkpoint ? `${game.bloomedCount} blooms.${game.wave >= game.finalWave - 2 ? ' So close!' : ''} A run from wave ${Depths.checkpoint} can earn up to two stars.`
         : `${game.bloomedCount} blooms. ${game.wave >= game.finalWave - 2 ? 'So close!' : 'Try a new angle.'}`;
       $('result-stars').innerHTML = resultStars(game.stars); $('result-stars').setAttribute('aria-label', `${game.stars} of 3 stars`);
       $('result-score').textContent = fmt(game.score);
+      // On a replay the score is measured against the level's best: 'New best!' when it beats it, else the best to beat.
+      if (depthNews?.best) { scoreLabel.textContent = 'New best!'; scoreLabel.classList.add('best'); }
+      else if (depthNews?.previousBest > 0) scoreLabel.textContent = `Score · best ${fmt(depthNews.previousBest)}`;
       $('reward-flower').hidden = true;
       $('next-btn').hidden = !won || !(nextOpen || next && !nextPaid); $('next-btn').textContent = nextPaid ? `Level ${id + 1}` : taste ? 'Try it free' : `See levels ${Depths.free + 1} to ${Depths.total}`;
       // Pointing at the unlock is a quiet button under Replay, never the big one. The free taste is play, so it can be.
       $('next-btn').classList.toggle('button-primary', nextPaid || taste); $('next-btn').classList.toggle('button-secondary', !nextPaid && !taste);
       $('retry-btn').textContent = won ? 'Replay' : 'Try again'; $('retry-btn').classList.toggle('primary', !won || !nextOpen && !taste);
       // After a late loss the free wave-6 restart leads, and starting over from wave 1 is the quiet choice.
-      const restart = $('checkpoint-btn'), offered = checkpoint && Boolean(restart);
-      if (restart) { restart.hidden = !offered; restart.textContent = `Try from wave ${Depths.checkpoint}`; restart.classList.toggle('primary', offered); }
+      const restart = $('checkpoint-btn'), offered = (bossRetry || checkpoint) && Boolean(restart);
+      if (restart) { restart.hidden = !offered; restart.textContent = bossRetry ? 'Try the boss' : `Try from wave ${Depths.checkpoint}`; restart.classList.toggle('primary', offered); }
       if (offered) { $('retry-btn').textContent = 'Start over'; $('retry-btn').classList.remove('primary'); }
       showDialog('result-dialog'); if (offered && restart.focus) restart.focus({ focusVisible: false }); celebrate(won); return;
     }
@@ -1934,9 +2545,12 @@
   // Sharing: a short note with no spoilers and the link to the free web game. On a phone the share sheet opens;
   // elsewhere the note is copied, ready to paste. The daily garden shares a tiny picture of each shot, like a
   // word-game grid: a leaf for a miss, then a sprout, a tulip or a bouquet as more of the garden bloomed.
-  const SHARE_URL = 'https://vexno1r.github.io/Bloomshot/';
+  // Configure the bridge's public link only after the site or store listing is live. A private
+  // playtest must not copy a dead Pages URL or an owner-only link to a player's friends.
+  const SHARE_URL = native?.links?.web || '';
   const DAILY_FIRST = Date.UTC(2026, 9, 1);
   function canShare(won) {
+    if (!(native?.link || SHARE_URL)) return false;
     if (preview) return false;
     if (isTaste()) return false;
     if (isDepth() || isDaily()) return won;
@@ -1956,6 +2570,7 @@
   // page from the Android app). Without it, the browser's own sheet or the clipboard is used here.
   async function shareResult() {
     const url = native?.link || SHARE_URL, text = shareNote(), payload = { title: 'Bloomshot', text, url };
+    if (!url) return;
     BloomSound.wake(); BloomSound.play('tap');
     if (native && typeof native.share === 'function') {
       let result;
@@ -1974,7 +2589,8 @@
     if (!gate('rotate')) return false;
     const near = game.bumpers.find(b => b.kind !== 'rock' && Math.hypot(b.x - point.x, b.y - point.y) <= b.length / 2 + 14);
     if (!near) return false;
-    if (game.rotate(near.id)) { BloomSound.wake(); processEvents(); toast('Petal turned!'); }
+    // In Rush and the levels the petal's swing and the button's countdown already show the turn, so it is only announced.
+    if (game.rotate(near.id)) { BloomSound.wake(); processEvents(); if (isRush()) say('Petal turned.'); else toast('Petal turned!'); }
     else if (isRush()) toast('Wait a moment to turn it again.');
     else if (game.status === 'aiming') toast(isChapter() ? 'One turn per seed.' : 'One turn per shot.');
     return true;
@@ -1985,11 +2601,13 @@
     // While the finale camera leans in, a touch lands where the board is drawn, not where it would be unzoomed.
     return feel && feel.out.zoom > 1.001 ? Feel.toBoard(point, feel.out) : point;
   }
-  function aimAt(point) {
+  function aimAt(point, deferTrace = false) {
     const dx = point.x - game.launcher.x, dy = Math.min(-35, point.y - game.launcher.y);
     angle = clamp(Math.atan2(dy, dx), -Math.PI + .16, -.16);
-    pointer = point; game.aim = game.trace(Math.cos(angle) * 400, Math.sin(angle) * 400);
-    aimFeel();
+    pointer = point;
+    // A touch screen can report several moves between paints. Keep the latest angle immediately, then
+    // trace it once with the moving flowers in the next frame. Release always fires that latest angle.
+    if (!deferTrace) { game.aim = game.trace(Math.cos(angle) * 400, Math.sin(angle) * 400); aimFeel(); }
   }
   // While a finger aims in Rush, the hint follows the pod: an empty one says to keep aiming (the line is hollow), a seed
   // in the cup says let go.
@@ -2022,7 +2640,7 @@
     if (!remembered) game.aim = [];
     if (isRush() && !game.over) {
       // A dropped tap always says why: too many seeds in the air, an empty pod, or a blink too soon.
-      $('game-hint').textContent = game.balls.length >= 5 ? AIM_HINTS[2] : remembered ? 'Too soon! Tap to fire when the seed is in.' : podEmpty() ? 'Out of seeds! Hit flowers to refill.' : 'Almost ready…';
+      $('game-hint').textContent = game.balls.length >= 5 ? AIM_HINTS[2] : remembered ? 'Too soon! Tap to fire when the seed is in.' : podEmpty() ? 'Out of seeds! Aim for quick hits to refill.' : 'Almost ready…';
       processEvents();
     }
   }
@@ -2035,6 +2653,9 @@
     if (game) { game.guide(null); if (!game.kept) game.aim = []; }
     if (id !== null && canvas.hasPointerCapture(id)) canvas.releasePointerCapture(id);
   }
+  // While the opening curtain (.6 s, art.js drawCurtain) still covers the board a tap or key fires nothing, so a
+  // quick double tap on Play or Try again never sends a seed the player could not see. Animations off has no curtain.
+  const curtainUp = () => Boolean(save.settings.motion && game && game.stage && game.time - game.stage.introAt < .6);
   canvas.addEventListener('pointerdown', event => {
     // A tap during the finale's gold sweep skips straight to the result, but only from a second after the win: a
     // player still hammering shots at the last flower never skips the moment they earned.
@@ -2043,6 +2664,7 @@
       game.feel.sweeping = false; game.feel.waiting = false; if (feel) feel.reset(); resultAt = game.time; return;
     }
     if (route !== 'game' || activePointer !== null || !event.isPrimary || !['aiming', 'flying'].includes(game.status) || narrowLandscape.matches) return;
+    if (curtainUp()) return;
     if (isChapter() && game.status === 'flying') return;
     if (isTutorial() && !tutorial.allows('fire') && !tutorial.allows('rotate')) { nudgeTutorial(); return; }
     event.preventDefault(); BloomSound.wake(); canvas.focus({ preventScroll: true });
@@ -2067,7 +2689,7 @@
     if (!aiming || !(isRush() || game.status === 'aiming')) return;
     const at = coordinates(event);
     if (remembered && pressPoint && Math.hypot(at.x - pressPoint.x, at.y - pressPoint.y) < 14) return;
-    remembered = null; aimAt(at);
+    remembered = null; aimAt(at, isRush());
   });
   canvas.addEventListener('pointerup', event => {
     if (event.pointerId !== activePointer) return;
@@ -2095,7 +2717,7 @@
     if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') angle -= Math.PI / 60;
     if (event.key === 'ArrowRight' || event.key === 'ArrowUp') angle += Math.PI / 60;
     angle = clamp(angle, -Math.PI + .16, -.16);
-    if (event.key === ' ' || event.key === 'Enter') { if (!event.repeat) launch(true); }
+    if (event.key === ' ' || event.key === 'Enter') { if (!event.repeat && !curtainUp()) launch(true); }
     else if (isRush() && event.key.toLowerCase() === 's') { if (!gate('split')) nudgeTutorial(); else if (game.split()) processEvents(); }
     else if (event.key.toLowerCase() === 'r') { if (game.bumpers[0]) rotateNearest(game.bumpers[0]); }
     else if (isRush() && /^[1-4]$/.test(event.key)) usePower(Powers.ids[Number(event.key) - 1]);
@@ -2110,7 +2732,7 @@
   function openRush() { if (preview) exitPreview(); if (isRush() && !isDepth() && !game.over) { closeDialogs(); setRoute('game'); } else startLevel({ id: 'rush', name: 'Meadow Rush' }); }
   function openLevels() { if (preview) exitPreview(); closeDialogs(); setRoute('levels'); }
   function showUnlock() { const card = $('depth-unlock'); if (card) card.scrollIntoView({ behavior: save.settings.motion ? 'smooth' : 'auto', block: 'center' }); }
-  function startDepth(id, taste, from) { if (id === freshDepth) freshDepth = 0; if (preview) exitPreview(); startLevel({ id: 'rush', depth: id, name: Depths.level(id).name, taste: Boolean(taste), from: taste ? 1 : from || 1 }, { theme: depthTheme(id) }); }
+  function startDepth(id, taste, from) { if (id === freshDepth) freshDepth = 0; if (preview) exitPreview(); startLevel({ id: 'rush', depth: id, name: Depths.level(id).name, taste: Boolean(taste), from: taste ? 1 : from || (reviewBosses ? 10 : 1) }, { theme: depthTheme(id) }); }
   function replay() { if (isDepth()) startDepth(game.plan.id, isTaste()); else startLevel(game.level, { preview, theme }); }
   // Restart sits next to Split, so a run with progress asks for a second tap within two seconds. Starting an endless
   // run over keeps its best score and wave (it pays nothing: only a finished run earns seeds and counts).
@@ -2172,7 +2794,9 @@
       $('tutorial-go').hidden = v.phase !== 'end'; $('tutorial-skip').hidden = done;
       $('tutorial-go').textContent = save.depths[1]?.stars ? 'Back to the levels' : 'Play level 1';
       box.dataset.phase = v.phase; document.body.dataset.tutorialPhase = v.phase;
-      box.dataset.place = v.target && v.target.startsWith('power:') ? 'low' : 'high';
+      // Every taught control sits below the card, including the bottom power row. The last card moves to the bottom,
+      // where the controls have stepped aside, so the closing burst at the top stays in view and its button is in reach.
+      box.dataset.place = done ? 'low' : 'high';
       $('tutorial-dim').hidden = $('tutorial-spot').hidden = !v.target; $('tutorial-spot-2').hidden = !v.also;
       $('tutorial-finger').hidden = !v.finger || !save.settings.motion;
       if (fresh) { say(`${v.title}. ${v.text}`); if (tutorial.index > 0 || tutorial.prompt > 0) BloomSound.play('tap'); }
@@ -2205,7 +2829,8 @@
     const id = Number(card.dataset.depth), level = Depths.level(id); if (!level) return;
     BloomSound.wake();
     if (!depthPaid(id) && id === TASTE.level && tasteOpen()) { if (inProgress() && isTaste()) setRoute('game'); else startDepth(id, true); return; }
-    if (!depthPaid(id)) { BloomSound.play('tap'); toast(id === TASTE.level ? `Clear level ${id - 1} to try ${level.name} free.` : `${level.name} is part of levels ${Depths.free + 1} to ${Depths.total}.`); showUnlock(); return; }
+    // A deeper level scrolls to the unlock card, which says the rest (a toast would sit on top of it).
+    if (!depthPaid(id)) { BloomSound.play('tap'); if (id === TASTE.level) toast(`Clear level ${id - 1} to try ${level.name} free.`); else say(`${level.name} is part of levels ${Depths.free + 1} to ${Depths.total}.`); showUnlock(); return; }
     if (!depthOpen(id)) { BloomSound.play('tap'); toast(`Clear level ${id - 1} to open ${level.name}.`); return; }
     // Tapping the level already being played picks it up where it was.
     if (inProgress() && isDepth() && game.plan.id === id) setRoute('game'); else startDepth(id);
@@ -2215,7 +2840,9 @@
   $('power-shelf').addEventListener('click', event => { const button = event.target.closest('[data-buy]'); if (button) buyPower(button); });
   $('split-btn').addEventListener('click', () => { BloomSound.wake(); if (!gate('split')) nudgeTutorial(); else if (game.split()) processEvents(); });
   $('restart-btn').addEventListener('click', restartTap);
-  $('back-btn').addEventListener('click', () => { if (preview) exitPreview(); else setRoute(isRush() ? 'levels' : 'garden'); });
+  // A Moon trial or Koi pool goes back to its own list of trials; everything else to the levels or the meadow.
+  function leaveBoard() { if (isChapter()) { const world = game.level.worldId; setRoute('worlds'); openWorld(world); } else setRoute(isRush() ? 'levels' : 'garden'); }
+  $('back-btn').addEventListener('click', () => { if (preview) exitPreview(); else leaveBoard(); });
   $('garden-btn').addEventListener('click', () => { if (preview) exitPreview(); setRoute('garden'); });
   $('grow-garden-btn').addEventListener('click', () => { closeDialogs(); setRoute('garden'); });
   $('plot-markers').addEventListener('click', event => {
@@ -2299,7 +2926,7 @@
   $('retry-btn').addEventListener('click', replay);
   $('share-btn').addEventListener('click', shareResult);
   $('result-offer').addEventListener('click', event => { const buy = event.target.closest('[data-buy]'); if (buy) buyProduct(buy); });
-  $('result-garden-btn').addEventListener('click', () => { closeDialogs(); if (preview) exitPreview(); else setRoute(isRush() ? 'levels' : 'garden'); });
+  $('result-garden-btn').addEventListener('click', () => { closeDialogs(); if (preview) exitPreview(); else leaveBoard(); });
   $('next-btn').addEventListener('click', () => {
     closeDialogs(); if (preview) { exitPreview(); return; }
     if (isDepth()) {
@@ -2341,34 +2968,91 @@
     if (typeof BloomSound.setMusic === 'function') BloomSound.setMusic(save.settings.sound && save.settings.music !== false);
     $('toggle-sound').checked = save.settings.sound; $('toggle-haptics').checked = save.settings.haptics; $('toggle-motion').checked = save.settings.motion;
     $('toggle-music').checked = save.settings.music !== false;
+    $('graphics-quality').value = save.settings.graphics;
+    $('toggle-frame-rate').checked = save.settings.frameRate;
     $('sound-btn').setAttribute('aria-pressed', String(save.settings.sound)); $('sound-btn').setAttribute('aria-label', save.settings.sound ? 'Mute sound' : 'Enable sound');
     $('sound-btn').classList.toggle('muted', !save.settings.sound);
     document.body.classList.toggle('reduce-motion', !save.settings.motion);
+    putData(document.body, 'graphics', save.settings.graphics);
     meadowDirty = true;
-    $('settings-storage').textContent = storageAvailable ? 'Saved on this device. No account needed.' : "This browser won't save, so progress lasts for this visit only.";
+    $('settings-storage').textContent = nativeSavePending() ? "Your phone's save is still being checked. Reopen Bloomshot if it doesn't finish." : storageAvailable ? 'Saved on this device. No account needed.' : "This browser won't save, so progress lasts for this visit only.";
   }
   $('settings-btn').addEventListener('click', () => { updateSettings(); showDialog('settings-dialog'); });
-  $('help-btn').addEventListener('click', () => { $('levels-help').open = isDepth() || route === 'levels'; $('rush-help').open = isRush() && !isDepth() && route !== 'levels'; $('campaign-help').open = !isRush() && !isChapter(); $('moon-help').open = isMoon(); $('koi-help').open = isKoi(); $('tutorial-replay').hidden = isTutorial(); showDialog('help-dialog'); });
+  $('privacy-btn').addEventListener('click', () => { closeDialog('settings-dialog'); showDialog('privacy-dialog'); });
+  $('close-privacy').addEventListener('click', () => { closeDialog('privacy-dialog'); updateSettings(); showDialog('settings-dialog'); });
+  // How to play opens at the section for what is on screen: the board being played, or else the tab the player is on.
+  $('help-btn').addEventListener('click', () => {
+    const play = route === 'game';
+    $('levels-help').open = play ? isDepth() : route === 'levels' || route === 'collection';
+    $('rush-help').open = play && isRush() && !isDepth();
+    $('campaign-help').open = play ? !isRush() && !isChapter() : route === 'garden';
+    $('moon-help').open = play ? isMoon() : route === 'worlds';
+    $('koi-help').open = play ? isKoi() : route === 'worlds';
+    $('tutorial-replay').hidden = isTutorial(); showDialog('help-dialog');
+  });
   $('tutorial-replay').addEventListener('click', () => { closeDialogs(); BloomSound.wake(); startTutorial(); });
   $('tutorial-skip').addEventListener('click', () => { BloomSound.wake(); endTutorial(false); });
   $('tutorial-go').addEventListener('click', () => { BloomSound.wake(); endTutorial(!save.depths[1]?.stars); });
   for (const key of ['sound', 'haptics', 'motion', 'music']) $(`toggle-${key}`).addEventListener('change', event => { save.settings[key] = event.target.checked; BloomSound.wake(); updateSettings(); persist(); });
+  $('graphics-quality').addEventListener('change', event => {
+    if (!Object.hasOwn(GRAPHICS, event.target.value)) return;
+    save.settings.graphics = event.target.value;
+    game.quality = Math.max(graphics().effects, governor ? governor.tier : 0);
+    updateSettings(); resize(); if (frameMeter) frameMeter.reset(); persist();
+  });
+  $('toggle-frame-rate').addEventListener('change', event => {
+    save.settings.frameRate = event.target.checked; meterAt = 0; updateSettings(); persist();
+  });
   $('sound-btn').addEventListener('click', () => { save.settings.sound = !save.settings.sound; BloomSound.wake(); updateSettings(); persist(); toast(save.settings.sound ? 'Sound on' : 'Sound off'); });
   for (const key of ['settings', 'help', 'world']) $(`close-${key}`).addEventListener('click', () => closeDialog(`${key}-dialog`));
   dialogs.forEach(id => $(id).addEventListener('click', event => { if (event.target === $(id)) { const r = $(id).getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) closeDialog(id); } }));
   function resize() {
-    cancelInteraction();
+    resizePending = false;
     // The board's backing store matches the device pixels it is shown at (a small phone shows it well under 420 css
     // px wide, so the scale comes first and the 2.5 cap after it): one board pixel per screen pixel, never more.
     const shown = canvas.getBoundingClientRect ? canvas.getBoundingClientRect() : null, cssWidth = shown && shown.width > 40 ? shown.width : 420;
-    const dpr = clamp((devicePixelRatio || 1) * Math.min(1, cssWidth / 420), 1, 2.5);
+    const dpr = clamp((devicePixelRatio || 1) * Math.min(1, cssWidth / 420), 1, graphics().board);
     const width = Math.round(420 * dpr), height = Math.round(560 * dpr);
-    if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
+    const nextFullScene = Boolean(sceneCanvas && sceneCtx && typeof innerWidth === 'number' && route === 'game');
+    const rect = nextFullScene ? sceneCanvas.getBoundingClientRect() : null, sceneDpr = Math.min(devicePixelRatio || 1, graphics().scene);
+    const sw = rect ? rect.width : 0, sh = rect ? rect.height : 0;
+    const key = [route, theme, game.mode, dpr, cssWidth, shown?.height, shown?.left, shown?.top, sw, sh, sceneDpr,
+      typeof innerWidth === 'number' ? innerWidth : 0, typeof innerHeight === 'number' ? innerHeight : 0].join('|');
+    if (key === resizeKey) return;
+    resizeKey = key; cancelInteraction();
+    if (canvas.width !== width) canvas.width = width;
+    if (canvas.height !== height) canvas.height = height;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    fullScene = nextFullScene;
+    if (fullScene) {
+      if (sw > 0 && sh > 0) {
+        const nextSceneKey = [sw, sh, sceneDpr, theme, game.mode].join('|');
+        if (sceneKey !== nextSceneKey) {
+          sceneKey = nextSceneKey;
+          const sceneWidth = Math.round(sw * sceneDpr), sceneHeight = Math.round(sh * sceneDpr);
+          if (sceneCanvas.width !== sceneWidth) sceneCanvas.width = sceneWidth;
+          if (sceneCanvas.height !== sceneHeight) sceneCanvas.height = sceneHeight;
+          if (lifeCanvas && lifeCtx) {
+            const resized = lifeCanvas.width !== sceneWidth || lifeCanvas.height !== sceneHeight;
+            if (lifeCanvas.width !== sceneWidth) lifeCanvas.width = sceneWidth;
+            if (lifeCanvas.height !== sceneHeight) lifeCanvas.height = sceneHeight;
+            lifeCtx.setTransform(sceneDpr, 0, 0, sceneDpr, 0, 0);
+            if (lifePainted && !resized) lifeCtx.clearRect(0, 0, lifeWidth, lifeHeight);
+            lifeWidth = sw; lifeHeight = sh; lifeFrame = 0; lifePainted = false;
+            put(lifeCanvas.style, 'visibility', 'hidden');
+          }
+          sceneCtx.setTransform(sceneDpr, 0, 0, sceneDpr, 0, 0);
+          const cover = Math.max(sw / 420, sh / 560);
+          sceneCtx.translate((sw - 420 * cover) / 2, (sh - 560 * cover) / 2);
+          BloomArt.drawGarden(sceneCtx, 420 * cover, 560 * cover, theme, { mode: game.mode, frame: false });
+        }
+      }
+    }
     aimHarvest();
     // The petal shower was laid out for the old screen; a rotation ends it rather than stretching it.
     if (party && party.shower && (narrowLandscape.matches || party.vw !== innerWidth || party.vh !== innerHeight)) endParty();
-    if (meadowCanvas.width !== width || meadowCanvas.height !== Math.round(330 * dpr)) { meadowCanvas.width = width; meadowCanvas.height = Math.round(330 * dpr); }
+    if (meadowCanvas.width !== width) meadowCanvas.width = width;
+    if (meadowCanvas.height !== Math.round(330 * dpr)) meadowCanvas.height = Math.round(330 * dpr);
     meadowCtx.setTransform(dpr, 0, 0, dpr, 0, 0); meadowDirty = true;
   }
   // The harvest orbs fly to the score readout: its middle, mapped into board space (above the board, so y < 0).
@@ -2379,18 +3063,25 @@
     const exit = BloomArt.setHarvestTarget((score.left + score.width / 2 - board.left) / board.width * 420, (score.top + score.height / 2 - board.top) / board.height * 560);
     if (exit && Number.isFinite(exit.x) && Number.isFinite(exit.y)) harvestExit = exit;
   }
-  window.addEventListener('resize', resize);
-  document.addEventListener('visibilitychange', () => { lastFrame = 0; accumulator = 0; cancelInteraction(); musicFrame(performance.now(), true); });
+  // Safari can emit several resize events while its toolbar moves. Size once at the next paint; route changes
+  // still resize immediately, before the first frame of their new scene.
+  window.addEventListener('resize', () => { resizePending = true; });
+  document.addEventListener('visibilitychange', () => { lastFrame = 0; accumulator = 0; if (frameMeter) frameMeter.sample(0, 0, false); cancelInteraction(); musicFrame(performance.now(), true); });
   function frame(timestamp) {
     requestAnimationFrame(frame);
+    const workFrom = performance.now();
+    if (resizePending) resize();
     if (restartArmed !== null && (performance.now() - restartArmed > 2000 || route !== 'game')) armRestart(false);
     partyFrame(timestamp);
     musicFrame(timestamp);
     if (!document.hidden && route === 'collection') drawShowcase(timestamp);
     if (!document.hidden && route === 'garden' && (meadowDirty || save.settings.motion && timestamp - meadowFrame >= 1000 / 30)) drawMeadow(timestamp);
-    if (document.hidden || route !== 'game') { lastFrame = timestamp; return; }
+    if (document.hidden || route !== 'game') {
+      if (frameMeter) frameMeter.sample(timestamp, 0, false);
+      put($('frame-rate-meter'), 'hidden', true); lastFrame = timestamp; return;
+    }
     const dt = Math.min(lastFrame ? (timestamp - lastFrame) / 1000 : 0, .06); lastFrame = timestamp;
-    const workFrom = performance.now(), paintsFrom = artPaints();
+    game.quality = Math.max(graphics().effects, governor ? governor.tier : 0);
     feelStep(dt);
     const paused = narrowLandscape.matches || dialogs.some(id => $(id).open);
     // In the tutorial the whole board (seeds, flowers, petals and sparkles) runs at the speed its card sets.
@@ -2405,7 +3096,8 @@
       game.particles = stepParticles(game.particles, gdt, 24, 396, 530);
       // Words age in real time in the tutorial, so a 'Lovely!' does not hang for 13 s while a card waits at 8% speed.
       const fdt = isTutorial() ? dt : gdt;
-      for (const p of game.floaters) { p.life -= fdt; p.y -= fdt * 12; }
+      // Words drift up as they fade; the wave ribbon holds still at the top edge so its tip never slides off the board.
+      for (const p of game.floaters) { p.life -= fdt; if (!(p.kind === 'title' && p.size === 'small')) p.y -= fdt * 12; }
       game.floaters = game.floaters.filter(p => p.life > 0).slice(-16);
       if (!resultShown && game.time >= resultAt && !(feel && feel.out.busy)) showResult();
     }
@@ -2413,27 +3105,49 @@
     if (Math.abs(game.score - displayScore) < 1) displayScore = game.score;
     stageFrame(dt);
     updateHud(); renderTutorial(); pulseTime += dt;
+    if (fullScene && lifeCtx && typeof BloomArt.drawSceneLife === 'function') {
+      if (save.settings.motion && !paused && timestamp - lifeFrame >= 1000 / 30) {
+        lifeFrame = timestamp;
+        lifePainted = BloomArt.drawSceneLife(lifeCtx, lifeWidth, lifeHeight, theme, pulseTime, false, lifePainted);
+      } else if (!save.settings.motion && lifePainted) {
+        BloomArt.drawSceneLife(lifeCtx, lifeWidth, lifeHeight, theme, pulseTime, true, lifePainted); lifePainted = false;
+      }
+      put(lifeCanvas.style, 'visibility', lifePainted ? 'visible' : 'hidden');
+    }
     if (remembered) {
       // Holding still re-aims where the finger is, the same as moving it; left alone, a remembered aim fades after a while.
       const now = performance.now();
-      if (aiming && pressPoint && now - pressAt >= HELD * 1000) { remembered = null; aimAt(pressPoint); }
+      if (aiming && pressPoint && now - pressAt >= HELD * 1000) { remembered = null; aimAt(pressPoint, true); }
       else if (!aiming && (game.over || now > remembered.until)) { remembered = null; if (!game.kept) game.aim = []; }
     }
-    if (isRush() && (aiming || game.aim.length)) { game.aim = game.trace(Math.cos(angle) * 400, Math.sin(angle) * 400); aimLock(); }
+    if (isRush() && (aiming || game.aim.length)) { game.aim = game.trace(Math.cos(angle) * 400, Math.sin(angle) * 400); aimFeel(); }
     trauma = Math.max(0, trauma - dt * 1.7); flash = Math.max(0, flash - dt * 3.2); kick = Math.max(0, kick - dt * 5);
     // While the camera is zoomed in, the shake is divided by the zoom so the leaned-in frame stays steady.
     const t2 = trauma * trauma / (feel ? feel.out.zoom : 1), nt = timestamp / 1000;
     const shake = t2 > .001 ? { x: Math.sin(nt * 47.3) * Math.cos(nt * 13.1) * 9 * t2, y: Math.sin(nt * 39.7 + 1.3) * 9 * t2, r: Math.sin(nt * 29.1) * .018 * t2 } : null;
     const worn = currentKeepsake(), view = feel && !isTutorial() ? feel.out : null;
-    BloomArt.draw(ctx, game, game.time, { theme, reducedMotion: !save.settings.motion, keepsake: worn.seed ? worn : null, pointer, shake, flash, kick, showAim: isRush() ? aiming || game.aim.length > 0 : game.status === 'aiming', selectedBumper: isRush() ? game.rotateCooldown <= 0 ? game.bumpers[0]?.id : null : game.status === 'aiming' && !game.rotationUsed ? game.bumpers[0]?.id : null,
-      camera: view && view.zoom > 1.001 ? view : null, vignette: view ? view.vignette : 0, quality: game.quality || 0, ahead: view && view.scale < .99 ? accumulator : 0, danger, realTime: nt });
-    if (governor) game.quality = !paused && dt > 0 && artPaints() === paintsFrom ? governor.sample((performance.now() - workFrom) / 1000, dt) : governor.tier;
+    if (fullScene) ctx.clearRect(0, 0, 420, 560);
+    BloomArt.draw(ctx, game, game.time, { theme, backdrop: !fullScene, reducedMotion: !save.settings.motion, keepsake: worn.seed ? worn : null, pointer, shake, flash, kick, showAim: isRush() ? aiming || game.aim.length > 0 : game.status === 'aiming', selectedBumper: game.over ? null : isRush() ? game.rotateCooldown <= 0 ? game.bumpers[0]?.id : null : game.status === 'aiming' && !game.rotationUsed ? game.bumpers[0]?.id : null,
+      camera: view && view.zoom > 1.001 ? view : null, vignette: view ? view.vignette : 0, quality: game.quality || 0, interpolation: clamp(accumulator * 120, 0, 1), danger, realTime: nt });
     // Warm-up a frame at a time until everything the level can need is painted (and rasterized on the board's own
-    // context, so the first bloom that uses a sprite does not pay for it): what is left of about 12 ms after this
-    // frame's own work, never less than 3 ms nor more than 8.
-    if (warm && !paused && warm.step(clamp(12 - (performance.now() - workFrom), 3, 8), ctx)) warm = null;
+    // context, so the first bloom that uses a sprite does not pay for it). Keep roughly half a 60 Hz frame for
+    // the browser's raster/compositing work. Lower presets also limit warming instead of spending their savings
+    // immediately on more preparation. A busy frame owes no warm-up work.
+    const warmBudget = Math.min(graphics().warm, 8 - (performance.now() - workFrom));
+    if (warm && !paused && warmBudget > 0 && warm.step(warmBudget, ctx)) warm = null;
+    const cpuMs = performance.now() - workFrom;
+    if (governor) game.quality = Math.max(graphics().effects, !paused && dt > 0 ? governor.sample(cpuMs / 1000, dt) : governor.tier);
+    if (frameMeter) {
+      frameMeter.sample(timestamp, cpuMs, !paused);
+      const visible = save.settings.frameRate;
+      put($('frame-rate-meter'), 'hidden', !visible);
+      if (visible && timestamp - meterAt >= 1000) {
+        meterAt = timestamp;
+        const sample = frameMeter.snapshot();
+        put($('frame-rate-meter'), 'textContent', sample.samples ? `${Math.round(sample.measuredFps)} FPS` : 'Measuring…');
+      }
+    }
   }
-  const artPaints = () => typeof BloomArt.paints === 'function' ? BloomArt.paints() : 0;
   updateSettings(); persist(); renderMeadow(); renderDaily();
   // The game opens on the level map; an endless Rush board waits behind it until a level is picked.
   const initial = { id: 'rush', name: 'Meadow Rush' };
@@ -2441,5 +3155,7 @@
   // A brand-new player starts with the tutorial; it leads into level 1.
   if (!save.tutorial) startTutorial();
   // A read-only snapshot aids local QA without adding a way to grant progress.
-  Object.defineProperty(window, 'bloomshotState', { get: () => ({ ...game.snapshot(), route, theme, preview, earnedFlowers: flowers.filter(earned).map(f => f.id), storageAvailable }), configurable: false });
+  Object.defineProperty(window, 'bloomshotState', { get: () => ({ ...game.snapshot(), route, theme, preview, reviewAll, reviewBosses, earnedFlowers: flowers.filter(earned).map(f => f.id), storageAvailable }), configurable: false });
+  // Local frame diagnostics contain timings only, and never send or save a performance report.
+  Object.defineProperty(window, 'bloomshotPerformance', { get: () => ({ ...(frameMeter ? frameMeter.snapshot() : {}), graphics: save.settings.graphics, effectTier: game.quality || 0, boardPixelRatio: canvas.width / 420 }), configurable: false });
 })();

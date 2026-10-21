@@ -57,7 +57,7 @@
   const FLOWER_VOICES = { gold: ['bell', 1], coral: ['marimba', 1], lilac: ['harp', 0.88], sky: ['glass', 0.8], poppy: ['pan', 0.9] };
   // Short noise transients under the notes: [bandpass Hz, seconds, level]. Every band stays at or under 3.6 kHz.
   const CRUNCH = { crack: [1200, 0.03, 0.09], pop: [2000, 0.025, 0.07], thock: [300, 0.02, 0.12], click: [2400, 0.012, 0.06], burst: [1800, 0.16, 0.11] };
-  let context, master, cueBus = null, sends = null, enabled = true, resuming = null;
+  let context, master, cueBus = null, sends = null, enabled = true, resuming = null, suspending = null;
   // The master fade is tracked here, so every new fade starts exactly where the last one is now.
   // (A ramp with no anchor before it would start from the context's time zero and jump: a click.)
   let fade = { from: 0, to: 0, start: 0, end: 0 };
@@ -176,21 +176,33 @@
     for (const key of Object.keys(recent)) delete recent[key];
   }
   function flush() {
-    if (!context || context.state !== 'running' || !enabled) return;
+    if (!context || context.state !== 'running' || !enabled || asleep) return;
     const queued = waiting; waiting = [];
     for (const event of queued) if (Date.now() - event.at < 200) play(event.type, event.data);
   }
   function wake() {
-    if (!enabled) return;
+    if (!enabled || asleep) return;
     try {
       if (!context || context.state === 'closed') {
         for (const voice of voices) release(voice, true);
-        voices.clear(); resuming = null; sends = null; createContext();
+        voices.clear(); resuming = null; suspending = null; sends = null; createContext();
       }
-      if (!context) return;
+      // A quick return can arrive before the audio thread finishes suspending. Its completion wakes us;
+      // checking state here alone would see 'running', then leave the returning game silent.
+      if (!context || suspending) return;
       if (context.state === 'running') { flush(); return; }
       if (!resuming) {
-        resuming = Promise.resolve(context.resume()).then(() => { resuming = null; flush(); }, () => { resuming = null; waiting = []; });
+        const owner = context, task = Promise.resolve(owner.resume()); resuming = task;
+        task.then(() => {
+          if (resuming !== task) return;
+          resuming = null;
+          if (context !== owner) return;
+          if (asleep) suspendContext(); else flush();
+        }, () => {
+          if (resuming !== task) return;
+          resuming = null; waiting = [];
+          if (context === owner && asleep) suspendContext();
+        });
       }
     } catch (_) { waiting = []; /* Audio failure never interrupts play. */ }
   }
@@ -391,14 +403,217 @@
   const LEVEL_GROOVES = [null, 'meadow', 'roots', 'grotto', 'crystal', 'lake', 'fossil', 'ember', 'geode', 'briar', 'core'];
   // The relative minor of a chord, for the darker colors (danger toms, the boss): C and A go to A, D and F to D, the rest to E.
   const MINOR_OF = [5, 1, 2, 1, 2, 5, 2];
+  // One recognizable two-note warning, colored by the guardian using the existing C-major instruments.
+  // This is an immediate response to the controller's telegraph event, never a delayed attack cue.
+  const BOSS_WARNINGS = {
+    sunny: ['marimba', 1, -1], root: ['wood', -3, -5], puff: ['drop', 2, 0],
+    crystal: ['glass', 4, 2], lotus: ['drop', 5, 4], fossil: ['bell', 0, -2],
+    ember: ['marimba', 3, 1], geode: ['wood', 0, -3], briar: ['harp', 1, 3], core: ['chime', 5, 2]
+  };
+  // The level campaign's new pieces (foes.js). Each foe event is `family:act` (rolypoly:roll, mole:bonk, fibcap:sneeze);
+  // its cue lives in that foe's own block below, and a pop, fizzle or guard without one gets the shared soft voice.
+  // A cue is either rows [[timbre, pitch, delay, dur, vol], ..., ['crunch', kind, delay, scale]] or a function
+  // (data, pan) for one that depends on the event (a rising note per pin). Every cue stays in the C-major garden.
+  const FOE_CUES = Object.create(null);
+  function foeRows(rows, pan) {
+    for (const row of rows) {
+      if (row[0] === 'crunch') crunch(row[1], row[2], pan, row[3]);
+      else note(row[1], row[2], row[3], row[4], pan, row[0], row[5] ?? 1);
+    }
+  }
+  function foeCue(kind, data, pan) {
+    const cue = FOE_CUES[kind];
+    if (cue) { if (allowed('foe:' + kind, 0.06)) typeof cue === 'function' ? cue(data, pan) : foeRows(cue, pan); return; }
+    const act = kind.slice(kind.indexOf(':') + 1);
+    // A decoy that pops: a soft pff and a little falling third, so it reads as "nothing" rather than a reward.
+    if (act === 'pop' && allowed('foe:pop', 0.08)) { crunch('pop', 0, pan, 0.7); note(hz(9), 0, 0.12, 0.05, pan, 'marimba', 0); note(hz(7), 0.07, 0.16, 0.04, pan, 'marimba', 0); }
+    else if (act === 'fizzle' && allowed('foe:fade', 0.12)) note(hz(12), 0, 0.18, 0.025, pan, 'chime', 0);
+    else if (act === 'guard' && allowed('shield', 0.09)) { note(hz(16), 0, 0.08, 0.07, pan, 'marimba', 0); note(hz(11), 0.035, 0.1, 0.058, pan, 'marimba', 0); }
+  }
+  // -----------------------------------------------------------------------------------------------------------------
+  // The foe voices. Each lives in its own block: FOE_CUES['family:act'] = rows or (data, pan) => { ... }.
+  // -----------------------------------------------------------------------------------------------------------------
+
+  // ── Rolypoly (Level 2, `rolypoly`) ──
+  // A woody curl, a two-step roll-away, a marimba note that climbs with every pin, and a bell as it uncurls and blooms.
+  FOE_CUES['rolypoly:curl'] = [['wood', step(4), 0, .06, .05], ['crunch', 'click', 0, .6]];
+  FOE_CUES['rolypoly:roll'] = [['wood', step(0), 0, .09, .06], ['wood', step(4), .09, .09, .05], ['crunch', 'thock', 0, .7]];
+  FOE_CUES['rolypoly:bowl'] = (data, pan) => { note(pent(4 + Math.min(data.k || 1, 4)), 0, .14, .07, pan, 'marimba', 1); crunch('pop', 0, pan, .5); };
+  FOE_CUES['rolypoly:bump'] = [['wood', step(2), 0, .05, .035]];
+  FOE_CUES['rolypoly:end'] = [['bell', pent(9), 0, .22, .06], ['chime', step(11), .06, .25, .04]];
+  FOE_CUES['rolypoly:land'] = [['wood', step(2), 0, .07, .05], ['crunch', 'thock', 0, .8]];
+
+  // ── Peekaboo Mole (Level 2, `mole`) ──
+  // A low felt thump under the rumbling hill (twice in its .7 s), a woody G as he pops out with a click, a soft low C as
+  // he ducks, and the bonk: a wooden thock under three notes climbing the C chord (G, E, then a high C chime). A seed
+  // that bounces off a hill gets a dull dirt knock.
+  FOE_CUES['mole:rumble'] = [['thump', step(-7), 0, .09, .05]];
+  FOE_CUES['mole:pop'] = [['wood', hz(7), 0, .08, .06], ['crunch', 'click', 0, .5]];
+  FOE_CUES['mole:duck'] = [['wood', hz(0), 0, .06, .04, 0]];
+  FOE_CUES['mole:bonk'] = [['marimba', step(4), 0, .1, .07], ['marimba', step(9), .08, .1, .06], ['chime', step(14), .16, .3, .04], ['crunch', 'thock', 0, .9]];
+  FOE_CUES['molehill:guard'] = [['wood', step(-2), 0, .07, .05], ['crunch', 'thock', 0, .8]];
+
+  // ── Fibcap (Level 3, `fibcap`) ──
+  // The sneeze is a comic "ah... ah... CHOO!": two rising marimba breaths, then a water-drop sneeze under a burst of
+  // noise, played by the gust itself (.18 s later on the foe clock, so a Lullaby holds the CHOO with its gust). A quiet
+  // pop is a dull wooden pff (a decoy gives nothing), a fizzle a soft knock, and one landing from Mother Morel's fakeout
+  // a light woody tap.
+  FOE_CUES['fibcap:sneeze'] = [['marimba', hz(4), 0, .08, .06], ['marimba', hz(7), .09, .08, .06]];
+  FOE_CUES['fibcap:gust'] = [['drop', step(-3), 0, .2, .07], ['crunch', 'burst', 0, .7]];
+  FOE_CUES['fibcap:pop'] = [['wood', step(2), 0, .08, .05], ['crunch', 'pop', 0, .5]];
+  FOE_CUES['fibcap:fizzle'] = [['wood', step(-1), 0, .06, .03, 0]];
+  FOE_CUES['fibcap:land'] = [['wood', step(4), 0, .06, .045], ['crunch', 'click', 0, .4]];
+
+  // ── Drippy Inkcap (Level 3, `inkcap`) ──
+  // A drip is a high, soft water plink (its own slower throttle, so two caps dripping together make one). A gulp is a
+  // soft cartoon slurp: the drop note glides up into its pitch twice as slowly as a plain drop, over a muffled thock,
+  // with a low wooden "gulp" a moment later. A drop popped by a power is a light wooden tick.
+  FOE_CUES['inkcap:drip'] = (data, pan) => { if (allowed('inkcap:drip:slow', .18)) note(step(5), 0, .12, .04, pan, 'drop', 0); };
+  FOE_CUES['inkcap:gulp'] = (data, pan) => {
+    note(step(0), 0, .16, .07, pan, 'drop', 1, { from: .6, bend: .09 }); crunch('thock', 0, pan, .8);
+    note(step(-3), .05, .1, .04, pan, 'wood', 1);
+  };
+  FOE_CUES['inkdrop:pop'] = [['wood', step(4), 0, .05, .04], ['crunch', 'pop', 0, .4]];
+
+  // ── Chroma Crystal (Level 4, `chroma`) ──
+  // Each crystal rings in its own key (N: gold 0, coral 2, lilac 4, sky 7, poppy 9). A seed of the wrong color gets a
+  // dull woody "no" with a faint glassy echo; the right one cracks it open with three rising glass notes and a chime:
+  // "yes!". The color comes from data.color, or from the bud (which a cue held through a resume keeps).
+  const CHROMA_KEY = { gold: 0, coral: 2, lilac: 4, sky: 7, poppy: 9 };
+  const chromaKey = data => CHROMA_KEY[data.color || data.bud && data.bud.type] ?? 7;
+  FOE_CUES['chroma:guard'] = (data, pan) => {
+    const n = chromaKey(data);
+    foeRows([['wood', step(-2), 0, .07, .05], ['crunch', 'thock', 0, .6], ['glass', step(n), .03, .05, .025]], pan);
+  };
+  FOE_CUES['chroma:match'] = (data, pan) => {
+    const n = chromaKey(data);
+    foeRows([['glass', step(n + 3), 0, .1, .06], ['glass', step(n + 5), .07, .1, .06], ['glass', step(n + 7), .14, .14, .06],
+      ['crunch', 'crack', .14, .7], ['chime', step(14), .2, .25, .04]], pan);
+  };
+
+  // ── Echo Bat (Level 4, `bat`) ──
+  // Two high glassy pings as it wakes (echolocation), a falling whoosh as it swoops, a bright marimba run up the
+  // pentatonic when an aimed seed catches it mid-air, and a woody flinch when a seed startles it off its perch.
+  FOE_CUES['bat:ping'] = [['glass', step(14), 0, .06, .045], ['glass', step(16), .07, .06, .045]];
+  FOE_CUES['bat:swoop'] = (data, pan) => { note(step(7), 0, .3, .05, pan, 'drop', 1, { from: 1.3 }); };
+  FOE_CUES['bat:catch'] = [['bell', step(9), 0, .2, .07], ['marimba', pent(10), .06, .1, .06], ['marimba', pent(11), .12, .1, .06], ['marimba', pent(12), .18, .12, .06]];
+  FOE_CUES['bat:startle'] = [['wood', step(5), 0, .05, .05], ['crunch', 'click', 0, .6]];
+
+  // ── Moon Jelly (Level 5, `jelly`) ──
+  // Two water drops as one bubbles up out of its vent; a dull wooden slip when a seed slides off a thrusting jelly (a
+  // "not now"); and a rising glass triad with a soft pop when one bursts into glowdrops at the top of the lake.
+  FOE_CUES['jelly:spawn'] = [['drop', step(0), 0, .12, .05], ['drop', step(4), .1, .12, .05]];
+  FOE_CUES['jelly:guard'] = [['wood', step(-2), 0, .06, .04], ['crunch', 'click', 0, .4]];
+  FOE_CUES['jelly:burst'] = [['glass', step(7), 0, .1, .05], ['glass', step(9), .07, .1, .05], ['glass', step(11), .14, .14, .05], ['crunch', 'pop', .14, .7]];
+
+  // ── Glowworm (Level 5, `glowworm`) ──
+  // A head hit runs a little chime down the body: one marimba note per bead, climbing the pentatonic .07 s apart, in
+  // step with the beads blooming. A snapped body knocks twice with a pop; a guardian's worm wakes with two notes.
+  FOE_CUES['glowworm:ripple'] = (data, pan) => { for (let k = 0; k <= Math.min(num(data.n, 4), 5); k++) note(pent(5 + k), .07 * k, .1, .06, pan, 'marimba', 1); };
+  FOE_CUES['glowworm:split'] = [['wood', step(2), 0, .08, .06], ['wood', step(-1), .07, .08, .05], ['crunch', 'pop', .07, .6]];
+  FOE_CUES['glowworm:spawn'] = [['marimba', pent(5), 0, .08, .05], ['marimba', pent(7), .08, .1, .05]];
+
+  // -----------------------------------------------------------------------------------------------------------------
+  // The guardians' moves. A `bossAbility` event names its move and act (start, spit, shut, toss, snap...); the cue is
+  // BOSS_ACTS['kind:move:act'] or BOSS_ACTS['move:act'] (rows or (data, pan) as for the foes). A move's start without its
+  // own cue gets the guardian's warning instrument answering low, with a soft thock, so every move of every guardian
+  // is heard. Each kit's cues live in its own block below.
+  // -----------------------------------------------------------------------------------------------------------------
+  const BOSS_ACTS = Object.create(null);
+  function bossAct(data, pan) {
+    const kind = String(data.kind || ''), move = String(data.move || ''), act = String(data.act || 'start');
+    const cue = BOSS_ACTS[kind + ':' + move + ':' + act] || BOSS_ACTS[move + ':' + act];
+    if (cue) { if (allowed('bossAct:' + act, 0.12)) typeof cue === 'function' ? cue(data, pan) : foeRows(cue, pan); return; }
+    if (act !== 'start' || !allowed('bossAbility', 0.3)) return;
+    const [style, , second] = BOSS_WARNINGS[kind] || BOSS_WARNINGS.sunny;
+    note(step(second), 0, .16, .05, pan, style, 1); crunch('thock', 0, pan, .6);
+  }
+
+  // ── Old Sunny (Level 1, `sunny`) ──
+  // A harp yawn that sighs down a step, a marimba "ptoo" as a portal spits, a wooden snap and a bright chime when one is
+  // shot shut, three rubbed-glass notes drifting down for the snooze Z, a rising bell triplet when it pops, and two
+  // slow falling water drops when it lands and the aim guide nods off.
+  BOSS_ACTS['sunny:yawn:start'] = [['harp', step(4), 0, .14, .05], ['harp', step(2), .12, .2, .045], ['crunch', 'click', .12, .4]];
+  BOSS_ACTS['sunny:snooze:start'] = [['glass', step(9), 0, .12, .04], ['glass', step(7), .1, .12, .04], ['glass', step(4), .2, .2, .035]];
+  BOSS_ACTS['sunny:yawn:spit'] = [['marimba', step(4), 0, .1, .06], ['marimba', step(2), .08, .12, .05], ['crunch', 'pop', .08, .6]];
+  BOSS_ACTS['sunny:yawn:shut'] = [['wood', step(4), 0, .07, .06], ['crunch', 'click', 0, .6], ['chime', step(11), .06, .3, .045]];
+  BOSS_ACTS['sunny:snooze:zpop'] = [['bell', step(7), 0, .14, .06], ['bell', step(9), .08, .16, .055], ['bell', step(11), .16, .3, .05], ['crunch', 'pop', 0, .6]];
+  BOSS_ACTS['sunny:snooze:nap'] = [['drop', step(2), 0, .3, .05], ['drop', step(0), .25, .35, .045]];
+
+  // ── Rootknot (Level 2, `root`) ──
+  // All wood, low and creaky. A toss is a hollow pop out of the hole and a rising knock (the rolypoly lands with its own
+  // thump); the carousel winds up like a ratchet and creaks softly every quarter turn; letting go is a quick marimba run
+  // outward, snapping it a crack and a bright chime; the snare cracks up out of the soil with a plucked twang and sighs
+  // as it withers.
+  BOSS_ACTS['toss:toss'] = BOSS_ACTS['toss2:toss'] = [['wood', step(0), 0, .08, .06], ['crunch', 'thock', 0, .7], ['wood', step(4), .12, .1, .05]];
+  // With no clump to take, his own three seedlings pop up out of the soil: three soft rising plucks over a muffled thock.
+  BOSS_ACTS['root:carousel:sprout'] = [['crunch', 'thock', 0, .45], ['marimba', step(0), 0, .06, .04], ['marimba', step(2), .06, .06, .04], ['marimba', step(4), .12, .1, .045]];
+  BOSS_ACTS['root:carousel:start'] = [['wood', step(0), 0, .07, .05], ['wood', step(2), .1, .07, .05], ['wood', step(4), .2, .07, .05], ['wood', step(2), .3, .1, .045], ['crunch', 'thock', 0, .6]];
+  // A soft two-knock creak, a step lower every other quarter turn so the turning sways rather than ticks.
+  BOSS_ACTS['root:carousel:creak'] = (data, pan) => { const low = num(data.n, 1) % 2 ? -3 : -2; note(step(low), 0, .07, .028, pan, 'wood', 0); note(step(low + 1), .045, .08, .022, pan, 'wood', 0); };
+  BOSS_ACTS['root:carousel:fling'] = [['marimba', step(2), 0, .08, .055], ['marimba', step(4), .05, .08, .055], ['marimba', step(6), .1, .14, .05], ['crunch', 'click', .1, .5]];
+  BOSS_ACTS['root:carousel:snap'] = [['wood', step(5), 0, .06, .07], ['crunch', 'crack', 0, .8], ['chime', step(12), .07, .3, .04]];
+  BOSS_ACTS['root:snare:start'] = [['wood', step(-3), 0, .1, .06], ['crunch', 'crack', 0, .7], ['harp', step(1), .08, .2, .045]];
+  BOSS_ACTS['root:snare:wither'] = [['drop', step(1), 0, .14, .04]];
+
+  // ── Mother Morel (Level 3, `puff`) ──
+  // A marimba oom-pah-pah strikes up her waltz (a step higher and sly for the painted one); three water drops climb as
+  // she winds up a fakeout and fall back as the caps land; a rising harp glissando as the paint dries into fibcaps;
+  // and two deep plops as the ink clouds open. The waltz pop itself rings the shared critical bell and chime.
+  BOSS_ACTS['puff:waltz:start'] = [['marimba', step(0), 0, .12, .055], ['marimba', step(4), .2, .08, .045], ['marimba', step(4), .3, .08, .045]];
+  BOSS_ACTS['puff:fakeout:start'] = [['drop', step(0), 0, .1, .05], ['drop', step(2), .08, .1, .05], ['drop', step(4), .16, .1, .05]];
+  BOSS_ACTS['puff:fibwaltz:start'] = [['marimba', step(2), 0, .12, .055], ['marimba', step(6), .2, .08, .045], ['marimba', step(6), .3, .08, .045]];
+  BOSS_ACTS['puff:fakeout:land'] = [['drop', step(4), 0, .1, .05], ['drop', step(2), .1, .1, .045], ['drop', step(0), .2, .12, .045]];
+  BOSS_ACTS['puff:fibwaltz:paint'] = [['harp', step(7), 0, .12, .05], ['harp', step(9), .06, .12, .05], ['harp', step(11), .12, .2, .045]];
+  BOSS_ACTS['puff:ink:ink'] = [['drop', step(2), 0, .14, .05], ['drop', step(-1), .12, .16, .045]];
+
+  // ── Crystal Heart (Level 4, `crystal`) ──
+  // All glass. A fake shatters as a falling glass pop on a crack, with glitter chiming up over it; re-forming, it climbs
+  // back. The mirrors ring in, tick-tock as they turn, ting when a seed banks off one, and a mirror shot rings a rising
+  // arpeggio over the critical's own C-E. The hues call the wanted flower's own instrument (a fifth), then a lub-dub.
+  const CRYSTAL_N = { gold: 0, coral: 2, lilac: 4, sky: 7, poppy: 9 };
+  BOSS_ACTS['crystal:heart:fake'] = [['glass', step(9), 0, .08, .06], ['crunch', 'crack', 0, .6], ['glass', step(7), .05, .1, .05], ['glass', step(4), .12, .2, .04],
+    ['chime', step(16), .02, .16, .03, 0], ['chime', step(18), .07, .18, .025, 0], ['chime', step(19), .13, .26, .02, 0], ['crunch', 'click', .07, .35]];
+  BOSS_ACTS['crystal:heart:reform'] = [['glass', step(4), 0, .1, .04], ['glass', step(7), .06, .14, .04], ['chime', step(11), .13, .22, .025, 0]];
+  BOSS_ACTS['crystal:mirrors:mirror'] = [['glass', step(11), 0, .12, .05], ['glass', step(14), .08, .25, .045], ['chime', step(16), .16, .3, .025, 0], ['crunch', 'click', 0, .4]];
+  BOSS_ACTS['crystal:mirrors:turn'] = (data, pan) => { note(step(Number(data.n) % 2 ? 12 : 11), 0, .05, .03, pan, 'glass', 0); crunch('click', 0, pan, .25); };
+  BOSS_ACTS['crystal:mirrors:bank'] = [['chime', step(14), 0, .14, .045], ['glass', step(18), .03, .16, .03], ['crunch', 'click', 0, .5]];
+  BOSS_ACTS['crystal:mirrors:shot'] = [['glass', step(11), 0, .14, .05], ['crunch', 'crack', 0, .5], ['glass', step(14), .07, .16, .045], ['chime', step(16), .14, .3, .035], ['chime', step(18), .2, .35, .025]];
+  BOSS_ACTS['crystal:hues:start'] = (data, pan) => {
+    const hue = Array.isArray(data.targets) && data.targets.find(t => t && t.role === 'hue');
+    const type = FLOWER_VOICES[data.type] ? data.type : hue && FLOWER_VOICES[hue.type] ? hue.type : 'gold', [style, level] = FLOWER_VOICES[type], n = CRYSTAL_N[type];
+    note(step(n), 0, .2, .06 * level, pan, style, 1); note(step(n + 7), .1, .25, .05 * level, pan, style, 1);
+    note(step(-7), .34, .12, .05, pan, 'thump', 0); note(step(-7), .48, .14, .04, pan, 'thump', 0);
+  };
+
+  // ── Lantern Lily (Level 5, `lotus`) ──
+  // Water and moonlight. The moon gate rings up in rubbed glass to a chime (a seed through it, a Moon shot, climbs a
+  // little arpeggio of chimes over the critical's own C-E; the moons wane on two soft falling glass notes). The pads
+  // open with two drops, each jelly leaves with a drop and a glassy shimmer, and a pad shot shut snaps like Sunny's
+  // portals. The worm crawls off on a rising marimba run; when its head is hit the lantern comes home on two soft bells,
+  // and if it puffs away it drips down with a pop. The tide rises on three slow drops climbing C-D-E and recedes down
+  // them again.
+  BOSS_ACTS['lotus:reflect:start'] = [['glass', step(7), 0, .12, .045], ['glass', step(11), .08, .14, .045], ['chime', step(14), .16, .25, .04]];
+  BOSS_ACTS['lotus:reflect:shot'] = [['glass', step(9), 0, .1, .045], ['chime', step(14), .06, .2, .04], ['chime', step(16), .12, .26, .03], ['chime', step(18), .2, .34, .025]];
+  BOSS_ACTS['lotus:reflect:wane'] = [['glass', step(11), 0, .14, .03], ['glass', step(7), .1, .22, .025]];
+  BOSS_ACTS['lotus:jellies:start'] = [['drop', step(2), 0, .1, .05], ['drop', step(5), .08, .12, .05]];
+  BOSS_ACTS['lotus:jellies:release'] = [['drop', step(5), 0, .12, .05], ['glass', step(9), .08, .2, .04]];
+  BOSS_ACTS['lotus:jellies:shut'] = BOSS_ACTS['sunny:yawn:shut'];
+  BOSS_ACTS['lotus:worm:start'] = [['marimba', pent(5), 0, .08, .05], ['marimba', pent(6), .06, .08, .05], ['marimba', pent(7), .12, .08, .05], ['marimba', pent(8), .18, .12, .045]];
+  BOSS_ACTS['lotus:worm:home'] = [['bell', step(4), 0, .22, .04], ['bell', step(7), .1, .3, .035]];
+  BOSS_ACTS['lotus:worm:puffback'] = [['drop', step(4), 0, .14, .05], ['drop', step(0), .1, .2, .045], ['crunch', 'pop', .1, .5]];
+  BOSS_ACTS['lotus:tide:rise'] = [['drop', step(0), 0, .2, .05], ['drop', step(2), .15, .2, .05], ['drop', step(4), .3, .3, .045]];
+  BOSS_ACTS['lotus:tide:recede'] = [['drop', step(4), 0, .2, .045], ['drop', step(2), .15, .2, .045], ['drop', step(0), .3, .3, .04]];
+
+
   function play(type, data = {}) {
-    if (!enabled || !context) return;
+    if (!enabled || !context || asleep) return;
     if (!data || typeof data !== 'object') data = {};
-    if (context.state !== 'running') {
+    if (context.state !== 'running' || suspending) {
       // Keep the first gesture's sound through resume, not a backlog of old audio.
       if (waiting.length < 8) {
         const kept = { x: data.bud ? data.bud.x : data.x, bud: data.bud ? { x: data.bud.x, type: data.bud.type } : undefined };
-        for (const key of ['combo', 'chain', 'kind', 'wave', 'power', 'index', 'stars', 'boss', 'seedStep', 'type', 'mult', 'petal', 'notch', 'i', 'n', 'dur', 'finale', 'level', 'left', 'super']) if (data[key] !== undefined) kept[key] = data[key];
+        for (const key of ['combo', 'chain', 'kind', 'wave', 'power', 'index', 'stars', 'boss', 'seedStep', 'type', 'mult', 'petal', 'notch', 'i', 'n', 'dur', 'finale', 'level', 'left', 'super', 'k', 'move', 'act', 'stage']) if (data[key] !== undefined) kept[key] = data[key];
         waiting.push({ type, data: kept, at: Date.now() });
       }
       return;
@@ -481,7 +696,38 @@
     // Level pieces: a puffcap pops with a soft low drop and a sparkle, an acorn cup clinks, the boss blooms
     // with a full rising chord, and reinforcements land with two small plops.
     else if (type === 'puff' && allowed('puff', 0.12)) { note(hz(-5), 0, 0.2, 0.08, pan, 'drop'); note(hz(14), 0.06, 0.26, 0.04, pan, 'chime'); note(hz(21), 0.12, 0.22, 0.028, pan, 'chime'); }
+    else if (type === 'foe') foeCue(String(data.kind || ''), data, pan);
     else if (type === 'shield' && allowed('shield', 0.09)) { note(hz(16), 0, 0.08, 0.07, pan, 'marimba', 0); note(hz(11), 0.035, 0.1, 0.058, pan, 'marimba', 0); }
+    else if (type === 'bossAbility') bossAct(data, pan);
+    // Phase Bloom: the guardian's own two notes answered a fifth higher over a soft chord, and a sparkle as it settles.
+    else if (type === 'bossStage' && allowed('bossStage', 0.8)) {
+      const [style, first, second] = BOSS_WARNINGS[data.kind] || BOSS_WARNINGS.sunny;
+      duck();
+      note(step(first + 7), 0, .22, .06, pan, style, 2); note(step(second + 7), .1, .26, .055, pan, style, 2);
+      pad([0, 2, 4], 0, .7, .03); note(step(first + 14), .22, .34, .03, pan, 'chime', 1);
+    }
+    else if (type === 'bossWarning' && allowed('bossWarning', 0.35)) {
+      const [style, first, second] = BOSS_WARNINGS[data.kind] || BOSS_WARNINGS.sunny;
+      duck(); // Briefly make room in the music so a quiet warning still reads during an active boss fight.
+      // Reserved result-priority room lets the warning begin during a busy bloom chain. The quiet click
+      // also gives its onset definition without a siren, sustained alarm or new audio dependency.
+      note(step(first), 0, 0.19, 0.085, pan * .5, style, 2, { bright: .7, space: 'low' });
+      note(step(second), 0.12, 0.27, 0.068, pan * .5, style, 2, { bright: .65, space: 'mid' });
+      crunch('click', 0, pan, .45);
+    }
+    else if (type === 'bossGuard' && allowed('bossImpact', 0.09)) {
+      note(step(-2), 0, 0.10, 0.062, pan, 'wood', 0, { bright: .65, space: 'low' });
+      crunch('thock', 0, pan, .55);
+    }
+    else if (type === 'bossCritical' && allowed('bossCritical', 0.14)) {
+      note(step(7), 0, 0.18, 0.078, pan * .7, 'bell', 1, { bright: .8 });
+      note(step(9), 0.045, 0.25, 0.052, pan * .7, 'chime', 1, { bright: .8 });
+    }
+    else if (type === 'bossBurn' && allowed('bossImpact', 0.09)) {
+      // A soft pitched fall and a tiny seeded-noise fizz communicate a spent seed without punishment.
+      note(step(-5), 0, 0.15, 0.057, pan, 'wood', 0, { from: 1.16, bend: .09, bright: .5, space: 'low' });
+      crunch('burst', 0, pan, .35);
+    }
     else if (type === 'boss' && allowed('boss', 0.8)) {
       duck();
       pad([0, 4, 9], 0, 0.95, 0.032);
@@ -1234,12 +1480,25 @@
     const now = context.currentTime, track = mixer.bus;
     laneHold(track, now); laneRamp(track, now + 0.03, MUSIC_BUS * DUCK); laneSet(track, now + 0.28, MUSIC_BUS * DUCK); laneRamp(track, now + 0.5, MUSIC_BUS);
   }
+  function suspendContext() {
+    if (!context || context.state === 'closed' || suspending || resuming || typeof context.suspend !== 'function') return;
+    const owner = context;
+    try {
+      const task = Promise.resolve(owner.suspend()); suspending = task;
+      const finished = () => {
+        if (suspending !== task) return;
+        suspending = null;
+        if (context === owner && !asleep) wake();
+      };
+      task.then(finished, finished);
+    } catch (_) { /* A refused suspension must not interrupt play. */ }
+  }
   function sleep(hidden) {
-    if (!context || context.state === 'closed') return;
+    if (!context || context.state === 'closed') { asleep = Boolean(hidden); if (asleep) waiting = []; return; }
     if (hidden) {
       if (asleep) return;
-      asleep = true;
-      try { if (typeof context.suspend === 'function') Promise.resolve(context.suspend()).catch(() => {}); } catch (_) {}
+      asleep = true; waiting = [];
+      suspendContext();
     } else if (asleep) { asleep = false; wake(); }
   }
   // The chord the music is playing right now, or null when no music is sounding.

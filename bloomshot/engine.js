@@ -107,17 +107,31 @@
     }
     return best;
   }
-  function earliest(state, p, d, includeBuds = true) {
+  // radius is the moving body's own size: a seed by default, or a bigger body (a rolling rolypoly), which passes
+  // `skip`, its own bud. A ghost (a rolling rolypoly) is passed through like a hidden piece.
+  function earliest(state, p, d, includeBuds = true, radius = RADIUS, skip = null) {
     let hit = null;
     const consider = (candidate, kind, item) => {
       if (candidate && candidate.t >= 0 && candidate.t <= 1 && (!hit || candidate.t < hit.t)) hit = { ...candidate, kind, item };
     };
-    if (d.x < 0) consider({ t: (BOUNDS.left + RADIUS - p.x) / d.x, nx: 1, ny: 0 }, 'wall');
-    if (d.x > 0) consider({ t: (BOUNDS.right - RADIUS - p.x) / d.x, nx: -1, ny: 0 }, 'wall');
-    if (d.y < 0) consider({ t: (BOUNDS.top + RADIUS - p.y) / d.y, nx: 0, ny: 1 }, 'wall');
+    if (d.x < 0) consider({ t: (BOUNDS.left + radius - p.x) / d.x, nx: 1, ny: 0 }, 'wall');
+    if (d.x > 0) consider({ t: (BOUNDS.right - radius - p.x) / d.x, nx: -1, ny: 0 }, 'wall');
+    if (d.y < 0) consider({ t: (BOUNDS.top + radius - p.y) / d.y, nx: 0, ny: 1 }, 'wall');
     // A one-way petal lets seeds fly up through it and only catches the ones coming down.
-    for (const bumper of state.bumpers) if (!bumper.oneWay || d.y > 0) consider(capsuleHit(p, d, bumper, RADIUS + 6), 'bumper', bumper);
-    if (includeBuds) for (const bud of state.buds) if (!bud.bloomed) consider(circleHit(p, d, bud, RADIUS + bud.r), 'bud', bud);
+    // A quick box check skips what this short step cannot reach; it only drops pieces whose exact test would miss anyway.
+    const reachX = Math.abs(d.x), reachY = Math.abs(d.y);
+    for (const bumper of state.bumpers) {
+      if (bumper.oneWay && d.y <= 0) continue;
+      const span = bumper.length / 2 + radius + 6;
+      if (Math.abs(bumper.x - p.x) > span + reachX || Math.abs(bumper.y - p.y) > span + reachY) continue;
+      consider(capsuleHit(p, d, bumper, radius + 6), 'bumper', bumper);
+    }
+    if (includeBuds) for (const bud of state.buds) {
+      if (bud.bloomed || bud.hidden || bud.ghost || bud === skip) continue;
+      const span = radius + bud.r;
+      if (Math.abs(bud.x - p.x) > span + reachX || Math.abs(bud.y - p.y) > span + reachY) continue;
+      consider(circleHit(p, d, bud, span), 'bud', bud);
+    }
     if ((p.gateCooldown || 0) <= 1e-9 && (p.gateHops || 0) < MAX_GATE_HOPS) {
       for (const gate of state.gates || []) consider(circleHit(p, d, gate, gate.r), 'gate', gate);
     }
@@ -329,7 +343,7 @@
         p.x += d.x * hit.t; p.y += d.y * hit.t;
         points.push({ x: p.x, y: p.y });
         // The aim knows which flower it ends on (non-enumerable, so the points still compare as plain arrays).
-        if (hit.kind === 'bud') { Object.defineProperty(points, 'target', { value: hit.item, enumerable: false }); break; }
+        if (hit.kind === 'bud') { Object.defineProperty(points, 'target', { value: hit.item, enumerable: false }); Object.defineProperty(points, 'normal', { value: { x: hit.nx, y: hit.ny }, enumerable: false }); break; }
         distance = segment === distance ? distance * (1 - hit.t) : distance - segment * hit.t;
         p.gateCooldown = Math.max(0, p.gateCooldown - segment * hit.t / this.speed);
         if (hit.kind === 'gate') {

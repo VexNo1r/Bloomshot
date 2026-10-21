@@ -3679,7 +3679,42 @@
   const GARDENS = { meadow: paintGardenMeadow, moon: paintGardenMoon, koi: paintGardenKoi };
   const garden = theme => Object.prototype.hasOwnProperty.call(GARDENS, theme);
   function paintGarden(ctx, theme, rush, framed = true) { if (garden(theme)) { GARDENS[theme](ctx, Boolean(rush), framed); vivid(ctx, .2, .32, 1.05); } }
+  // Small scene life is scheduled from a visual clock, never the gameplay RNG. Most of each cycle is
+  // stillness; every visit stays in the outer 11% of the viewport, away from the aim and danger line.
+  const LIFE = {
+    'depth-meadow': [{ kind: 'butterfly', side: -1, y: .19, period: 29, at: 1.6, duration: 6.2 }, { kind: 'bee', side: 1, y: .83, period: 47, at: 21, duration: 4.6 }],
+    'depth-roots': [{ kind: 'worm', side: -1, y: .52, period: 27, at: 2.4, duration: 3.1 }, { kind: 'gopher', side: 1, y: .68, period: 43, at: 10, duration: 4.1 }],
+    'depth-grotto': [{ kind: 'moth', side: -1, y: .2, period: 37, at: 3, duration: 5.8 }, { kind: 'snail', side: 1, y: .86, period: 51, at: 14, duration: 7 }],
+    'depth-crystal': [{ kind: 'bat', side: -1, y: .2, period: 41, at: 7, duration: 5.4 }, { kind: 'glint', side: 1, y: .74, period: 23, at: 4.6, duration: 1.3 }],
+    'depth-lake': [{ kind: 'glowworm', side: 1, y: .24, period: 31, at: 2, duration: 5 }, { kind: 'minnow', side: -1, y: .78, period: 43, at: 12, duration: 6.2 }],
+    'depth-fossil': [{ kind: 'beetle', side: -1, y: .84, period: 37, at: 4, duration: 5.8 }, { kind: 'gecko', side: 1, y: .31, period: 53, at: 19, duration: 3.6 }],
+    'depth-ember': [{ kind: 'salamander', side: -1, y: .72, period: 43, at: 6, duration: 4.8 }, { kind: 'ember', side: 1, y: .19, period: 31, at: 15, duration: 3.8 }],
+    'depth-geode': [{ kind: 'mouse', side: 1, y: .64, period: 47, at: 8, duration: 4.6 }, { kind: 'glint', side: -1, y: .25, period: 29, at: 3.6, duration: 1.2 }],
+    'depth-briar': [{ kind: 'spider', side: -1, y: .3, period: 39, at: 5, duration: 6.2 }, { kind: 'firefly', side: 1, y: .79, period: 47, at: 17, duration: 5.4 }],
+    'depth-core': [{ kind: 'seed-sprite', side: -1, y: .85, period: 43, at: 3.8, duration: 3.4 }, { kind: 'starmote', side: 1, y: .22, period: 53, at: 15, duration: 4.1 }]
+  };
+  function lifePlan(theme, time, reducedMotion) {
+    if (reducedMotion) return [];
+    const list = LIFE[theme] || LIFE[theme === 'moon' ? 'depth-crystal' : theme === 'koi' ? 'depth-lake' : 'depth-meadow'];
+    const clock = Number.isFinite(Number(time)) ? Math.max(0, Number(time)) : 0, smooth = v => { v = Math.max(0, Math.min(1, v)); return v * v * (3 - 2 * v); };
+    const plans = [];
+    for (const spec of list) {
+      const age = (clock % spec.period) - spec.at;
+      if (!(age >= 0 && age <= spec.duration)) continue;
+      const p = age / spec.duration, visit = smooth(Math.min(p / .22, (1 - p) / .22));
+      let x = spec.side < 0 ? .028 : .972, y = spec.y, turn = 0;
+      if (['butterfly', 'moth', 'bee', 'bat', 'minnow', 'firefly', 'glowworm', 'ember', 'starmote'].includes(spec.kind)) {
+        // A bounded arc with one soft turn, then a pause or landing before leaving the edge.
+        x += -spec.side * Math.sin(p * Math.PI) * (spec.kind === 'bat' ? .065 : .037);
+        y += Math.sin(p * Math.PI * 2) * .024; turn = Math.sin(p * Math.PI * 2) * .15;
+      } else if (spec.kind === 'spider') y += smooth(Math.min(p / .3, (1 - p) / .28)) * .054;
+      else if (['gopher', 'mouse', 'gecko', 'salamander', 'seed-sprite'].includes(spec.kind)) x += spec.side * (1 - visit) * .032;
+      else if (spec.kind === 'snail' || spec.kind === 'beetle') y += smooth(p) * .027;
+      plans.push({ kind: spec.kind, x, y, turn, flip: spec.side > 0 ? -1 : 1, opacity: spec.kind === 'glint' ? Math.sin(p * Math.PI) * .58 : visit * .82, progress: p, age, thread: spec.kind === 'spider' ? { x, y: spec.y - .04 } : null });
+    }
+    return plans;
+  }
   // A few brushes from the painter's kit, for the other painted screens (the Garden tab's map).
   const kit = Object.freeze({ lin, rad, rgba, soft, bloom, grain, clump, scallop, shape, smooth, clipTo });
-  root.BloomScenery = Object.freeze({ has, paint, garden, paintGarden, drawRock, kit, dark: theme => has(theme) && SCENES[theme].dark, ink: theme => has(theme) ? SCENES[theme].ink : null, themes: Object.keys(SCENES) });
+  root.BloomScenery = Object.freeze({ has, paint, garden, paintGarden, lifePlan, drawRock, kit, dark: theme => has(theme) && SCENES[theme].dark, ink: theme => has(theme) ? SCENES[theme].ink : null, themes: Object.keys(SCENES) });
 })(typeof window !== 'undefined' ? window : globalThis);

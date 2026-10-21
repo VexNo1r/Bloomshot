@@ -147,19 +147,19 @@
   }
 
   const scenery = theme => root.BloomScenery && root.BloomScenery.has(theme);
-  function makeBackdrop(w, h, theme, rush) {
+  function makeBackdrop(w, h, theme, rush, frame = true) {
     let surface;
     if (typeof OffscreenCanvas !== 'undefined') surface = new OffscreenCanvas(w, h);
     else if (typeof document !== 'undefined') { surface = document.createElement('canvas'); surface.width = w; surface.height = h; }
     else return null;
-    paintBackdrop(surface.getContext('2d'), w, h, theme, rush);
+    paintBackdrop(surface.getContext('2d'), w, h, theme, rush, frame);
     return surface;
   }
   // Level scenes and the garden worlds are painted in scenery.js; the older garden paper stays as a fallback.
-  function paintBackdrop(ctx, w, h, theme, rush) {
+  function paintBackdrop(ctx, w, h, theme, rush, frame = true) {
     const painter = root.BloomScenery;
-    if (scenery(theme)) { ctx.save(); ctx.scale(w / 420, h / 560); painter.paint(ctx, theme); ctx.restore(); }
-    else if (painter && painter.garden && painter.garden(theme)) { ctx.save(); ctx.scale(w / 420, h / 560); painter.paintGarden(ctx, theme, rush); ctx.restore(); }
+    if (scenery(theme)) { ctx.save(); ctx.scale(w / 420, h / 560); painter.paint(ctx, theme, { frame }); ctx.restore(); }
+    else if (painter && painter.garden && painter.garden(theme)) { ctx.save(); ctx.scale(w / 420, h / 560); painter.paintGarden(ctx, theme, rush, frame); ctx.restore(); }
     else paintGarden(ctx, w, h, theme, rush);
   }
 
@@ -309,11 +309,12 @@
     w = w || 420; h = h || 560; theme = PAPER[theme] || scenery(theme) ? theme : 'meadow';
     // Six bounded background variants: three themes, with clear Rush side margins.
     const rush = options && options.mode === 'rush';
-    const key = `${theme}:${rush ? 'rush' : 'garden'}`;
+    const frame = !(options && options.frame === false);
+    const key = `${theme}:${rush ? 'rush' : 'garden'}:${frame ? 'frame' : 'full'}`;
     let surface = backdropCache.get(key);
-    if (!surface) { surface = makeBackdrop(840, 1120, theme, rush); if (surface) backdropCache.set(key, surface); }
+    if (!surface) { surface = makeBackdrop(840, 1120, theme, rush, frame); if (surface) backdropCache.set(key, surface); }
     if (surface) ctx.drawImage(surface, 0, 0, w, h);
-    else paintBackdrop(ctx, w, h, theme, rush);
+    else paintBackdrop(ctx, w, h, theme, rush, frame);
   }
 
   function petal(ctx, radius, breadth, bend, color, light, dark, index, shape) {
@@ -1020,15 +1021,35 @@
     const speed = Number(state.descentSpeed) || 0;
     let best = .8;
     for (const bud of Array.isArray(state.buds) ? state.buds : []) {
-      if (!bud || bud.bloomed || bud.gift || bud.puff || !Number.isFinite(bud.y)) continue;
+      if (!bud || bud.bloomed || bud.gift || bud.puff || bud.inert || bud.hidden || bud.ghost || !Number.isFinite(bud.y)) continue;
       const t = (line - (bud.y + (Number(bud.r) || 11))) / Math.max(1, speed * (Number(bud.fall) || 1));
       if (t < best) { best = t; trembleKey = bud.group == null ? bud : bud.group; trembleTime = t; }
     }
   }
   function trembles(bud) { return trembleKey !== null && !bud.bloomed && !bud.gift && !bud.puff && (bud.group == null ? bud : bud.group) === trembleKey; }
+  // The per-bud pass's tumble-in and tremble (below, in draw), for a foe drawn in a pass of its own (the glowworm):
+  // how far to move it and how faint to draw it. Animations off: in place and solid.
+  function budShift(bud, time, still) {
+    const out = { dx: 0, dy: 0, alpha: 1 };
+    if (still) return out;
+    if (typeof bud.enterAt === 'number') {
+      const span = Number(bud.enterDur) > 0 ? Number(bud.enterDur) : .4;
+      if (!(typeof bud.spawnAt === 'number' && bud.spawnAt > bud.enterAt + span)) {
+        const k = (time - bud.enterAt) / span;
+        if (k < 0) out.alpha = .25;
+        else if (k < 1) {
+          out.dy = -(Number.isFinite(bud.enterDrop) ? bud.enterDrop : 48) * (1 - (bud.enterBounce ? easeBounce(k) : bloomBack(k, 1.4)));
+          out.alpha = Math.min(1, .25 + k * 3);
+        }
+      }
+    }
+    if (trembles(bud)) out.dx = Math.sin(time * 22 * TAU + (flowerVariants.get(bud) || 0) * 2.1) * 1.5 * (.45 + .55 * clamp((.8 - trembleTime) / .35, 0, 1));
+    return out;
+  }
   // The finale sweep: each bloomed flower flares with gold light and a white glint as feel's wave passes it. The glows
   // are added in one 'lighter' pass; the glints, which grow and shrink as they twinkle, are one path and one fill.
-  // A flower that has sunk out of sight past the danger line gets no flare (its light would hang on the soil).
+  // A flower that has sunk out of sight past the danger line gets no flare (its light would hang on the soil); a spent
+  // flower the light brings back gets its full flare as it returns.
   function drawFlares(ctx, buds, time, options, line = Infinity) {
     if (options.reducedMotion) return;
     const glints = !((Number(options.quality) || 0) >= 1);
@@ -1040,7 +1061,7 @@
       if (!(age >= 0 && age < .5)) continue;
       if (!started) { started = true; ctx.save(); alpha = ctx.globalAlpha; op = ctx.globalCompositeOperation; ctx.globalCompositeOperation = 'lighter'; glow = goldSprite(); }
       if (age >= .35) continue;
-      const seen = sinkAlpha(bud, time, line, false);
+      const seen = sinkAlpha(bud, time, line, false, true);
       if (!(seen > 0)) continue;
       const q = age / .35, r = Number(bud.r) || 13, x = Number(bud.x) || 0, y = Number(bud.y) || 0, radius = r * (2.6 + q * .9);
       ctx.globalAlpha = alpha * (1 - q) * seen;
@@ -1054,7 +1075,7 @@
     ctx.strokeStyle = '#ffe08a';
     for (const bud of buds) {
       if (!bud || typeof bud.flareAt !== 'number') continue;
-      const q = (time - bud.flareAt) / .5, seen = q >= 0 && q < 1 ? sinkAlpha(bud, time, line, false) : 0;
+      const q = (time - bud.flareAt) / .5, seen = q >= 0 && q < 1 ? sinkAlpha(bud, time, line, false, true) : 0;
       if (!(seen > 0)) continue;
       const r = Number(bud.r) || 13;
       ctx.globalAlpha = alpha * (1 - q) * .9 * seen; ctx.lineWidth = 2.6 * (1 - q) + .6;
@@ -1067,7 +1088,7 @@
       for (const bud of buds) {
         if (!bud || typeof bud.flareAt !== 'number') continue;
         const q = (time - bud.flareAt) / .35, r = Number(bud.r) || 13;
-        if (!(q >= 0 && q < 2 / 3) || !(sinkAlpha(bud, time, line, false) > 0)) continue;
+        if (!(q >= 0 && q < 2 / 3) || !(sinkAlpha(bud, time, line, false, true) > 0)) continue;
         const twinkle = Math.sin(Math.PI * q * 1.5);
         if (twinkle > .02) starPath(ctx, (Number(bud.x) || 0) + r * .42, (Number(bud.y) || 0) - r * .46, r * .95 * twinkle, q * .9);
       }
@@ -1298,8 +1319,24 @@
 
   // Feel: the finale camera, the pod's slingshot pose, comet seeds and the danger drama. Glows and veils are
   // sprites made once at 3x (OffscreenCanvas, else a page canvas); in Node there is no surface and plain shapes
-  // stand in. draw() sets frameAhead (seeds glide between physics steps in slow motion) and the quality tier.
-  let frameAhead = 0, feelQuality = 0, feelOpts = null, aimSince = null, lockTarget = null, lockSince = 0;
+  // stand in. draw() sets interpolation between resolved physics positions and the quality tier.
+  let frameAhead = 0, frameAlpha = null, feelQuality = 0, feelOpts = null, aimSince = null, lockTarget = null, lockSince = 0;
+  const seedOffset = { x: 0, y: 0 };
+  function projectileOffset(ball) {
+    seedOffset.x = seedOffset.y = 0;
+    if (frameAlpha !== null) {
+      // The trail ends at the previous fixed-step position. Interpolate only the already-resolved motion,
+      // never into a future collision. Tunnels clear the trail, so nothing slides across the portal gap.
+      const trail = ball.trail, previous = Array.isArray(trail) && trail[trail.length - 1];
+      if (previous && !previous.move && Number.isFinite(previous.x) && Number.isFinite(previous.y)) {
+        seedOffset.x = (previous.x - ball.x) * (1 - frameAlpha);
+        seedOffset.y = (previous.y - ball.y) * (1 - frameAlpha);
+      }
+    } else if (frameAhead) {
+      seedOffset.x = (Number(ball.vx) || 0) * frameAhead; seedOffset.y = (Number(ball.vy) || 0) * frameAhead;
+    }
+    return seedOffset;
+  }
   const feelSprites = new Map();
   const easeBack = k => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(k - 1, 3) + c1 * Math.pow(k - 1, 2); };
   // Squash, lean and ring timings follow the real clock, so the tutorial's slow motion never makes them sluggish.
@@ -1364,6 +1401,33 @@
     return sprite;
   }
   const VEILS = ['38,18,64', '232,36,84', '236,40,80', '120,240,200'];
+  let boardLight = null, boardLightMask = null;
+  function drawBoardLight(ctx, options, paint, composite) {
+    if (options.backdrop !== false) { paint(ctx); return; }
+    // Fullscreen scenery continues beyond the physics canvas. Only its background light fades here;
+    // flowers, seeds, targets and other game objects keep their full opacity at the board edges.
+    if (!boardLight) boardLight = feelSurface(420, 560);
+    if (!boardLightMask) {
+      boardLightMask = feelSurface(420, 560);
+      if (boardLightMask) {
+        const m = boardLightMask.getContext('2d'), fade = (w, h) => {
+          const g = m.createLinearGradient(0, 0, w, h), span = w || h;
+          g.addColorStop(0, 'transparent'); g.addColorStop(8 / span, 'transparent');
+          g.addColorStop(64 / span, '#fff'); g.addColorStop(1 - 64 / span, '#fff');
+          g.addColorStop(1 - 8 / span, 'transparent'); g.addColorStop(1, 'transparent');
+          return g;
+        };
+        m.fillStyle = fade(420, 0); m.fillRect(0, 0, 420, 560);
+        m.globalCompositeOperation = 'destination-in'; m.fillStyle = fade(0, 560); m.fillRect(0, 0, 420, 560);
+      }
+    }
+    if (!boardLight || !boardLightMask) { paint(ctx); return; }
+    const light = boardLight.getContext('2d');
+    light.clearRect(0, 0, 420, 560); light.save(); paint(light); light.restore();
+    light.save(); light.globalCompositeOperation = 'destination-in'; light.drawImage(boardLightMask, 0, 0); light.restore();
+    ctx.save(); if (composite) ctx.globalCompositeOperation = composite;
+    ctx.drawImage(boardLight, 0, 0, 420, 560); ctx.restore();
+  }
   function feelVeil(ctx, rgb, alpha) {
     if (!(alpha > .002)) return;
     const sprite = veilSprite(rgb);
@@ -1509,26 +1573,87 @@
       if (!reduced && d.mintFlash > 0) feelVeil(ctx, '120,240,200', .3 * d.mintFlash);
     }
     // The frame is done: seeds outside draw() (the collection showcase) draw where they are.
-    frameAhead = 0; feelOpts = null;
+    frameAhead = 0; frameAlpha = null; feelOpts = null;
   }
 
   // The seed tray beside the pod: the three seeds waiting behind the one in the cup, like birds beside a slingshot.
   // Full slots hold a seed, empty ones are dimples, and the next one to regrow fills like a clock. It sits right of
   // the pod, clear of the sun fan above it, the hearts below, the trick stamps' lane on the left and the badge.
   const TRAY = { x: 242, y: 498, w: 74, h: 30, slots: [257, 279, 301], sy: 513 };
+  // The seed color glyphs (spec 1.11): from Level 4 (state.colorAhead) every waiting seed wears its color as a tinted
+  // disc and a glyph, so a crystal's color reads without seeing color: a sun-dot (gold), heart (coral), crescent (lilac),
+  // drop (sky) and star (poppy). White, inked in the color's dark, GLYPH.size board px tall (7.3 CSS px at 360 px).
+  // Each shape spans exactly -size/2..size/2 in y, so its height is the glyph size.
+  const GLYPH = Object.freeze({ size: 8.5, box: 6.2, disc: 10, launcher: 9 });
+  function paintGlyph(c, type, s = GLYPH.size) {
+    const color = FLOWERS[type] || FLOWERS.gold, h = s / 2;
+    c.beginPath();
+    if (type === 'gold') {
+      c.arc(0, 0, s * .26, 0, TAU);
+      for (let k = 0; k < 8; k++) {
+        const a = k * Math.PI / 4, ux = Math.cos(a), uy = Math.sin(a), w = s * .085, b = s * .31;
+        c.moveTo(ux * b - uy * w, uy * b + ux * w); c.lineTo(ux * h, uy * h); c.lineTo(ux * b + uy * w, uy * b - ux * w); c.closePath();
+      }
+    } else if (type === 'coral') {
+      c.moveTo(0, h); c.arc(-s * .24, -s * .23, s * .27, Math.PI * .75, Math.PI * 1.89); c.arc(s * .24, -s * .23, s * .27, Math.PI * 1.11, Math.PI * 2.25); c.closePath();
+    } else if (type === 'lilac') {
+      // The outer disc with a bite (a smaller disc up and to the right) taken out of it.
+      const dx = s * .26, dy = -s * .08, R = h, r = s * .4, d = Math.hypot(dx, dy), a = (R * R - r * r + d * d) / (2 * d), k = Math.sqrt(R * R - a * a);
+      const px = dx * a / d, py = dy * a / d, p1 = [px - k * dy / d, py + k * dx / d], p2 = [px + k * dy / d, py - k * dx / d], bite = Math.atan2(dy, dx);
+      const turn = (from, to) => ((to - from) % TAU + TAU) % TAU;
+      let A = p1, B = p2;
+      if (turn(Math.atan2(A[1], A[0]), bite) < turn(Math.atan2(A[1], A[0]), Math.atan2(B[1], B[0]))) { A = p2; B = p1; }
+      const a0 = Math.atan2(A[1], A[0]), a1 = Math.atan2(B[1], B[0]), b0 = Math.atan2(B[1] - dy, B[0] - dx), b1 = Math.atan2(A[1] - dy, A[0] - dx);
+      c.arc(0, 0, R, a0, a1); c.arc(dx, dy, r, b0, b1, turn(b0, bite + Math.PI) >= turn(b0, b1)); c.closePath();
+    } else if (type === 'sky') {
+      const r = s * .3, cy = h - r, t = Math.acos(r / (cy + h));
+      c.moveTo(0, -h); c.arc(0, cy, r, -Math.PI / 2 + t, Math.PI * 1.5 - t); c.closePath();
+    } else {
+      const R = s / (1 + Math.cos(Math.PI / 5)), cy = R - h;
+      for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? R * .45 : R; c.lineTo(Math.cos(a) * rr, cy + Math.sin(a) * rr); }
+      c.closePath();
+    }
+    c.lineJoin = 'round'; c.lineWidth = 2.4; c.strokeStyle = color.dark; c.stroke(); c.fillStyle = '#ffffff'; c.fill();
+  }
+  const glyphSprite = type => atlasSprite(`glyph:${type}`, -GLYPH.box, -GLYPH.box, GLYPH.box, GLYPH.box, c => paintGlyph(c, type));
+  // The tinted disc behind a waiting seed: its color at .85 with a 1.2 px ring in its dark, r GLYPH.disc, so a 2.6 px
+  // halo of color shows around the 7.4 px seed.
+  function paintGlyphDisc(c, type) {
+    const color = FLOWERS[type] || FLOWERS.gold;
+    c.globalAlpha = .85; c.beginPath(); c.arc(0, 0, GLYPH.disc, 0, TAU); c.fillStyle = color.base; c.fill();
+    c.globalAlpha = 1; c.beginPath(); c.arc(0, 0, GLYPH.disc - .6, 0, TAU); c.lineWidth = 1.2; c.strokeStyle = color.dark; c.stroke();
+  }
+  const glyphDisc = type => atlasSprite(`glyph-disc:${type}`, -GLYPH.disc - .8, -GLYPH.disc - .8, GLYPH.disc + .8, GLYPH.disc + .8, c => paintGlyphDisc(c, type));
+  // A cached piece at (x, y), scaled; painted live where there is no canvas (node).
+  function glyphAt(ctx, sprite, paint, x, y, scale = 1) {
+    ctx.save(); ctx.translate(x, y); if (scale !== 1) ctx.scale(scale, scale);
+    if (sprite) blit(ctx, sprite); else paint(ctx);
+    ctx.restore();
+  }
+  const drawGlyph = (ctx, type, x, y, scale = 1) => glyphAt(ctx, glyphSprite(type), c => paintGlyph(c, type), x, y, scale);
+  const drawGlyphDisc = (ctx, type, x, y) => glyphAt(ctx, glyphDisc(type), c => paintGlyphDisc(c, type), x, y);
+  function paintTrayBody(c, x, y) {
+    c.save(); c.shadowColor = 'rgba(20,70,64,.28)'; c.shadowBlur = 5; c.shadowOffsetY = 1.5;
+    roundRect(c, x, y, TRAY.w, TRAY.h, TRAY.h / 2); c.fillStyle = 'rgba(255,251,240,.94)'; c.fill(); c.restore();
+  }
+  const trayBody = () => stageSprite('tray', TRAY.w + 12, TRAY.h + 12, c => paintTrayBody(c, 6, 6));
   function drawSeedTray(ctx, state, time, style, reducedMotion, dry) {
     const pod = Math.max(0, Math.min(4, Math.floor(Number(state.pod) || 0))), grow = clamp(Number(state.podGrow) || 0, 0, 1);
     ctx.save();
-    ctx.shadowColor = 'rgba(20,70,64,.28)'; ctx.shadowBlur = 5; ctx.shadowOffsetY = 1.5;
-    roundRect(ctx, TRAY.x, TRAY.y, TRAY.w, TRAY.h, TRAY.h / 2); ctx.fillStyle = 'rgba(255,251,240,.94)'; ctx.fill();
-    ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
-    ctx.lineWidth = 2; ctx.strokeStyle = dry ? `rgb(${Math.round(14 + 241 * dry)},${Math.round(143 - 23 * dry)},${Math.round(134 - 30 * dry)})` : '#0e8f86'; ctx.stroke();
+    // The tray's shadowed body is painted once (spec 1.11), so no shadowBlur runs per frame; the dry-tint rim stays live.
+    const body = trayBody();
+    if (body) ctx.drawImage(body.surface, TRAY.x - 6, TRAY.y - 6, body.w, body.h); else paintTrayBody(ctx, TRAY.x, TRAY.y);
+    roundRect(ctx, TRAY.x, TRAY.y, TRAY.w, TRAY.h, TRAY.h / 2); ctx.lineWidth = 2; ctx.strokeStyle = dry ? `rgb(${Math.round(14 + 241 * dry)},${Math.round(143 - 23 * dry)},${Math.round(134 - 30 * dry)})` : '#0e8f86'; ctx.stroke();
+    // From Level 4, the color each waiting seed will grow into (a tinted disc under it, its glyph over it).
+    const ahead = state.colorAhead && typeof state.typeAhead === 'function';
     TRAY.slots.forEach((sx, i) => {
       const slot = i + 1;
       if (pod > slot) {
         const since = Number.isFinite(state.podAt) && pod === slot + 1 ? time - state.podAt : Infinity;
-        const pop = !reducedMotion && since >= 0 && since < .2 ? 1 + .3 * (1 - since / .2) : 1;
-        drawSeed(ctx, sx, TRAY.sy, 7.4 * pop, time, false, style);
+        const pop = !reducedMotion && since >= 0 && since < .2 ? 1 + .3 * (1 - since / .2) : 1, type = ahead ? state.typeAhead(slot) : null;
+        if (FLOWERS[type]) drawGlyphDisc(ctx, type, sx, TRAY.sy);
+        drawSeed(ctx, sx, TRAY.sy, 7.4 * pop, time, false, style, 7.4);
+        if (FLOWERS[type]) drawGlyph(ctx, type, sx, TRAY.sy, pop);
         return;
       }
       circle(ctx, sx, TRAY.sy, 7.6, dry ? `rgba(255,138,122,${.25 + .35 * dry})` : 'rgba(14,143,134,.14)', 'rgba(14,143,134,.55)', 1.3);
@@ -1553,6 +1678,8 @@
     const dryAge = podded && Number.isFinite(state.dryAt) ? time - state.dryAt : Infinity;
     const dry = dryAge >= 0 && dryAge < .24 ? 1 - dryAge / .24 : 0;
     ctx.save();
+    // A larger cup reads at phone size; its center, seed tray and hearts keep their authored positions.
+    ctx.translate(x, y); ctx.scale(1.12, 1.12); ctx.translate(-x, -y);
     if (dry && !reducedMotion) ctx.translate(Math.sin(dryAge * 75) * 3 * dry, 0);
     const pull = reducedMotion ? null : podPose(ctx, state, time, x, y);
     // A shot pushes the pod down and wide for a blink before it springs back, with a puff of air around it.
@@ -1589,7 +1716,9 @@
     } else if (loaded && (state.status === 'aiming' || !state.status || (rush && state.status !== 'lost'))) {
       const since = podded && Number.isFinite(state.podAt) && state.pod === 1 ? time - state.podAt : Infinity;
       const pop = !reducedMotion && since >= 0 && since < .2 ? 1 + .3 * (1 - since / .2) : 1;
-      drawSeed(ctx, x + (pull ? pull.x : 0), y + (pull ? pull.y : 0), 8.4 * pop, time, false, style);
+      drawSeed(ctx, x + (pull ? pull.x : 0), y + (pull ? pull.y : 0), 8.4 * pop, time, false, style, 8.4);
+      // From Level 4 the cup seed wears its color's glyph, GLYPH.launcher board px tall (the cup is drawn at 1.12).
+      if (state.colorAhead && rush && FLOWERS[state.nextType]) drawGlyph(ctx, state.nextType, x + (pull ? pull.x : 0), y + (pull ? pull.y : 0), pop * GLYPH.launcher / GLYPH.size / 1.12);
     }
     ctx.restore();
     if (podded) drawSeedTray(ctx, state, time, style, reducedMotion, dry);
@@ -1640,7 +1769,7 @@
   function threatOf(state, y) {
     let threat = 0;
     for (const bud of Array.isArray(state.buds) ? state.buds : []) {
-      if (!bud || bud.bloomed || bud.gift || !Number.isFinite(bud.y)) continue;
+      if (!bud || bud.bloomed || bud.gift || bud.inert || bud.hidden || bud.ghost || !Number.isFinite(bud.y)) continue;
       threat = Math.max(threat, clamp(1 - (y - bud.y - (Number(bud.r) || 11)) / 110, 0, 1));
     }
     return threat;
@@ -1724,7 +1853,495 @@
     ctx.beginPath(); ctx.arc(-r * .35, -r * .3, r * .32, 3.5, 4.6); ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.lineWidth = 1.6; ctx.lineCap = 'round'; ctx.stroke();
     ctx.restore();
   }
-  // A boss bloom sits on two big leaves, wears a crown and shows its hits left as a ring of segments.
+  // Each named boss has a different silhouette and material. Static path illustration is cached at 3x;
+  // poses read the live boss controller, and breakable parts use the engine's exact collider positions.
+  const BOSS_LOOKS = {
+    sunny: { light: '#fff4aa', base: '#ffc638', dark: '#c47a24', ink: '#654126', leaf: '#71b45b', face: '#d99b4c', eye: '#694327', faceY: .06 },
+    root: { light: '#e3c795', base: '#ad8150', dark: '#60412d', ink: '#433329', leaf: '#92c36b', face: '#c6a473', eye: '#648741', faceY: .14 },
+    puff: { light: '#ffe7bd', base: '#dba56b', dark: '#88604b', ink: '#603f4d', leaf: '#9fb98b', face: '#fff0cf', eye: '#79576f', faceY: .52 },
+    crystal: { light: '#ffe1f0', base: '#ff72b2', dark: '#a43c89', ink: '#682d70', leaf: '#d7abff', face: '#ffb0d1', eye: '#7052b2', faceY: .04 },
+    lotus: { light: '#fff1d5', base: '#f49ece', dark: '#99549a', ink: '#66416f', leaf: '#60bba0', face: '#ffe9c6', eye: '#5e918d', faceY: .08 },
+    fossil: { light: '#fff2cb', base: '#dcc19a', dark: '#8d775f', ink: '#63524e', leaf: '#a8ba95', face: '#f4ddb6', eye: '#5c8b91', faceX: .24, faceY: .24 },
+    ember: { light: '#fff2b1', base: '#ff9652', dark: '#b63b65', ink: '#732c48', leaf: '#8ab35e', face: '#ffd396', eye: '#aa4b5a', faceY: .05 },
+    geode: { light: '#e4d7eb', base: '#9e91ac', dark: '#65586f', ink: '#453849', leaf: '#97ad84', face: '#c799ed', eye: '#6258ab', faceY: .05 },
+    briar: { light: '#ffc5e0', base: '#ea65b4', dark: '#943a7f', ink: '#623354', leaf: '#83ac57', face: '#f7a9cd', eye: '#66547b', faceY: -.08 },
+    core: { light: '#fff6bd', base: '#ffd05a', dark: '#bf852e', ink: '#5b537b', leaf: '#9bdbbf', face: '#fff4d6', eye: '#56718d', faceY: .03 }
+  };
+  let bossScene = null;
+  const bossLook = bud => BOSS_LOOKS[bud && bud.bossKind] || null;
+  const bossSceneFor = bud => bud && bud.bossState || (bossScene && bossScene.kind === bud.bossKind ? bossScene : null);
+  function bossPolygon(c, points, fill, edge, width) {
+    c.beginPath(); points.forEach(([x, y], i) => { if (i) c.lineTo(x, y); else c.moveTo(x, y); }); c.closePath();
+    if (fill) { c.fillStyle = fill; c.fill(); } if (edge) { c.strokeStyle = edge; c.lineWidth = width || .03; c.stroke(); }
+  }
+  function bossWash(c, look, x = -.3, y = -.45, radius = 1.6) {
+    const g = c.createRadialGradient(x, y, .06, .2, .3, radius);
+    g.addColorStop(0, look.light); g.addColorStop(.48, look.base); g.addColorStop(1, look.dark); return g;
+  }
+  function bossBlade(c, x, y, length, width, turn, fill, edge) {
+    c.save(); c.translate(x, y); c.rotate(turn);
+    c.beginPath(); c.moveTo(0, 0); c.bezierCurveTo(-width, -length * .2, -width * .85, -length * .72, 0, -length);
+    c.bezierCurveTo(width * .7, -length * .73, width, -length * .22, 0, 0); c.closePath();
+    c.fillStyle = fill; c.fill(); c.strokeStyle = edge; c.lineWidth = .028; c.stroke();
+    c.beginPath(); c.moveTo(0, -.08); c.quadraticCurveTo(width * .1, -length * .48, 0, -length * .84); c.strokeStyle = 'rgba(255,255,235,.5)'; c.lineWidth = .025; c.stroke(); c.restore();
+  }
+  function bossCrystal(c, x, y, height, width, turn, L) {
+    c.save(); c.translate(x, y); c.rotate(turn);
+    bossPolygon(c, [[0, -height], [width, -.28 * height], [width * .58, .12], [-width * .62, .12], [-width, -.3 * height]], L.base, L.dark);
+    bossPolygon(c, [[0, -height], [0, .1], [-width * .62, .12], [-width, -.3 * height]], L.light);
+    bossPolygon(c, [[0, -height], [width, -.28 * height], [width * .58, .12], [0, .1]], L.dark);
+    c.beginPath(); c.moveTo(0, -height * .8); c.lineTo(0, -.02); c.strokeStyle = '#ffffff'; c.lineWidth = .025; c.stroke(); c.restore();
+  }
+  function bossHeartPath(c) {
+    c.beginPath(); c.moveTo(0, -.62); c.bezierCurveTo(-.62, -1.43, -1.41, -.73, -1.1, .05);
+    c.bezierCurveTo(-.92, .46, -.25, .97, 0, 1.14); c.bezierCurveTo(.29, .93, .94, .46, 1.1, .05);
+    c.bezierCurveTo(1.41, -.73, .62, -1.43, 0, -.62); c.closePath();
+  }
+  function paintBossHeart(c, L) {
+    bossHeartPath(c); c.fillStyle = bossWash(c, L); c.fill(); c.strokeStyle = L.dark; c.lineWidth = .05; c.stroke();
+    c.save(); c.clip();
+    bossPolygon(c, [[0, -.62], [-.85, -.83], [-1.03, -.12], [-.47, -.22]], L.light);
+    bossPolygon(c, [[0, -.62], [.91, -.8], [.95, -.06], [.42, -.23]], L.base);
+    bossPolygon(c, [[-.47, -.22], [0, .06], [0, 1.14], [-.91, .32]], '#d5579e');
+    bossPolygon(c, [[.42, -.23], [.95, -.06], [.82, .35], [0, 1.14], [0, .06]], '#b5428e');
+    bossPolygon(c, [[0, -.62], [-.47, -.22], [0, .06], [.42, -.23]], '#ffd3ec');
+    c.beginPath(); c.moveTo(-.86, -.69); c.lineTo(-1.03, -.2); c.lineTo(-.62, .26); c.strokeStyle = '#fff8ff'; c.lineWidth = .065; c.stroke();
+    c.restore();
+  }
+  function bossStarPath(c, radius = 1, inner = .48) {
+    c.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? radius * inner : radius; if (!i) c.moveTo(Math.cos(a) * r, Math.sin(a) * r); else c.lineTo(Math.cos(a) * r, Math.sin(a) * r); } c.closePath();
+  }
+  function paintBossPart(c, kind, r, rear, variant = '') {
+    const L = BOSS_LOOKS[kind]; if (!L) return;
+    c.save(); c.scale(r, r); c.lineCap = 'round'; c.lineJoin = 'round';
+    const wash = bossWash(c, L), skin = c.createLinearGradient(-.6, -.7, .65, .95);
+    skin.addColorStop(0, L.light); skin.addColorStop(.5, L.face); skin.addColorStop(1, L.base);
+    if (rear) {
+      if (kind === 'sunny') {
+        for (let i = 0; i < 18; i++) bossBlade(c, 0, .02, i % 2 ? 1.49 : 1.67, .22, i * TAU / 18, i % 2 ? L.base : L.light, '#d29b33');
+        for (const side of [-1, 1]) bossBlade(c, side * .22, .72, 1.1, .3, side * 1.14, L.leaf, '#498243');
+      } else if (kind === 'root') {
+        for (let i = 0; i < 6; i++) {
+          const side = i % 2 ? 1 : -1, y = -.65 + Math.floor(i / 2) * .43;
+          c.beginPath(); c.moveTo(side * .59, y); c.bezierCurveTo(side * 1.2, y - .32, side * 1.49, y + .06, side * 1.58, y - .23);
+          c.strokeStyle = L.dark; c.lineWidth = .19; c.stroke(); c.strokeStyle = L.base; c.lineWidth = .1; c.stroke();
+          c.beginPath(); c.moveTo(side * 1.27, y - .11); c.lineTo(side * 1.41, y - .41); c.strokeStyle = L.dark; c.lineWidth = .055; c.stroke();
+        }
+        for (const side of [-1, 1]) { c.beginPath(); c.moveTo(side * .35, .58); c.bezierCurveTo(side * .85, .87, side * .51, 1.44, side * 1.28, 1.28); c.strokeStyle = '#775236'; c.lineWidth = .17; c.stroke(); c.strokeStyle = '#caa371'; c.lineWidth = .07; c.stroke(); }
+      } else if (kind === 'puff') {
+        c.beginPath(); c.ellipse(0, .96, 1.04, .28, 0, 0, TAU); c.fillStyle = '#e6d9b5'; c.fill();
+        for (const side of [-1, 1]) bossBlade(c, side * .37, .83, .65, .29, side * 1.92, '#b1bb86', '#789575');
+      } else if (kind === 'crystal') {
+        c.beginPath(); c.ellipse(0, .09, 1.25, 1.22, -.2, 0, TAU); c.fillStyle = '#ffe2f01c'; c.fill();
+      } else if (kind === 'lotus') {
+        c.beginPath(); c.ellipse(0, .9, 1.57, .52, -.08, .16, TAU - .23); c.lineTo(0, .9); c.closePath(); c.fillStyle = '#54a98d'; c.fill(); c.strokeStyle = '#317b73'; c.lineWidth = .045; c.stroke();
+        c.beginPath(); c.ellipse(-.03, .82, 1.37, .36, -.08, .18, TAU - .24); c.strokeStyle = '#9ddbb1'; c.lineWidth = .035; c.stroke();
+        for (const side of [-1, 1]) { c.beginPath(); c.moveTo(0, .9); c.quadraticCurveTo(side * .75, .5, side * 1.37, .79); c.strokeStyle = '#b4e2a8'; c.lineWidth = .023; c.stroke(); }
+      } else if (kind === 'fossil') {
+        c.beginPath(); c.ellipse(-.15, -.03, 1.27, 1.17, -.17, 0, TAU); c.fillStyle = wash; c.fill(); c.strokeStyle = '#8d775c'; c.lineWidth = .05; c.stroke();
+        for (let i = 0; i < 23; i++) { const a = i * TAU / 23; c.beginPath(); c.moveTo(-.15 + Math.cos(a) * .8, -.03 + Math.sin(a) * .75); c.quadraticCurveTo(-.15 + Math.cos(a + .12), -.03 + Math.sin(a + .12), -.15 + Math.cos(a) * 1.25, -.03 + Math.sin(a) * 1.15); c.strokeStyle = '#9e8568'; c.lineWidth = .035; c.stroke(); }
+      } else if (kind === 'ember') {
+        for (let i = 0; i < 9; i++) bossBlade(c, 0, .2, 1.53 - (i % 3) * .14, .32, i * TAU / 9, i % 2 ? '#ffb653' : '#f27355', '#b44454');
+      } else if (kind === 'geode') {
+        // The cart's wheel circles and wood slats are scenery, not extra targets.
+        for (const side of [-1, 1]) { circle(c, side * .77, 1.18, .24, '#645164', '#342d43', .045); circle(c, side * .77, 1.18, .13, '#b9adbc', '#65566d', .025); }
+        bossPolygon(c, [[-1.3, .6], [1.3, .6], [1.12, 1.12], [-1.12, 1.12]], '#87736b', '#4b414d', .055);
+        for (const y of [.75, .94]) { c.beginPath(); c.moveTo(-1.18, y); c.lineTo(1.18, y); c.strokeStyle = '#b49b83'; c.lineWidth = .035; c.stroke(); }
+        for (const x of [-.87, 0, .87]) { c.beginPath(); c.moveTo(x, .64); c.lineTo(x, 1.05); c.strokeStyle = '#c9b5a3'; c.lineWidth = .05; c.stroke(); }
+        for (const side of [-1, 1]) { circle(c, side * 1.04, .74, .038, '#e2d9c9'); circle(c, side * .99, 1, .035, '#d9d0bf'); }
+      } else if (kind === 'briar') {
+        c.beginPath(); c.moveTo(-1.38, -1.55); c.bezierCurveTo(-.55, -1.5, .67, -1.79, .41, -1.16); c.quadraticCurveTo(.15, -.63, 0, -.72);
+        c.strokeStyle = '#4e6f40'; c.lineWidth = .14; c.stroke(); c.strokeStyle = '#98b46c'; c.lineWidth = .046; c.stroke();
+        for (let i = 0; i < 4; i++) { const x = -1.14 + i * .38, y = -1.55 - Math.sin(i) * .1; bossPolygon(c, [[x, y], [x + .08, y - .22], [x + .15, y]], '#5d764c', '#d7deaa', .02); }
+        for (const side of [-1, 1]) bossBlade(c, side * .13, -.72, .81, .34, side * 1.25, '#8bb064', '#527644');
+      } else if (kind === 'core') {
+        c.beginPath(); c.ellipse(0, 0, 1.5, 1.5, 0, 0, TAU); c.fillStyle = '#ffe09715'; c.fill();
+      }
+    } else if (kind === 'sunny') {
+      circle(c, 0, .04, .98, wash, '#d39638', .045); circle(c, 0, .06, .84, skin, '#b98332', .032);
+      for (let i = 0; i < 30; i++) { const a = i * 2.39996, k = .18 + Math.sqrt(i / 30) * .59; circle(c, Math.cos(a) * k, .06 + Math.sin(a) * k, .027, '#ad762b'); }
+      for (const side of [-1, 1]) { c.beginPath(); c.moveTo(side * .48, .26); c.quadraticCurveTo(side * .61, .3, side * .62, .39); c.strokeStyle = '#9b6526'; c.lineWidth = .025; c.stroke(); }
+    } else if (kind === 'root') {
+      c.beginPath(); c.moveTo(-.63, -.86); c.bezierCurveTo(-1.17, -.71, -.88, .85, -.5, .98); c.bezierCurveTo(-.22, 1.2, .77, .99, .88, .46); c.bezierCurveTo(1.18, -.33, .59, -.97, -.03, -.9); c.closePath(); c.fillStyle = skin; c.fill(); c.strokeStyle = L.dark; c.lineWidth = .052; c.stroke();
+      for (const side of [-1, 1]) for (let i = 0; i < 4; i++) { c.beginPath(); c.moveTo(side * (.28 + i * .15), -.71); c.bezierCurveTo(side * (.59 + i * .12), -.35, side * (.24 + i * .14), .39, side * (.32 + i * .13), .74); c.strokeStyle = i % 2 ? '#dbc295' : '#8b633c'; c.lineWidth = .032; c.stroke(); }
+      for (let i = 0; i < 3; i++) { c.beginPath(); c.ellipse(-.29, -.45, .15 + i * .1, .1 + i * .078, -.28, 0, TAU); c.strokeStyle = i % 2 ? '#dfc491' : '#916536'; c.lineWidth = .035; c.stroke(); }
+      // A flower crown belongs to the old knot, rather than a generic floating gold crown.
+      for (let i = -2; i <= 2; i++) { const x = i * .32, y = -.94 - .13 * (1 - Math.abs(i) / 2); for (let p = 0; p < 5; p++) { const a = p * TAU / 5; circle(c, x + Math.cos(a) * .085, y + Math.sin(a) * .085, .07, i % 2 ? '#ffc873' : '#ffa5c5', '#db9a83', .012); } circle(c, x, y, .052, '#fff1a0'); }
+    } else if (kind === 'puff') {
+      c.beginPath(); c.moveTo(-.52, -.33); c.bezierCurveTo(-.64, .3, -.69, .98, -.3, 1.17); c.bezierCurveTo(.5, 1.34, .68, .77, .49, -.3); c.closePath(); c.fillStyle = skin; c.fill(); c.strokeStyle = '#bc9473'; c.lineWidth = .04; c.stroke();
+      const down = variant === 'bonnet' ? .3 : 0;
+      c.save(); c.translate(0, down);
+      c.beginPath(); c.moveTo(-.91, .03); c.bezierCurveTo(-1.08, -.92, -.32, -1.52, 0, -1.67); c.bezierCurveTo(.44, -1.4, 1.1, -.8, .9, .03); c.closePath(); c.fillStyle = '#b27b51'; c.fill(); c.strokeStyle = '#795043'; c.lineWidth = .045; c.stroke();
+      for (let row = 0; row < 5; row++) for (let col = -2; col <= 2; col++) {
+        const y = -.1 - row * .27, x = col * (.27 - row * .025) + (row % 2) * .07;
+        if (Math.abs(x) > .77 - row * .11) continue;
+        c.beginPath(); c.ellipse(x, y, .105 - row * .008, .12, col * .06, 0, TAU); c.fillStyle = '#6e4b3c'; c.fill(); c.strokeStyle = '#e2b575'; c.lineWidth = .045; c.stroke();
+      }
+      c.beginPath(); c.moveTo(-1.12, .09); c.bezierCurveTo(-1.21, -.55, -.62, -1.38, -.21, -1.53); c.lineTo(-.31, -1.26); c.bezierCurveTo(-.86, -.89, -.99, -.29, -.85, .03); c.quadraticCurveTo(-.12, .4, .95, .03); c.lineTo(1.16, .11); c.bezierCurveTo(.91, .71, -.81, .52, -1.12, .09); c.closePath(); c.fillStyle = '#d8dfc3'; c.fill(); c.strokeStyle = '#798873'; c.lineWidth = .035; c.stroke();
+      for (let i = -5; i <= 5; i++) circle(c, i * .17, .34 + .12 * (1 - Math.abs(i) / 6), .066, '#fff1d9', '#b9b995', .012);
+      for (const side of [-1, 1]) bossBlade(c, side * .49, .65, .53, .17, side * 2.43, '#b8ceac', '#6e8b70');
+      c.restore();
+      circle(c, -.52, .73, .072, '#e6aa92'); circle(c, .48, .75, .066, '#e6aa92');
+    } else if (kind === 'crystal') {
+      paintBossHeart(c, L);
+      circle(c, 0, .13, .3, '#ffd5eb', '#eb83ba', .026);
+    } else if (kind === 'lotus') {
+      for (let layer = 0; layer < 2; layer++) for (let i = -3; i <= 3; i++) bossBlade(c, 0, .77 - layer * .21, 1.53 - Math.abs(i) * .13, .34 - layer * .035, i * .38 + layer * .11, layer ? '#ffe7f1' : '#e994c4', '#bd6b9f');
+      c.beginPath(); c.moveTo(0, -.84); c.bezierCurveTo(.51, -.63, .72, .15, .37, .64); c.quadraticCurveTo(0, .92, -.41, .59); c.bezierCurveTo(-.77, .06, -.54, -.66, 0, -.84); c.closePath(); c.fillStyle = skin; c.fill(); c.strokeStyle = '#c482ab'; c.lineWidth = .032; c.stroke();
+      for (const side of [-1, 1]) bossBlade(c, side * .2, .35, .82, .21, side * 1.8, '#d8c0d5', '#a473a4');
+    } else if (kind === 'fossil') {
+      c.beginPath();
+      for (let i = 0; i < 80; i++) { const a = -1.6 + i * .17, rad = 1.02 * (1 - i / 85); if (!i) c.moveTo(-.21 + Math.cos(a) * rad, -.12 + Math.sin(a) * rad); else c.lineTo(-.21 + Math.cos(a) * rad, -.12 + Math.sin(a) * rad); }
+      c.strokeStyle = '#786657'; c.lineWidth = .12; c.stroke(); c.strokeStyle = '#ffe7b9'; c.lineWidth = .04; c.stroke();
+      c.beginPath(); c.ellipse(.29, .3, .61, .57, -.15, 0, TAU); c.fillStyle = skin; c.fill(); c.strokeStyle = '#b29474'; c.lineWidth = .034; c.stroke();
+      for (let i = -2; i <= 2; i++) { const x = i * .25, y = -1.01 - .13 * (1 - Math.abs(i) / 2); circle(c, x, y, .096, '#fffae6', '#b49b7c', .023); circle(c, x - .023, y - .026, .026, '#ffffff'); }
+      c.beginPath(); c.moveTo(-.54, -.93); c.lineTo(.54, -.93); c.strokeStyle = '#b99a66'; c.lineWidth = .06; c.stroke();
+    } else if (kind === 'ember') {
+      for (let layer = 0; layer < 3; layer++) for (let i = 0; i < 5; i++) bossBlade(c, 0, .12, 1.2 - layer * .23, .52 - layer * .08, i * TAU / 5 + layer * .43, layer === 1 ? '#ffb56c' : layer === 2 ? '#ffe5a0' : '#e25b69', '#c75565');
+      circle(c, 0, .08, .52, skin, '#db8960', .028);
+      c.beginPath(); c.moveTo(-.79, .39); c.bezierCurveTo(-1.05, .77, -.54, 1.26, -.06, .95); c.bezierCurveTo(.38, 1.45, 1.08, .75, .85, .38); c.strokeStyle = '#ffd188'; c.lineWidth = .12; c.stroke();
+      for (let i = 0; i < 7; i++) circle(c, -.69 + i * .23, .87 + Math.sin(i * .6) * .09, .04, '#fff0b9');
+    } else if (kind === 'geode') {
+      bossPolygon(c, [[-.92, -.75], [-.48, -1.17], [.44, -1.1], [1.05, -.39], [.84, .61], [.3, .83], [-.65, .73], [-1.07, .05]], wash, L.dark, .055);
+      bossPolygon(c, [[-.87, -.73], [-.43, -1.08], [.16, -.74], [-.36, -.27], [-.97, -.03]], '#cbbecf');
+      bossPolygon(c, [[.44, -1.02], [.98, -.35], [.76, .58], [.43, .25], [.19, -.34]], '#796b8c');
+      bossPolygon(c, [[-.52, -.49], [0, -.76], [.55, -.38], [.6, .24], [.1, .67], [-.49, .37], [-.63, -.1]], '#765597', '#514162', .038);
+      for (let i = 0; i < 5; i++) { const a = i * TAU / 5; bossCrystal(c, Math.cos(a) * .4, Math.sin(a) * .4, .45, .21, a + Math.PI / 2, { base: '#b77eee', light: '#f2cdff', dark: '#7751b2' }); }
+      circle(c, 0, .01, .48, '#d4a2f0', '#8763b4', .026);
+      bossPolygon(c, [[-.64, -.99], [-.7, -1.27], [-.28, -1.1], [0, -1.43], [.31, -1.08], [.69, -1.22], [.59, -.99]], '#d3b472', '#8d764f', .035);
+    } else if (kind === 'briar') {
+      c.beginPath(); c.moveTo(0, -.9); c.bezierCurveTo(-.66, -.96, -1.16, -.05, -1.18, .69); c.bezierCurveTo(-.94, .57, -.75, 1.35, -.43, .94); c.bezierCurveTo(-.17, 1.5, .2, 1.36, .43, .93); c.bezierCurveTo(.78, 1.37, 1.08, .61, 1.22, .71); c.bezierCurveTo(1.14, -.04, .75, -.91, 0, -.9); c.closePath(); c.fillStyle = wash; c.fill(); c.strokeStyle = '#a34080'; c.lineWidth = .05; c.stroke();
+      for (const x of [-.6, 0, .6]) { c.beginPath(); c.moveTo(x * .42, -.71); c.bezierCurveTo(x * 1.7, -.1, x * 1.41, .47, x * 1.45, 1); c.strokeStyle = x ? '#e896c7' : '#ffb9dc'; c.lineWidth = .045; c.stroke(); }
+      c.beginPath(); c.ellipse(0, -.2, .53, .49, 0, 0, TAU); c.fillStyle = skin; c.fill(); c.strokeStyle = '#c976a9'; c.lineWidth = .026; c.stroke();
+      for (const side of [-1, 1]) { c.beginPath(); c.moveTo(side * .26, .9); c.lineTo(side * .32, 1.28); c.strokeStyle = '#8caa68'; c.lineWidth = .044; c.stroke(); circle(c, side * .32, 1.28, .086, '#ffec9f', '#ae9266', .018); }
+    } else if (kind === 'core') {
+      bossStarPath(c, 1.21, .52); c.fillStyle = wash; c.fill(); c.strokeStyle = '#c29b4a'; c.lineWidth = .046; c.stroke();
+      c.save(); c.clip(); bossPolygon(c, [[0, -1.21], [-.25, .04], [-1.2, -.36]], '#fff5c1'); bossPolygon(c, [[.25, .03], [1.15, -.37], [.64, 1.01], [0, .51]], '#ddab4d'); c.restore();
+      circle(c, 0, 0, .57, '#d9f4cf', '#e7b866', .03);
+      c.beginPath(); for (let i = 0; i < 62; i++) { const a = i * .19, rad = .045 + i / 62 * .4; if (!i) c.moveTo(Math.cos(a) * rad, Math.sin(a) * rad); else c.lineTo(Math.cos(a) * rad, Math.sin(a) * rad); } c.strokeStyle = '#80bca5'; c.lineWidth = .064; c.stroke(); c.strokeStyle = '#f3ffe8'; c.lineWidth = .019; c.stroke();
+    }
+    c.restore();
+  }
+  function bossPart(bud, rear, variant = '') {
+    const kind = bud.bossKind, r = Number(bud.r) || 24, e = r * 1.92 + 3;
+    return atlasSprite(`guardian-rich:${kind}:${r}:${rear ? 'rear' : 'body'}:${variant}`, -e, -e, e, e, c => paintBossPart(c, kind, r, rear, variant));
+  }
+  function bossBodyPose(ctx, bud, time, still) {
+    const s = bossSceneFor(bud), kind = bud.bossKind, mode = s && s.mode || '', t = still ? 0 : time;
+    const warning = s && s.warning, winding = warning && Number.isFinite(warning.until) && time < warning.until;
+    let tilt = 0, stretch = 1;
+    if (!still) {
+      if (kind === 'sunny' && mode === 'sleeping') tilt = -.05 + Math.sin(t * 1.5) * .025;
+      else if (kind === 'sunny' && mode === 'dizzy') tilt = Math.sin(t * 9) * .095;
+      else if (kind === 'ember') tilt = Math.sin(t * (mode === 'dive' ? 7 : 3.5)) * (mode === 'dive' ? .18 : .075);
+      else if (kind === 'briar') tilt = Math.sin(t * 2.2) * .065;
+      else if (kind === 'lotus') tilt = Math.sin(t * 2) * .045;
+      else if (kind === 'crystal' && bud.real !== false) stretch = 1 + Math.pow(Math.max(0, Math.sin(t * 5.1)), 6) * .035;
+      else if (kind === 'core' && mode === 'supernova') stretch = 1 + Math.sin(t * 8) * .025;
+      if (winding && kind === 'root') tilt = -.07;
+    }
+    if (tilt || stretch !== 1) { ctx.translate(bud.x, bud.y); ctx.rotate(tilt); ctx.scale(stretch, stretch); ctx.translate(-bud.x, -bud.y); }
+  }
+  function drawBossBody(ctx, bud, time = 0, still = true) {
+    if (!bossLook(bud)) return false;
+    const s = bossSceneFor(bud), variant = bud.bossKind === 'puff' && s && s.mode === 'bonnet' ? 'bonnet' : '';
+    ctx.save(); bossBodyPose(ctx, bud, time, still);
+    if (bossTilt.bud === bud && bossTilt.angle) { ctx.translate(bud.x, bud.y); ctx.rotate(bossTilt.angle); ctx.translate(-bud.x, -bud.y); }
+    ctx.translate(bud.x, bud.y); const sprite = bossPart(bud, false, variant);
+    if (sprite) blit(ctx, sprite); else paintBossPart(ctx, bud.bossKind, Number(bud.r) || 24, false, variant);
+    ctx.restore(); return true;
+  }
+  function paintTargetPart(c, role, kind, r, lit, real) {
+    const L = BOSS_LOOKS[kind] || BOSS_LOOKS.core;
+    c.save(); c.scale(r, r); c.lineCap = 'round'; c.lineJoin = 'round';
+    if (role === 'bubble') {
+      const g = c.createRadialGradient(-.33, -.4, .05, .18, .26, 1.3); g.addColorStop(0, '#ffffff55'); g.addColorStop(.55, '#c0ecff0c'); g.addColorStop(1, '#9bd8ff88');
+      circle(c, 0, 0, .96, g, '#eaf9ff', .04); circle(c, 0, 0, 1.02, null, '#78bada', .022);
+      c.beginPath(); c.arc(0, 0, .82, -2.54, -1.72); c.strokeStyle = '#ffffff'; c.lineWidth = .07; c.stroke();
+      c.font = '.45px Fredoka'; c.textAlign = 'center'; c.fillStyle = '#f3fcff'; c.fillText('z', .49, -.51);
+      c.font = '.27px Fredoka'; c.fillText('z', .18, -.72);
+    } else if (role === 'heart') {
+      paintBossHeart(c, L);
+      if (real) { circle(c, 0, .08, .2, '#fff0fc', '#ffb2d8', .022); }
+    } else if (role === 'lantern') {
+      c.beginPath(); c.moveTo(-.72, -.74); c.quadraticCurveTo(0, -1.1, .73, -.74); c.lineTo(.61, -.56); c.lineTo(-.62, -.56); c.closePath(); c.fillStyle = '#6da885'; c.fill(); c.strokeStyle = '#3c725e'; c.lineWidth = .045; c.stroke();
+      const g = c.createRadialGradient(-.25, -.3, .05, .15, .16, .93); g.addColorStop(0, lit ? '#fffde1' : '#dde5c7'); g.addColorStop(.45, lit ? '#ffe58a' : '#b1bd9d'); g.addColorStop(1, lit ? '#d79f43' : '#7b947d');
+      c.beginPath(); c.moveTo(-.53, -.58); c.bezierCurveTo(-.9, -.1, -.57, .75, 0, .87); c.bezierCurveTo(.62, .69, .87, -.13, .5, -.58); c.closePath(); c.fillStyle = g; c.fill(); c.strokeStyle = '#608f71'; c.lineWidth = .044; c.stroke();
+      c.beginPath(); c.moveTo(-.21, -.49); c.quadraticCurveTo(-.48, -.05, -.26, .56); c.strokeStyle = '#fffceb'; c.lineWidth = .065; c.stroke();
+      for (let i = 0; i < 4; i++) circle(c, -.16 + i * .1, .14 + Math.sin(i * 1.2) * .16, .105 - i * .011, lit ? '#fffce4' : '#879c79', '#bdac68', .02);
+      c.beginPath(); c.arc(0, -.88, .19, Math.PI, 0); c.strokeStyle = '#4f8064'; c.lineWidth = .055; c.stroke();
+    } else if (role === 'plate') {
+      const fill = kind === 'fossil' ? '#e8d3ae' : '#afa1b6', edge = kind === 'fossil' ? '#9e8160' : '#6d5b7d';
+      bossPolygon(c, [[-.83, -.47], [-.44, -.94], [.53, -.74], [.93, -.1], [.57, .81], [-.52, .83], [-.96, .13]], fill, edge, .055);
+      bossPolygon(c, [[-.83, -.47], [-.44, -.94], [.17, -.58], [-.06, .06], [-.88, .12]], kind === 'fossil' ? '#fff1d1' : '#e4d4e7');
+      bossPolygon(c, [[.53, -.74], [.93, -.1], [.57, .81], [.13, .35]], kind === 'fossil' ? '#c7b088' : '#84718f');
+      c.beginPath(); c.moveTo(-.4, -.54); c.lineTo(-.11, -.28); c.lineTo(-.28, .03); c.lineTo(.19, .25); c.strokeStyle = edge; c.lineWidth = .055; c.stroke();
+    } else if (role === 'satellite') {
+      bossStarPath(c, .98, .5); c.fillStyle = lit ? '#ffe388' : '#949caf'; c.fill(); c.strokeStyle = lit ? '#b5893e' : '#62667c'; c.lineWidth = .07; c.stroke();
+      bossStarPath(c, .73, .53); c.fillStyle = lit ? '#fff6c4' : '#c1c5d0'; c.fill(); circle(c, 0, .02, .17, lit ? '#a5dab9' : '#929eac', '#708aa0', .025);
+    } else if (role === 'vine') {
+      circle(c, 0, 0, .63, '#96ba6b', '#537b44', .046); bossHeartPath(c); c.save(); c.scale(.47, .47); c.fillStyle = '#f6a1c3'; c.fill(); c.restore();
+      for (const side of [-1, 1]) bossBlade(c, side * .24, .08, .9, .24, side * 1.25, '#b9d78c', '#689451');
+    }
+    c.restore();
+  }
+  function drawBossTarget(ctx, bud, state, time, still, kitArt = null, quality = 0) {
+    if (!bud.bossPart || bud.visible === false || bud.hidden || state.bossState && state.bossState.boss && state.bossState.boss.bloomed || bud.bloomed && !['lantern', 'satellite'].includes(bud.bossPart)) return;
+    if (kitArt && kitArt.part(ctx, state, bud, time, still, FOE_KIT, quality)) return;
+    const role = bud.bossPart, kind = bud.bossKind || state.bossState && state.bossState.kind || 'core', r = Math.max(3, Number(bud.r) || 12);
+    const lit = !bud.bloomed && bud.lit !== false && !(bud.hp === 0), real = bud.real !== false;
+    ctx.save(); ctx.translate(bud.x, bud.y);
+    if (bud.bloomed && role === 'satellite') ctx.globalAlpha *= .28;
+    if (bud.bloomed && role === 'lantern') ctx.globalAlpha *= .45;
+    if (!still && role === 'heart' && real) { const beat = 1 + Math.pow(Math.max(0, Math.sin(time * 5.1)), 6) * .045; ctx.scale(beat, beat); }
+    // All target art is centred on the physical part, including the unlit satellite and guttered lantern.
+    const sprite = bossTargetSprite(role, kind, r, lit, real);
+    if (sprite) blit(ctx, sprite); else paintTargetPart(ctx, role, kind, r, lit, real);
+    if (role === 'heart') {
+      const main = state.bossState && state.bossState.boss, face = { ...bud, x: 0, y: 0, hp: main ? main.hp : 1, maxHp: main ? main.maxHp : 1 };
+      if (!(kitArt && kitArt.face(ctx, state, face, time, still, FOE_KIT, quality))) drawBossFace(ctx, face, time, still);
+    }
+    if (!bud.bloomed && Number(bud.maxHp) > 1) {
+      const fraction = clamp((Number(bud.hp) || 0) / bud.maxHp, 0, 1);
+      ctx.beginPath(); ctx.arc(0, 0, r + 3.5, -.5 * Math.PI, -.5 * Math.PI + TAU * fraction); ctx.strokeStyle = '#fff4c5'; ctx.lineWidth = 1.4; ctx.stroke();
+    }
+    ctx.restore();
+  }
+  function bossTargetSprite(role, kind, r, lit = true, real = true) {
+    const e = r * 1.45 + 3, key = `boss-target:${role}:${kind}:${r}:${lit}:${real}`;
+    return atlasSprite(key, -e, -e, e, e, c => paintTargetPart(c, role, kind, r, lit, real));
+  }
+  function drawBossSupports(ctx, state, time, still) {
+    const s = state.bossState, boss = (state.buds || []).find(bud => bud.boss && !bud.bloomed);
+    if (!s || !boss) return;
+    ctx.save(); ctx.lineCap = 'round';
+    if (s.kind === 'root' && s.mode === 'burrow' && Number.isFinite(s.station)) {
+      ctx.beginPath(); ctx.ellipse(s.station, boss.y + boss.r * .7, boss.r * 1.1, boss.r * .4, 0, 0, TAU); ctx.fillStyle = '#4b352b'; ctx.fill(); ctx.strokeStyle = '#d2ac6b'; ctx.lineWidth = 2; ctx.stroke();
+    }
+    // Heart vines attach only to living parts/patches actually owned by this controller.
+    if (s.kind === 'briar') for (const part of state.buds || []) {
+      if (!part.bossPart || part.bossPart !== 'vine' || part.visible === false || part.bloomed && !part.regrowAt) continue;
+      ctx.beginPath(); ctx.moveTo(boss.x, boss.y + boss.r * .6); ctx.bezierCurveTo(boss.x + (part.x - boss.x) * .2, boss.y + 48, part.x - 10, part.y - 20, part.x, part.y);
+      ctx.strokeStyle = '#405f3e'; ctx.lineWidth = 4; ctx.stroke(); ctx.strokeStyle = '#9ac37c'; ctx.lineWidth = 1.7; ctx.stroke();
+      if (!still && part.lit !== false) { const k = time * .45 % 1; circle(ctx, boss.x * (1 - k) + part.x * k, (boss.y + boss.r) * (1 - k) + part.y * k, 2.2, '#f6d5b0'); }
+    }
+    if (s.kind === 'briar') for (const patch of s.patches || []) {
+      if (patch.cut) continue;
+      const cluster = (state.buds || []).filter(part => part.group === patch.group && part.healing && (!part.bloomed || part.regrowAt));
+      if (!cluster.length) continue;
+      const x = cluster.reduce((sum, part) => sum + part.x, 0) / cluster.length, y = cluster.reduce((sum, part) => sum + part.y, 0) / cluster.length;
+      ctx.beginPath(); ctx.moveTo(boss.x, boss.y + boss.r * .6); ctx.bezierCurveTo(boss.x + (x - boss.x) * .2, boss.y + 48, x - 10, y - 20, x, y);
+      ctx.strokeStyle = '#43613b'; ctx.lineWidth = 4; ctx.stroke(); ctx.strokeStyle = '#a2c77c'; ctx.lineWidth = 1.6; ctx.stroke();
+      if (!still && Number(patch.healAt) - Number(s.age) < 2) { const k = time * .65 % 1; circle(ctx, x * (1 - k) + boss.x * k, y * (1 - k) + (boss.y + boss.r * .4) * k, 2.5, '#ffe4bb'); }
+    }
+    if (s.kind === 'lotus') for (const part of state.buds || []) if (part.bossPart === 'lantern' && part.visible !== false) {
+      ctx.beginPath(); ctx.moveTo(boss.x + boss.r * .55, boss.y + boss.r * .35); ctx.quadraticCurveTo(part.x - 14, part.y - 29, part.x, part.y - part.r);
+      ctx.strokeStyle = '#4a8064'; ctx.lineWidth = 3; ctx.stroke(); ctx.strokeStyle = '#bad99f'; ctx.lineWidth = 1.2; ctx.stroke();
+    }
+    if (s.kind === 'core' && s.mode === 'domed') {
+      const r = Math.max(boss.r + 8, Number(s.domeRadius) || boss.r * 1.55);
+      circle(ctx, boss.x, boss.y, r, '#9bdff51b', '#c6f6ff', 1.8);
+      ctx.beginPath(); ctx.arc(boss.x, boss.y, r - 5, -2.7, -1.8); ctx.strokeStyle = '#effcff'; ctx.lineWidth = 3; ctx.stroke();
+      // Only lit real satellite colliders sustain the dome: these lines never create extra targets.
+      for (const part of state.buds || []) if (part.bossPart === 'satellite' && part.lit !== false && !part.bloomed && part.visible !== false) {
+        ctx.beginPath(); ctx.moveTo(boss.x, boss.y); ctx.lineTo(part.x, part.y); ctx.strokeStyle = '#c1ecfb55'; ctx.lineWidth = 1; ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+  function drawBossDefense(ctx, bud, state, time, still) {
+    const s = state.bossState;
+    if (!s || s.kind !== bud.bossKind) return;
+    const r = Number(bud.r) || 26;
+    ctx.save(); ctx.translate(bud.x, bud.y); ctx.lineCap = 'round';
+    if (s.kind === 'fossil' && Number.isFinite(s.lockAngle)) {
+      const lockR = r + 12, gap = Math.acos(.25), angle = s.lockAngle;
+      ctx.rotate(angle); ctx.beginPath(); ctx.arc(0, 0, lockR, gap, TAU - gap); ctx.strokeStyle = '#f8ecd3'; ctx.lineWidth = 5; ctx.stroke();
+      ctx.strokeStyle = s.lockStage === 1 ? '#e6b452' : '#9b8b78'; ctx.lineWidth = 2.5; ctx.stroke();
+      for (const a of [gap, -gap]) { const x = Math.cos(a) * lockR, y = Math.sin(a) * lockR; circle(ctx, x, y, 3.2, s.lockStage === 1 ? '#fff3a2' : '#c9c1b3', '#7e7465', 1); }
+    }
+    if (s.kind === 'ember' && s.mode === 'flame') {
+      const k = still ? .5 : .5 + Math.sin(time * 5) * .16;
+      for (const side of [-1, 1]) {
+        ctx.beginPath(); ctx.moveTo(side * r * .8, r * .53); ctx.bezierCurveTo(side * r * 1.45, r * .04, side * r * 1.04, -r * .5, side * r * .9, -r * (1.3 + k * .12));
+        ctx.bezierCurveTo(side * r * .65, -r * .64, side * r * .65, -r * .3, side * r * .48, -r * .3); ctx.strokeStyle = '#fff7bc'; ctx.lineWidth = 4; ctx.stroke(); ctx.strokeStyle = '#ffb75a'; ctx.lineWidth = 2; ctx.stroke();
+      }
+    }
+    if (s.kind === 'briar' && s.mode === 'sealed') {
+      for (const side of [-1, 1]) { ctx.beginPath(); ctx.moveTo(side * r * 1.18, r); ctx.bezierCurveTo(side * r * 1.4, -r * .1, side * r * .76, -r * 1.38, 0, -r * 1.18); ctx.strokeStyle = '#40673f'; ctx.lineWidth = 4; ctx.stroke(); ctx.strokeStyle = '#a3c080'; ctx.lineWidth = 1.4; ctx.stroke(); }
+      for (let i = 0; i < 9; i++) { const a = i * TAU / 9, x = Math.cos(a) * r * 1.15, y = Math.sin(a) * r * 1.15; bossPolygon(ctx, [[x, y], [x + Math.cos(a) * 6, y + Math.sin(a) * 6], [x + Math.sin(a) * 3, y - Math.cos(a) * 3]], '#648549', '#dae3a5', .9); }
+    }
+    if (s.kind === 'core' && s.mode === 'domed') {
+      const dome = Math.max(r + 8, Number(s.domeRadius) || r * 1.55);
+      circle(ctx, 0, 0, dome, '#b8e9ff0d', '#c5efff', 1.6);
+      ctx.beginPath(); ctx.ellipse(0, 0, dome * .42, dome, -.27, -.5, 2.9); ctx.strokeStyle = '#d6faff66'; ctx.lineWidth = 1; ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 0, dome - 4, -2.7, -1.75); ctx.strokeStyle = '#f1fcff'; ctx.lineWidth = 2.4; ctx.stroke();
+    }
+    ctx.restore();
+  }
+  function bossFlowerEffect(bud, time) {
+    const effect = bud && bud.bossFlowerEffect;
+    if (!effect || !BOSS_LOOKS[effect.kind] || bud.bloomed || bud.hidden || bud.visible === false || bud.boss || bud.bossPart || bud.gift || bud.puff || bud.geode || bud.gem) return null;
+    return Number.isFinite(effect.at) && Number.isFinite(effect.until) && time >= effect.at && time < effect.until ? effect : null;
+  }
+  function paintFlowerEffectMark(c, kind) {
+    const look = BOSS_LOOKS[kind];
+    c.translate(12, 12); c.lineCap = 'round'; c.lineJoin = 'round';
+    circle(c, 0, 0, 9.3, '#fffaf0', look.dark, 1.15);
+    c.strokeStyle = look.ink; c.fillStyle = look.base; c.lineWidth = 1.4;
+    if (kind === 'sunny') {
+      circle(c, 0, 0, 2.7, '#ffd34c', look.dark, 1);
+      for (let i = 0; i < 8; i++) { const a = i * TAU / 8; c.beginPath(); c.moveTo(Math.cos(a) * 4.3, Math.sin(a) * 4.3); c.lineTo(Math.cos(a) * 6.3, Math.sin(a) * 6.3); c.stroke(); }
+    } else if (kind === 'root') {
+      for (const side of [-1, 1]) { c.beginPath(); c.moveTo(side * 6.3, -3); c.lineTo(side * 2.2, 0); c.lineTo(side * 6.3, 3); c.stroke(); }
+    } else if (kind === 'puff') {
+      c.beginPath(); c.moveTo(-5.8, .2); c.bezierCurveTo(-5.2, -7, 5.2, -7, 5.8, .2); c.closePath(); c.fill(); c.stroke();
+      c.beginPath(); c.moveTo(-1.8, 1); c.lineTo(-1.5, 5.5); c.lineTo(1.7, 5.5); c.lineTo(2, 1); c.stroke();
+      for (const [x, y] of [[-2.4, -1.8], [1.9, -2.7]]) circle(c, x, y, .9, '#fff6e2');
+    } else if (kind === 'crystal' || kind === 'geode') {
+      bossPolygon(c, [[0, -6.6], [5.4, -1.7], [3.2, 5], [-3.2, 5], [-5.4, -1.7]], look.light, look.ink, 1.1);
+      c.beginPath(); c.moveTo(0, -6.6); c.lineTo(1.8, -.8); c.lineTo(0, 5); c.lineTo(-1.8, -.8); c.closePath(); c.fillStyle = look.base; c.fill();
+      if (kind === 'geode') { c.beginPath(); c.moveTo(3.7, 3.7); c.lineTo(7.3, 3.7); c.moveTo(5.5, 1.9); c.lineTo(5.5, 5.5); c.stroke(); }
+    } else if (kind === 'lotus') {
+      c.strokeStyle = '#388b78'; c.beginPath(); c.moveTo(0, 5.5); c.lineTo(0, -5.2); c.moveTo(-3, -2.2); c.lineTo(0, -5.2); c.lineTo(3, -2.2); c.stroke();
+      leaf(c, -1, 4, 5.7, 2.7, -1.05, '#83cbb2', '#388b78'); leaf(c, 1, 4, 5.7, 2.7, 1.05, '#b2ddbd', '#388b78');
+    } else if (kind === 'fossil') {
+      c.beginPath(); c.arc(0, 0, 5.7, -.5, 4.8); c.arc(0, 0, 3.5, 4.8, .1, true); c.arc(.2, 0, 1.5, .1, 4.4); c.stroke();
+    } else if (kind === 'ember') {
+      c.beginPath(); c.moveTo(.1, -6.7); c.bezierCurveTo(1, -2.3, 6.1, -1.6, 4.5, 3.5); c.bezierCurveTo(2, 7.1, -5.9, 4.7, -4.5, .2); c.quadraticCurveTo(-1, 2, .1, -6.7); c.closePath(); c.fill(); c.stroke();
+      c.beginPath(); c.moveTo(0, -.1); c.quadraticCurveTo(3.1, 4, -.9, 4.8); c.strokeStyle = '#fff0ab'; c.stroke();
+    } else if (kind === 'briar') {
+      c.beginPath(); c.moveTo(-4.7, 5.6); c.bezierCurveTo(6.1, 5.2, -6.4, -4.3, 4.9, -5.6); c.stroke();
+      for (const [x, y, side] of [[-2.2, 2.4, -1], [.3, -1.3, 1], [2.5, -4.3, -1]]) bossPolygon(c, [[x, y], [x + side * 3.1, y - 2.4], [x + .8, y - 1.4]], '#71984d', look.ink, .7);
+    } else if (kind === 'core') {
+      sparkle(c, -2.8, -1.8, 4.3, '#b8a0e5', .1); sparkle(c, 3.5, 2.4, 4.3, '#ffd36a', .1);
+    }
+  }
+  function drawFlowerEffectMark(ctx, kind, x, y, size) {
+    if (!BOSS_LOOKS[kind]) return;
+    const sprite = stageSprite(`guardian:flower-mark:${kind}`, 24, 24, c => paintFlowerEffectMark(c, kind));
+    if (sprite) ctx.drawImage(sprite.surface, x - size / 2, y - size / 2, size, size);
+    else { ctx.save(); ctx.translate(x - size / 2, y - size / 2); ctx.scale(size / 24, size / 24); paintFlowerEffectMark(ctx, kind); ctx.restore(); }
+  }
+  function drawBossFlowerWarning(ctx, state, time, still) {
+    const warning = state.bossState && state.bossState.flowerWarning;
+    if (!warning || !BOSS_LOOKS[warning.kind] || !Number.isFinite(warning.at) || !Number.isFinite(warning.until) || time < warning.at || time >= warning.until) return;
+    const look = BOSS_LOOKS[warning.kind], span = Math.max(.1, Math.min(Number(root.BloomBosses && root.BloomBosses.telegraph) || 1.3, warning.until - warning.at));
+    const progress = clamp(1 - (warning.until - time) / span, 0, 1);
+    const buds = Array.isArray(state.buds) ? state.buds : [];
+    ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    for (const target of Array.isArray(warning.targets) ? warning.targets.slice(0, 4) : []) {
+      const bud = buds.find(item => item.id === target.id);
+      if (!bud || bud.bloomed || bud.hidden || bud.visible === false || bud.boss || bud.bossPart || bud.gift || !Number.isFinite(bud.x) || !Number.isFinite(bud.y)) continue;
+      const radius = Math.max(2, Number(bud.r) || 13) + 5;
+      ctx.setLineDash([3, 3]); circle(ctx, bud.x, bud.y, radius, null, '#fff8dc', 3.3); circle(ctx, bud.x, bud.y, radius, null, look.dark, 1.3); ctx.setLineDash([]);
+      if (!still) { ctx.beginPath(); ctx.arc(bud.x, bud.y, radius + 3, -Math.PI / 2, -Math.PI / 2 + TAU * progress); ctx.strokeStyle = look.base; ctx.lineWidth = 1.8; ctx.stroke(); }
+      drawFlowerEffectMark(ctx, warning.kind, bud.x + radius * .72, bud.y - radius * .72, 15);
+      if (warning.kind === 'core' && Number.isFinite(target.echoX) && Number.isFinite(target.echoY) && Number.isFinite(target.echoR)) {
+        const r = Math.max(2, target.echoR);
+        ctx.setLineDash([3, 3]); ctx.beginPath();
+        for (let i = 0; i < 8; i++) { const a = -Math.PI / 2 + i * TAU / 8, length = i % 2 ? r * .44 : r; const x = target.echoX + Math.cos(a) * length, y = target.echoY + Math.sin(a) * length; if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }
+        ctx.closePath(); ctx.strokeStyle = '#fff8dc'; ctx.lineWidth = 3.3; ctx.stroke(); ctx.strokeStyle = '#a780d0'; ctx.lineWidth = 1.3; ctx.stroke(); ctx.setLineDash([]);
+      }
+    }
+    ctx.restore();
+  }
+  function drawVeiledFlower(ctx, bud, radius, time, effect) {
+    const type = FLOWERS[bud.type] ? bud.type : 'coral';
+    ctx.save(); ctx.globalAlpha *= clamp(Number(effect.opacity) || .4, .25, .6);
+    drawFlower(ctx, bud.x, bud.y, radius, type, 0, time, flowerVariants.get(bud)); ctx.restore();
+    // The faded fill remains a real target: its original silhouette and circular hit boundary stay solid.
+    ctx.save(); ctx.translate(bud.x, bud.y); closedBudPath(ctx, radius, type);
+    ctx.strokeStyle = '#fff6e9'; ctx.lineWidth = 2.8; ctx.stroke(); ctx.strokeStyle = FLOWERS[type].dark; ctx.lineWidth = 1.1; ctx.stroke();
+    circle(ctx, 0, 0, radius + 2.4, null, '#fff7e9', 1.2); ctx.restore();
+  }
+  function drawBossFlowerAccent(ctx, bud, effect) {
+    // Real shell, armor-ring, briar and ignition renderers already show those physical modifiers.
+    if (!effect || !['sunny', 'root', 'crystal', 'lotus', 'core'].includes(effect.kind)) return;
+    const r = Number(bud.r) || 13;
+    drawFlowerEffectMark(ctx, effect.kind, bud.x + r + 4, bud.y - r - 3, 12);
+  }
+  function drawIgnitedBud(ctx, bud, state, time, still) {
+    const s = state.bossState, effect = bossFlowerEffect(bud, time);
+    const remaining = effect && effect.kind === 'ember' ? effect.until - time : s && s.kind === 'ember' ? Number(bud.bossFlameUntil) - Number(s.age) : 0;
+    if (bud.bloomed || !(remaining > 0)) return;
+    // Fire follows the actual warned escort. It adds no target, armor or collision geometry.
+    const sprite = stageSprite('guardian:ignited-escort', 38, 38, c => {
+      c.lineJoin = 'round';
+      for (const [x, y, size] of [[9, 20, 6], [19, 15, 8], [29, 21, 5.5]]) {
+        c.beginPath(); c.moveTo(x, y - size * 1.8); c.bezierCurveTo(x + size * .15, y - size * .7, x + size, y - size * .3, x + size * .64, y + size * .32);
+        c.quadraticCurveTo(x, y + size, x - size * .62, y + size * .3); c.bezierCurveTo(x - size, y - size * .36, x - size * .25, y - size * .7, x, y - size * 1.8);
+        c.fillStyle = '#ffa55f9c'; c.fill(); c.strokeStyle = '#ffe7a8'; c.lineWidth = 1.15; c.stroke();
+        c.beginPath(); c.moveTo(x, y - size * .3); c.quadraticCurveTo(x + size * .4, y + size * .7, x - size * .22, y + size * .35); c.strokeStyle = '#fff7c6'; c.lineWidth = 1.8; c.stroke();
+      }
+    });
+    if (!sprite) return;
+    const size = (Number(bud.r) || 13) / 13, breathe = still ? 1 : .96 + Math.sin(time * 4 + bud.x * .03) * .035;
+    ctx.save(); ctx.globalAlpha *= Math.min(1, remaining / .3) * .82;
+    ctx.translate(bud.x, bud.y - (Number(bud.r) || 13) * .25); ctx.scale(size * breathe, size);
+    ctx.drawImage(sprite.surface, -19, -26, 38, 38); ctx.restore();
+  }
+  function drawBossGestures(ctx, bud, time, still) {
+    const s = bossSceneFor(bud), kind = bud.bossKind, r = Number(bud.r) || 26;
+    if (!s || !['ember', 'geode', 'fossil'].includes(kind)) return;
+    ctx.save(); bossBodyPose(ctx, bud, time, still); ctx.translate(bud.x, bud.y); ctx.scale(r, r); ctx.lineCap = 'round';
+    if (kind === 'ember') {
+      const wind = s.warning && time < s.warning.until, snap = still ? .3 : s.mode === 'dive' ? .25 : wind ? .7 : .35 + Math.sin(time * 6) * .14;
+      for (const side of [-1, 1]) {
+        cArm(side, snap);
+        ctx.save(); ctx.translate(side * 1.21, .14); ctx.rotate(side * (.42 + snap));
+        bossBlade(ctx, 0, .23, .76, .29, -.26 - snap * .12, '#8ea65c', '#486e45');
+        bossBlade(ctx, 0, .23, .67, .25, .34 + snap * .24, '#c0d283', '#6c894f');
+        ctx.restore();
+      }
+    } else if (kind === 'geode') {
+      // Wheel spokes turn with the controller's movement clock; the plates remain separate live parts.
+      const spin = still ? 0 : Number(s.moveAge == null ? s.age : s.moveAge) * 2.4;
+      for (const side of [-1, 1]) { ctx.save(); ctx.translate(side * .77, 1.18); ctx.rotate(spin); for (let i = 0; i < 3; i++) { const a = i * TAU / 3; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(a) * .15, Math.sin(a) * .15); ctx.strokeStyle = '#e0d2c5'; ctx.lineWidth = .025; ctx.stroke(); } ctx.restore(); }
+      ctx.beginPath(); ctx.moveTo(-1.68, 1.44); ctx.lineTo(1.68, 1.44); ctx.strokeStyle = '#786c7f'; ctx.lineWidth = .08; ctx.stroke(); ctx.strokeStyle = '#d3c3d8'; ctx.lineWidth = .022; ctx.stroke();
+    } else if (s.mode === 'jet') {
+      const direction = Number.isFinite(s.jetFrom) && Number.isFinite(s.jetTo) && s.jetTo < s.jetFrom ? 1 : -1;
+      const puff = still ? .5 : (Number(s.age) || 0) * 4 % 1;
+      for (let i = 0; i < 4; i++) { ctx.globalAlpha *= .8; circle(ctx, direction * (1.02 + i * .22 + puff * .08), .48 + Math.sin(i * 1.4) * .12, .11 - i * .014, '#e9f6f188', '#c4e3d8', .017); }
+    }
+    ctx.restore();
+    function cArm(side, snap) { ctx.beginPath(); ctx.moveTo(side * .6, .14); ctx.quadraticCurveTo(side * .86, .42 - snap * .3, side * 1.21, .17); ctx.strokeStyle = '#718a4d'; ctx.lineWidth = .09; ctx.stroke(); ctx.strokeStyle = '#c3d98e'; ctx.lineWidth = .027; ctx.stroke(); }
+  }
+  function drawRootWall(ctx, wall) {
+    const length = Math.max(8, Number(wall.length) || 64);
+    ctx.save(); ctx.translate(wall.x, wall.y); ctx.rotate(Number(wall.angle) || 0); ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(-length / 2, 0); ctx.bezierCurveTo(-length * .18, -3, length * .17, 3, length / 2, 0);
+    ctx.strokeStyle = '#624b30'; ctx.lineWidth = 9; ctx.stroke(); ctx.strokeStyle = '#bd9660'; ctx.lineWidth = 4.5; ctx.stroke(); ctx.strokeStyle = '#e7c990'; ctx.lineWidth = 1.2; ctx.stroke();
+    for (let i = -2; i <= 2; i++) { const x = i * length / 6, side = i % 2 ? 1 : -1; ctx.beginPath(); ctx.moveTo(x, 0); ctx.quadraticCurveTo(x - 1, side * 7, x + 7, side * 10); ctx.strokeStyle = '#947348'; ctx.lineWidth = 3; ctx.stroke(); }
+    ctx.restore();
+  }
+  function drawBossWarning(ctx, state, time, still) {
+    const w = state.bossWarning || state.bossState && state.bossState.warning;
+    if (!w || !Number.isFinite(w.until) || !(time < w.until) || !Number.isFinite(w.x) || !Number.isFinite(w.y)) return;
+    const L = BOSS_LOOKS[w.kind] || BOSS_LOOKS.sunny, span = Math.max(.1, Math.min(Number(root.BloomBosses && root.BloomBosses.telegraph) || 1.3, w.until - (Number(w.at) || 0)));
+    const p = clamp(1 - (w.until - time) / span, 0, 1);
+    ctx.save(); ctx.lineCap = 'round';
+    for (const t of Array.isArray(w.targets) ? w.targets.slice(0, 12) : []) {
+      // Ordinary-flower tells have their own live-position marks, including Core copy destinations. Old Sunny's portal
+      // marks sit just above his sprout rings, and his kit draws an opening portal there as their tell.
+      if (t.effect || t.role === 'flower-effect' || t.role === 'portal' || !Number.isFinite(t.x) || !Number.isFinite(t.y)) continue;
+      const radius = Math.max(8, Number(t.r) || 14) + 7;
+      // A dashed footprint denotes an upcoming hazard, distinct from the seed's lock-on arrowheads.
+      ctx.setLineDash([4, 4]); circle(ctx, t.x, t.y, radius, null, '#fff6ce', 4); circle(ctx, t.x, t.y, radius, null, '#b55c67', 2); ctx.setLineDash([]);
+      if (!still) { ctx.beginPath(); ctx.arc(t.x, t.y, radius + 5, -Math.PI / 2, -Math.PI / 2 + TAU * p); ctx.strokeStyle = L.base; ctx.lineWidth = 2; ctx.stroke(); }
+    }
+    const text = String(w.text || 'A guardian is stirring'), tf = '600 12px Fredoka';
+    ctx.font = tf; const width = Math.min(310, Math.max(130, ctx.measureText(text).width + 28)), x = clamp(w.x, width / 2 + 10, 410 - width / 2), y = clamp(w.y + 61, 45, 395);
+    const sprite = stageSprite(`warning-rich:${w.kind}:${text}:${width}`, Math.ceil(width + 6), 32, c => {
+      roundRect(c, 3, 3, width, 26, 10); c.fillStyle = '#fff6df'; c.fill(); c.strokeStyle = L.dark; c.lineWidth = 1.5; c.stroke();
+      c.font = tf; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = L.ink; c.fillText(text, width / 2 + 3, 16, width - 18);
+    });
+    if (sprite) ctx.drawImage(sprite.surface, x - sprite.w / 2, y - 16, sprite.w, sprite.h);
+    else { roundRect(ctx, x - width / 2, y - 13, width, 26, 10); ctx.fillStyle = '#fff6df'; ctx.fill(); ctx.strokeStyle = L.dark; ctx.lineWidth = 1.5; ctx.stroke(); ctx.font = tf; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = L.ink; ctx.fillText(text, x, y, width - 18); }
+    ctx.restore();
+  }
+
+  // Legacy endless-mode bosses retain their leaves and crown. Campaign guardians use the atlas above.
   // Its mood follows its health: determined brows and gritted teeth at half, then sweat and a shiver near the end.
   function bossMood(bud) {
     const max = Math.max(1, Number(bud.maxHp) || 1), health = clamp((Number(bud.hp) || 0) / max, 0, 1);
@@ -1740,7 +2357,12 @@
   }
   function drawBossLeaves(ctx, bud, time, still) {
     const r = Number(bud.r) || 24, sway = still ? 0 : Math.sin(time * 1.6) * .06;
-    ctx.save(); bossWobble(ctx, bud, time, still);
+    ctx.save(); bossBodyPose(ctx, bud, time, still); bossWobble(ctx, bud, time, still);
+    if (bossLook(bud)) {
+      ctx.translate(bud.x, bud.y); const sprite = bossPart(bud, true);
+      if (sprite) blit(ctx, sprite); else paintBossPart(ctx, bud.bossKind, r, true);
+      ctx.restore(); return;
+    }
     for (const side of [-1, 1]) {
       ctx.save(); ctx.translate(bud.x + side * r * .35, bud.y + r * .55); ctx.rotate(side * (1.05 + sway));
       ctx.beginPath(); ctx.moveTo(0, 0); ctx.bezierCurveTo(-r * .45, -r * .35, -r * .35, -r * 1.05, 0, -r * 1.25); ctx.bezierCurveTo(r * .38, -r * 1.02, r * .45, -r * .35, 0, 0);
@@ -1752,21 +2374,46 @@
   }
   function drawBossFace(ctx, bud, time, still) {
     const r = Number(bud.r) || 24, blink = still ? 1 : (time % 3.4 < .12 ? .15 : 1), hurt = Boolean(bud.bloomed) || (typeof bud.hitAt === 'number' && time - bud.hitAt < .3);
-    const mood = bossMood(bud), ink = '#4a2340';
-    ctx.save(); bossWobble(ctx, bud, time, still); ctx.translate(bud.x, bud.y + r * .12);
+    const mood = bossMood(bud), look = bossLook(bud), kind = bud.bossKind, ink = look ? look.ink : '#4a2340', scene = bossSceneFor(bud);
+    const sleeping = kind === 'sunny' && scene && scene.mode === 'sleeping';
+    const gentle = kind === 'lotus' || kind === 'fossil' || kind === 'puff', fierce = kind === 'ember' || kind === 'briar', wide = kind === 'geode';
+    ctx.save(); bossBodyPose(ctx, bud, time, still); bossWobble(ctx, bud, time, still); ctx.translate(bud.x + r * (look && look.faceX || 0), bud.y + r * (look && look.faceY != null ? look.faceY : .12));
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     for (const side of [-1, 1]) {
+      if (sleeping) {
+        ctx.beginPath(); ctx.moveTo(side * r * .1, 0); ctx.quadraticCurveTo(side * r * .26, r * .11, side * r * .43, 0); ctx.strokeStyle = ink; ctx.lineWidth = 1.8; ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(side * r * .12, -r * .15); ctx.quadraticCurveTo(side * r * .26, -r * .24, side * r * .45, -r * .12); ctx.strokeStyle = '#fff0be'; ctx.lineWidth = 3; ctx.stroke();
+        continue;
+      }
       // Eyes narrow once it means business; a hit squeezes them shut.
       ctx.save(); ctx.translate(side * r * .26, 0); ctx.scale(1, hurt ? .2 : blink * (mood.determined ? .82 : 1));
-      ctx.beginPath(); ctx.ellipse(0, 0, r * .13, r * .17, 0, 0, TAU); ctx.fillStyle = '#ffffff'; ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = 1.2; ctx.stroke();
-      circle(ctx, side * -r * .02, r * .03, r * .075, '#2d1630'); circle(ctx, side * -r * .04, -r * .03, r * .028, '#ffffff');
+      ctx.beginPath(); ctx.ellipse(0, 0, r * (wide ? .17 : gentle ? .12 : .13), r * (gentle ? .13 : fierce ? .14 : .17), fierce ? side * -.2 : 0, 0, TAU); ctx.fillStyle = '#ffffff'; ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = 1.2; ctx.stroke();
+      circle(ctx, side * -r * .02, r * .03, r * .075, look ? look.eye : '#2d1630'); circle(ctx, side * -r * .04, -r * .03, r * .028, '#ffffff');
+      if (kind === 'crystal' || kind === 'core') sparkle(ctx, 0, r * .02, r * .032, '#ffffff', .25);
       ctx.restore();
       ctx.beginPath();
       if (mood.determined) { ctx.moveTo(side * r * .43, -r * .31); ctx.lineTo(side * r * .1, -r * .13); ctx.lineWidth = 2.5; }
       else { ctx.moveTo(side * r * .4, -r * .26); ctx.lineTo(side * r * .14, -r * .18); ctx.lineWidth = 1.6; }
       ctx.strokeStyle = ink; ctx.stroke();
+      if (look && gentle) { ctx.beginPath(); ctx.moveTo(side * r * .42, -r * .21); ctx.quadraticCurveTo(side * r * .27, -r * .38, side * r * .12, -r * .21); ctx.strokeStyle = kind === 'fossil' ? '#f9edce' : ink; ctx.lineWidth = kind === 'fossil' ? 3 : 1.5; ctx.stroke(); }
+      if (kind === 'lotus' || kind === 'briar') { for (let i = 0; i < 2; i++) { ctx.beginPath(); ctx.moveTo(side * r * (.38 + i * .035), -r * .045); ctx.lineTo(side * r * (.45 + i * .05), -r * (.12 + i * .035)); ctx.strokeStyle = ink; ctx.lineWidth = 1.4; ctx.stroke(); } }
     }
-    if (mood.determined && !hurt) {
+    if (look) {
+      for (const side of [-1, 1]) { ctx.beginPath(); ctx.ellipse(side * r * .45, r * .2, r * .11, r * .055, side * -.25, 0, TAU); ctx.fillStyle = kind === 'crystal' || kind === 'core' ? '#9fe0d7' : '#e6a28e'; ctx.globalAlpha *= .7; ctx.fill(); ctx.globalAlpha /= .7; }
+      if (kind === 'fossil') {
+        circle(ctx, r * .26, 0, r * .21, '#d6e9f515', '#b2955f', 1.6);
+        ctx.beginPath(); ctx.moveTo(r * .43, r * .11); ctx.bezierCurveTo(r * .74, r * .26, r * .58, r * .6, r * .77, r * .7); ctx.strokeStyle = '#b2955f'; ctx.lineWidth = 1; ctx.stroke();
+      }
+      if (kind === 'sunny') for (const side of [-1, 1]) {
+        ctx.beginPath(); ctx.moveTo(side * r * .42, -r * .3); ctx.quadraticCurveTo(side * r * .25, -r * .36, side * r * .11, -r * .22); ctx.strokeStyle = '#fff2c7'; ctx.lineWidth = 3; ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(side * r * .31, r * .3); ctx.lineTo(side * r * .51, r * .36); ctx.strokeStyle = '#9d702b'; ctx.lineWidth = .8; ctx.stroke();
+      }
+      if (kind === 'root') { ctx.beginPath(); ctx.ellipse(0, r * .17, r * .095, r * .13, 0, 0, TAU); ctx.fillStyle = '#98754c'; ctx.fill(); ctx.strokeStyle = '#715334'; ctx.lineWidth = 1; ctx.stroke(); }
+      if (kind === 'geode' || kind === 'crystal') bossPolygon(ctx, [[0, -r * .44], [r * .09, -r * .33], [0, -r * .22], [-r * .09, -r * .33]], look.light, look.dark, 1);
+    }
+    if (sleeping) {
+      ctx.beginPath(); ctx.ellipse(0, r * .34, r * .08, r * .11, 0, 0, TAU); ctx.fillStyle = '#815b32'; ctx.fill(); ctx.strokeStyle = '#f5c984'; ctx.lineWidth = 1; ctx.stroke();
+    } else if (mood.determined && !hurt) {
       // Gritted teeth: a little white bar with two tooth lines.
       const w = r * .36, h = r * .15, y = r * .26;
       roundRect(ctx, -w / 2, y, w, h, h * .45); ctx.fillStyle = '#ffffff'; ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = 1.3; ctx.stroke();
@@ -1794,15 +2441,17 @@
     ctx.restore();
   }
   function drawBossRing(ctx, bud) {
+    if (bossLook(bud)) return;
     const r = (Number(bud.r) || 24) + (bud.shell ? 11 : 7), hp = Math.max(0, Number(bud.hp) || 0), max = Math.max(1, Number(bud.maxHp) || 1), gap = .09;
     ctx.save(); ctx.lineCap = 'round';
     if (bossTilt.bud === bud && bossTilt.angle) { ctx.translate(bud.x, bud.y); ctx.rotate(bossTilt.angle); ctx.translate(-bud.x, -bud.y); }
     for (let i = 0; i < max; i++) {
       const a0 = -Math.PI / 2 + i * TAU / max + gap / 2, a1 = a0 + TAU / max - gap;
       ctx.beginPath(); ctx.arc(bud.x, bud.y, r, a0, a1); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 5.4; ctx.stroke();
-      ctx.beginPath(); ctx.arc(bud.x, bud.y, r, a0, a1); ctx.strokeStyle = i < hp ? (FLOWERS[bud.type] || FLOWERS.coral).dark : 'rgba(120,120,140,.35)'; ctx.lineWidth = 3; ctx.stroke();
+      ctx.beginPath(); ctx.arc(bud.x, bud.y, r, a0, a1); ctx.strokeStyle = i < hp ? (bossLook(bud) || FLOWERS[bud.type] || FLOWERS.coral).dark : 'rgba(120,120,140,.35)'; ctx.lineWidth = 3; ctx.stroke();
     }
-    drawBossCrown(ctx, bud.x, bud.y - (Number(bud.r) || 24) - 14);
+    // The rich silhouettes carry their own flower crown, tiara or cart crest.
+    if (!bossLook(bud)) drawBossEmblem(ctx, bud, bud.x, bud.y - (Number(bud.r) || 24) - 14);
     ctx.restore();
   }
   function drawBossCrown(ctx, x, crownY) {
@@ -1810,6 +2459,17 @@
     ctx.lineTo(x + 5, crownY + 1); ctx.lineTo(x + 12, crownY - 4); ctx.lineTo(x + 10, crownY + 6); ctx.closePath();
     ctx.fillStyle = '#ffd64f'; ctx.fill(); ctx.strokeStyle = '#a8701f'; ctx.lineWidth = 1.4; ctx.lineJoin = 'round'; ctx.stroke();
     circle(ctx, x, crownY + 1.5, 1.8, '#ef5a7d');
+  }
+  function drawBossEmblem(ctx, bud, x, y) {
+    const L = bossLook(bud);
+    if (!L || bud.bossKind === 'sunny' || bud.bossKind === 'geode') { drawBossCrown(ctx, x, y); return; }
+    ctx.save(); ctx.translate(x, y);
+    if (bud.bossKind === 'core') sparkle(ctx, 0, 0, 8, '#f8ffd7', .2);
+    else if (bud.bossKind === 'crystal') bossPolygon(ctx, [[0, -8], [5, 0], [0, 6], [-5, 0]], L.light, L.dark, 1.2);
+    else if (bud.bossKind === 'puff') { circle(ctx, 0, 0, 4.7, '#ffe3b6', L.dark, 1.2); circle(ctx, -1, -1, 1.4, '#ffffff'); }
+    else if (bud.bossKind === 'fossil') { ctx.beginPath(); ctx.arc(0, 0, 5, .2, TAU); ctx.arc(0, 0, 2.4, TAU, .3, true); ctx.strokeStyle = L.dark; ctx.lineWidth = 1.5; ctx.stroke(); }
+    else { ctx.scale(9, 9); bossBlade(ctx, 0, .3, 1.05, .35, -.2, bud.bossKind === 'ember' ? L.light : L.leaf, L.dark); }
+    ctx.restore();
   }
   // The boss's last hit is the level's hero frame, so it never turns into a white disc: through the crack (the
   // first .125 s of its bloom, held by the hit-stop and the slow motion) its leaves stay behind it and its face
@@ -1822,7 +2482,7 @@
   function drawBossCrownFlying(ctx, bud, age) {
     const r = Number(bud.r) || 24, k = clamp(age / .125, 0, 1), side = (Number(bud.impactAngle) || 0) > -Math.PI / 2 ? -1 : 1;
     ctx.save(); ctx.translate(bud.x + side * k * r * .7, bud.y - r - 14 - ease(k) * r * .9); ctx.rotate(side * k * .9);
-    drawBossCrown(ctx, 0, 0); ctx.restore();
+    drawBossEmblem(ctx, bud, 0, 0); ctx.restore();
   }
 
   // A fossil shell turns around its bud. Shots only get in through the open side, so the gap is drawn wide and
@@ -1832,7 +2492,7 @@
     ctx.beginPath(); ctx.arc(0, 0, r + 2.7, open, TAU - open); ctx.arc(0, 0, r - 2.7, TAU - open, open, true); ctx.closePath();
   }
   function drawShell(ctx, bud) {
-    const r = (Number(bud.r) || 11) + 4.6, a = Number(bud.shellAngle) || 0, open = SHELL_OPEN;
+    const r = (Number(bud.r) || 11) + 4.6, a = Number(bud.shellAngle) || 0, open = bud.boss && bud.bossKind === 'fossil' ? Math.acos(.25) : SHELL_OPEN;
     ctx.save(); ctx.translate(bud.x, bud.y); ctx.rotate(a);
     shellPath(ctx, r, open); ctx.fillStyle = '#ecd8ab'; ctx.fill();
     ctx.save(); ctx.clip();
@@ -1912,13 +2572,63 @@
     sparkle(ctx, -r * .34, -r * .52, 2.6, '#ffffff', .3);
     ctx.restore();
   }
-  // How much of a spent flower still shows: it fades as it sinks to the danger line once it has finished opening,
-  // gone 26 px past it (and the tutorial fades a step's flowers out with bud.fade).
-  function sinkAlpha(bud, time, line, still) {
+  // Spent flowers on the falling board fade away, so the board shows only what still needs a seed. A flower holds
+  // through its whole bloom (flash, unfurl and ring are over by .85 s), then fades over the .55 s it took to open, in
+  // game time, so a hit-stop and the finale's slow motion hold it too (a Lullaby only stops the falling, so spent
+  // flowers still fade during one). A bloomed briar whose patch can still grow back is not spent: it keeps its
+  // countdown ring at full strength and counts from the last frame its clock held it, so a patch that blooms for good
+  // fades together, after its vine has withered. Once nothing is left to shoot (a boss has bloomed, the wave is clear,
+  // the level is won) flowers still in full bloom stay for the sweep, the harvest and the result, and ones already
+  // fading finish. When a level is won every spent flower comes back from bud.backAt, which the app sets: as the
+  // finale's gold light reaches it, or all together at the win when there is no light (Animations off, or a win with
+  // no final bloom), so the whole garden is there for the celebration and the result. The boss and its parts, the calm
+  // boards and the scripted tutorial (which clears each step itself with bud.fade) keep their flowers. Seeds already
+  // pass through bloomed flowers, so none of this touches play.
+  const SPENT_HOLD = .85, SPENT_FADE = .55, GLOW_BACK = .3, spentHeld = new WeakMap(), spentStops = new WeakMap();
+  let spentOn = false, spentWon = false, spentStop = Infinity;
+  // Since when a board has had nothing left to shoot, set the first time a frame or the app sees it so, so both agree.
+  function clearedAt(state, time) {
+    if (!(state.bossDown || state.nextWaveAt != null || state.status === 'won')) { spentStops.delete(state); return Infinity; }
+    if (!spentStops.has(state)) spentStops.set(state, time);
+    return spentStops.get(state);
+  }
+  // Once a frame, before the briar vines (the first reader): whether this board fades its flowers, and since when.
+  function findSpent(state, time) {
+    spentOn = state.mode === 'rush' && !state.scripted;
+    spentWon = spentOn && state.status === 'won';
+    spentStop = spentOn ? clearedAt(state, time) : Infinity;
+  }
+  // How long a bloomed flower has been spent at `time`: -Infinity for one that never fades or whose clock still runs.
+  function spentAge(bud, time) {
+    if (bud.boss || bud.bossPart || bud.briar && bud.regrowAt || typeof bud.bloomAt !== 'number') return -Infinity;
+    const held = spentHeld.get(bud);
+    return time - (held > bud.bloomAt ? held : bud.bloomAt);
+  }
+  // lit: as the finale's light sees it, which counts a flower it is bringing back as already back.
+  function spentAlpha(bud, time, lit) {
+    if (!spentOn) return 1;
+    if (bud.briar && bud.regrowAt) { spentHeld.set(bud, time); return 1; }
+    const age = spentAge(bud, time);
+    if (age <= SPENT_HOLD || spentStop - time + age <= SPENT_HOLD) return 1;
+    const left = 1 - smooth((age - SPENT_HOLD) / SPENT_FADE);
+    if (!spentWon || !(time >= bud.backAt)) return left;
+    return lit ? 1 : Math.max(left, smooth((time - bud.backAt) / GLOW_BACK));
+  }
+  // For the app: whether a bloomed flower has begun to fade (or is gone), so the harvest's orbs and the sweep's light
+  // and notes start only from flowers still in full bloom.
+  function spentFlower(state, bud) {
+    if (!state || !bud || !bud.bloomed || state.mode !== 'rush' || state.scripted) return false;
+    const time = Number(state.time) || 0;
+    return spentAge(bud, Math.min(time, clearedAt(state, time))) > SPENT_HOLD;
+  }
+  // How much of a bloomed flower still shows: it fades once spent (above), and as it sinks to the danger line once it
+  // has finished opening, gone 26 px past it (and the tutorial fades a step's flowers out with bud.fade).
+  function sinkAlpha(bud, time, line, still, lit) {
     let sink = 1;
     if (bud.bloomed && line < Infinity) {
       const over = bud.y + (bud.r || 16) - (line - 8), age = typeof bud.bloomAt === 'number' ? time - bud.bloomAt : Infinity;
       if (over > 0) sink = 1 - clamp(over / 26, 0, 1) * (still ? 1 : clamp((age - UNFURL) / .25, 0, 1));
+      sink *= spentAlpha(bud, time, lit);
     }
     if (typeof bud.fade === 'number') sink *= clamp(bud.fade, 0, 1);
     return Math.max(0, sink);
@@ -1999,7 +2709,7 @@
     const pairKey = gate => [String(gate.id), String(gate.pair)].sort().join('|');
     const pairs = Array.from(new Set(gates.filter(Boolean).map(pairKey))).sort();
     gates.forEach(gate => {
-      if (!gate || !Number.isFinite(gate.x) || !Number.isFinite(gate.y)) return;
+      if (!gate || gate.kitDrawn || !Number.isFinite(gate.x) || !Number.isFinite(gate.y)) return; // a kit's moon gate draws itself (foe-art.js)
       const r = clamp(Number(gate.r) || 17, 8, 40), index = Math.max(0, pairs.indexOf(pairKey(gate))), exit = /-out$/.test(String(gate.id));
       ctx.save(); ctx.translate(gate.x, gate.y);
       circle(ctx, 1.5, 2.5, r + 5.5, 'rgba(20,10,20,.28)');
@@ -2047,6 +2757,15 @@
   }
 
   // hollow: the pod is empty, so the line is drawn as open rings (like the refill ring) until a seed is in the cup.
+  // The first `length` px of an aim path (to its first gate hop), with no target: the aim guide napping (spec 1.9).
+  function nappedAim(points, length) {
+    const out = [{ x: points[0].x, y: points[0].y }];
+    for (let i = 1, rest = length; i < points.length && rest > 0 && !points[i].move; i++) {
+      const a = points[i - 1], b = points[i], len = Math.hypot(b.x - a.x, b.y - a.y), k = len ? Math.min(1, rest / len) : 0;
+      out.push({ x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k }); rest -= len;
+    }
+    return out;
+  }
   function drawAim(ctx, points, colors, time, type, reducedMotion, hollow) {
     if (!Array.isArray(points) || points.length < 2) return;
     ctx.save(); ctx.lineCap = 'round';
@@ -2162,7 +2881,7 @@
     const pairKey = gate => [String(gate.id), String(gate.pair)].sort().join('|');
     const pairs = Array.from(new Set(gates.filter(Boolean).map(pairKey))).sort();
     gates.forEach(gate => {
-      if (!gate || !Number.isFinite(gate.x) || !Number.isFinite(gate.y)) return;
+      if (!gate || gate.kitDrawn || !Number.isFinite(gate.x) || !Number.isFinite(gate.y)) return; // a kit's moon gate draws itself (foe-art.js)
       const r = clamp(Number(gate.r) || 18, 8, 40), violet = String(gate.id) > String(gate.pair);
       const index = pairs.indexOf(pairKey(gate)), color = violet ? '#cea8ff' : '#94fff0';
       const key = r.toFixed(2) + ':' + violet;
@@ -2216,9 +2935,7 @@
     });
   }
 
-  function drawSeed(ctx, x, y, r, time, flying, style) {
-    const look = style && style.seed;
-    ctx.save(); ctx.translate(x, y); ctx.rotate(flying ? time * 2.5 : -.35);
+  function paintRestingSeed(ctx, r, look) {
     ctx.shadowColor = look ? look.base + '88' : 'rgba(132,106,43,.23)'; ctx.shadowBlur = look ? 12 : 9; ctx.shadowOffsetY = 2;
     const seed = ctx.createRadialGradient(-r * .3, -r * .4, .2, 0, 0, r * 1.2);
     seed.addColorStop(0, look ? look.core : '#fffef1'); seed.addColorStop(.6, look ? look.light : '#f2dda0'); seed.addColorStop(1, look ? look.base : '#c8a465');
@@ -2226,6 +2943,17 @@
     ctx.shadowColor = 'transparent'; ctx.lineWidth = .8; ctx.strokeStyle = look ? look.rim : '#af925c'; ctx.stroke();
     ctx.beginPath(); ctx.moveTo(-r * .21, -r * .65); ctx.quadraticCurveTo(-r * .3, -r * .02, r * .19, r * .59);
     ctx.lineWidth = .7; ctx.strokeStyle = 'rgba(158,118,48,.40)'; ctx.stroke();
+  }
+  function restingSeedSprite(r, look) {
+    const edge = r + 14, key = `resting-seed:${look ? [look.core, look.light, look.base, look.rim].join(':') : 'plain'}:${r}`;
+    return atlasSprite(key, -edge, -edge, edge, edge, c => paintRestingSeed(c, r, look));
+  }
+  function drawSeed(ctx, x, y, r, time, flying, style, nominalRadius = r) {
+    const look = style && style.seed, size = Number(nominalRadius) > 0 ? nominalRadius : r;
+    const sprite = restingSeedSprite(size, look);
+    ctx.save(); ctx.translate(x, y); ctx.rotate(flying ? time * 2.5 : -.35);
+    if (sprite) { const scale = r / size; ctx.scale(scale, scale); blit(ctx, sprite); }
+    else paintRestingSeed(ctx, r, look);
     ctx.restore();
   }
 
@@ -2358,6 +3086,120 @@
       ctx.fillStyle = a.grass[i % 3]; ctx.globalAlpha = .9; ctx.fill();
     }
     ctx.restore();
+  }
+
+  // Full-viewport scene life: tiny visitors, never interactive pieces. Each sprite is cached once;
+  // motion only composites it in the calm outer edges chosen by scenery.js's deterministic schedule.
+  const lifeAtlas = new Map();
+  function paintLifeCritter(c, kind, part) {
+    c.lineCap = 'round'; c.lineJoin = 'round';
+    const wing = part === 'wing';
+    if (['butterfly', 'moth', 'bee', 'firefly', 'glowworm', 'bat'].includes(kind) && wing) {
+      if (kind === 'bat') {
+        c.beginPath(); c.moveTo(0, -1); c.quadraticCurveTo(5, -11, 16, -8); c.quadraticCurveTo(12, -3, 17, 3); c.quadraticCurveTo(10, 0, 7, 5); c.quadraticCurveTo(4, 1, 0, 4); c.closePath(); c.fillStyle = '#696190'; c.fill(); c.strokeStyle = '#bab0d5'; c.lineWidth = .7; c.stroke();
+        c.beginPath(); c.moveTo(2, 0); c.lineTo(12, -6); c.moveTo(3, 1); c.lineTo(13, 1); c.strokeStyle = '#938ab2'; c.lineWidth = .55; c.stroke();
+      } else if (kind === 'butterfly' || kind === 'moth') {
+        const butterfly = kind === 'butterfly';
+        c.beginPath(); c.ellipse(7, -4, 8, 6.4, -.48, 0, TAU); c.fillStyle = butterfly ? '#f7a7b4' : '#c7b4dc'; c.fill(); c.strokeStyle = butterfly ? '#c97d94' : '#9184a9'; c.lineWidth = .65; c.stroke();
+        c.beginPath(); c.ellipse(5, 4, 5.3, 4.4, .4, 0, TAU); c.fillStyle = butterfly ? '#f5d391' : '#afcad4'; c.fill(); c.strokeStyle = '#bda1ac'; c.lineWidth = .65; c.stroke();
+        circle(c, 8, -5, 2.5, '#fff1d8'); circle(c, 8, -5, 1.3, butterfly ? '#d4869b' : '#8f9bb7');
+        c.beginPath(); c.moveTo(1, -.5); c.quadraticCurveTo(6, -4, 11, -8); c.strokeStyle = '#f7e1d4'; c.lineWidth = .6; c.stroke();
+      } else { c.beginPath(); c.ellipse(5, -4, 6, 3.4, -.5, 0, TAU); c.fillStyle = '#d5e8e2bd'; c.fill(); c.strokeStyle = '#a1c3c5'; c.lineWidth = .5; c.stroke(); }
+      return;
+    }
+    if (['butterfly', 'moth', 'bee', 'firefly', 'glowworm', 'bat'].includes(kind)) {
+      if (kind === 'bat') {
+        c.beginPath(); c.ellipse(0, 1, 3.6, 5.5, 0, 0, TAU); c.fillStyle = '#756680'; c.fill(); c.strokeStyle = '#bdadbf'; c.lineWidth = .6; c.stroke();
+        for (const side of [-1, 1]) { c.beginPath(); c.moveTo(side * 1.2, -3); c.lineTo(side * 3.4, -7); c.lineTo(side * 3, -.9); c.fillStyle = '#948297'; c.fill(); }
+        circle(c, -1.4, -.4, .6, '#f8e7cb'); circle(c, 1.4, -.4, .6, '#f8e7cb'); circle(c, 0, 1.3, .55, '#c78d9a');
+      } else if (kind === 'bee') {
+        c.beginPath(); c.ellipse(0, 1, 4.1, 6.4, -.12, 0, TAU); c.fillStyle = '#eac363'; c.fill(); c.strokeStyle = '#aa9160'; c.lineWidth = .65; c.stroke();
+        for (const y of [-1, 3]) { c.beginPath(); c.moveTo(-3.5, y); c.quadraticCurveTo(0, y + 1.1, 3.5, y); c.strokeStyle = '#796353'; c.lineWidth = 1.6; c.stroke(); }
+        circle(c, 0, -4.3, 2.4, '#8c7962'); circle(c, -1, -4.5, .55, '#fff3d7'); circle(c, 1, -4.5, .55, '#fff3d7');
+      } else {
+        c.beginPath(); c.ellipse(0, 0, kind === 'butterfly' || kind === 'moth' ? 1.5 : 2.7, kind === 'butterfly' || kind === 'moth' ? 6 : 4.8, 0, 0, TAU); c.fillStyle = kind === 'firefly' || kind === 'glowworm' ? '#88b49a' : '#79697b'; c.fill();
+        circle(c, 0, -4.3, 1.7, '#8c7781');
+        if (kind === 'firefly' || kind === 'glowworm') { const g = c.createRadialGradient(0, 4, .2, 0, 4, 8); g.addColorStop(0, '#fff8b7a0'); g.addColorStop(.3, '#eadf9170'); g.addColorStop(1, '#e7e69b00'); circle(c, 0, 4, 8, g); circle(c, 0, 4, 2, '#edf2ae'); }
+      }
+      c.beginPath(); c.moveTo(-.9, -5); c.quadraticCurveTo(-3.1, -7, -3, -8); c.moveTo(.9, -5); c.quadraticCurveTo(3.1, -7, 3, -8); c.strokeStyle = '#ad939f'; c.lineWidth = .6; c.stroke();
+    } else if (kind === 'worm') {
+      c.beginPath(); c.moveTo(-12, 4); c.bezierCurveTo(-6, 6, -10, -2, -4, 0); c.bezierCurveTo(0, 4, 1, -3, 7, -1); c.strokeStyle = '#bd837d'; c.lineWidth = 5; c.stroke(); c.strokeStyle = '#edb7a4'; c.lineWidth = 2.2; c.stroke();
+      for (let i = 0; i < 5; i++) { c.beginPath(); c.moveTo(-9 + i * 3, i % 2 ? 1 : 3); c.lineTo(-8.4 + i * 3, i % 2 ? 3 : 4.6); c.strokeStyle = '#c99184'; c.lineWidth = .55; c.stroke(); }
+      circle(c, 7, -1.1, 3, '#edb8a1', '#bd8d84', .55); circle(c, 7.8, -1.8, .55, '#735b60'); circle(c, 9, -.6, .4, '#ce988a');
+    } else if (kind === 'snail') {
+      c.beginPath(); c.moveTo(-10, 6); c.quadraticCurveTo(-1, 1, 8, 5); c.quadraticCurveTo(13, 3, 11, -1); c.strokeStyle = '#799d86'; c.lineWidth = 5.6; c.stroke(); c.strokeStyle = '#b9d3a8'; c.lineWidth = 1.8; c.stroke();
+      circle(c, -2, .4, 7.2, '#d7b49b', '#947989', .75); c.beginPath(); for (let i = 0; i < 30; i++) { const a = i * .24, rad = 5.7 * (1 - i / 34); c.lineTo(-2 + Math.cos(a) * rad, .4 + Math.sin(a) * rad); } c.strokeStyle = '#ad8a89'; c.lineWidth = .9; c.stroke();
+      for (const x of [8, 11]) { c.beginPath(); c.moveTo(x, 3); c.lineTo(x + 1, -3); c.strokeStyle = '#779785'; c.lineWidth = .7; c.stroke(); circle(c, x + 1, -3, .65, '#e5e5c1', '#71897f', .5); }
+    } else if (kind === 'beetle') {
+      for (const side of [-1, 1]) for (let i = 0; i < 3; i++) { c.beginPath(); c.moveTo(side * 3, -3 + i * 3); c.lineTo(side * 7.8, -4 + i * 3); c.strokeStyle = '#876a57'; c.lineWidth = .65; c.stroke(); }
+      c.beginPath(); c.ellipse(0, 1.6, 4.5, 6.2, .05, 0, TAU); c.fillStyle = '#b98862'; c.fill(); c.strokeStyle = '#7f6957'; c.lineWidth = .65; c.stroke();
+      c.beginPath(); c.moveTo(0, -3.8); c.lineTo(0, 7.3); c.strokeStyle = '#dcc394'; c.lineWidth = .85; c.stroke(); circle(c, -.8, -3.7, 2.5, '#9a7d60'); circle(c, -1.6, -4.2, .55, '#f7ddad'); circle(c, .7, -4.2, .55, '#f7ddad');
+    } else if (kind === 'minnow') {
+      if (part === 'tail') { c.beginPath(); c.moveTo(-7, 0); c.lineTo(-14, -4.3); c.quadraticCurveTo(-11, 0, -14, 4.3); c.closePath(); c.fillStyle = '#a4ced4'; c.fill(); c.strokeStyle = '#83b4bd'; c.lineWidth = .65; c.stroke(); return; }
+      c.beginPath(); c.ellipse(0, 0, 9.8, 3.7, 0, 0, TAU); c.fillStyle = '#c3dce4'; c.fill(); c.strokeStyle = '#94bdcb'; c.lineWidth = .55; c.stroke();
+      c.beginPath(); c.moveTo(-5, -2); c.quadraticCurveTo(0, -6, 3, -2.7); c.fillStyle = '#e2e5ed'; c.fill(); circle(c, 6.5, -.7, .8, '#5b7d8a'); circle(c, 6.3, -.9, .22, '#ffffff');
+    } else if (['gopher', 'mouse', 'gecko', 'salamander', 'seed-sprite'].includes(kind)) {
+      const colors = kind === 'gopher' ? ['#cbb199', '#9c8372', '#e8d3b8'] : kind === 'mouse' ? ['#b7b1aa', '#827c80', '#e5d5bf'] : kind === 'gecko' ? ['#c5b890', '#96836b', '#e5dbb6'] : kind === 'salamander' ? ['#dc9a79', '#a47677', '#f2d5a4'] : ['#d9c786', '#a49b6e', '#edf0b6'];
+      if (part === 'tail') { c.beginPath(); c.moveTo(-6, 3); c.bezierCurveTo(-13, 7, -18, 0, -16, -4); c.strokeStyle = colors[1]; c.lineWidth = 4; c.stroke(); c.strokeStyle = colors[0]; c.lineWidth = 2.7; c.stroke(); return; }
+      if (kind === 'mouse' || kind === 'gopher') for (const side of [-1, 1]) { circle(c, side * 6, -5.2, kind === 'mouse' ? 4.6 : 3.5, colors[0], colors[1], .6); circle(c, side * 6.1, -5.3, kind === 'mouse' ? 2.9 : 1.9, '#d9bab1'); }
+      c.beginPath(); c.ellipse(0, 1, kind === 'seed-sprite' ? 7 : 9.8, kind === 'seed-sprite' ? 9.2 : 7.8, kind === 'seed-sprite' ? -.2 : -.05, 0, TAU); c.fillStyle = colors[0]; c.fill(); c.strokeStyle = colors[1]; c.lineWidth = .75; c.stroke();
+      c.beginPath(); c.ellipse(2, 4, 5.5, 3.6, -.08, 0, TAU); c.fillStyle = colors[2]; c.fill();
+      if (kind === 'seed-sprite') for (const side of [-1, 1]) { c.save(); c.translate(side * 1.2, -6.5); c.rotate(side * .73); c.beginPath(); c.ellipse(0, -3.4, 2.7, 5, 0, 0, TAU); c.fillStyle = '#9abca0'; c.fill(); c.strokeStyle = '#708e7a'; c.lineWidth = .65; c.stroke(); c.restore(); }
+      for (const side of [-1, 1]) {
+        if (part === 'blink') { c.beginPath(); c.moveTo(side * 3 - 1.2, .3); c.quadraticCurveTo(side * 3, 1.6, side * 3 + 1.2, .3); c.strokeStyle = '#6f6064'; c.lineWidth = .75; c.stroke(); }
+        else { circle(c, side * 3, .3, .85, '#695d61'); circle(c, side * 3 - .15, .05, .21, '#ffffff'); }
+      }
+      circle(c, 1, 2.8, 1.05, kind === 'seed-sprite' ? '#97836b' : '#c38f89'); c.beginPath(); c.moveTo(-1.2, 5); c.quadraticCurveTo(1, 6.4, 2.8, 5); c.strokeStyle = '#8d7770'; c.lineWidth = .65; c.stroke();
+      if (kind === 'mouse') { c.beginPath(); c.arc(0, -3.9, 9.1, Math.PI, TAU); c.fillStyle = '#dabc69'; c.fill(); c.strokeStyle = '#a78b5c'; c.lineWidth = .7; c.stroke(); c.beginPath(); c.moveTo(-11, -3.9); c.lineTo(10, -3.9); c.strokeStyle = '#e5cd86'; c.lineWidth = 2; c.stroke(); circle(c, 1.9, -7.4, 1.8, '#ece6bd', '#b89f72', .5); }
+      if (kind === 'gecko' || kind === 'salamander') for (const [x, y] of [[-5, -3.8], [-2, -4.7], [1.5, -4.5]]) circle(c, x, y, 1.1, kind === 'salamander' ? '#e7c38d' : '#a89b77');
+      for (const side of [-1, 1]) { c.beginPath(); c.moveTo(side * 6, 7); c.lineTo(side * 10, 8.3); c.strokeStyle = colors[1]; c.lineWidth = 1.2; c.stroke(); }
+    } else if (kind === 'spider') {
+      for (const side of [-1, 1]) for (let i = 0; i < 3; i++) { c.beginPath(); c.moveTo(side * 1.6, i); c.lineTo(side * (6 + i), -2 + i * 2); c.lineTo(side * (8 + i), 2 + i * 2); c.strokeStyle = '#8da287'; c.lineWidth = .7; c.stroke(); }
+      c.beginPath(); c.ellipse(0, 0, 4, 5.2, 0, 0, TAU); c.fillStyle = '#9aae8c'; c.fill(); c.strokeStyle = '#6c816d'; c.lineWidth = .65; c.stroke(); circle(c, -1.5, 1.8, .8, '#e2e6b8'); circle(c, 1.5, 1.8, .8, '#e2e6b8'); circle(c, -1.5, 1.8, .35, '#678071'); circle(c, 1.5, 1.8, .35, '#678071');
+    } else if (kind === 'glint' || kind === 'ember' || kind === 'starmote') {
+      const color = kind === 'glint' ? '#dbf1ee' : kind === 'ember' ? '#ebc495' : '#e7dcb0', g = c.createRadialGradient(0, 0, .1, 0, 0, 7);
+      g.addColorStop(0, color + '88'); g.addColorStop(1, color + '00'); circle(c, 0, 0, 7, g);
+      if (kind === 'glint') { c.beginPath(); c.moveTo(-3.5, 0); c.lineTo(3.5, 0); c.moveTo(0, -5); c.lineTo(0, 5); c.strokeStyle = color; c.lineWidth = .8; c.stroke(); }
+      else circle(c, 0, 0, 1.35, color);
+    }
+  }
+  function lifeSprite(kind, part = 'body') {
+    const key = `${kind}:${part}`; let sprite = lifeAtlas.get(key);
+    if (sprite) return sprite;
+    const surface = makeSurface(132, 132);
+    if (!surface) return null;
+    const c = surface.getContext('2d'); c.scale(3, 3); c.translate(22, 22); paintLifeCritter(c, kind, part);
+    sprite = { surface, x: -22, y: -22, w: 44, h: 44 };
+    if (lifeAtlas.size >= 48) lifeAtlas.delete(lifeAtlas.keys().next().value);
+    lifeAtlas.set(key, sprite); warmMark(surface); return sprite;
+  }
+  function drawSceneLife(ctx, w, h, theme, time, reducedMotion, wasPainted = true) {
+    if (!ctx || !(w > 0 && h > 0)) return false;
+    const painter = root.BloomScenery;
+    const plan = !reducedMotion && painter && painter.lifePlan ? painter.lifePlan(theme, time, false) : [];
+    const visible = plan.some(visitor => visitor.opacity > .001);
+    // An empty transparent layer needs no GPU clear. Clear once when the last visitor leaves, or when motion
+    // is switched off, so a cached critter can never be left behind.
+    if (!visible && !wasPainted) return false;
+    ctx.save(); ctx.clearRect(0, 0, w, h);
+    if (!visible) { ctx.restore(); return false; }
+    const size = clamp(Math.min(w / 432, h / 768), .7, 1.65);
+    for (const visitor of plan) {
+      if (visitor.opacity <= .001) continue;
+      ctx.save(); ctx.globalAlpha *= visitor.opacity;
+      if (visitor.thread) { ctx.beginPath(); ctx.moveTo(visitor.thread.x * w, visitor.thread.y * h); ctx.lineTo(visitor.x * w, visitor.y * h); ctx.strokeStyle = '#b4c49d88'; ctx.lineWidth = .6; ctx.stroke(); }
+      ctx.translate(visitor.x * w, visitor.y * h); ctx.rotate(visitor.turn || 0); ctx.scale(size * visitor.flip, size);
+      const draw = part => { const sprite = lifeSprite(visitor.kind, part); if (sprite) blit(ctx, sprite); else paintLifeCritter(ctx, visitor.kind, part); };
+      if (['butterfly', 'moth', 'bee', 'firefly', 'glowworm', 'bat'].includes(visitor.kind)) {
+        const flap = visitor.kind === 'bat' ? .65 + Math.sin(visitor.age * 10) * .28 : .38 + Math.abs(Math.sin(visitor.age * 13)) * .62;
+        for (const side of [-1, 1]) { ctx.save(); ctx.scale(side * flap, 1); draw('wing'); ctx.restore(); }
+      }
+      if (['gecko', 'salamander', 'minnow'].includes(visitor.kind)) { ctx.save(); ctx.rotate(Math.sin(visitor.age * 4) * .09); draw('tail'); ctx.restore(); }
+      if (visitor.kind === 'worm') { const twitch = visitor.progress > .32 && visitor.progress < .57 ? Math.sin(visitor.age * 11) * .065 : 0; ctx.rotate(twitch); }
+      draw(['gopher', 'mouse', 'gecko', 'salamander', 'seed-sprite'].includes(visitor.kind) && visitor.age % 3.6 < .13 ? 'blink' : 'body');
+      ctx.restore();
+    }
+    ctx.restore(); return true;
   }
 
   // Koi lanes: translucent water ribbons whose streaks and chevrons travel
@@ -2759,9 +3601,27 @@
     const s = 1 + .35 * (1 - age / .08);
     ctx.translate(x, y); ctx.rotate(Math.atan2(Number(ball.vy) || 0, Number(ball.vx) || 0)); ctx.scale(s, 1 / Math.sqrt(s)); ctx.translate(-x, -y);
   }
+  function paintShotSeed(ctx, r, colors) {
+    // The colored round boundary keeps the shot's size/type readable. Its inset almond is the same
+    // seed the player loads, rather than an unrelated white bead; the incised seam survives phone scale.
+    circle(ctx, 0, 0, r + 1.3, colors.base);
+    circle(ctx, 0, 0, r + .94, null, colors.dark, .68);
+    const seed = ctx.createRadialGradient(-r * .2, -r * .35, .1, 0, 0, r);
+    seed.addColorStop(0, '#fffef1'); seed.addColorStop(.62, '#f2dda0'); seed.addColorStop(1, '#c8a465');
+    ctx.save(); ctx.rotate(.05);
+    ctx.beginPath(); ctx.ellipse(0, 0, r * .59, r * .81, 0, 0, TAU); ctx.fillStyle = seed; ctx.fill();
+    ctx.strokeStyle = '#a98750'; ctx.lineWidth = .65; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-r * .14, -r * .54); ctx.quadraticCurveTo(-r * .2, -r * .03, r * .16, r * .53);
+    ctx.strokeStyle = '#a8854ea6'; ctx.lineWidth = .65; ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(-r * .21, -r * .31, r * .13, r * .22, -.2, 0, TAU); ctx.fillStyle = '#ffffffb8'; ctx.fill();
+    ctx.restore();
+  }
+  function shotSeedSprite(colors, r) {
+    const edge = r + 2;
+    return atlasSprite(`shot-seed:${colors.base}:${r}`, -edge, -edge, edge, edge, c => paintShotSeed(c, r, colors));
+  }
   function drawProjectile(ctx, ball, index, time, reducedMotion, fever, style) {
-    // In slow motion a seed is drawn where it is between two physics steps, so it glides instead of stepping.
-    const ox = frameAhead ? (Number(ball.vx) || 0) * frameAhead : 0, oy = frameAhead ? (Number(ball.vy) || 0) * frameAhead : 0;
+    const offset = projectileOffset(ball), ox = offset.x, oy = offset.y;
     if (ball.power && POWER_TINT[ball.power]) {
       if (ox || oy) { ctx.save(); ctx.translate(ox, oy); drawPowerShot(ctx, ball, time, reducedMotion); ctx.restore(); }
       else drawPowerShot(ctx, ball, time, reducedMotion);
@@ -2794,10 +3654,11 @@
     if (halo) drawGlowSprite(ctx, halo, x, y);
     else { ctx.shadowColor = c.base; ctx.shadowBlur = fever ? 19 : 12; }
     seedStretch(ctx, ball, x, y, reducedMotion);
-    circle(ctx, x, y, r + 1.3, c.base);
     ctx.shadowBlur = 0;
-    circle(ctx, x, y, r * .78, '#fffdf2');
-    circle(ctx, x - r * .23, y - r * .27, r * .27, '#ffffff');
+    const body = shotSeedSprite(c, r);
+    ctx.save(); ctx.translate(x, y);
+    if (body) blit(ctx, body); else paintShotSeed(ctx, r, c);
+    ctx.restore();
     if (fever && !reducedMotion) {
       ctx.globalAlpha = .85;
       sparkle(ctx, x, y, r * 1.95, '#fffce999', time + index);
@@ -2807,7 +3668,7 @@
 
   function drawStyledProjectile(ctx, ball, time, reducedMotion, fever, style, index) {
     const s = style.seed, r = ball.r || 5.5, hot = fever || ball.hot;
-    const x = ball.x + (frameAhead ? (Number(ball.vx) || 0) * frameAhead : 0), y = ball.y + (frameAhead ? (Number(ball.vy) || 0) * frameAhead : 0);
+    const offset = projectileOffset(ball), x = ball.x + offset.x, y = ball.y + offset.y;
     ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     if (!reducedMotion && (ball.trail || []).length > 1 && !(feelQuality >= 1 && index >= 3)) drawKeepsakeTrail(ctx, ball, style, r, time, hot, x, y);
     if (!reducedMotion) {
@@ -3421,14 +4282,27 @@
     c.translate(0, -1); vineStem(c, VINE.x, VINE.x + VINE.w); c.strokeStyle = light; c.lineWidth = 1.3; c.stroke();
     c.restore();
   }
-  const vineSlot = (i, max) => VINE.x + VINE.w * (i + .5) / max;
-  const vineLeafSize = max => clamp(VINE.w / max * 1.15, 11, 18);
-  function paintVineLeaves(c, max, hp) {
-    const length = vineLeafSize(max);
-    for (let i = 0; i < max; i++) {
-      const x = vineSlot(i, max), y = vineY(x);
-      if (i >= hp) { circle(c, x, y, 1.7, '#a3845a'); continue; }
-      leaf(c, x, y, length, length * .6, i % 2 ? Math.PI - .8 : .8, i % 2 ? '#3fa957' : '#55c467', '#2a7744');
+  // At most 20 leaves, so a big guardian's every hit still shows: each leaf holds max/20 of its health, and the
+  // leading leaf shrinks as it empties. Knots on the stem mark where its stages turn, and bloom once it passes them.
+  const VINE_LEAVES = 20;
+  const vineCount = max => Math.min(VINE_LEAVES, Math.max(1, max));
+  const vineSlot = (i, n) => VINE.x + VINE.w * (i + .5) / n;
+  const vineLeafSize = n => clamp(VINE.w / n * 1.15, 11, 18);
+  function vineLeaf(c, i, n, size) {
+    const length = vineLeafSize(n) * size, x = vineSlot(i, n), y = vineY(x);
+    leaf(c, x, y, length, length * .6, i % 2 ? Math.PI - .8 : .8, i % 2 ? '#3fa957' : '#55c467', '#2a7744');
+  }
+  function paintVineLeaves(c, n, full, knots, type) {
+    for (let i = 0; i < n; i++) {
+      if (i >= full) { const x = vineSlot(i, n); circle(c, x, vineY(x), 1.7, '#a3845a'); continue; }
+      vineLeaf(c, i, n, 1);
+    }
+    // A knot is a little brown burl on the stem; once passed, it opens into a flower of the guardian's color.
+    const tone = FLOWERS[type] || FLOWERS.coral;
+    for (const knot of knots) {
+      const x = VINE.x + VINE.w * knot.at, y = vineY(x);
+      if (knot.open) { blossom(c, x, y - .5, 9, tone.base, .3); circle(c, x, y - .5, 1.6, tone.dark); }
+      else { circle(c, x, y, 3.6, '#8a6a3e', '#5b4426', 1.1); circle(c, x - 1, y - 1, 1.1, '#c7a675'); }
     }
   }
   let vineLeavesKey = '';
@@ -3457,22 +4331,38 @@
     ctx.save(); ctx.globalAlpha *= alpha; ctx.translate(shake, 0);
     const type = FLOWERS[bud.type] ? bud.type : 'coral';
     const paintBase = c => paintVineBase(c, type), paintLag = c => paintVineStem(c, '#ffe58a', '#fffbe6'), paintLive = c => paintVineStem(c, '#3c9a50', '#9de58f');
-    const paintLeaves = c => paintVineLeaves(c, max, hp);
+    const n = vineCount(max), per = max / n, filled = (bud.bloomed ? 0 : clamp(Number(bud.hp) || 0, 0, max)) / per;
+    const full = Math.floor(filled + 1e-9), part = filled - full;
+    const knots = (Array.isArray(vine.tiers) ? vine.tiers : []).filter(t => t > 0 && t < max).map(t => ({ at: t / max, open: hp <= t }));
+    const paintLeaves = c => paintVineLeaves(c, n, full, knots, type);
     vineBlit(ctx, vinePiece(`vine|base|${type}`, paintBase), paintBase, VINE.left, right);
     vineBlit(ctx, vinePiece('vine|lag', paintLag), paintLag, VINE.x - 3, Math.min(right, xLag + 2));
     vineBlit(ctx, vinePiece('vine|live', paintLive), paintLive, VINE.x - 3, Math.min(right, xHp + 2));
     // A boss only ever loses leaves, so the sprite for the count it just left is let go (up to 19 of them a fight).
-    const leavesKey = `vine|leaves|${max}|${hp}`;
+    const leavesKey = `vine|leaves|${type}|${n}|${full}|${knots.map(k => k.open ? 1 : 0).join('')}`;
     if (vineLeavesKey !== leavesKey) { if (vineLeavesKey) stageCache.delete(vineLeavesKey); vineLeavesKey = leavesKey; }
     // Once it blooms only the leaf scars are left, for the .45 s the vine fades: painted live, not a new sprite at
     // the busiest moment of the level.
     vineBlit(ctx, bud.bloomed ? null : vinePiece(leavesKey, paintLeaves), paintLeaves, VINE.left, right);
+    // The leading leaf, partly spent, shrinks with what is left of it (drawn live: one leaf).
+    if (!bud.bloomed && part > .02 && full < n && vineSlot(full, n) <= right) vineLeaf(ctx, full, n, .35 + .65 * part);
+    // Phase Bloom: the knot the guardian just passed pops open with a flash ring (drawn live for under half a second).
+    const knotAt = Array.isArray(vine.knotAt) ? vine.knotAt : [];
+    if (!still) knots.forEach((knot, j) => {
+      const age = time - (Number.isFinite(knotAt[j]) ? knotAt[j] : -100);
+      if (age < 0 || age > .45 || !knot.open) return;
+      const x = VINE.x + VINE.w * knot.at, y = vineY(x), k = age / .45, pop = 1 + .55 * Math.sin(Math.PI * Math.min(1, k * 1.4));
+      ctx.save(); ctx.globalAlpha *= 1 - k;
+      ctx.beginPath(); ctx.arc(x, y, 6 + 20 * k, 0, TAU); ctx.strokeStyle = '#fff6ce'; ctx.lineWidth = .8 + 3 * (1 - k); ctx.stroke();
+      ctx.translate(x, y - .5); ctx.scale(pop, pop); blossom(ctx, 0, 0, 9, (FLOWERS[type] || FLOWERS.coral).base, .3);
+      ctx.restore();
+    });
     // Lost leaves drop off and tumble away.
-    const length = vineLeafSize(max);
+    const length = vineLeafSize(n);
     for (const fall of vine.fallen || []) {
       const age = time - fall.at;
-      if (still || age < 0 || age > .9 || fall.i >= max) continue;
-      const x0 = vineSlot(fall.i, max), spin = fall.spin || 1;
+      if (still || age < 0 || age > .9 || fall.i >= n) continue;
+      const x0 = vineSlot(fall.i, n), spin = fall.spin || 1;
       ctx.save(); ctx.globalAlpha *= 1 - age / .9;
       leaf(ctx, x0 + spin * age * 24, vineY(x0) + age * 26 + age * age * 150, length, length * .6, (fall.i % 2 ? Math.PI - .8 : .8) + spin * age * 6, '#6cc274', '#2a7744');
       ctx.restore();
@@ -3714,7 +4604,7 @@
     if (!over) { ctx.globalAlpha = .2 * fade; ctx.fillStyle = '#5b47b8'; ctx.fillRect(0, 0, 420, 560); ctx.restore(); return; }
     let shown = 0;
     for (const bud of buds) {
-      if (bud.bloomed || bud.gift || shown >= 12) continue;
+      if (bud.bloomed || bud.gift || bud.inert || bud.hidden || shown >= 12) continue;
       const first = bud.group ? buds.find(other => other.group === bud.group && !other.bloomed) : bud;
       if (first !== bud) continue;
       shown++;
@@ -3735,17 +4625,22 @@
   function draw(ctx, state, time, options) {
     if (!ctx) return;
     state = state || {}; options = options || {}; time = Number(time) || 0;
+    bossScene = state.bossState || null;
     const colors = PAPER[options.theme] || PAPER.meadow;
     ctx.save();
     const rush = state.mode === 'rush';
-    // Feel: seeds glide a fraction of a step ahead in slow motion, and the finale camera leans in, backdrop and all.
-    feelOpts = options; frameAhead = Number(options.ahead) || 0; feelQuality = Number(options.quality) || 0;
+    // Seeds glide between resolved 120 Hz positions; the finale camera leans in, backdrop and all.
+    feelOpts = options; frameAhead = Number(options.ahead) || 0;
+    frameAlpha = typeof options.interpolation === 'number' && Number.isFinite(options.interpolation) ? clamp(options.interpolation, 0, 1) : null;
+    feelQuality = Number(options.quality) || 0;
     const camera = options.camera;
     if (camera && camera.zoom > 1.001 && !options.reducedMotion) { ctx.translate(camera.fx, camera.fy); ctx.scale(camera.zoom, camera.zoom); ctx.translate(-camera.fx, -camera.fy); }
-    drawGarden(ctx, 420, 560, options.theme, { mode: state.mode });
-    if (!options.reducedMotion) drawAmbient(ctx, time, options.theme);
-    drawAtmosphere(ctx, state, time, options);
-    if (rush && !options.reducedMotion) drawTempo(ctx, state, time);
+    if (options.backdrop !== false) drawGarden(ctx, 420, 560, options.theme, { mode: state.mode });
+    if (!options.reducedMotion && options.backdrop !== false) drawAmbient(ctx, time, options.theme);
+    drawBoardLight(ctx, options, light => {
+      drawAtmosphere(light, state, time, options);
+      if (rush && !options.reducedMotion) drawTempo(light, state, time);
+    });
     const shake = options.shake;
     if (shake && !options.reducedMotion) { ctx.translate(210 + shake.x, 280 + shake.y); ctx.rotate(shake.r || 0); ctx.translate(-210, -280); }
 
@@ -3758,10 +4653,14 @@
     drawCurrents(ctx, state.currents, time, options.reducedMotion, options.theme);
     if (scenery(options.theme)) drawBurrows(ctx, state.gates, time, options.reducedMotion, options.theme);
     else drawGates(ctx, state.gates, time, options.reducedMotion);
+    findSpent(state, time);
     drawBriars(ctx, buds, time, rush ? Number(state.dangerY) || 448 : Infinity, options.reducedMotion);
-    if (rush) drawLullaby(ctx, state, time, options.reducedMotion, buds, false);
+    if (rush) drawBossSupports(ctx, state, time, Boolean(options.reducedMotion));
+    if (rush && state.lullaby > 0) drawBoardLight(ctx, options, light => drawLullaby(light, state, time, options.reducedMotion, buds, false));
+    if (rush) drawBossWarning(ctx, state, time, Boolean(options.reducedMotion));
     // Bloom rings are drawn under the flowers, never on top of aiming feedback.
     for (const bud of buds) {
+      if (bud.hidden || bud.visible === false || bud.bossPart) continue;
       if (bud.bloomed && !bud.leaving && !options.reducedMotion && typeof bud.bloomAt === 'number') {
         const age = time - bud.bloomAt;
         if (age >= 0 && age < .85) {
@@ -3802,16 +4701,24 @@
     const unfurling = pickUnfurls(buds, time, options), line = rush ? Number(state.dangerY) || 448 : Infinity;
     unfurlOptions.time = time; unfurlOptions.reducedMotion = Boolean(options.reducedMotion); unfurlOptions.quality = Number(options.quality) || 0;
     findTremble(state);
+    // The level campaign's new pieces (foe-art.js) draw only on a wave that has them.
+    const foeArt = rush && state.foeWave && root.BloomFoeArt ? root.BloomFoeArt : null, still = Boolean(options.reducedMotion), foeQuality = Number(options.quality) || 0;
+    if (foeArt) foeArt.under(ctx, state, time, still, FOE_KIT, foeQuality);
+    // A kit guardian's moves (foe-art.js kits) draw during its fight.
+    const kitArt = rush && state.bossState && root.BloomFoeArt && root.BloomFoeArt.kits ? root.BloomFoeArt.kits : null;
+    if (kitArt) kitArt.under(ctx, state, time, still, FOE_KIT, foeQuality);
     for (const bud of buds) {
+      if (bud.hidden || bud.visible === false || bud.bossPart) continue;
       if (bud.gift) { if (!bud.bloomed) drawGift(ctx, bud, time, options.reducedMotion); continue; }
-      const age = typeof bud.bloomAt === 'number' ? time - bud.bloomAt : Infinity;
-      // Every bloom takes the same .55 s, whether it unfurls petal by petal or crossfades (over budget).
-      const openness = bud.bloomed ? (options.reducedMotion || typeof bud.bloomAt !== 'number' ? 1 : clamp(age / UNFURL, 0, 1)) : 0;
-      const hp = Math.max(1, Number(bud.hp) || 1), maxHp = Math.max(hp, Number(bud.maxHp) || 1), radius = bud.r || 16;
-      // A spent flower that has finished opening fades as it sinks to the danger line, gone 26 px past it.
+      // A spent flower fades away once its bloom has played, and one that has finished opening fades as it sinks to
+      // the danger line, gone 26 px past it; a flower already gone costs nothing more than this.
       // The tutorial fades the last step's flowers out (bud.fade, 1 to 0 in real time) as the next card comes up.
       const sink = sinkAlpha(bud, time, line, options.reducedMotion);
       if (sink <= 0) continue;
+      const effect = bossFlowerEffect(bud, time), age = typeof bud.bloomAt === 'number' ? time - bud.bloomAt : Infinity;
+      // Every bloom takes the same .55 s, whether it unfurls petal by petal or crossfades (over budget).
+      const openness = bud.bloomed ? (options.reducedMotion || typeof bud.bloomAt !== 'number' ? 1 : clamp(age / UNFURL, 0, 1)) : 0;
+      const hp = Math.max(1, Number(bud.hp) || 1), maxHp = Math.max(hp, Number(bud.maxHp) || 1), radius = bud.r || 16;
       ctx.save();
       if (sink < 1) ctx.globalAlpha *= sink;
       // A wave tumbles in from above (stage sets enterAt): a ghost waits in place, then the bud drops onto it.
@@ -3836,7 +4743,7 @@
         const amp = 1.5 * (.45 + .55 * clamp((.8 - trembleTime) / .35, 0, 1));
         ctx.translate(Math.sin(time * 22 * TAU + (flowerVariants.get(bud) || 0) * 2.1) * amp, 0);
       }
-      if (!options.reducedMotion && !bud.bloomed && typeof bud.hitAt === 'number') {
+      if (!options.reducedMotion && !(bud.boss && bossLook(bud)) && !bud.bloomed && typeof bud.hitAt === 'number') {
         const hitAge = time - bud.hitAt;
         if (hitAge >= 0 && hitAge < .25) {
           const squash = Math.sin(hitAge / .25 * Math.PI);
@@ -3867,7 +4774,7 @@
           ctx.translate(bud.x, bud.y); ctx.scale(back, back); ctx.translate(-bud.x, -bud.y); ctx.globalAlpha *= Math.min(1, k * 3);
         }
       }
-      if (!options.reducedMotion) {
+      if (!options.reducedMotion && !(bud.boss && bossLook(bud))) {
         // Visual-only life: buds nod on their stems, open flowers drift and breathe. Collision geometry is untouched.
         // A fresh bloom eases from the bud's quick nod into the flower's slow drift, and starts breathing only once open.
         const ph = (flowerVariants.get(bud) || 0) * 1.37, nod = Math.sin(time * 2.1 + ph) * .07;
@@ -3875,6 +4782,8 @@
         if (bud.bloomed) {
           sway = nod + (Math.sin(time * 1.1 + ph) * .05 - nod) * smooth(age / UNFURL);
           breathe = 1 + Math.sin(time * 1.7 + ph) * .035 * clamp((age - UNFURL) / .5, 0, 1);
+          // A spent flower draws in a little as it fades, so it reads as leaving, not as a pale bud still to shoot.
+          if (age > SPENT_HOLD && sink < 1) breathe *= .8 + .2 * spentAlpha(bud, time);
         }
         ctx.translate(bud.x, bud.y); ctx.rotate(sway); ctx.scale(breathe, breathe); ctx.translate(-bud.x, -bud.y);
       }
@@ -3882,17 +4791,22 @@
       if (bud.boss && !bud.bloomed) drawBossLeaves(ctx, bud, time, options.reducedMotion);
       else if (crack > 0) { const a = ctx.globalAlpha; ctx.globalAlpha = a * crack; drawBossLeaves(ctx, bud, time, false); ctx.globalAlpha = a; }
       if (bud.briar && !bud.bloomed) drawThorns(ctx, bud);
-      if (bud.puff) { if (!bud.bloomed) drawPuffcap(ctx, bud, time, options.reducedMotion); }
+      if (bud.boss && !bud.bloomed && bossLook(bud)) drawBossBody(ctx, bud, time, Boolean(options.reducedMotion));
+      else if (bud.puff) { if (!bud.bloomed) drawPuffcap(ctx, bud, time, options.reducedMotion); }
+      else if (foeArt && !bud.bloomed && foeArt.has(bud)) foeArt.bud(ctx, bud, time, still, state, FOE_KIT, foeQuality);
       else if (bud.geode && !bud.bloomed) drawGeode(ctx, bud, time);
       else if (bud.gem && !bud.bloomed) drawGem(ctx, bud, time, options.reducedMotion);
       else if (bud.bloomed && unfurling.has(bud)) drawUnfurl(ctx, bud, age, unfurlOptions);
+      else if (effect && effect.kind === 'puff') drawVeiledFlower(ctx, bud, radius, time, effect);
       else if (!options.reducedMotion && (bud.bloomed ? !bud.boss && age >= 0 && age < FLASH : time - bud.hitAt >= 0 && time - bud.hitAt < FLASH)) drawSilhouette(ctx, bud.x, bud.y, radius, bud.type, 1.08);
       else drawFlower(ctx, bud.x, bud.y, radius, bud.type, openness, time, flowerVariants.get(bud));
+      drawIgnitedBud(ctx, bud, state, time, Boolean(options.reducedMotion));
       if (bud.briar && bud.bloomed && bud.regrowAt) drawRegrow(ctx, bud, time);
       if (bud.shield && !bud.bloomed) drawCup(ctx, bud);
-      if (bud.shell && !bud.bloomed) drawShell(ctx, bud);
-      if (bud.boss && !bud.bloomed) { drawBossFace(ctx, bud, time, options.reducedMotion); drawBossRing(ctx, bud); }
-      else if (crack > 0) { const a = ctx.globalAlpha; ctx.globalAlpha = a * crack; drawBossFace(ctx, bud, time, false); drawBossCrownFlying(ctx, bud, age); ctx.globalAlpha = a; }
+      // Legacy authored flags must not invent shell armor on a controller whose actual defence is different.
+      if (bud.shell && !bud.bloomed && (!bud.boss || !bossLook(bud) || bud.bossKind === 'fossil')) drawShell(ctx, bud);
+      if (bud.boss && !bud.bloomed) { if (!(kitArt && kitArt.face(ctx, state, bud, time, still, FOE_KIT, foeQuality))) drawBossFace(ctx, bud, time, options.reducedMotion); drawBossRing(ctx, bud); drawBossDefense(ctx, bud, state, time, Boolean(options.reducedMotion)); drawBossGestures(ctx, bud, time, Boolean(options.reducedMotion)); }
+      else if (crack > 0) { const a = ctx.globalAlpha; ctx.globalAlpha = a * crack; drawBossBody(ctx, bud, time, false); if (!(kitArt && kitArt.face(ctx, state, bud, time, still, FOE_KIT, foeQuality))) drawBossFace(ctx, bud, time, false); drawBossCrownFlying(ctx, bud, age); ctx.globalAlpha = a; }
       if (bud.relay && !bud.bloomed) drawRelayCrown(ctx, bud);
       if (!bud.bloomed && (bud.power || bud.burst || bud.kind === 'burst')) {
         ctx.save(); ctx.shadowColor = '#fff17a'; ctx.shadowBlur = options.reducedMotion ? 0 : 12;
@@ -3908,16 +4822,29 @@
       // Animations off: the trembling group shows a still red pip instead.
       if (shaking && options.reducedMotion) circle(ctx, bud.x, bud.y + radius + (maxHp > 1 && !bud.boss ? 17 : 10), 2.5, '#ff3d6e', '#ffffff', 1);
       ctx.restore();
+      drawBossFlowerAccent(ctx, bud, effect);
     }
+    // Flower-specific tells sit above the buds so their small marks cannot be buried by crowns or armor.
+    if (rush) drawBossFlowerWarning(ctx, state, time, Boolean(options.reducedMotion));
+    for (const bud of buds) if (bud.bossPart) drawBossTarget(ctx, bud, state, time, Boolean(options.reducedMotion), kitArt, foeQuality);
+    if (foeArt) foeArt.over(ctx, state, time, still, FOE_KIT, foeQuality);
+    if (kitArt) kitArt.over(ctx, state, time, still, FOE_KIT, foeQuality);
     drawFlares(ctx, buds, time, options, line);
     if (rush) drawLullaby(ctx, state, time, options.reducedMotion, buds, true);
     for (const bumper of state.bumpers || []) {
-      if (bumper.kind === 'rock' && root.BloomScenery) root.BloomScenery.drawRock(ctx, bumper, options.theme);
+      // Kit pieces on the board (Crystal Heart's mirrors, Rootknot's snare) are drawn by their kit looks in foe-art.js.
+      if (bumper.bossMirror || bumper.kitDrawn) continue;
+      if (bumper.bossWall) drawRootWall(ctx, bumper);
+      else if (bumper.kind === 'rock' && root.BloomScenery) root.BloomScenery.drawRock(ctx, bumper, options.theme);
       else drawBumper(ctx, bumper, options.selectedBumper === bumper.id, time, colors, options.reducedMotion);
     }
     if (options.showAim !== false && state.aim && (state.status !== 'flying' || options.showAim === true)) {
       const hollow = rush && Number(state.podSize) > 0 && Number.isFinite(state.pod) && state.pod < 1 && !(Number(state.superBloom) > 0);
-      drawAim(ctx, state.aim, colors, time, state.nextType, options.reducedMotion, hollow);
+      // Old Sunny's landed snooze Z naps the aim guide (spec 1.9): only its first 60 px show; his kit art adds the zz.
+      const napping = rush && Number(state.aimNapUntil) > Number(state.time) && Array.isArray(state.aim) && state.aim.length > 1;
+      drawAim(ctx, napping ? nappedAim(state.aim, 60) : state.aim, colors, time, state.nextType, options.reducedMotion, hollow);
+      if (foeArt) foeArt.aim(ctx, state, time, still, FOE_KIT, foeQuality);
+      if (kitArt) kitArt.aim(ctx, state, time, still, FOE_KIT, foeQuality);
     }
     drawLauncher(ctx, state, time, colors, options.keepsake, options.kick, options.reducedMotion);
 
@@ -3935,12 +4862,16 @@
     drawStage(ctx, state, time, options);
     ctx.restore();
     if (options.flash > 0 && !options.reducedMotion) {
-      ctx.save(); ctx.globalCompositeOperation = 'lighter';
-      const v = ctx.createRadialGradient(210, 280, 60, 210, 280, 380);
-      v.addColorStop(0, `rgba(255,248,220,${options.flash * .28})`); v.addColorStop(1, `rgba(255,190,230,${options.flash * .12})`);
-      ctx.fillStyle = v; ctx.fillRect(0, 0, 420, 560); ctx.restore();
+      drawBoardLight(ctx, options, light => {
+        light.save(); light.globalCompositeOperation = 'lighter';
+        const v = light.createRadialGradient(210, 280, 60, 210, 280, 380);
+        v.addColorStop(0, `rgba(255,248,220,${options.flash * .28})`); v.addColorStop(1, `rgba(255,190,230,${options.flash * .12})`);
+        light.fillStyle = v; light.fillRect(0, 0, 420, 560); light.restore();
+      }, 'lighter');
     }
-    drawFeelOverlay(ctx, state, time, options);
+    const d = options.danger;
+    if (options.vignette > 0 || d && (d.lastLife || d.redFlash > 0 || d.mintFlash > 0)) drawBoardLight(ctx, options, light => drawFeelOverlay(light, state, time, options));
+    else drawFeelOverlay(ctx, state, time, options);
   }
 
   // Warm-up. Everything a level can need is painted ahead, in small slices the app runs while the level's intro plays,
@@ -3967,6 +4898,7 @@
     plan = plan || {};
     const jobs = [], scratch = makeSurface(4, 4), sctx = scratch && scratch.getContext('2d', { willReadFrequently: true }), add = fn => jobs.push(fn);
     let next = 0;
+    add(() => { for (const r of [7.4, 8.4]) restingSeedSprite(r, plan.keepsake && plan.keepsake.seed); });
     // The HUD: the gold sky and its band, the sun fan at every count, the turning wheel, the badges.
     add(() => hudSprite('sky:gold', 420, 560, paintGoldSky, 1)); add(() => hudSprite('sky:band', 420, 240, paintGoldBand, 1));
     add(litPetalSprite);
@@ -3979,17 +4911,28 @@
     // Each color's seed (its glow and its halo, plain and in Super Bloom) and the wilted ghost a lost life leaves.
     for (const type of Object.keys(FLOWERS)) {
       const c = FLOWERS[type];
-      add(() => { feelGlow(`seed|${c.light}`, 5.5 * 4.2, [[0, c.light + 'aa'], [1, c.light + '00']]); seedHalo(c.base, 5.5, 12); seedHalo(c.base, 5.5, 19); });
+      add(() => { feelGlow(`seed|${c.light}`, 5.5 * 4.2, [[0, c.light + 'aa'], [1, c.light + '00']]); seedHalo(c.base, 5.5, 12); seedHalo(c.base, 5.5, 19); shotSeedSprite(c, 5.5); });
       add(() => wiltSprite(type));
     }
     for (const hex of ['#ff5d94', '#ffd148', '#a47dff', '#45adff', '#ff7433']) add(() => glowMote(hex));
     for (const rgb of VEILS) add(() => veilSprite(rgb));
     add(() => curtainSprite('top')); add(() => curtainSprite('bottom'));
+    // The level's new pieces (foe-art.js), one job each, and the guardian's kit.
+    for (const item of plan.foes || []) add(() => { if (root.BloomFoeArt) root.BloomFoeArt.warm([item], FOE_KIT); });
+    add(() => { trayBody(); for (const type of Object.keys(FLOWERS)) { glyphSprite(type); glyphDisc(type); } }); // the tray body and seed color glyphs (spec 1.11)
+    if (plan.boss && plan.boss.bossKind) add(() => { if (root.BloomFoeArt && root.BloomFoeArt.kits) root.BloomFoeArt.kits.warm(plan.boss.bossKind, FOE_KIT); });
     // Lettering: titles, the boss's card, stamps and life bands (each only once its font is in).
     for (const floater of plan.callouts || []) add(() => warmCallout(sctx, floater));
     // The boss's vine.
     if (plan.boss && FLOWERS[plan.boss.type]) {
       const type = plan.boss.type, max = Math.max(1, Math.round(plan.boss.max || 1));
+      if (BOSS_LOOKS[plan.boss.bossKind]) add(() => drawFlowerEffectMark(sctx, plan.boss.bossKind, 12, 12, 24));
+      if (bossLook(plan.boss)) {
+        add(() => bossPart(plan.boss, true)); add(() => bossPart(plan.boss, false));
+        if (plan.boss.bossKind === 'puff') add(() => bossPart(plan.boss, false, 'bonnet'));
+        const parts = { sunny: [['bubble', 18]], crystal: [['heart', 22]], lotus: [['lantern', 11]], geode: [['plate', 13]], core: [['satellite', 11]] }[plan.boss.bossKind] || [];
+        for (const [role, r] of parts) for (const lit of [true, false]) for (const real of role === 'heart' ? [true, false] : [true]) add(() => bossTargetSprite(role, plan.boss.bossKind, r, lit, real));
+      }
       add(() => vinePiece(`vine|base|${type}`, c => paintVineBase(c, type)));
       add(() => vinePiece('vine|lag', c => paintVineStem(c, '#ffe58a', '#fffbe6'))); add(() => vinePiece('vine|live', c => paintVineStem(c, '#3c9a50', '#9de58f')));
     }
@@ -4044,8 +4987,10 @@
     }
     return {
       step(ms, target) {
-        const end = warmClock() + (Number(ms) > 0 ? Number(ms) : 3);
-        while (next < jobs.length) {
+        const budget = ms == null ? 3 : Number(ms);
+        if (!(budget > 0) || !Number.isFinite(budget)) return next >= jobs.length;
+        const end = warmClock() + budget;
+        while (next < jobs.length && warmClock() < end) {
           warmDirty = dirty;
           try { jobs[next++](); } catch (error) { /* a sprite that cannot be painted ahead is painted when first drawn */ }
           warmDirty = null;
@@ -4059,8 +5004,11 @@
     };
   }
 
-  root.BloomArt = { draw, drawFlower, drawGarden, drawMoon, koiFish, drawProjectile, drawParticle, drawSeed, drawPowerIcon, drawUnfurl, drawChainLinks,
-    prewarm, setHarvestTarget, paints: () => painted,
+  // The toolbox foe-art.js draws with, so the new pieces share the atlas, the flowers and the palette.
+  const FOE_KIT = Object.freeze({ atlasSprite, blit, drawFlower, circle, sparkle, starPath, roundRect, shade, FLOWERS, TAU, clamp, ease, smooth, easeBounce, easeBack,
+    drawPuffcap, paintTargetPart, drawBossFace, BOSS_LOOKS, paintGlyph, GLYPH, budShift }); // paintGlyph and GLYPH: the Chroma Crystal wears its color's glyph
+  root.BloomArt = { draw, drawSceneLife, drawFlower, drawGarden, drawMoon, koiFish, drawProjectile, drawParticle, drawSeed, drawPowerIcon, drawUnfurl, drawChainLinks,
+    prewarm, setHarvestTarget, spentFlower, paints: () => painted, GLYPH, glyphSprite, glyphDisc, // the seed color glyphs, which qa/test-seed-art.cjs measures
     // Where a pod seed sits: slot 0 is the cup, 1-3 the tray beside it.
     podSlot: i => i >= 1 && i <= 3 ? { x: TRAY.slots[i - 1], y: TRAY.sy } : { x: 210, y: 498 } };
 })(typeof window !== 'undefined' ? window : globalThis);

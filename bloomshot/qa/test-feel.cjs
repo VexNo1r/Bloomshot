@@ -230,12 +230,15 @@ test('After the first frame, seeds and their trails make no gradients and no sha
 
 // ---- the finale through app.js ----
 
-function boot({ motion = true } = {}) {
+// art: BloomArt pieces to add to the stand-in, such as the real art's spentFlower.
+function boot({ motion = true, render = null, settings = {}, art = {} } = {}) {
   const storage = new Map();
   storage.set('bloomshot.save.v1', JSON.stringify({ version: 1, tutorial: true, powersMet: true, rush: { best: 0, bestWave: 1, runs: 1, blooms: 0 },
-    settings: { sound: false, haptics: false, motion } }));
+    depths: render?.depths, settings: { sound: false, haptics: false, motion, ...settings } }));
   const nodes = new Map(), games = [], cues = [], draws = [];
-  let nextFrame, now = 0;
+  let nextFrame, now = 0, work = 0, paints = 0;
+  const windowHandlers = new Map();
+  if (render) { render.warms = []; render.allocations = []; render.scenes = []; render.boardReads = 0; render.meadowDraws = 0; }
   const noop = () => {};
   const brush = new Proxy({ globalAlpha: 1, createLinearGradient: () => ({ addColorStop: noop }),
     createRadialGradient: () => ({ addColorStop: noop }) }, { get: (target, name) => name in target ? target[name] : noop });
@@ -258,12 +261,20 @@ function boot({ motion = true } = {}) {
       },
       closest: selector => selector.startsWith('[data-') && Object.keys(node.dataset).some(k => selector.includes('data-' + k)) ? node : null,
       getContext: () => brush, toDataURL: () => 'data:image/png;base64,test',
-      getBoundingClientRect: () => ({ left: 0, top: 0, width: 420, height: 560, right: 420, bottom: 560 }),
+      getBoundingClientRect: () => {
+        if (render && id === 'game-canvas') render.boardReads++;
+        const rect = render?.rects?.[id] || {};
+        return { left: 0, top: 0, width: 420, height: 560, right: 420, bottom: 560, ...rect };
+      },
       hasPointerCapture: () => false, releasePointerCapture: noop, setPointerCapture: noop, focus: noop,
       showModal: () => { node.open = true; }, close: () => { node.open = false; },
       parentElement: { insertBefore: child => nodes.set(child.id, child) }
     };
     Object.defineProperty(node, 'innerHTML', { get: () => node.html || '', set: value => { node.html = value; node.children = value ? [{}] : []; } });
+    if (render && id.endsWith('canvas')) for (const dimension of ['width', 'height']) {
+      let size = 0;
+      Object.defineProperty(node, dimension, { get: () => size, set: value => { size = value; render.allocations.push({ id, dimension, value }); } });
+    }
     return node;
   }
   const $ = id => { if (!nodes.has(id)) nodes.set(id, element(id)); return nodes.get(id); };
@@ -273,31 +284,149 @@ function boot({ motion = true } = {}) {
   const context = vm.createContext({ console, structuredClone, URLSearchParams, Date, Math, Map, Set,
     document, location: { search: '', reload: noop }, navigator: {}, crypto: { randomUUID: () => 'feel-run' },
     localStorage: { getItem: name => storage.get(name) || null, setItem: (name, value) => storage.set(name, value) },
-    performance: { now: () => now }, devicePixelRatio: 1,
+    performance: { now: () => now + work }, devicePixelRatio: render?.dpr || 1,
+    ...(render ? { innerWidth: 420, innerHeight: 560 } : {}),
     matchMedia: () => ({ matches: false, addEventListener: noop }),
     requestAnimationFrame: fn => { nextFrame = fn; }, setTimeout: () => 1, clearTimeout: noop,
     BloomLevels: Levels, BloomMoon: Moon, BloomKoi: Koi, BloomGarden: Garden, BloomGoals: QuietGoals,
-    BloomEngine: Engine, BloomRush: { RushGame: ObservedRush }, BloomDepths: Depths, BloomPowers: Powers,
+    BloomEngine: Engine, BloomRush: { RushGame: ObservedRush }, BloomBosses: require('../bosses.js'), BloomFoes: require('../foes.js'), BloomDepths: Depths, BloomPowers: Powers,
     BloomTutorial: require('../tutorial.js'), BloomPetals: require('../petals.js'), BloomScenery: { paint: noop, has: () => true },
     BloomFeel: Feel,
     BloomSound: { wake: noop, setEnabled: noop, play: (type, detail) => cues.push({ type, detail, at: now }), muffle: (amount, seconds) => cues.push({ type: 'muffle', detail: { amount, seconds }, at: now }) },
     BloomKeepsakes: Keepsakes,
-    BloomArt: { draw: (ctx, state, time, options) => draws.push({ time, camera: options.camera ? { ...options.camera } : null, vignette: options.vignette, danger: { ...options.danger }, quality: options.quality, flash: options.flash }),
-      drawFlower: noop, drawMoon: noop, koiFish: noop, drawGarden: noop, drawProjectile: noop, drawParticle: noop, drawSeed: noop, drawPowerIcon: noop, podSlot: () => ({ x: 210, y: 498 }) },
+    BloomArt: { draw: (ctx, state, time, options) => { draws.push({ time, camera: options.camera ? { ...options.camera } : null, vignette: options.vignette, danger: { ...options.danger }, quality: options.quality, flash: options.flash, interpolation: options.interpolation }); work += render?.drawCost || 0; paints++; },
+      ...(render ? { paints: () => paints, prewarm: () => ({ step(ms) { render.warms.push(ms); work += render.warmCost || 0; return false; } }) } : {}),
+      drawFlower: noop, drawMoon: noop, koiFish: noop, drawGarden: (ctx, w, h, theme, options) => { if (render && options?.frame === false) render.scenes.push({ theme, mode: options.mode }); }, drawProjectile: noop, drawParticle: noop, drawSeed: noop, drawPowerIcon: noop, podSlot: () => ({ x: 210, y: 498 }), ...art },
     BloomMeadow: { plots: Garden.plots.map((p, i) => ({ id: p.id, x: 65 + i * 50, y: 150, labelY: 180, accent: p.color })),
       decor: Garden.decor.map((d, i) => ({ id: d.id, x: 40 + i * 60, y: 200, accent: '#ffffff', icon: [40 + i * 60, 190, 40] })),
       friends: Garden.decor.map((d, i) => ({ id: d.friend.id, decorId: d.id, x: 40 + i * 60, y: 180 })), reactSeconds: 1.1,
-      drawDecorIcon: noop, drawFriendIcon: noop, draw: noop }
+      drawDecorIcon: noop, drawFriendIcon: noop, draw: () => { if (render) render.meadowDraws++; } }
   });
-  context.window = context; context.addEventListener = noop;
+  context.window = context; context.addEventListener = (name, fn) => { if (!windowHandlers.has(name)) windowHandlers.set(name, []); windowHandlers.get(name).push(fn); };
   vm.runInContext(source, context, { filename: 'app.js' });
-  function frame(milliseconds = 1000 / 60) { now += milliseconds; const fn = nextFrame; assert.equal(typeof fn, 'function'); fn(now); }
+  function frame(milliseconds = 1000 / 60) { now += milliseconds; work = 0; const fn = nextFrame; assert.equal(typeof fn, 'function'); fn(now); }
   function click(id, dataset) { const target = dataset ? Object.assign(element(), { dataset }) : $(id); $(id).emit('click', { target }); }
-  return { $, click, frame, games, cues, draws, now: () => now };
+  return { $, click, frame, games, cues, draws, now: () => now, emit: name => { for (const fn of windowHandlers.get(name) || []) fn(); },
+    setViewport: (width, height) => { context.innerWidth = width; context.innerHeight = height; },
+    performance: () => context.bloomshotPerformance, saved: () => JSON.parse(storage.get('bloomshot.save.v1')) };
 }
 
+test('Old saves default to Maximum; graphics settings persist without changing progress or simulation', () => {
+  const render = { dpr: 3, depths: { 1: { stars: 3, best: 1000 } } }, app = boot({ render });
+  app.click('depth-map', { depth: '1' }); app.frame();
+  assert.equal(app.saved().settings.graphics, 'maximum');
+  assert.equal(app.$('game-canvas').width, 1050, 'Maximum retains the original pixel cap');
+  const game = app.games.at(-1), before = JSON.stringify(game.snapshot());
+  app.$('graphics-quality').emit('change', { target: { value: 'balanced' } });
+  assert.equal(app.saved().settings.graphics, 'balanced');
+  assert.equal(app.$('game-canvas').width, 840); assert.equal(app.$('scene-canvas').width, 630);
+  assert.equal(game.quality, 1); assert.equal(JSON.stringify(game.snapshot()), before, 'changing graphics does not step the engine');
+  app.$('graphics-quality').emit('change', { target: { value: 'performance' } });
+  assert.equal(app.$('game-canvas').width, 630); assert.equal(app.$('scene-canvas').width, 420);
+  app.frame(); assert.equal(app.draws.at(-1).quality, 2, 'manual detail floor survives a fast frame');
+  app.$('graphics-quality').emit('change', { target: { value: 'maximum' } });
+  assert.equal(app.$('game-canvas').width, 1050); assert.equal(app.saved().depths[1].best, 1000);
+});
+
+test('Invalid graphics values fall back to Maximum, while valid saved choices and FPS preference survive', () => {
+  for (const value of ['performance', 'balanced', 'maximum', '__proto__', 'constructor', null]) {
+    const app = boot({ settings: { graphics: value, frameRate: true } });
+    assert.equal(app.saved().settings.graphics, ['performance', 'balanced', 'maximum'].includes(value) ? value : 'maximum');
+    assert.equal(app.saved().settings.frameRate, true);
+  }
+});
+
+// The opening vine curtain ignores taps (a seed fired blind under it was never aimed), so aiming tests start once it lifts.
+function pastCurtain(app) { for (let i = 0; i < 40; i++) app.frame(); }
+
+test('Rapid Rush moves defer collision traces until the next paint and release uses the latest angle', () => {
+  const app = boot(); app.click('depth-map', { depth: '1' }); pastCurtain(app);
+  const game = app.games.at(-1), canvas = app.$('game-canvas'), trace = game.trace.bind(game);
+  let traces = 0; game.trace = (...args) => { traces++; return trace(...args); };
+  canvas.emit('pointerdown', { pointerId: 7, isPrimary: true, clientX: 200, clientY: 220 });
+  traces = 0;
+  for (let i = 0; i < 20; i++) canvas.emit('pointermove', { pointerId: 7, clientX: 200 + i * 4, clientY: 180 });
+  assert.equal(traces, 0, 'high-rate moves only update the aim direction');
+  app.frame(); assert.equal(traces, 1, 'one fresh trace for the displayed frame');
+  canvas.emit('pointermove', { pointerId: 7, clientX: 310, clientY: 170 });
+  canvas.emit('pointerup', { pointerId: 7, clientX: 310, clientY: 170 });
+  assert(game.balls.length > 0, 'release still launches before another animation frame');
+  const ball = game.balls.at(-1), expected = Math.atan2(170 - game.launcher.y, 310 - game.launcher.x);
+  assert(Math.abs(Math.atan2(ball.vy, ball.vx) - expected) < 1e-8, 'latest touch determines the shot');
+});
+
+test('Normal-speed rendering receives the residual physics fraction and pausing holds that fraction', () => {
+  const app = boot(); app.click('depth-map', { depth: '1' }); app.frame();
+  app.frame(16.7); const fraction = app.draws.at(-1).interpolation;
+  assert(fraction > 0 && fraction < 1, 'normal speed interpolates between ticks');
+  app.$('settings-dialog').open = true; app.frame(33.3);
+  assert.equal(app.draws.at(-1).interpolation, fraction, 'paused simulation has no visual extrapolation');
+});
+
+test('A busy frame skips warming; a nearly full frame offers only the time still available', () => {
+  const render = { drawCost: 13 }, app = boot({ render });
+  app.click('depth-map', { depth: '1' }); app.frame();
+  assert.equal(render.warms.length, 0, 'over-budget gameplay performs no warm-up job');
+  render.drawCost = 6; app.frame();
+  assert.deepEqual(render.warms, [2], 'only two milliseconds remain, with no minimum extra work');
+  render.drawCost = 1; app.frame();
+  assert.equal(render.warms.at(-1), 4, 'Maximum caps warming at four milliseconds and reserves browser time');
+  app.$('graphics-quality').emit('change', { target: { value: 'balanced' } }); app.frame();
+  assert.equal(render.warms.at(-1), 3, 'Balanced does not spend every saved millisecond warming');
+  app.$('graphics-quality').emit('change', { target: { value: 'performance' } }); app.frame();
+  assert.equal(render.warms.at(-1), 2, 'Performance leaves the most headroom');
+});
+
+test('The quality governor includes warming and fresh paints in sustained CPU cost, then recovers', () => {
+  const render = { drawCost: 4, warmCost: 10 }, app = boot({ render });
+  app.click('depth-map', { depth: '1' });
+  for (let i = 0; i < 160; i++) app.frame();
+  assert.equal(app.games.at(-1).quality, 1, 'sustained 14 ms total work lowers costly effects even when sprites paint');
+  render.warmCost = 0;
+  for (let i = 0; i < 600; i++) app.frame();
+  assert.equal(app.games.at(-1).quality, 0, 'smooth frames restore the full artwork');
+});
+
+test('Resize storms coalesce without reallocating or canceling unchanged aiming; real changes cancel safely', () => {
+  const render = { rects: {}, depths: { 1: { stars: 3, best: 1000 } } }, app = boot({ render });
+  app.click('depth-map', { depth: '1' }); pastCurtain(app);
+  const game = app.games.at(-1), canvas = app.$('game-canvas');
+  canvas.emit('pointerdown', { pointerId: 7, isPrimary: true, clientX: 200, clientY: 300 });
+  assert(game.aim.length > 1, 'a real held aim is active');
+  const before = { allocations: render.allocations.length, scenes: render.scenes.length };
+  render.boardReads = 0;
+  for (let i = 0; i < 20; i++) app.emit('resize');
+  assert.equal(render.boardReads, 0, 'events defer sizing until the next frame');
+  app.frame();
+  assert.equal(render.boardReads, 1, 'the event burst sizes once');
+  assert.equal(render.allocations.length, before.allocations, 'unchanged backing stores are reused');
+  assert.equal(render.scenes.length, before.scenes, 'unchanged scenery is reused');
+  assert(game.aim.length > 1, 'an unchanged event does not lose the held aim');
+  render.rects['game-canvas'] = { width: 360, height: 480 };
+  render.rects['scene-canvas'] = { width: 390, height: 844 };
+  for (let i = 0; i < 20; i++) app.emit('resize');
+  app.frame();
+  assert.equal(game.aim.length, 0, 'changed geometry cancels the old aim before rendering');
+  assert.equal(game.balls.length, 0, 'resizing never fires');
+  assert.equal(render.scenes.length, before.scenes + 1, 'the new viewport paints once');
+  const allocations = render.allocations.length;
+  app.click('depth-map', { depth: '2' });
+  assert.equal(render.allocations.length, allocations, 'a same-size level keeps its backing stores');
+  assert.equal(render.scenes.at(-1).theme, 'depth-roots', 'a new theme paints immediately, before its first frame');
+});
+
+test('A real viewport resize still refreshes the Garden when the hidden game board has a zero rect', () => {
+  const render = { rects: { 'game-canvas': { width: 0, height: 0, right: 0, bottom: 0 } } }, app = boot({ render, motion: false });
+  app.click('garden-btn'); app.emit('resize'); app.frame();
+  const before = render.meadowDraws;
+  app.setViewport(390, 844); app.emit('resize'); app.frame();
+  assert.equal(render.meadowDraws, before + 1, 'changed viewport dirties the visible Garden even though the board rect stayed zero');
+  app.emit('resize'); app.frame();
+  assert.equal(render.meadowDraws, before + 1, 'an unchanged viewport reuses the still Garden');
+});
+
 // Level 1's boss wave with the boss on its last ring and one seed just under it, flying straight up.
-function bossShot(app) {
+function bossShot(app, { awake = true } = {}) {
   app.click('depth-map', { depth: '1' });
   const game = app.games.at(-1);
   assert.equal(game.mode, 'rush'); assert(game.plan && game.plan.id === 1, 'level 1 is running');
@@ -308,14 +437,32 @@ function bossShot(app) {
   assert.equal(game.wave, 10);
   const boss = game.buds.find(bud => bud.boss);
   assert(boss, 'wave 10 has a boss');
+  if (awake) {
+    // Earn the real vulnerable phase. Removing a visual shield does not bypass Sunny's controller.
+    const bubble = game.buds.find(bud => bud.bossPart === 'bubble');
+    game.spawnBall({ x: bubble.x, y: bubble.y + bubble.r + Engine.RADIUS + 1, angle: -Math.PI / 2 }, true);
+    game.striker = game.balls.at(-1); game.striker.bossContact = { nx: 0, ny: 1 };
+    game.strike(bubble); game.striker = null;
+    assert.equal(game.bossState.mode, 'dizzy'); assert(bubble.bloomed);
+  }
+  // One health point is only reachable in a guardian's last mood, so the fixture puts it there.
+  if (game.bossState.tierAt) game.bossState.tier = 2;
   boss.hp = 1; boss.sway = 0; boss.x = boss.baseX = 210; boss.shield = false; boss.shell = false;
-  game.buds = game.buds.filter(bud => bud === boss || bud.bloomed || bud.y < boss.y);
+  game.buds = game.buds.filter(bud => bud === boss || bud.bossPart || bud.bloomed || bud.y < boss.y);
   game.bumpers = game.bumpers.filter(item => item.y > boss.y + 120 || item.y < boss.y - 60);
   game.balls = []; game.status = 'flying';
-  game.spawnBall({ x: boss.x, y: boss.y + boss.r + Engine.RADIUS + 40, angle: -Math.PI / 2, type: 'gold' }, true);
+  game.spawnBall(awake ? { x: boss.x, y: boss.y + boss.r + Engine.RADIUS + 40, angle: -Math.PI / 2, type: 'gold' }
+    : { x: boss.x + boss.r + Engine.RADIUS + 40, y: boss.y, angle: Math.PI, type: 'gold' }, true);
   return { game, boss };
 }
 // Plays until the result shows (or the limit), noting when things happen in real seconds.
+test('A guarded named guardian never starts a victory drumroll for a blocked seed', () => {
+  const app = boot({ motion: true }), { game, boss } = bossShot(app, { awake: false });
+  for (let i = 0; i < 60; i++) app.frame();
+  assert.equal(boss.hp, 1); assert.equal(boss.bloomed, false);
+  assert(app.cues.some(cue => cue.type === 'bossGuard'), 'the seed actually met the sleeping guardian');
+  assert(!app.cues.some(cue => cue.type === 'roll' || cue.type === 'finale'), 'no false victory build or impact');
+});
 function playOut(app, game, limit = 12, onFrame) {
   // flight: real and game seconds while the seed is in the air (the frame that ends the level stops part way).
   const marks = { finaleAt: null, impactAt: null, wonAt: null, openAt: null, flight: { real: 0, game: 0 } };
@@ -397,7 +544,8 @@ test('The boss is the last flower: its bloom calls off the reinforcements, the f
   assert(light, 'a warm light on the flower instead');
   assert.equal(popsAfter, 0, 'no score pop, banner, stamp or praise over the finale');
   assert(title, 'the level title came up'); assert.equal(title.text, 'Level 1 clear!'); assert.equal(title.label, 'Old Sunny bloomed!');
-  assert(title.y >= 300, `the ribbon sits clear of the boss (y ${title.y})`);
+  assert(Math.abs(title.y - boss.y) > 29 + boss.r * 1.3, `the ribbon sits clear of the boss (y ${title.y}, boss ${boss.y})`);
+  assert(game.bumpers.length && game.bumpers.every(b => Math.abs(title.y - b.y) > 29 + Math.abs(Math.sin(b.angle || 0)) * b.length / 2), 'and clear of the petal');
   assert(!app.cues.some(c => c.type === 'trick'), 'no stamps');
 });
 
@@ -410,11 +558,16 @@ test('A bloom the camera never saw coming still gets a short lean-in and slow-do
   const out = feel.step(DT); assert.equal(out.scale, 1); assert.equal(out.busy, false);
 });
 
-test('The finale leads a swaying boss: a shot that will meet it builds early, one it will drift away from never builds', () => {
+test('The finale leads a swaying final flower: a shot that will meet it builds early, one it will drift away from never builds', () => {
   // The boss swings right through the middle of its sway (about 69 px/s) as a seed climbs straight up toward its row.
   const shotAt = (offset, below) => {
-    const app = boot({ motion: true }), { game, boss } = bossShot(app);
-    game.balls = []; boss.sway = 50; boss.swayPhase = 0; boss.baseX = boss.x = 210; game.waveStart = game.time;
+    const app = boot({ motion: true }); app.click('levels-rush-btn');
+    const game = app.games.at(-1); for (let i = 0; i < 20; i++) app.frame();
+    game.started = true; game.wave = 4; game._loadWave();
+    const boss = game.buds.find(bud => !bud.gift);
+    assert(boss && !boss.bossKind, 'the endless final flower uses the continuous sway under test');
+    boss.hp = 1; game.buds = [boss]; game.drops = []; game.pending = []; game.bumpers = [];
+    game.balls = []; boss.sway = 50; boss.swayW = 1.38; boss.swayPhase = 0; boss.baseX = boss.x = 210; game.waveStart = game.time;
     game.spawnBall({ x: 210 + offset, y: boss.y + below, angle: -Math.PI / 2, type: 'gold' }, true);
     let rollAt = null, bloomAt = null;
     for (let i = 0; i < 240 && bloomAt === null; i++) {
@@ -425,11 +578,11 @@ test('The finale leads a swaying boss: a shot that will meet it builds early, on
     return { rollAt, bloomAt };
   };
   // Aimed just past its right edge: it swings into the seed.
-  const into = shotAt(36, 130);
+  const into = shotAt(30, 130);
   assert(into.bloomAt !== null, 'the boss swings into the seed');
   assert(into.rollAt !== null && into.bloomAt - into.rollAt > .15, `the build starts a full beat ahead: ${JSON.stringify(into)}`);
   // Aimed inside its left edge: by the time the seed arrives the boss has swung clear.
-  const clear = shotAt(-24, 110);
+  const clear = shotAt(-20, 110);
   assert.equal(clear.bloomAt, null, 'the seed misses');
   assert.equal(clear.rollAt, null, 'so no drumroll for a miss');
 });
@@ -446,6 +599,64 @@ test('The sweep notes climb one at a time even where mirrored flowers flare toge
   assert.equal(notes.length, 7, 'one note per bloomed flower');
   notes.forEach((c, i) => assert.equal(c.detail.i, i));
   for (let i = 1; i < notes.length; i++) assert(notes[i].at - notes[i - 1].at >= 55, `notes ${i - 1} and ${i} are ${notes[i].at - notes[i - 1].at} ms apart`);
+});
+
+// The real art's spentFlower, for the app's sweep and harvest.
+function realArt() {
+  const artContext = vm.createContext({ console, Math, Map, Set, WeakMap, Array, Object, Number, String, JSON });
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../art.js'), 'utf8'), artContext, { filename: 'art.js' });
+  return { spentFlower: artContext.BloomArt.spentFlower };
+}
+function spentGarden(app) {
+  const { game, boss } = bossShot(app);
+  game.buds = game.buds.filter(bud => bud === boss);
+  // Three flowers bloomed long before the boss, and three still open that its bloom sets off.
+  const spent = [[80, 178], [118, 248], [150, 300]].map(([x, y], i) => ({ id: 'spent-' + i, group: 'spent', x, y, baseX: x, r: 11, type: 'coral', hp: 1, maxHp: 1, bloomed: true, bloomAt: game.time - 3, hitAt: -100, sway: 0 }));
+  const open = [[340, 178], [302, 248], [270, 300]].map(([x, y], i) => ({ id: 'open-' + i, group: 'open', x, y, baseX: x, r: 11, type: 'sky', hp: 1, maxHp: 1, bloomed: false, bloomAt: -100, hitAt: -100, sway: 0 }));
+  game.buds.push(...spent, ...open);
+  boss.x = boss.baseX = 210;
+  return { game, boss, spent, open };
+}
+test('With the real art a won level\'s sweep lights every flower, bringing back the long-spent ones as the light reaches them', () => {
+  const app = boot({ motion: true, art: realArt() }), { game, boss, spent, open } = spentGarden(app);
+  const marks = playOut(app, game);
+  assert.equal(game.status, 'won');
+  assert(open.every(bud => bud.bloomed && typeof bud.flareAt === 'number'), 'the cascade flares');
+  assert(typeof boss.flareAt === 'number', 'and so does the boss');
+  assert(spent.every(bud => typeof bud.flareAt === 'number' && bud.flareAt > boss.flareAt), 'the flowers spent long before get the light too, in their turn');
+  assert(spent.every(bud => bud.backAt === bud.flareAt), 'and come back as it reaches them');
+  assert.equal(app.cues.filter(c => c.type === 'sweep').length, 7, 'one note for each flower in the garden');
+  assert(marks.openAt !== null, 'and the result still comes');
+});
+// The game time of the frame that first shows the level won.
+const wonTime = game => (t, marks) => { if (game.status === 'won' && marks.wonGame === undefined) marks.wonGame = game.time; };
+test('With Animations off a won level brings the spent flowers back all at once at the win, with no light or notes', () => {
+  const app = boot({ motion: false, art: realArt() }), { game, spent } = spentGarden(app);
+  const marks = playOut(app, game, 12, wonTime(game));
+  assert.equal(game.status, 'won');
+  assert(spent.every(bud => bud.backAt === marks.wonGame), `every spent flower comes back at the win (${spent.map(b => b.backAt)} for ${marks.wonGame})`);
+  assert(spent.every(bud => bud.flareAt === undefined), 'with no light');
+  assert.equal(app.cues.filter(c => c.type === 'sweep').length, 0, 'no notes');
+});
+for (const motion of [true, false]) test(`A level won with no final bloom (the last flowers fell past the line) still brings the garden back, Animations ${motion ? 'on' : 'off'}`, () => {
+  // Level 5's free taste ends on wave 3, which has no boss: losing its last group with lives left wins the taste.
+  const app = boot({ motion, render: { depths: { 1: { stars: 3 }, 2: { stars: 3 }, 3: { stars: 3 }, 4: { stars: 2 } } }, art: realArt() });
+  app.click('depth-map', { depth: '5' });
+  const game = app.games.at(-1);
+  assert(game.plan && game.plan.taste, 'the Level 5 taste');
+  for (let i = 0; i < 20; i++) app.frame();
+  game.started = true; game.wave = game.finalWave - 1; game._loadWave(); game.drops = []; game.pending = [];
+  const groups = [...new Set(game.buds.filter(bud => !bud.gift && !bud.foe).map(bud => bud.group))], lastGroup = groups.at(-1);
+  assert(groups.length >= 2 && !game.buds.some(bud => bud.boss), 'a wave of plain groups');
+  const spent = game.buds.filter(bud => bud.group !== lastGroup && !bud.gift);
+  for (const bud of spent) { bud.bloomed = true; bud.bloomAt = game.time - 3; }
+  for (const bud of game.buds) if (bud.group === lastGroup) bud.y = game.dangerY - (bud.r || 11) + 1;
+  game.balls = [];
+  const lives = game.lives, marks = playOut(app, game, 6, wonTime(game));
+  assert.equal(game.status, 'won'); assert.equal(game.lives, lives - 1, 'a life was lost, not the run');
+  assert.equal(app.cues.filter(c => c.type === 'finale').length, 0, 'no finale');
+  assert(marks.openAt !== null, 'the result comes');
+  assert(spent.every(bud => bud.backAt === marks.wonGame), 'every spent flower comes back together at the win');
 });
 
 test('Nothing freezes the finale glide, and the impact still gets its full frozen blink', () => {
@@ -471,7 +682,7 @@ test('Nothing freezes the finale glide, and the impact still gets its full froze
 test('The last ring cracked a moment before still leaves the impact its full frozen blink', () => {
   const app = boot({ motion: true }), { game, boss } = bossShot(app);
   // Two seeds in a line: the first cracks the boss to its last ring (a hit-stop of its own), the second blooms it.
-  boss.hp = 2; game.balls = [];
+  boss.hp = 3; game.balls = []; // Sunny's dizzy weakspot takes two rings per direct hit.
   game.spawnBall({ x: boss.x, y: boss.y + boss.r + Engine.RADIUS + 20, angle: -Math.PI / 2, type: 'gold' }, true);
   game.spawnBall({ x: boss.x, y: boss.y + boss.r + Engine.RADIUS + 110, angle: -Math.PI / 2, type: 'coral' }, true);
   let cracked = false, impact = false, frozen = 0, last = game.time;
@@ -547,6 +758,27 @@ test('Endless Rush: the flower that clears every fifth wave gets the finale, and
   assert.notEqual(game.status, 'won'); assert.equal(app.$('result-dialog').open, false, 'the run goes on');
   assert.equal(app.draws.at(-1).camera, null); assert.equal(app.draws.at(-1).vignette, 0);
   assert(!game.floaters.some(f => f.kind === 'title'), 'no level title in endless Rush');
+});
+
+test('With the real art endless Rush\'s sweep lights only the flowers still in bloom, so spent ones never come back mid-run', () => {
+  const app = boot({ motion: true, art: realArt() });
+  app.click('levels-rush-btn');
+  const game = app.games.at(-1);
+  for (let i = 0; i < 10; i++) app.frame();
+  game.started = true; game.wave = 4; game._loadWave(); game.drops = []; game.pending = [];
+  const last = game.buds.find(bud => !bud.gift), spent = game.buds.filter(bud => bud !== last && !bud.gift);
+  assert(spent.length >= 3, `${spent.length} spent flowers`);
+  for (const bud of game.buds) if (bud !== last) { bud.bloomed = true; bud.bloomAt = game.time - 3; }
+  Object.assign(last, { hp: 1, geode: false, shield: false, shell: false, sway: 0, vx: 0, vy: 0, x: 210, baseX: 210, y: 200 });
+  game.bumpers = game.bumpers.filter(item => item.y > 330 || item.y < 140);
+  game.balls = []; game.status = 'flying';
+  game.spawnBall({ x: 210, y: 200 + (last.r || 11) + Engine.RADIUS + 40, angle: -Math.PI / 2, type: 'gold' }, true);
+  let sweeping = false;
+  for (let i = 0; i < 4 * 60; i++) { app.frame(); if (game.feel && game.feel.sweeping) sweeping = true; }
+  assert(sweeping, 'the gold light ran');
+  assert(typeof last.flareAt === 'number', 'the flower that cleared the wave flares');
+  assert(spent.every(bud => bud.flareAt === undefined && bud.backAt === undefined), 'flowers spent long before stay gone');
+  assert.notEqual(game.status, 'won');
 });
 
 test('With animations off the finale keeps its chord and title but no slow motion, camera or sweep, and the result shows after .4 s', () => {

@@ -25,7 +25,8 @@ function test(name, fn) {
 }
 const player = (motion = true) => ({ version: 1, tutorial: true, powersMet: true, depths: { 1: { stars: 3, best: 3000, wave: 10 }, 2: { stars: 2, best: 2000, wave: 10 } },
   settings: { sound: true, haptics: true, motion } });
-function boot(raw) {
+// art: BloomArt pieces to add to the stand-in, such as the real art's spentFlower.
+function boot(raw, art = {}) {
   const storage = new Map();
   if (raw !== undefined) storage.set('bloomshot.save.v1', JSON.stringify(raw));
   const nodes = new Map(), games = [], sounds = [];
@@ -74,7 +75,7 @@ function boot(raw) {
     // The spy keeps each cue with the game clock it played at.
     BloomSound: { wake: noop, setEnabled: noop, play: (type, data) => sounds.push({ type, data: plain(data || {}), at: games.length ? games.at(-1).time : 0 }) },
     BloomKeepsakes: Keepsakes,
-    BloomArt: { draw: noop, drawFlower: noop, drawMoon: noop, koiFish: noop, drawGarden: noop, drawProjectile: noop, drawParticle: noop, drawSeed: noop, drawPowerIcon: noop, podSlot: () => ({ x: 210, y: 498 }) },
+    BloomArt: { draw: noop, drawFlower: noop, drawMoon: noop, koiFish: noop, drawGarden: noop, drawProjectile: noop, drawParticle: noop, drawSeed: noop, drawPowerIcon: noop, podSlot: () => ({ x: 210, y: 498 }), ...art },
     BloomMeadow: { plots: Garden.plots.map((p, i) => ({ id: p.id, x: 65 + i * 50, y: 150, labelY: 180, accent: p.color })),
       decor: Garden.decor.map((d, i) => ({ id: d.id, x: 40 + i * 60, y: 200, accent: '#ffffff', icon: [40 + i * 60, 190, 40] })),
       friends: Garden.decor.map((d, i) => ({ id: d.friend.id, decorId: d.id, x: 40 + i * 60, y: 180 })), reactSeconds: 1.1,
@@ -92,7 +93,7 @@ function boot(raw) {
 const titles = game => game.floaters.filter(f => f.kind === 'title');
 // Values made inside the app's sandbox carry its own Object and Array, so they are copied out before a deep compare.
 function plain(value) { return JSON.parse(JSON.stringify(value)); }
-const level = (raw, id) => { const app = boot(raw); app.click('depth-map', { depth: String(id) }); app.frame(); return app; };
+const level = (raw, id, art) => { const app = boot(raw, art); app.click('depth-map', { depth: String(id) }); app.frame(); return app; };
 // Blooms every open flower so the wave clears on the next frame, after adding extra spent blooms when asked.
 function clearWave(app, extra = 0) {
   const game = app.game(); game.started = true; game.drops = [];
@@ -131,7 +132,8 @@ test('A level opens on its title ribbon, the intro cue plays and the first wave 
   assert(plops.length >= 1 && plops.length <= 8, `${plops.length} plops`);
   for (let i = 1; i < plops.length; i++) assert(plops[i].at - plops[i - 1].at >= .04 - 1e-9, 'plops are at least 40 ms apart');
   assert(plops.every((p, i) => p.data.i === i && Number.isFinite(p.data.x)));
-  assert.equal(titles(game).length, 0, 'the title has gone');
+  // The level title has gone, and the first wave's tip has taken the top edge.
+  assert.deepEqual(plain(titles(game).map(f => [f.text, f.label, f.size, f.y])), [['Wave 1 of 10', Depths.wave(1, 1).hint, 'small', 32]], 'the title has gone and the tip is up');
   assert(game.buds.every(b => b.enterAt === undefined), 'enter fields clear once landed, so a later respawn pops in as before');
   assert.equal(app.cues('intro').length, 1, 'the intro plays once');
 });
@@ -207,14 +209,18 @@ test('A boss wave drops its big bloom from 140 px, then its name card and health
   const landed = app.cues('bossLand')[0];
   assert(landed.at - boss.enterAt < .8 * .4, 'the thud comes on first touchdown'); assert.equal(landed.data.x, boss.x);
   const card = titles(game).find(f => f.boss);
-  assert.deepEqual(plain([card.text, card.label, card.y, card.maxLife]), ['Mother Morel', `${boss.maxHp} hits to bloom`, 178, 1.6]);
+  assert.deepEqual(plain([card.text, card.label, card.y, card.maxLife]), ['Mother Morel', 'Pop a nearby puffcap', 178, 1.6]);
   assert(card.y - 29 > boss.y + boss.r * 1.3, 'the card sits below the boss, not over it');
   const vine = game.stage.vine;
   assert.equal(vine.bud, boss); assert.equal(vine.name, 'Mother Morel'); assert.equal(vine.max, boss.maxHp); assert.equal(typeof vine.shownAt, 'number');
-  // Three hits: three leaves fall, the vine shakes, and the pale damage stretch shrinks back in about .4 s.
-  for (let i = 0; i < 3; i++) game.strike(boss);
+  // Enough hits to empty a leaf: the leaves that held those rings fall (the vine shows at most 20 leaves, each max/20 of
+  // its health), the vine shakes, and the pale damage stretch shrinks back in about .4 s.
+  const leaves = Math.min(20, boss.maxHp), per = boss.maxHp / leaves, hits = Math.max(3, Math.ceil(per - 1e-9));
+  for (let i = 0; i < hits; i++) game.strike(boss);
   app.frame();
-  assert.equal(vine.hp, boss.maxHp - 3); assert.equal(vine.fallen.length, 3); assert(vine.lag > vine.hp, 'the damage shows first');
+  const emptied = Array.from({ length: leaves }, (_, i) => i * per).filter(at => at >= boss.maxHp - hits - 1e-9 && at < boss.maxHp - 1e-9).length;
+  assert(emptied >= 1, `${hits} hits empty at least one leaf`);
+  assert.equal(vine.hp, boss.maxHp - hits); assert.equal(vine.fallen.length, emptied); assert(vine.lag > vine.hp, 'the damage shows first');
   assert(Math.abs(vine.shakeAt - game.time) < .05, 'the crack shook the vine');
   app.run(.6);
   assert.equal(vine.lag, vine.hp, 'then it catches up');
@@ -225,12 +231,12 @@ test('A boss wave drops its big bloom from 140 px, then its name card and health
   assert.equal(banner.text, 'Mother Morel bloomed!'); assert.equal(banner.label, 'everything blooms');
   assert.match(app.$('announcement').textContent, /^Mother Morel bloomed\./);
 });
-test('An unnamed big bloom is called Big bloom, and its hit count reads right', () => {
+test('An unnamed guardian is called Big bloom and keeps its opening strategy', () => {
   const app = level(player(), 1); app.run(1.3);
   const game = app.game(), boss = bossWave(app, null);
   app.run(1, () => app.cues('bossLand').length > 0);
   const card = titles(game).find(f => f.boss);
-  assert.equal(card.text, 'Big bloom'); assert.equal(card.label, `${boss.maxHp} hits to bloom`);
+  assert.equal(card.text, 'Big bloom'); assert.equal(card.label, 'Pop the bubble first');
   boss.hp = 1; game.strike(boss); app.frame();
   assert(game.floaters.some(f => f.kind === 'wave' && f.text === 'Big bloom!'));
 });
@@ -362,6 +368,15 @@ test('A boss only loses leaves, so the vine lets go of the sprite for the count 
   assert.equal(surfaces, before, 'the current count stays cached');
   Art.draw(recordingContext([]), stageBoard(20.6, 4), 20.6, options);
   assert.equal(surfaces, before + 1, 'the old count was let go');
+});
+test('With the real art, a clear harvests only the flowers still in full bloom: spent ones have faded away', () => {
+  const app = level(player(), 1, { spentFlower: Art.spentFlower }), game = app.game(); app.run(1.3);
+  clearWave(app, 30);
+  assert(app.run(3, () => (game.harvest || []).length > 0), 'the wave clears');
+  const fresh = game.buds.filter(b => b.bloomed && !b.gift && b.group !== 'extra');
+  assert(fresh.length >= 4, `the wave's own blooms (${fresh.length})`);
+  assert.equal(game.harvest.length, fresh.length, 'one orb for each flower still in full bloom');
+  assert(game.harvest.every(orb => orb.bud.group !== 'extra'), 'none from the blooms 1.7 to 2 s old, faded by now');
 });
 
 const report = { passed: results.filter(r => r.passed).length, failed: results.filter(r => !r.passed).length, results };

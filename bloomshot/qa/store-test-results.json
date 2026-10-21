@@ -1,5 +1,5 @@
 {
-  "passed": 44,
+  "passed": 52,
   "failed": 0,
   "results": [
     {
@@ -119,6 +119,14 @@
       "passed": true
     },
     {
+      "name": "powerups: unavailable or silently dropping ledger storage refuses a charge",
+      "passed": true
+    },
+    {
+      "name": "powerups: storage that fails after the charge recovers from the durable inflight record",
+      "passed": true
+    },
+    {
       "name": "powerups: paid but the app was killed before it heard back, the next launch grants it once",
       "passed": true
     },
@@ -155,7 +163,15 @@
       "passed": true
     },
     {
-      "name": "powerups: an unsettled purchase older than a week no longer claims a transaction",
+      "name": "powerups: a receipt arriving after weeks offline still grants the paid item exactly once",
+      "passed": true
+    },
+    {
+      "name": "powerups: an indeterminate sheet error cannot open a second sheet until the first is resolved",
+      "passed": true
+    },
+    {
+      "name": "powerups: changing the device clock cannot discard a paid receipt during error recovery",
       "passed": true
     },
     {
@@ -176,6 +192,22 @@
     },
     {
       "name": "the shipped catalog is consistent: unique ids, bundles only grant entitlements that single products sell, and a bundle is cheaper than its parts",
+      "passed": true
+    },
+    {
+      "name": "Restore distinguishes newly confirmed powerups from saved grants and does not report them twice",
+      "passed": true
+    },
+    {
+      "name": "Restore reports a confirmed but unaccepted grant as owed, never as delivered",
+      "passed": true
+    },
+    {
+      "name": "Restore retries an already owed grant after the game can save, without another payment or receipt replay",
+      "passed": true
+    },
+    {
+      "name": "Restore reports an unresolved payment separately and preserves its durable intent",
       "passed": true
     }
   ]

@@ -31,7 +31,11 @@ const CUES = [
   ['intro', { level: 4, boss: false }], ['intro', { level: 10, boss: true }], ['intro', { level: 'rush', boss: false }], ['pluck', { i: 0, n: 24 }], ['pluck', { i: 23, n: 24 }],
   ['plop', { i: 3, x: 120 }], ['bossLand', { x: 210 }], ['tally', { i: 0, n: 14 }], ['tally', { i: 13, n: 14 }], ['record', {}], ['splitReady', {}],
   ['lullabyTick', { left: 3 }], ['lullabyTick', { left: 1 }], ['lullabyWake', {}], ['briarTick', { left: 2, x: 100 }], ['briarTick', { left: 0.5, x: 300 }],
-  ['podSeed', { pod: 2 }], ['podSeed', { pod: 4 }], ['dry', { wait: 1.2, grow: .3 }]
+  ['podSeed', { pod: 2 }], ['podSeed', { pod: 4 }], ['dry', { wait: 1.2, grow: .3 }],
+  ['bossWarning', { kind: 'sunny', x: 150, at: 4, until: 5.2 }], ['bossGuard', { kind: 'fossil', bud: { x: 300 } }],
+  ['bossCritical', { kind: 'lotus', bud: { x: 160 }, damage: 3 }], ['bossBurn', { kind: 'ember', x: 310, y: 150 }],
+  // Every new piece's cues (qa/foe-cues.cjs) meet the same rules.
+  ...require('./foe-cues.cjs')
 ];
 const FLOWERS = ['gold', 'coral', 'lilac', 'sky', 'poppy'];
 function fixture(options = {}) {
@@ -130,6 +134,7 @@ const tones = (h, voice) => h.context.nodes.filter(n => n.kind === 'oscillator' 
 // Where a note's pitch automation settles (after any glide into it).
 const target = osc => osc.frequency.events[osc.frequency.events.length - 1].value;
 const inKey = frequency => { const semis = 12 * Math.log2(frequency / 261.6255653); const pc = ((Math.round(semis) % 12) + 12) % 12; return Math.abs(semis - Math.round(semis)) < 0.01 && [0, 2, 4, 5, 7, 9, 11].includes(pc); };
+const peak = node => Math.max(...node.gain.events.map(e => e.value || 0));
 async function test(name, run) {
   const started = Date.now();
   try { await run(); results.push({ name, passed: true }); if (process.env.SOUND_TEST_TIMING) console.error(Date.now() - started, 'ms', name); }
@@ -399,6 +404,58 @@ async function main() {
     assert(h.oscillators().every(n => n.stopAt <= h.context.currentTime + 0.025));
     h.tick(0.04); assert.equal(h.voices().length, 0); assert.equal(h.oscillators().length, 0);
   });
+  await test('All ten guardian warnings start immediately with distinct restrained colors and finish before the attack', () => {
+    const signatures = new Set(), kinds = ['sunny', 'root', 'puff', 'crystal', 'lotus', 'fossil', 'ember', 'geode', 'briar', 'core'];
+    for (const kind of kinds) {
+      const h = fixture({ buffers: true, random: '() => .5' }); h.sound.wake(); h.tick(1);
+      const now = h.context.currentTime; h.sound.play('bossWarning', { kind, x: 120, at: 4, until: 5.2 });
+      const notes = h.voices().sort((a, b) => a.startAt - b.startAt);
+      assert.equal(notes.length, 2, kind); assert.equal(notes[0].startAt, now, 'no scheduled delay reduces the telegraph lead');
+      assert(notes[1].startAt <= now + .13);
+      for (const voice of notes) { assert(voice.stopAt < now + .45); assert(peak(voice.connections[0]) <= .085); }
+      signatures.add(notes.map(voice => `${target(voice).toFixed(3)}:${h.oscillators().filter(osc => osc.connections[0] === voice.connections[0] || osc.connections[0].connections.includes(voice.connections[0])).map(osc => (target(osc) / target(voice)).toFixed(3)).join(',')}`).join('|'));
+      const before = h.context.nodes.length; for (let i = 0; i < 40; i++) h.sound.play('bossWarning', { kind });
+      assert.equal(h.context.nodes.length, before, 'repeated warning events share one cue');
+      h.tick(2); assert.equal(h.voices().length, 0); assert.equal(h.context.nodes.filter(node => node.kind === 'source' && !node.ended).length, 0);
+    }
+    assert.equal(signatures.size, 10, 'guardian colors differ without importing sounds');
+  });
+  await test('Actual controller warning events retain at least 1.2 seconds of lead and all reach the sound handler', () => {
+    const { RushGame } = require('../rush.js'), Depths = require('../depths.js');
+    for (let level = 1; level <= 10; level++) {
+      const info = Depths.level(level), game = new RushGame({ plan: { id: level, name: info.name, waves: 10, wave: n => Depths.wave(level, n) }, startWave: 10 });
+      game.started = true; game.status = 'flying'; game.descentSpeed = 0; game.drops = []; game.bossState.next = 0; game.step(1 / 120);
+      const warning = game.drainEvents().find(event => event.type === 'bossWarning');
+      assert(warning, info.name + ' emits the actual warning event'); assert(warning.until - warning.at >= 1.2 - 1e-9); assert.equal(game.bossState.action, 0);
+      const h = fixture(); h.sound.wake(); h.tick(1); h.sound.play(warning.type, warning);
+      assert(h.voices().length > 0); assert.equal(Math.min(...h.voices().map(voice => voice.startAt)), h.context.currentTime);
+      assert(Math.max(...h.voices().map(voice => voice.stopAt)) - h.context.currentTime < warning.until - warning.at);
+    }
+  });
+  await test('Guard, weakspot and burned-seed sounds differ, debounce fast impacts, and obey mute', async () => {
+    const pitches = new Set();
+    for (const type of ['bossGuard', 'bossCritical', 'bossBurn']) {
+      const h = fixture({ buffers: true }); h.sound.wake(); h.tick(1); h.sound.play(type, { kind: 'ember', x: 300, damage: NaN });
+      const notes = h.voices(); assert(notes.length >= 1 && notes.length <= 2);
+      pitches.add(notes.map(target).join(','));
+      assert(notes.every(voice => voice.startAt >= h.context.currentTime && voice.stopAt - h.context.currentTime < .35 && peak(voice.connections[0]) <= .08));
+      const before = h.context.nodes.length; for (let i = 0; i < 100; i++) h.sound.play(type, { x: Infinity }); assert.equal(h.context.nodes.length, before);
+      h.sound.setEnabled(false); const muted = h.context.nodes.length; h.sound.play(type); h.sound.play('bossWarning', { kind: 'core' }); assert.equal(h.context.nodes.length, muted);
+      h.tick(.04); assert.equal(h.voices().length, 0);
+      h.sound.setEnabled(true); h.tick(.4); h.sound.play(type); assert(h.voices().length > 0); h.tick(2); assert.equal(h.voices().length, 0);
+      const resumed = fixture({ suspended: true }); resumed.sound.wake(); resumed.sound.play(type, { kind: 'ember', x: 300 }); resumed.sound.setEnabled(false); await resumed.resume(); assert.equal(resumed.voices().length, 0, 'a muted queued impact never replays');
+    }
+    assert.equal(pitches.size, 3, 'the impact meanings have distinct audible contours');
+  });
+  await test('A boss warning retains reserved room during a dense bloom chain without exceeding caps', () => {
+    const h = fixture(); h.sound.wake(); h.tick(1);
+    for (let i = 0; i < 13; i++) { h.sound.play('bloom', { combo: i + 1 }); h.tick(.024); }
+    const before = h.voices().length; h.sound.play('bossWarning', { kind: 'core' });
+    assert(h.voices().length > before, 'at least the immediate warning voice reaches the bus');
+    assert(h.voices().length <= MAX_VOICES); assert(h.oscillators().length <= MAX_OSCILLATORS);
+    for (let i = 0; i < 200; i++) { for (const type of ['bossGuard', 'bossCritical', 'bossBurn', 'bossWarning']) h.sound.play(type, { kind: 'ember' }); assert(h.voices().length <= MAX_VOICES); assert(h.oscillators().length <= MAX_OSCILLATORS); h.tick(.01); }
+    h.tick(2); assert.equal(h.voices().length, 0); assert.equal(h.oscillators().length, 0);
+  });
   await test('Koi currents play two quiet rising water drops and debounce lane re-entry', () => {
     const h = fixture(); h.sound.wake(); h.tick(1);
     h.sound.play('current', { x: 100 });
@@ -592,7 +649,6 @@ async function main() {
     assert.equal(h.context.nodes.filter(n => n.kind === 'convolver').length, 1, 'A new context gets its own room');
   });
   const pitchClass = f => ((Math.round(12 * Math.log2(f / 261.6255653)) % 12) + 12) % 12;
-  const peak = node => Math.max(...node.gain.events.map(e => e.value || 0));
   await test('Crisp transients run through one seeded noise buffer and a band at or under 3.6 kHz, then clean up', () => {
     const h = fixture({ buffers: true }); h.sound.wake(); h.tick(1); const shared = h.context.nodes.length;
     const expect = [['bloom', { combo: 1, bud: { x: 100 } }, 2000, 0.025], ['crack', { bud: { x: 90 } }, 1200, 0.03],
@@ -730,6 +786,7 @@ async function main() {
   });
   const report = { passed: results.filter(r => r.passed).length, failed: results.filter(r => !r.passed).length,
     limits: 'Instrumented Web Audio API scheduling/graph tests, not a rendered browser audio capture or a listening assessment. Device speakers, perceptual loudness, and audio-to-screen latency still require on-device listening.', results };
+  fs.writeFileSync(path.join(__dirname, 'sound-test-results.json'), JSON.stringify(report, null, 2) + '\n');
   console.log(JSON.stringify(report, null, 2)); if (report.failed) process.exitCode = 1;
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

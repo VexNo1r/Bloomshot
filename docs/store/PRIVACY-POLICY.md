@@ -1,47 +1,55 @@
-# Bloomshot privacy policy (DRAFT)
+# Bloomshot privacy policy source
 
-Status: draft written October 3, 2026. It is not legal advice and has not been reviewed by a lawyer. Before it is used, the owner must fill in the two bracketed items, host this text at a public web address (both stores ask for a link), and read it once to confirm it is still true of the app that is actually being submitted.
+Prepared for release with Trevor's confirmed public contact and October 14, 2026 effective date. Confirm this policy against the submitted app and configured RevenueCat integrations before using it. The public build publishes only the policy below the separator.
 
-Owner to fill in: **[effective date]** and **[contact email]**. Use an address you are comfortable having public; a dedicated one is better than a personal one.
+Owner reference: [RevenueCat Google Play Data Safety guide](https://www.revenuecat.com/docs/platform-resources/google-platform-resources/google-plays-data-safety), [RevenueCat Apple App Privacy guide](https://www.revenuecat.com/docs/platform-resources/apple-platform-resources/apple-app-privacy) and [Google Play User Data policy](https://support.google.com/googleplay/android-developer/answer/10144311). These references explain disclosure requirements; they do not certify this app.
 
 ---
 
 ## Bloomshot privacy policy
 
-Effective **[effective date]**
+Effective October 14, 2026
 
-Bloomshot is a game. This page says what it does with information about you.
+Bloomshot is a game. This page explains how game progress, purchases and technical information are handled.
 
 ### The short version
 
-Bloomshot does not collect your personal information. It has no accounts, no ads, no analytics and no tracking. Your scores, your meadow and your settings are saved on your own device and are never sent to us.
+Bloomshot has no player accounts, ads, chat, advertising tracking or gameplay analytics. Your scores, meadow and settings stay in the app's local storage. When purchases are enabled, Apple or Google handles payments and RevenueCat processes purchase and technical information to verify purchases, restore eligible unlocks and provide purchase reporting.
 
-### What is stored on your device
+### Your game progress
 
-Your game progress (scores, stars, the flowers you have grown, which levels you have finished) and your settings (sound, haptics, and similar) are saved in the app's own storage on your phone or tablet. We cannot see them. If you delete the app, or clear its data, they are gone. We cannot restore them.
+The app stores progress, scores, stars, flowers, settings and powerup inventory on your device. The native app also keeps a local backup in the app's Preferences storage. We do not receive your game progress.
+
+Deleting the app or clearing its data can remove this progress. Your operating system may include app data in backups and restore it depending on your account and backup settings; Bloomshot does not control those backups or guarantee restoration. Permanent store purchases and local progress are handled separately.
 
 ### Purchases
 
-Some content may be sold as a one-time purchase inside the app. If you buy something:
+Payments are handled by the App Store or Google Play. Bloomshot does not receive your payment-card number or billing details.
 
-- The payment is handled entirely by Apple (App Store) or Google (Google Play). We never see your card number, your name, or your billing details.
-- To confirm what you own and to let you restore a purchase on a new device, the app uses a service called RevenueCat. RevenueCat receives an anonymous identifier for the app installation, the purchase receipt from the store, and basic technical details such as the app version and device type. RevenueCat acts for us as a service provider, and its own privacy policy applies to what it holds.
-- We use this only to unlock what you bought. We do not use it for advertising and we do not sell it.
+When its purchase service is enabled, Bloomshot uses RevenueCat as a service provider. The app sends an anonymous app identifier, store purchase receipts or tokens, and technical details such as platform, app version and device information. RevenueCat verifies purchase records and supplies the unlocks associated with them. Purchase records also support purchase reporting, troubleshooting and fraud prevention. We do not use this information for advertising or sell it.
 
-In versions of the app where purchases are available, the app contacts RevenueCat when it starts, so that it can tell what you already own. This happens even if you never buy anything. In versions without purchases, the app contacts no one.
+The app contacts RevenueCat when the purchase service starts, even if you do not buy anything. The web game does not offer purchases, and native builds with no purchase service configured do not contact RevenueCat. See [RevenueCat's privacy policy](https://www.revenuecat.com/privacy/) for its handling of information.
+
+### Data retention and deletion
+
+Local progress remains until you clear app data, delete the app or overwrite it through normal play. OS backups follow your platform's settings and retention rules.
+
+Purchase-service records are retained to verify and restore purchases, support users and meet applicable recordkeeping obligations. Deleting the app does not automatically delete RevenueCat or store records. Contact us at **hello@harborlineleadrecovery.com** to request access to or deletion of purchase-service data. Include the platform, product and approximate purchase date; we may request a store purchase reference to locate and verify the record. Do not send payment-card details. We handle applicable requests with our service provider; records required for legal, accounting or fraud-prevention reasons may be retained. Deleting purchase-service records may affect purchase restoration.
+
+Apple and Google separately control their own transaction and account records. Requests concerning those records should be made through the corresponding store.
+
+### Web version
+
+When you visit the hosted web game or this policy, the hosting service receives normal web requests, which may include an IP address and browser information. Bloomshot adds no advertising or gameplay analytics to the website. The hosting service handles its technical logs under its own policies.
 
 ### Children
 
-Bloomshot is not aimed at children under 13 and does not knowingly collect information from anyone. It has no chat, no user-generated content and no ads.
+Bloomshot is not directed to children under 13. It has no chat, user-generated content or ads. We do not ask players for names, email addresses or other profile details. If you believe a child has provided personal information through a support request, contact us so we can address it.
 
-### Your choices
+### Restoring purchases
 
-You can delete everything the app has stored by deleting the app. Purchases are tied to your Apple or Google account, not to the app, so you can get them back by reinstalling and choosing "Restore purchases" in Settings.
+Eligible permanent purchases can be restored using the same store account and **Restore purchases** in Settings when the purchase service is available. Consumable powerups, spent items and local game progress are not restored by that action.
 
-### Changes
+### Changes and contact
 
-If this policy changes, the new version will be posted at the same address with a new effective date.
-
-### Contact
-
-Questions about this policy: **[contact email]**
+We will publish changes at this address with a new effective date. Questions and data requests: **hello@harborlineleadrecovery.com**.

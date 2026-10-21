@@ -1,0 +1,74 @@
+{
+  "passed": 17,
+  "failed": 0,
+  "results": [
+    {
+      "name": "Rolypolies debut in Level 2 wave 2 with their hint, and come back in L2 W5, L2 W8 and L3 W7",
+      "passed": true
+    },
+    {
+      "name": "A credited touch curls it, it rolls away from the touch as a ghost, bowls pins as credited chains, then blooms",
+      "passed": true
+    },
+    {
+      "name": "A roll plays out the same at 30, 60 and 144 FPS",
+      "passed": true
+    },
+    {
+      "name": "A chain, a power or an uncredited strike blooms it plainly, with no roll",
+      "passed": true
+    },
+    {
+      "name": "Seeds pass through a rolling rolypoly, and a roll aimed at the line turns back without costing a life",
+      "passed": true
+    },
+    {
+      "name": "A Lullaby freezes a roll where it is, and it carries on after",
+      "passed": true
+    },
+    {
+      "name": "The bot values a rolypoly by the pins its roll would cross, and forecasts a rolling one as a ghost",
+      "passed": true
+    },
+    {
+      "name": "Peekaboo Moles debut in Level 2 wave 5 with their hint, three hills and a hidden mole, and come back in L2 W7, L2 W9 and L4 W6",
+      "passed": true
+    },
+    {
+      "name": "A hidden mole rumbles under hill floor(hash01(G, 0) * 3) from .5 s, pops up there at 1.2 s, ducks and moves on",
+      "passed": true
+    },
+    {
+      "name": "A seed that meets a hill while the mole hides bounces off it (molehill:guard, no refund); chains, powers and strikes bloom a hill plainly",
+      "passed": true
+    },
+    {
+      "name": "Bonk: a seed through his hill blooms the mole, then his three hills bloom within .4 s as chains the seed earned",
+      "passed": true
+    },
+    {
+      "name": "Chains, powers and uncredited strikes reach the mole even underground and bloom him plainly, with no bonk",
+      "passed": true
+    },
+    {
+      "name": "The no-dive rule: low on the board (y + 10 > 360) or with no other open hill, he stays up",
+      "passed": true
+    },
+    {
+      "name": "Every hill chain-bloomed while he hides: he rumbles .7 s where the last one was, pops up there and stays up",
+      "passed": true
+    },
+    {
+      "name": "A mole plays out the same at 30, 60 and 144 FPS, a Lullaby holds his dance still, and his group costs one life",
+      "passed": true
+    },
+    {
+      "name": "The bot sees a hidden mole once his rumble is public: hidden until rumbleUntil, his hill a ghost from then; hills are -1, a mole +30",
+      "passed": true
+    },
+    {
+      "name": "foes.js never touches the seed pod and never uses Math.random",
+      "passed": true
+    }
+  ]
+}
