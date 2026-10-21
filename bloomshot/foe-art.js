@@ -1660,7 +1660,7 @@
     const clock = Number(s.kitAge) || 0; let open = 0;
     for (const p of s.portals || []) {
       if (!p.closed && !p.bloomed) return 1;
-      const since = clock - (p.closed ? p.closedAt : p.shutAt);
+      const since = p.closed ? clock - p.closedAt : time - p.bloomAt;
       if (since >= 0 && since < .3) open = Math.max(open, 1 - since / .3);
     }
     for (const b of state.buds || []) if (b.sunnySprout && String(b.id).includes('-sprouts-')) {
@@ -1775,7 +1775,8 @@
       // Real portals closing by themselves (a twist as they shrink) or snapped shut by a seed (quicker, no twist).
       for (const p of real) {
         if (!p.closed && !p.bloomed) continue;
-        const shut = !p.closed, since = clock - (shut ? p.shutAt : p.closedAt), span = shut ? .16 : .25;
+        // A snapped-shut portal runs on the game clock, as the step's removal does (a Lullaby freezes only the kit clock).
+        const shut = !p.closed, since = shut ? time - p.bloomAt : clock - p.closedAt, span = shut ? .16 : .25;
         if (!(since >= 0 && since < span)) continue;
         const k = since / span;
         ctx.save(); ctx.translate(p.x, p.y); if (!still && !shut) ctx.rotate(k * 1.2);
@@ -2534,7 +2535,9 @@
         const p = clamp((time - w.at) / Math.max(.1, w.until - w.at), 0, 1);
         if (w.move === 'waltz' || w.move === 'fibwaltz') {
           // The dance floor, three chevrons turning the way she will dance, and a ghost partner at each starting spot.
-          morelFloor(ctx, b.x, b.y, .5, still ? 0 : -time * MOREL_ART.R * MOREL_ART.spin, true, still ? 0 : time * MOREL_ART.spin);
+          // Centred where she will be as the tell ends: the first partner always opens at a0 = 0, R px to her right.
+          const first = (w.targets || []).find(t => t.role === 'waltz'), fx = first ? first.x - MOREL_ART.R : b.x, fy = first ? first.y : b.y;
+          morelFloor(ctx, fx, fy, .5, still ? 0 : -time * MOREL_ART.R * MOREL_ART.spin, true, still ? 0 : time * MOREL_ART.spin);
           for (const t of w.targets || []) {
             if (t.role !== 'waltz') continue;
             ctx.save(); ctx.globalAlpha *= still ? .45 : .2 + .35 * p; ctx.translate(t.x, t.y); if (!still) ctx.scale(.6 + .4 * p, .6 + .4 * p); morelCap(ctx, kit, 12); ctx.restore();
@@ -3292,7 +3295,8 @@
       // Pads folding shut with a splash, or sinking away in a ripple.
       for (const p of s.pads || []) {
         if (!p.closed && !p.bloomed) continue;
-        const shut = !p.closed, since = clock - (shut ? p.shutAt : p.closedAt), span = shut ? .3 : .5;
+        // A shut fold runs on the game clock, as the step's removal does (a Lullaby freezes only the kit clock).
+        const shut = !p.closed, since = shut ? time - p.bloomAt : clock - p.closedAt, span = shut ? .3 : .5;
         if (!(since >= 0 && since < span)) continue;
         const k = since / span;
         if (shut) {

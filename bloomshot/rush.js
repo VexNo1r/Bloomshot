@@ -363,6 +363,8 @@
     _sunburst(ball, bud) {
       const x = ball.x, y = ball.y;
       ball.dead = true;
+      // Morel's painted partner pops quietly where a burst opens on it, like a fibcap's contact hook.
+      if (bud.bossPart === 'fibwaltz' && !bud.bloomed) this._pop(bud, 'fibcap:pop');
       const reach = this.buds.filter(other => open(other) && !other.hidden && Math.hypot(other.x - x, other.y - y) <= SUN_REACH + other.r);
       const bosses=new Set();
       for(const other of reach){const boss=this._powerBossFor(other);if(boss && !bosses.has(boss)){bosses.add(boss);this._powerBossHit(boss,4,ball,'sunburst');}}

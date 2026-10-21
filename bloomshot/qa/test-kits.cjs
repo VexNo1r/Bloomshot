@@ -606,7 +606,8 @@ test('Old Sunny: beaten mid-attack, he leaves no portal, Z, timer or napping aim
 // Runs Mother Morel's next move from a given tier, cycle (tiers 1-2) or action (tier 0); the board is still.
 function morelMove(tier, cycle, g = arena(3), action) {
   const s = g.bossState; s.tier = tier; s.cycle = cycle; if (action != null) s.action = action; s.next = s.age; const before = s.action; g.step(1 / 120);
-  const w = s.warning; assert(w, 'a warning is up'); while (s.warning) g.step(1 / 120); return { g, s, w, before, events: g.drainEvents() };
+  const w = s.warning; assert(w, 'a warning is up'); const tell = w.targets.map(t => ({ ...t }));
+  while (s.warning) g.step(1 / 120); return { g, s, w, tell, before, events: g.drainEvents() };
 }
 // A plain puffcap beside her (dx, dy from her centre).
 function morelPuff(g, dx, dy) {
@@ -616,34 +617,34 @@ function morelPuff(g, dx, dy) {
 }
 const TAU_3 = 2 * Math.PI / 3, dancers = s => s.parts.filter(p => p.bossPart === 'waltz' || p.bossPart === 'fibwaltz');
 const foeEvents = (events, kind) => events.filter(e => e.type === 'foe' && e.kind === kind);
-test('Mother Morel: 33 health turning Tricky at 22 and Stormy at 11, with her own words for each move', () => {
-  const g = arena(3), s = g.bossState, k = Bosses.kits.puff;
-  assert.equal(Bosses.health.puff, 33); assert.equal(s.boss.maxHp, 33); assert.deepEqual(s.tierAt, [22, 11]);
+test('Mother Morel: turning Tricky at two-thirds health and Stormy at a third, each mood opening on its new move, with her own words for each', () => {
+  const g = arena(3), s = g.bossState, k = Bosses.kits.puff, hp = Bosses.health.puff;
+  assert(hp > 33, 'she lasts longer than her old 33'); assert.equal(s.boss.maxHp, hp); assert.deepEqual(s.tierAt, [Math.ceil(2 * hp / 3), Math.ceil(hp / 3)]);
   assert.deepEqual(k.moods, ['Graceful', 'Tricky', 'Stormy']); assert.deepEqual(k.stageText, [null, 'Mother Morel gets tricky!', 'Mother Morel brings the rain!']);
-  assert.deepEqual(k.moves, [['puff', 'waltz'], ['puff', 'waltz', 'fakeout'], ['ink', 'puff', 'fibwaltz']]);
+  assert.deepEqual(k.moves, [['puff', 'waltz'], ['fakeout', 'waltz', 'puff'], ['ink', 'fibwaltz', 'puff']]);
   for (const text of [...Object.values(k.text), ...k.stageText.slice(1)]) assert(text.length <= 52, text);
   assert.deepEqual(k.text, { waltz: 'Spore waltz! Pop her dancing cap.', fakeout: 'Which cap is real? Find the spots!', ink: 'Ink rain! Mind the drips.',
     fibwaltz: 'Watch the paint! Pop the spotty cap.' });
 });
-test('Mother Morel: a credited puff chain at 23 stops at 22 and the stage is announced next tick; an uncredited one passes', () => {
-  let g = arena(3), s = g.bossState, b = s.boss; s.next = s.age + 9; b.hp = 23;
-  hit(g, morelPuff(g, 50, 10)); advance(g, .3); assert.equal(b.hp, 22, 'a puff (2) stops at the threshold'); assert(s.shiftPending);
+test('Mother Morel: a credited puff chain one above a threshold stops on it and the stage is announced next tick; an uncredited one passes', () => {
+  let g = arena(3), s = g.bossState, b = s.boss, line = s.tierAt[0]; s.next = s.age + 9; b.hp = line + 1;
+  hit(g, morelPuff(g, 50, 10)); advance(g, .3); assert.equal(b.hp, line, 'a puff (2) stops at the threshold'); assert(s.shiftPending);
   assert.equal(s.warning && s.warning.move, 'stage'); assert.equal(s.warning.text, 'Mother Morel gets tricky!');
-  hit(g, morelPuff(g, -50, 10)); advance(g, .3); assert.equal(b.hp, 22, 'held until the new mood is announced');
-  g = arena(3); s = g.bossState; b = s.boss; s.next = s.age + 9; b.hp = 23;
-  g.strike(morelPuff(g, 50, 10)); advance(g, .3); assert.equal(b.hp, 21, 'an uncredited chain keeps its damage');
+  hit(g, morelPuff(g, -50, 10)); advance(g, .3); assert.equal(b.hp, line, 'held until the new mood is announced');
+  g = arena(3); s = g.bossState; b = s.boss; s.next = s.age + 9; b.hp = line + 1;
+  g.strike(morelPuff(g, 50, 10)); advance(g, .3); assert.equal(b.hp, line - 1, 'an uncredited chain keeps its damage');
 });
 test('Mother Morel: Tricky and Stormy are each a guarded 1.3 s warning, then Phase Bloom and the new list', () => {
-  const g = arena(3), s = g.bossState, b = s.boss; s.next = s.age + 9; b.hp = 23; hit(g, morelPuff(g, 50, 10)); advance(g, .2);
+  const g = arena(3), s = g.bossState, b = s.boss; s.next = s.age + 9; b.hp = s.tierAt[0] + 1; hit(g, morelPuff(g, 50, 10)); advance(g, .2);
   let w = s.warning; assert.equal(w.move, 'stage'); assert(w.until - w.at >= 1.3 - 1e-9);
   assert.equal(Bosses.canHit(g, b, { nx: 0, ny: 1 }, {}), false); assert.equal(Bosses.canHit(g, b, { nx: 0, ny: 1 }, { power: 'beeline' }), true);
   let events = []; while (s.warning) { g.step(1 / 120); events.push(...g.drainEvents()); }
   assert(!events.some(e => e.type === 'bossAbility'), 'Phase Bloom has its own voice only');
   let stage = events.find(e => e.type === 'bossStage'); assert(stage && stage.stage === 1 && stage.mood === 'Tricky' && stage.kind === 'puff');
   for (let n = 0; n < 240 && !s.warning; n++) g.step(1 / 120);
-  assert.equal(s.tier, 1); assert.equal(s.warning.move, 'puff', 'tier 1 starts its own list');
+  assert.equal(s.tier, 1); assert.equal(s.warning.move, 'fakeout', 'Tricky opens on her new trick');
   while (s.warning) g.step(1 / 120);
-  b.hp = 12; s.next = s.age + 9; hit(g, morelPuff(g, -50, 10)); advance(g, .2); assert.equal(b.hp, 11); w = s.warning;
+  b.hp = s.tierAt[1] + 1; s.next = s.age + 9; hit(g, morelPuff(g, -50, 10)); advance(g, .2); assert.equal(b.hp, s.tierAt[1]); w = s.warning;
   assert.equal(w.move, 'stage'); assert.equal(w.text, 'Mother Morel brings the rain!');
   events = []; while (s.warning) { g.step(1 / 120); events.push(...g.drainEvents()); }
   stage = events.find(e => e.type === 'bossStage'); assert(stage && stage.stage === 2 && stage.mood === 'Stormy');
@@ -651,12 +652,13 @@ test('Mother Morel: Tricky and Stormy are each a guarded 1.3 s warning, then Pha
   assert.equal(s.warning.move, 'ink'); assert.equal(s.warning.text, 'Ink rain! Mind the drips.');
 });
 test('Mother Morel: her waltz partner circles her at 58 px for 8 s, forecast exactly, then twirls home quietly', () => {
-  const { g, s, w, events } = morelMove(0, 0, arena(3), 1), b = s.boss;
+  const { g, s, w, tell, events } = morelMove(0, 0, arena(3), 1), b = s.boss;
   assert.equal(w.move, 'waltz'); assert.equal(w.text, 'Spore waltz! Pop her dancing cap.');
-  assert.deepEqual(w.targets.map(t => [t.role, t.r]), [['waltz', 14]]);
-  assert(Math.abs(w.targets[0].x - b.x - 58) < 1 && Math.abs(w.targets[0].y - b.y) < 1, 'the mark is where she will be (to a tick), 58 px to her right');
+  assert.deepEqual(tell.map(t => [t.role, t.r]), [['waltz', 14]]);
   assert.equal(acts(events, 'start').filter(e => e.move === 'waltz').length, 1);
   const [p] = dancers(s); assert.equal(dancers(s).length, 1);
+  assert(Math.abs(tell[0].x - p.x) < 1 && Math.abs(tell[0].y - p.y) < 1, 'the tell marked where her partner opens (to a tick)');
+  assert(Math.abs(p.x - b.x - 58) < 1e-6 && Math.abs(p.y - b.y) < 1e-6, '58 px to her right');
   assert(p.puff && p.r === 12 && p.hp === 1 && p.type === 'lilac' && p.a0 === 0 && p.born === s.kitAge && g.buds.includes(p));
   const ahead = Bosses.predictVisible(g, .5).get(p.id); advance(g, .5);
   assert(Math.abs(ahead.x - p.x) < 1e-6 && Math.abs(ahead.y - p.y) < 1e-6, 'the bot forecast is the board');
@@ -669,18 +671,18 @@ test('Mother Morel: her waltz partner circles her at 58 px for 8 s, forecast exa
   assert(!g.drainEvents().some(e => e.type === 'bossCritical' || e.type === 'bossAbility'), 'a closing partner is quiet');
 });
 test('Mother Morel: popping her partner chains into her for 2 with a "waltz" critical, and stops at a threshold', () => {
-  let { g, s } = morelMove(0, 0, arena(3), 1), b = s.boss, [p] = dancers(s);
-  s.next = s.age + 20; b.hp = 30; advance(g, .7); hit(g, p); assert(p.bloomed); advance(g, .3);
-  assert.equal(b.hp, 28); const crit = g.drainEvents().filter(e => e.type === 'bossCritical');
+  let { g, s } = morelMove(0, 0, arena(3), 1), b = s.boss, [p] = dancers(s), top = s.tierAt[0] + 8;
+  s.next = s.age + 20; b.hp = top; advance(g, .7); hit(g, p); assert(p.bloomed); advance(g, .3);
+  assert.equal(b.hp, top - 2); const crit = g.drainEvents().filter(e => e.type === 'bossCritical');
   assert.equal(crit.length, 1); assert.equal(crit[0].via, 'waltz'); assert.equal(crit[0].kind, 'puff'); assert.equal(crit[0].damage, 2); assert.equal(s.crits, 1);
   // A plain puffcap's chain is no waltz.
-  hit(g, morelPuff(g, 0, 50)); advance(g, .3); assert.equal(b.hp, 26); assert(!g.drainEvents().some(e => e.type === 'bossCritical'));
-  ({ g, s } = morelMove(0, 0, arena(3), 1)); b = s.boss; [p] = dancers(s); s.next = s.age + 20; b.hp = 23;
-  hit(g, p); advance(g, .3); assert.equal(b.hp, 22, 'a waltz pop stops at the threshold'); assert(s.shiftPending);
+  hit(g, morelPuff(g, 0, 50)); advance(g, .3); assert.equal(b.hp, top - 4); assert(!g.drainEvents().some(e => e.type === 'bossCritical'));
+  ({ g, s } = morelMove(0, 0, arena(3), 1)); b = s.boss; [p] = dancers(s); s.next = s.age + 20; b.hp = s.tierAt[0] + 1;
+  hit(g, p); advance(g, .3); assert.equal(b.hp, s.tierAt[0], 'a waltz pop stops at the threshold'); assert(s.shiftPending);
   advance(g, 2); assert(!s.parts.includes(p) && !g.buds.includes(p), 'a popped partner leaves once its bloom has played');
 });
 test('Mother Morel: a fakeout tosses one real puffcap and two fibcaps to three spots, landing 0.9 s later', () => {
-  const { g, s, w, before, events } = morelMove(1, 2), b = s.boss;
+  const { g, s, w, before, events } = morelMove(1, 0), b = s.boss;
   assert.equal(w.move, 'fakeout'); assert.equal(w.text, 'Which cap is real? Find the spots!');
   const marks = w.targets.filter(t => t.role === 'fakeout'); assert.equal(marks.length, 3);
   assert.deepEqual(marks.map(m => Boolean(m.real)), [0, 1, 2].map(i => i === Math.floor(Foes.hash01(b.id, before) * 3)));
@@ -697,7 +699,7 @@ test('Mother Morel: a fakeout tosses one real puffcap and two fibcaps to three s
   assert.equal(foeEvents(landed, 'fibcap:land').length, 2); assert.equal(acts(landed, 'land').length, 1);
 });
 test('Mother Morel: a fakeout spot filled during the warning gets no cap; the start ring shows the kept spots and one is still real', () => {
-  const g = arena(3), s = g.bossState; s.tier = 1; s.cycle = 2; s.next = s.age; g.step(1 / 120);
+  const g = arena(3), s = g.bossState; s.tier = 1; s.cycle = 0; s.next = s.age; g.step(1 / 120);
   const marks = s.warning.targets.filter(t => t.role === 'fakeout'), { x, y } = marks.find(m => m.real); assert.equal(marks.length, 3);
   g.buds.push({ id: 'in-the-way', group: 'in-the-way', x, y, baseX: x, startY: y, r: 11, type: 'sky', hp: 1, maxHp: 1, fall: 1, sway: 0, hitAt: -100, bloomAt: -100, bloomed: false, relay: false });
   const events = []; while (s.warning) { g.step(1 / 120); events.push(...g.drainEvents()); }
@@ -705,6 +707,27 @@ test('Mother Morel: a fakeout spot filled during the warning gets no cap; the st
   assert.equal(start.targets.length, 2); assert(!start.targets.some(t => t.x === x && t.y === y), 'the filled spot is not shown');
   assert.equal(s.lobs.length, 2); assert.equal(s.lobs.filter(l => l.look === 'puffcap').length, 1, 'one of the two left is real');
   advance(g, 1); assert.equal(g.buds.filter(p => p.bossSummon && p.puff).length, 1); assert.equal(g.buds.filter(p => p.bossSummon && p.foe === 'fibcap').length, 1);
+});
+test('Mother Morel: wherever her sway has carried her, every cap shown in the fakeout lands, the spotted one included', () => {
+  for (let k = 0; k < 49; k++) {
+    const g = arena(3); g.bossState.next = 1e9; advance(g, k * .25);
+    const { s, w } = morelMove(1, 0, g); g.drainEvents(); const shown = w.targets.filter(t => t.role === 'fakeout');
+    advance(g, 1); const land = acts(g.drainEvents(), 'land');
+    const real = g.buds.filter(p => p.bossSummon && p.puff && !p.bloomed), fakes = g.buds.filter(p => p.bossSummon && p.foe === 'fibcap' && !p.bloomed);
+    assert.equal(real.length + fakes.length, shown.length, `wait ${k * .25} s: every cap shown lands`);
+    if (shown.length) { assert.equal(real.length, 1, `wait ${k * .25} s: the real cap lands`); assert.equal(land.length, 1); assert.equal(land[0].marks.length, shown.length); }
+    assert.equal(s.lobs.length, 0);
+  }
+});
+test('Mother Morel: her bonnet marks no puffcap beside her while her waltz partner is still dancing, and adds none', () => {
+  const { g, s } = morelMove(0, 0, arena(3), 1), [p] = dancers(s); assert(!p.closed);
+  const { w, tell, events } = morelMove(0, 0, g); assert.equal(w.move, 'puff');
+  assert(!tell.some(t => t.role === 'puff'), 'no puffcap is promised'); assert(!acts(events, 'start')[0].targets.some(t => t.role === 'puff'));
+  assert(!g.buds.some(b => b.puff && !b.bloomed && b !== p && !b.bossPart && String(b.id).includes('-puff-')), 'and none comes');
+  // Popped during the tell, the partner is gone but the plan already dropped the mark: still no crash and no cap.
+  const h = morelMove(0, 0, arena(3), 1).g, hs = h.bossState, [q] = dancers(hs); hs.action = 2; hs.next = hs.age; h.step(1 / 120);
+  assert.equal(hs.warning.move, 'puff'); hit(h, q); while (hs.warning) h.step(1 / 120);
+  assert(!h.buds.some(b => b.puff && !b.bloomed && String(b.id).includes('-puff-')));
 });
 test('Mother Morel: ink rain drops from three lanes for 4 s, 15 drops in all, each its own group', () => {
   const { g, s, w } = morelMove(2, 0), b = s.boss;
@@ -726,7 +749,7 @@ test('Mother Morel: ink rain drops from three lanes for 4 s, 15 drops in all, ea
   assert.equal(s.ink, null, 'the rain is over');
 });
 test('Mother Morel: the painted waltz paints all but one partner into fibcaps at 2.3 s; a direct hit sneezes and shuts her bonnet', () => {
-  let { g, s, w } = morelMove(2, 2), b = s.boss, parts = dancers(s);
+  let { g, s, w } = morelMove(2, 1), b = s.boss, parts = dancers(s);
   assert.equal(w.move, 'fibwaltz'); assert.equal(w.text, 'Watch the paint! Pop the spotty cap.'); assert.equal(w.targets.filter(t => t.role === 'waltz').length, 3);
   assert.equal(parts.length, 3); assert.deepEqual(parts.map(p => +p.a0.toFixed(6)), [0, TAU_3, 2 * TAU_3].map(a => +a.toFixed(6)));
   assert(parts.every(p => p.puff && p.bossPart === 'waltz'));
@@ -745,13 +768,19 @@ test('Mother Morel: the painted waltz paints all but one partner into fibcaps at
   // An uncredited strike pops the other quietly.
   g.strike(painted[1]); after = g.drainEvents(); assert(painted[1].bloomed); assert.equal(foeEvents(after, 'fibcap:pop').length, 1); assert.equal(g.sneezes.length, 1);
   // So does a power.
-  ({ g, s } = morelMove(2, 2)); parts = dancers(s); advance(g, 2.4);
+  ({ g, s } = morelMove(2, 1)); parts = dancers(s); advance(g, 2.4);
   const fib = parts.find(p => p.bossPart === 'fibwaltz'); hit(g, fib, { power: 'beeline' }); after = g.drainEvents();
   assert(fib.bloomed); assert.equal(foeEvents(after, 'fibcap:pop').length, 1); assert(!(g.sneezes || []).length); assert.notEqual(s.mode, 'bonnet');
+  // And a Sunburst that opens on one.
+  ({ g, s } = morelMove(2, 1)); parts = dancers(s); advance(g, 2.4); g.drainEvents();
+  const low = parts.filter(p => p.bossPart === 'fibwaltz').sort((a, c) => c.y - a.y)[0]; s.next = s.age + 20;
+  g.spawnBall({ x: low.x, y: low.y + 30, angle: -Math.PI / 2, speed: 520, power: 'sunburst' }); advance(g, .1); after = g.drainEvents();
+  assert(after.some(e => e.type === 'sunburst'), 'the burst opened'); assert(low.bloomed, 'the painted cap popped');
+  assert(foeEvents(after, 'fibcap:pop').some(e => e.bud.id === low.id)); assert.notEqual(s.mode, 'bonnet');
 });
 test('Mother Morel: tier 2 plays the same at 30, 60 and 144 FPS', () => {
   const runs = [30, 60, 144].map(fps => {
-    const g = arena(3), s = g.bossState; s.tier = 2; s.cycle = 2; s.next = 0; g.descentSpeed = 12; const log = [];
+    const g = arena(3), s = g.bossState; s.tier = 2; s.cycle = 0; s.next = 0; g.descentSpeed = 12; const log = [];
     for (let n = 0; n < 12 * fps; n++) {
       g.step(1 / fps);
       for (const e of g.drainEvents()) if (e.type === 'bossAbility' || e.type === 'bossWarning' || e.type === 'foe') log.push(`${e.type}:${e.move || e.kind}:${e.act || ''}:${(+e.x).toFixed(3)}`);
@@ -768,14 +797,14 @@ test('Mother Morel: a Lullaby holds the dance, the tossed caps and the rain; eac
   assert(Math.abs(p.x - b.x - offset[0]) < 1e-9 && Math.abs(p.y - b.y - offset[1]) < 1e-9, 'the partner waits mid-step');
   let at = null; for (let n = 0; n < 120 * 9 && at == null; n++) { g.step(1 / 120); if (p.closed) at = s.kitAge; }
   assert(at != null && Math.abs(at - close) < .01, 'it went home on the kit clock, a second late');
-  ({ g, s } = morelMove(1, 2)); advance(g, .3); const lobs = JSON.stringify(s.lobs); kit = s.kitAge;
+  ({ g, s } = morelMove(1, 0)); advance(g, .3); const lobs = JSON.stringify(s.lobs); kit = s.kitAge;
   g.lullaby = 1; advance(g, 1); assert.equal(JSON.stringify(s.lobs), lobs, 'the caps hang in the air'); assert(!acts(g.drainEvents(), 'land').length);
   advance(g, .7); assert(acts(g.drainEvents(), 'land').length === 1, 'they land .6 s of kit clock later');
   ({ g, s } = morelMove(2, 0)); advance(g, .5); g.drainEvents(); const made = s.ink.made.join();
   g.lullaby = 1; advance(g, 1); assert.equal(s.ink.made.join(), made, 'no drop falls through a Lullaby'); assert(!foeEvents(g.drainEvents(), 'inkcap:drip').length);
 });
 test('Mother Morel: beaten mid-dance, mid-toss and mid-rain, she leaves no partner, lob, timer or raised line behind', () => {
-  const { g, s } = morelMove(2, 2); advance(g, 2.4); morelMove(2, 0, g); morelMove(1, 2, g);
+  const { g, s } = morelMove(2, 1); advance(g, 2.4); morelMove(2, 0, g); morelMove(1, 0, g);
   assert(s.lobs.length && s.timers.length && s.ink && dancers(s).some(p => p.inert));
   for (let n = 0; n < 300 && !s.boss.bloomed; n++) g.strike(s.boss, true);
   assert(s.boss.bloomed); assert.equal(s.timers.length + s.lobs.length + s.partners.length, 0); assert.equal(s.ink, null);
@@ -788,7 +817,13 @@ test('Mother Morel: her moods, partners, paint, tosses and ink rain draw balance
   const { Art, looks, brush, totals } = sunnyArt(), drawn = new Set();
   for (const hook of ['face', 'part', 'under', 'over']) {
     const own = looks.puff[hook];
-    looks.puff[hook] = (ctx, state, s, piece, ...rest) => { const done = own(ctx, state, s, piece, ...rest); if (done !== false) drawn.add(hook === 'part' ? piece.bossPart : hook); return done; };
+    // Counts what the hook really draws: under() and over() return nothing, so their return value proves nothing.
+    looks.puff[hook] = (ctx, state, s, piece, ...rest) => {
+      let calls = 0;
+      const spy = new Proxy(ctx, { get: (t, n) => { const v = t[n]; return typeof v === 'function' && /^(fill|stroke|drawImage|fillRect|fillText)$/.test(n) ? (...a) => { calls++; return v.apply(t, a); } : typeof v === 'function' ? v.bind(t) : v; },
+        set: (t, n, v) => { t[n] = v; return true; } });
+      const done = own(spy, state, s, piece, ...rest); if (done === true || (done !== false && calls > 0)) drawn.add(hook === 'part' ? piece.bossPart : hook); return done;
+    };
   }
   const snap = (label, state) => {
     for (const reducedMotion of [false, true]) for (const quality of reducedMotion ? [0] : [0, 2]) {
@@ -810,11 +845,11 @@ test('Mother Morel: her moods, partners, paint, tosses and ink rain draw balance
   hit(g, dancers(s)[0]); advance(g, .15); snap('waltz pop', g);
   ({ g, s } = morelMove(0, 0, arena(3), 1)); advance(g, 8.1); snap('waltz home', g);
   // The painted waltz: its tell, the wipe, the poof and the twinkle, a sneeze.
-  snap('fibwaltz tell', tell(2, 2));
-  ({ g, s } = morelMove(2, 2)); advance(g, 1.6); snap('wipe', g); advance(g, .75); snap('poof', g); advance(g, .5); snap('painted', g);
+  snap('fibwaltz tell', tell(2, 1));
+  ({ g, s } = morelMove(2, 1)); advance(g, 1.6); snap('wipe', g); advance(g, .75); snap('poof', g); advance(g, .5); snap('painted', g);
   hit(g, dancers(s).find(p => p.bossPart === 'fibwaltz')); advance(g, .15); snap('sneeze', g);
   // The fakeout: its tell, the caps in the air, landed.
-  snap('fakeout tell', tell(1, 2)); ({ g, s } = morelMove(1, 2)); advance(g, .4); snap('toss', g); advance(g, .6); snap('landed', g);
+  snap('fakeout tell', tell(1, 0)); ({ g, s } = morelMove(1, 0)); advance(g, .4); snap('toss', g); advance(g, .6); snap('landed', g);
   // The rain: its tell, a bead swelling, a drop letting go, the clouds thinning away.
   snap('ink tell', tell(2, 0)); ({ g, s } = morelMove(2, 0)); advance(g, .6); snap('bead', g); advance(g, .22); snap('plip', g); advance(g, 3.4); snap('thinning', g);
   for (const hook of ['face', 'waltz', 'fibwaltz', 'under', 'over']) assert(drawn.has(hook), hook);
@@ -1124,6 +1159,9 @@ test('Crystal Heart replays identically at 30, 60 and 144 FPS, and a strike loop
     const moved = lily(2, 0), shown = moved.bossState.warning.targets[0].y; moved.buds.push(flower('drift', 300, shown));
     const st = acts(play(moved), 'start').find(e => e.move === 'worm'), at = moved.buds.find(p => p.bossLantern);
     assert(at && at.y > shown + 20, `${at && at.y} vs ${shown}`); assert(st.targets.length === 5 && st.targets.every(t => t.y === at.y));
+    // Sunk low on a fast wave, there is no height it could crawl at and puff back before reaching the line.
+    const deep = arena(5), ds = deep.bossState; deep.descentSpeed = 17.2; ds.drift = 280; ds.tier = 2; ds.cycle = 0; ds.next = 0; deep.step(1 / 120);
+    assert.notEqual(ds.warning.move, 'worm', 'too low: the worm would reach the line before it puffs back');
   });
   test('Hit the worm\'s head: the light runs home, three damage, her gutter open at +.2 s and closed at +5.3 s; it clamps at a mood line', () => {
     let g = lily(2, 0), s = g.bossState, b = s.boss, lantern = lanternOf(s); play(g); advance(g, .3); g.drainEvents();

@@ -388,8 +388,8 @@
       const t = w.targets.find(t=>t.role==='summon'); if (t) { const babies = cluster(game, t, { cup: true }); if (babies.length) babies[0].puff = true; }
       // A nearby puffcap is an explicit opportunity to score two damage, never a hidden weakspot.
       if (!game.buds.some(p => p.puff && !p.bloomed && Math.hypot(p.x - b.x, p.y - b.y) < 70)) {
-        const target = w.targets.find(t => t.role === 'puff'), x = target.x, y = target.y;
-        if (game.buds.every(p => p.bloomed || Math.hypot(p.x - x, p.y - y) > p.r + 14)) game.buds.push({ id: b.id + '-puff-' + s.serial++, group: b.id + '-puff',
+        const target = w.targets.find(t => t.role === 'puff'), x = target && target.x, y = target && target.y;
+        if (target && game.buds.every(p => p.bloomed || Math.hypot(p.x - x, p.y - y) > p.r + 14)) game.buds.push({ id: b.id + '-puff-' + s.serial++, group: b.id + '-puff',
           x, y, baseX: x, startY: y, r: 12, hp: 1, maxHp: 1, type: 'lilac', puff: true, relay: false, fall: .8, sway: 0, hitAt: -100, bloomed: false, bloomAt: -100, bossSummon: true });
       }
     }
@@ -1069,16 +1069,23 @@
     });
   }
   kit('puff', {
-    hp: 33,
+    hp: 62,
     moods: ['Graceful', 'Tricky', 'Stormy'],
     stageText: [null, 'Mother Morel gets tricky!', 'Mother Morel brings the rain!'],
     text: { waltz: 'Spore waltz! Pop her dancing cap.', fakeout: 'Which cap is real? Find the spots!', ink: 'Ink rain! Mind the drips.',
       fibwaltz: 'Watch the paint! Pop the spotty cap.' },
-    moves: [['puff', 'waltz'], ['puff', 'waltz', 'fakeout'], ['ink', 'puff', 'fibwaltz']],
+    // Each new mood opens with its new move (stage() starts every mood's list from the top).
+    moves: [['puff', 'waltz'], ['fakeout', 'waltz', 'puff'], ['ink', 'fibwaltz', 'puff']],
     init(game, s) { s.partners = []; s.puffs = 0; },
     plan: {
       // Her original bonnet, its bunch and puffcap swapping sides each time (the first is the familiar right-hand one).
-      puff(game, s) { const action = s.action; s.action = s.puffs; try { return legacyPlan(game, s, 'puff'); } finally { s.action = action; } },
+      // A partner still dancing past the tell is already the puffcap beside her, so no second one is marked.
+      puff(game, s) {
+        const action = s.action; s.action = s.puffs; let plan;
+        try { plan = legacyPlan(game, s, 'puff'); } finally { s.action = action; }
+        if (plan && s.partners.some(p => p.puff && !p.bloomed && !p.closed && p.born + MOREL.dance > s.kitAge + TELEGRAPH)) plan.targets = plan.targets.filter(t => t.role !== 'puff');
+        return plan;
+      },
       waltz(game, s) { if (s.parts.some(p => p.bossPart === 'waltz' && !p.bloomed)) return null; return { targets: morelMarks(s, [0]) }; },
       fibwaltz(game, s) { if (s.parts.some(p => (p.bossPart === 'waltz' || p.bossPart === 'fibwaltz') && !p.bloomed)) return null; return { targets: morelMarks(s, [0, 1, 2].map(i => i * TAU / 3)) }; },
       fakeout(game, s) {
@@ -1119,11 +1126,11 @@
     },
     timer: {
       // The caps land where they were shown going: the spotted one a real puffcap, the striped ones fibcaps. A mark a
-      // piece has fallen onto meanwhile gets nothing.
+      // piece has fallen onto meanwhile gets nothing (she was planned around, so she never blocks one).
       land(game, s, marks) {
-        const b = s.boss; let landed = 0, real = null;
+        const b = s.boss, kept = []; let real = null;
         for (const m of marks) {
-          if (!clearSpot(game, m.x, m.y, m.r)) continue;
+          if (!clearSpot(game, m.x, m.y, m.r, b)) continue;
           const id = `${b.id}-fake-${s.serial++}`;
           if (m.real) {
             real = { id, group: id, x: m.x, y: m.y, baseX: m.x, startY: m.y, r: m.r, hp: 1, maxHp: 1, type: 'lilac', puff: true, relay: false,
@@ -1134,11 +1141,11 @@
             fake.bossSummon = true; fake.bossSource = b.id; Foes.place(game, fake);
             game.event('foe', { kind: 'fibcap:land', bud: fake, x: m.x, y: m.y });
           }
-          landed++;
+          kept.push(m);
         }
-        if (!landed) return;
+        if (!kept.length) return;
         s.summons++;
-        game.event('bossAbility', { kind: s.kind, move: 'fakeout', act: 'land', x: real ? real.x : marks[0].x, y: real ? real.y : marks[0].y, marks: marks.map(m => ({ x: m.x, y: m.y, real: Boolean(m.real) })) });
+        game.event('bossAbility', { kind: s.kind, move: 'fakeout', act: 'land', x: real ? real.x : kept[0].x, y: real ? real.y : kept[0].y, marks: kept.map(m => ({ x: m.x, y: m.y, real: Boolean(m.real) })) });
       },
       // The wipe ends: every partner still dancing but the real one is painted into a striped decoy.
       paint(game, s, parts) {
@@ -1387,8 +1394,11 @@
     const offset = Math.min(LILY.tideMax, 448 - LILY.tideRoom - low);
     return offset >= LILY.tideMin ? offset : null;
   }
-  // Room for the glowworm's five pieces (head at x, beads trailing right) at height y.
-  const lilyWormRoom = (game, x, y) => LILY.wormGaps.every((off, k) => clearSpot(game, x + off, y, k ? 9 : 11));
+  // Room for the glowworm's five pieces (head at x, beads trailing right) at height y, and high enough that it puffs
+  // back before any piece reaches the line: LILY.puffback s of sinking at a third of the wave's pace (foes.js WORM.sink
+  // .35) plus its one 26 px turn, under the head's 11 px radius.
+  const lilyWormRoom = (game, x, y) => y + 11 + 26 + game.descentSpeed * .35 * LILY.puffback < 448
+    && LILY.wormGaps.every((off, k) => clearSpot(game, x + off, y, k ? 9 : 11));
   const lilyWormLive = s => Boolean(s.worm && !s.worm.done);
   function lilyTidePlan(game, s) {
     const offset = lilyTideOffset(game, s, TELEGRAPH + LILY.rise); if (offset == null) return null;
