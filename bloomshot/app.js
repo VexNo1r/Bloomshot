@@ -1623,7 +1623,7 @@
     const bud = event.bud || {}, spot = { x: event.x ?? bud.x ?? 210, y: event.y ?? bud.y ?? 200, type: bud.type || 'lilac', r: bud.r || 10 };
     if (act === 'pop') { burst(spot, 12, game.particles, currentKeepsake(), false); foeRing(spot.x, spot.y, FOE_COLORS[spot.type] || FOE_COLORS.lilac, spot.r, 26, .4); haptic('tick'); }
     else if (act === 'fizzle') foeDust(spot.x, spot.y, 5, '#ffffff', 30);
-    else if (act === 'guard') { foeRing(spot.x, spot.y, FOE_COLORS[event.type || spot.type] || '#ffffff', 6, 14, .3); haptic('tick'); }
+    else if (act === 'guard') { foeRing(spot.x, spot.y, FOE_COLORS[spot.type] || '#ffffff', 6, 14, .3); haptic('tick'); }
   }
   // -----------------------------------------------------------------------------------------------------------------
   // The foe effects. Each lives in its own block: FOE_FX.<family> = { <act>(event) { ... } }.
