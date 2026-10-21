@@ -1,65 +1,62 @@
 import { chromium, webkit, devices } from 'playwright';
 import fs from 'node:fs';
-const repo = 'https://%s.githack.com/VexNo1r/Bloomshot/%c/bloomshot/index.html?alllevels';
-const link = (host, commit) => repo.replace('%s', host).replace('%c', commit);
-const NOW = '19abfdd27f21fdf3bfc9f8610fe91ebc021fa856';
-// Commits nobody has opened on githack yet, to see a cold first load.
-const COLD_DEV = '12bc1c1b03f148e2e32c9f252a971033945a5787';
-const COLD_CDN = '9e529fbb67972b6ef623b44305665d1349eb5db3';
-const COLD_DEV2 = 'e20e5977bd4c139f7146cbb56b45bfac564a5893';
-const COLD_CDN2 = '86f8275eb40604947dabb9f3fd7cd573857811ef';
+const BUILD = '4076ce257d584b98148b5631d5b7fbdac01b035c';
+const link = host => `https://${host}.githack.com/VexNo1r/Bloomshot/${BUILD}/index.html?alllevels`;
 const EDGE_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36 Edg/129.0.0.0';
 const setups = [
-  { name: 'laptop', type: chromium, opts: { userAgent: EDGE_UA, viewport: { width: 1536, height: 864 } }, cases: [['dev-now', link('raw', NOW)], ['cdn-now', link('rawcdn', NOW)], ['dev-cold', link('raw', COLD_DEV)], ['cdn-cold', link('rawcdn', COLD_CDN)]] },
-  { name: 'iphone', type: webkit, opts: { ...devices['iPhone 13'] }, cases: [['dev-now', link('raw', NOW)], ['cdn-now', link('rawcdn', NOW)], ['dev-cold', link('raw', COLD_DEV2)], ['cdn-cold', link('rawcdn', COLD_CDN2)]] },
+  { name: 'laptop', type: chromium, opts: { userAgent: EDGE_UA, viewport: { width: 1536, height: 864 } } },
+  { name: 'iphone', type: webkit, opts: { ...devices['iPhone 13'] } },
 ];
 fs.mkdirSync('out', { recursive: true });
 const state = () => ({
-  title: document.title, url: location.href,
-  font: getComputedStyle(document.body).fontFamily, bg: getComputedStyle(document.body).backgroundImage.slice(0, 40) || getComputedStyle(document.body).backgroundColor,
-  sheets: [...document.styleSheets].map(s => { try { return (s.href || 'inline').replace(/.*\//, '') + ':' + s.cssRules.length; } catch (e) { return (s.href || '') + ':blocked'; } }),
-  canvas: !!document.getElementById('game-canvas'), app: typeof window.Engine !== 'undefined' || typeof window.Bloomshot !== 'undefined',
-  view: document.body?.dataset.view || '', pwa: document.getElementById('pwa-status')?.textContent || '',
-  drawingWidth: document.querySelector('.botanical-drawing')?.getBoundingClientRect().width || 0,
+  title: document.title, font: getComputedStyle(document.body).fontFamily.slice(0, 20),
+  fontsReady: document.fonts.check('20px Fredoka') && document.fonts.check('16px Nunito'),
+  styled: getComputedStyle(document.body).backgroundImage !== 'none',
+  route: (window.bloomshotState || {}).route || '', status: window.__game ? window.__game.status : '',
+  drawingWidth: Math.round(document.querySelector('.botanical-drawing')?.getBoundingClientRect().width || 0),
+  dialog: [...document.querySelectorAll('dialog')].find(d => d.open)?.id || null,
 });
-const results = [];
+const pause = ms => new Promise(r => setTimeout(r, ms));
+let ok = true;
 for (const s of setups) {
   const browser = await s.type.launch();
-  for (const [label, url] of s.cases) {
-    const context = await browser.newContext(s.opts);
-    const page = await context.newPage();
-    const log = { setup: s.name, label, url, requests: [], failed: [], console: [], pageErrors: [] };
-    page.on('response', r => log.requests.push(`${r.status()} ${(r.headers()['content-type'] || '-').split(';')[0]} ${r.fromServiceWorker() ? 'SW ' : ''}${r.url().replace(/^https:\/\/[^/]+\/VexNo1r\/Bloomshot\/[0-9a-f]+\/bloomshot\//, '')}`));
-    page.on('requestfailed', r => log.failed.push(`${r.failure()?.errorText} ${r.url()}`));
-    page.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') log.console.push(`${m.type()}: ${m.text()}`.slice(0, 300)); });
-    page.on('pageerror', e => log.pageErrors.push(String(e).slice(0, 300)));
-    const t0 = Date.now();
-    try {
-      const resp = await page.goto(url, { waitUntil: 'load', timeout: 60000 });
-      log.nav = `${resp?.status()} ${resp?.headers()['content-type']}`;
-    } catch (e) { log.gotoError = String(e).slice(0, 300); }
-    if (!(await page.$('#game-canvas').catch(() => null))) {
-      await page.screenshot({ path: `out/${s.name}-${label}-0-gate.png` }).catch(() => {});
-      log.gateText = (await page.evaluate(() => document.body?.innerText || '').catch(() => '')).slice(0, 800);
-      log.gateHtml = (await page.content().catch(() => '')).slice(0, 3000);
-      const btn = page.locator('button, a, input[type=submit]').filter({ hasText: /continue|proceed|open|confirm|visit|understand|go to/i }).first();
-      if (await btn.count().catch(() => 0)) {
-        log.clicked = (await btn.innerText().catch(() => '?')).slice(0, 80);
-        await btn.click().catch(e => { log.clickError = String(e).slice(0, 200); });
-        await page.waitForLoadState('load', { timeout: 60000 }).catch(() => {});
-      }
+  for (const host of ['raw', 'rawcdn']) {
+    for (const visit of ['first', 'again']) {
+      const context = await browser.newContext(s.opts);
+      const page = await context.newPage();
+      const tag = `${s.name}-${host}-${visit}`;
+      const log = { tag, requests: [], pageErrors: [], console: [] };
+      page.on('response', r => { if (/githack\.com\/VexNo1r/.test(r.url())) log.requests.push(`${r.status()} ${(r.headers()['content-type'] || '-').split(';')[0]} ${r.url().replace(/^https:\/\/[^/]+\/VexNo1r\/Bloomshot\/[0-9a-f]+\//, '')}`); });
+      page.on('pageerror', e => log.pageErrors.push(String(e).slice(0, 300)));
+      page.on('console', m => { if (m.type() === 'error') log.console.push(m.text().slice(0, 200)); });
+      try {
+        await page.goto(link(host), { waitUntil: 'load', timeout: 60000 });
+        const gate = page.getByText('Open the page', { exact: true });
+        if (await gate.count()) { log.gate = true; await gate.click(); await page.waitForLoadState('load', { timeout: 60000 }); }
+        await page.waitForSelector('#depth-map [data-depth="1"]', { timeout: 30000 });
+        await page.waitForTimeout(2500);
+        log.home = await page.evaluate(state);
+        await page.screenshot({ path: `out/${tag}-1-levels.png` });
+        await page.evaluate(() => document.querySelector('#depth-map [data-depth="1"]').click());
+        await page.waitForTimeout(3000);
+        log.level = await page.evaluate(state);
+        const box = await page.locator('#game-canvas').boundingBox();
+        const lx = box.x + box.width / 2, ly = box.y + box.height * 498 / 560;
+        for (const [dx, dy] of [[-60, -200], [50, -220], [0, -240]]) {
+          if (s.name === 'iphone') { await page.touchscreen.tap(lx + dx, ly + dy); }
+          else { await page.mouse.move(lx, ly); await page.mouse.down(); await page.mouse.move(lx + dx, ly + dy, { steps: 8 }); await page.mouse.up(); }
+          await page.waitForTimeout(1600);
+        }
+        log.played = await page.evaluate(() => ({ score: window.__game?.score ?? null, shotsLeft: window.__game?.shotsLeft ?? null, bloomed: (window.__game?.bloomedCount) ?? null, status: window.__game?.status ?? null }));
+        await page.screenshot({ path: `out/${tag}-2-play.png` });
+      } catch (e) { log.error = String(e).slice(0, 300); await page.screenshot({ path: `out/${tag}-x-error.png` }).catch(() => {}); }
+      const pass = !log.error && log.home?.styled && log.home?.fontsReady && log.level?.route === 'game' && !log.pageErrors.length && log.requests.every(r => /^(200|303|304) /.test(r));
+      if (!pass) ok = false;
+      console.log(`\n=== ${pass ? 'PASS' : 'FAIL'} ${tag}\n${JSON.stringify(log, null, 1)}`);
+      await context.close();
+      await pause(8000);
     }
-    log.loadMs = Date.now() - t0;
-    await page.waitForTimeout(10000);
-    log.first = await page.evaluate(state).catch(e => ({ error: String(e).slice(0, 200) }));
-    await page.screenshot({ path: `out/${s.name}-${label}-1-first.png` }).catch(() => {});
-    try { await page.reload({ waitUntil: 'load', timeout: 60000 }); await page.waitForTimeout(5000); } catch (e) { log.reloadError = String(e).slice(0, 200); }
-    log.reload = await page.evaluate(state).catch(e => ({ error: String(e).slice(0, 200) }));
-    await page.screenshot({ path: `out/${s.name}-${label}-2-reload.png` }).catch(() => {});
-    results.push(log);
-    console.log(`\n=== ${s.name} ${label} ${url}\n` + JSON.stringify({ nav: log.nav, gotoError: log.gotoError, gateText: log.gateText?.slice(0, 300), clicked: log.clicked, loadMs: log.loadMs, first: log.first, reload: log.reload, failed: log.failed, pageErrors: log.pageErrors, console: log.console.slice(0, 8), bad: log.requests.filter(r => !/^(200|204|304) /.test(r)) }, null, 1));
-    await context.close();
   }
   await browser.close();
 }
-fs.writeFileSync('out/results.json', JSON.stringify(results, null, 2));
+console.log(ok ? '\nALL PASS' : '\nSOME FAILED');
