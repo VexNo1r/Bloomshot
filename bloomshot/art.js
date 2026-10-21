@@ -4740,7 +4740,7 @@
     drawFlares(ctx, buds, time, options, line);
     if (rush) drawLullaby(ctx, state, time, options.reducedMotion, buds, true);
     for (const bumper of state.bumpers || []) {
-      if (bumper.bossWall) drawRootWall(ctx, bumper);
+      if (bumper.bossWall) { if (!bumper.kitDrawn) drawRootWall(ctx, bumper); } // a kit piece (Rootknot's snare) is drawn by its kit look (foe-art.js)
       else if (bumper.kind === 'rock' && root.BloomScenery) root.BloomScenery.drawRock(ctx, bumper, options.theme);
       else drawBumper(ctx, bumper, options.selectedBumper === bumper.id, time, colors, options.reducedMotion);
     }

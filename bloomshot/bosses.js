@@ -659,6 +659,227 @@
   // ── Old Sunny (Level 1, `sunny`) ──
 
   // ── Rootknot (Level 2, `root`) ──
+  // A grumpy old root who fights from under the soil, out of three holes on his row (x 128, 210 and 292). Grumpy, he
+  // burrows behind two root walls as he always has, and every other move he also lobs a live Rolypoly out of an empty
+  // hole: bump it up into him and it bowls him over for three. Tangled, he lobs two, and grabs a clump of falling flowers
+  // into a Root Carousel: a knot of roots that spins them round a 30 px ring while the whole ring keeps sinking like a
+  // summoned cluster. Snap the knot (two hits) and every flower it carries blooms for you in a cascade; leave it, and when
+  // its spin ends (or the ring nears the line) it flings them outward, falling faster for two seconds. Furious, he adds
+  // the Root Snare: a thorny root across one side of the launcher's fan for four seconds, on the side with more to aim at.
+  // Every motion is closed form on the kit clock (a Lullaby stops it all), so the carousel, its fling and the lobs are
+  // exactly where the bot's forecast (positions) says they will be.
+  const ROOT = { holes: [128, 210, 292], land: [70, 100], lobT: .6, lobH: 48, stagger: .18, tossCap: 4, ring: 30, gather: .25,
+    spin: 1.6, spinFor: [3.5, 3.5, 7], sink: .85, out: 40, throwT: .3, hurry: 1.3, hurryFor: 2, knotHp: 2, knotR: 10,
+    snare: { x: [145.3, 274.7], y: 405.65, length: 82, angle: .6109, life: 4, wither: .3 } };
+  const rootSmooth = p => { p = clamp(p, 0, 1); return p * p * (3 - 2 * p); };
+  // The soil line of his row, where the holes are (the art draws them there too).
+  const rootRow = b => b.y + b.r * .7;
+  // The hole he comes up from: 292, 128, 210 in turn (the first move's is still 292).
+  const rootStation = s => ROOT.holes[[2, 0, 1][s.action % 3]];
+  // Room for a piece of radius r at (x, y): inside the board above the safe line, clear of every open bud (as clearSpot)
+  // and clear of every rock and wall, including the walls this move is about to raise.
+  function rootRoom(game, x, y, r, walls = []) {
+    if (x - r < 23 || x + r > 397 || y - r < 30 || y + r > game.dangerY - 100 || !clearSpot(game, x, y, r)) return false;
+    for (const w of [...game.bumpers, ...walls]) {
+      const ux = Math.cos(w.angle || 0), uy = Math.sin(w.angle || 0), half = (w.length || 0) / 2;
+      const along = clamp((x - w.x) * ux + (y - w.y) * uy, -half, half);
+      if (Math.hypot(x - w.x - ux * along, y - w.y - uy * along) < r + 12) return false;
+    }
+    return true;
+  }
+  // The burrow (walls and the station hole) plus up to `count` toss marks: the empty holes nearest the middle first (ties
+  // go left), each landing 70 px below his row, else 100 px, else that hole stays quiet.
+  function rootBurrowPlan(game, s, b, move, count) {
+    const plan = legacyPlan(game, s, 'root'), station = rootStation(s);
+    for (const t of plan.targets) if (t.role === 'hole') t.x = station;
+    plan.move = move;
+    if (!count) return plan;
+    const walls = plan.targets.filter(t => t.role === 'wall').map((t, i) => ({ x: t.x, y: t.y, length: 64, angle: i ? -.65 : .65 }));
+    const alive = game.buds.filter(p => p.rootToss && !p.bloomed).length, want = Math.min(count, ROOT.tossCap - alive);
+    const sources = ROOT.holes.filter(x => x !== station).sort((p, q) => Math.abs(p - 210) - Math.abs(q - 210) || p - q);
+    let tosses = 0;
+    for (const x of sources) {
+      if (tosses >= want) break;
+      const y = ROOT.land.map(dy => b.y + dy).find(y => rootRoom(game, x, y, 14, walls));
+      if (y == null) continue;
+      plan.targets.push({ x, y, r: 14, role: 'toss', fromX: x, move }); tosses++;
+    }
+    plan.text = tosses > 1 ? 'Rootknot is tossing rolypolies!' : tosses ? 'Rootknot is tossing a rolypoly!' : TEXT.root;
+    return plan;
+  }
+  function rootBurrow(game, s, w) {
+    // The walls replace the last ones; a snare still standing stays.
+    const snares = game.bumpers.filter(p => p.bossSnare);
+    legacyAct(game, s, w);
+    for (const p of snares) if (!game.bumpers.includes(p)) game.bumpers.push(p);
+    w.targets.filter(t => t.role === 'toss').forEach((t, i) => { if (i) after(s, ROOT.stagger * i, 'toss', t); else rootToss(game, s, t); });
+  }
+  // A rolypoly pops out of a hole on a drawn arc; it becomes a real piece only when it lands (lobs are pictures).
+  function rootToss(game, s, t) {
+    const y0 = rootRow(s.boss);
+    lob(s, 'rolypoly', t.fromX, y0, t.x, t.y, ROOT.lobT, { h: ROOT.lobH, move: t.move });
+    after(s, ROOT.lobT, 'land', t);
+    game.event('bossAbility', { kind: s.kind, move: t.move, act: 'toss', x: t.fromX, y: y0 });
+  }
+  // The flowers a carousel would take: the biggest clump (centres within 46 px of one flower) of plain open flowers in
+  // the middle band, at most the 4 nearest that flower; ties keep the earliest. Fewer than 2 is no carousel.
+  function rootClump(game) {
+    const list = game.buds.filter(p => plainFlower(p) && open(p) && p.y >= 140 && p.y <= 300 && p.x >= 63 && p.x <= 357);
+    let best = null, anchor = null;
+    for (const p of list) {
+      const near = list.filter(q => Math.hypot(q.x - p.x, q.y - p.y) <= 46);
+      if (!best || near.length > best.length) { best = near; anchor = p; }
+    }
+    if (!best || best.length < 2) return null;
+    return best.slice().sort((p, q) => Math.hypot(p.x - anchor.x, p.y - anchor.y) - Math.hypot(q.x - anchor.x, q.y - anchor.y)).slice(0, 4);
+  }
+  const rootKnot = s => s.parts.find(p => p.bossPart === 'knot' && !p.bloomed && !p.closed) || null;
+  const rootRiders = (s, knot) => s.carried.filter(p => p.carried && p.carried.knot === knot.id);
+  // Where a carried flower is at kit time `clock`: it slides onto the ring in .25 s (evenly spaced), then turns at 1.6
+  // rad/s round a centre sinking at .85 x the descent; at `until` it is thrown 40 px outward over .3 s.
+  function rootRing(c, clock) {
+    const u = Math.max(0, clock - c.t0), e = rootSmooth(u / ROOT.gather), rad = c.d0 + (ROOT.ring - c.d0) * e;
+    const a = c.a0 + (c.aT - c.a0) * e + ROOT.spin * Math.max(0, u - ROOT.gather), cy = c.cy + c.sink * u;
+    return { x: c.cx + rad * Math.cos(a), y: cy + rad * Math.sin(a), a };
+  }
+  function rootPose(s, p, bx, by, clock) {
+    if (p.bossPart === 'knot') return { x: p.cx, y: p.cy + p.sink * clamp(clock - p.born, 0, p.until - p.born) };
+    const c = p.carried; if (!c || c.knot == null) return null;
+    const ring = rootRing(c, Math.min(clock, c.until));
+    if (clock <= c.until) return ring;
+    const e = rootSmooth((clock - c.until) / ROOT.throwT);
+    return { x: clamp(ring.x + Math.cos(ring.a) * ROOT.out * e, 22 + p.r, 398 - p.r), y: clamp(ring.y + Math.sin(ring.a) * ROOT.out * e, 30 + p.r, c.floor) };
+  }
+  function rootCarousel(game, s, w) {
+    const riders = w.targets.filter(t => t.role === 'carried').map(t => game.buds.find(p => p.id === t.id)).filter(p => p && plainFlower(p) && open(p));
+    // Shot down to one flower during the warning (or another ring still turning): nothing to carry, a short rest.
+    if (riders.length < 2 || rootKnot(s)) return 1.5;
+    const cx = riders.reduce((n, p) => n + p.x, 0) / riders.length, cy = riders.reduce((n, p) => n + p.y, 0) / riders.length;
+    const sink = game.descentSpeed * ROOT.sink, floor = game.dangerY - 70;
+    // It lets go when its spin ends, or as soon as the ring's bottom would pass 70 px above the line.
+    const early = sink > 0 ? (floor - ROOT.ring - 12 - cy) / sink : Infinity, spin = Math.max(ROOT.gather, Math.min(ROOT.spinFor[s.tier], early));
+    const knot = part(game, 'knot', cx, cy, ROOT.knotR, ROOT.knotHp, { born: s.kitAge, cx, cy, sink, until: s.kitAge + spin, creaks: 0 });
+    riders.sort((p, q) => Math.atan2(p.y - cy, p.x - cx) - Math.atan2(q.y - cy, q.x - cx));
+    const first = Math.atan2(riders[0].y - cy, riders[0].x - cx);
+    riders.forEach((p, k) => {
+      p.carried = { knot: knot.id, cx, cy, sink, floor, t0: s.kitAge, until: knot.until, a0: Math.atan2(p.y - cy, p.x - cx), aT: first + TAU * k / riders.length, d0: Math.hypot(p.x - cx, p.y - cy) };
+      s.carried.push(p);
+    });
+  }
+  // The knot lets go: its flowers fly outward on the pose above, then fall faster for a while.
+  function rootFling(game, s, knot) {
+    const riders = rootRiders(s, knot).filter(p => !p.bloomed);
+    for (const p of riders) p.carried.until = Math.min(p.carried.until, s.kitAge);
+    close(game, s, knot); knot.flungAt = s.kitAge;
+    after(s, ROOT.throwT, 'release', riders.map(p => p.id));
+    game.event('bossAbility', { kind: s.kind, move: 'carousel', act: 'fling', x: knot.x, y: knot.y, n: riders.length });
+  }
+  function rootSnarePlan(game) {
+    // The side of the fan (35 to 75 degrees up from the launcher) with more open pieces to aim at; ties go left.
+    let left = 0, right = 0;
+    for (const p of game.buds) {
+      if (!open(p) || p.hidden) continue;
+      const dx = p.x - 210, dy = 498 - p.y, a = Math.atan2(dy, Math.abs(dx)) * 180 / Math.PI;
+      if (dy <= 0 || a < 35 || a > 75) continue;
+      if (dx < 0) left++; else if (dx > 0) right++;
+    }
+    const side = right > left ? 1 : 0;
+    return { targets: [{ x: ROOT.snare.x[side], y: ROOT.snare.y, r: 42, role: 'snare', side }] };
+  }
+  kit('root', {
+    hp: 26,
+    moods: ['Grumpy', 'Tangled', 'Furious'],
+    stageText: [null, 'Rootknot is tangling up!', 'Rootknot is furious!'],
+    text: { toss: 'Rootknot is tossing a rolypoly!', toss2: 'Rootknot is tossing rolypolies!', carousel: 'Root carousel! Snap the knot.', snare: 'A root snare blocks one side!' },
+    moves: [['root', 'toss'], ['toss2', 'carousel'], ['toss2', 'carousel', 'snare']],
+    plan: {
+      root: (game, s, b) => rootBurrowPlan(game, s, b, 'root', 0),
+      toss: (game, s, b) => rootBurrowPlan(game, s, b, 'toss', 1),
+      toss2: (game, s, b) => rootBurrowPlan(game, s, b, 'toss2', 2),
+      carousel(game, s, b) {
+        // Decided now, so the warning is true: with no clump to take (or a ring still turning) he tosses two instead.
+        const clump = !rootKnot(s) && !s.carried.length ? rootClump(game) : null;
+        if (!clump) return rootBurrowPlan(game, s, b, 'toss2', 2);
+        const cx = clump.reduce((n, p) => n + p.x, 0) / clump.length, cy = clump.reduce((n, p) => n + p.y, 0) / clump.length;
+        return { targets: [{ x: cx, y: cy, r: 40, role: 'knot' }, ...clump.map(p => ({ id: p.id, x: p.x, y: p.y, r: p.r, role: 'carried' }))] };
+      },
+      snare: game => rootSnarePlan(game)
+    },
+    act: {
+      root: rootBurrow, toss: rootBurrow, toss2: rootBurrow, carousel: rootCarousel,
+      snare(game, s, w) {
+        const t = w.targets.find(t => t.role === 'snare'), left = !t.side, sn = ROOT.snare;
+        game.bumpers = game.bumpers.filter(p => !p.bossSnare);
+        // A rock wall on the kit clock; kitDrawn: the kit's art draws it as a thorny root.
+        game.bumpers.push({ id: s.boss.id + '-snare', kind: 'rock', bossWall: true, bossSnare: true, kitDrawn: true, x: t.x, y: sn.y, baseX: t.x,
+          length: sn.length, angle: left ? -sn.angle : sn.angle, kitAt: s.kitAge, kitUntil: s.kitAge + sn.life, expires: Infinity });
+        // It withers through its last .3 s (the sound with it) and is gone at four seconds.
+        after(s, sn.life - sn.wither, 'wither', { x: t.x, y: sn.y });
+      }
+    },
+    timer: {
+      toss: rootToss,
+      land(game, s, t) {
+        // Lands where it was shown, or a little aside if a flower has drifted onto the spot; with no room it bounces off.
+        const spot = [[t.x, t.y], [t.x - 18, t.y], [t.x + 18, t.y], [t.x, t.y - 18]].find(([x, y]) => rootRoom(game, x, y, 12));
+        if (!spot) { game.event('foe', { kind: 'rolypoly:bump', x: t.x, y: t.y, nx: 0, ny: -1 }); return; }
+        const [bud] = Foes.make('rolypoly', ['rolypoly', spot[0], spot[1], {}], s.boss.id + '-toss', s.serial++, null, null);
+        if (!bud) return;
+        Object.assign(bud, { fall: .85, bossSummon: true, bossSource: s.boss.id, rootToss: true, kitLandAt: s.kitAge, hitAt: -100, bloomAt: -100, bloomed: false, spawnAt: game.time - 1 });
+        Foes.place(game, bud);
+        game.event('foe', { kind: 'rolypoly:land', bud, x: bud.x, y: bud.y });
+        game.event('bossAbility', { kind: s.kind, move: t.move, act: 'land', x: bud.x, y: bud.y });
+      },
+      release(game, s, ids) {
+        for (const id of ids) {
+          const p = s.carried.find(b => b.id === id); if (!p) continue;
+          release(game, p, true);
+          // Thrown flowers fall 1.3x as fast for two seconds: ignoring the knot costs something.
+          if (!p.bloomed) { if (p.kitHurry == null) { p.kitHurry = p.fall || 1; p.fall = p.kitHurry * ROOT.hurry; } after(s, ROOT.hurryFor, 'calm', p.id); }
+        }
+      },
+      calm(game, s, id) { const p = game.buds.find(b => b.id === id); if (p && p.kitHurry != null) { p.fall = p.kitHurry; delete p.kitHurry; } },
+      wither(game, s, at) { game.event('bossAbility', { kind: s.kind, move: 'snare', act: 'wither', x: at.x, y: at.y }); }
+    },
+    pose: rootPose,
+    step(game, s) {
+      // The carousel's tell follows the flowers it is about to take.
+      const w = s.warning;
+      if (w && w.move === 'carousel') {
+        const riders = w.targets.filter(t => t.role === 'carried'), mark = w.targets.find(t => t.role === 'knot');
+        if (mark && riders.length) { mark.x = riders.reduce((n, t) => n + t.x, 0) / riders.length; mark.y = riders.reduce((n, t) => n + t.y, 0) / riders.length; }
+      }
+      // A carried flower shot off the ring, or gone with its group over the line, is let go.
+      for (const p of [...s.carried]) if (p.bloomed || !game.buds.includes(p)) release(game, p, false);
+      const knot = rootKnot(s); if (!knot) return;
+      const riders = rootRiders(s, knot);
+      if (!riders.length) { close(game, s, knot); return; }
+      // The knot is the ring's centre: it lets go at the end of its spin, or once the ring's bottom nears the line.
+      if (s.kitAge >= knot.until || knot.y + ROOT.ring + 12 > game.dangerY - 70) { rootFling(game, s, knot); return; }
+      // A soft creak every quarter turn.
+      const turned = Math.floor(ROOT.spin * Math.max(0, s.kitAge - knot.born - ROOT.gather) / (Math.PI / 2));
+      if (turned > knot.creaks) { knot.creaks = turned; game.event('bossAbility', { kind: s.kind, move: 'carousel', act: 'creak', x: knot.x, y: knot.y, n: turned }); }
+    },
+    // Bowled over: a rolypoly's roll into him (not while he is underground) deals three.
+    resolve(game, s, bud, chain) {
+      if (!(chain && game.due && game.due.via === 'roll' && bud === s.boss && s.mode !== 'burrow' && !bud.hidden)) return null;
+      s.crits++; game.event('bossCritical', { kind: s.kind, bud, damage: 3, via: 'roll' });
+      return { target: bud, damage: 3 };
+    },
+    bloomed(game, s, bud) {
+      if (bud.carried) { release(game, bud, false); return true; }
+      if (bud.bossPart !== 'knot') return false;
+      // Snap! Every flower still on the ring blooms in a cascade, credited to whoever snapped the knot.
+      const riders = rootRiders(s, bud).filter(p => !p.bloomed), by = game.striker ? game.striker.id : game.due && game.due.by != null ? game.due.by : null;
+      bud.snappedAt = s.kitAge; bud.ends = riders.map(p => ({ x: p.x, y: p.y, type: p.type }));
+      riders.forEach((p, k) => { release(game, p, false); game.pending.push(game._linkBy(p.id, game.time + .08 * k, bud, 'knot', by, true)); });
+      game.event('bossAbility', { kind: s.kind, move: 'carousel', act: 'snap', x: bud.x, y: bud.y, n: riders.length });
+      return true;
+    },
+    // The bot: a knot with flowers on it is worth snapping now.
+    targets(game, s, list) { for (const t of list) if (t.bud.bossPart === 'knot') { t.priority = 60 + 10 * rootRiders(s, t.bud).length; t.reason = 'knot'; } },
+    cleanup(game) { for (const p of game.buds) if (p.kitHurry != null) { p.fall = p.kitHurry; delete p.kitHurry; } }
+  });
 
   // ── Mother Morel (Level 3, `puff`) ──
 
