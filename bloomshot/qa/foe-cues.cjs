@@ -21,8 +21,11 @@ module.exports = [
   // ── Echo Bat (Level 4, `bat`) ──
 
   // ── Moon Jelly (Level 5, `jelly`) ──
+  ['foe', { kind: 'jelly:spawn', x: 110 }], ['foe', { kind: 'jelly:guard', x: 310 }], ['foe', { kind: 'jelly:burst', x: 200 }],
 
   // ── Glowworm (Level 5, `glowworm`) ──
+  ['foe', { kind: 'glowworm:ripple', x: 250, n: 4 }], ['foe', { kind: 'glowworm:ripple', x: 60, n: 9 }], ['foe', { kind: 'glowworm:ripple', x: 200 }],
+  ['foe', { kind: 'glowworm:ripple', x: 200, n: 0 }], ['foe', { kind: 'glowworm:split', x: 140 }], ['foe', { kind: 'glowworm:spawn', x: 300 }],
 
   // Guardians: every move's start has a voice (its own, or the guardian's instrument answering low), and a mood change
   // (Phase Bloom) has its own.

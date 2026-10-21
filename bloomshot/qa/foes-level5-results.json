@@ -1,0 +1,98 @@
+{
+  "passed": 23,
+  "failed": 0,
+  "results": [
+    {
+      "name": "Moon jellies debut from two vents in Level 5 wave 2 with their hint, and vents come back only in L5 W6, W8 and W9",
+      "passed": true
+    },
+    {
+      "name": "The first jelly leaves its vent at foe time 2.0 at (110, 400), then rises exactly 40 px a pulse and sways back to the middle",
+      "passed": true
+    },
+    {
+      "name": "A guardian can place a jelly or a glowworm mid-fight with make and place, and each starts moving at once",
+      "passed": true
+    },
+    {
+      "name": "A credited seed slides off a jelly in its thrust (jelly:guard) and blooms it in the glide; a Bee Line blooms it in either",
+      "passed": true
+    },
+    {
+      "name": "A jelly nobody catches bursts at y <= 70 into three glowdrops of one group, which fall and cost one life together",
+      "passed": true
+    },
+    {
+      "name": "A burst shifts its glowdrops off pieces in the way, and skips a drop with no room",
+      "passed": true
+    },
+    {
+      "name": "A vent holds the wave open until its last jelly is out, and on an empty board the next jelly comes within a second",
+      "passed": true
+    },
+    {
+      "name": "A piece parked on a vent mouth makes it wait, and the vent sends its jelly within .3 s of the mouth clearing",
+      "passed": true
+    },
+    {
+      "name": "A Lullaby freezes a jelly and the vents, and both carry on after",
+      "passed": true
+    },
+    {
+      "name": "A jelly never costs a life, even one that starts below the line",
+      "passed": true
+    },
+    {
+      "name": "The jellies, their vents and their bursts play out the same at 30, 60 and 144 FPS",
+      "passed": true
+    },
+    {
+      "name": "The bot forecasts a jelly exactly (a Lullaby included), shoots only for its glide, and plays the jelly waves",
+      "passed": true
+    },
+    {
+      "name": "Glowworms debut in Level 5 wave 3 with their hint, five pieces each, and come back in L5 W4, W7, W8 and W9",
+      "passed": true
+    },
+    {
+      "name": "L5 W4: the worm keeps 21 / 20 px along its track, and its first turn reaches x 64 and comes back 26 px lower",
+      "passed": true
+    },
+    {
+      "name": "A credited head hit ripples the light down the body: four credited blooms, .07 s apart, all done within .35 s",
+      "passed": true
+    },
+    {
+      "name": "A credited bead hit snaps the worm: the beads behind become their own worm, the first one its head, paused .3 s",
+      "passed": true
+    },
+    {
+      "name": "Uncredited strikes, powers on a bead and the ripple links never split a worm; an earned chain does",
+      "passed": true
+    },
+    {
+      "name": "A Lullaby freezes a worm (sinking too), and each worm group that reaches the line costs one life",
+      "passed": true
+    },
+    {
+      "name": "A worm and its split play out the same at 30, 60 and 144 FPS",
+      "passed": true
+    },
+    {
+      "name": "The bot forecasts a worm on its track, goes for heads and leaves beads, and plays the worm waves",
+      "passed": true
+    },
+    {
+      "name": "The jelly, its vents and glowdrops and the glowworm draw cheaply: finite, balanced, and no gradient, shadow or surface once warm",
+      "passed": true
+    },
+    {
+      "name": "The jelly shows a different face in its thrust and its glide, with Animations on and off",
+      "passed": true
+    },
+    {
+      "name": "foes.js never touches the seed pod and never uses Math.random",
+      "passed": true
+    }
+  ]
+}

@@ -1623,7 +1623,7 @@
     const bud = event.bud || {}, spot = { x: event.x ?? bud.x ?? 210, y: event.y ?? bud.y ?? 200, type: bud.type || 'lilac', r: bud.r || 10 };
     if (act === 'pop') { burst(spot, 12, game.particles, currentKeepsake(), false); foeRing(spot.x, spot.y, FOE_COLORS[spot.type] || FOE_COLORS.lilac, spot.r, 26, .4); haptic('tick'); }
     else if (act === 'fizzle') foeDust(spot.x, spot.y, 5, '#ffffff', 30);
-    else if (act === 'guard') { foeRing(spot.x, spot.y, FOE_COLORS[event.type || spot.type] || '#ffffff', 6, 14, .3); haptic('tick'); }
+    else if (act === 'guard') { foeRing(spot.x, spot.y, FOE_COLORS[spot.type] || '#ffffff', 6, 14, .3); haptic('tick'); }
   }
   // -----------------------------------------------------------------------------------------------------------------
   // The foe effects. Each lives in its own block: FOE_FX.<family> = { <act>(event) { ... } }.
@@ -1653,8 +1653,58 @@
   // ── Echo Bat (Level 4, `bat`) ──
 
   // ── Moon Jelly (Level 5, `jelly`) ──
+  // Bubbles as one leaves its vent; a slick little splash when a seed slides off a thrusting jelly; and when one
+  // bursts at the top of the lake, a ring, a few stars and a slow shower of soft gold and moon-blue light drifting down
+  // over the glowdrops it left.
+  // Motes of soft light that start on a small ring (so they never pile into one white blot) and drift out and down.
+  function foeGlow(x, y, count, colors, { spread = 30, fall = 30, life = 1.1, size = 2.2, ring = 10 } = {}) {
+    if (!save.settings.motion) return;
+    count = Math.max(2, Math.round(count * [1, .6, .35][game?.quality || 0]));
+    for (let i = 0; i < count; i++) {
+      const a = i / count * Math.PI * 2 + Math.random() * .5, v = spread * (.5 + Math.random() * .5), l = life * (.7 + Math.random() * .5);
+      game.particles.push({ x: x + Math.cos(a) * ring, y: y + Math.sin(a) * ring * .7, vx: Math.cos(a) * v, vy: Math.sin(a) * v * .5 + fall * (.4 + Math.random() * .6), life: l, maxLife: l, kind: 'glow',
+        color: colors[i % colors.length], size: size * (.75 + Math.random() * .5), gravity: 18, drag: 1.1 });
+    }
+  }
+  FOE_FX.jelly = {
+    spawn(e) {
+      foeRing(e.x, e.y, '#8ed2ff', 8, 18, .45);
+      if (save.settings.motion) for (let i = 0; i < 4; i++) {
+        const life = .5 + i * .08;
+        game.particles.push({ x: e.x + (i - 1.5) * 5, y: e.y - 4, vx: (i - 1.5) * 6, vy: -46 - i * 9, life, maxLife: life, kind: 'pollen', color: '#bfe8ff', size: 1.4 + (i % 2) * .6, gravity: -10, drag: 2 });
+      }
+    },
+    guard(e) {
+      const bud = e.bud || e;
+      foeRing(bud.x, bud.y, '#bfe8ff', 7, 12, .28); foeDust(e.x, e.y, 3, '#e6f6ff', 55); haptic('tick');
+    },
+    burst(e) {
+      foeRing(e.x, e.y, '#8ed2ff', 10, 30, .5); foeRing(e.x, e.y, '#fff4aa', 6, 18, .35);
+      if (save.settings.motion) for (let i = 0; i < 6; i++) {
+        const a = i / 6 * Math.PI * 2 + .3, life = .55 + (i % 3) * .1;
+        game.particles.push({ x: e.x + Math.cos(a) * 6, y: e.y + Math.sin(a) * 6, vx: Math.cos(a) * 70, vy: Math.sin(a) * 70 - 10, life, maxLife: life, kind: 'star', color: i % 2 ? '#fff4aa' : '#ffffff', size: 2.4, rotation: a, spin: 0, gravity: 30, drag: 2.4, phase: i });
+      }
+      foeGlow(e.x, e.y, 12, ['#ffd65a', '#bfe8ff', '#fff4aa'], { spread: 70, fall: 30, life: 1.4, ring: 12 });
+    }
+  };
 
   // ── Glowworm (Level 5, `glowworm`) ──
+  // A head hit freezes for a blink and rings out gold as the light runs down the body (the art pops a little glow on
+  // each bead as it blooms, in time with the chime); the whole worm at once is "All aglow!". A snapped body flicks
+  // teal dust and the new head lights up. A guardian's worm arrives with a ring of light.
+  FOE_FX.glowworm = {
+    ripple(e) {
+      jolt(.08, .06, .16); haptic('surge');
+      foeRing(e.x, e.y, '#ffd65a', 10, 28, .45); foeGlow(e.x, e.y, 6, ['#ffd65a', '#fff4aa'], { spread: 40, fall: 6, life: .8 });
+      if (Number(e.n) >= 4 && save.settings.motion) game.floaters.push({ kind: 'trick', trick: 'glow', text: 'All aglow!', label: '', x: clamp(e.x, 70, 350), y: Math.max(44, e.y - 64), life: 1, maxLife: 1 });
+    },
+    split(e) {
+      foeRing(e.x, e.y, '#6fd3c4', 7, 16, .3); foeDust(e.x, e.y, 4, '#b9fff0', 45); haptic('tick');
+      const head = e.head; if (head) foeRing(head.x, head.y, '#ffd65a', 6, 14, .35);
+    },
+    spawn(e) { const bud = e.bud || e; foeRing(bud.x, bud.y, '#ffd65a', 9, 24, .5); foeGlow(bud.x, bud.y, 6, ['#ffd65a', '#6fd3c4'], { spread: 30, fall: 4, life: .8 }); },
+    puff(e) { foeDust(e.x, e.y, 4, '#b9fff0', 35); }
+  };
 
   // -----------------------------------------------------------------------------------------------------------------
   // The guardians' moves. A `bossAbility` event (move, act) gets BOSS_FX.<kind>['move:act'] or BOSS_FX.<kind>[act]; a mood

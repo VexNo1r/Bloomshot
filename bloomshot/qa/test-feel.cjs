@@ -644,7 +644,7 @@ for (const motion of [true, false]) test(`A level won with no final bloom (the l
   assert(game.plan && game.plan.taste, 'the Level 5 taste');
   for (let i = 0; i < 20; i++) app.frame();
   game.started = true; game.wave = game.finalWave - 1; game._loadWave(); game.drops = []; game.pending = [];
-  const groups = [...new Set(game.buds.filter(bud => !bud.gift).map(bud => bud.group))], lastGroup = groups.at(-1);
+  const groups = [...new Set(game.buds.filter(bud => !bud.gift && !bud.foe).map(bud => bud.group))], lastGroup = groups.at(-1);
   assert(groups.length >= 2 && !game.buds.some(bud => bud.boss), 'a wave of plain groups');
   const spent = game.buds.filter(bud => bud.group !== lastGroup && !bud.gift);
   for (const bud of spent) { bud.bloomed = true; bud.bloomAt = game.time - 3; }

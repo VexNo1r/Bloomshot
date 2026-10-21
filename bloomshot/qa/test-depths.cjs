@@ -97,6 +97,18 @@ test('Currents and tunnels are valid, and sit clear of the launcher and the open
       for (const bud of w.buds) assert(Math.hypot(gate.x - bud.x, gate.y - bud.y) >= gate.r + bud.r, `L${id} W${n} ${gate.id} covers ${bud.id}`);
       for (const rock of w.bumpers) if (!rock.slide) assert(segmentDistance(gate.x, gate.y, rock) > gate.r + 6, `L${id} W${n} ${gate.id} touches ${rock.id}`);
     }
+    // Moon Jelly vents (r 11): on the board, in the lake bed but above the close band (a jelly born at y >= 412 would
+    // be a free Close call), clear of the launcher and the fixed rocks, and outside every current padded by 11.
+    const inLane = (lane, x, y, pad) => { const dx = x - lane.x, dy = y - lane.y; return Math.abs(dx * Math.cos(lane.angle) + dy * Math.sin(lane.angle)) <= lane.length / 2 + pad && Math.abs(-dx * Math.sin(lane.angle) + dy * Math.cos(lane.angle)) <= lane.width / 2 + pad; };
+    for (const vent of w.vents || []) {
+      const at = `L${id} W${n} ${vent.id}`;
+      assert(vent.first > 0 && vent.every > 0 && Number.isInteger(vent.count) && vent.count >= 1, `${at} has a schedule`);
+      assert(vent.x - 11 >= 34 && vent.x + 11 <= 386, `${at} fits the board`);
+      assert(vent.y >= 330 && vent.y <= 411, `${at} sits in the lake bed, above the close band`);
+      assert(Math.hypot(vent.x - 210, vent.y - 498) >= 80, `${at} too close to the launcher`);
+      for (const rock of w.bumpers) if (!rock.slide) assert(segmentDistance(vent.x, vent.y, rock) > 17, `${at} touches ${rock.id}`);
+      for (const lane of w.currents) assert(!inLane(lane, vent.x, vent.y, 11), `${at} sits in ${lane.id}`);
+    }
   });
 });
 test('Each level brings its own twist and ends with its configured named boss', () => {

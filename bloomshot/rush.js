@@ -791,7 +791,7 @@
               ball.dead = true; ball.touches++; this.striker = null;
               this.event('bossBurn', { bud: hit.item, x: ball.x, y: ball.y, kind: 'ember' }); break;
             }
-            if (hit.item.foe) this.event('foe', { kind: hit.item.foe + ':guard', bud: hit.item, x: ball.x, y: ball.y, type: hit.item.type });
+            if (hit.item.foe) this.event('foe', { kind: hit.item.foe + ':guard', bud: hit.item, x: ball.x, y: ball.y });
             else this.event('shield', { bud: hit.item, x: ball.x, y: ball.y, shell: Boolean(hit.item.shell) });
             // A turning shell is a timing shot, so the first time one turns a seed away the seed still wins back a little; a
             // cup, aimed at from below, wins nothing.
