@@ -768,6 +768,7 @@
               ball.x = transfer.x; ball.y = transfer.y; ball.vx = transfer.vx; ball.vy = transfer.vy;
               ball.trail = []; ball.gateCooldown = Engine.GATE_COOLDOWN; ball.gateHops = (ball.gateHops || 0) + 1; ball.gateAt = this.time;
               this.gatePasses++; hit.item.lastUsed = this.time; transfer.exit.lastUsed = this.time;
+              if (hit.item.bossMoon) ball.moonShot = Boolean(hit.item.moonLow) && !ball.touches && ball.age <= 1.6; // Lantern Lily's moon shot (bosses.js kit)
               this.event('gate', { entry: hit.item, exit: transfer.exit, x: transfer.exit.x, y: transfer.exit.y });
             }
             continue;

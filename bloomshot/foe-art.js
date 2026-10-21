@@ -2240,6 +2240,394 @@
   });
 
   // ── Lantern Lily (Level 5, `lotus`) ──
+  // A moonlit showpiece. Her face shows her mood (s.tier): Dreamy has heavy lashed lids and a soft smile, Glowing big
+  // starry eyes, rosy cheeks and an open laugh, Moonlit silver eyes under set brows with a gold crescent on her brow and
+  // a sly smile; a hit squeezes her eyes, and with her lantern spent (the gutter) she is flustered, with a bead of sweat.
+  // An aura of her mood's color breathes behind her: fireflies circle her when Glowing; when Moonlit a little crescent
+  // moon rocks over her head between twinkling stars. The moon gate is a smiling moon in the sky that pours a beam
+  // down her column (it brightens while she is under it: that is the moment to shoot) and its reflection on the lake,
+  // upside down, wobbling 2 px at 1 Hz with ripples spreading; both pop in with an overshoot, flash when a seed passes
+  // and wane over their last .4 s. The lily pads glow on the water, each with a lilac bud that swells before it lets a
+  // jelly go and opens as it does, and two pips for the jellies still to come; a shut pad folds up with a splash, an
+  // unshot one sinks in a ripple. Her lantern hops off its stem in an arc and rides the glowworm's head, swinging, while
+  // its empty stem curls behind her; when the head is hit, a streak of gold light runs home, and when the worm puffs away
+  // the lantern drifts home in mint sparkles. The tide is a pale blue band from the old line up to the raised one, its
+  // foamy top lapping, after a dashed line and rising chevrons show where it will reach. Animations off: no wobble,
+  // ripples, bob, sway, blink, twinkle or flight; the moons, beam, pads and pips, the riding lantern and every tell stay.
+  const LILY = { moon: '#fff6ce', rim: '#e8d58a', crater: '#f3e4ad', craterLight: '#fffbe3', moonInk: '#c9a95a', moonCheek: '#ffc9a8',
+    pad: '#6fbf73', padDark: '#3f8a52', padLight: '#a6dc8f', padVein: '#4f9e5e', bud: '#cbbfff', budLight: '#efe9ff', budInk: '#8f7fd6',
+    tide: 'rgba(120,190,255,.18)', foam: '#e8f6ff', tideLine: '#7fc4ff', tideInk: '#3d78b8', ripple: '#d6ecff', ink: '#66416f',
+    skin: '#ffe9c6', eye: '#5e918d', glowEye: '#3fa39b', silver: '#7f8fd8', cheek: '#f4a8c8', gold: '#ffe58a', goldInk: '#c99a3a',
+    sweat: '#9fdcff', firefly: '#fff4aa', auras: ['255,186,224', '255,224,130', '196,218,255'], moods: ['dreamy', 'glowing', 'moonlit'],
+    release: [.9, 2.1], close: 2.6, moonPop: .3, wane: .4, fly: .35, home: .6 };
+  // Her face, in units of her radius, around the face's own centre (as art.js places a guardian's face).
+  function lilyEye(c, r, side, kind) {
+    const x = side * r * .26, L = LILY; c.lineCap = 'round'; c.lineJoin = 'round'; c.strokeStyle = L.ink;
+    if (kind === 'blink') { c.beginPath(); c.moveTo(x - r * .13, 0); c.quadraticCurveTo(x, r * .09, x + r * .13, 0); c.lineWidth = 1.7; c.stroke(); return; }
+    if (kind === 'squeeze') {
+      c.beginPath(); c.moveTo(x + side * r * .13, -r * .09); c.lineTo(x - side * r * .1, r * .01); c.lineTo(x + side * r * .13, r * .09); c.lineWidth = 1.9; c.stroke(); return;
+    }
+    const rx = r * (kind === 'dreamy' ? .12 : .13), ry = r * (kind === 'glowing' ? .16 : kind === 'wide' ? .17 : kind === 'moonlit' ? .12 : .13);
+    c.beginPath(); c.ellipse(x, 0, rx, ry, 0, 0, TAU); c.fillStyle = '#ffffff'; c.fill();
+    const iris = kind === 'glowing' ? L.glowEye : kind === 'moonlit' ? L.silver : L.eye, ir = r * (kind === 'glowing' ? .095 : kind === 'wide' ? .05 : .078);
+    c.beginPath(); c.arc(x - side * r * .01, r * (kind === 'dreamy' ? .04 : .02), ir, 0, TAU); c.fillStyle = iris; c.fill();
+    c.beginPath(); c.arc(x - side * r * .01, r * (kind === 'dreamy' ? .04 : .02), ir * .45, 0, TAU); c.fillStyle = '#26404a'; c.fill();
+    c.beginPath(); c.arc(x - side * r * .045, -r * .03, r * (kind === 'glowing' ? .038 : .028), 0, TAU); c.fillStyle = '#ffffff'; c.fill();
+    if (kind === 'glowing') { c.beginPath(); c.arc(x + side * r * .03, r * .07, r * .018, 0, TAU); c.fill(); }
+    if (kind === 'dreamy' || kind === 'moonlit') {
+      // A heavy lid: level and soft when dreamy, slanting down to the nose when moonlit.
+      const inner = kind === 'moonlit' ? r * .01 : -r * .015, outer = kind === 'moonlit' ? -r * .07 : -r * .02;
+      c.save(); c.beginPath(); c.ellipse(x, 0, rx, ry, 0, 0, TAU); c.clip();
+      c.beginPath(); c.moveTo(x - side * rx * 1.3, inner); c.lineTo(x + side * rx * 1.3, outer); c.lineTo(x + side * rx * 1.3, -ry * 1.3); c.lineTo(x - side * rx * 1.3, -ry * 1.3); c.closePath();
+      c.fillStyle = kind === 'moonlit' ? '#e9d8f0' : L.skin; c.fill(); c.restore();
+      c.beginPath(); c.moveTo(x - side * rx * 1.15, inner); c.lineTo(x + side * rx * 1.15, outer); c.lineWidth = 1.6; c.stroke();
+      if (kind === 'dreamy') for (const k of [.55, 1]) { c.beginPath(); c.moveTo(x + side * rx * k, outer + (inner - outer) * (1 - k) * .5); c.lineTo(x + side * rx * (k + .35), outer - r * .07); c.lineWidth = 1.1; c.stroke(); }
+    }
+    c.beginPath(); c.ellipse(x, 0, rx, ry, 0, 0, TAU); c.lineWidth = 1.2; c.stroke();
+  }
+  function lilyMouth(c, r, kind) {
+    const L = LILY; c.lineCap = 'round'; c.lineJoin = 'round'; c.strokeStyle = L.ink;
+    if (kind === 'soft') { c.beginPath(); c.arc(0, r * .24, r * .1, .4, Math.PI - .4); c.lineWidth = 1.5; c.stroke(); }
+    else if (kind === 'laugh') {
+      c.beginPath(); c.moveTo(-r * .17, r * .25); c.quadraticCurveTo(0, r * .29, r * .17, r * .25); c.quadraticCurveTo(r * .13, r * .47, 0, r * .47); c.quadraticCurveTo(-r * .13, r * .47, -r * .17, r * .25); c.closePath();
+      c.fillStyle = '#8a3f5e'; c.fill(); c.save(); c.clip(); c.beginPath(); c.ellipse(0, r * .46, r * .1, r * .08, 0, 0, TAU); c.fillStyle = '#ff9fb8'; c.fill(); c.restore();
+      c.lineWidth = 1.3; c.stroke();
+    } else if (kind === 'smirk') { c.beginPath(); c.moveTo(-r * .13, r * .29); c.quadraticCurveTo(r * .02, r * .35, r * .15, r * .23); c.lineWidth = 1.6; c.stroke(); c.beginPath(); c.moveTo(r * .13, r * .21); c.lineTo(r * .17, r * .26); c.lineWidth = 1.1; c.stroke(); }
+    else if (kind === 'ouch') { c.beginPath(); c.ellipse(0, r * .3, r * .07, r * .055, 0, 0, TAU); c.fillStyle = '#8a3f5e'; c.fill(); c.lineWidth = 1.2; c.stroke(); }
+    else if (kind === 'wobble') { c.beginPath(); c.moveTo(-r * .15, r * .3); for (let i = 1; i <= 6; i++) c.lineTo(-r * .15 + i * r * .05, r * .3 + (i % 2 ? -1 : 1) * r * .035); c.lineWidth = 1.5; c.stroke(); }
+  }
+  // variant: dreamy, glowing, moonlit (each with -blink), hurt, flustered.
+  function paintLilyFace(c, r, variant) {
+    const L = LILY, blink = variant.endsWith('-blink'), base = blink ? variant.slice(0, -6) : variant;
+    const mood = base === 'hurt' || base === 'flustered' ? 'dreamy' : base;
+    for (const side of [-1, 1]) {
+      c.beginPath(); c.ellipse(side * r * .44, r * .19, r * .11, r * .06, side * -.25, 0, TAU); c.fillStyle = L.cheek;
+      c.globalAlpha = base === 'glowing' ? .9 : base === 'flustered' ? .95 : .6; c.fill(); c.globalAlpha = 1;
+      // Brows: soft and high (dreamy), raised (glowing), set low toward the nose (moonlit), tilted up in worry (flustered).
+      const B = { dreamy: [[.13, -.24], [.26, -.31], [.4, -.25]], glowing: [[.12, -.29], [.26, -.39], [.41, -.3]], moonlit: [[.1, -.17], [.25, -.24], [.42, -.27]],
+        flustered: [[.1, -.3], [.24, -.3], [.4, -.22]], hurt: [[.1, -.17], [.25, -.24], [.42, -.27]] }[base];
+      c.beginPath(); c.moveTo(side * r * B[0][0], r * B[0][1]); c.quadraticCurveTo(side * r * B[1][0], r * B[1][1], side * r * B[2][0], r * B[2][1]);
+      c.strokeStyle = L.ink; c.lineWidth = base === 'moonlit' ? 2.2 : 1.5; c.lineCap = 'round'; c.stroke();
+    }
+    const eye = blink ? 'blink' : base === 'hurt' ? 'squeeze' : base === 'flustered' ? 'wide' : mood;
+    for (const side of [-1, 1]) lilyEye(c, r, side, eye);
+    lilyMouth(c, r, { dreamy: 'soft', glowing: 'laugh', moonlit: 'smirk', hurt: 'ouch', flustered: 'wobble' }[base]);
+    if (base === 'moonlit') {
+      // The gold crescent on her brow.
+      c.save(); c.translate(0, -r * .44); c.beginPath(); c.arc(0, 0, r * .1, .5, TAU - .5); c.arc(r * .05, -r * .02, r * .08, TAU - .9, .9, true); c.closePath();
+      c.fillStyle = L.gold; c.fill(); c.strokeStyle = L.goldInk; c.lineWidth = 1; c.stroke(); c.restore();
+    }
+    if (base === 'flustered') {
+      c.beginPath(); c.moveTo(r * .5, -r * .3); c.quadraticCurveTo(r * .57, -r * .19, r * .54, -r * .14); c.arc(r * .5, -r * .15, r * .045, 0, Math.PI); c.closePath();
+      c.fillStyle = L.sweat; c.fill(); c.strokeStyle = '#3f8fd2'; c.lineWidth = .8; c.stroke();
+    }
+  }
+  // Her mood's aura: a soft ring of color painted once and breathed live.
+  function paintLilyAura(c, r, tier) {
+    const rgb = LILY.auras[tier], g = c.createRadialGradient(0, 0, r * .7, 0, 0, r * 2.1);
+    g.addColorStop(0, `rgba(${rgb},.5)`); g.addColorStop(.45, `rgba(${rgb},.22)`); g.addColorStop(1, `rgba(${rgb},0)`);
+    c.beginPath(); c.arc(0, 0, r * 2.1, 0, TAU); c.fillStyle = g; c.fill();
+  }
+  // The moon: a smiling cream disc with craters at its edge, a rim and a shine.
+  function paintLilyMoon(c, r) {
+    const L = LILY;
+    c.beginPath(); c.arc(0, 0, r, 0, TAU); c.fillStyle = '#f6e6ab'; c.fill();
+    c.save(); c.clip();
+    c.beginPath(); c.arc(-r * .1, -r * .12, r * .9, 0, TAU); c.fillStyle = L.moon; c.fill();
+    for (const [x, y, k] of [[-.62, -.42, .17], [.6, .44, .15], [.63, -.3, .09], [-.56, .5, .1], [.05, -.72, .08]]) {
+      c.beginPath(); c.arc(x * r, y * r, k * r, 0, TAU); c.fillStyle = L.crater; c.fill();
+      c.beginPath(); c.arc((x - k * .25) * r, (y - k * .25) * r, k * r * .62, 0, TAU); c.fillStyle = L.craterLight; c.fill();
+    }
+    c.restore();
+    c.lineCap = 'round'; c.strokeStyle = L.moonInk; c.lineWidth = 1.3;
+    for (const side of [-1, 1]) { c.beginPath(); c.arc(side * r * .27, -r * .06, r * .12, .25, Math.PI - .25); c.stroke(); }
+    c.beginPath(); c.arc(0, r * .16, r * .14, .4, Math.PI - .4); c.stroke();
+    for (const side of [-1, 1]) { c.beginPath(); c.ellipse(side * r * .42, r * .14, r * .1, r * .055, 0, 0, TAU); c.fillStyle = L.moonCheek; c.globalAlpha = .6; c.fill(); c.globalAlpha = 1; }
+    c.beginPath(); c.arc(0, 0, r, 0, TAU); c.strokeStyle = L.rim; c.lineWidth = 1.8; c.stroke();
+    c.beginPath(); c.arc(0, 0, r * .8, -2.55, -1.55); c.strokeStyle = '#ffffff'; c.lineWidth = 1.7; c.stroke();
+  }
+  function paintLilyGlow(c, r, rgb) {
+    const g = c.createRadialGradient(0, 0, r * .3, 0, 0, r * 2.4);
+    g.addColorStop(0, `rgba(${rgb},.8)`); g.addColorStop(.4, `rgba(${rgb},.35)`); g.addColorStop(1, `rgba(${rgb},0)`);
+    c.beginPath(); c.arc(0, 0, r * 2.4, 0, TAU); c.fillStyle = g; c.fill();
+  }
+  // The moonbeam: a soft cone of light from the high moon down her column, fading out below.
+  function paintLilyBeam(c) {
+    const g = c.createLinearGradient(0, 0, 0, 170);
+    g.addColorStop(0, 'rgba(255,246,206,.55)'); g.addColorStop(.6, 'rgba(255,246,206,.18)'); g.addColorStop(1, 'rgba(255,246,206,0)');
+    c.beginPath(); c.moveTo(-15, 0); c.lineTo(15, 0); c.lineTo(34, 170); c.lineTo(-34, 170); c.closePath(); c.fillStyle = g; c.fill();
+  }
+  // A lily pad: round with its notch at the top, veins, a lit rim and a soft shadow on the water.
+  function paintLilyPad(c, r) {
+    const L = LILY, notch = .34, pad = () => { c.beginPath(); c.moveTo(0, 0); c.arc(0, 0, r, -Math.PI / 2 + notch, -Math.PI / 2 - notch + TAU); c.closePath(); };
+    c.beginPath(); c.ellipse(1.5, 2.6, r * 1.04, r * .98, 0, 0, TAU); c.fillStyle = 'rgba(10,40,48,.3)'; c.fill();
+    pad(); c.fillStyle = L.pad; c.fill();
+    c.save(); pad(); c.clip(); c.beginPath(); c.arc(-r * .18, -r * .2, r * .82, 0, TAU); c.fillStyle = L.padLight; c.globalAlpha = .45; c.fill(); c.globalAlpha = 1;
+    c.strokeStyle = L.padVein; c.lineWidth = 1; c.lineCap = 'round';
+    for (let i = 0; i < 7; i++) { const a = -Math.PI / 2 + notch + .32 + i * (TAU - 2 * notch - .64) / 6; c.beginPath(); c.moveTo(Math.cos(a) * r * .18, Math.sin(a) * r * .18); c.lineTo(Math.cos(a) * r * .84, Math.sin(a) * r * .84); c.stroke(); }
+    c.restore();
+    pad(); c.strokeStyle = L.padDark; c.lineWidth = 1.6; c.lineJoin = 'round'; c.stroke();
+    c.beginPath(); c.arc(0, 0, r * .84, Math.PI * .92, Math.PI * 1.32); c.strokeStyle = '#dcf6c6'; c.lineWidth = 1.5; c.lineCap = 'round'; c.stroke();
+  }
+  // Its water-lily bud: closed (0), opening (1) and open (2), lilac with a gold heart.
+  function paintLilyBud(c, k) {
+    const L = LILY, petals = k ? 6 : 3, open = [0, .55, 1][k];
+    c.lineJoin = 'round';
+    for (let i = 0; i < petals; i++) {
+      const a = -Math.PI / 2 + (i - (petals - 1) / 2) * (k ? TAU / petals : .5), len = 8.5 + open * 1.5, w = k ? 3.6 : 3.4;
+      c.save(); c.rotate(k ? a + Math.PI / 2 : (i - 1) * .32 * (1 + open)); c.beginPath(); c.moveTo(0, 2); c.quadraticCurveTo(-w, -len * .45, 0, -len); c.quadraticCurveTo(w, -len * .45, 0, 2); c.closePath();
+      c.fillStyle = i % 2 ? L.bud : L.budLight; c.fill(); c.strokeStyle = L.budInk; c.lineWidth = 1; c.stroke(); c.restore();
+    }
+    if (k) { c.beginPath(); c.arc(0, 0, 2.6 + open, 0, TAU); c.fillStyle = L.gold; c.fill(); c.strokeStyle = L.goldInk; c.lineWidth = .8; c.stroke(); }
+  }
+  // The little crescent moon over her head when Moonlit, with a sleepy smile.
+  function paintLilyCrescent(c) {
+    const L = LILY;
+    c.beginPath(); c.arc(0, 0, 8, .6, TAU - .6); c.arc(4.2, -1.6, 6.6, TAU - 1.05, 1.05, true); c.closePath();
+    c.fillStyle = L.moon; c.fill(); c.strokeStyle = L.rim; c.lineWidth = 1.4; c.lineJoin = 'round'; c.stroke();
+    c.beginPath(); c.arc(-4.2, -.5, 1.4, .2, Math.PI - .2); c.strokeStyle = L.moonInk; c.lineWidth = 1; c.lineCap = 'round'; c.stroke();
+  }
+  const lilyFace = (r, v) => [`kit:lotus:face:${r}:${v}`, [-r * .8, -r * .72, r * .8, r * .62], c => paintLilyFace(c, r, v)];
+  const LILY_SPRITES = {
+    aura: (r, tier) => [`kit:lotus:aura:${r}:${tier}`, [-r * 2.2, -r * 2.2, r * 2.2, r * 2.2], c => paintLilyAura(c, r, tier)],
+    moon: r => [`kit:lotus:moon:${r}`, [-r - 2, -r - 2, r + 2, r + 2], c => paintLilyMoon(c, r)],
+    glow: (r, rgb) => [`kit:lotus:glow:${r}:${rgb}`, [-r * 2.5, -r * 2.5, r * 2.5, r * 2.5], c => paintLilyGlow(c, r, rgb)],
+    beam: () => ['kit:lotus:beam', [-35, 0, 35, 171], paintLilyBeam],
+    pad: r => [`kit:lotus:pad:${r}`, [-r - 2, -r - 2, r + 4, r + 5], c => paintLilyPad(c, r)],
+    bud: k => [`kit:lotus:bud:${k}`, [-12, -12, 12, 12], c => paintLilyBud(c, k)],
+    crescent: () => ['kit:lotus:crescent', [-10, -10, 10, 10], paintLilyCrescent],
+    lantern: (kit, r) => [`kit:lotus:lantern:${r}`, [-r * 1.45 - 3, -r * 1.45 - 3, r * 1.45 + 3, r * 1.45 + 3], c => kit.paintTargetPart(c, 'lantern', 'lotus', r, true, true)]
+  };
+  const lilyStamp = (ctx, kit, [key, box, paint], x, y, turn, sx, sy) => stamp(ctx, kit, key, box, paint, x, y, turn, sx, sy);
+  const LILY_FACES = ['dreamy', 'dreamy-blink', 'glowing', 'glowing-blink', 'moonlit', 'moonlit-blink', 'hurt', 'flustered'];
+  const MOON_RGB = '255,246,206', PAD_RGB = '196,255,200', LAMP_RGB = '255,214,90', MINT_RGB = '185,255,240';
+  const lilyArc = (a, b, u, h) => ({ x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u - 4 * h * u * (1 - u) });
+  // One moon of the gate: the high one pours its beam; the low one is its reflection, upside down, wobbling in slices.
+  function drawLilyMoon(ctx, kit, gate, state, s, time, still, quality) {
+    const L = LILY, clock = Number(s.kitAge) || 0, r = Number(gate.r) || 18, low = Boolean(gate.moonLow);
+    const born = clock - (Number(gate.kitAt) || 0), left = (Number(gate.kitUntil) || Infinity) - clock;
+    let k = still ? 1 : born < L.moonPop ? kit.easeBack(clamp(born / L.moonPop, 0, 1)) : 1;
+    if (left < L.wane) k *= clamp(left / L.wane, 0, 1);
+    if (!(k > .01)) return;
+    const used = (Number(state.time) || time) - (Number(gate.lastUsed) || -100), flash = used >= 0 && used < .35 ? 1 - used / .35 : 0;
+    ctx.save(); ctx.translate(gate.x, gate.y);
+    if (!low) {
+      // The beam brightens while she is under it: the moment for a moon shot.
+      const boss = s.boss, under = boss && !boss.bloomed ? clamp(1 - Math.abs(boss.x - gate.x) / 44, 0, 1) : 0;
+      ctx.save(); ctx.globalAlpha *= clamp((.4 + .5 * under + .3 * flash) * k, 0, 1); lilyStamp(ctx, kit, LILY_SPRITES.beam(), 0, r * .5); ctx.restore();
+    }
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha *= clamp((low ? .32 : .5) * k + .35 * flash + (still ? 0 : .07 * Math.sin(time * 2.2 + gate.x)), 0, 1);
+    lilyStamp(ctx, kit, LILY_SPRITES.glow(r, MOON_RGB), 0, 0, 0, 1 + .15 * flash); ctx.restore();
+    if (low) {
+      // Four slices of the flipped moon, each swaying 2 px at 1 Hz a little after the one above it.
+      for (let i = 0; i < 4; i++) {
+        const y0 = -r - 2 + i * (r + 2) / 2, dx = still ? 0 : 2 * Math.sin(TAU * time + i * 1.1);
+        ctx.save(); ctx.beginPath(); ctx.rect(-r - 6, y0, 2 * r + 12, (r + 2) / 2 + .6); ctx.clip();
+        ctx.globalAlpha *= .9; lilyStamp(ctx, kit, LILY_SPRITES.moon(r), dx, 0, 0, k, -k * .9); ctx.restore();
+      }
+      // Glints of water across it, and rings spreading out on the lake.
+      ctx.lineCap = 'round'; ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = 1.3;
+      for (const [y, w, ph] of [[-.38, .5, 0], [.06, .7, 1.7], [.48, .42, 3.1]]) {
+        const dx = still ? 0 : 2 * Math.sin(TAU * time + ph);
+        ctx.beginPath(); ctx.moveTo((-w * r + dx) * k, y * r * k); ctx.lineTo((w * r * .3 + dx) * k, y * r * k); ctx.stroke();
+      }
+      if (!still) for (let j = 0; j < (quality > 1 ? 1 : 2); j++) {
+        const q = (time * .55 + j * .5) % 1, rr = (r + 4 + 16 * q) * k;
+        ctx.save(); ctx.globalAlpha *= (1 - q) * .6; ctx.beginPath(); ctx.ellipse(0, r * .55, rr, rr * .32, 0, 0, TAU); ctx.strokeStyle = L.ripple; ctx.lineWidth = 1.4; ctx.stroke(); ctx.restore();
+      }
+    } else {
+      lilyStamp(ctx, kit, LILY_SPRITES.moon(r), 0, 0, still ? 0 : Math.sin(time * .9) * .06, k * (1 + .08 * flash));
+      if (!still && quality < 2) for (const [x, y, ph] of [[-r * 1.5, -r * .4, 0], [r * 1.45, r * .2, 2.1], [r * .9, -r * 1.05, 4.2]]) {
+        const tw = Math.max(0, Math.sin(time * 2.6 + ph)); if (tw > .05) kit.sparkle(ctx, x, y, 3.4 * tw * k, '#fffbe6', .2);
+      }
+    }
+    if (flash > 0) { ctx.globalAlpha *= flash; kit.circle(ctx, 0, 0, r + 3 + 12 * (1 - flash), null, '#ffffff', 2.4); }
+    ctx.restore();
+  }
+  // The pad's bud: swelling in the last .35 s before each jelly, opening as one leaves (.15 s), then closing.
+  function lilyBudState(p, clock) {
+    let frame = 0, swell = 0;
+    const last = p.releases && p.releases.length ? p.releases[p.releases.length - 1] : null, since = last == null ? Infinity : clock - last;
+    if (since < .15) frame = since < .07 ? 1 : 2; else if (since < .45) frame = 2; else if (since < .6) frame = 1;
+    for (const at of LILY.release) { const due = (Number(p.born) || 0) + at - clock; if (due > 0 && due < .35) swell = Math.max(swell, 1 - due / .35); }
+    return { frame, swell, left: LILY.release.filter(at => (Number(p.born) || 0) + at > clock - 1e-9).length };
+  }
+  function drawLilyPad(ctx, kit, p, clock, time, still, scale = 1, alpha = 1, fold = 1) {
+    const r = Number(p.r) || 16, side = p.x < 210 ? 1 : -1, bob = still ? 0 : Math.sin(time * 2.2 + p.x * .05);
+    ctx.save(); ctx.translate(p.x, p.y + bob); ctx.globalAlpha *= alpha;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha *= (still ? .5 : .42 + .12 * Math.sin(time * 3 + p.x)) * scale; lilyStamp(ctx, kit, LILY_SPRITES.glow(r, PAD_RGB), 0, 0, 0, .8); ctx.restore();
+    ctx.scale(scale * fold, scale);
+    lilyStamp(ctx, kit, LILY_SPRITES.pad(r), 0, 0, side * .45);
+    if (fold > .3) {
+      const bud = lilyBudState(p, clock), grow = 1 + .28 * bud.swell + (still ? 0 : .04 * Math.sin(time * 5));
+      if (bud.swell > 0 && !still) { ctx.save(); ctx.globalAlpha *= bud.swell * .8; kit.circle(ctx, 0, 0, 13 - 5 * bud.swell, null, LILY.bud, 1.6); ctx.restore(); }
+      lilyStamp(ctx, kit, LILY_SPRITES.bud(bud.frame), 0, -1, 0, grow);
+      // Pips for the jellies still to come, at the pad's lower rim.
+      for (let i = 0; i < 2; i++) kit.circle(ctx, (i - .5) * 7, r * .62, 2.2, i < bud.left ? LILY.bud : 'rgba(60,110,80,.6)', LILY.budInk, .9);
+    }
+    ctx.restore();
+  }
+  // The tide: a pale band from the old line up to the raised one, its foamy top lapping.
+  function drawLilyTide(ctx, state, time, still, quality) {
+    const top = Number(state.dangerY) || 448; if (!(top < 447.5)) return;
+    const wave = x => top + (still ? 0 : Math.sin(x * .055 + time * 2.4) * 1.6);
+    ctx.save(); ctx.beginPath(); ctx.moveTo(22, 448);
+    for (let x = 22; x <= 398; x += 12) ctx.lineTo(x, Math.min(447, wave(x)));
+    ctx.lineTo(398, 448); ctx.closePath(); ctx.fillStyle = LILY.tide; ctx.fill();
+    ctx.beginPath(); for (let x = 22; x <= 398; x += 12) { const y = Math.min(447, wave(x)); if (x === 22) ctx.moveTo(x, y); else ctx.lineTo(x, y); }
+    ctx.strokeStyle = LILY.foam; ctx.globalAlpha *= .75; ctx.lineWidth = 1.6; ctx.lineJoin = 'round'; ctx.stroke();
+    if (!still && quality === 0 && 448 - top > 8) for (let i = 0; i < 6; i++) {
+      const q = (time * .5 + i * .37) % 1, x = 46 + i * 64 + Math.sin(time * 1.3 + i) * 6, y = 448 - (448 - top) * q;
+      ctx.globalAlpha = .55 * (1 - q); ctx.beginPath(); ctx.arc(x, y, 1.6 + i % 2, 0, TAU); ctx.strokeStyle = LILY.foam; ctx.lineWidth = 1; ctx.stroke();
+    }
+    ctx.restore();
+  }
+  kitLook('lotus', {
+    warm(kit) {
+      const r = 26, jobs = [...LILY_FACES.map(v => lilyFace(r, v)), ...[0, 1, 2].map(t => LILY_SPRITES.aura(r, t)), LILY_SPRITES.moon(18), LILY_SPRITES.glow(18, MOON_RGB),
+        LILY_SPRITES.beam(), LILY_SPRITES.pad(16), LILY_SPRITES.glow(16, PAD_RGB), ...[0, 1, 2].map(k => LILY_SPRITES.bud(k)), LILY_SPRITES.crescent(),
+        LILY_SPRITES.lantern(kit, 9), LILY_SPRITES.glow(9, LAMP_RGB), LILY_SPRITES.glow(9, MINT_RGB)];
+      for (const [key, box, paint] of jobs) kit.atlasSprite(key, box[0], box[1], box[2], box[3], paint);
+    },
+    under(ctx, state, s, time, still, kit, quality) {
+      const boss = s.boss, live = boss && !boss.bloomed;
+      drawLilyTide(ctx, state, time, still, quality);
+      for (const gate of state.gates || []) if (gate && gate.bossMoon && gate.kitDrawn) drawLilyMoon(ctx, kit, gate, state, s, time, still, quality);
+      if (!live) return;
+      // Her mood's aura, breathing.
+      const r = Number(boss.r) || 26, tier = clamp(s.tier | 0, 0, 2);
+      ctx.save(); ctx.globalAlpha *= still ? .8 : .7 + .2 * Math.sin(time * 1.7); lilyStamp(ctx, kit, LILY_SPRITES.aura(r, tier), boss.x, boss.y, 0, still ? 1 : 1 + .04 * Math.sin(time * 1.7)); ctx.restore();
+      // With the lantern away on the worm, its stem curls empty behind her.
+      const lantern = s.parts && s.parts.find(p => p.bossPart === 'lantern');
+      if (lantern && lantern.hidden) {
+        const sway = still ? 0 : Math.sin(time * 2.4) * 3, tipX = lantern.x - 4 + sway, tipY = lantern.y - lantern.r - 2;
+        ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(boss.x + r * .55, boss.y + r * .35); ctx.quadraticCurveTo(tipX - 14, tipY - 26, tipX, tipY);
+        ctx.arc(tipX + 3.5, tipY, 3.5, Math.PI, Math.PI * 2.2);
+        ctx.strokeStyle = '#4a8064'; ctx.lineWidth = 3; ctx.stroke(); ctx.strokeStyle = '#bad99f'; ctx.lineWidth = 1.2; ctx.stroke();
+      }
+    },
+    part(ctx, state, s, bud, time, still, kit) {
+      if (bud.bossPart !== 'pad') return false;
+      const clock = Number(s.kitAge) || 0, age = clock - (Number(bud.born) || 0);
+      drawLilyPad(ctx, kit, bud, clock, time, still, still ? 1 : age < .25 ? kit.easeBack(clamp(age / .25, 0, 1)) : 1);
+      return true;
+    },
+    face(ctx, state, s, bud, time, still, kit) {
+      if (!bud.boss) return false;
+      const r = Number(bud.r) || 26, look = kit.BOSS_LOOKS.lotus || {}, health = (Number(bud.hp) || 0) / Math.max(1, Number(bud.maxHp) || 1);
+      // The face turns with her body (art.js's gentle lotus sway, and the shiver when nearly beaten).
+      let tilt = still ? 0 : Math.sin(time * 2) * .045;
+      if (!still && health <= .2) tilt += Math.sin(time * TAU * 6) * .04;
+      ctx.translate(bud.x, bud.y); if (tilt) ctx.rotate(tilt); ctx.translate(r * (look.faceX || 0), r * (look.faceY != null ? look.faceY : .08));
+      const hurt = typeof bud.hitAt === 'number' && time - bud.hitAt >= 0 && time - bud.hitAt < .3, tier = clamp(s.tier | 0, 0, 2);
+      const blink = !still && (time + r * .1) % 3.6 < .12, mood = LILY.moods[tier];
+      const variant = hurt ? 'hurt' : s.mode === 'gutter' ? 'flustered' : mood + (blink ? '-blink' : '');
+      lilyStamp(ctx, kit, lilyFace(r, variant), 0, 0);
+      // Glowing: a twinkle in each eye.
+      if (variant === 'glowing' && !still) for (const side of [-1, 1]) {
+        const tw = .5 + .5 * Math.sin(time * 4 + side); kit.sparkle(ctx, side * r * .26 - side * r * .045, -r * .03, r * .05 * (.6 + .6 * tw), '#ffffff', .3);
+      }
+      return true;
+    },
+    over(ctx, state, s, time, still, kit, quality) {
+      const L = LILY, clock = Number(s.kitAge) || 0, boss = s.boss, live = boss && !boss.bloomed, w = s.warning;
+      const lantern = s.parts && s.parts.find(p => p.bossPart === 'lantern');
+      // Tells, through each warning.
+      if (live && w && w.until > w.at) {
+        const p = clamp((time - w.at) / (w.until - w.at), 0, 1);
+        if (w.move === 'reflect') {
+          const [a, b] = [w.targets.find(t => t.role === 'moonIn'), w.targets.find(t => t.role === 'moonOut')];
+          if (a && b) {
+            ctx.save(); ctx.globalAlpha *= .35 + .3 * p; dotted(ctx, [[b.x, b.y + 22], [a.x, a.y - 22]], '#fff1b8', 1.6, 10, still ? 0 : time * 30); ctx.restore();
+            for (const t of [a, b]) { ctx.save(); ctx.globalAlpha *= .3 + .45 * p; lilyStamp(ctx, kit, LILY_SPRITES.moon(18), t.x, t.y, 0, .35 + .55 * p, (t === a ? -1 : 1) * (.35 + .55 * p)); ctx.restore(); }
+          }
+        } else if (w.move === 'jellies') {
+          for (const t of w.targets.filter(t => t.role === 'pad')) {
+            ctx.save(); ctx.globalAlpha *= .3 + .45 * p; drawLilyPad(ctx, kit, { x: t.x, y: t.y, r: 16, born: Infinity, releases: [] }, clock, time, still, .45 + .5 * p); ctx.restore();
+            if (!still) { const q = (time * 1.2) % 1; ctx.save(); ctx.globalAlpha *= (1 - q) * .7; ctx.beginPath(); ctx.ellipse(t.x, t.y + 6, 14 + 14 * q, (14 + 14 * q) * .35, 0, 0, TAU); ctx.strokeStyle = L.ripple; ctx.lineWidth = 1.4; ctx.stroke(); ctx.restore(); }
+          }
+        } else if (w.move === 'worm' && lantern && !lantern.hidden) {
+          // The lantern stirs on its stem, and a dotted arc shows where it will land as the glowworm's head.
+          const t = w.targets.find(t => t.role === 'worm');
+          if (t) {
+            const from = { x: lantern.x, y: lantern.y }, pts = []; for (let i = 0; i <= 14; i++) { const at = lilyArc(from, t, i / 14, 30); pts.push([at.x, at.y]); }
+            ctx.save(); ctx.globalAlpha *= .5 + .4 * p; dotted(ctx, pts.slice(1, -1), L.gold, 1.6, 9, still ? 0 : -time * 22); ctx.restore();
+            ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha *= .4 + .5 * p * (still ? 1 : .75 + .25 * Math.sin(time * 14)); lilyStamp(ctx, kit, LILY_SPRITES.glow(9, LAMP_RGB), lantern.x, lantern.y); ctx.restore();
+          }
+        } else if (w.move === 'tide') {
+          // A dashed line where the tide will reach, chevrons climbing to it and the band filling in.
+          const t = w.targets.find(t => t.role === 'tide');
+          if (t) {
+            ctx.save(); ctx.globalAlpha *= .1 + .25 * p; ctx.fillStyle = L.tide; ctx.fillRect(22, t.y, 376, 448 - t.y); ctx.restore();
+            ctx.save(); ctx.setLineDash([9, 7]); ctx.lineDashOffset = still ? 0 : -time * 24;
+            for (const [color, width] of [['#ffffff', 4], [L.tideLine, 2.2]]) { ctx.beginPath(); ctx.moveTo(26, t.y); ctx.lineTo(394, t.y); ctx.strokeStyle = color; ctx.lineWidth = width; ctx.stroke(); }
+            ctx.restore();
+            ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+            for (const x of [70, 210, 350]) for (let j = 0; j < 2; j++) {
+              const q = still ? .5 * j : (time * 1.4 + j * .5) % 1, y = 446 - (446 - t.y - 6) * q;
+              ctx.save(); ctx.globalAlpha *= still ? .9 : Math.sin(Math.PI * q); ctx.beginPath(); ctx.moveTo(x - 7, y + 5); ctx.lineTo(x, y - 2); ctx.lineTo(x + 7, y + 5);
+              ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 4; ctx.stroke(); ctx.strokeStyle = L.tideInk; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
+            }
+          }
+        }
+      }
+      // Pads folding shut with a splash, or sinking away in a ripple.
+      for (const p of s.pads || []) {
+        if (!p.closed && !p.bloomed) continue;
+        const shut = !p.closed, since = clock - (shut ? p.shutAt : p.closedAt), span = shut ? .3 : .5;
+        if (!(since >= 0 && since < span)) continue;
+        const k = since / span;
+        if (shut) {
+          drawLilyPad(ctx, kit, p, clock, time, still, 1 + .1 * k, 1 - k * k, Math.max(.02, 1 - kit.smooth(k)));
+          ctx.save(); ctx.globalAlpha *= 1 - k; kit.circle(ctx, p.x, p.y, (p.r || 16) + 4 + 16 * k, null, '#c9f5d0', 2.2 * (1 - k) + .4); ctx.restore();
+        } else {
+          drawLilyPad(ctx, kit, p, clock, time, still, 1 - .45 * k, 1 - k);
+          ctx.save(); ctx.globalAlpha *= (1 - k) * .7; ctx.beginPath(); ctx.ellipse(p.x, p.y + 4, 16 + 12 * k, (16 + 12 * k) * .35, 0, 0, TAU); ctx.strokeStyle = L.ripple; ctx.lineWidth = 1.4; ctx.stroke(); ctx.restore();
+        }
+      }
+      // Her lantern riding the glowworm's head (after an arc off its stem), swinging as it crawls.
+      const worm = s.worm, head = live && worm && !worm.done ? (state.buds || []).find(b => b.id === worm.head && !b.bloomed && !b.hidden) : null;
+      if (head) {
+        const hr = Number(head.r) || 11, seat = { x: head.x, y: head.y - hr - 9 + (still ? 0 : Math.sin(time * 4.2) * 1.4) }, t = clock - (Number(worm.at) || 0);
+        const flying = !still && t >= 0 && t < L.fly && worm.from, at = flying ? lilyArc(worm.from, seat, kit.smooth(t / L.fly), 34) : seat;
+        if (!flying) {
+          ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(head.x - 3, head.y - hr * .7); ctx.quadraticCurveTo(head.x - 7, at.y + 2, at.x, at.y - 7);
+          ctx.strokeStyle = '#4a8064'; ctx.lineWidth = 2.4; ctx.stroke(); ctx.strokeStyle = '#bad99f'; ctx.lineWidth = 1; ctx.stroke();
+        }
+        ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha *= still ? .6 : .5 + .15 * Math.sin(time * 3.4); lilyStamp(ctx, kit, LILY_SPRITES.glow(9, LAMP_RGB), at.x, at.y); ctx.restore();
+        lilyStamp(ctx, kit, LILY_SPRITES.lantern(kit, 9), at.x, at.y, flying ? (1 - t / L.fly) * -2.4 : still ? 0 : Math.sin(time * 3) * .16);
+      }
+      // The way home: a streak of gold light after a head hit, mint sparkles when the worm puffs away.
+      const flight = s.flight;
+      if (live && flight && lantern && !still) {
+        const t = clock - flight.at, gold = flight.why === 'home', to = { x: lantern.x, y: lantern.y };
+        if (t >= 0 && t < L.home) {
+          const fade = 1 - t / L.home, pts = []; for (let i = 0; i <= 12; i++) { const at = lilyArc(flight.from, to, i / 12, 26); pts.push([at.x, at.y]); }
+          ctx.save(); ctx.globalAlpha *= fade; dotted(ctx, pts, gold ? L.gold : '#b9fff0', 1.8, 8, -time * 40); ctx.restore();
+          const u = clamp(t / .3, 0, 1), orb = lilyArc(flight.from, to, kit.smooth(u), 26);
+          ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha *= fade; lilyStamp(ctx, kit, LILY_SPRITES.glow(9, gold ? LAMP_RGB : MINT_RGB), orb.x, orb.y, 0, .8); ctx.restore();
+        }
+      }
+      if (!live) return;
+      // Her mood's company: fireflies when Glowing, a rocking crescent moon and twinkles when Moonlit.
+      const r = Number(boss.r) || 26;
+      if (s.tier === 1) {
+        const n = quality > 1 ? 3 : 5;
+        for (let i = 0; i < n; i++) {
+          const a = (still ? 0 : time * .9) + i * TAU / n, rad = r + 14 + 5 * Math.sin(i * 2.3 + (still ? 0 : time * 1.3));
+          const x = boss.x + Math.cos(a) * rad, y = boss.y + Math.sin(a) * rad * .75, glow = still ? .8 : .35 + .65 * Math.abs(Math.sin(time * 2.7 + i * 1.9));
+          ctx.save(); ctx.globalAlpha *= glow * .3; kit.circle(ctx, x, y, 4.2, L.firefly); ctx.globalAlpha = Math.min(1, glow + .1); kit.circle(ctx, x, y, 1.7, '#ffffff'); ctx.restore();
+        }
+      } else if (s.tier === 2) {
+        const bob = still ? 0 : Math.sin(time * 1.6) * 2.5;
+        lilyStamp(ctx, kit, LILY_SPRITES.crescent(), boss.x + r * .15, boss.y - r - 15 + bob, still ? -.2 : -.2 + Math.sin(time * 1.3) * .22);
+        if (!still) for (const [dx, dy, ph] of [[-r * 1.15, -r * .7, 0], [r * 1.2, -r * .45, 2], [-r * .5, -r * 1.35, 4]]) {
+          const tw = Math.max(0, Math.sin(time * 2.2 + ph)); if (tw > .05) kit.sparkle(ctx, boss.x + dx, boss.y + dy, 3.6 * tw, '#eef3ff', .3);
+        }
+      }
+    }
+  });
 
 
   root.BloomFoeArt = { define, LOOKS, has, bud, under, over, aim, warm, kitLook, KIT_LOOKS, kits };

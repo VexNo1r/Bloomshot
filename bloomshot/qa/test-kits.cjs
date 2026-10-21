@@ -757,6 +757,300 @@ test('Crystal Heart replays identically at 30, 60 and 144 FPS, and a strike loop
 });
 
 // ── Lantern Lily (Level 5, `lotus`) ──
+{
+  const Engine = require('../engine.js'), vm = require('node:vm');
+  const flower = (id, x, y, extra) => ({ id, group: id, x, y, baseX: x, startY: y, r: 11, type: 'gold', hp: 1, maxHp: 1, relay: false, fall: 1, sway: 0, hitAt: -100, bloomAt: -100, bloomed: false, ...extra });
+  // Lily on her board with her next move forced (the tier, and the move's place in that tier's list) and its warning up.
+  // `still` stops her sway and drift, so a seed can be aimed at her through the moons.
+  function lily(tier, index, { descent = 0, still = false, buds = [] } = {}) {
+    const g = arena(5), s = g.bossState; g.descentSpeed = descent; g.buds.push(...buds);
+    if (still) s.stunUntil = 1e9;
+    s.tier = tier; if (tier) s.cycle = index; else s.action = index; s.next = 0; g.step(1 / 120); return g;
+  }
+  function until(g, done, seconds = 10) { const events = []; for (let n = 0; n < seconds * 120 && !done(); n++) { g.step(1 / 120); events.push(...g.drainEvents()); } return events; }
+  const play = g => until(g, () => !g.bossState.warning, 2);
+  const acts = (events, act) => events.filter(e => e.type === 'bossAbility' && e.kind === 'lotus' && e.act === act);
+  const lanternOf = s => s.parts.find(p => p.bossPart === 'lantern');
+  const padsOf = s => s.parts.filter(p => p.bossPart === 'pad');
+  const jellies = g => g.buds.filter(p => p.foe === 'jelly');
+  const moons = g => g.gates.filter(m => m.bossMoon);
+  const glowdrop = (id, x, bottom) => { const [p] = Foes.make('glowdrop', ['glowdrop', x, bottom - 8], id, null, null, null); return Object.assign(p, { hitAt: -100, bloomAt: -100, bloomed: false }); };
+  // A real seed from the launcher, straight at (x, y); `setup` may change it before it flies.
+  function shoot(g, x, y, setup) {
+    g.spawnBall({ x: 210, y: 498, angle: Math.atan2(y - 498, x - 210), speed: 520 }); const ball = g.balls[g.balls.length - 1];
+    if (setup) setup(ball); return ball;
+  }
+
+  test('Lantern Lily has 46 health and turns Glowing at 31 and Moonlit at 16; every warning fits a phone; she still opens with her whirlpool', () => {
+    const g = arena(5), s = g.bossState, k = Bosses.kits.lotus;
+    assert.equal(Bosses.health.lotus, 46); assert.equal(s.boss.maxHp, 46); assert.deepEqual(s.tierAt, [31, 16]);
+    assert.deepEqual(k.moods, ['Dreamy', 'Glowing', 'Moonlit']); assert.deepEqual(k.stageText, [null, 'Lantern Lily is glowing!', 'Lantern Lily calls the moon!']);
+    assert.deepEqual(k.moves, [['lotus', 'reflect'], ['lotus', 'jellies', 'reflect'], ['worm', 'tide']]);
+    assert.deepEqual(k.text, { reflect: 'Moon gate! Aim low to hit high.', jellies: 'Lily pads! Shut them or catch the jellies.',
+      worm: 'Her lantern is a glowworm! Hit the head.', tide: 'Rising tide! The line creeps up.' });
+    for (const text of [...Object.values(k.text), ...k.stageText.slice(1)]) assert(text.length <= 52, text);
+    s.next = 0; g.step(1 / 120); assert.equal(s.warning.move, 'lotus'); assert.deepEqual(s.warning.targets.map(t => t.role), ['swirl']);
+  });
+  test('A credited seed stops Lily at 31; while the change is announced her lantern is held (it stays lit), a pad can still be shot', () => {
+    let g = arena(5), s = g.bossState, b = s.boss, lantern = lanternOf(s); b.hp = 33; s.next = s.age + 9;
+    hit(g, lantern); assert.equal(b.hp, 31, 'a lantern hit stops at the threshold'); assert(s.shiftPending); assert.equal(s.mode, 'gutter');
+    const left = s.gutterUntil - s.age; g.step(1 / 120);
+    assert.equal(s.warning.move, 'stage'); assert.equal(s.warning.text, 'Lantern Lily is glowing!');
+    assert(Math.abs(s.gutterUntil - s.age - left - 1.3) < .02, 'the open gutter is paused for the warning, not lost');
+    g = arena(5); s = g.bossState; b = s.boss; lantern = lanternOf(s); b.hp = 31; s.shiftPending = true; s.next = s.age + 9; g.drainEvents();
+    hit(g, lantern); assert(!lantern.bloomed, 'a held lantern stays lit'); assert.equal(b.hp, 31); assert.equal(s.mode, 'open');
+    assert(g.drainEvents().some(e => e.type === 'bossGuard' && e.mode === 'stage'));
+    Bosses.kits.lotus.act.jellies(g, s, { targets: [{ x: 110, y: 384, r: 18, role: 'pad' }] });
+    const pad = padsOf(s)[0]; assert.equal(Bosses.canHit(g, pad, { nx: 0, ny: 1 }, {}), true); hit(g, pad); assert(pad.bloomed, 'her attackers stay answerable');
+    const events = until(g, () => s.tier === 1, 3); const stage = events.find(e => e.type === 'bossStage');
+    assert(stage && stage.mood === 'Glowing' && stage.stage === 1); assert(!events.some(e => e.type === 'bossAbility' && e.move === 'stage'));
+    until(g, () => s.warning, 3); assert.equal(s.warning.move, 'lotus', 'Glowing opens with the whirlpool');
+    b.hp = 17; hit(g, b, { ny: -1 }); assert.equal(b.hp, 16); assert(s.shiftPending);
+    until(g, () => s.tier === 2, 12); until(g, () => s.warning, 3); assert.equal(s.warning.move, 'worm', 'Moonlit opens with the glowworm');
+  });
+  test('Moon Gate: a low moon on the lake and a high one over her, both legal tunnel mouths, for 5 s of her clock', () => {
+    const g = lily(0, 1), s = g.bossState, w = s.warning, X = w.targets[0].x;
+    assert.equal(w.move, 'reflect'); assert.equal(w.text, 'Moon gate! Aim low to hit high.');
+    assert.deepEqual(w.targets.map(t => [t.role, t.x, t.y, t.r]), [['moonIn', X, 388, 22], ['moonOut', X, 52, 22]]); assert(X >= 100 && X <= 320);
+    const events = play(g), [low, high] = moons(g); assert.equal(acts(events, 'start').filter(e => e.move === 'reflect').length, 1);
+    assert.equal(moons(g).length, 2); assert.deepEqual([low.x, low.y, low.r, high.x, high.y, high.r], [X, 388, 18, X, 52, 18]);
+    assert.equal(low.angle, Math.atan2(388 - 498, X - 210)); assert.equal(high.angle, Math.PI / 2); assert(low.moonLow && !high.moonLow);
+    assert.deepEqual(Engine.gatesFor(moons(g)).map(m => m.id).sort(), moons(g).map(m => m.id).sort(), 'both pass the tunnel rules');
+    const out = Engine.gateTransfer(g.gates, low, Math.cos(low.angle) * 500, Math.sin(low.angle) * 500);
+    assert(Math.abs(out.vx) < 1e-6 && out.vy > 499, 'a straight shot leaves the high moon straight down');
+    assert(Math.abs(low.kitUntil - s.kitAge - 5) < 1e-9);
+    advance(g, 4.95); assert.equal(moons(g).length, 2); advance(g, .1); assert.equal(moons(g).length, 0, 'gone at 5 s');
+    const h = lily(0, 1); play(h); advance(h, 1); h.lullaby = 2; advance(h, 5); assert.equal(moons(h).length, 2, 'a Lullaby holds them');
+    advance(h, 1.1); assert.equal(moons(h).length, 0);
+  });
+  test('Moon shot: a seed shot straight into the low moon drops onto her top for two, a critical; touched or late, it is a plain hit', () => {
+    const run = setup => {
+      const g = lily(0, 1, { still: true }), s = g.bossState, b = s.boss; play(g); g.drainEvents();
+      const low = moons(g).find(m => m.moonLow), hp = b.hp, ball = shoot(g, low.x, low.y, setup);
+      const events = until(g, () => b.hp !== hp || !g.balls.includes(ball), 2); return { g, s, b, hp, ball, events };
+    };
+    let { b, hp, ball, events } = run();
+    assert.equal(b.hp, hp - 2, 'two damage'); assert(ball.moonShot && ball.gateHops === 1);
+    const crit = events.find(e => e.type === 'bossCritical'); assert(crit && crit.via === 'moon' && crit.damage === 2);
+    assert.equal(acts(events, 'shot').length, 1);
+    ({ b, hp, events } = run(seed => { seed.touches = 1; })); assert.equal(b.hp, hp - 1, 'a seed that touched a flower first'); assert(!events.some(e => e.type === 'bossCritical'));
+    ({ b, hp } = run(seed => { seed.age = 1.7; })); assert.equal(b.hp, hp - 1, 'a seed that wandered in late');
+    ({ b, hp } = run(seed => { seed.power = 'sunburst'; })); assert(b.hp >= hp - 4, 'a power keeps its own stated damage');
+    // It stops at the mood line like any credited hit.
+    const g = lily(0, 1, { still: true }), s = g.bossState; play(g); s.boss.hp = 32; const low = moons(g).find(m => m.moonLow); shoot(g, low.x, low.y);
+    until(g, () => s.boss.hp !== 32, 2); assert.equal(s.boss.hp, 31); assert(s.shiftPending);
+    // The bot values the moon: the same hit on her is worth 30 more through a gate.
+    const plain = bot.value(g, { bud: { ...s.boss }, nx: 0, ny: -1, time: .5, gateHops: 0 }, 0, bot.prepareTrace(g));
+    const moon = bot.value(g, { bud: { ...s.boss }, nx: 0, ny: -1, time: .5, gateHops: 1 }, 0, bot.prepareTrace(g));
+    assert.equal(Math.round(moon - plain), 30);
+  });
+  test('Lily Pads: two pads open low on the lake; each sends up a moon jelly at +.9 s and +2.1 s, then sinks at +2.6 s', () => {
+    const g = lily(1, 1, { descent: 10 }), s = g.bossState, w = s.warning;
+    assert.equal(w.move, 'jellies'); assert.equal(w.text, 'Lily pads! Shut them or catch the jellies.');
+    assert.deepEqual(w.targets.map(t => [t.role, t.x, t.y, t.r]), [['pad', 110, 384, 18], ['pad', 310, 384, 18]]);
+    const events = play(g), pads = padsOf(s); assert.equal(acts(events, 'start').filter(e => e.move === 'jellies').length, 1);
+    assert.equal(pads.length, 2);
+    for (const p of pads) { assert.deepEqual([p.r, p.hp, p.sunBonus, p.born], [16, 1, 1, s.kitAge]); assert(g.buds.includes(p)); }
+    advance(g, .85); assert.equal(jellies(g).length, 0, 'nothing before +.9 s');
+    let log = until(g, () => jellies(g).length, .2); const first = jellies(g);
+    assert.equal(first.length, 2); assert.equal(acts(log, 'release').length, 2); assert.equal(log.filter(e => e.type === 'foe' && e.kind === 'jelly:spawn').length, 2);
+    for (const j of first) { assert(pads.some(p => p.x === j.x0) && j.y0 === 354); assert(j.bossSummon && j.group === j.id); assert.equal(Foes.breach(g, j), 'skip'); }
+    advance(g, .1); assert(first.every(j => Number.isFinite(j.x) && Number.isFinite(j.y) && j.y < 354), 'born on the foe clock: rising at once');
+    log = until(g, () => jellies(g).length === 4, 1.3); assert.equal(jellies(g).length, 4, 'two each'); assert.equal(new Set(jellies(g).map(j => j.id)).size, 4);
+    for (const p of pads) assert.deepEqual([p.x, p.y], [p.baseX, p.startY], 'pads stay put');
+    assert(pads.every(p => !p.closed)); advance(g, .5); assert(pads.every(p => p.closed && !g.buds.includes(p) && !s.parts.includes(p)), 'both sink at +2.6 s');
+    assert.equal(acts(g.drainEvents(), 'shut').length, 0, 'sinking is not a shut');
+  });
+  test('Shooting a pad shut stops its jellies and pays exactly one more sun than a plain part bloom; uncredited pays nothing', () => {
+    const g = lily(1, 1), s = g.bossState; play(g); const [left, right] = padsOf(s);
+    let charge = g.sunCharge; hit(g, left); assert(left.bloomed); const shut = g.sunCharge - charge;
+    const e = acts(g.drainEvents(), 'shut'); assert.equal(e.length, 1); assert.equal(e[0].move, 'jellies');
+    // The plain part bloom to compare with: the same pad without its bonus.
+    const h = lily(1, 1), t = h.bossState; play(h); const bare = padsOf(t)[0]; delete bare.sunBonus;
+    charge = h.sunCharge; hit(h, bare); assert.equal(shut - (h.sunCharge - charge), 1, 'one more sun');
+    advance(g, 1); assert.deepEqual(jellies(g).map(j => j.x0), [310], 'only the open pad sent one');
+    charge = g.sunCharge; g.strike(right); assert(right.bloomed); assert.equal(g.sunCharge, charge, 'an uncredited shut pays no sun');
+    advance(g, 1.5); assert.equal(jellies(g).length, 1, 'shut pads send nothing'); assert(!s.parts.includes(left) && !g.buds.includes(left), 'a shut pad leaves the board');
+    // A piece sitting on a pad's bud holds that jelly back.
+    const k = lily(1, 1), u = k.bossState; play(k); k.buds.push(flower('sit', 110, 350)); advance(k, 1); assert.deepEqual(jellies(k).map(j => j.x0), [310]);
+    // The bot: a pad with a jelly still to send is worth 70, then 35.
+    const rank = () => new Map(Bosses.targets(k).filter(r => r.bud.bossPart === 'pad').map(r => [r.bud.x, r.priority]));
+    assert.equal(rank().get(310), 70); advance(k, 1.3); assert.equal(rank().get(310), 35);
+    // A piece that drifts onto a pad's spot during the warning: that pad stays shut, and the start ring shows only the other.
+    const m = lily(1, 1); m.buds.push(flower('on-pad', 110, 384)); const st = acts(play(m), 'start').find(e => e.move === 'jellies');
+    assert.deepEqual(padsOf(m.bossState).map(p => p.x), [310]); assert.deepEqual(st.targets.map(t => [t.role, t.x]), [['pad', 310]]);
+  });
+  test('Glowworm Lantern: her lantern crawls off as a glowworm\'s head, 70 px below her at x 300 (else 100); no room, the tide comes', () => {
+    const g = lily(2, 0), s = g.bossState, w = s.warning, b = s.boss, lantern = lanternOf(s), y = w.targets[0].y;
+    assert.equal(w.move, 'worm'); assert.equal(w.text, 'Her lantern is a glowworm! Hit the head.');
+    assert.deepEqual(w.targets.map(t => [t.role, t.x]), [['worm', 300], ['wormBody', 321], ['wormBody', 341], ['wormBody', 361], ['wormBody', 381]]);
+    assert(Math.abs(y - b.y - 70) < 1e-9);
+    const events = play(g), pieces = g.buds.filter(p => p.foe === 'glowworm'), head = pieces.find(p => p.bossLantern);
+    assert.equal(pieces.length, 5); assert(head && head.head && head.r === 11); assert.deepEqual(pieces.map(p => p.y), pieces.map(() => y));
+    assert.equal(new Set(pieces.map(p => p.group)).size, 1); assert(pieces.every(p => p.bossSummon && p.id.startsWith(b.id + '-worm-')));
+    assert(lantern.hidden && lantern.visible === false, 'the lantern has left its stem'); assert.equal(Bosses.canHit(g, lantern, { nx: 0, ny: 1 }, {}), false);
+    assert.equal(events.filter(e => e.type === 'foe' && e.kind === 'glowworm:spawn').length, 1);
+    const rank = Bosses.targets(g).find(t => t.bud === head); assert(rank && rank.priority === 65, 'the bot goes for her lantern on the worm');
+    const lower = lily(2, 0, { buds: [flower('in-the-way', 300, 100 + 70)] }); assert(Math.abs(lower.bossState.warning.targets[0].y - lower.bossState.boss.y - 100) < 1e-9);
+    const none = lily(2, 0, { buds: [flower('a', 330, 170), flower('b', 330, 200)] }); assert.equal(none.bossState.warning.move, 'tide', 'no room: the tide');
+    // A piece drifts onto the shown spot: the worm comes out at the other height, and the start ring shows where it really is.
+    const moved = lily(2, 0), shown = moved.bossState.warning.targets[0].y; moved.buds.push(flower('drift', 300, shown));
+    const st = acts(play(moved), 'start').find(e => e.move === 'worm'), at = moved.buds.find(p => p.bossLantern);
+    assert(at && at.y > shown + 20, `${at && at.y} vs ${shown}`); assert(st.targets.length === 5 && st.targets.every(t => t.y === at.y));
+  });
+  test('Hit the worm\'s head: the light runs home, three damage, her gutter open at +.2 s and closed at +5.3 s; it clamps at a mood line', () => {
+    let g = lily(2, 0), s = g.bossState, b = s.boss, lantern = lanternOf(s); play(g); advance(g, .3); g.drainEvents();
+    const head = g.buds.find(p => p.bossLantern), hp = b.hp; hit(g, head); assert(head.bloomed);
+    let events = until(g, () => false, .2); assert.equal(b.hp, hp - 3); assert.equal(s.mode, 'gutter');
+    assert(lantern.bloomed && !lantern.hidden && lantern.visible, 'the lantern is home, spent');
+    const crit = events.find(e => e.type === 'bossCritical'); assert(crit && crit.via === 'lantern' && crit.damage === 3);
+    assert.equal(acts(events, 'home').length, 1); assert(events.some(e => e.type === 'foe' && e.kind === 'glowworm:ripple'));
+    advance(g, .2); assert(g.buds.filter(p => p.foe === 'glowworm').every(p => p.bloomed), 'the light ran down the whole worm');
+    advance(g, 4.9); assert.equal(s.mode, 'open'); assert(!lantern.bloomed, 'relit when the gutter ends');
+    advance(g, 2); assert.equal(acts(g.drainEvents(), 'puffback').length, 0, 'a spent worm does not puff back');
+    // At a mood line it stops there, but the lantern still comes home and the gutter still opens.
+    g = lily(2, 0); s = g.bossState; b = s.boss; play(g); s.tier = 1; b.hp = 18; hit(g, g.buds.find(p => p.bossLantern)); advance(g, .2);
+    assert.equal(b.hp, 16); assert(s.shiftPending); assert.equal(s.mode, 'gutter');
+    // Uncredited (a script), it is a plain hit.
+    g = lily(2, 0); s = g.bossState; b = s.boss; play(g); g.strike(g.buds.find(p => p.bossLantern)); advance(g, .2); assert.equal(b.hp, 45);
+  });
+  test('Left alone for 7 s the worm puffs away, pieces split off it too, with no life lost; the lantern floats home lit', () => {
+    const g = lily(2, 0, { descent: 10 }), s = g.bossState, lantern = lanternOf(s); play(g); const lives = g.lives;
+    const bead = g.buds.find(p => p.foe === 'glowworm' && p.seg === 2); hit(g, bead); assert(bead.bloomed);
+    assert(g.buds.some(p => p.foe === 'glowworm' && !p.bloomed && p.worm !== s.worm.G), 'the beads behind it split off');
+    advance(g, 6.85); assert(g.buds.some(p => p.foe === 'glowworm' && !p.bloomed)); g.drainEvents();
+    const events = until(g, () => !g.buds.some(p => p.foe === 'glowworm' && !p.bloomed), .3);
+    assert.equal(events.filter(e => e.type === 'foe' && e.kind === 'glowworm:puff').length, 4, 'the head, its bead and the two split off'); assert.equal(acts(events, 'puffback').length, 1);
+    assert(!lantern.hidden && lantern.visible && !lantern.bloomed, 'home and lit'); assert.equal(g.lives, lives);
+  });
+  test('Rising Tide: the line rises up to 28 px over .6 s, holds until the recede at 5.6 s and is back at 448 by 6.4 s', () => {
+    const g = lily(2, 1), s = g.bossState, w = s.warning;
+    assert.equal(w.move, 'tide'); assert.equal(w.text, 'Rising tide! The line creeps up.'); assert.deepEqual(w.targets.map(t => [t.role, t.x, t.y, t.r]), [['tide', 210, 420, 30]]);
+    let events = play(g); assert.equal(acts(events, 'rise').length, 1); assert.equal(s.tide.offset, 28); const t0 = s.kitAge;
+    advance(g, .3); assert(g.dangerY < 448 && g.dangerY > 420); advance(g, .31); assert(Math.abs(g.dangerY - 420) < 1e-9);
+    advance(g, 4.9); assert(Math.abs(g.dangerY - 420) < 1e-9, 'held');
+    events = until(g, () => g.dangerY > 420, 1); assert.equal(acts(events, 'recede').length, 1); assert(Math.abs(s.kitAge - t0 - 5.6) < 2 / 120, 'recedes at 5.6 s');
+    advance(g, .4); assert(g.dangerY > 420 && g.dangerY < 448); advance(g, .42); assert.equal(g.dangerY, 448); assert.equal(s.tide, null);
+  });
+  test('The tide never rises to within 18 px of a piece that would cost a life (glowdrops and worms too); jellies do not count', () => {
+    const buds = [flower('low', 120, 380, { fall: 1 }), glowdrop('drop', 250, 395), flower('far', 300, 200)];
+    const g = lily(2, 1, { descent: 10, buds }), s = g.bossState; Foes.place(g, buds[1]);
+    const jelly = Foes.make('jelly', ['jelly', 60, 430, {}], 'jj', null, null, null)[0]; Foes.place(g, jelly);
+    play(g); assert(s.tide, 'it rises'); advance(g, .6);
+    const costly = g.buds.filter(p => !p.bloomed && !p.bossPart && !(p.foe && Foes.breach(g, p) !== 'life'));
+    assert(costly.length >= 3); for (const p of costly) assert(g.dangerY - p.y - p.r >= 18 - 1e-6, `${p.id} keeps 18 px`);
+    assert(g.dangerY >= 420); const line = g.dangerY; advance(g, 2); assert.equal(g.dangerY, line, 'then it holds (no re-clamp)');
+    // A glowdrop 23 px over the line when the tide comes: no rise at all.
+    const h = lily(2, 1), u = h.bossState; h.buds.push(glowdrop('d2', 200, 425)); Foes.place(h, h.buds[h.buds.length - 1]);
+    const ev = play(h); assert(!u.tide); assert.equal(h.dangerY, 448); assert.equal(acts(ev, 'rise').length, 0);
+    // Too little room to rise even when planned: a quiet rest instead.
+    const k = lily(2, 1, { buds: [flower('x', 200, 415)] }); assert.notEqual(k.bossState.warning && k.bossState.warning.move, 'tide');
+    // A piece that comes in under the warning lowers the tide, and the start ring shows the lower line.
+    const lo = lily(2, 1), v = lo.bossState; assert.equal(v.warning.targets[0].y, 420); lo.buds.push(flower('late', 200, 395));
+    const st = acts(play(lo), 'start').find(e => e.move === 'tide'); assert.equal(v.tide.offset, 24); assert.deepEqual(st.targets.map(t => [t.y, t.offset]), [[424, 24]]);
+  });
+  test('Lily plays the same at 30, 60 and 144 FPS', () => {
+    for (const [tier, index] of [[1, 1], [2, 0], [2, 1]]) {
+      const run = fps => {
+        const g = arena(5), s = g.bossState; g.descentSpeed = 10.5; g.buds.push(flower('a', 120, 300), flower('b', 260, 260), flower('c', 330, 140));
+        s.tier = tier; s.cycle = index; s.next = 0; const log = [];
+        for (let n = 0; n < 12 * fps; n++) { g.step(1 / fps); for (const e of g.drainEvents()) if (e.type === 'bossAbility' || e.type === 'bossWarning') log.push(`${e.move}:${e.act || ''}`); }
+        return { g, sign: { log: log.join(' '), mode: s.mode, action: s.action, cycle: s.cycle, hp: s.boss.hp, kit: s.kitAge.toFixed(6), line: g.dangerY.toFixed(4), buds: g.buds.filter(p => !p.bloomed).map(p => p.id).sort() } };
+      };
+      const base = run(60);
+      for (const fps of [30, 144]) {
+        const { g, sign } = run(fps); assert.deepEqual(sign, base.sign, `${tier}:${index} at ${fps} FPS`);
+        for (const p of base.g.buds) { const q = g.buds.find(o => o.id === p.id); if (q) assert(Math.hypot(p.x - q.x, p.y - q.y) < .5, `${p.id} at ${fps} FPS`); }
+      }
+    }
+  });
+  test('A Lullaby holds her clock: moons, pad jellies, the worm\'s puffback and the tide all wait, then carry on late by its length', () => {
+    let g = lily(1, 1), s = g.bossState; play(g); const acted = g.time; g.lullaby = 1; advance(g, 1.5);
+    assert.equal(jellies(g).length, 0, 'no jelly while the lake sleeps'); until(g, () => jellies(g).length, 1); assert(Math.abs(g.time - acted - .9 - 1) < 2 / 120);
+    g = lily(2, 0); s = g.bossState; play(g); const out = g.time; g.lullaby = 1;
+    until(g, () => s.worm.done, 9); assert(Math.abs(g.time - out - 7 - 1) < 2 / 120, 'puffs back late');
+    g = lily(2, 1); s = g.bossState; play(g); advance(g, 1); g.lullaby = 1; const line = g.dangerY, kit = s.kitAge; advance(g, .9);
+    assert.equal(g.dangerY, line); assert.equal(s.kitAge, kit);
+  });
+  test('Beaten mid-move, Lily leaves nothing behind: no moons, pads, worm, timers or raised line, and her lantern back on its stem', () => {
+    const g = lily(1, 1, { descent: 10.5 }), s = g.bossState, b = s.boss; play(g); advance(g, .95);
+    s.cycle = 2; s.next = s.age; g.step(1 / 120); play(g);
+    s.tier = 2; s.cycle = 0; s.next = s.age; g.step(1 / 120); play(g); s.cycle = 1; s.next = s.age; g.step(1 / 120); play(g);
+    assert(moons(g).length && s.tide && lanternOf(s).hidden && s.timers.length, 'moons, the tide and the worm are up');
+    for (let n = 0; n < 200 && !b.bloomed; n++) g.strike(b);
+    assert(b.bloomed); assert.equal(moons(g).length, 0); assert.equal(s.timers.length + s.lobs.length + s.carried.length, 0);
+    assert.equal(g.dangerY, 448); assert.equal(g.aimNapUntil, 0); assert.equal(s.tide, null); assert(!lanternOf(s).hidden && lanternOf(s).visible);
+    assert(!g.buds.some(p => p.inert && !p.bloomed)); assert(padsOf(s).every(p => p.bloomed));
+    advance(g, 8); assert.equal(g.dangerY, 448); assert.equal(acts(g.drainEvents(), 'puffback').length, 0);
+  });
+  // The art, in a sandbox with a recording canvas: every move with Animations on and off, after her sprites are warmed.
+  function lilyArt(canvas = true) {
+    const tally = { gradients: 0, blur: 0, calls: {}, hook: null, face: [], kit: null };
+    const brush = () => {
+      const stack = [], state = { globalAlpha: 1, globalCompositeOperation: 'source-over', fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, shadowBlur: 0, lineDashOffset: 0 };
+      const ctx = new Proxy(state, {
+        get(t, name) {
+          if (name in t) return t[name];
+          if (name === 'canvas') return { width: 420, height: 560 };
+          return (...args) => {
+            for (const a of args) if (typeof a === 'number') assert(Number.isFinite(a), `${String(name)} received ${a}`);
+            if (tally.hook) tally.calls[tally.hook] = (tally.calls[tally.hook] || 0) + 1;
+            if (tally.hook === 'face' && /To$|^arc$|^ellipse$/.test(name)) tally.face.push(name, ...args.map(n => Math.round(n * 100)));
+            if (name === 'save') stack.push({ ...state });
+            else if (name === 'restore') { assert(stack.length, 'restore without save'); Object.assign(state, stack.pop()); }
+            else if (name === 'measureText') return { width: String(args[0]).length * 7 };
+            else if (name === 'getTransform') return { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+            else if (/Gradient$/.test(name)) { if (tally.hook) tally.gradients++; return { addColorStop() {} }; }
+          };
+        },
+        set(t, name, value) {
+          if (['globalAlpha', 'lineWidth', 'shadowBlur', 'lineDashOffset'].includes(name)) assert(Number.isFinite(value), `${name} is finite`);
+          if (name === 'shadowBlur' && value > 0 && tally.hook) tally.blur++;
+          t[name] = value; return true;
+        }
+      });
+      return { ctx, balanced: () => stack.length === 0 };
+    };
+    class Canvas { constructor(w, h) { this.width = w; this.height = h; this.rec = brush(); } getContext() { return this.rec.ctx; } }
+    const scope = vm.createContext({ console, Math, Map, Set, WeakMap, Array, Object, Number, String, JSON, Date, performance, ...(canvas ? { OffscreenCanvas: Canvas } : {}) });
+    for (const file of ['foe-art.js', 'art.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), scope, { filename: file });
+    const kits = scope.BloomFoeArt.kits, drawn = new Set(), look = scope.BloomFoeArt.KIT_LOOKS.lotus;
+    for (const hook of ['under', 'part', 'face', 'over', 'aim']) {
+      const call = kits[hook]; kits[hook] = (...args) => { const outer = tally.hook; tally.hook = hook; try { const done = call(...args); if (done) drawn.add(hook === 'part' ? args[2].bossPart : hook); return done; } finally { tally.hook = outer; } };
+    }
+    const own = look.under; look.under = (ctx, state, s, time, still, kit, quality) => { if (!tally.kit) { tally.kit = kit; look.warm(kit); tally.gradients = 0; } return own(ctx, state, s, time, still, kit, quality); };
+    const frame = (game, still, quality = 0) => {
+      const rec = brush(); scope.BloomArt.draw(rec.ctx, game, game.time, { showAim: false, theme: 'depth-lake', reducedMotion: still, quality });
+      assert(rec.balanced(), 'transforms balance');
+    };
+    return { tally, frame, drawn };
+  }
+  test("Lily's art draws every move, Animations on and off, with no gradient or blur per frame; her three moods are three faces", () => {
+    const { tally, frame, drawn } = lilyArt(), seen = new Set();
+    const film = (g, seconds) => { for (let n = 0; n < seconds * 120; n++) { g.step(1 / 120); if (n % 12 === 0) { frame(g, false, n % 24 ? 0 : 2); frame(g, true); } } };
+    for (const [tier, index, seconds] of [[0, 1, 5.5], [1, 1, 3.2], [2, 0, 2], [2, 1, 7]]) {
+      const g = lily(tier, index, { descent: 10.5, still: tier === 0 }), s = g.bossState; seen.add(s.warning.move);
+      film(g, 1.4);
+      if (s.warning === null && index === 1 && tier === 0) { const low = moons(g).find(m => m.moonLow); shoot(g, low.x, low.y); }
+      film(g, .4);
+      if (tier === 1) hit(g, padsOf(s)[0]);
+      if (tier === 2 && index === 0) { hit(g, g.buds.find(p => p.bossLantern)); film(g, 1); hit(g, lanternOf(s)); }
+      film(g, seconds);
+    }
+    const g = lily(2, 0); play(g); film(g, 7.5); assert(!lanternOf(g.bossState).hidden, 'a worm puffed back home');
+    assert.deepEqual([...seen].sort(), ['jellies', 'reflect', 'tide', 'worm']);
+    assert.equal(tally.gradients, 0, 'no gradient inside her hooks once warm'); assert.equal(tally.blur, 0, 'no shadow blur');
+    for (const hook of ['under', 'over']) assert(tally.calls[hook] > 0, hook + ' draws'); for (const piece of ['pad', 'face']) assert(drawn.has(piece), piece + ' drawn by the kit');
+    const flat = lilyArt(false), faces = [0, 1, 2].map(tier => { const h = arena(5); h.bossState.tier = tier; flat.tally.face = []; flat.frame(h, true); return JSON.stringify(flat.tally.face); });
+    assert(faces.every(f => f.length > 100)); assert.equal(new Set(faces).size, 3, 'Dreamy, Glowing and Moonlit');
+  });
+  test('The good bot beats Lantern Lily', () => {
+    for (const seed of [7, 19]) {
+      const run = bot.play(5, { seed, startWave: 10, noise: 2.5, think: .3, thinkSpread: .3, bounces: 2 });
+      assert(run.won, `seed ${seed}: ${JSON.stringify(run.bossDiagnostics)}`);
+    }
+  });
+}
 
 const report = { passed: results.filter(r => r.passed).length, failed: results.filter(r => !r.passed).length, results };
 fs.writeFileSync(path.join(__dirname, 'kits-test-results.json'), JSON.stringify(report, null, 2) + '\n');

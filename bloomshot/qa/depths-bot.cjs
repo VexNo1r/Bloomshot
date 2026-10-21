@@ -119,6 +119,7 @@ function value(game, hit, timing, prepared) {
       const s = game.bossState;
       if (bud.bossKind === 'geode' || bud.bossKind === 'sunny' && s.mode === 'dizzy' || bud.bossKind === 'fossil' && s.lockStage === 1 || bud.bossKind === 'core' && s.phase === 2) opportunity = 20;
       if (bud.bossKind === 'ember') opportunity = hit.gateHops > 0 ? 30 : s.mode === 'dive' ? 20 : 0;
+      if (bud.bossKind === 'lotus' && hit.gateHops > 0) opportunity = 30; // Lantern Lily's moon shot lands double (bosses.js kit)
     }
   }
   if (prepared && prepared.rich && bud.boss && bud.bossKind === 'fossil') {

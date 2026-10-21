@@ -1910,6 +1910,60 @@
   };
 
   // ── Lantern Lily (Level 5, `lotus`) ──
+  // The moons arrive in rings of cream light with a few motes drifting off the high one; a Moon shot (its callout and
+  // jolt come with the critical) showers moonbeam stars down over her; the moons wane in a soft ring. Pads open in
+  // green ripples, every jelly leaves in a lilac ring and a few rising bubbles, and a pad shot shut is "Shut!" with a
+  // splash of petals and a blink of hit-stop. The worm leaves in a ring of lantern gold; its head hit sends the light
+  // home ("Lantern home!", a gold ring and a beat of hit-stop), a puffed-away worm leaves a little mint dust. The tide
+  // rises with spray all along the new line, a warning buzz and the hint to clear the lowest buds, and recedes in drips.
+  const LILY_FX = { moon: '#fff6ce', rim: '#e8d58a', pad: '#9be3a0', bud: '#cbbfff', lamp: '#ffd65a', mint: '#b9fff0', water: '#bfe3ff' };
+  function lilyBubbles(x, y, count) {
+    if (!save.settings.motion) return;
+    count = Math.max(1, Math.round(count * [1, .6, .35][game?.quality || 0]));
+    for (let i = 0; i < count; i++) {
+      const life = .55 + i * .07;
+      game.particles.push({ x: x + (i - (count - 1) / 2) * 6, y, vx: (i - (count - 1) / 2) * 5, vy: -40 - i * 8, life, maxLife: life, kind: 'pollen', color: LILY_FX.water, size: 1.4 + (i % 2) * .7, gravity: -10, drag: 2 });
+    }
+  }
+  BOSS_FX.lotus = {
+    'reflect:start'(e) {
+      for (const t of (e.targets || []).filter(t => t.role === 'moonIn' || t.role === 'moonOut')) { foeRing(t.x, t.y, LILY_FX.moon, 12, 30, .5); foeRing(t.x, t.y, LILY_FX.rim, 8, 18, .35); }
+      const high = (e.targets || []).find(t => t.role === 'moonOut'); if (high) foeGlow(high.x, high.y, 6, [LILY_FX.moon, '#ffffff'], { spread: 30, fall: 14, life: 1.1, ring: 16 });
+      haptic('tick');
+    },
+    'reflect:shot'(e) {
+      foeRing(e.x, e.y, '#ffffff', 14, 40, .4); foeRing(e.x, e.y, LILY_FX.moon, 10, 28, .5);
+      if (save.settings.motion) for (let i = 0; i < 9; i++) {
+        const a = Math.PI * (.15 + .7 * i / 8), life = .7 + (i % 3) * .1;
+        game.particles.push({ x: e.x, y: e.y - 10, vx: Math.cos(a) * 110, vy: Math.sin(a) * 60 - 70, life, maxLife: life, kind: 'star', color: i % 2 ? LILY_FX.moon : '#ffffff', size: 2.8, rotation: a, spin: 3, drag: 2, gravity: 160, phase: i });
+      }
+    },
+    'reflect:wane'() { for (const m of game.gates.filter(g => g.bossMoon)) foeRing(m.x, m.y, LILY_FX.moon, m.r, -8, .4); },
+    'jellies:start'(e) { for (const t of (e.targets || []).filter(t => t.role === 'pad')) { foeRing(t.x, t.y, LILY_FX.pad, 10, 26, .45); foeRing(t.x, t.y + 4, LILY_FX.water, 14, 22, .55); } haptic('tick'); },
+    'jellies:release'(e) { foeRing(e.x, e.y - 8, LILY_FX.bud, 6, 18, .35); lilyBubbles(e.x, e.y - 12, 3); },
+    'jellies:shut'(e) {
+      burst({ x: e.x, y: e.y, type: 'lilac', r: 14 }, 14, game.particles, currentKeepsake(), false);
+      foeRing(e.x, e.y, LILY_FX.pad, 10, 30, .4); foeRing(e.x, e.y + 4, LILY_FX.water, 16, 26, .5);
+      bossCallout(e.x, e.y, 'Shut!', 1); jolt(.1, .04, .12); haptic('tick');
+    },
+    'worm:start'(e) {
+      const t = (e.targets || []).find(t => t.role === 'worm');
+      if (t && t.from) foeRing(t.from.x, t.from.y, LILY_FX.lamp, 6, 18, .35);
+      if (t) foeGlow(t.x, t.y, 6, [LILY_FX.lamp, '#fff4aa'], { spread: 30, fall: 4, life: .8 });
+      haptic('tick');
+    },
+    'worm:home'(e) {
+      foeRing(e.x, e.y, LILY_FX.lamp, 10, 34, .45); foeGlow(e.x, e.y, 8, [LILY_FX.lamp, '#fff4aa', '#ffffff'], { spread: 50, fall: 10, life: .9 });
+      bossCallout(e.x, e.y, 'Lantern home!', 1.1); jolt(.14, .06, .2); haptic('surge');
+    },
+    'worm:puffback'(e) { foeDust(e.x, e.y, 6, LILY_FX.mint, 40); foeRing(e.x, e.y, LILY_FX.mint, 8, 18, .4); haptic('tick'); },
+    'tide:rise'(e) {
+      for (let x = 50; x <= 370; x += 64) foeDust(x, e.y, 2, LILY_FX.water, 40);
+      jolt(.06); haptic('warn');
+      const hint = 'The tide is up! Clear your lowest buds.'; $('game-hint').textContent = hint; say(hint);
+    },
+    'tide:recede'(e) { for (let x = 82; x <= 340; x += 86) foeDust(x, e.y, 2, LILY_FX.water, 25); }
+  };
 
 
   function processEvents() {
