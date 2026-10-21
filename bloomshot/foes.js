@@ -280,6 +280,165 @@
   });
 
   // ── Peekaboo Mole (Level 2, `mole`) ──
+  // A mole in sunglasses living under a row of three molehills, 34 px apart. The hills are solid dirt: a seed's own
+  // touch bounces off them with no refund. Every so often one hill rumbles for MOLE.rumble s (the tell: crumbs hop, the
+  // mound wobbles, a low thump twice), then the mole pops up out of it for `up` s while that hill lets seeds through to
+  // him (a ghost), and ducks back down over MOLE.duck s, still hittable. Bonk him and he blooms, and each of his hills
+  // blooms after him, MOLE.link s apart, as a chain the seed earned. Then the next hill rumbles. He stops ducking once
+  // he is low on the board (y + 10 past MOLE.deep) or has no other hill to go to, and if a chain blooms every hill while
+  // he hides, he rumbles up where the last one was and stays up. Chains, powers and uncredited strikes are plain: they
+  // bloom a hill where it stands and reach the mole even underground. Every time here is on the foe clock, so a
+  // Lullaby holds the whole dance still, and the next hill to pop is public from its rumble on (the bot leads it then).
+  // Hill k of group G has id `${G}-${k}` and slot k; the mole is `${G}-3`, perched MOLE.lift px above its hill.
+  const MOLE = { wait: .5, rumble: .7, duck: .2, thump: .35, lift: 4, spread: 34, deep: 360, link: .1, up: 1.5 };
+  function moleHills(game, mole) {
+    const hills = [null, null, null];
+    for (const bud of game.buds) if (bud.group === mole.group && bud.foe === 'molehill' && bud.slot >= 0 && bud.slot < 3) hills[bud.slot] = bud;
+    return hills;
+  }
+  const openHill = hill => Boolean(hill && !hill.bloomed);
+  function moleOf(game, hill) {
+    for (const bud of game.buds) if (bud.group === hill.group && bud.foe === 'mole') return bud;
+    return null;
+  }
+  // The next hill to pop: the first from hash01(G, 0) * 3, then one or two hills on from the one he left (never the
+  // same one twice while another is open), stepping past bloomed hills. -1 when every hill has bloomed.
+  function molePick(mole, hills) {
+    const cur = mole.left, h = hash01(mole.group, mole.n);
+    const base = cur < 0 ? Math.floor(h * 3) : (cur + 1 + Math.floor(h * 2)) % 3;
+    for (let j = 0; j < 3; j++) { const k = (base + j) % 3; if (k !== cur && openHill(hills[k])) return k; }
+    return openHill(hills[cur]) ? cur : -1;
+  }
+  // He rides his hill (the hills fall as usual); with no open hill under him he is loose and falls on his own.
+  function molePerch(mole, hills) {
+    const hill = mole.hill >= 0 ? hills[mole.hill] : null;
+    if (openHill(hill) && !mole.anchor) { mole.loose = false; mole.x = mole.baseX = hill.x; mole.y = hill.y - MOLE.lift; }
+    else mole.loose = true;
+    return hill;
+  }
+  // A rumble starts at foe-clock time `at`: the chosen hill learns when he will pop out of it (rumbleUntil) and when he
+  // will be gone again (downAt); the bot reads both. With no hill left, he rumbles where the last one bloomed (the lost
+  // anchor) and will stay up.
+  function moleRumble(game, mole, hills, at) {
+    const k = molePick(mole, hills);
+    if (k < 0) {
+      const last = hills[mole.last];
+      if (last) { mole.x = mole.baseX = last.x; mole.y = last.y - MOLE.lift; }
+      mole.anchor = true;
+    }
+    mole.hill = k; mole.phase = 'rumble'; mole.hidden = true;
+    mole.rumbleUntil = mole.until = at + MOLE.rumble; mole.thumpAt = at;
+    mole.downAt = mole.anchor ? Infinity : mole.rumbleUntil + mole.up + MOLE.duck;
+    if (k >= 0) { hills[k].rumbleUntil = mole.rumbleUntil; hills[k].downAt = mole.downAt; }
+    molePerch(mole, hills);
+  }
+  // He stops ducking for good: low on the board, or nowhere else to go.
+  function moleStay(mole, hill) {
+    mole.phase = 'stay'; mole.until = Infinity; mole.downAt = Infinity;
+    if (hill && mole.hill >= 0) hill.downAt = Infinity;
+  }
+  function moleStep(game, mole, dt) {
+    const hills = moleHills(game, mole);
+    molePerch(mole, hills);
+    if (dt <= 0) return;
+    const now = game.foeClock + 1e-9, open = hills.filter(openHill);
+    for (let guard = 0; guard < 6; guard++) {
+      const hill = mole.hill >= 0 ? hills[mole.hill] : null;
+      // Every hill bloomed while he hid: he comes up where the last one was.
+      if (mole.hidden && !mole.anchor && !open.length) { moleRumble(game, mole, hills, game.foeClock); continue; }
+      if (mole.phase === 'wait') { if (now < mole.until) break; moleRumble(game, mole, hills, mole.until); continue; }
+      if (mole.phase === 'rumble') {
+        // The rumbling hill bloomed under him (a chain): the next open hill takes up the rumble, from the start.
+        if (!mole.anchor && !openHill(hill)) { moleRumble(game, mole, hills, game.foeClock); continue; }
+        while (mole.thumpAt <= now && mole.thumpAt < mole.until - 1e-9) {
+          game.event('foe', { kind: 'mole:rumble', bud: mole, x: mole.x, y: mole.y + MOLE.lift, n: Math.round((mole.thumpAt - mole.until + MOLE.rumble) / MOLE.thump) + 1, until: mole.until });
+          mole.thumpAt += MOLE.thump;
+        }
+        if (now < mole.until) break;
+        // Peekaboo: up he pops, and the hill lets seeds through to him.
+        mole.hidden = false; mole.n++; mole.left = mole.hill;
+        if (hill) hill.ghost = true;
+        if (mole.anchor) moleStay(mole, null); else { mole.phase = 'up'; mole.until = mole.rumbleUntil + mole.up; }
+        game.event('foe', { kind: 'mole:pop', bud: mole, x: mole.x, y: mole.y, n: mole.n });
+        continue;
+      }
+      if (mole.phase === 'up') {
+        // The no-dive rule: once he is low, or has no other open hill, he stays up.
+        if (mole.y + 10 > MOLE.deep || !open.some(other => other !== hill)) { moleStay(mole, hill); break; }
+        if (now < mole.until) break;
+        mole.phase = 'duck'; mole.until += MOLE.duck;
+        game.event('foe', { kind: 'mole:duck', bud: mole, x: mole.x, y: mole.y });
+        continue;
+      }
+      if (mole.phase === 'duck') {
+        if (now < mole.until) break;
+        mole.hidden = true;
+        if (hill) hill.ghost = false;
+        moleRumble(game, mole, hills, mole.until);
+        continue;
+      }
+      break;
+    }
+  }
+  define('molehill', {
+    r: 12, hp: 1, fall: 1, type: 'gold', family: 'mole',
+    // Solid dirt: a seed's own touch bounces off with no refund. A chain, a power or an uncredited strike blooms it.
+    guard: (game, hill, hit, seed) => direct(game, false, credited(game, false), seed),
+    // The bot forecasts the hill the mole is heading for, since it lets seeds through while he is up.
+    moving: (game, hill) => hill.downAt > game.foeClock,
+    predict(game, hill, seconds, out) {
+      const ahead = Math.max(0, seconds - (game.lullaby || 0)), at = game.foeClock + ahead;
+      out.y = hill.y + (game.descentSpeed || 0) * (hill.fall ?? 1) * ahead;
+      out.flags = at >= hill.rumbleUntil - 1e-9 && at < hill.downAt ? 2 : 0;
+    },
+    value: () => -1,
+    bloomed(game, hill) {
+      hill.ghost = false;
+      const mole = moleOf(game, hill);
+      if (mole) mole.last = hill.slot;
+    }
+  });
+  define('mole', {
+    r: 10, hp: 1, fall: 1, type: 'coral', family: 'mole', hint: 'Moles pop up! Watch which hill rumbles.',
+    // [name, x, y, {up}]: three hills in a row centered on (x, y), and the mole above them (its authored spot only
+    // keeps the layout check honest; init puts him under his first hill).
+    make(spot, tag, i) {
+      const G = i == null ? tag : `${tag}-foe${i}`, x = spot[1], y = spot[2], opts = spot[3] || {};
+      const hills = [-1, 0, 1].map((side, k) => piece('molehill', `${G}-${k}`, G, x + side * MOLE.spread, y, { slot: k, rumbleUntil: -1, downAt: -1 }));
+      const mole = piece('mole', `${G}-3`, G, x, y - 26, { hidden: true, up: opts.up || MOLE.up, phase: 'wait', until: 0, hill: -1, left: -1, last: -1,
+        n: 0, rumbleUntil: -1, downAt: -1, thumpAt: 0, loose: false, anchor: false, bonked: false });
+      return [...hills, mole];
+    },
+    init(game, mole) {
+      Object.assign(mole, { hidden: true, phase: 'wait', until: mole.born + MOLE.wait, n: 0, left: -1, last: -1, rumbleUntil: -1, downAt: -1, anchor: false, bonked: false });
+      const hills = moleHills(game, mole);
+      mole.hill = molePick(mole, hills);
+      molePerch(mole, hills);
+    },
+    owns: mole => !mole.bloomed && !mole.loose,
+    step: moleStep,
+    // Bonk: his hills bloom one after another, nearest first, as chains of whoever bloomed him.
+    bloomed(game, mole, chain, credit) {
+      const hills = moleHills(game, mole), by = credit ? credit.by : null;
+      mole.hidden = false; mole.phase = 'done';
+      for (const hill of hills) if (hill) { hill.ghost = false; hill.rumbleUntil = hill.downAt = -1; }
+      hills.filter(openHill).sort((a, b) => Math.hypot(a.x - mole.x, a.y - mole.y) - Math.hypot(b.x - mole.x, b.y - mole.y) || a.slot - b.slot)
+        .forEach((hill, k) => game.pending.push(game._linkBy(hill.id, game.time + MOLE.link * (k + 1), mole, 'mole', by)));
+      if (!chain && credit && credit.ball && !isPower(game, credit.ball)) {
+        mole.bonked = true;
+        game.event('foe', { kind: 'mole:bonk', bud: mole, x: mole.x, y: mole.y });
+      }
+    },
+    // The bot: he moves while a pop is coming or under way; underground he is hidden (flag 1) until his rumble ends.
+    moving: (game, mole) => mole.phase === 'rumble' || mole.phase === 'up' || mole.phase === 'duck',
+    resurfaces: (game, mole) => mole.phase === 'rumble',
+    predict(game, mole, seconds, out) {
+      const ahead = Math.max(0, seconds - (game.lullaby || 0)), at = game.foeClock + ahead;
+      out.y = mole.y + (game.descentSpeed || 0) * (mole.fall ?? 1) * ahead;
+      out.flags = mole.phase !== 'wait' && at >= mole.rumbleUntil - 1e-9 && at < mole.downAt ? 0 : 1;
+    },
+    value: () => 30
+  });
 
   // ── Fibcap (Level 3, `fibcap`) ──
 
