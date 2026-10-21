@@ -74,5 +74,13 @@ module.exports = [
   ['bossAbility', { kind: 'crystal', move: 'hues', act: 'start', x: 210 }],
 
   // ── Lantern Lily (Level 5, `lotus`) ──
+  ['bossAbility', { kind: 'lotus', move: 'reflect', act: 'start', x: 210 }], ['bossAbility', { kind: 'lotus', move: 'reflect', act: 'shot', x: 160 }],
+  ['bossAbility', { kind: 'lotus', move: 'reflect', act: 'wane', x: 260 }], ['bossAbility', { kind: 'lotus', move: 'jellies', act: 'start', x: 210 }],
+  ['bossAbility', { kind: 'lotus', move: 'jellies', act: 'release', x: 110 }], ['bossAbility', { kind: 'lotus', move: 'jellies', act: 'shut', x: 310 }],
+  ['bossAbility', { kind: 'lotus', move: 'worm', act: 'start', x: 300 }], ['bossAbility', { kind: 'lotus', move: 'worm', act: 'home', x: 240 }],
+  ['bossAbility', { kind: 'lotus', move: 'worm', act: 'puffback', x: 120 }], ['bossAbility', { kind: 'lotus', move: 'tide', act: 'start', x: 210 }],
+  ['bossAbility', { kind: 'lotus', move: 'tide', act: 'rise', x: 210 }], ['bossAbility', { kind: 'lotus', move: 'tide', act: 'recede', x: 210 }],
+  ['bossAbility', { kind: 'lotus', move: 'lotus', act: 'start', x: 210 }], ['bossCritical', { kind: 'lotus', damage: 2, via: 'moon', x: 200 }],
+  ['bossStage', { kind: 'lotus', stage: 1, mood: 'Glowing', x: 210 }],
 
 ];

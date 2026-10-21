@@ -2690,7 +2690,7 @@
     const pairKey = gate => [String(gate.id), String(gate.pair)].sort().join('|');
     const pairs = Array.from(new Set(gates.filter(Boolean).map(pairKey))).sort();
     gates.forEach(gate => {
-      if (!gate || !Number.isFinite(gate.x) || !Number.isFinite(gate.y)) return;
+      if (!gate || gate.kitDrawn || !Number.isFinite(gate.x) || !Number.isFinite(gate.y)) return; // a kit's moon gate draws itself (foe-art.js)
       const r = clamp(Number(gate.r) || 17, 8, 40), index = Math.max(0, pairs.indexOf(pairKey(gate))), exit = /-out$/.test(String(gate.id));
       ctx.save(); ctx.translate(gate.x, gate.y);
       circle(ctx, 1.5, 2.5, r + 5.5, 'rgba(20,10,20,.28)');
@@ -2862,7 +2862,7 @@
     const pairKey = gate => [String(gate.id), String(gate.pair)].sort().join('|');
     const pairs = Array.from(new Set(gates.filter(Boolean).map(pairKey))).sort();
     gates.forEach(gate => {
-      if (!gate || !Number.isFinite(gate.x) || !Number.isFinite(gate.y)) return;
+      if (!gate || gate.kitDrawn || !Number.isFinite(gate.x) || !Number.isFinite(gate.y)) return; // a kit's moon gate draws itself (foe-art.js)
       const r = clamp(Number(gate.r) || 18, 8, 40), violet = String(gate.id) > String(gate.pair);
       const index = pairs.indexOf(pairKey(gate)), color = violet ? '#cea8ff' : '#94fff0';
       const key = r.toFixed(2) + ':' + violet;

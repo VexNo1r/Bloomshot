@@ -1343,6 +1343,221 @@
   });
 
   // ── Lantern Lily (Level 5, `lotus`) ──
+  // A moonlit lotus on the lake, guarding her lantern. Every move is shown before it lands and answered with a plain seed.
+  //   Dreamy (tier 0): her whirlpool as always, then a Moon Gate: a low moon on the water (X, 388) and a high moon in the
+  //     sky (X, 52) for 5 s. A straight shot into the low moon drops out of the high one onto her top; a seed that goes in
+  //     with no touch yet and within 1.6 s of launch is a Moon shot (two damage, "Moon shot!"), any other a plain hit.
+  //   Glowing (tier 1): the whirlpool, Lily Pads, the moon gate. Two lily pads open low on the lake (110 and 310, y 384)
+  //     and each sends up a Moon Jelly at +.9 s and +2.1 s, then sinks at +2.6 s. Shooting a pad shut ("Shut!") stops its
+  //     jellies and pays one more sun, like Sunny's portals.
+  //   Moonlit (tier 2): her Glowworm Lantern and the Rising Tide in turn. The lantern hops off its stem and crawls off as
+  //     the head of a glowworm (at 300, 70 px below her, else 100): hit the head and the light runs down the worm and the
+  //     lantern flies home spent, exactly as if it were shot: three damage and her gutter open for 5 s. Left alone for
+  //     7 s, the worm puffs away and the lantern floats back lit. The tide lifts the danger line up to 28 px for 5 s (it
+  //     rises over .6 s and falls over .8 s), but never to within 18 px of a piece that would cost a life: clear the
+  //     lowest buds.
+  // Pads, jellies, moons and the tide all run on the kit clock, so a Lullaby holds them.
+  const LILY = { moonY: [388, 52], moonR: 18, moonLife: 5, moonAge: 1.6, padX: [110, 310], padY: 384, padR: 16, jellyY: 354,
+    release: [.9, 2.1], padClose: 2.6, wormX: 300, wormDrop: [70, 100], wormGaps: [0, 21, 41, 61, 81], puffback: 7, gutter: 5,
+    tideMax: 28, tideRoom: 18, tideMin: 6, rise: .6, hold: 5, fall: .8 };
+  const lilyLantern = s => s.parts.find(p => p.bossPart === 'lantern') || null;
+  // The tide's height at kit time u after it began: a smoothstep rise over .6 s, 5 s held, a smoothstep fall over .8 s.
+  function lilyTideEnv(u) {
+    if (u < LILY.rise) return Foes.smooth(u / LILY.rise);
+    const fallAt = LILY.rise + LILY.hold;
+    return u < fallAt ? 1 : 1 - Foes.smooth((u - fallAt) / LILY.fall);
+  }
+  // How far the line may rise if it starts now and is fully up `ahead` s from now: the lowest piece that would cost a life
+  // (plain buds, foes that breach for a life, and Lily herself; never jellies, inert pieces or her own parts), forecast
+  // `ahead` s on, must stay 18 px above it. At most 28 px; under 6 px it does not rise at all (null).
+  function lilyTideOffset(game, s, ahead) {
+    let low = -Infinity; const at = positions(s, ahead), out = { x: 0, y: 0, r: 0, flags: 0 };
+    for (const p of game.buds) {
+      if (p.bloomed || p.hidden || p.gift || p.puff || p.carried || (p.bossPart && !p.boss)) continue;
+      let bottom;
+      if (p === s.boss) { const pose = at.get(p.id); bottom = pose.y + p.r; }
+      else if (p.foe) {
+        if (Foes.breach(game, p) !== 'life') continue;
+        const e = Foes.entryOf(p);
+        if (e && e.predict) { Foes.predict(game, p, ahead, out); bottom = out.y + (out.r || p.r); }
+        else bottom = p.y + p.r + game.descentSpeed * (p.fall || 1) * ahead;
+      } else bottom = p.y + p.r + game.descentSpeed * (p.fall || 1) * ahead;
+      if (bottom > low) low = bottom;
+    }
+    const offset = Math.min(LILY.tideMax, 448 - LILY.tideRoom - low);
+    return offset >= LILY.tideMin ? offset : null;
+  }
+  // Room for the glowworm's five pieces (head at x, beads trailing right) at height y.
+  const lilyWormRoom = (game, x, y) => LILY.wormGaps.every((off, k) => clearSpot(game, x + off, y, k ? 9 : 11));
+  const lilyWormLive = s => Boolean(s.worm && !s.worm.done);
+  function lilyTidePlan(game, s) {
+    const offset = lilyTideOffset(game, s, TELEGRAPH + LILY.rise); if (offset == null) return null;
+    return { move: 'tide', targets: [{ x: 210, y: 448 - offset, r: 30, role: 'tide', offset }] };
+  }
+  // The lantern home: a lantern link on her (the worm's head bloomed) puts it back on its stem spent and opens her gutter
+  // for 5 s, as a lantern hit does; the lantern is marked bloomed, so the usual step revives it and ends the gutter on time.
+  function lilyHome(game, s) {
+    const lantern = lilyLantern(s);
+    s.gutterUntil = s.age + LILY.gutter; s.mode = 'gutter';
+    if (lantern) { lantern.hidden = false; lantern.visible = true; lantern.bloomed = true; lantern.bloomAt = game.time; }
+  }
+  kit('lotus', {
+    hp: 46,
+    moods: ['Dreamy', 'Glowing', 'Moonlit'],
+    stageText: [null, 'Lantern Lily is glowing!', 'Lantern Lily calls the moon!'],
+    text: { reflect: 'Moon gate! Aim low to hit high.', jellies: 'Lily pads! Shut them or catch the jellies.',
+      worm: 'Her lantern is a glowworm! Hit the head.', tide: 'Rising tide! The line creeps up.' },
+    moves: [['lotus', 'reflect'], ['lotus', 'jellies', 'reflect'], ['worm', 'tide']],
+    init(game, s) { s.pads = []; s.worm = null; s.flight = null; },
+    plan: {
+      reflect(game, s, b) {
+        const X = clamp(b.x, 100, 320);
+        return { targets: [{ x: X, y: LILY.moonY[0], r: 22, role: 'moonIn' }, { x: X, y: LILY.moonY[1], r: 22, role: 'moonOut' }] };
+      },
+      jellies() { return { targets: LILY.padX.map(x => ({ x, y: LILY.padY, r: 18, role: 'pad' })) }; },
+      // The worm needs her lantern on its stem and room for all five pieces; otherwise the tide comes instead.
+      worm(game, s, b) {
+        const lantern = lilyLantern(s), x = LILY.wormX;
+        const y = lantern && !lantern.hidden && !lilyWormLive(s) ? LILY.wormDrop.map(dy => b.y + dy).find(y => lilyWormRoom(game, x, y)) : null;
+        if (y == null) return lilyTidePlan(game, s);
+        return { targets: [{ x, y, r: 13, role: 'worm', from: lantern ? { x: lantern.x, y: lantern.y } : null }, ...LILY.wormGaps.slice(1).map(off => ({ x: x + off, y, r: 9, role: 'wormBody' }))] };
+      },
+      tide: lilyTidePlan
+    },
+    act: {
+      reflect(game, s, w) {
+        const b = s.boss, low = w.targets.find(t => t.role === 'moonIn'), X = low ? low.x : clamp(b.x, 100, 320), [y0, y1] = LILY.moonY;
+        game.gates = game.gates.filter(g => !g.bossMoon);
+        const life = { bossMoon: true, kitDrawn: true, kitAt: s.kitAge, kitUntil: s.kitAge + LILY.moonLife, expires: Infinity, lastUsed: -100 };
+        // The low moon faces the launcher (as a level's tunnel does), so a straight shot leaves the high one straight down.
+        game.gates.push({ id: b.id + '-moon-in', pair: b.id + '-moon-out', x: X, y: y0, r: LILY.moonR, angle: Math.atan2(y0 - 498, X - 210), moonLow: true, ...life },
+          { id: b.id + '-moon-out', pair: b.id + '-moon-in', x: X, y: y1, r: LILY.moonR, angle: Math.PI / 2, ...life });
+        after(s, LILY.moonLife - .4, 'wane', { x: X });
+      },
+      jellies(game, s, w) {
+        // Only the pads that really open (a piece now on a spot holds that one back) keep their start ring.
+        w.targets = w.targets.filter(t => t.role === 'pad' && clearSpot(game, t.x, t.y, LILY.padR));
+        const pads = w.targets.map(t => part(game, 'pad', t.x, t.y, LILY.padR, 1, { born: s.kitAge, sunBonus: 1, releases: [] }));
+        if (!pads.length) return 1.5;
+        s.pads.push(...pads);
+        for (const at of LILY.release) after(s, at, 'release', pads);
+        for (const p of pads) after(s, LILY.padClose, 'close', p);
+      },
+      worm(game, s, w) {
+        const t = w.targets.find(t => t.role === 'worm'), lantern = lilyLantern(s);
+        if (!t || !lantern || lantern.hidden || lilyWormLive(s)) { w.targets = []; return 1.5; }
+        // Where it was shown, or the other height if a piece has drifted in; with no room the lantern stays home.
+        const y = [t.y, ...LILY.wormDrop.map(dy => s.boss.y + dy)].find(y => lilyWormRoom(game, t.x, y));
+        if (y == null) { w.targets = []; return 1.5; }
+        if (y !== t.y) w.targets = w.targets.map(p => ({ ...p, y }));
+        const G = `${s.boss.id}-worm-${s.serial++}`, pieces = Foes.make('glowworm', ['glowworm', t.x, y, { dir: -1 }], G, null, null, null);
+        pieces[0].bossLantern = true;
+        for (const p of pieces) { p.bossSummon = true; p.bossSource = s.boss.id; Foes.place(game, p); }
+        s.worm = { G, at: s.kitAge, from: { x: lantern.x, y: lantern.y }, head: pieces[0].id, done: false };
+        lantern.hidden = true; lantern.visible = false; s.summons++;
+        after(s, LILY.puffback, 'puffback', s.worm);
+        game.event('foe', { kind: 'glowworm:spawn', bud: pieces[0], x: pieces[0].x, y: pieces[0].y });
+      },
+      tide(game, s, w) {
+        const t = w.targets.find(t => t.role === 'tide');
+        // Clamped once, now, looking over the .6 s rise; never higher than the warning showed.
+        const now = lilyTideOffset(game, s, LILY.rise), offset = now == null ? null : Math.min(now, t ? t.offset : now);
+        if (offset == null) { w.targets = []; return 1.5; }
+        w.targets = [{ ...(t || { x: 210, r: 30, role: 'tide' }), y: 448 - offset, offset }];
+        s.tide = { t0: s.kitAge, offset };
+        after(s, LILY.rise + LILY.hold, 'recede', null);
+        game.event('bossAbility', { kind: s.kind, move: 'tide', act: 'rise', x: 210, y: 448 - offset });
+      }
+    },
+    timer: {
+      // Each pad still open sends up a jelly from its bud (a piece sitting on the spot holds that one back).
+      release(game, s, pads) {
+        let sent = 0;
+        for (const p of pads) {
+          if (p.bloomed || p.closed || !clearSpot(game, p.x, LILY.jellyY, 11, p)) continue;
+          const [jelly] = Foes.make('jelly', ['jelly', p.x, LILY.jellyY, {}], `${s.boss.id}-jelly-${s.serial++}`, null, null, null);
+          if (!jelly) continue;
+          jelly.bossSummon = true; jelly.bossSource = s.boss.id; Foes.place(game, jelly);
+          p.releases.push(s.kitAge); sent++;
+          game.event('foe', { kind: 'jelly:spawn', bud: jelly, x: p.x, y: LILY.jellyY });
+          game.event('bossAbility', { kind: s.kind, move: 'jellies', act: 'release', x: p.x, y: p.y });
+        }
+        if (sent) s.summons++;
+      },
+      // Left alone, the worm puffs away and the lantern floats home; once its head has bloomed there is nothing to do.
+      puffback(game, s, worm) {
+        if (worm.done) return;
+        worm.done = true;
+        const head = game.buds.find(p => p.id === worm.head), at = head ? { x: head.x, y: head.y } : worm.from;
+        for (const p of game.buds.slice()) if (!p.bloomed && String(p.id).startsWith(worm.G + '-')) game._pop(p, 'glowworm:puff');
+        const lantern = lilyLantern(s); if (lantern) { lantern.hidden = false; lantern.visible = true; }
+        s.flight = { from: at, at: s.kitAge, why: 'puffback' };
+        game.event('bossAbility', { kind: s.kind, move: 'worm', act: 'puffback', x: at.x, y: at.y });
+      },
+      recede(game, s) { if (s.tide) game.event('bossAbility', { kind: s.kind, move: 'tide', act: 'recede', x: 210, y: game.dangerY }); },
+      wane(game, s, at) { if (game.gates.some(g => g.bossMoon)) game.event('bossAbility', { kind: s.kind, move: 'reflect', act: 'wane', x: at.x, y: LILY.moonY[1] }); }
+    },
+    step(game, s) {
+      // The tide follows its envelope on the kit clock, and settles back to 448 when it is done.
+      if (s.tide) {
+        const u = s.kitAge - s.tide.t0;
+        if (u >= LILY.rise + LILY.hold + LILY.fall) { s.tide = null; game.dangerY = 448; }
+        else game.dangerY = 448 - s.tide.offset * lilyTideEnv(u);
+      }
+      // Shut pads leave the board once their bloom has played; the art keeps a closing pad for .6 s.
+      if (s.parts.some(p => p.bossPart === 'pad' && p.bloomed && game.time - p.bloomAt > 1)) {
+        const gone = new Set(s.parts.filter(p => p.bossPart === 'pad' && p.bloomed && game.time - p.bloomAt > 1));
+        s.parts = s.parts.filter(p => !gone.has(p)); game.buds = game.buds.filter(p => !gone.has(p));
+      }
+      if (s.pads.length) s.pads = s.pads.filter(p => !(p.closed || p.bloomed) || s.kitAge - (p.closed ? p.closedAt : p.shutAt) < .6);
+      if (s.flight && s.kitAge - s.flight.at > 1) s.flight = null;
+    },
+    // The worm's head bloomed: the light runs home along a lantern link (credited to whoever earned the head).
+    before(game, s, bud, chain) { if (chain && bud === s.boss && game.due && game.due.via === 'lantern') lilyHome(game, s); },
+    resolve(game, s, bud, chain) {
+      if (!(chain && bud === s.boss && game.due && game.due.via === 'lantern')) return null;
+      if (!Foes.credited(game, true)) return { target: bud, damage: 1 };
+      s.crits++; game.event('bossCritical', { kind: s.kind, bud, damage: 3, via: 'lantern' });
+      return { target: bud, damage: 3 };
+    },
+    // Moon shot: a seed that went into the low moon untouched, early in its flight, and lands on her with no touch since.
+    damage(game, s, bud, chain, result) {
+      const seed = game.striker;
+      if (chain || !seed || bud !== s.boss || result.target !== s.boss || seed.power || game.powerPart || game.powerBoss) return result;
+      if (!seed.moonShot || seed.touches) return result;
+      s.crits++;
+      game.event('bossCritical', { kind: s.kind, bud, damage: 2, via: 'moon' });
+      game.event('bossAbility', { kind: s.kind, move: 'reflect', act: 'shot', x: bud.x, y: bud.y });
+      return { ...result, damage: 2 };
+    },
+    bloomed(game, s, bud) {
+      if (bud.bossPart === 'pad') {
+        // Shut: its jellies are off (the timer skips a bloomed pad), and a credited shut pays one more sun (sunBonus).
+        bud.shutAt = s.kitAge;
+        game.event('bossAbility', { kind: s.kind, move: 'jellies', act: 'shut', x: bud.x, y: bud.y });
+        return true;
+      }
+      if (bud.bossLantern && s.worm && s.worm.head === bud.id && !s.worm.done && !s.boss.bloomed) {
+        const by = game.striker ? game.striker.id : game.due && game.due.by != null ? game.due.by : null;
+        s.worm.done = true; s.flight = { from: { x: bud.x, y: bud.y }, at: s.kitAge, why: 'home' };
+        game.pending.push(game._linkBy(s.boss.id, game.time + .1, bud, 'lantern', by));
+        game.event('bossAbility', { kind: s.kind, move: 'worm', act: 'home', x: bud.x, y: bud.y });
+        return true;
+      }
+      return false;
+    },
+    // The bot: a pad with a jelly still to send outranks most escorts; her lantern on the worm's head is the lantern shot.
+    targets(game, s, list) {
+      const due = new Set(); for (const t of s.timers) if (t.act === 'release') for (const p of t.data) due.add(p);
+      for (const t of list) if (t.bud.bossPart === 'pad') { t.priority = due.has(t.bud) ? 70 : 35; t.reason = 'pad'; }
+      const head = s.worm && !s.worm.done && game.buds.find(p => p.id === s.worm.head && !p.bloomed && !p.hidden);
+      if (head) list.push({ bud: head, priority: 65, reason: 'lantern' });
+    },
+    cleanup(game, s) {
+      s.pads = []; s.flight = null; if (s.worm) s.worm.done = true;
+      const lantern = lilyLantern(s); if (lantern) lantern.visible = true;
+    }
+  });
 
   return { init, step, canHit, burns, resolve, bloomed, breach, cleanup, predictVisible, targets, health: HEALTH, telegraph: TELEGRAPH, kits: KITS };
 });

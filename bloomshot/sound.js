@@ -583,6 +583,23 @@
   };
 
   // ── Lantern Lily (Level 5, `lotus`) ──
+  // Water and moonlight. The moon gate rings up in rubbed glass to a chime (a seed through it, a Moon shot, climbs a
+  // little arpeggio of chimes over the critical's own C-E; the moons wane on two soft falling glass notes). The pads
+  // open with two drops, each jelly leaves with a drop and a glassy shimmer, and a pad shot shut snaps like Sunny's
+  // portals. The worm crawls off on a rising marimba run; when its head is hit the lantern comes home on two soft bells,
+  // and if it puffs away it drips down with a pop. The tide rises on three slow drops climbing C-D-E and recedes down
+  // them again.
+  BOSS_ACTS['lotus:reflect:start'] = [['glass', step(7), 0, .12, .045], ['glass', step(11), .08, .14, .045], ['chime', step(14), .16, .25, .04]];
+  BOSS_ACTS['lotus:reflect:shot'] = [['glass', step(9), 0, .1, .045], ['chime', step(14), .06, .2, .04], ['chime', step(16), .12, .26, .03], ['chime', step(18), .2, .34, .025]];
+  BOSS_ACTS['lotus:reflect:wane'] = [['glass', step(11), 0, .14, .03], ['glass', step(7), .1, .22, .025]];
+  BOSS_ACTS['lotus:jellies:start'] = [['drop', step(2), 0, .1, .05], ['drop', step(5), .08, .12, .05]];
+  BOSS_ACTS['lotus:jellies:release'] = [['drop', step(5), 0, .12, .05], ['glass', step(9), .08, .2, .04]];
+  BOSS_ACTS['lotus:jellies:shut'] = BOSS_ACTS['sunny:yawn:shut'];
+  BOSS_ACTS['lotus:worm:start'] = [['marimba', pent(5), 0, .08, .05], ['marimba', pent(6), .06, .08, .05], ['marimba', pent(7), .12, .08, .05], ['marimba', pent(8), .18, .12, .045]];
+  BOSS_ACTS['lotus:worm:home'] = [['bell', step(4), 0, .22, .04], ['bell', step(7), .1, .3, .035]];
+  BOSS_ACTS['lotus:worm:puffback'] = [['drop', step(4), 0, .14, .05], ['drop', step(0), .1, .2, .045], ['crunch', 'pop', .1, .5]];
+  BOSS_ACTS['lotus:tide:rise'] = [['drop', step(0), 0, .2, .05], ['drop', step(2), .15, .2, .05], ['drop', step(4), .3, .3, .045]];
+  BOSS_ACTS['lotus:tide:recede'] = [['drop', step(4), 0, .2, .045], ['drop', step(2), .15, .2, .045], ['drop', step(0), .3, .3, .04]];
 
 
   function play(type, data = {}) {
