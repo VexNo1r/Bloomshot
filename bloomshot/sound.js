@@ -457,6 +457,32 @@
 
   // ── Glowworm (Level 5, `glowworm`) ──
 
+  // -----------------------------------------------------------------------------------------------------------------
+  // The guardians' moves. A `bossAbility` event names its move and act (start, spit, shut, toss, snap...); the cue is
+  // BOSS_ACTS['kind:move:act'] or BOSS_ACTS['move:act'] (rows or (data, pan) as for the foes). A move's start without its
+  // own cue gets the guardian's warning instrument answering low, with a soft thock, so every move of every guardian
+  // is heard. Each kit's cues live in its own block below.
+  // -----------------------------------------------------------------------------------------------------------------
+  const BOSS_ACTS = Object.create(null);
+  function bossAct(data, pan) {
+    const kind = String(data.kind || ''), move = String(data.move || ''), act = String(data.act || 'start');
+    const cue = BOSS_ACTS[kind + ':' + move + ':' + act] || BOSS_ACTS[move + ':' + act];
+    if (cue) { if (allowed('bossAct:' + act, 0.12)) typeof cue === 'function' ? cue(data, pan) : foeRows(cue, pan); return; }
+    if (act !== 'start' || !allowed('bossAbility', 0.3)) return;
+    const [style, , second] = BOSS_WARNINGS[kind] || BOSS_WARNINGS.sunny;
+    note(step(second), 0, .16, .05, pan, style, 1); crunch('thock', 0, pan, .6);
+  }
+
+  // ── Old Sunny (Level 1, `sunny`) ──
+
+  // ── Rootknot (Level 2, `root`) ──
+
+  // ── Mother Morel (Level 3, `puff`) ──
+
+  // ── Crystal Heart (Level 4, `crystal`) ──
+
+  // ── Lantern Lily (Level 5, `lotus`) ──
+
 
   function play(type, data = {}) {
     if (!enabled || !context || asleep) return;
@@ -550,6 +576,14 @@
     else if (type === 'puff' && allowed('puff', 0.12)) { note(hz(-5), 0, 0.2, 0.08, pan, 'drop'); note(hz(14), 0.06, 0.26, 0.04, pan, 'chime'); note(hz(21), 0.12, 0.22, 0.028, pan, 'chime'); }
     else if (type === 'foe') foeCue(String(data.kind || ''), data, pan);
     else if (type === 'shield' && allowed('shield', 0.09)) { note(hz(16), 0, 0.08, 0.07, pan, 'marimba', 0); note(hz(11), 0.035, 0.1, 0.058, pan, 'marimba', 0); }
+    else if (type === 'bossAbility') bossAct(data, pan);
+    // Phase Bloom: the guardian's own two notes answered a fifth higher over a soft chord, and a sparkle as it settles.
+    else if (type === 'bossStage' && allowed('bossStage', 0.8)) {
+      const [style, first, second] = BOSS_WARNINGS[data.kind] || BOSS_WARNINGS.sunny;
+      duck();
+      note(step(first + 7), 0, .22, .06, pan, style, 2); note(step(second + 7), .1, .26, .055, pan, style, 2);
+      pad([0, 2, 4], 0, .7, .03); note(step(first + 14), .22, .34, .03, pan, 'chime', 1);
+    }
     else if (type === 'bossWarning' && allowed('bossWarning', 0.35)) {
       const [style, first, second] = BOSS_WARNINGS[data.kind] || BOSS_WARNINGS.sunny;
       duck(); // Briefly make room in the music so a quiet warning still reads during an active boss fight.

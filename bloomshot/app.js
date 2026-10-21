@@ -1065,6 +1065,9 @@
       }
       // A geode cracks into small gems of the first three colors.
       if (gems) for (const type of ['gold', 'coral', 'lilac']) add({ type, r: 9 });
+      // A guardian's kit brings foes into its fight; they paint ahead with the level's own.
+      const kitFoes = { root: ['rolypoly'], puff: ['fibcap', 'inkdrop'], lotus: ['jelly', 'glowdrop', 'glowworm'] }[boss && boss.bossKind] || [];
+      for (const name of kitFoes) { const e = window.BloomFoes && BloomFoes.FOES[name]; if (e) add({ foe: name, r: e.r, type: e.type || 'lilac' }); }
       const name = boss && boss.name || '';
       callouts.push({ kind: 'title', text: isTaste() ? 'Nice run!' : `Level ${game.plan.id} clear!`, label: name ? `${name} bloomed!` : game.plan.name });
       if (boss) callouts.push({ kind: 'title', boss: true, text: name || 'Big bloom', label: bossOpeningTip(boss) });
@@ -1653,6 +1656,51 @@
 
   // ── Glowworm (Level 5, `glowworm`) ──
 
+  // -----------------------------------------------------------------------------------------------------------------
+  // The guardians' moves. A `bossAbility` event (move, act) gets BOSS_FX.<kind>['move:act'] or BOSS_FX.<kind>[act]; a mood
+  // change gets the shared Phase Bloom below. Each kit's effects live in its own block.
+  // -----------------------------------------------------------------------------------------------------------------
+  const BOSS_FX = Object.create(null);
+  // A short word over the action ("Shut!", "Snap!"), drawn like a trick callout.
+  function bossCallout(x, y, text, life = 1) {
+    if (!text) return;
+    game.floaters.push({ kind: 'trick', trick: 'boss', text, label: '', x: clamp(x ?? 210, 60, 360), y: clamp((y ?? 200) - 34, 40, 420), life, maxLife: life });
+  }
+  function bossFx(event) {
+    const fx = BOSS_FX[event.kind], own = fx && (fx[`${event.move}:${event.act}`] || fx[event.act]);
+    if (own) own(event);
+  }
+  // Phase Bloom: a beat of hit-stop, a ring of the guardian's petals, its new mood called out, and the vine's knot opening.
+  function phaseBloom(event) {
+    const boss = game.bossState && game.bossState.boss, x = event.x ?? boss?.x ?? 210, y = event.y ?? boss?.y ?? 160, type = boss?.type || 'gold';
+    jolt(.18, .09, .25); haptic('surge');
+    if (save.settings.motion) {
+      const r = (boss?.r || 26) + 10, color = FOE_COLORS[type] || FOE_COLORS.gold;
+      for (let i = 0; i < 12; i++) {
+        const a = i / 12 * Math.PI * 2;
+        game.particles.push({ x: x + Math.cos(a) * r, y: y + Math.sin(a) * r, vx: Math.cos(a) * 70, vy: Math.sin(a) * 70 - 20, life: .9, maxLife: .9, kind: 'petal', color, size: 4.5, rotation: a, spin: i % 2 ? 4 : -4, drag: 1.4, gravity: 40, flutter: 20, phase: i });
+      }
+      foeRing(x, y, color, r * .7, 46, .5); foeRing(x, y, '#fff7be', r * .5, 30, .35);
+    }
+    game.floaters = game.floaters.filter(f => f.kind !== 'trick');
+    bossCallout(x, y - 20, event.mood ? `${event.mood}!` : '', 1.3);
+    const vine = game.stage && game.stage.vine;
+    if (vine) { vine.knotAt = vine.knotAt || []; vine.knotAt[(event.stage || 1) - 1] = game.time; }
+    if (event.name && event.mood) say(`${event.name} is ${event.mood.toLowerCase()}!`);
+  }
+  // A special hit on a guardian says what made it special.
+  const CRIT_TEXT = { roll: 'Bowled over!', mirror: 'Mirror shot!', moon: 'Moon shot!' };
+
+  // ── Old Sunny (Level 1, `sunny`) ──
+
+  // ── Rootknot (Level 2, `root`) ──
+
+  // ── Mother Morel (Level 3, `puff`) ──
+
+  // ── Crystal Heart (Level 4, `crystal`) ──
+
+  // ── Lantern Lily (Level 5, `lotus`) ──
+
 
   function processEvents() {
     for (const event of game.drainEvents()) {
@@ -1742,6 +1790,13 @@
         }
       } else if (event.type === 'foe') {
         foeEvent(event);
+      } else if (event.type === 'bossAbility') {
+        bossFx(event);
+      } else if (event.type === 'bossStage') {
+        phaseBloom(event);
+      } else if (event.type === 'bossCritical') {
+        const bud = event.bud || {};
+        if (CRIT_TEXT[event.via]) { bossCallout(bud.x, bud.y, CRIT_TEXT[event.via], 1.1); jolt(.16, .06, .2); haptic('surge'); }
       } else if (event.type === 'bossWarning') {
         $('game-hint').textContent = event.flowerText || event.text;
         say(`${event.name}: ${event.text}${event.flowerText ? ` ${event.flowerText}` : ''}`);

@@ -26,7 +26,8 @@ function prepareTrace(game) {
   const movers = new Set(game.foeWave ? Foes.moves(game) : []), foreseen = bud => movers.has(bud);
   const originals = game.buds.filter(bud => !bud.bloomed && (!bud.hidden || foreseen(bud)) && bud.visible !== false);
   const rich = Boolean(game.bossState), moving = [], predicted = originals.map(bud => {
-    const boss = bud.boss || rich && bud.bossPart;
+    // A flower a guardian carries (Rootknot's carousel) moves with the guardian's own forecast.
+    const boss = bud.boss || rich && (bud.bossPart || bud.carried);
     if (!boss && !foreseen(bud)) return bud;
     const copy = { ...bud }, future = new Float64Array(TRACE_STEPS * STRIDE);
     moving.push({ original: bud, bud: copy, future, foe: !boss }); return copy;
@@ -91,7 +92,7 @@ function trace(game, angle, bounces = 3, prepared = prepareTrace(game)) {
 }
 function value(game, hit, timing, prepared) {
   const bud = hit.bud;
-  if (prepared && prepared.rich && (bud.boss || bud.bossPart) && !Bosses.canHit(game, bud, hit, { gateHops: hit.gateHops })) return -1;
+  if (prepared && prepared.rich && (bud.boss || bud.bossPart) && !Bosses.canHit(game, bud, hit, { gateHops: hit.gateHops, type: game.nextType, mirrorAt: hit.mirror ? 0 : null })) return -1;
   if (bud.bossPart === 'satellite' && bud.lit === false) return -1;
   // A foe knows its own rules: a decoy is never worth a seed, and some shots are better than others.
   if (bud.decoy) return -1;

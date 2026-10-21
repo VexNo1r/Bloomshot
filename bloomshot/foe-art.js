@@ -49,6 +49,11 @@
     if (sprite) kit.blit(ctx, sprite); else paint(ctx);
     ctx.restore();
   }
+  // Where a thrown piece is along its arc (the same as foes.js lobAt; art keeps no dependency on the rules).
+  function lobAt(x0, y0, x1, y1, T, t, h = 40) {
+    const u = clamp(t / Math.max(1e-6, T), 0, 1);
+    return { x: x0 + (x1 - x0) * u, y: y0 + (y1 - y0) * u - 4 * h * u * (1 - u), u };
+  }
   // A dotted line with a soft white edge, for tells drawn on the board (a roll arrow, a swoop arc).
   function dotted(ctx, points, color, dot = 2.1, gap = 7, phase = 0) {
     let carry = phase % gap;
@@ -200,6 +205,45 @@
 
   // ── Glowworm (Level 5, `glowworm`) ──
 
+  // -----------------------------------------------------------------------------------------------------------------
+  // The guardians' kits (bosses.js). art.js calls these during a fight with a kit guardian (state.bossState.kind):
+  //   under(ctx, state, s, time, still, kit, quality)          below every bud (Rootknot's holes, Lily's tide band)
+  //   part(ctx, state, s, bud, time, still, kit, quality)      a boss part of a kit role (portal, z, knot, pad, waltz,
+  //                                                            fibwaltz); return true when drawn, false for the usual art
+  //   face(ctx, state, s, bud, time, still, kit, quality)      the guardian's face for its mood (s.tier); return true to
+  //                                                            replace the usual face (bud.x, bud.y is the face's body)
+  //   over(ctx, state, s, time, still, kit, quality)           above the buds (lob flights, tendrils, mirrors, moons, tells
+  //                                                            of the current warning s.warning)
+  //   aim(ctx, state, s, time, still, kit, quality)            after the aim guide
+  //   warm(kit)                                                sprites to paint ahead during the level's intro
+  // s is the guardian's state (s.tier, s.mode, s.warning, s.lobs, s.carried, s.age); the same rules as the foes apply.
+  // -----------------------------------------------------------------------------------------------------------------
+  const KIT_LOOKS = Object.create(null);
+  function kitLook(kind, look) { KIT_LOOKS[kind] = look; return look; }
+  function kitCall(hook, ctx, state, ...args) {
+    const s = state && state.bossState, look = s && KIT_LOOKS[s.kind];
+    if (!look || !look[hook]) return false;
+    ctx.save(); try { return Boolean(look[hook](ctx, state, s, ...args)); } finally { ctx.restore(); }
+  }
+  const kits = {
+    under: (ctx, state, time, still, kit, quality = 0) => kitCall('under', ctx, state, time, still, kit, quality),
+    part: (ctx, state, bud, time, still, kit, quality = 0) => kitCall('part', ctx, state, bud, time, still, kit, quality),
+    face: (ctx, state, bud, time, still, kit, quality = 0) => kitCall('face', ctx, state, bud, time, still, kit, quality),
+    over: (ctx, state, time, still, kit, quality = 0) => kitCall('over', ctx, state, time, still, kit, quality),
+    aim: (ctx, state, time, still, kit, quality = 0) => kitCall('aim', ctx, state, time, still, kit, quality),
+    warm: (kind, kit) => { const look = KIT_LOOKS[kind]; if (look && look.warm) look.warm(kit); }
+  };
 
-  root.BloomFoeArt = { define, LOOKS, has, bud, under, over, aim, warm };
+  // ── Old Sunny (Level 1, `sunny`) ──
+
+  // ── Rootknot (Level 2, `root`) ──
+
+  // ── Mother Morel (Level 3, `puff`) ──
+
+  // ── Crystal Heart (Level 4, `crystal`) ──
+
+  // ── Lantern Lily (Level 5, `lotus`) ──
+
+
+  root.BloomFoeArt = { define, LOOKS, has, bud, under, over, aim, warm, kitLook, KIT_LOOKS, kits };
 })(typeof window !== 'undefined' ? window : globalThis);

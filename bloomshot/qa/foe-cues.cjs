@@ -24,4 +24,19 @@ module.exports = [
 
   // ── Glowworm (Level 5, `glowworm`) ──
 
+  // Guardians: every move's start has a voice (its own, or the guardian's instrument answering low), and a mood change
+  // (Phase Bloom) has its own.
+  ...['sunny', 'root', 'puff', 'crystal', 'lotus', 'fossil', 'ember', 'geode', 'briar', 'core'].map(kind => ['bossAbility', { kind, move: kind, act: 'start', x: 210 }]),
+  ['bossStage', { kind: 'root', stage: 1, mood: 'Tangled', x: 210 }], ['bossStage', { kind: 'lotus', stage: 2, mood: 'Moonlit', x: 150 }],
+
+  // ── Old Sunny (Level 1, `sunny`) ──
+
+  // ── Rootknot (Level 2, `root`) ──
+
+  // ── Mother Morel (Level 3, `puff`) ──
+
+  // ── Crystal Heart (Level 4, `crystal`) ──
+
+  // ── Lantern Lily (Level 5, `lotus`) ──
+
 ];

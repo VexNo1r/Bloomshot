@@ -2003,8 +2003,9 @@
     }
     c.restore();
   }
-  function drawBossTarget(ctx, bud, state, time, still) {
+  function drawBossTarget(ctx, bud, state, time, still, kitArt = null, quality = 0) {
     if (!bud.bossPart || bud.visible === false || bud.hidden || state.bossState && state.bossState.boss && state.bossState.boss.bloomed || bud.bloomed && !['lantern', 'satellite'].includes(bud.bossPart)) return;
+    if (kitArt && kitArt.part(ctx, state, bud, time, still, FOE_KIT, quality)) return;
     const role = bud.bossPart, kind = bud.bossKind || state.bossState && state.bossState.kind || 'core', r = Math.max(3, Number(bud.r) || 12);
     const lit = !bud.bloomed && bud.lit !== false && !(bud.hp === 0), real = bud.real !== false;
     ctx.save(); ctx.translate(bud.x, bud.y);
@@ -2015,8 +2016,8 @@
     const sprite = bossTargetSprite(role, kind, r, lit, real);
     if (sprite) blit(ctx, sprite); else paintTargetPart(ctx, role, kind, r, lit, real);
     if (role === 'heart') {
-      const main = state.bossState && state.bossState.boss;
-      drawBossFace(ctx, { ...bud, x: 0, y: 0, hp: main ? main.hp : 1, maxHp: main ? main.maxHp : 1 }, time, still);
+      const main = state.bossState && state.bossState.boss, face = { ...bud, x: 0, y: 0, hp: main ? main.hp : 1, maxHp: main ? main.maxHp : 1 };
+      if (!(kitArt && kitArt.face(ctx, state, face, time, still, FOE_KIT, quality))) drawBossFace(ctx, face, time, still);
     }
     if (!bud.bloomed && Number(bud.maxHp) > 1) {
       const fraction = clamp((Number(bud.hp) || 0) / bud.maxHp, 0, 1);
@@ -4600,6 +4601,9 @@
     // The level campaign's new pieces (foe-art.js) draw only on a wave that has them.
     const foeArt = rush && state.foeWave && root.BloomFoeArt ? root.BloomFoeArt : null, still = Boolean(options.reducedMotion), foeQuality = Number(options.quality) || 0;
     if (foeArt) foeArt.under(ctx, state, time, still, FOE_KIT, foeQuality);
+    // A kit guardian's moves (foe-art.js kits) draw during its fight.
+    const kitArt = rush && state.bossState && root.BloomFoeArt && root.BloomFoeArt.kits ? root.BloomFoeArt.kits : null;
+    if (kitArt) kitArt.under(ctx, state, time, still, FOE_KIT, foeQuality);
     for (const bud of buds) {
       if (bud.hidden || bud.visible === false || bud.bossPart) continue;
       if (bud.gift) { if (!bud.bloomed) drawGift(ctx, bud, time, options.reducedMotion); continue; }
@@ -4698,7 +4702,7 @@
       if (bud.shield && !bud.bloomed) drawCup(ctx, bud);
       // Legacy authored flags must not invent shell armor on a controller whose actual defence is different.
       if (bud.shell && !bud.bloomed && (!bud.boss || !bossLook(bud) || bud.bossKind === 'fossil')) drawShell(ctx, bud);
-      if (bud.boss && !bud.bloomed) { drawBossFace(ctx, bud, time, options.reducedMotion); drawBossRing(ctx, bud); drawBossDefense(ctx, bud, state, time, Boolean(options.reducedMotion)); drawBossGestures(ctx, bud, time, Boolean(options.reducedMotion)); }
+      if (bud.boss && !bud.bloomed) { if (!(kitArt && kitArt.face(ctx, state, bud, time, still, FOE_KIT, foeQuality))) drawBossFace(ctx, bud, time, options.reducedMotion); drawBossRing(ctx, bud); drawBossDefense(ctx, bud, state, time, Boolean(options.reducedMotion)); drawBossGestures(ctx, bud, time, Boolean(options.reducedMotion)); }
       else if (crack > 0) { const a = ctx.globalAlpha; ctx.globalAlpha = a * crack; drawBossBody(ctx, bud, time, false); drawBossFace(ctx, bud, time, false); drawBossCrownFlying(ctx, bud, age); ctx.globalAlpha = a; }
       if (bud.relay && !bud.bloomed) drawRelayCrown(ctx, bud);
       if (!bud.bloomed && (bud.power || bud.burst || bud.kind === 'burst')) {
@@ -4719,8 +4723,9 @@
     }
     // Flower-specific tells sit above the buds so their small marks cannot be buried by crowns or armor.
     if (rush) drawBossFlowerWarning(ctx, state, time, Boolean(options.reducedMotion));
-    for (const bud of buds) if (bud.bossPart) drawBossTarget(ctx, bud, state, time, Boolean(options.reducedMotion));
+    for (const bud of buds) if (bud.bossPart) drawBossTarget(ctx, bud, state, time, Boolean(options.reducedMotion), kitArt, foeQuality);
     if (foeArt) foeArt.over(ctx, state, time, still, FOE_KIT, foeQuality);
+    if (kitArt) kitArt.over(ctx, state, time, still, FOE_KIT, foeQuality);
     drawFlares(ctx, buds, time, options, line);
     if (rush) drawLullaby(ctx, state, time, options.reducedMotion, buds, true);
     for (const bumper of state.bumpers || []) {
@@ -4732,6 +4737,7 @@
       const hollow = rush && Number(state.podSize) > 0 && Number.isFinite(state.pod) && state.pod < 1 && !(Number(state.superBloom) > 0);
       drawAim(ctx, state.aim, colors, time, state.nextType, options.reducedMotion, hollow);
       if (foeArt) foeArt.aim(ctx, state, time, still, FOE_KIT, foeQuality);
+      if (kitArt) kitArt.aim(ctx, state, time, still, FOE_KIT, foeQuality);
     }
     drawLauncher(ctx, state, time, colors, options.keepsake, options.kick, options.reducedMotion);
 
@@ -4804,8 +4810,9 @@
     for (const hex of ['#ff5d94', '#ffd148', '#a47dff', '#45adff', '#ff7433']) add(() => glowMote(hex));
     for (const rgb of VEILS) add(() => veilSprite(rgb));
     add(() => curtainSprite('top')); add(() => curtainSprite('bottom'));
-    // The level's new pieces (foe-art.js), one job each.
+    // The level's new pieces (foe-art.js), one job each, and the guardian's kit.
     for (const item of plan.foes || []) add(() => { if (root.BloomFoeArt) root.BloomFoeArt.warm([item], FOE_KIT); });
+    if (plan.boss && plan.boss.bossKind) add(() => { if (root.BloomFoeArt && root.BloomFoeArt.kits) root.BloomFoeArt.kits.warm(plan.boss.bossKind, FOE_KIT); });
     // Lettering: titles, the boss's card, stamps and life bands (each only once its font is in).
     for (const floater of plan.callouts || []) add(() => warmCallout(sctx, floater));
     // The boss's vine.
@@ -4890,7 +4897,8 @@
   }
 
   // The toolbox foe-art.js draws with, so the new pieces share the atlas, the flowers and the palette.
-  const FOE_KIT = Object.freeze({ atlasSprite, blit, drawFlower, circle, sparkle, starPath, roundRect, shade, FLOWERS, TAU, clamp, ease, smooth, easeBounce, easeBack });
+  const FOE_KIT = Object.freeze({ atlasSprite, blit, drawFlower, circle, sparkle, starPath, roundRect, shade, FLOWERS, TAU, clamp, ease, smooth, easeBounce, easeBack,
+    drawPuffcap, paintTargetPart, drawBossFace, BOSS_LOOKS });
   root.BloomArt = { draw, drawSceneLife, drawFlower, drawGarden, drawMoon, koiFish, drawProjectile, drawParticle, drawSeed, drawPowerIcon, drawUnfurl, drawChainLinks,
     prewarm, setHarvestTarget, spentFlower, paints: () => painted,
     // Where a pod seed sits: slot 0 is the cup, 1-3 the tray beside it.
