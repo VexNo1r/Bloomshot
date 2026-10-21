@@ -444,6 +444,14 @@
   FOE_CUES['rolypoly:land'] = [['wood', step(2), 0, .07, .05], ['crunch', 'thock', 0, .8]];
 
   // ── Peekaboo Mole (Level 2, `mole`) ──
+  // A low felt thump under the rumbling hill (twice in its .7 s), a woody G as he pops out with a click, a soft low C as
+  // he ducks, and the bonk: a wooden thock under three notes climbing the C chord (G, E, then a high C chime). A seed
+  // that bounces off a hill gets a dull dirt knock.
+  FOE_CUES['mole:rumble'] = [['thump', step(-7), 0, .09, .05]];
+  FOE_CUES['mole:pop'] = [['wood', hz(7), 0, .08, .06], ['crunch', 'click', 0, .5]];
+  FOE_CUES['mole:duck'] = [['wood', hz(0), 0, .06, .04, 0]];
+  FOE_CUES['mole:bonk'] = [['marimba', step(4), 0, .1, .07], ['marimba', step(9), .08, .1, .06], ['chime', step(14), .16, .3, .04], ['crunch', 'thock', 0, .9]];
+  FOE_CUES['molehill:guard'] = [['wood', step(-2), 0, .07, .05], ['crunch', 'thock', 0, .8]];
 
   // ── Fibcap (Level 3, `fibcap`) ──
 

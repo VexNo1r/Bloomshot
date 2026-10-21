@@ -192,6 +192,318 @@
   });
 
   // ── Peekaboo Mole (Level 2, `mole`) ──
+  // Three tufted molehills with a dark hole on top, and a mole in sunglasses who peeks out of one of them. The tell
+  // comes first: the next hill shivers and wobbles harder and harder for .7 s while crumbs of dirt hop off its top, and
+  // just before he pops it bulges and two glints blink in its hole. Then he pops up with an overshoot, paws on the rim,
+  // and looks about (his glasses catch the light now and then) until he ducks back down behind the hole's front lip.
+  // Bonked, he squashes flat with his glasses knocked crooked while three stars circle his head, then shrinks away into
+  // his flower. While he is up on an open hill that hill draws him, so the two share every wobble the board gives them;
+  // with no hill left he brings his own little patch of dirt. Animations off: a rumbling hill shows three still cracks,
+  // a crumb and the glints instead of the shake, and he is simply up or down.
+  const MOLE_ART = { body: '#8a6a5c', face: '#a3826f', snout: '#f2b6a0', nose: '#d9707c', glasses: '#2b2b3a', ink: '#4b3424',
+    mound: '#9a6a43', top: '#b9875a', clod: '#7e5535', pebble: '#d2a676', tuft: '#71b45b', tuftInk: '#3f7a35', hole: '#3b2a1e',
+    star: '#ffe76b', starInk: '#c98a17' };
+  // The hole on a hill (hill-local; the hill's center is the origin), and how far below it the mole hides.
+  const HOLE = { y: -6.5, rx: 7, ry: 2.6, deep: 15, rumble: .7 };
+  // The mole perches 4 px above his hill's center, so the hole is 2.5 px above his. He is drawn a little larger than
+  // he is painted (SIZE), so his face reads at phone size; his round head still sits inside his r 10 body.
+  const PERCH = 4, SIZE = 1.15;
+  function moundPath(c) {
+    c.beginPath(); c.moveTo(-15.5, 7.5);
+    c.bezierCurveTo(-14.5, -2.5, -8.5, -10.5, 0, -10.5); c.bezierCurveTo(8.5, -10.5, 14.5, -2.5, 15.5, 7.5);
+    c.quadraticCurveTo(0, 10, -15.5, 7.5); c.closePath();
+  }
+  // A flat patch of dirt for a mole with no hill left; its hole sits where a hill's does.
+  function patchPath(c) {
+    c.beginPath(); c.moveTo(-13, -2);
+    c.bezierCurveTo(-11.5, -8.5, -6, -11.2, 0, -11.2); c.bezierCurveTo(6, -11.2, 11.5, -8.5, 13, -2);
+    c.quadraticCurveTo(0, .5, -13, -2); c.closePath();
+  }
+  function paintTuft(c, x, y, lean) {
+    for (const [dx, h, bend] of [[-1.7, 3.6, -1.5], [0, 4.8, .4 * lean], [1.7, 3.4, 1.6]]) {
+      c.beginPath(); c.moveTo(x + dx * .6, y); c.quadraticCurveTo(x + dx, y - h * .55, x + dx + bend, y - h);
+      c.lineWidth = 2; c.strokeStyle = MOLE_ART.tuftInk; c.stroke(); c.lineWidth = 1.05; c.strokeStyle = MOLE_ART.tuft; c.stroke();
+    }
+  }
+  // The hole's front lip, drawn again over a mole in it, so he sits inside the hill rather than in front of it.
+  function paintLip(c) {
+    c.lineCap = 'round';
+    c.beginPath(); c.ellipse(0, HOLE.y, HOLE.rx, HOLE.ry, 0, .04 * Math.PI, .96 * Math.PI); c.strokeStyle = MOLE_ART.ink; c.lineWidth = 1.1; c.stroke();
+    c.beginPath(); c.ellipse(0, HOLE.y + .6, HOLE.rx - .6, HOLE.ry, 0, .16 * Math.PI, .84 * Math.PI); c.strokeStyle = MOLE_ART.pebble; c.lineWidth = 1.1; c.stroke();
+  }
+  function paintHole(c) {
+    c.beginPath(); c.ellipse(0, HOLE.y, HOLE.rx, HOLE.ry, 0, 0, TAU); c.fillStyle = MOLE_ART.hole; c.fill();
+    c.strokeStyle = MOLE_ART.ink; c.lineWidth = 1; c.stroke();
+    paintLip(c);
+  }
+  // The molehill: a 30 x 18 mound, its lit top, clods and pebbles, three grass tufts and the hole. `cracked` adds the
+  // still tell of a rumble (Animations off): three dark cracks running out from the hole.
+  function paintMound(c, cracked) {
+    const A = MOLE_ART; c.lineJoin = 'round'; c.lineCap = 'round';
+    c.beginPath(); c.ellipse(0, 8.4, 16.5, 3.2, 0, 0, TAU); c.fillStyle = 'rgba(58,38,22,.24)'; c.fill();
+    moundPath(c); c.fillStyle = A.mound; c.fill();
+    c.save(); moundPath(c); c.clip();
+    c.beginPath(); c.ellipse(-1.5, -6.8, 12.5, 6.4, -.06, 0, TAU); c.fillStyle = A.top; c.fill();
+    c.beginPath(); c.ellipse(-7, -6.2, 4.2, 1.8, -.55, 0, TAU); c.fillStyle = 'rgba(255,238,205,.4)'; c.fill();
+    for (const [x, y, r] of [[-9.5, 2.5, 1.3], [6.5, 4, 1.1], [10.5, -.5, 1], [-3, 5.6, .9], [1.5, 1.5, .7]]) { c.beginPath(); c.arc(x, y, r, 0, TAU); c.fillStyle = A.clod; c.fill(); }
+    for (const [x, y, r] of [[-5, -.5, .9], [4, -1.2, .8], [-12, 5, .7]]) { c.beginPath(); c.arc(x, y, r, 0, TAU); c.fillStyle = A.pebble; c.fill(); }
+    c.restore();
+    moundPath(c); c.strokeStyle = A.ink; c.lineWidth = 1.4; c.stroke();
+    paintHole(c);
+    paintTuft(c, -11, 4.2, -1); paintTuft(c, 11.2, 3.2, 1); paintTuft(c, 2.5, 7.6, .4);
+    if (cracked) {
+      c.strokeStyle = A.ink; c.lineWidth = 1.2;
+      for (const crack of [[[-5.5, -4.6], [-8, -1.6], [-7, 1.8], [-9.5, 4]], [[1.5, -3.8], [3.6, -.4], [2, 2.6]], [[7, -6.2], [10.2, -4.4], [11.6, -1.4]]]) {
+        c.beginPath(); crack.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.stroke();
+      }
+    }
+  }
+  function paintPatch(c) {
+    const A = MOLE_ART; c.lineJoin = 'round';
+    c.beginPath(); c.ellipse(0, -.6, 14, 2.4, 0, 0, TAU); c.fillStyle = 'rgba(58,38,22,.22)'; c.fill();
+    patchPath(c); c.fillStyle = A.top; c.fill();
+    c.save(); patchPath(c); c.clip();
+    for (const [x, y, r] of [[-8, -3.2, 1], [7.5, -3.6, .9], [3, -2.4, .7]]) { c.beginPath(); c.arc(x, y, r, 0, TAU); c.fillStyle = A.clod; c.fill(); }
+    c.restore();
+    patchPath(c); c.strokeStyle = A.ink; c.lineWidth = 1.3; c.stroke();
+    paintHole(c);
+  }
+  // The mole, drawn from the middle of his hole up: a round brown head, a pale muzzle, pink snout and buck teeth,
+  // whiskers, rosy cheeks, a tuft of hair and his sunglasses. `dazed` knocks the glasses crooked, shows one
+  // x-ed out eye, raises a bump and turns his grin into an "o".
+  function headPath(c) {
+    c.beginPath(); c.moveTo(-7.8, 4); c.lineTo(-7.8, -6.6);
+    c.bezierCurveTo(-7.8, -12.2, -4.3, -14.4, 0, -14.4); c.bezierCurveTo(4.3, -14.4, 7.8, -12.2, 7.8, -6.6);
+    c.lineTo(7.8, 4); c.closePath();
+  }
+  function paintGlasses(c) {
+    const A = MOLE_ART;
+    c.lineCap = 'round'; c.strokeStyle = A.glasses; c.lineWidth = 1.1;
+    c.beginPath(); c.moveTo(-7.7, -.9); c.lineTo(-6.3, -.4); c.moveTo(7.7, -.9); c.lineTo(6.3, -.4); c.stroke();
+    c.beginPath(); c.moveTo(-1.3, -.3); c.quadraticCurveTo(0, -1.3, 1.3, -.3); c.lineWidth = 1.3; c.stroke();
+    for (const side of [-1, 1]) {
+      c.beginPath(); c.ellipse(side * 3.6, 0, 3.2, 2.5, side * .08, 0, TAU); c.fillStyle = A.glasses; c.fill();
+      c.lineWidth = .9; c.strokeStyle = '#15151f'; c.stroke();
+      c.beginPath(); c.moveTo(side * 3.6 - 2, -.4); c.lineTo(side * 3.6 - .7, -1.6); c.strokeStyle = 'rgba(255,255,255,.92)'; c.lineWidth = .85; c.stroke();
+    }
+  }
+  function paintMole(c, dazed) {
+    const A = MOLE_ART; c.lineJoin = 'round'; c.lineCap = 'round';
+    headPath(c); c.fillStyle = A.body; c.fill();
+    c.save(); headPath(c); c.clip();
+    c.beginPath(); c.ellipse(0, -3.2, 6.3, 6.4, 0, 0, TAU); c.fillStyle = A.face; c.fill();
+    c.beginPath(); c.ellipse(-3.6, -11.8, 3, 1.3, -.5, 0, TAU); c.fillStyle = 'rgba(255,255,255,.24)'; c.fill();
+    c.restore();
+    headPath(c); c.strokeStyle = A.ink; c.lineWidth = 1.4; c.stroke();
+    c.lineWidth = 1.1;
+    for (const [x, a] of [[-1.7, -.5], [0, 0], [1.7, .5]]) { c.beginPath(); c.moveTo(x, -14); c.lineTo(x + Math.sin(a) * 2.2, -14 - Math.cos(a) * 2.5); c.stroke(); }
+    if (dazed) {
+      // A bump where the seed landed.
+      c.beginPath(); c.ellipse(3.4, -14.1, 2.4, 1.8, .3, Math.PI, TAU); c.fillStyle = '#ff9fb0'; c.fill(); c.lineWidth = 1; c.stroke();
+    }
+    for (const side of [-1, 1]) { c.beginPath(); c.ellipse(side * 5.5, -3.7, 1.8, 1.15, 0, 0, TAU); c.fillStyle = 'rgba(255,135,160,.6)'; c.fill(); }
+    c.strokeStyle = 'rgba(75,52,36,.78)'; c.lineWidth = .7;
+    for (const side of [-1, 1]) for (const dy of [-1, 1]) { c.beginPath(); c.moveTo(side * 3.8, -4.4 + dy * .5); c.lineTo(side * 9, -5 + dy * 1.7); c.stroke(); }
+    c.beginPath(); c.ellipse(0, -4.4, 4.1, 2.9, 0, 0, TAU); c.fillStyle = A.snout; c.fill(); c.strokeStyle = A.ink; c.lineWidth = 1; c.stroke();
+    c.beginPath(); c.ellipse(0, -5.9, 1.9, 1.25, 0, 0, TAU); c.fillStyle = A.nose; c.fill();
+    c.beginPath(); c.arc(-.6, -6.3, .45, 0, TAU); c.fillStyle = '#ffffff'; c.fill();
+    if (dazed) { c.beginPath(); c.ellipse(0, -2.4, 1.2, 1.5, 0, 0, TAU); c.fillStyle = '#5a2d2d'; c.fill(); }
+    else {
+      // Buck teeth under a little grin.
+      c.beginPath(); c.moveTo(-2, -3.3); c.quadraticCurveTo(0, -2.2, 2, -3.3); c.strokeStyle = A.ink; c.lineWidth = .8; c.stroke();
+      for (const side of [-1, 1]) { c.beginPath(); c.rect(side > 0 ? .1 : -1.3, -2.9, 1.2, 1.7); c.fillStyle = '#ffffff'; c.fill(); c.lineWidth = .6; c.strokeStyle = A.ink; c.stroke(); }
+    }
+    c.save();
+    if (dazed) {
+      // The glasses slid down to one side; the eye behind the other lens is seeing stars.
+      c.strokeStyle = A.ink; c.lineWidth = 1.1;
+      c.beginPath(); c.moveTo(-5.1, -11.1); c.lineTo(-2.3, -8.3); c.moveTo(-2.3, -11.1); c.lineTo(-5.1, -8.3); c.stroke();
+      c.translate(1.8, -8); c.rotate(.42);
+    } else c.translate(0, -9.6);
+    paintGlasses(c);
+    c.restore();
+  }
+  // Two pink paws resting on the rim of the hole.
+  function paintPaws(c) {
+    const A = MOLE_ART;
+    for (const side of [-1, 1]) {
+      c.beginPath(); c.ellipse(side * 5.9, .5, 2.7, 1.8, side * -.2, 0, TAU); c.fillStyle = A.snout; c.fill();
+      c.strokeStyle = A.ink; c.lineWidth = .9; c.stroke();
+      c.lineWidth = .6;
+      for (const k of [-1, 0, 1]) { c.beginPath(); c.moveTo(side * 5.9 + k * 1.1, -.4); c.lineTo(side * 5.9 + k * 1.2, .5); c.stroke(); }
+    }
+  }
+  // The glasses' glint sweeping across both lenses (three frames), laid over the mole.
+  function paintGlint(c, frame) {
+    c.save(); c.translate(0, -9.6);
+    c.beginPath(); for (const side of [-1, 1]) { c.moveTo(side * 3.6 + 3.2, 0); c.ellipse(side * 3.6, 0, 3.2, 2.5, side * .08, 0, TAU); }
+    c.clip();
+    const x = -7 + frame * 5;
+    c.beginPath(); c.moveTo(x - 1.4, 3); c.lineTo(x + 1.6, -3); c.lineTo(x + 3.2, -3); c.lineTo(x + .2, 3); c.closePath();
+    c.fillStyle = 'rgba(255,255,255,.75)'; c.fill();
+    c.restore();
+  }
+  function paintStar(c) {
+    c.beginPath();
+    for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 1.5 : 3.6; c.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
+    c.closePath(); c.lineJoin = 'round'; c.fillStyle = MOLE_ART.star; c.fill(); c.strokeStyle = MOLE_ART.starInk; c.lineWidth = .9; c.stroke();
+  }
+  // Sprite definitions [key, box, paint]; every key is fixed (no animated value in it).
+  const MOLE_SPRITES = {
+    mound: [`foe:molehill:12:mound`, [-18, -14, 18, 12], c => paintMound(c, false)],
+    cracked: [`foe:molehill:12:cracked`, [-18, -14, 18, 12], c => paintMound(c, true)],
+    patch: [`foe:mole:10:patch`, [-16, -13, 16, 3], paintPatch],
+    lip: [`foe:molehill:12:lip`, [-9, HOLE.y - 4, 9, HOLE.y + 4.5], paintLip],
+    peek: [`foe:mole:10:peek`, [-11, -19, 11, 6], c => paintMole(c, false)],
+    dazed: [`foe:mole:10:dazed`, [-11, -19, 11, 6], c => paintMole(c, true)],
+    paws: [`foe:mole:10:paws`, [-10, -3, 10, 4], paintPaws],
+    glint0: [`foe:mole:10:glint0`, [-8, -13, 8, -6], c => paintGlint(c, 0)],
+    glint1: [`foe:mole:10:glint1`, [-8, -13, 8, -6], c => paintGlint(c, 1)],
+    glint2: [`foe:mole:10:glint2`, [-8, -13, 8, -6], c => paintGlint(c, 2)],
+    star: [`foe:mole:10:star`, [-5, -5, 5, 5], paintStar]
+  };
+  // A sprite placed with its point (px, py) at (x, y), turned and scaled about that point.
+  function moleSprite(ctx, kit, name, x, y, px = 0, py = 0, turn = 0, sx = 1, sy = sx) {
+    const [key, box, paint] = MOLE_SPRITES[name], sprite = kit.atlasSprite(key, box[0], box[1], box[2], box[3], paint);
+    ctx.save(); ctx.translate(x + px, y + py); if (turn) ctx.rotate(turn); if (sx !== 1 || sy !== 1) ctx.scale(sx, sy); if (px || py) ctx.translate(-px, -py);
+    if (sprite) kit.blit(ctx, sprite); else paint(ctx);
+    ctx.restore();
+  }
+  function warmMole(kit) { for (const [key, box, paint] of Object.values(MOLE_SPRITES)) kit.atlasSprite(key, box[0], box[1], box[2], box[3], paint); }
+  // The tell. p runs 0 -> 1 over the rumble: the shiver (18 Hz, up to 2 px) and wobble (9 Hz) grow from half to full,
+  // four crumbs hop off the top at 8 Hz, little shake marks flicker at both sides, the mound bulges in the last fifth,
+  // and two glints blink in the hole in the last 40%. Animations off: cracks, two resting crumbs and steady marks.
+  function drawMoleRumble(ctx, kit, x, y, until, clock, still, base = 'mound') {
+    const p = clamp(1 - (until - clock) / HOLE.rumble, 0, 1), peeking = p > .6;
+    let marks = 1;
+    if (still) {
+      moleSprite(ctx, kit, base === 'mound' ? 'cracked' : base, x, y);
+      for (const [dx, dy] of [[-6, -13.8], [5.5, -14.8]]) kit.circle(ctx, x + dx, y + dy, 1.9, MOLE_ART.top, MOLE_ART.ink, .9);
+    } else {
+      const shiver = Math.sin(clock * 18 * TAU) * (1 + p), wobble = Math.sin(clock * 9 * TAU + 1.3) * .05 * (.4 + p);
+      const bulge = Math.sin(clamp((p - .8) / .2, 0, 1) * Math.PI / 2);
+      moleSprite(ctx, kit, base, x + shiver, y, 0, 8, wobble, 1 - .06 * bulge, 1 + .12 * bulge);
+      for (let i = 0; i < 4; i++) {
+        const bx = [-8.5, -3, 3.5, 9][i], hop = Math.abs(Math.sin(clock * 8 * Math.PI + i * 1.7)) * 4 * (.6 + .4 * p);
+        kit.circle(ctx, x + shiver + bx, y - 11 + Math.abs(bx) * .28 - hop, 1.9, MOLE_ART.top, MOLE_ART.ink, .9);
+      }
+      marks = (.5 + .5 * p) * (Math.sin(clock * 9 * TAU) > -.3 ? 1 : .35);
+      x += shiver;
+    }
+    // Shake marks: two short ink arcs at each side of the mound.
+    ctx.save(); ctx.globalAlpha *= .8 * marks; ctx.strokeStyle = MOLE_ART.ink; ctx.lineWidth = 1.3; ctx.lineCap = 'round';
+    for (const side of [-1, 1]) for (const [r, a] of [[19, .42], [23.5, .34]]) {
+      ctx.beginPath(); ctx.arc(x, y + 1, r, side > 0 ? -a : Math.PI - a, side > 0 ? a : Math.PI + a); ctx.stroke();
+    }
+    ctx.restore();
+    if (peeking) {
+      const blink = still ? 1 : clamp((p - .6) / .1, 0, 1) * (Math.sin(clock * 30) > -.7 ? 1 : .2);
+      ctx.save(); ctx.globalAlpha *= blink;
+      for (const side of [-1, 1]) kit.circle(ctx, x + side * 2.3, y + HOLE.y - .2, .95, '#ffffff');
+      ctx.restore();
+    }
+  }
+  // The mole in the hole centered at (hx, hy): rising with an overshoot (0 -> 1.12 -> 1 over .18 s) after his pop,
+  // looking about while up, sinking behind the front lip as he ducks. The clip keeps him out of the hill's front.
+  function drawMolePeek(ctx, kit, mole, hx, hy, clock, still, quality) {
+    let lift = 0, scale = 1, sy = 1, turn = 0, paws = true, glint = -1;
+    const since = clock - mole.rumbleUntil;
+    if (!still) {
+      if (since < .18) {
+        const k = clamp(since / .18, 0, 1);
+        lift = HOLE.deep * (1 - k) * (1 - k); scale = k < .65 ? .35 + .77 * (k / .65) : 1.12 - .12 * ((k - .65) / .35); paws = k > .7;
+      } else if (mole.phase === 'duck') {
+        const k = clamp(1 - (mole.until - clock) / .2, 0, 1);
+        lift = HOLE.deep * k * k; sy = 1 - .1 * k; paws = k < .35;
+      } else {
+        // Up: a slow look left and right, a little bob, and a glint over his glasses every 1.8 s (quality <= 1).
+        turn = Math.sin(since * 3.4) * .1; sy = 1 + Math.sin(since * 9) * .025;
+        const g = (since - .3) % 1.8;
+        if (quality <= 1 && g >= 0 && g < .3) glint = Math.min(2, Math.floor(g / .1));
+      }
+    }
+    scale *= SIZE;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(hx - 16, hy - 40, 32, 40); ctx.moveTo(hx + HOLE.rx, hy); ctx.ellipse(hx, hy, HOLE.rx, HOLE.ry, 0, 0, TAU); ctx.clip();
+    moleSprite(ctx, kit, 'peek', hx, hy + lift, 0, 0, turn, scale, scale * sy);
+    if (glint >= 0) moleSprite(ctx, kit, 'glint' + glint, hx, hy + lift, 0, 0, turn, scale, scale * sy);
+    ctx.restore();
+    moleSprite(ctx, kit, 'lip', hx, hy - HOLE.y);
+    if (paws) moleSprite(ctx, kit, 'paws', hx, hy, 0, 0, 0, SIZE);
+  }
+  // The live mole of a hill's group (the hill draws him while he is up on it).
+  function moleOfHill(state, hill) {
+    for (const bud of state.buds || []) if (bud.group === hill.group && bud.foe === 'mole' && !bud.bloomed) return bud;
+    return null;
+  }
+  BloomFoeLook('molehill', {
+    warm: warmMole,
+    bud(ctx, hill, time, still, state, kit, quality) {
+      const clock = Number(state.foeClock) || 0, mole = moleOfHill(state, hill), x = hill.x, y = hill.y;
+      const his = Boolean(mole && mole.hill === hill.slot && !mole.loose);
+      // The tell: this is the hill he is coming up through.
+      if (his && mole.hidden && mole.phase === 'rumble' && hill.rumbleUntil > clock) { drawMoleRumble(ctx, kit, x, y, hill.rumbleUntil, clock, still); return; }
+      const up = his && !mole.hidden && (mole.phase === 'up' || mole.phase === 'duck' || mole.phase === 'stay');
+      // The hill squashes as he bursts out of it.
+      const k = up && !still ? (clock - mole.rumbleUntil) / .16 : 1, give = k >= 0 && k < 1 ? Math.sin(k * Math.PI) * .14 : 0;
+      moleSprite(ctx, kit, 'mound', x, y, 0, 8, 0, 1 + give, 1 - give);
+      if (up) drawMolePeek(ctx, kit, mole, x, y + HOLE.y, clock, still, quality);
+    }
+  });
+  BloomFoeLook('mole', {
+    warm: warmMole,
+    // Only a mole with no open hill under him draws himself, on his own patch of dirt.
+    bud(ctx, mole, time, still, state, kit, quality) {
+      if (!mole.loose || mole.hidden) return;
+      const clock = Number(state.foeClock) || 0, hx = mole.x, hy = mole.y + PERCH + HOLE.y;
+      moleSprite(ctx, kit, 'patch', mole.x, mole.y + PERCH);
+      drawMolePeek(ctx, kit, mole, hx, hy, clock, still, quality);
+    },
+    // A mole whose hills are all gone rumbles up through bare ground: the patch shivers where he will appear.
+    under(ctx, state, time, still, kit) {
+      const clock = Number(state.foeClock) || 0;
+      for (const mole of state.buds || []) {
+        if (mole.foe !== 'mole' || mole.bloomed || !mole.hidden || !mole.anchor || !(mole.rumbleUntil > clock)) continue;
+        drawMoleRumble(ctx, kit, mole.x, mole.y + PERCH, mole.rumbleUntil, clock, still, 'patch');
+      }
+    },
+    // Bonk: flat for a beat (the hit-stop holds it), springs up tall with his glasses knocked crooked, then shrinks
+    // into his opening flower; three stars circle where his head was for .5 s (quality <= 1). His bud's white bloom
+    // flash is a disc that would cover his hill, so his ground is drawn back over it until the hill blooms itself.
+    over(ctx, state, time, still, kit, quality) {
+      for (const mole of state.buds || []) {
+        if (mole.foe !== 'mole' || !mole.bloomed || typeof mole.bloomAt !== 'number') continue;
+        const age = time - mole.bloomAt, hx = mole.x, hy = mole.y - PERCH + 1.5;
+        if (age >= 0 && age < (mole.bonked ? .1 : .04)) {
+          let hill = null;
+          for (const bud of state.buds) if (bud.foe === 'molehill' && bud.group === mole.group && bud.slot === mole.hill) hill = bud;
+          if (mole.loose) moleSprite(ctx, kit, 'patch', hx, hy - HOLE.y);
+          else if (hill && !hill.bloomed) moleSprite(ctx, kit, 'mound', hx, hy - HOLE.y);
+        }
+        if (!mole.bonked || !(age >= 0 && age < .5)) continue;
+        if (age < .36) {
+          let sx = 1, sy = 1, fade = 1;
+          if (!still) {
+            if (age < .1) { sx = 1.3; sy = .7; }
+            else if (age < .22) { const k = (age - .1) / .12; sx = 1.3 - .4 * k; sy = .7 + .42 * k; }
+            else { const k = (age - .22) / .14; sx = .9 * (1 - k) + .05; sy = 1.12 * (1 - k) + .05; fade = 1 - k * .6; }
+          }
+          ctx.save(); ctx.globalAlpha *= fade;
+          ctx.beginPath(); ctx.rect(hx - 18, hy - 40, 36, 40); ctx.moveTo(hx + HOLE.rx, hy); ctx.ellipse(hx, hy, HOLE.rx, HOLE.ry, 0, 0, TAU); ctx.clip();
+          moleSprite(ctx, kit, 'dazed', hx, hy, 0, 0, 0, sx * SIZE, sy * SIZE);
+          ctx.restore();
+          // His hill is still there for the first beat (it blooms a moment after him).
+          if (age < .1) moleSprite(ctx, kit, 'lip', hx, hy - HOLE.y);
+        }
+        if (quality > 1) continue;
+        const grow = still ? 1 : clamp(age / .08, 0, 1) * clamp((.5 - age) / .15, 0, 1);
+        for (let i = 0; i < 3; i++) {
+          const a = (still ? 0 : age * 9) + i * TAU / 3, sx = hx + Math.cos(a) * 11.5, sy = hy - 19 + Math.sin(a) * 3.4;
+          moleSprite(ctx, kit, 'star', sx, sy, 0, 0, still ? 0 : age * 6 + i, Math.max(.01, grow));
+        }
+      }
+    }
+  });
 
   // ── Fibcap (Level 3, `fibcap`) ──
 

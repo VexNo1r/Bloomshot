@@ -1643,6 +1643,33 @@
   };
 
   // ── Peekaboo Mole (Level 2, `mole`) ──
+  // Crumbs of dirt jump off the rumbling hill with each thump, a spray of dirt and a small coral ring when he pops out,
+  // a little puff as he ducks, and for a bonk a beat of hit-stop, a shake and the "Bonk!" stamp above his hill (the art
+  // squashes him and circles three stars round his head). A seed bouncing off a hill kicks up dirt.
+  const MOLE_DIRT = ['#b9875a', '#9a6a43', '#d2a676'];
+  function moleDirt(x, y, count, speed) {
+    if (!save.settings.motion) return;
+    count = Math.max(1, Math.round(count * [1, .6, .35][game?.quality || 0]));
+    for (let i = 0; i < count; i++) {
+      const a = -Math.PI / 2 + (Math.random() - .5) * 1.9, v = speed * (.55 + Math.random() * .45), life = .38 + Math.random() * .22;
+      game.particles.push({ x: x + (Math.random() - .5) * 10, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life, maxLife: life, kind: 'crumb',
+        color: MOLE_DIRT[i % MOLE_DIRT.length], size: 1.5 + Math.random() * 1.2, rotation: a, spin: (Math.random() - .5) * 12, gravity: 300, drag: 1.2 });
+    }
+  }
+  FOE_FX.mole = {
+    rumble(e) { moleDirt(e.x, e.y - 12, 2, 55); },
+    pop(e) { moleDirt(e.x, e.y - 6, 6, 95); foeRing(e.x, e.y - 8, FOE_COLORS.coral, 7, 10, .25); haptic('tick'); },
+    duck(e) { moleDirt(e.x, e.y - 4, 2, 40); },
+    bonk(e) {
+      jolt(.12, .06); haptic('warn');
+      // His bloom's glow mote would wash out his dazed face through the hit-stop; the art's stars and squash are the show.
+      game.particles = game.particles.filter(p => !(p.kind === 'glow' && Math.hypot(p.x - e.x, p.y - e.y) < 16));
+      game.floaters.push({ kind: 'trick', trick: 'bonk', text: 'Bonk!', label: '', x: clamp(e.x, 60, 360), y: Math.max(40, e.y - 54), life: 1, maxLife: 1 });
+    }
+  };
+  FOE_FX.molehill = {
+    guard(e) { moleDirt(e.x, e.y, 3, 50); foeRing(e.x, e.y, '#b9875a', 5, 12, .25); haptic('tick'); }
+  };
 
   // ── Fibcap (Level 3, `fibcap`) ──
 
