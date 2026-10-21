@@ -1863,6 +1863,8 @@
     'snooze:start'(e) { const t = (e.targets || []).find(t => t.role === 'z'); if (t) foeRing(t.x, t.y, '#9fd6ff', 6, 18, .35); },
     'snooze:zpop'(e) {
       burst({ x: e.x, y: e.y, type: 'sky', r: 13 }, 18, game.particles, currentKeepsake(), false); foeRing(e.x, e.y, '#9fd6ff', 10, 34, .45);
+      // The jolt wakes him: his nap bubble pops where it floats.
+      if (e.bubble) { burst({ x: e.bubble.x, y: e.bubble.y, type: 'sky', r: 18 }, 12, game.particles, currentKeepsake(), false); foeRing(e.bubble.x, e.bubble.y, '#ffffff', 16, 30, .35); }
       bossCallout(e.x, e.y, 'Pop!', 1); jolt(.14, .06, .2); haptic('surge');
     },
     'snooze:nap'(e) {

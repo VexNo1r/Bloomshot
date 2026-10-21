@@ -1497,7 +1497,7 @@
   const SUN_UP = 34, SUN_TILE = r => [-r * 1.62, -r * 1.62, r * 1.62, r * 1.62];
   // The same lazy Z path as bosses.js (art keeps no dependency on the rules): a straight drift with two side sways.
   function sunZ(p, clock) {
-    const dx = p.to.x - p.from.x, dy = p.to.y - p.from.y, len = p.len || Math.hypot(dx, dy) || 1, u = clamp((clock - p.born) * 60 / len, 0, 1), w = 30 * Math.sin(4 * Math.PI * u);
+    const dx = p.to.x - p.from.x, dy = p.to.y - p.from.y, len = p.len || Math.hypot(dx, dy) || 1, u = clamp((clock - p.born) * 60 / len, 0, 1), w = -(p.side || 1) * 30 * Math.sin(4 * Math.PI * u);
     return { x: p.from.x + dx * u - dy / len * w, y: p.from.y + dy * u + dx / len * w, u };
   }
   // The face, painted per variant around its own centre. r is the guardian's radius.
@@ -1646,7 +1646,7 @@
     portal: r => [`kit:sunny:portal:${r}`, [-r - 2, -r - 2, r + 2, r + 2], c => paintSunPortal(c, r)],
     swirl: r => [`kit:sunny:swirl:${r}`, [-r * .6, -r * .6, r * .6, r * .6], c => paintSunSwirl(c, r)],
     peek: r => [`kit:sunny:peek:${r}`, [-r - 2, -r - 2, r + 2, r + 2], c => paintSunPeek(c, r)],
-    z: h => [`kit:sunny:z:${h}`, [-h * .6, -h * .62, h * .6, h * .62], c => paintSunZ(c, h)],
+    z: h => [`kit:sunny:z:${h}`, [-h * .39 - 2.4, -h * .5 - 2.4, h * .39 + 2.4, h * .5 + 2.4], c => paintSunZ(c, h)],
     dream: r => [`kit:sunny:dream:${r}`, [-r - 2, -r - 2, r + 2, r + 2], c => paintSunDream(c, r)],
     zz: () => ['kit:sunny:zz', [-13, -15, 15, 13], paintSunZz]
   };
@@ -1727,7 +1727,7 @@
         const open = still ? 1 : age < .2 ? kit.easeBack(clamp(age / .2, 0, 1)) : 1;
         const since = clock - (bud.spitAt ?? -9), squash = !still && since >= 0 && since < .12 ? Math.sin(since / .12 * Math.PI) : 0;
         // The next sprout peeks out from .5 s and is all the way out by the spit at 1.6 s; after it, the mouth is empty.
-        const peek = bud.spitAt == null ? clamp((age - .5) / 1.1, 0, 1) : 0;
+        const peek = bud.spitAt == null && age < 1.6 ? clamp((age - .5) / 1.1, 0, 1) : 0;
         drawSunPortal(ctx, kit, bud.x, bud.y, r, open, squash, peek, time, still);
         return true;
       }
@@ -1748,11 +1748,17 @@
       const clock = Number(s.kitAge) || 0, w = s.warning;
       // Tells: through a volley's or a yawn's warning, a small portal swirls open over each sprout spot.
       if (w && (w.move === 'sprouts' || w.move === 'yawn') && w.until > w.at) {
-        const p = clamp((time - w.at) / (w.until - w.at), 0, 1);
+        const p = clamp((time - w.at) / (w.until - w.at), 0, 1), open = .25 + .4 * p, reach = 24 * open;
+        // The move's label (art.js drawBossWarning) is drawn before this hook, so a tell over it fades to keep it readable.
+        ctx.save(); ctx.font = '600 12px Fredoka';
+        const lw = Math.min(310, Math.max(130, ctx.measureText(String(w.text || 'A guardian is stirring')).width + 28));
+        ctx.restore();
+        const lx = clamp(w.x, lw / 2 + 10, 410 - lw / 2), ly = clamp(w.y + 61, 45, 395);
         for (const t of w.targets || []) {
           const spot = w.move === 'sprouts' ? t.role === 'sprout' && { x: t.x, y: t.y - SUN_UP } : t.role === 'portal' && t;
           if (!spot || !sunRoom(state, spot.x, spot.y, 16)) continue;
-          drawSunPortal(ctx, kit, spot.x, spot.y, 16, .25 + .4 * p, 0, 0, time, still, .55 + .35 * p);
+          const onLabel = Math.abs(spot.x - lx) < lw / 2 + reach && Math.abs(spot.y - ly) < 13 + reach;
+          drawSunPortal(ctx, kit, spot.x, spot.y, 16, open, 0, 0, time, still, (onLabel ? .35 : 1) * (.55 + .35 * p));
         }
       }
       // Sleepy's volley drops out of art-only portals that pop open, squash as they drop it, then shrink away.

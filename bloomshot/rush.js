@@ -16,6 +16,7 @@
   // a quick double tap or a tap a blink early is never lost. An aimed shot (the finger held at least HELD seconds) is kept
   // up to AIM_KEEP early, so letting go just before the seed regrows still fires it. Any other tap on an empty pod is
   // dropped and says so ('dry'); a kept tap that still cannot fire in time says why ('dropped').
+  const BOSS_BODY = new Set(['bubble', 'heart', 'lantern', 'plate', 'satellite']);
   const POD = 4, POD_GAP = .15, POD_REGROW = 6, REFUND = .5, GLANCE = .25, KEEP = .15, HELD = .2, AIM_KEEP = .6;
   // A turning shell lets a shot through only near its opening (about 140 degrees of the circle). Briars
   // grow back unless their whole patch blooms within a few seconds of the first one.
@@ -332,8 +333,10 @@
         gift: 'lullaby', freeBossGift: true, relay: false, hp: 1, maxHp: 1, fall: .5, sway: 0, hitAt: -100, bloomed: false, bloomAt: -100, spawnAt: this.time });
       this.event('giftAppear', { power: 'lullaby', ...spot, freeBossGift: true });
     }
+    // Only a part of the guardian's own body (his bubble, hearts, lantern, plates, satellites) passes a power's rings to
+    // him; an attacking part out on the board (a portal, a snooze Z, a knot, a pad) just blooms.
     _powerBossFor(bud) {
-      return bud.boss ? bud : bud.bossPart ? this.buds.find(b => b.boss && b.id === bud.bossId) : null;
+      return bud.boss ? bud : BOSS_BODY.has(bud.bossPart) ? this.buds.find(b => b.boss && b.id === bud.bossId) : null;
     }
     // A multi-part guardian is one opponent for paid ring damage. Its real proxy may be the only
     // hittable surface (Crystal), so route the stated dose to the owner once, without critical bonuses.

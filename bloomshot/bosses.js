@@ -24,7 +24,8 @@
   function held(s, bud) {
     if (!s.tierAt) return false;
     const waiting = s.shiftPending || (s.warning && s.warning.move === 'stage') || (s.tier < 2 && s.boss.hp <= s.tierAt[s.tier]);
-    return Boolean(waiting && (bud === s.boss || (bud.bossPart === 'heart' && bud.real) || bud.bossPart === 'lantern'));
+    // By id, not identity: the bot asks about copies of the guardian.
+    return Boolean(waiting && ((bud.boss && bud.id === s.boss.id) || (bud.bossPart === 'heart' && bud.real) || bud.bossPart === 'lantern'));
   }
   const STAGE_WARNING = TELEGRAPH;
   const open = b => !b.bloomed && !b.gift && !b.inert;
@@ -668,7 +669,7 @@
   // Where the snooze Z is u of the way along its lazy path: a straight drift to the launcher with two slow side sways.
   function sunnyZ(p, clock) {
     const dx = p.to.x - p.from.x, dy = p.to.y - p.from.y, u = clamp((clock - p.born) * SUNNY.zSpeed / p.len, 0, 1);
-    const w = SUNNY.zSway * Math.sin(4 * Math.PI * u);
+    const w = -(p.side || 1) * SUNNY.zSway * Math.sin(4 * Math.PI * u);
     return { x: p.from.x + dx * u - dy / p.len * w, y: p.from.y + dy * u + dx / p.len * w, u };
   }
   // A spot clear of every open piece, now and (ahead) once a tell has run: flowers fall and the guardian drifts.
@@ -702,28 +703,34 @@
         const sprouts = sunnyTargets(game); if (!sprouts.length) return null;
         const portals = sprouts.map(t => ({ x: t.x, y: t.y - SUNNY.portalUp, r: SUNNY.portalR, role: 'portal' }))
           .filter(m => sunnyClear(game, s, m.x, m.y, 0, 20, true));
+        // The volley holds while earlier sprouts (a volley's or a spit's) still fall, so the tell shows only what will drop.
+        if (game.buds.some(p => p.sunnySprout && !p.bloomed)) return portals.length ? { targets: portals } : null;
         return { targets: [...sprouts, ...portals] };
       },
       // The Z leaves from beside his face (never over his nap bubble) and lands just above the launcher.
       snooze(game, s, b) {
         if (s.parts.some(p => p.bossPart === 'z' && !p.bloomed)) return null;
         const at = positions(s, TELEGRAPH).get(b.id), side = at.x > 210 ? -1 : 1;
-        return { targets: [{ x: at.x + side * SUNNY.zSide, y: at.y + SUNNY.zDrop, r: 16, role: 'z' }, { x: SUNNY.zLand.x, y: SUNNY.zLand.y, r: 20, role: 'zland' }] };
+        return { targets: [{ x: at.x + side * SUNNY.zSide, y: at.y + SUNNY.zDrop, r: 16, role: 'z', side }, { x: SUNNY.zLand.x, y: SUNNY.zLand.y, r: 20, role: 'zland' }] };
       }
     },
     act: {
       yawn(game, s, w) {
         // Portals open first, so the volley's own sprouts never count as something in their way.
-        const marks = w.targets.filter(t => t.role === 'portal' && sunnyClear(game, s, t.x, t.y, 0, 20, true));
+        // The plan already looked ahead to this moment, so only what stands there now can stop a portal; the start ring
+        // (sent after this, from the same warning) then marks only the portals that open.
+        const marks = w.targets.filter(t => t.role === 'portal' && sunnyClear(game, s, t.x, t.y, 0, 20, false));
+        w.targets = w.targets.filter(t => t.role !== 'portal' || marks.includes(t));
         sunnyVolley(game, w.targets.filter(t => t.role === 'sprout'));
         const portals = marks.map(t => part(game, 'portal', t.x, t.y, SUNNY.portalR, 1, { born: s.kitAge, sunBonus: 1 }));
         if (portals.length) { s.portals.push(...portals); after(s, SUNNY.spitAt, 'spit', portals); for (const p of portals) after(s, SUNNY.closeAt, 'close', p); }
         // Like the volley, a yawn never cuts short a dizzy window the player earned: the next move waits for it.
         return Math.max(2.5, (s.modeUntil + .8 - s.age) / TIER_PACE[s.tier]);
       },
-      snooze(game, s) {
-        const b = s.boss, side = b.x > 210 ? -1 : 1, from = { x: b.x + side * SUNNY.zSide, y: b.y + SUNNY.zDrop }, to = { ...SUNNY.zLand };
-        part(game, 'z', from.x, from.y, SUNNY.zR, 1, { born: s.kitAge, from, to, len: Math.hypot(to.x - from.x, to.y - from.y) });
+      // The Z leaves from the spot its tell marked (a Lullaby may have moved him since) and first sways away from him.
+      snooze(game, s, w) {
+        const t = w.targets.find(t => t.role === 'z'), from = { x: t.x, y: t.y }, to = { ...SUNNY.zLand };
+        part(game, 'z', from.x, from.y, SUNNY.zR, 1, { born: s.kitAge, from, to, side: t.side || 1, len: Math.hypot(to.x - from.x, to.y - from.y) });
       },
       // From Cranky on, his nap bubble takes two hits.
       nap(game, s, w) { const bubble = s.parts.find(p => p.bossPart === 'bubble'); if (bubble && s.tier) bubble.maxHp = 2; return legacyAct(game, s, w); }
@@ -767,10 +774,10 @@
       if (bud.bossPart === 'z') {
         // Popped: the jolt wakes him (his nap bubble goes too) and leaves him dizzy, so seeds land double.
         s.mode = 'dizzy'; s.vulnerable = true; s.modeUntil = Math.max(s.modeUntil, s.age + SUNNY.dizzy);
-        const bubble = s.parts.find(p => p.bossPart === 'bubble');
-        if (bubble && !bubble.bloomed) { bubble.bloomed = bubble.popped = true; bubble.bloomAt = game.time; }
+        const bubble = s.parts.find(p => p.bossPart === 'bubble'), woke = Boolean(bubble && !bubble.bloomed);
+        if (woke) { bubble.bloomed = bubble.popped = true; bubble.bloomAt = game.time; }
         game.event('bossPhase', { kind: s.kind, mode: s.mode });
-        game.event('bossAbility', { kind: s.kind, move: 'snooze', act: 'zpop', x: bud.x, y: bud.y });
+        game.event('bossAbility', { kind: s.kind, move: 'snooze', act: 'zpop', x: bud.x, y: bud.y, bubble: woke ? { x: bubble.x, y: bubble.y } : null });
         return true;
       }
       return false;

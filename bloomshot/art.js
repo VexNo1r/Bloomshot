@@ -2303,8 +2303,9 @@
     const p = clamp(1 - (w.until - time) / span, 0, 1);
     ctx.save(); ctx.lineCap = 'round';
     for (const t of Array.isArray(w.targets) ? w.targets.slice(0, 12) : []) {
-      // Ordinary-flower tells have their own live-position marks, including Core copy destinations.
-      if (t.effect || t.role === 'flower-effect' || !Number.isFinite(t.x) || !Number.isFinite(t.y)) continue;
+      // Ordinary-flower tells have their own live-position marks, including Core copy destinations. Old Sunny's portal
+      // marks sit just above his sprout rings, and his kit draws an opening portal there as their tell.
+      if (t.effect || t.role === 'flower-effect' || t.role === 'portal' || !Number.isFinite(t.x) || !Number.isFinite(t.y)) continue;
       const radius = Math.max(8, Number(t.r) || 14) + 7;
       // A dashed footprint denotes an upcoming hazard, distinct from the seed's lock-on arrowheads.
       ctx.setLineDash([4, 4]); circle(ctx, t.x, t.y, radius, null, '#fff6ce', 4); circle(ctx, t.x, t.y, radius, null, '#b55c67', 2); ctx.setLineDash([]);
@@ -4786,7 +4787,7 @@
       // Legacy authored flags must not invent shell armor on a controller whose actual defence is different.
       if (bud.shell && !bud.bloomed && (!bud.boss || !bossLook(bud) || bud.bossKind === 'fossil')) drawShell(ctx, bud);
       if (bud.boss && !bud.bloomed) { if (!(kitArt && kitArt.face(ctx, state, bud, time, still, FOE_KIT, foeQuality))) drawBossFace(ctx, bud, time, options.reducedMotion); drawBossRing(ctx, bud); drawBossDefense(ctx, bud, state, time, Boolean(options.reducedMotion)); drawBossGestures(ctx, bud, time, Boolean(options.reducedMotion)); }
-      else if (crack > 0) { const a = ctx.globalAlpha; ctx.globalAlpha = a * crack; drawBossBody(ctx, bud, time, false); drawBossFace(ctx, bud, time, false); drawBossCrownFlying(ctx, bud, age); ctx.globalAlpha = a; }
+      else if (crack > 0) { const a = ctx.globalAlpha; ctx.globalAlpha = a * crack; drawBossBody(ctx, bud, time, false); if (!(kitArt && kitArt.face(ctx, state, bud, time, still, FOE_KIT, foeQuality))) drawBossFace(ctx, bud, time, false); drawBossCrownFlying(ctx, bud, age); ctx.globalAlpha = a; }
       if (bud.relay && !bud.bloomed) drawRelayCrown(ctx, bud);
       if (!bud.bloomed && (bud.power || bud.burst || bud.kind === 'burst')) {
         ctx.save(); ctx.shadowColor = '#fff17a'; ctx.shadowBlur = options.reducedMotion ? 0 : 12;

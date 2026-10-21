@@ -57,6 +57,7 @@ test('The mood change is a 1.3 s guarded warning, then Phase Bloom: the next tie
   const w = s.warning; assert(w && w.move === 'stage', 'the stage warning comes next'); assert.equal(w.text, 'Now cross!');
   assert(w.until - w.at >= 1.3 - 1e-9); assert.deepEqual(w.flowerTargets, [], 'no flower spell rides on a mood change');
   assert.equal(Bosses.canHit(g, b, { nx: 0, ny: 1 }, {}), false, 'seeds glance off while it is announced');
+  assert.equal(Bosses.canHit(g, { ...b }, { nx: 0, ny: 1 }, {}), false, "the bot's copy of the guardian is held too");
   assert.equal(Bosses.canHit(g, b, { nx: 0, ny: 1 }, { power: 'beeline' }), true, 'powers still land');
   const events = []; while (s.warning && s.warning.move === 'stage') { g.step(1 / 120); events.push(...g.drainEvents()); }
   const stage = events.find(e => e.type === 'bossStage');
@@ -101,6 +102,14 @@ function sunnyMove(tier, cycle, g = arena(1)) {
   const w = s.warning; assert(w, 'a warning is up'); while (s.warning) g.step(1 / 120); return { g, s, w, events: g.drainEvents() };
 }
 const acts = (events, act) => events.filter(e => e.type === 'bossAbility' && e.act === act);
+test('Old Sunny: a power that reaches a portal or the snooze Z blooms it but takes no rings off him', () => {
+  for (const [tier, cycle, role] of [[1, 0, 'portal'], [2, 1, 'z']]) {
+    const { g, s } = sunnyMove(tier, cycle), b = s.boss, part = s.parts.find(p => p.bossPart === role && !p.bloomed), hp = b.hp;
+    if (role === 'z') advance(g, 2.5);
+    g.spawnBall({ x: part.x, y: part.y + 40, angle: -Math.PI / 2, speed: 520, power: 'sunburst' }); advance(g, .5);
+    assert(part.bloomed, `the ${role} bloomed`); assert.equal(b.hp, hp, `the ${role} passed no rings to him`);
+  }
+});
 test('Old Sunny: 18 health turning Cranky at 12 and Wide awake at 6, with his own words for each mood', () => {
   const g = arena(1), s = g.bossState, k = Bosses.kits.sunny;
   assert.equal(Bosses.health.sunny, 18); assert.equal(s.boss.maxHp, 18); assert.deepEqual(s.tierAt, [12, 6]);
@@ -237,11 +246,11 @@ test('Old Sunny: tier 2 plays the same at 30, 60 and 144 FPS', () => {
 test('Old Sunny: a Lullaby holds the portals, their spit and the Z in flight; they carry on after it, late by its length', () => {
   const { g, s } = sunnyMove(1, 0); for (const p of g.buds.filter(p => p.sunnySprout)) p.y += 60;
   const kit = s.kitAge, spit = s.timers.find(t => t.act === 'spit').at; advance(g, .5);
-  g.lullaby = 1; advance(g, 1); assert(Math.abs(s.kitAge - kit - .5) < 1e-6, 'the kit clock stopped'); assert(!acts(g.drainEvents(), 'spit').length);
+  g.lullaby = 1; advance(g, .9); assert(Math.abs(s.kitAge - kit - .5) < 1e-6, 'the kit clock stopped'); assert(!acts(g.drainEvents(), 'spit').length);
   let at = null; for (let n = 0; n < 240 && at == null; n++) { g.step(1 / 120); if (acts(g.drainEvents(), 'spit').length) at = g.time; }
   assert(at != null && Math.abs(s.kitAge - spit) < .01, 'it spat on the kit clock, a second late');
   const { g: h, s: u } = sunnyMove(2, 1), z = u.parts.find(p => p.bossPart === 'z'); advance(h, 1); const pose = [z.x, z.y];
-  h.lullaby = 1; advance(h, 1); assert.deepEqual([z.x, z.y], pose, 'the Z waits in the air');
+  h.lullaby = 1; advance(h, .9); assert.deepEqual([z.x, z.y], pose, 'the Z waits in the air');
 });
 // art.js and foe-art.js in a VM with a recording canvas (as test-boss-art.cjs): every number finite, transforms
 // balanced, and no gradient painted per frame.
@@ -312,7 +321,7 @@ test('Old Sunny: beaten mid-attack, he leaves no portal, Z, timer or napping aim
   for (let n = 0; n < 200 && !s.boss.bloomed; n++) g.strike(s.boss, true);
   assert(s.boss.bloomed); assert.equal(s.timers.length + s.lobs.length + s.portals.length, 0); assert(s.parts.every(p => p.bloomed));
   assert.equal(g.aimNapUntil, 0); assert.equal(g.dangerY, 448);
-  advance(g, 4); assert(!acts(g.drainEvents(), 'spit').length && !acts(g.drainEvents(), 'nap').length);
+  advance(g, 4); const after = g.drainEvents(); assert(!acts(after, 'spit').length && !acts(after, 'nap').length);
 });
 
 // ── Rootknot (Level 2, `root`) ──
