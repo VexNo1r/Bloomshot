@@ -4189,14 +4189,27 @@
     c.translate(0, -1); vineStem(c, VINE.x, VINE.x + VINE.w); c.strokeStyle = light; c.lineWidth = 1.3; c.stroke();
     c.restore();
   }
-  const vineSlot = (i, max) => VINE.x + VINE.w * (i + .5) / max;
-  const vineLeafSize = max => clamp(VINE.w / max * 1.15, 11, 18);
-  function paintVineLeaves(c, max, hp) {
-    const length = vineLeafSize(max);
-    for (let i = 0; i < max; i++) {
-      const x = vineSlot(i, max), y = vineY(x);
-      if (i >= hp) { circle(c, x, y, 1.7, '#a3845a'); continue; }
-      leaf(c, x, y, length, length * .6, i % 2 ? Math.PI - .8 : .8, i % 2 ? '#3fa957' : '#55c467', '#2a7744');
+  // At most 20 leaves, so a big guardian's every hit still shows: each leaf holds max/20 of its health, and the
+  // leading leaf shrinks as it empties. Knots on the stem mark where its stages turn, and bloom once it passes them.
+  const VINE_LEAVES = 20;
+  const vineCount = max => Math.min(VINE_LEAVES, Math.max(1, max));
+  const vineSlot = (i, n) => VINE.x + VINE.w * (i + .5) / n;
+  const vineLeafSize = n => clamp(VINE.w / n * 1.15, 11, 18);
+  function vineLeaf(c, i, n, size) {
+    const length = vineLeafSize(n) * size, x = vineSlot(i, n), y = vineY(x);
+    leaf(c, x, y, length, length * .6, i % 2 ? Math.PI - .8 : .8, i % 2 ? '#3fa957' : '#55c467', '#2a7744');
+  }
+  function paintVineLeaves(c, n, full, knots, type) {
+    for (let i = 0; i < n; i++) {
+      if (i >= full) { const x = vineSlot(i, n); circle(c, x, vineY(x), 1.7, '#a3845a'); continue; }
+      vineLeaf(c, i, n, 1);
+    }
+    // A knot is a little brown burl on the stem; once passed, it opens into a flower of the guardian's color.
+    const tone = FLOWERS[type] || FLOWERS.coral;
+    for (const knot of knots) {
+      const x = VINE.x + VINE.w * knot.at, y = vineY(x);
+      if (knot.open) { blossom(c, x, y - .5, 9, tone.base, .3); circle(c, x, y - .5, 1.6, tone.dark); }
+      else { circle(c, x, y, 3.6, '#8a6a3e', '#5b4426', 1.1); circle(c, x - 1, y - 1, 1.1, '#c7a675'); }
     }
   }
   let vineLeavesKey = '';
@@ -4225,22 +4238,27 @@
     ctx.save(); ctx.globalAlpha *= alpha; ctx.translate(shake, 0);
     const type = FLOWERS[bud.type] ? bud.type : 'coral';
     const paintBase = c => paintVineBase(c, type), paintLag = c => paintVineStem(c, '#ffe58a', '#fffbe6'), paintLive = c => paintVineStem(c, '#3c9a50', '#9de58f');
-    const paintLeaves = c => paintVineLeaves(c, max, hp);
+    const n = vineCount(max), per = max / n, filled = (bud.bloomed ? 0 : clamp(Number(bud.hp) || 0, 0, max)) / per;
+    const full = Math.floor(filled + 1e-9), part = filled - full;
+    const knots = (Array.isArray(vine.tiers) ? vine.tiers : []).filter(t => t > 0 && t < max).map(t => ({ at: t / max, open: hp <= t }));
+    const paintLeaves = c => paintVineLeaves(c, n, full, knots, type);
     vineBlit(ctx, vinePiece(`vine|base|${type}`, paintBase), paintBase, VINE.left, right);
     vineBlit(ctx, vinePiece('vine|lag', paintLag), paintLag, VINE.x - 3, Math.min(right, xLag + 2));
     vineBlit(ctx, vinePiece('vine|live', paintLive), paintLive, VINE.x - 3, Math.min(right, xHp + 2));
     // A boss only ever loses leaves, so the sprite for the count it just left is let go (up to 19 of them a fight).
-    const leavesKey = `vine|leaves|${max}|${hp}`;
+    const leavesKey = `vine|leaves|${type}|${n}|${full}|${knots.map(k => k.open ? 1 : 0).join('')}`;
     if (vineLeavesKey !== leavesKey) { if (vineLeavesKey) stageCache.delete(vineLeavesKey); vineLeavesKey = leavesKey; }
     // Once it blooms only the leaf scars are left, for the .45 s the vine fades: painted live, not a new sprite at
     // the busiest moment of the level.
     vineBlit(ctx, bud.bloomed ? null : vinePiece(leavesKey, paintLeaves), paintLeaves, VINE.left, right);
+    // The leading leaf, partly spent, shrinks with what is left of it (drawn live: one leaf).
+    if (!bud.bloomed && part > .02 && full < n && vineSlot(full, n) <= right) vineLeaf(ctx, full, n, .35 + .65 * part);
     // Lost leaves drop off and tumble away.
-    const length = vineLeafSize(max);
+    const length = vineLeafSize(n);
     for (const fall of vine.fallen || []) {
       const age = time - fall.at;
-      if (still || age < 0 || age > .9 || fall.i >= max) continue;
-      const x0 = vineSlot(fall.i, max), spin = fall.spin || 1;
+      if (still || age < 0 || age > .9 || fall.i >= n) continue;
+      const x0 = vineSlot(fall.i, n), spin = fall.spin || 1;
       ctx.save(); ctx.globalAlpha *= 1 - age / .9;
       leaf(ctx, x0 + spin * age * 24, vineY(x0) + age * 26 + age * age * 150, length, length * .6, (fall.i % 2 ? Math.PI - .8 : .8) + spin * age * 6, '#6cc274', '#2a7744');
       ctx.restore();

@@ -213,10 +213,13 @@ test('A boss wave drops its big bloom from 140 px, then its name card and health
   assert(card.y - 29 > boss.y + boss.r * 1.3, 'the card sits below the boss, not over it');
   const vine = game.stage.vine;
   assert.equal(vine.bud, boss); assert.equal(vine.name, 'Mother Morel'); assert.equal(vine.max, boss.maxHp); assert.equal(typeof vine.shownAt, 'number');
-  // Three hits: three leaves fall, the vine shakes, and the pale damage stretch shrinks back in about .4 s.
+  // Three hits: the leaves that held those rings fall (the vine shows at most 20 leaves, each max/20 of its health),
+  // the vine shakes, and the pale damage stretch shrinks back in about .4 s.
   for (let i = 0; i < 3; i++) game.strike(boss);
   app.frame();
-  assert.equal(vine.hp, boss.maxHp - 3); assert.equal(vine.fallen.length, 3); assert(vine.lag > vine.hp, 'the damage shows first');
+  const leaves = Math.min(20, boss.maxHp), per = boss.maxHp / leaves, emptied = Array.from({ length: leaves }, (_, i) => i * per).filter(at => at >= boss.maxHp - 3 - 1e-9 && at < boss.maxHp - 1e-9).length;
+  assert(emptied >= 1, 'three hits empty at least one leaf');
+  assert.equal(vine.hp, boss.maxHp - 3); assert.equal(vine.fallen.length, emptied); assert(vine.lag > vine.hp, 'the damage shows first');
   assert(Math.abs(vine.shakeAt - game.time) < .05, 'the crack shook the vine');
   app.run(.6);
   assert.equal(vine.lag, vine.hp, 'then it catches up');

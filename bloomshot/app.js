@@ -1029,7 +1029,9 @@
       const hp = vine.bud.bloomed ? 0 : Math.max(0, vine.bud.hp);
       // Each lost leaf falls off the vine; a lighter stretch of stem shows the damage, then shrinks in .4 s.
       if (hp < vine.hp) {
-        for (let i = vine.hp - 1; i >= hp; i--) vine.fallen.push({ i, at: game.time, spin: i % 2 ? 1 : -1 });
+        // The vine shows at most 20 leaves; a leaf falls once the health it holds is all gone.
+        const n = Math.min(20, Math.max(1, vine.max)), per = vine.max / n;
+        for (let i = n - 1; i >= 0; i--) if (i * per >= hp - 1e-9 && i * per < vine.hp - 1e-9) vine.fallen.push({ i, at: game.time, spin: i % 2 ? 1 : -1 });
         vine.hp = hp; vine.lagHold = .1; vine.lagSpeed = (vine.lag - hp) / .4;
       }
       if (vine.lagHold > 0) vine.lagHold -= dt;
@@ -1172,7 +1174,7 @@
     if (!boss) return;
     const name = (event && event.bossName) || boss.name || 'Big bloom', max = Math.max(1, boss.maxHp || boss.hp || 1);
     if (!game.stage) game.stage = { glow: 0 };
-    game.stage.vine = { bud: boss, name, max, hp: Math.max(0, boss.hp), lag: Math.max(0, boss.hp), lagHold: 0, lagSpeed: 0, shakeAt: -100, shownAt: null, fallen: [] };
+    game.stage.vine = { bud: boss, name, max, tiers: (game.bossState && game.bossState.tierAt) || [], hp: Math.max(0, boss.hp), lag: Math.max(0, boss.hp), lagHold: 0, lagSpeed: 0, shakeAt: -100, shownAt: null, fallen: [] };
     BloomSound.play('intro', { level: stageLevel(), boss: true });
     // The card sits clear of the boss (which lands near y 100), so the player can aim at it while the card is up.
     const card = { kind: 'title', boss: true, text: name, label: bossOpeningTip(boss), x: 210, y: 178, life: 1.6, maxLife: 1.6 };
