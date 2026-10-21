@@ -1609,6 +1609,23 @@
   // The foe effects. Each lives in its own block: FOE_FX.<name> = { <act>(event) { ... } }.
   // -----------------------------------------------------------------------------------------------------------------
 
+  // ── Rolypoly (Level 2, `rolypoly`) ──
+
+  // ── Peekaboo Mole (Level 2, `mole`) ──
+
+  // ── Fibcap (Level 3, `fibcap`) ──
+
+  // ── Drippy Inkcap (Level 3, `inkcap`) ──
+
+  // ── Chroma Crystal (Level 4, `chroma`) ──
+
+  // ── Echo Bat (Level 4, `bat`) ──
+
+  // ── Moon Jelly (Level 5, `jelly`) ──
+
+  // ── Glowworm (Level 5, `glowworm`) ──
+
+
   function processEvents() {
     for (const event of game.drainEvents()) {
       if (isTutorial()) tutorial.observe(event);

@@ -134,6 +134,23 @@
   // The foes. Each lives in its own block so they stay independent.
   // ---------------------------------------------------------------------------------------------------------------
 
+  // ── Rolypoly (Level 2, `rolypoly`) ──
+
+  // ── Peekaboo Mole (Level 2, `mole`) ──
+
+  // ── Fibcap (Level 3, `fibcap`) ──
+
+  // ── Drippy Inkcap (Level 3, `inkcap`) ──
+
+  // ── Chroma Crystal (Level 4, `chroma`) ──
+
+  // ── Echo Bat (Level 4, `bat`) ──
+
+  // ── Moon Jelly (Level 5, `jelly`) ──
+
+  // ── Glowworm (Level 5, `glowworm`) ──
+
+
   return { define, FOES, entryOf, isFoe, inert, credited, make, init, initBud, step, contact, guard, hit, bloomed, popped,
     chainable, line, owns, predict, forecasts, value, sweep, hintFor, hash01, orbitAt, lobAt, swapAt, clamp, smooth, TAU };
 });

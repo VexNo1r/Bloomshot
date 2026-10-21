@@ -427,6 +427,23 @@
   // The foe voices. Each lives in its own block: FOE_CUES.<name> = { <act>: { gap, play(data, pan) } }.
   // -----------------------------------------------------------------------------------------------------------------
 
+  // ── Rolypoly (Level 2, `rolypoly`) ──
+
+  // ── Peekaboo Mole (Level 2, `mole`) ──
+
+  // ── Fibcap (Level 3, `fibcap`) ──
+
+  // ── Drippy Inkcap (Level 3, `inkcap`) ──
+
+  // ── Chroma Crystal (Level 4, `chroma`) ──
+
+  // ── Echo Bat (Level 4, `bat`) ──
+
+  // ── Moon Jelly (Level 5, `jelly`) ──
+
+  // ── Glowworm (Level 5, `glowworm`) ──
+
+
   function play(type, data = {}) {
     if (!enabled || !context || asleep) return;
     if (!data || typeof data !== 'object') data = {};

@@ -39,5 +39,22 @@
   // The looks. Each lives in its own block so they stay independent.
   // -----------------------------------------------------------------------------------------------------------------
 
+  // ── Rolypoly (Level 2, `rolypoly`) ──
+
+  // ── Peekaboo Mole (Level 2, `mole`) ──
+
+  // ── Fibcap (Level 3, `fibcap`) ──
+
+  // ── Drippy Inkcap (Level 3, `inkcap`) ──
+
+  // ── Chroma Crystal (Level 4, `chroma`) ──
+
+  // ── Echo Bat (Level 4, `bat`) ──
+
+  // ── Moon Jelly (Level 5, `jelly`) ──
+
+  // ── Glowworm (Level 5, `glowworm`) ──
+
+
   root.BloomFoeArt = { define, LOOKS, has, bud, under, over, aim, warm };
 })(typeof window !== 'undefined' ? window : globalThis);
