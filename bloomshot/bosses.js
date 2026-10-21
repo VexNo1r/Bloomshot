@@ -20,9 +20,14 @@
   // without a kit plays exactly as before. Kits are defined at the end of this file, one block each.
   const KITS = Object.create(null), TIER_PACE = [1, .9, .8];
   const FIXED = new Set(['portal', 'pad', 'knot']);
-  // Parts whose hit lands on the guardian itself, so they are held with it while a mood change is pending.
-  const REDIRECT = new Set(['heart', 'lantern']);
-  const held = (s, bud) => Boolean((s.shiftPending || s.warning && s.warning.move === 'stage') && (bud.boss || REDIRECT.has(bud.bossPart)));
+  // Waiting to change mood: damage to the guardian (its body, its real heart, its lantern) is held.
+  function held(s, bud) {
+    if (!s.tierAt) return false;
+    const waiting = s.shiftPending || (s.warning && s.warning.move === 'stage') || (s.tier < 2 && s.boss.hp <= s.tierAt[s.tier]);
+    return Boolean(waiting && (bud === s.boss || (bud.bossPart === 'heart' && bud.real) || bud.bossPart === 'lantern'));
+  }
+  const STAGE_WARNING = TELEGRAPH;
+  const open = b => !b.bloomed && !b.gift && !b.inert;
   function kit(kind, entry) { KITS[kind] = entry; if (entry.hp) HEALTH[kind] = entry.hp; }
   const kitOf = s => (s && KITS[s.kind]) || null;
   function active(game) { const s = game.bossState; return s && !s.boss.bloomed && !game.over ? s : null; }
@@ -147,7 +152,7 @@
       warning: null, parts: [], hazards: [], serial: 0, action: 0, next: 4, modeUntil: 0, hits: 0, crits: 0, guards: 0,
       heals: 0, summons: 0, lostLives: 0, patches: [], baseX: boss.baseX, baseY: boss.y, drift: 0, bob: 0, stunUntil: 0,
       flowerEffects:new Map(),flowerUsed:new Set(),flowerWarning:null,echoesCreated:0,
-      tier: 0, cycle: 0, shiftPending: false, tierAt: null, carried: [], timers: [], lobs: [], clock: 0, lull: 0 };
+      tier: 0, cycle: 0, shiftPending: false, tierAt: null, carried: [], timers: [], lobs: [], kitAge: 0, lull: 0, hue: null };
     game.bossReached = true; game.bossDefeated = false;
     boss.bossWarning = null; boss.visible = true;
     boss.maxHp = boss.hp = Number.isInteger(boss.hp) && boss.hp > 0 ? boss.hp : HEALTH[s.kind];
@@ -187,7 +192,7 @@
     if (s.kind==='ember' && s.mode==='dive') { const p=clamp((future-s.diveAt)/2.4,0,1),e=p*p*(3-2*p);x=s.diveFrom+(s.diveTo-s.diveFrom)*e; }
     const y = Math.max(90, s.baseY + s.drift + seconds * s.fall + m.y + dive);
     // A kit's own pieces run on its clock, which a Lullaby stops (s.lull is the Lullaby time left).
-    const map = new Map([[boss.id, { x, y, r: boss.r }]]), k = kitOf(s), clock = s.clock + Math.max(0, seconds - s.lull);
+    const map = new Map([[boss.id, { x, y, r: boss.r }]]), k = kitOf(s), clock = s.kitAge + Math.max(0, seconds - s.lull);
     for (const p of s.parts) {
       let px = x, py = y;
       if (p.bossPart === 'bubble') py += 46;
@@ -278,7 +283,12 @@
   function kitMove(s, k) { const list = k.moves[s.tier] || k.moves[0]; return list[(s.tier ? s.cycle : s.action) % list.length]; }
   function schedule(game) {
     const s = active(game), b = s.boss, k = kitOf(s);
-    if (k && s.shiftPending) return warning(game, 'stage', k.stageText[s.tier + 1], [{ x: b.x, y: b.y, r: b.r + 14, role: 'stage' }]);
+    if (k && s.shiftPending) {
+      // The opening the player earned (a dizzy Sunny, an open gutter) is paused for the warning, not lost.
+      if (s.modeUntil > s.age) s.modeUntil += STAGE_WARNING;
+      if (s.kind === 'lotus' && s.gutterUntil > s.age) s.gutterUntil += STAGE_WARNING;
+      return warning(game, 'stage', k.stageText[s.tier + 1], [{ x: b.x, y: b.y, r: b.r + 14, role: 'stage' }]);
+    }
     const move = k ? kitMove(s, k) : null;
     const plan = k && k.plan && k.plan[move] ? k.plan[move](game, s, b) : legacyPlan(game, s, move);
     // A kit move with nothing to do this time (no room to land, nothing to carry) rests briefly and moves on.
@@ -353,17 +363,16 @@
     const own = k && k.act && k.act[w.move], pause = own ? own(game, s, w) : legacyAct(game, s, w);
     s.next = s.age + (Number.isFinite(pause) ? pause : s.kind === 'core' && s.phase === 2 ? 4 : s.kind==='core' && s.phase===1 ? 4.5 : s.kind === 'sunny' && w.move==='sprouts' ? 2.5 : s.kind === 'sunny' ? 10 : Math.max(5, 9 - Object.keys(HEALTH).indexOf(s.kind) * .25)) * (k ? TIER_PACE[s.tier] : 1);
     if (s.kind === 'sunny' && w.move === 'sprouts') s.next = Math.max(s.next, s.modeUntil + .8);
-    // A mood change waiting behind this move comes next (a burrowed guardian surfaces first).
-    if (s.shiftPending) s.next = Math.min(s.next, b.hidden ? Math.max(s.age, s.modeUntil) : s.age);
+    // A mood change waiting behind this move comes next.
+    if (s.shiftPending) s.next = Math.min(s.next, s.age);
     game.event('bossAbility', { kind: s.kind, move: w.move, act: 'start', name: b.name, x: b.x, y: b.y, targets: w.targets });
   }
-  // Phase Bloom: the guardian changes mood, pauses a beat, and its next tier of moves begins. Whatever opening the player
-  // has earned (a dizzy Sunny, a guttered lantern) stays open; a burrowed guardian surfaces before the change.
+  // Phase Bloom: the guardian changes mood, pauses a beat, and its next tier of moves begins. Whatever it was doing (a dizzy
+  // Sunny, an open gutter, a burrowed Rootknot) carries on; that opening was paused while the change was announced.
   function stage(game, s, k, w) {
     const b = s.boss;
     s.tier++; s.cycle = 0; s.shiftPending = false; s.next = s.age + 1;
     game.event('bossStage', { kind: s.kind, stage: s.tier, mood: k.moods[s.tier], name: b.name, x: b.x, y: b.y });
-    game.event('bossAbility', { kind: s.kind, move: 'stage', act: 'start', name: b.name, x: b.x, y: b.y, targets: w.targets });
     if (k.stage) k.stage(game, s);
   }
   function legacyAct(game, s, w) {
@@ -421,7 +430,7 @@
   function step(game, dt) {
     const s = active(game); if (!s) return;
     const b = s.boss; s.age += dt; s.fall = Number.isFinite(b.bossFall) ? b.bossFall : 4;
-    s.lull = game.lullaby > 0 ? game.lullaby : 0; if (!s.lull) s.clock += dt;
+    s.lull = game.lullaby > 0 ? game.lullaby : 0; if (!s.lull) s.kitAge += dt;
     if (s.age >= s.stunUntil) { s.moveAge += dt; if (!(game.lullaby > 0)) s.drift += s.fall * dt; }
     const map = positions(s, 0), k = kitOf(s);
     for (const p of [b, ...s.parts]) { const pos = map.get(p.id); p.x = pos.x; p.y = pos.y; }
@@ -432,7 +441,7 @@
     if (s.modeUntil && s.age >= s.modeUntil) endMode(game, s);
     // A credited seed stops at a mood threshold; anything that crosses it (a power, an uncredited strike) shifts here.
     if (s.tierAt && s.tier < 2 && b.hp <= s.tierAt[s.tier] && !b.bloomed) s.shiftPending = true;
-    if (s.shiftPending && !s.warning) s.next = Math.min(s.next, b.hidden ? Math.max(s.age, s.modeUntil) : s.age);
+    if (s.shiftPending && !s.warning && !(game.lullaby > 0)) s.next = Math.min(s.next, s.age);
     if (s.kind === 'lotus') { const lantern = s.parts.find(p => p.bossPart === 'lantern'); if (lantern.bloomed && s.age >= s.gutterUntil) { revive(lantern, game); s.mode = 'open'; } s.vulnerable = lantern.bloomed; }
     // Let a well-aimed opening meet Sunny's cross-sprout tell before the short introductory fight ends.
     if (s.kind === 'sunny' && s.action === 0 && s.mode !== 'sleeping' && b.hp <= b.maxHp / 2) s.next = Math.min(s.next, s.age + .25);
@@ -448,14 +457,15 @@
     }
     game.bumpers = game.bumpers.filter(p => !p.bossWall || p.expires > s.age);
     game.currents = game.currents.filter(p => !p.bossSwirl || p.expires > s.age);
-    if (game.gates.length) game.gates = game.gates.filter(g => !g.bossMoon || g.expires > s.age);
+    // Kit pieces on the board (a snare, mirrors, moon gates) carry kitUntil on the kit clock, so a Lullaby holds them too.
+    if (game.bumpers.some(p => p.kitUntil != null)) game.bumpers = game.bumpers.filter(p => p.kitUntil == null || p.kitUntil > s.kitAge);
+    if (game.gates.length) game.gates = game.gates.filter(g => !g.bossMoon || (g.kitUntil == null ? g.expires > s.age : g.kitUntil > s.kitAge));
     const lull = game.lullaby > 0;
-    if (!lull) for (const m of game.bumpers) if (m.bossMirror) m.angle += m.spin * dt;
     // Kit timers and lob flights run on the kit clock, so a Lullaby holds them exactly as it holds a warning.
     if (!lull) {
-      if (s.lobs.length) s.lobs = s.lobs.filter(l => s.clock < l.t0 + l.T);
+      if (s.lobs.length) s.lobs = s.lobs.filter(l => s.kitAge < l.t0 + l.T);
       while (s.timers.length) {
-        const due = s.timers.findIndex(t => s.clock >= t.at); if (due < 0) break;
+        const due = s.timers.findIndex(t => s.kitAge >= t.at); if (due < 0) break;
         const [t] = s.timers.splice(due, 1); runTimer(game, s, k, t);
         if (!active(game)) return;
       }
@@ -468,15 +478,15 @@
     else if (!s.warning && s.age >= s.next && !(s.kind==='fossil' && s.lockStage===1)) schedule(game);
   }
   // Shared kit pieces: a timed action, a drawn lob flight, a quiet close, a landing check and a carried flower let go.
-  function after(s, seconds, act, data) { const t = { at: s.clock + seconds, act, data }; s.timers.push(t); return t; }
+  function after(s, seconds, act, data) { const t = { at: s.kitAge + seconds, act, data }; s.timers.push(t); return t; }
   function runTimer(game, s, k, t) {
     const own = k && k.timer && k.timer[t.act];
     if (own) own(game, s, t.data); else if (t.act === 'close') close(game, s, t.data);
   }
-  function lob(s, look, x0, y0, x1, y1, T, extra) { const l = { look, x0, y0, x1, y1, t0: s.clock, T, ...extra }; s.lobs.push(l); return l; }
+  function lob(s, look, x0, y0, x1, y1, T, extra) { const l = { look, x0, y0, x1, y1, t0: s.kitAge, T, ...extra }; s.lobs.push(l); return l; }
   function close(game, s, p) {
     if (!p || p.bloomed) return;
-    p.bloomed = p.popped = p.closed = true; p.bloomAt = game.time; p.closedAt = s.clock;
+    p.bloomed = p.popped = p.closed = true; p.bloomAt = game.time; p.closedAt = s.kitAge;
     game.buds = game.buds.filter(b => b !== p); s.parts = s.parts.filter(b => b !== p);
   }
   function clearSpot(game, x, y, r, skip) {
@@ -521,19 +531,28 @@
       default: return true;
     }
   }
+  // The one place a kit guardian's damage is held or clamped, so no return path can skip it. A credited seed or chain
+  // cannot carry it past a mood threshold: the hit that reaches it stops there, and until the new mood is announced,
+  // credited hits on its body, real heart or lantern are turned away before they do anything. Powers and uncredited
+  // strikes are never held.
   function resolve(game, bud, chain) {
-    const s = active(game); let result = baseResolve(game, bud, chain);
-    if (!s || !(bud.boss || bud.bossPart) || result.blocked) return result;
-    const k = kitOf(s); if (k && k.damage) result = k.damage(game, s, bud, chain, result) || result;
-    return tierClamp(game, s, chain, result);
-  }
-  // A credited seed or chain cannot carry a kit guardian past a mood threshold: the hit that reaches it stops there, and
-  // until the new mood is announced, credited hits are turned away. Powers and uncredited strikes are not held.
-  function tierClamp(game, s, chain, result) {
-    if (!s.tierAt || s.tier >= 2 || result.target !== s.boss || !Foes || !Foes.credited(game, chain) || Foes.isPower(game, game.striker)) return result;
-    const b = s.boss, th = s.tierAt[s.tier], damage = result.damage || 1;
-    if (b.hp > th) { const held = Math.min(damage, b.hp - th); if (b.hp - held <= th) s.shiftPending = true; return held === damage ? result : { ...result, damage: held }; }
-    s.guards++; game.event('bossGuard', { kind: s.kind, bud: b, mode: 'stage' }); return { blocked: true };
+    const s = active(game); if (!s || !(bud.boss || bud.bossPart)) return baseResolve(game, bud, chain);
+    const seed = game.striker || {}, power = Boolean((game.powerBoss && game.powerBoss.boss === bud) || game.powerPart || seed.power);
+    const k = kitOf(s), credited = Boolean(Foes && Foes.credited(game, chain));
+    if (k && k.before) k.before(game, s, bud, chain);
+    if (!power && credited && held(s, bud)) {
+      if (!chain) { s.guards++; game.event('bossGuard', { kind: s.kind, bud, mode: 'stage' }); }
+      return { blocked: true };
+    }
+    let result = baseResolve(game, bud, chain);
+    if (result.blocked) return result;
+    if (k && k.damage) result = k.damage(game, s, bud, chain, result) || result;
+    if (!power && credited && s.tierAt && s.tier < 2 && result.target === s.boss) {
+      const th = s.tierAt[s.tier], hp = s.boss.hp, damage = Math.min(result.damage || 1, hp - th);
+      if (damage !== (result.damage || 1)) result = { ...result, damage };
+      if (hp - damage <= th) { s.shiftPending = true; if (!s.warning) s.next = Math.min(s.next, s.age); }
+    }
+    return result;
   }
   function baseResolve(game, bud, chain) {
     const s = active(game); if (!s || !(bud.boss || bud.bossPart)) return { target: bud, damage: 1 };
@@ -546,7 +565,7 @@
     const k = kitOf(s), own = k && k.resolve ? k.resolve(game, s, bud, chain, seed, hit) : null;
     if (own) return own;
     if (chain && game.due && game.due.by != null && !['sun','boss'].includes(game.due.via) && !canHit(game, bud, hit, seed)) return { blocked: true };
-    if (!chain && !canHit(game, bud, hit, seed)) { s.guards++; game.event('bossGuard', { kind: s.kind, bud, mode: held(s, bud) ? 'stage' : s.mode }); return { blocked: true }; }
+    if (!chain && !canHit(game, bud, hit, seed)) { s.guards++; game.event('bossGuard', { kind: s.kind, bud, mode: s.mode }); return { blocked: true }; }
     if (bud.bossPart === 'heart') { s.stunUntil = s.age + .8; s.modeUntil = s.stunUntil; s.mode = 'stunned'; return game.powerPart ? {blocked:true} : { target: s.boss, damage: 1 }; }
     if (bud.bossPart === 'lantern') { s.gutterUntil = s.age + 5; s.mode = 'gutter'; bud.bloomed = true; bud.bloomAt = game.time;
       if(game.powerPart)return {blocked:true};
@@ -630,10 +649,12 @@
   // kit(kind, { hp, moods: [3], stageText: [null, t1, t2], text: {move}, moves: [tier0[], tier1[], tier2[]],
   //   plan: {move(game, s, b) -> {move?, text?, targets} | null}, act: {move(game, s, w) -> pause seconds?},
   //   timer: {act(game, s, data)}, pose(s, p, bx, by, future) -> {x, y} | null, step(game, s, dt), init(game, s),
-  //   stage(game, s), canHit(game, s, bud, hit, seed) -> bool | undefined, resolve(game, s, bud, chain, seed, hit) -> result | null,
+  //   stage(game, s), canHit(game, s, bud, hit, seed) -> bool | undefined, before(game, s, bud, chain) (runs before the hold),
+  //   resolve(game, s, bud, chain, seed, hit) -> result | null (inside the raw resolve, after the power and puff-chain lines),
   //   damage(game, s, bud, chain, result) -> result, bloomed(game, s, bud) -> true when handled, targets(game, s, list), cleanup(game, s) })
   // A move without a plan or act runs the guardian's original code. Shared helpers: part, after, lob, close, clearSpot,
-  // release, positions, sunnyTargets, sunnyVolley, cluster, legacyPlan, legacyAct, Foes.
+  // release, positions, sunnyTargets, sunnyVolley, cluster, legacyPlan, legacyAct, open, Foes. Times are on the kit clock
+  // s.kitAge (stopped by a Lullaby); a kit bumper or moon gate with kitUntil (and expires: Infinity) leaves at that time.
 
   // ── Old Sunny (Level 1, `sunny`) ──
 

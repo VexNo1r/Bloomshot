@@ -61,7 +61,7 @@ test('The mood change is a 1.3 s guarded warning, then Phase Bloom: the next tie
   const events = []; while (s.warning && s.warning.move === 'stage') { g.step(1 / 120); events.push(...g.drainEvents()); }
   const stage = events.find(e => e.type === 'bossStage');
   assert(stage && stage.stage === 1 && stage.mood === 'Cross' && stage.kind === 'sunny');
-  assert(events.some(e => e.type === 'bossAbility' && e.move === 'stage' && e.act === 'start'));
+  assert(!events.some(e => e.type === 'bossAbility' && e.move === 'stage'), 'Phase Bloom has its own voice only');
   assert.equal(s.tier, 1); assert(!s.shiftPending); assert.equal(s.mode, 'dizzy', 'the earned opening stays open'); assert(Math.abs(s.next - s.age - 1) < .02, 'a one-second beat');
   for (let n = 0; n < 240 && !s.warning; n++) g.step(1 / 120);
   assert.equal(s.warning.move, 'nap', 'tier 1 plays its own list');
@@ -75,7 +75,7 @@ test('A guardian dropped past both thresholds at once changes one mood per warni
 }));
 test('Kit timers and lob flights keep the guardian clock: a Lullaby holds them', () => withKit('sunny', { ...STAND_IN, timer: { ping(game, s, data) { s.pinged = (s.pinged || 0) + data; } } }, () => {
   const g = arena(1), s = g.bossState;
-  s.timers.push({ at: s.clock + .5, act: 'ping', data: 2 }); s.lobs.push({ look: 'test', x0: 0, y0: 0, x1: 1, y1: 1, t0: s.clock, T: .5 });
+  s.timers.push({ at: s.kitAge + .5, act: 'ping', data: 2 }); s.lobs.push({ look: 'test', x0: 0, y0: 0, x1: 1, y1: 1, t0: s.kitAge, T: .5 });
   g.lullaby = 1; advance(g, .6); assert.equal(s.pinged, undefined, 'held'); assert.equal(s.lobs.length, 1);
   advance(g, 1.2); assert.equal(s.pinged, 2, 'fired once the Lullaby ends'); assert.equal(s.lobs.length, 0); assert.equal(s.timers.length, 0);
 }));
