@@ -1823,6 +1823,30 @@
   };
 
   // ── Rootknot (Level 2, `root`) ──
+  // Dirt sprays out of the hole a rolypoly is tossed from and puffs up where it lands; the carousel's knot rings as it
+  // grabs; a fling throws a ring of dust; a snap is the payoff, a crack of wood chips with a beat of hit-stop and "Snap!";
+  // the snare bursts up out of the soil and crumbles away.
+  const ROOT_DIRT = '#8a6544', ROOT_DUST = '#c9ad82', ROOT_BARK = '#7a5537';
+  BOSS_FX.root = {
+    toss(e) { foeDust(e.x, e.y, 6, ROOT_DIRT, 70); foeRing(e.x, e.y, ROOT_DIRT, 6, 14, .25); haptic('tick'); },
+    land(e) { foeDust(e.x, e.y + 10, 5, ROOT_DUST, 55); foeRing(e.x, e.y + 8, ROOT_DUST, 9, 20, .32); jolt(.05); haptic('tick'); },
+    'carousel:start'(e) {
+      const knot = (e.targets || []).find(t => t.role === 'knot') || e;
+      foeRing(knot.x, knot.y, ROOT_BARK, 10, 34, .45); foeDust(knot.x, knot.y, 4, ROOT_DIRT, 40); haptic('warn');
+    },
+    fling(e) { foeRing(e.x, e.y, ROOT_DUST, 16, 56, .4); foeDust(e.x, e.y, 6, ROOT_DUST, 90); jolt(.1); haptic('warn'); },
+    snap(e) {
+      bossCallout(e.x, e.y, 'Snap!', 1.1); say('Snap!');
+      foeDust(e.x, e.y, 10, ROOT_BARK, 120); foeRing(e.x, e.y, '#fff6ce', 10, 40, .35); foeRing(e.x, e.y, ROOT_BARK, 8, 28, .3);
+      jolt(.16, .07, .22); haptic('surge');
+    },
+    'snare:start'(e) {
+      const t = (e.targets || []).find(t => t.role === 'snare'); if (!t) return;
+      for (const k of [-1, 0, 1]) foeDust(t.x + k * 26, t.y - k * 18 * (t.x < 210 ? 1 : -1), 4, ROOT_DIRT, 50);
+      jolt(.12, .04, .1); haptic('warn');
+    },
+    wither(e) { foeDust(e.x, e.y, 7, '#9a6a43', 40); }
+  };
 
   // ── Mother Morel (Level 3, `puff`) ──
 

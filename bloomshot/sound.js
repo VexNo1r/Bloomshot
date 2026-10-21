@@ -519,6 +519,18 @@
   BOSS_ACTS['sunny:snooze:nap'] = [['drop', step(2), 0, .3, .05], ['drop', step(0), .25, .35, .045]];
 
   // ── Rootknot (Level 2, `root`) ──
+  // All wood, low and creaky. A toss is a hollow pop out of the hole and a rising knock (the rolypoly lands with its own
+  // thump); the carousel winds up like a ratchet and creaks softly every quarter turn; letting go is a quick marimba run
+  // outward, snapping it a crack and a bright chime; the snare cracks up out of the soil with a plucked twang and sighs
+  // as it withers.
+  BOSS_ACTS['toss:toss'] = BOSS_ACTS['toss2:toss'] = [['wood', step(0), 0, .08, .06], ['crunch', 'thock', 0, .7], ['wood', step(4), .12, .1, .05]];
+  BOSS_ACTS['root:carousel:start'] = [['wood', step(0), 0, .07, .05], ['wood', step(2), .1, .07, .05], ['wood', step(4), .2, .07, .05], ['wood', step(2), .3, .1, .045], ['crunch', 'thock', 0, .6]];
+  // A soft two-knock creak, a step lower every other quarter turn so the turning sways rather than ticks.
+  BOSS_ACTS['root:carousel:creak'] = (data, pan) => { const low = num(data.n, 1) % 2 ? -3 : -2; note(step(low), 0, .07, .028, pan, 'wood', 0); note(step(low + 1), .045, .08, .022, pan, 'wood', 0); };
+  BOSS_ACTS['root:carousel:fling'] = [['marimba', step(2), 0, .08, .055], ['marimba', step(4), .05, .08, .055], ['marimba', step(6), .1, .14, .05], ['crunch', 'click', .1, .5]];
+  BOSS_ACTS['root:carousel:snap'] = [['wood', step(5), 0, .06, .07], ['crunch', 'crack', 0, .8], ['chime', step(12), .07, .3, .04]];
+  BOSS_ACTS['root:snare:start'] = [['wood', step(-3), 0, .1, .06], ['crunch', 'crack', 0, .7], ['harp', step(1), .08, .2, .045]];
+  BOSS_ACTS['root:snare:wither'] = [['drop', step(1), 0, .14, .04]];
 
   // ── Mother Morel (Level 3, `puff`) ──
 
