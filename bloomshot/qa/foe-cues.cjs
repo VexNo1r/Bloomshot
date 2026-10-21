@@ -23,8 +23,12 @@ module.exports = [
   ['foe', { kind: 'inkdrop:fizzle', x: 90 }],
 
   // ── Chroma Crystal (Level 4, `chroma`) ──
+  // Every color's guard and match (poppy's match climbs highest), from data.color, from the bud, and with neither.
+  ...['gold', 'coral', 'lilac', 'sky', 'poppy'].flatMap((color, i) => [['foe', { kind: 'chroma:guard', x: 110 + 50 * i, color }], ['foe', { kind: 'chroma:match', x: 110 + 50 * i, color }]]),
+  ['foe', { kind: 'chroma:match', x: 200, bud: { type: 'sky', x: 200, y: 250 } }], ['foe', { kind: 'chroma:guard', x: 200 }],
 
   // ── Echo Bat (Level 4, `bat`) ──
+  ['foe', { kind: 'bat:ping', x: 110 }], ['foe', { kind: 'bat:swoop', x: 310 }], ['foe', { kind: 'bat:catch', x: 200 }], ['foe', { kind: 'bat:startle', x: 260 }],
 
   // ── Moon Jelly (Level 5, `jelly`) ──
   ['foe', { kind: 'jelly:spawn', x: 110 }], ['foe', { kind: 'jelly:guard', x: 310 }], ['foe', { kind: 'jelly:burst', x: 200 }],
