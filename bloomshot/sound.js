@@ -478,8 +478,18 @@
   // ── Echo Bat (Level 4, `bat`) ──
 
   // ── Moon Jelly (Level 5, `jelly`) ──
+  // Two water drops as one bubbles up out of its vent; a dull wooden slip when a seed slides off a thrusting jelly (a
+  // "not now"); and a rising glass triad with a soft pop when one bursts into glowdrops at the top of the lake.
+  FOE_CUES['jelly:spawn'] = [['drop', step(0), 0, .12, .05], ['drop', step(4), .1, .12, .05]];
+  FOE_CUES['jelly:guard'] = [['wood', step(-2), 0, .06, .04], ['crunch', 'click', 0, .4]];
+  FOE_CUES['jelly:burst'] = [['glass', step(7), 0, .1, .05], ['glass', step(9), .07, .1, .05], ['glass', step(11), .14, .14, .05], ['crunch', 'pop', .14, .7]];
 
   // ── Glowworm (Level 5, `glowworm`) ──
+  // A head hit runs a little chime down the body: one marimba note per bead, climbing the pentatonic .07 s apart, in
+  // step with the beads blooming. A snapped body knocks twice with a pop; a guardian's worm wakes with two notes.
+  FOE_CUES['glowworm:ripple'] = (data, pan) => { for (let k = 0; k <= Math.min(num(data.n, 4), 5); k++) note(pent(5 + k), .07 * k, .1, .06, pan, 'marimba', 1); };
+  FOE_CUES['glowworm:split'] = [['wood', step(2), 0, .08, .06], ['wood', step(-1), .07, .08, .05], ['crunch', 'pop', .07, .6]];
+  FOE_CUES['glowworm:spawn'] = [['marimba', pent(5), 0, .08, .05], ['marimba', pent(7), .08, .1, .05]];
 
   // -----------------------------------------------------------------------------------------------------------------
   // The guardians' moves. A `bossAbility` event names its move and act (start, spit, shut, toss, snap...); the cue is

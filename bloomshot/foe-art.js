@@ -859,8 +859,315 @@
   // ── Echo Bat (Level 4, `bat`) ──
 
   // ── Moon Jelly (Level 5, `jelly`) ──
+  // A little moon jelly: a see-through blue bell with four lilac clover rings and a pale moon inside, a frilly hem,
+  // four trailing tentacles, dot eyes and rosy cheeks. Its pulse is the whole tell. In the thrust ("not now") it
+  // squashes, shuts its eyes tight, goes dim and glassy with a wet streak across it, and jets up on two little streaks;
+  // in the glide ("now") it lights up: the bell turns bright, the moon inside glows, it smiles, and a moon-blue halo
+  // with four twinkles opens around it. With Animations off it keeps the frame swap, the halo and the twinkles (they
+  // are the rule); only the squash, the tentacle sway, the twinkling and the jet streaks stop. Vents are stone rings in
+  // the lake bed whose hole glows and bubbles for the last second before a jelly comes up (a still bright ring with
+  // Animations off). A burst leaves glowdrops: gold drops of light with their glow painted in, twinkling as they fall.
+  const JELLY_LOOK = { dome: 'rgba(196,236,255,.8)', dim: 'rgba(118,170,222,.5)', inner: 'rgba(248,253,255,.85)', moon: '#fff6c8', rim: '#8ed2ff',
+    frill: '#cbbfff', arm: '#b9a8ff', ink: '#4a6fa8', cheek: '#ff9fbf', vent: '#6c7a8a', hole: '#2c3440', bubble: '#bfe8ff', drop: '#ffd65a',
+    dropLight: '#fff4aa', dropInk: '#c47a24' };
+  const J_PULSE = .9, J_THRUST = .3;
+  function paintJelly(c, r, frame) {
+    const thrust = frame === 'thrust', L = JELLY_LOOK, w = r * 1.08, hem = r * .3, top = -r * 1.02;
+    c.lineJoin = 'round'; c.lineCap = 'round';
+    // Tentacles first, under the bell: wavy and splayed in the glide (two sway frames), bunched and streaming in a thrust.
+    c.strokeStyle = L.arm; c.lineWidth = 1.7;
+    for (let i = 0; i < 4; i++) {
+      const u = (i - 1.5) / 1.5, x0 = u * w * .62, len = thrust ? r * 1.55 : r * 1.15 + (i % 2) * r * .18;
+      const spread = thrust ? u * r * .12 : u * r * .4, wave = thrust ? 0 : (frame === 'rest1' ? -1 : 1) * (i % 2 ? 1 : -1) * r * .22;
+      c.beginPath(); c.moveTo(x0, hem); c.bezierCurveTo(x0 + spread + wave, hem + len * .35, x0 + spread - wave, hem + len * .7, x0 + spread * 1.4, hem + len); c.stroke();
+    }
+    // The bell: a dome over a scalloped hem.
+    const bell = () => {
+      c.beginPath(); c.moveTo(-w, hem);
+      c.bezierCurveTo(-w, top * .35, -w * .62, top, 0, top); c.bezierCurveTo(w * .62, top, w, top * .35, w, hem);
+      for (let i = 5; i > 0; i--) { const x1 = -w + (i - 1) * w * .4, xm = x1 + w * .2; c.quadraticCurveTo(xm, hem + r * .2, x1, hem); }
+      c.closePath();
+    };
+    bell(); c.fillStyle = thrust ? L.dim : L.dome; c.fill();
+    c.save(); bell(); c.clip();
+    // The inner bell, lit with its little moon in the glide, dim and glassy in a thrust, and the four clover rings.
+    c.beginPath(); c.ellipse(0, -r * .2, w * .72, r * .62, 0, 0, TAU); c.fillStyle = thrust ? 'rgba(170,212,245,.3)' : L.inner; c.fill();
+    if (!thrust) { c.beginPath(); c.arc(0, -r * .58, r * .2, 0, TAU); c.fillStyle = L.moon; c.fill(); }
+    c.strokeStyle = L.frill; c.lineWidth = 1.1; c.globalAlpha = .85;
+    for (const [ox, oy] of [[-.36, -.5], [.36, -.5], [-.14, -.78], [.14, -.78]]) { c.beginPath(); c.arc(ox * r, oy * r, r * .14, 0, TAU); c.stroke(); }
+    c.globalAlpha = 1;
+    // A wet glint: a soft white sheen on the dome, and in a thrust a slick streak across it.
+    c.beginPath(); c.ellipse(-r * .42, -r * .55, r * .3, r * .14, -.6, 0, TAU); c.fillStyle = 'rgba(255,255,255,.75)'; c.fill();
+    if (thrust) { c.beginPath(); c.moveTo(-w * .7, -r * .05); c.quadraticCurveTo(0, -r * .32, w * .75, -r * .28); c.strokeStyle = 'rgba(255,255,255,.7)'; c.lineWidth = 1.4; c.stroke(); }
+    // The frilly hem.
+    c.beginPath(); c.ellipse(0, hem, w * 1.1, r * .17, 0, 0, TAU); c.fillStyle = L.frill; c.globalAlpha = .7; c.fill(); c.globalAlpha = 1;
+    c.restore();
+    bell(); c.strokeStyle = L.ink; c.lineWidth = 1.4; c.stroke();
+    c.beginPath(); c.moveTo(-w * .78, -r * .2); c.bezierCurveTo(-w * .6, top * .92, w * .6, top * .92, w * .78, -r * .2); c.strokeStyle = L.rim; c.lineWidth = 1.4; c.stroke();
+    // The face: open dot eyes and a smile in the glide; squeezed-shut eyes and a little "o" in a thrust.
+    c.strokeStyle = L.ink; c.fillStyle = L.ink; c.lineWidth = 1.2;
+    for (const side of [-1, 1]) {
+      const ex = side * r * .3, ey = -r * .12;
+      if (thrust) { c.beginPath(); c.moveTo(ex - side * r * .12, ey - r * .1); c.lineTo(ex + side * r * .04, ey); c.lineTo(ex - side * r * .12, ey + r * .1); c.stroke(); }
+      else {
+        c.beginPath(); c.arc(ex, ey, r * .11, 0, TAU); c.fill();
+        c.beginPath(); c.arc(ex - r * .035, ey - r * .04, r * .04, 0, TAU); c.fillStyle = '#ffffff'; c.fill(); c.fillStyle = L.ink;
+      }
+      c.beginPath(); c.ellipse(side * r * .52, r * .06, r * .11, r * .07, 0, 0, TAU); c.fillStyle = L.cheek; c.globalAlpha = .7; c.fill(); c.globalAlpha = 1; c.fillStyle = L.ink;
+    }
+    if (thrust) { c.beginPath(); c.arc(0, r * .12, r * .07, 0, TAU); c.stroke(); }
+    else { c.beginPath(); c.arc(0, r * .02, r * .14, .25 * Math.PI, .75 * Math.PI); c.stroke(); }
+  }
+  // The glide's halo: a moon-blue glow painted once. It reads on the dark lake and on the bright water alike.
+  function paintJellyHalo(c, r) {
+    const R = r * 2.3, g = c.createRadialGradient(0, -r * .2, r * .3, 0, -r * .2, R);
+    g.addColorStop(0, 'rgba(240,251,255,.95)'); g.addColorStop(.32, 'rgba(176,228,255,.6)'); g.addColorStop(.7, 'rgba(142,210,255,.16)'); g.addColorStop(1, 'rgba(142,210,255,0)');
+    c.beginPath(); c.arc(0, -r * .2, R, 0, TAU); c.fillStyle = g; c.fill();
+  }
+  // The light down a vent's hole as a jelly comes up.
+  function paintVentGlow(c, r) {
+    const g = c.createRadialGradient(0, 0, 0, 0, 0, r * 1.5);
+    g.addColorStop(0, 'rgba(230,248,255,.95)'); g.addColorStop(.4, 'rgba(142,210,255,.55)'); g.addColorStop(1, 'rgba(142,210,255,0)');
+    c.save(); c.scale(1, .62); c.beginPath(); c.arc(0, 0, r * 1.5, 0, TAU); c.fillStyle = g; c.fill(); c.restore();
+  }
+  // A vent: a stone ring around a dark hole, a faint blue rim inside where the jellies live.
+  function paintVent(c, r) {
+    const L = JELLY_LOOK;
+    c.beginPath(); c.ellipse(0, 1.5, r + 3, (r + 3) * .62, 0, 0, TAU); c.fillStyle = 'rgba(10,30,40,.35)'; c.fill();
+    c.beginPath(); c.ellipse(0, 0, r + 1.5, (r + 1.5) * .6, 0, 0, TAU); c.fillStyle = L.vent; c.fill();
+    c.beginPath(); c.ellipse(0, .6, r - 2.6, (r - 2.6) * .55, 0, 0, TAU); c.fillStyle = L.hole; c.fill();
+    c.beginPath(); c.ellipse(0, .6, r - 3.4, (r - 3.4) * .5, 0, Math.PI * 1.05, Math.PI * 1.95); c.strokeStyle = 'rgba(142,210,255,.55)'; c.lineWidth = 1; c.stroke();
+    for (const [a, s] of [[-2.6, 1.6], [-.4, 1.3], [2.2, 1.5], [.9, 1.1]]) { c.beginPath(); c.arc(Math.cos(a) * (r + .5), Math.sin(a) * (r + .5) * .6, s, 0, TAU); c.fillStyle = '#8a97a6'; c.fill(); }
+    c.beginPath(); c.ellipse(0, 0, r + 1.5, (r + 1.5) * .6, 0, 0, TAU); c.strokeStyle = '#3f4a57'; c.lineWidth = 1.2; c.stroke();
+  }
+  // A glowdrop: a drop of gold light with its glow painted in.
+  function paintGlowdrop(c, r) {
+    const L = JELLY_LOOK, g = c.createRadialGradient(0, 0, r * .4, 0, 0, r + 6);
+    g.addColorStop(0, 'rgba(255,214,90,.55)'); g.addColorStop(1, 'rgba(255,214,90,0)');
+    c.beginPath(); c.arc(0, 0, r + 6, 0, TAU); c.fillStyle = g; c.fill();
+    const drop = () => { c.beginPath(); c.moveTo(0, -r * 1.25); c.bezierCurveTo(r * .55, -r * .7, r, -r * .25, r, r * .15); c.arc(0, r * .15, r, 0, Math.PI); c.bezierCurveTo(-r, -r * .25, -r * .55, -r * .7, 0, -r * 1.25); c.closePath(); };
+    drop(); c.fillStyle = L.drop; c.fill();
+    c.beginPath(); c.arc(r * .12, r * .32, r * .6, 0, TAU); c.fillStyle = '#ffe58a'; c.fill();
+    c.beginPath(); c.ellipse(-r * .34, -r * .2, r * .26, r * .42, -.35, 0, TAU); c.fillStyle = L.dropLight; c.fill();
+    drop(); c.strokeStyle = L.dropInk; c.lineWidth = 1.3; c.lineJoin = 'round'; c.stroke();
+  }
+  const jellySprite = (r, frame) => [`foe:jelly:${r}:${frame}`, [-r * 1.4, -r * 1.3, r * 1.4, r * 2], c => paintJelly(c, r, frame)];
+  const jellyHalo = r => [`foe:jelly:${r}:halo`, [-r * 2.5, -r * 2.7, r * 2.5, r * 2.3], c => paintJellyHalo(c, r)];
+  const ventSprite = r => [`foe:vent:${r}:ring`, [-r - 5, -r, r + 5, r + 1], c => paintVent(c, r)];
+  const ventGlow = r => [`foe:vent:${r}:glow`, [-r * 1.6, -r, r * 1.6, r], c => paintVentGlow(c, r)];
+  const dropSprite = r => [`foe:glowdrop:${r}:orb`, [-r - 7, -r * 1.3 - 7, r + 7, r + 7], c => paintGlowdrop(c, r)];
+  const warmJelly = (kit, r) => { for (const [key, box, paint] of [jellySprite(r, 'rest0'), jellySprite(r, 'rest1'), jellySprite(r, 'thrust'), jellyHalo(r), ventSprite(11), ventGlow(11), dropSprite(8)]) kit.atlasSprite(key, box[0], box[1], box[2], box[3], paint); };
+  BloomFoeLook('jelly', {
+    warm: (kit, r) => warmJelly(kit, r || 11),
+    // The vents, under every bud. In its last second before a jelly comes up, a vent's rim lights and three bubbles rise.
+    under(ctx, state, time, still, kit) {
+      const clock = Number(state.foeClock) || 0;
+      for (const vent of state.vents || []) {
+        const done = vent.made >= vent.count, since = done ? clock - (vent.nextAt - vent.every) : 0;
+        const fade = done ? 1 - since / .8 : 1;
+        if (fade <= 0) continue;
+        const [key, box, paint] = ventSprite(11);
+        ctx.globalAlpha = fade; stamp(ctx, kit, key, box, paint, vent.x, vent.y); ctx.globalAlpha = 1;
+        const lead = vent.nextAt - clock;
+        if (done || lead > 1) continue;
+        const p = clamp(1 - lead, 0, 1), [gkey, gbox, gpaint] = ventGlow(11);
+        if (still) {
+          ctx.globalAlpha = .9; stamp(ctx, kit, gkey, gbox, gpaint, vent.x, vent.y); ctx.globalAlpha = 1;
+          ctx.beginPath(); ctx.ellipse(vent.x, vent.y, 13.5, 8.4, 0, 0, TAU); ctx.strokeStyle = JELLY_LOOK.rim; ctx.lineWidth = 2.4; ctx.stroke();
+          continue;
+        }
+        // The hole lights up from below and the rim brightens, then three bubbles wobble up 18 px.
+        ctx.globalAlpha = .25 + .75 * p; stamp(ctx, kit, gkey, gbox, gpaint, vent.x, vent.y, 0, .8 + .3 * p);
+        ctx.beginPath(); ctx.ellipse(vent.x, vent.y, 13, 8, 0, 0, TAU); ctx.strokeStyle = JELLY_LOOK.rim; ctx.globalAlpha = .3 + .7 * p; ctx.lineWidth = 1.4 + 1.2 * p; ctx.stroke(); ctx.globalAlpha = 1;
+        for (let i = 0; i < 3; i++) {
+          const q = clamp((p - i * .2) / .6, 0, 1);
+          if (q <= 0 || q >= 1) continue;
+          const bx = vent.x + (i - 1) * 5 + Math.sin((q + i) * 9) * 1.8, by = vent.y - 3 - q * 18;
+          ctx.globalAlpha = 1 - q * q * q; kit.circle(ctx, bx, by, 2.4 + i * .6 + q, 'rgba(191,232,255,.4)', '#ffffff', 1.1);
+        }
+        ctx.globalAlpha = 1;
+      }
+      warmJelly(kit, 11); // painted once: the first jelly never waits on its sprites
+    },
+    bud(ctx, bud, time, still, state, kit, quality) {
+      const r = bud.r || 11, t = (Number(state.foeClock) || 0) - (bud.born || 0), f = t - J_PULSE * Math.floor(t / J_PULSE), thrust = f < J_THRUST;
+      if (!thrust) {
+        // "Now": the halo opens through the glide (fading in over its first .08 s), and four twinkles sit around it.
+        const g = (f - J_THRUST) / (J_PULSE - J_THRUST), glow = still ? .9 : clamp(g / .09, 0, 1) * (.78 + .17 * Math.sin(Math.PI * g));
+        const [key, box, paint] = jellyHalo(r);
+        ctx.globalAlpha = glow; stamp(ctx, kit, key, box, paint, bud.x, bud.y, 0, still ? 1 : .92 + .08 * glow); ctx.globalAlpha = 1;
+        for (let i = 0; i < 4; i++) {
+          const a = i * TAU / 4 + TAU / 8 + (still ? 0 : g * .9), tw = still ? 1 : .55 + .45 * Math.sin(g * 9 + i * 1.7);
+          ctx.globalAlpha = glow; kit.sparkle(ctx, bud.x + Math.cos(a) * r * 1.65, bud.y - r * .2 + Math.sin(a) * r * 1.65, 1.6 + 1.5 * tw, '#ffffff', a);
+        }
+        ctx.globalAlpha = 1;
+      } else if (!still && quality <= 1) {
+        // "Not now": two little jet streaks under it while it shoots up.
+        const k = 1 - f / J_THRUST;
+        ctx.globalAlpha = .55 * k; ctx.strokeStyle = JELLY_LOOK.bubble; ctx.lineWidth = 1.4; ctx.lineCap = 'round';
+        for (const side of [-1, 1]) { ctx.beginPath(); ctx.moveTo(bud.x + side * 5, bud.y + r * 2); ctx.lineTo(bud.x + side * 6, bud.y + r * 2 + 8 * k); ctx.stroke(); }
+        ctx.globalAlpha = 1;
+      }
+      // The thrust squash: 1.12 x .8 over the pulse's first .1 s, back over the next .2 s.
+      let sx = 1, sy = 1;
+      if (!still && thrust) { const k = f < .1 ? kit.smooth(f / .1) : 1 - kit.smooth((f - .1) / .2); sx = 1 + .12 * k; sy = 1 - .2 * k; }
+      const frame = thrust ? 'thrust' : still ? 'rest0' : `rest${Math.floor(t * 3.3) % 2}`;
+      const [key, box, paint] = jellySprite(r, frame);
+      stamp(ctx, kit, key, box, paint, bud.x, bud.y, 0, sx, sy);
+    }
+  });
+  BloomFoeLook('glowdrop', {
+    warm: (kit, r) => { const [key, box, paint] = dropSprite(r || 8); kit.atlasSprite(key, box[0], box[1], box[2], box[3], paint); },
+    bud(ctx, bud, time, still, state, kit, quality) {
+      const r = bud.r || 8, [key, box, paint] = dropSprite(r);
+      // A slow breath of light, and (quality allowing) a twinkle that turns on its tip.
+      const breathe = still ? 1 : 1 + .05 * Math.sin(time * 4 + bud.x * .1);
+      stamp(ctx, kit, key, box, paint, bud.x, bud.y, 0, breathe);
+      if (!still && quality <= 1) {
+        const tw = .5 + .5 * Math.sin(time * 5.5 + bud.x);
+        ctx.globalAlpha = .4 + .6 * tw; kit.sparkle(ctx, bud.x - r * .3, bud.y - r * .55, 1.6 + 1.6 * tw, '#ffffff', time * 1.5); ctx.globalAlpha = 1;
+      }
+    }
+  });
 
   // ── Glowworm (Level 5, `glowworm`) ──
+  // A string of teal beads behind a round gold head that glows like a lantern, with antennae tipped in light, dot eyes
+  // and a smile; the head turns to face the way it crawls and tilts through the turns. The worm is drawn after every
+  // bud (in `over`), so it reads on top of the clusters it crawls past. A soft mint light runs head to tail every second
+  // and the beads bob in a little wave; when the head is hit, each bead flashes a ring of light as it blooms, one after
+  // another, in time with the chimes. A bead that becomes a new head pops in. With Animations off the worm is still:
+  // no bob, no running light, no flashes (the head, its glow and the body all stay).
+  const WORM_LOOK = { head: '#ffd65a', headShade: '#f2b43c', headLight: '#fff4aa', headInk: '#c47a24', bead: '#6fd3c4', shade: '#3c9c95',
+    ink: '#2f6f6a', lit: '#b9fff0', cheek: '#ff9f8f' };
+  function paintWormHead(c, r, frame) {
+    const L = WORM_LOOK, g = c.createRadialGradient(0, 0, r * .6, 0, 0, r + 6);
+    g.addColorStop(0, 'rgba(255,214,90,.45)'); g.addColorStop(1, 'rgba(255,214,90,0)');
+    c.beginPath(); c.arc(0, 0, r + 6, 0, TAU); c.fillStyle = g; c.fill();
+    c.lineCap = 'round'; c.lineJoin = 'round';
+    // Antennae, leaning forward (the sprite faces right), each tipped with a bulb of light; two frames bob them.
+    const bob = frame ? 1.2 : -.6;
+    for (const [bx, lean] of [[-r * .05, -.15], [r * .35, .45]]) {
+      const tx = bx + lean * r + r * .25, ty = -r * 1.55 + bob * (lean > 0 ? 1 : -.6);
+      c.beginPath(); c.moveTo(bx, -r * .8); c.quadraticCurveTo(bx + lean * r * .2, -r * 1.3, tx, ty); c.strokeStyle = L.headInk; c.lineWidth = 1.3; c.stroke();
+      c.beginPath(); c.arc(tx, ty, r * .2, 0, TAU); c.fillStyle = L.headLight; c.fill(); c.lineWidth = 1; c.stroke();
+    }
+    c.beginPath(); c.arc(0, 0, r, 0, TAU); c.fillStyle = L.head; c.fill();
+    c.save(); c.clip();
+    c.beginPath(); c.arc(r * .2, r * .45, r * .95, 0, TAU); c.fillStyle = L.headShade; c.fill();
+    c.beginPath(); c.arc(-r * .05, -r * .1, r * .82, 0, TAU); c.fillStyle = L.head; c.fill();
+    c.beginPath(); c.ellipse(-r * .4, -r * .48, r * .32, r * .2, -.5, 0, TAU); c.fillStyle = L.headLight; c.fill();
+    c.restore();
+    c.beginPath(); c.arc(0, 0, r, 0, TAU); c.strokeStyle = L.headInk; c.lineWidth = 1.4; c.stroke();
+    // A happy face turned toward the way it crawls.
+    for (const ex of [r * .05, r * .5]) {
+      c.beginPath(); c.arc(ex, -r * .12, r * .12, 0, TAU); c.fillStyle = '#3a2a14'; c.fill();
+      c.beginPath(); c.arc(ex - r * .04, -r * .17, r * .045, 0, TAU); c.fillStyle = '#ffffff'; c.fill();
+    }
+    c.beginPath(); c.arc(r * .28, r * .12, r * .22, .15 * Math.PI, .85 * Math.PI); c.strokeStyle = '#3a2a14'; c.lineWidth = 1.2; c.stroke();
+    c.beginPath(); c.ellipse(r * .72, r * .14, r * .12, r * .08, 0, 0, TAU); c.fillStyle = L.cheek; c.globalAlpha = .8; c.fill(); c.globalAlpha = 1;
+  }
+  function paintWormBead(c, r) {
+    const L = WORM_LOOK;
+    c.beginPath(); c.arc(0, 0, r, 0, TAU); c.fillStyle = L.bead; c.fill();
+    c.save(); c.clip();
+    c.beginPath(); c.arc(r * .35, r * .5, r * .9, 0, TAU); c.fillStyle = L.shade; c.fill();
+    c.beginPath(); c.arc(-r * .1, -r * .12, r * .8, 0, TAU); c.fillStyle = L.bead; c.fill();
+    // A little light glows inside every bead (the worm is lit all through), under a glassy highlight.
+    c.beginPath(); c.arc(r * .08, r * .12, r * .46, 0, TAU); c.fillStyle = 'rgba(185,255,240,.75)'; c.fill();
+    c.beginPath(); c.arc(r * .1, r * .14, r * .22, 0, TAU); c.fillStyle = '#e9fffa'; c.fill();
+    c.beginPath(); c.ellipse(-r * .38, -r * .45, r * .28, r * .15, -.5, 0, TAU); c.fillStyle = 'rgba(240,255,252,.9)'; c.fill();
+    c.restore();
+    c.beginPath(); c.arc(0, 0, r, 0, TAU); c.strokeStyle = L.ink; c.lineWidth = 1.3; c.stroke();
+  }
+  // The head's lantern light: a warm gold glow painted once, laid on with 'lighter' so it lights what it crawls past.
+  function paintWormLamp(c, r) {
+    const g = c.createRadialGradient(0, 0, 0, 0, 0, r * 2.6);
+    g.addColorStop(0, 'rgba(255,240,170,.9)'); g.addColorStop(.35, 'rgba(255,214,90,.45)'); g.addColorStop(1, 'rgba(255,214,90,0)');
+    c.beginPath(); c.arc(0, 0, r * 2.6, 0, TAU); c.fillStyle = g; c.fill();
+  }
+  // The running light (and a blooming bead's flash): a mint glow painted once, laid on with 'lighter'.
+  function paintWormGlow(c, r) {
+    const g = c.createRadialGradient(0, 0, 0, 0, 0, r * 1.8);
+    g.addColorStop(0, 'rgba(225,255,248,.95)'); g.addColorStop(.4, 'rgba(185,255,240,.55)'); g.addColorStop(1, 'rgba(185,255,240,0)');
+    c.beginPath(); c.arc(0, 0, r * 1.8, 0, TAU); c.fillStyle = g; c.fill();
+  }
+  const wormHead = (r, f) => [`foe:glowworm:${r}:head${f}`, [-r - 7, -r * 1.9 - 2, r + 7, r + 7], c => paintWormHead(c, r, f)];
+  const wormBead = r => [`foe:glowworm:${r}:bead`, [-r - 2, -r - 2, r + 2, r + 2], c => paintWormBead(c, r)];
+  const wormGlow = r => [`foe:glowworm:${r}:glow`, [-r * 1.9, -r * 1.9, r * 1.9, r * 1.9], c => paintWormGlow(c, r)];
+  const wormLamp = r => [`foe:glowworm:${r}:lamp`, [-r * 2.7, -r * 2.7, r * 2.7, r * 2.7], c => paintWormLamp(c, r)];
+  const WORM_GROUPS = new Map();
+  function drawWorm(ctx, pieces, time, clock, still, kit, quality) {
+    // Head first along the body; the bob runs as a little wave from the head back.
+    pieces.sort((a, b) => b.off - a.off);
+    const at = pieces.map((p, k) => ({ p, k, x: p.x, y: p.y + (still ? 0 : 2 * Math.sin(TAU * 1.2 * time - .6 * k)) }));
+    // The body: a dark teal band joining neighbors (a bloomed bead leaves a gap), under the beads.
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = WORM_LOOK.ink; ctx.lineWidth = 9; ctx.globalAlpha = .75;
+    ctx.beginPath();
+    for (let i = 1; i < at.length; i++) {
+      const a = at[i - 1], b = at[i];
+      if (a.p.off - b.p.off > 21.5) continue;
+      ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+    }
+    ctx.stroke(); ctx.globalAlpha = 1;
+    // Tail to head, so the head sits on top.
+    for (let i = at.length - 1; i >= 0; i--) {
+      const { p, x, y } = at[i], r = p.r || 9;
+      let s = 1;
+      // A bead that has just become a head pops in over .15 s (0 -> 1.12 -> 1).
+      if (!still && p.headAt != null) { const k = (clock - p.headAt) / .15; if (k >= 0 && k < 1) s = k < .7 ? 1.12 * kit.smooth(k / .7) : 1.12 - .12 * kit.smooth((k - .7) / .3); }
+      if (p.head) {
+        // Its lantern glow first, breathing slowly (steady with Animations off).
+        const [lkey, lbox, lpaint] = wormLamp(r);
+        ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = still ? .6 : .5 + .15 * Math.sin(time * 3.1 + p.x * .02);
+        stamp(ctx, kit, lkey, lbox, lpaint, x, y, 0, s); ctx.restore();
+        // It faces the way it crawls and leans a little into the turns, antennae up.
+        const a = Number.isFinite(p.heading) ? p.heading : 0, dx = Math.cos(a), face = dx < 0 ? -1 : 1, tilt = clamp(Math.atan2(Math.sin(a), Math.abs(dx)), -.3, .3);
+        const [key, box, paint] = wormHead(r, still ? 0 : Math.floor(time * 2.4 + p.x * .01) % 2);
+        ctx.save(); ctx.translate(x, y); ctx.rotate(face * tilt); ctx.scale(face * s, s);
+        const sprite = kit.atlasSprite(key, box[0], box[1], box[2], box[3], paint);
+        if (sprite) kit.blit(ctx, sprite); else paint(ctx);
+        ctx.restore();
+      } else {
+        const [key, box, paint] = wormBead(r);
+        stamp(ctx, kit, key, box, paint, x, y, 0, s);
+      }
+    }
+    // The running light: one bead at a time, head to tail, .12 s each, once a second.
+    if (still || quality > 1) return;
+    const k = Math.floor(((time % 1) + 1) % 1 / .12);
+    if (k >= at.length) return;
+    const lit = at[k], [key, box, paint] = wormGlow(lit.p.r || 9);
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .55; stamp(ctx, kit, key, box, paint, lit.x, lit.y, 0, .8); ctx.restore();
+  }
+  BloomFoeLook('glowworm', {
+    warm(kit, r) {
+      const jobs = r >= 11 ? [wormHead(r, 0), wormHead(r, 1), wormGlow(r), wormLamp(r)] : [wormBead(r), wormGlow(r), wormHead(r, 0), wormHead(r, 1), wormLamp(r)];
+      for (const [key, box, paint] of jobs) kit.atlasSprite(key, box[0], box[1], box[2], box[3], paint);
+    },
+    // Each piece is drawn with its worm in `over`; a bloomed piece falls back to its flower.
+    bud() {},
+    over(ctx, state, time, still, kit, quality) {
+      const clock = Number(state.foeClock) || 0, worms = WORM_GROUPS;
+      worms.clear();
+      for (const bud of state.buds || []) {
+        if (bud.foe !== 'glowworm') continue;
+        if (bud.bloomed) {
+          // A bead (or head) that just bloomed flashes a ring of light: in a ripple they go off one after another.
+          const age = time - (bud.bloomAt ?? -100);
+          if (still || bud.popped || age < 0 || age >= .4) continue;
+          const q = age / .4, [key, box, paint] = wormGlow(bud.r || 9);
+          ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 1 - q; stamp(ctx, kit, key, box, paint, bud.x, bud.y, 0, .7 + q * 1.1); ctx.restore();
+          ctx.globalAlpha = 1 - q; kit.circle(ctx, bud.x, bud.y, (bud.r || 9) + 3 + q * 12, null, WORM_LOOK.lit, .6 + 1.8 * (1 - q)); ctx.globalAlpha = 1;
+          continue;
+        }
+        if (bud.hidden || bud.visible === false) continue;
+        const list = worms.get(bud.worm || bud.group);
+        if (list) list.push(bud); else worms.set(bud.worm || bud.group, [bud]);
+      }
+      for (const pieces of worms.values()) { ctx.save(); drawWorm(ctx, pieces, time, clock, still, kit, quality); ctx.restore(); }
+      worms.clear();
+    }
+  });
 
   // -----------------------------------------------------------------------------------------------------------------
   // The guardians' kits (bosses.js). art.js calls these during a fight with a kit guardian (state.bossState.kind):
