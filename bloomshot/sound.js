@@ -480,6 +480,23 @@
   // ── Mother Morel (Level 3, `puff`) ──
 
   // ── Crystal Heart (Level 4, `crystal`) ──
+  // All glass. A fake shatters as a falling glass pop on a crack, with glitter chiming up over it; re-forming, it climbs
+  // back. The mirrors ring in, tick-tock as they turn, ting when a seed banks off one, and a mirror shot rings a rising
+  // arpeggio over the critical's own C-E. The hues call the wanted flower's own instrument (a fifth), then a lub-dub.
+  const CRYSTAL_N = { gold: 0, coral: 2, lilac: 4, sky: 7, poppy: 9 };
+  BOSS_ACTS['crystal:heart:fake'] = [['glass', step(9), 0, .08, .06], ['crunch', 'crack', 0, .6], ['glass', step(7), .05, .1, .05], ['glass', step(4), .12, .2, .04],
+    ['chime', step(16), .02, .16, .03, 0], ['chime', step(18), .07, .18, .025, 0], ['chime', step(19), .13, .26, .02, 0], ['crunch', 'click', .07, .35]];
+  BOSS_ACTS['crystal:heart:reform'] = [['glass', step(4), 0, .1, .04], ['glass', step(7), .06, .14, .04], ['chime', step(11), .13, .22, .025, 0]];
+  BOSS_ACTS['crystal:mirrors:mirror'] = [['glass', step(11), 0, .12, .05], ['glass', step(14), .08, .25, .045], ['chime', step(16), .16, .3, .025, 0], ['crunch', 'click', 0, .4]];
+  BOSS_ACTS['crystal:mirrors:turn'] = (data, pan) => { note(step(Number(data.n) % 2 ? 12 : 11), 0, .05, .03, pan, 'glass', 0); crunch('click', 0, pan, .25); };
+  BOSS_ACTS['crystal:mirrors:bank'] = [['chime', step(14), 0, .14, .045], ['glass', step(18), .03, .16, .03], ['crunch', 'click', 0, .5]];
+  BOSS_ACTS['crystal:mirrors:shot'] = [['glass', step(11), 0, .14, .05], ['crunch', 'crack', 0, .5], ['glass', step(14), .07, .16, .045], ['chime', step(16), .14, .3, .035], ['chime', step(18), .2, .35, .025]];
+  BOSS_ACTS['crystal:hues:start'] = (data, pan) => {
+    const hue = Array.isArray(data.targets) && data.targets.find(t => t && t.role === 'hue');
+    const type = FLOWER_VOICES[data.type] ? data.type : hue && FLOWER_VOICES[hue.type] ? hue.type : 'gold', [style, level] = FLOWER_VOICES[type], n = CRYSTAL_N[type];
+    note(step(n), 0, .2, .06 * level, pan, style, 1); note(step(n + 7), .1, .25, .05 * level, pan, style, 1);
+    note(step(-7), .34, .12, .05, pan, 'thump', 0); note(step(-7), .48, .14, .04, pan, 'thump', 0);
+  };
 
   // ── Lantern Lily (Level 5, `lotus`) ──
 

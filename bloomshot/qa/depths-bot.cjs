@@ -75,7 +75,7 @@ function trace(game, angle, bounces = 3, prepared = prepareTrace(game)) {
       const time = step * dt + dt - remaining + duration * hit.t;
       p.gateCooldown = Math.max(0, p.gateCooldown - duration * hit.t);
       remaining -= duration * hit.t;
-      if (hit.kind === 'bud') return { bud: { ...hit.item }, nx: hit.nx, ny: hit.ny, time, gateHops: p.gateHops };
+      if (hit.kind === 'bud') return { bud: { ...hit.item }, nx: hit.nx, ny: hit.ny, time, gateHops: p.gateHops, mirror: p.mirrorAt != null && time - p.mirrorAt <= 1.2 };
       if (hit.kind === 'gate') {
         const transfer = Engine.gateTransfer(state.gates, hit.item, vx, vy);
         if (!transfer) return null;
@@ -83,6 +83,7 @@ function trace(game, angle, bounces = 3, prepared = prepareTrace(game)) {
         continue;
       }
       if (--bounces < 0) return null;
+      if (hit.item && hit.item.bossMirror) p.mirrorAt = time; // a bank off Crystal Heart's mirror: a Mirror shot if it reaches the heart in 1.2 s
       const dot = vx * hit.nx + vy * hit.ny; vx -= 2 * dot * hit.nx; vy -= 2 * dot * hit.ny;
       p.x += hit.nx * .08; p.y += hit.ny * .08;
     }
@@ -113,6 +114,7 @@ function value(game, hit, timing, prepared) {
     // Keep that benefit soft, so an ordinary escort about to cross the line can still take priority.
     if (bud.bossPart === 'lantern' && bud.lit !== false) opportunity = 30;
     else if (bud.healing) opportunity = 20;
+    else if (hit.mirror && bud.bossPart === 'heart' && bud.real) opportunity = 30; // Crystal Heart's Mirror shot lands double
     else if (bud.boss) {
       const s = game.bossState;
       if (bud.bossKind === 'geode' || bud.bossKind === 'sunny' && s.mode === 'dizzy' || bud.bossKind === 'fossil' && s.lockStage === 1 || bud.bossKind === 'core' && s.phase === 2) opportunity = 20;

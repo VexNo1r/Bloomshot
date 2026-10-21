@@ -801,6 +801,7 @@
           if (hit.kind === 'bud') ball.touches++;
           else {
             this.event('bounce', { kind: hit.item && hit.item.kind === 'rock' ? 'rock' : hit.kind, x: ball.x, y: ball.y, caught: Boolean(hit.item && hit.item.oneWay) });
+            if (hit.item && hit.item.bossMirror) ball.mirrorAt = hit.item.flashAt = this.time; // a bank off Crystal Heart's mirror (bosses.js kit)
             // Banks and rebounds: walls and the turned petal count toward this flight's tricks.
             if (hit.kind === 'wall') { ball.walls++; ball.bounces++; }
             else if (hit.item && hit.item.id === 'petal') { ball.bounces++; ball.petalAt = this.time; }

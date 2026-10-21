@@ -663,6 +663,147 @@
   // ── Mother Morel (Level 3, `puff`) ──
 
   // ── Crystal Heart (Level 4, `crystal`) ──
+  // The free levels' wall: three glass hearts, and only one of them is real. The two fakes are glass decoys: a seed's
+  // touch shatters one (no damage) into two fast coral shards that tumble out and fall, and it re-forms in its slot
+  // 2 s later on the kit clock, so popping both fakes needs two aimed pops and buys under 2 s of a bare heart. Powers
+  // and credited chains never pop a fake; an uncredited strike pops it quietly, so a script's strike loop still ends.
+  //   Calm (tier 0): today's shuffle.
+  //   Shining (tier 1): the shuffle, then Mirror Shards: two glass blades low on the board (y 356, clear of the sliding
+  //     rock at 304) that hold still for .8 s, then turn .7 rad over .2 s, every second for 6 s. A seed that banks off
+  //     one and reaches the real heart within 1.2 s lands double: "Mirror shot!" (the mood clamp still applies).
+  //   Racing (tier 2): Heartbeat Hues (a shuffle, then the real heart takes only one color, always one of the next three
+  //     seeds, until her next move) alternating with the mirrors.
+  const CRYSTAL = { mirrorX: [120, 300], mirrorY: 356, mirrorLength: 56, mirrorLife: 6, hold: .8, every: 1, turn: .7,
+    reform: 2, shardCap: 6, shardR: 9, bank: 1.2, huePause: 4.5 };
+  const crystalHearts = s => s.parts.filter(p => p.bossPart === 'heart');
+  // Wherever a heart's `real` is set (the opening, every shuffle), its fakes become inert glass decoys.
+  function crystalMark(s) { for (const p of crystalHearts(s)) p.decoy = p.inert = !p.real; }
+  // Two fast coral shards tumble out of a shattered fake, never more than six loose at once. They are ghosts to the
+  // seed that shattered it until it has flown clear, so its own rebound never blooms one for free.
+  function crystalShards(game, s, heart, seed) {
+    const loose = game.buds.filter(p => p.bossShard && !p.bloomed).length, made = [], r = CRYSTAL.shardR;
+    const group = s.boss.id + '-shards-' + s.serial++;
+    for (const [i, dx] of [-14, 14].entries()) {
+      if (loose + made.length >= CRYSTAL.shardCap) break;
+      const x = clamp(heart.x + dx, 22 + r, 398 - r), y = Math.min(heart.y + 26, game.dangerY - 70);
+      if (!clearSpot(game, x, y, r, heart)) continue;
+      const p = { id: group + '-' + i, group, x, y, baseX: x, startY: y, r, type: 'coral', hp: 1, maxHp: 1, relay: false, fall: 1.5, sway: 0,
+        hitAt: -100, bloomAt: -100, bloomed: false, spawnAt: game.time, gem: true, bossShard: true, bossSummon: true, bossSource: s.boss.id,
+        shardFrom: { x: heart.x, y: heart.y } };
+      if (seed && seed.id != null) { p.ghost = true; p.ghostSeed = seed.id; }
+      game.buds.push(p); made.push(p);
+    }
+    if (made.length) s.summons++;
+    return made;
+  }
+  // The pair of mirrors: one each side of the launcher's line, angled in, turning in opposite directions.
+  function crystalMirrors(game, s) {
+    game.bumpers = game.bumpers.filter(m => !m.bossMirror);
+    CRYSTAL.mirrorX.forEach((x, i) => {
+      const angle = i ? -.6 : .6;
+      game.bumpers.push({ id: s.boss.id + '-mirror-' + i, kind: 'rock', bossWall: true, bossMirror: true, x, y: CRYSTAL.mirrorY, baseX: x,
+        length: CRYSTAL.mirrorLength, angle0: angle, angle, dir: i ? -1 : 1, t0: s.kitAge, kitUntil: s.kitAge + CRYSTAL.mirrorLife,
+        expires: Infinity, turns: 0, lead: i === 0, flashAt: null, flashSeen: null });
+    });
+  }
+  // A mirror's angle at kit time t: still for .8 s of every second, then a .2 s smoothstep turn of .7 rad.
+  function mirrorAngle(m, t) {
+    const u = (t - m.t0) / CRYSTAL.every, k = Math.floor(u);
+    return m.angle0 + m.dir * CRYSTAL.turn * (k + Foes.smooth((u - k - CRYSTAL.hold) / (CRYSTAL.every - CRYSTAL.hold)));
+  }
+  kit('crystal', {
+    hp: 36,
+    moods: ['Calm', 'Shining', 'Racing'],
+    stageText: [null, 'Crystal Heart is shining!', 'Crystal Heart is racing!'],
+    text: { mirrors: 'Mirror shards! Bank a seed off one.', hues: 'The heart wants one color!' },
+    moves: [['crystal'], ['crystal', 'mirrors'], ['hues', 'mirrors']],
+    init(game, s) { crystalMark(s); },
+    plan: {
+      mirrors() { return { targets: CRYSTAL.mirrorX.map(x => ({ x, y: CRYSTAL.mirrorY, r: 30, role: 'mirror' })) }; },
+      // Today's shuffle (with its shard clusters below half health), under its own name.
+      hues(game, s) { return { ...legacyPlan(game, s, 'crystal'), move: 'hues', text: null }; }
+    },
+    act: {
+      crystal(game, s, w) { s.hue = null; legacyAct(game, s, w); crystalMark(s); },
+      mirrors(game, s) {
+        s.hue = null; crystalMirrors(game, s);
+        game.event('bossAbility', { kind: s.kind, move: 'mirrors', act: 'mirror', x: 210, y: CRYSTAL.mirrorY });
+      },
+      hues(game, s, w) {
+        legacyAct(game, s, w); crystalMark(s);
+        s.hue = typeof game.typeAhead === 'function' ? game.typeAhead(Math.floor(Foes.hash01(s.boss.id, s.action) * 3)) : null;
+        // The start event carries the wanted color on a `hue` target (its sound and its effects read it).
+        const real = crystalHearts(s).find(p => p.real);
+        if (s.hue && real) w.targets = [...w.targets, { x: real.x, y: real.y, r: real.r + 8, role: 'hue', type: s.hue }];
+        return CRYSTAL.huePause / TIER_PACE[s.tier];
+      }
+    },
+    timer: {
+      // A shattered fake grows back in its slot, unless a shuffle has already revived it (or popped it again since).
+      reform(game, s, data) {
+        const p = s.parts.find(q => q.id === data.id);
+        if (!p || !p.popped || p.popSerial !== data.serial || s.boss.bloomed) return;
+        revive(p, game); p.decoy = p.inert = !p.real;
+        game.event('bossAbility', { kind: s.kind, move: 'heart', act: 'reform', x: p.x, y: p.y });
+      }
+    },
+    step(game, s) {
+      for (const m of game.bumpers) {
+        if (!m.bossMirror) continue;
+        m.angle = mirrorAngle(m, s.kitAge);
+        const turns = Math.max(0, Math.floor((s.kitAge - m.t0) / CRYSTAL.every - CRYSTAL.hold + 1e-9) + 1);
+        if (turns > m.turns) { m.turns = turns; if (m.lead) game.event('bossAbility', { kind: s.kind, move: 'mirrors', act: 'turn', x: 210, y: m.y, n: turns }); }
+        // rush.js stamps flashAt when a seed banks off a mirror; the glint and its ping follow here.
+        if (m.flashAt != null && m.flashAt !== m.flashSeen) { m.flashSeen = m.flashAt; game.event('bossAbility', { kind: s.kind, move: 'mirrors', act: 'bank', x: m.x, y: m.y }); }
+      }
+      // A shard turns solid once the seed that shattered its heart has flown clear (or is gone).
+      for (const p of game.buds) {
+        if (p.ghostSeed == null) continue;
+        const ball = game.balls && game.balls.find(b => b.id === p.ghostSeed);
+        if (!ball || Math.hypot(ball.x - p.x, ball.y - p.y) > p.r + 30) { p.ghost = false; p.ghostSeed = null; }
+      }
+    },
+    // The bot's view (and the app's finale check): a fake can be touched (it shatters), the real heart only by the
+    // wanted color while the hues are up.
+    canHit(game, s, bud, hit, seed) {
+      if (bud.bossPart !== 'heart') return undefined;
+      return !(bud.real && s.hue && seed.type && !hit.chain && !seed.power && seed.type !== s.hue);
+    },
+    resolve(game, s, bud, chain, seed) {
+      if (bud.bossPart !== 'heart') return null;
+      if (!bud.real) {
+        if (Foes.isPower(game, seed) || (chain && Foes.credited(game, true))) return { blocked: true };
+        bud.popX = bud.x; bud.popY = bud.y; bud.popSerial = (bud.popSerial || 0) + 1;
+        game._pop(bud, 'crystal:fake');
+        if (Foes.credited(game, chain)) {
+          crystalShards(game, s, bud, seed);
+          game.event('bossAbility', { kind: s.kind, move: 'heart', act: 'fake', x: bud.x, y: bud.y });
+        }
+        after(s, CRYSTAL.reform, 'reform', { id: bud.id, serial: bud.popSerial });
+        return { blocked: true };
+      }
+      if (s.hue && !chain && !Foes.isPower(game, seed) && seed.type && seed.type !== s.hue) {
+        s.guards++; game.event('bossGuard', { kind: s.kind, bud, mode: 'hue' }); return { blocked: true };
+      }
+      return null;
+    },
+    // Mirror shot: a seed that banked off a mirror within 1.2 s lands double on the real heart.
+    damage(game, s, bud, chain, result) {
+      const seed = game.striker;
+      if (chain || !seed || bud.bossPart !== 'heart' || !bud.real || result.target !== s.boss || seed.power || game.powerPart) return result;
+      if (seed.mirrorAt == null || !(game.time - seed.mirrorAt <= CRYSTAL.bank)) return result;
+      s.crits++;
+      game.event('bossCritical', { kind: s.kind, bud, damage: 2, via: 'mirror' });
+      game.event('bossAbility', { kind: s.kind, move: 'mirrors', act: 'shot', x: bud.x, y: bud.y });
+      return { ...result, damage: 2 };
+    },
+    // The practice bot: while the hues are up, a seed of the wanted color makes the real heart the shot to take.
+    targets(game, s, list) {
+      if (!s.hue || game.nextType !== s.hue) return;
+      for (const t of list) if (t.bud.bossPart === 'heart' && t.bud.real) t.priority = Math.max(t.priority, 75);
+    },
+    cleanup(game, s) { s.hue = null; for (const p of game.buds) if (p.ghostSeed != null) { p.ghost = false; p.ghostSeed = null; } }
+  });
 
   // ── Lantern Lily (Level 5, `lotus`) ──
 

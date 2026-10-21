@@ -4740,6 +4740,7 @@
     drawFlares(ctx, buds, time, options, line);
     if (rush) drawLullaby(ctx, state, time, options.reducedMotion, buds, true);
     for (const bumper of state.bumpers || []) {
+      if (bumper.bossMirror) continue; // Crystal Heart's mirrors are drawn by her kit art (foe-art.js)
       if (bumper.bossWall) drawRootWall(ctx, bumper);
       else if (bumper.kind === 'rock' && root.BloomScenery) root.BloomScenery.drawRock(ctx, bumper, options.theme);
       else drawBumper(ctx, bumper, options.selectedBumper === bumper.id, time, colors, options.reducedMotion);

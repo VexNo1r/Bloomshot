@@ -1698,6 +1698,63 @@
   // ── Mother Morel (Level 3, `puff`) ──
 
   // ── Crystal Heart (Level 4, `crystal`) ──
+  // A fake shatters into tumbling, glinting glass (clear, ice and pink) inside a white flash ring; re-forming, a few
+  // twinkles fly in. The mirrors arrive in an icy ring each and glint when a seed banks
+  // off one; a mirror shot adds a white flash ring and prism stars in every flower's color under the "Mirror shot!"
+  // callout. The hues ring the heart in the wanted color, and the hint line names it (again after a wrong seed).
+  const CRYSTAL_GLASS = ['#ffffff', '#9fb4e0', '#ffd3ec', '#e6ecf8', '#cfe0ff'], CRYSTAL_ICE = ['#eef8ff', '#cfe8ff', '#ffffff'];
+  function crystalGlass(x, y, count, speed, colors = CRYSTAL_GLASS, lift = 50) {
+    if (!save.settings.motion) return;
+    count = Math.max(3, Math.round(count * [1, .6, .35][game?.quality || 0]));
+    for (let i = 0; i < count; i++) {
+      const a = i / count * Math.PI * 2 + Math.random() * .4, v = speed * (.55 + Math.random() * .6), life = .55 + Math.random() * .35;
+      game.particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - lift, life, maxLife: life, kind: i % 3 === 2 ? 'star' : 'flake',
+        color: colors[i % colors.length], size: 2.4 + Math.random() * 1.8, rotation: a, spin: (Math.random() - .5) * 14, drag: 1.2, gravity: 260, phase: i });
+    }
+  }
+  // The wanted color, from the hues' start event (its `hue` target) or the guardian's state.
+  function crystalHue(event) {
+    const t = event && Array.isArray(event.targets) && event.targets.find(item => item && item.role === 'hue');
+    const type = (event && event.type) || (t && t.type) || (game.bossState && game.bossState.kind === 'crystal' && game.bossState.hue);
+    return FOE_COLORS[type] ? type : null;
+  }
+  BOSS_FX.crystal = {
+    'heart:fake'(e) {
+      crystalGlass(e.x, e.y, 12, 150);
+      foeRing(e.x, e.y, '#ffffff', 8, 30, .28); foeRing(e.x, e.y, '#cfe0ff', 12, 26, .45);
+      jolt(.05, .03, .08); haptic('tick');
+    },
+    'heart:reform'(e) {
+      foeRing(e.x, e.y, '#ffffff', 20, -12, .3);
+      if (save.settings.motion) for (let i = 0; i < 5; i++) {
+        const a = i / 5 * Math.PI * 2 + .3;
+        game.particles.push({ x: e.x + Math.cos(a) * 30, y: e.y + Math.sin(a) * 30, vx: -Math.cos(a) * 95, vy: -Math.sin(a) * 95, life: .3, maxLife: .3, kind: 'star', color: '#ffffff', size: 2.6, rotation: a, spin: 0, drag: 0, gravity: 0, phase: i });
+      }
+    },
+    'mirrors:mirror'() {
+      for (const m of game.bumpers.filter(b => b.bossMirror)) { foeRing(m.x, m.y, '#cfe8ff', 10, 36, .5); foeRing(m.x, m.y, '#ffffff', 6, 22, .3); crystalGlass(m.x, m.y, 6, 80, CRYSTAL_ICE, 20); }
+      haptic('tick');
+    },
+    'mirrors:bank'(e) { foeRing(e.x, e.y, '#ffffff', 8, 24, .25); crystalGlass(e.x, e.y, 4, 70, CRYSTAL_ICE, 10); },
+    'mirrors:shot'(e) {
+      foeRing(e.x, e.y, '#ffffff', 16, 46, .4);
+      if (save.settings.motion) {
+        const prism = Object.values(FOE_COLORS);
+        for (let i = 0; i < 10; i++) {
+          const a = i / 10 * Math.PI * 2, life = .6 + (i % 3) * .1;
+          game.particles.push({ x: e.x, y: e.y, vx: Math.cos(a) * 150, vy: Math.sin(a) * 150 - 30, life, maxLife: life, kind: 'star', color: prism[i % prism.length], size: 3.2, rotation: a, spin: 3, drag: 2.4, gravity: 40, phase: i });
+        }
+      }
+    },
+    'hues:start'(e) {
+      const type = crystalHue(e), heart = game.bossState && game.bossState.parts.find(p => p.bossPart === 'heart' && p.real);
+      if (!type) return;
+      if (heart) { foeRing(heart.x, heart.y, FOE_COLORS[type], heart.r + 4, 30, .5); foeRing(heart.x, heart.y, '#ffffff', heart.r, 18, .3); burst({ x: heart.x, y: heart.y, type, r: heart.r }, 14, game.particles, currentKeepsake(), false); }
+      const text = BOSS_FX.crystal.tip(); $('game-hint').textContent = text; say(text); haptic('tick');
+    },
+    // The hint line while the hues are up (also after a seed of the wrong color glances off).
+    tip() { const type = crystalHue(null); return type ? `Crystal Heart wants ${type} seeds!` : ''; }
+  };
 
   // ── Lantern Lily (Level 5, `lotus`) ──
 
@@ -1812,7 +1869,8 @@
         $('game-hint').textContent = event.count ? `Puff! ${event.count} ${event.count === 1 ? 'flower' : 'flowers'} caught the spores.` : 'Puff!';
       } else if (event.type === 'shield') {
         burst({ x: event.x, y: event.y, type: 'gold', r: 6 }, 6); haptic('tick');
-        if (event.bud?.bossKind) $('game-hint').textContent = game.bossWarning?.text || bossOpeningTip(event.bud);
+        // A kit may name its own tip for a turned-away seed (Crystal Heart's wanted color, in her block above).
+        if (event.bud?.bossKind) $('game-hint').textContent = game.bossWarning?.text || BOSS_FX[event.bud.bossKind]?.tip?.(event) || bossOpeningTip(event.bud);
         else if (event.shell && !game.shellSeen) { game.shellSeen = true; $('game-hint').textContent = 'Shells only open on one side. Wait for the gap.'; }
         else if (!event.shell && !game.shieldSeen) { game.shieldSeen = true; $('game-hint').textContent = 'Cups block shots from below. Hit them from the side.'; }
       } else if (event.type === 'geode') {

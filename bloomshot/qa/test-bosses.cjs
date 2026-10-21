@@ -165,9 +165,13 @@ test('Mother Morel guards her bonnet underside; a real nearby puffcap deals two 
 });
 test('Crystal Heart has three colliders and one beating heart; real hits damage and stun', () => {
   const g=arena(4),s=g.bossState,b=s.boss,hp=b.hp; assert(b.hidden && !b.visible); assert.equal(s.parts.length,3);
-  hit(g,s.parts.find(p=>!p.real)); assert.equal(b.hp,hp); hit(g,s.parts.find(p=>p.real)); assert.equal(b.hp,hp-1); assert.equal(s.mode,'stunned');
+  hit(g,s.parts.find(p=>!p.real)); assert.equal(b.hp,hp);
+  // A seed shatters a fake (Crystal kit): no damage, two coral shards tumble out, and it re-forms by the next shuffle.
+  const fake=s.parts.find(p=>!p.real&&p.popped); assert(fake&&fake.bloomed); assert.equal(g.buds.filter(p=>p.bossShard&&!p.bloomed).length,2);
+  hit(g,s.parts.find(p=>p.real)); assert.equal(b.hp,hp-1); assert.equal(s.mode,'stunned');
   const x=b.x,y=b.y; advance(g,.5); assert.equal(b.x,x); assert.equal(b.y,y);
   advance(g,5); assert(s.parts.some(p=>p.shuffleAt!=null)); assert.equal(s.parts.filter(p=>p.real).length,1);
+  assert(s.parts.every(p=>!p.popped));
 });
 test('Lantern Lily crits once through her lantern, gutters it five seconds and forms a whirlpool', () => {
   const g=arena(5),s=g.bossState,b=s.boss,hp=b.hp,lantern=s.parts[0]; hit(g,b); assert.equal(b.hp,hp,'the raised pad guards a plain shot from below');
@@ -311,7 +315,7 @@ test('Sunburst takes exactly four rings once per whole guardian through bodies o
   for(let id=1;id<=10;id++){const g=arena(id),s=g.bossState,b=s.boss,hp=b.hp,target=s.parts[0]||b;
     const seed={id:++serial,power:'sunburst',age:0,touches:0,streak:0,walls:0,bounces:0,gateHops:0,x:target.x,y:target.y};
     g.striker=seed;g._sunburst(seed,target);g.striker=null;advance(g,.7);assert.equal(hp-b.hp,4,'L'+id+' one explosion, one four-ring dose');
-    if(id===4){assert(s.parts.every(p=>!p.bloomed));assert.equal(s.mode,'stunned');}
+    if(id===4){assert(s.parts.every(p=>!p.bloomed));assert(s.parts.every(p=>!p.popped));assert.equal(s.mode,'stunned');}
     if(id===5){assert(s.parts[0].bloomed);assert.equal(s.mode,'gutter');}
   }
 });
@@ -320,7 +324,7 @@ test('Bee Line takes three rings once per whole guardian while opening its encou
     g.striker={id:++serial,power:'beeline',age:0,touches:0,streak:0,walls:0,bounces:0,gateHops:0};
     for(const p of [...s.parts,b])if(!p.bloomed)g._beeHit(p);g.striker=null;
     assert.equal(hp-b.hp,3,'L'+id+' proxy/body contacts share one three-ring dose');
-    if(id===4){assert(s.parts.every(p=>!p.bloomed));assert.equal(s.mode,'stunned');}
+    if(id===4){assert(s.parts.every(p=>!p.bloomed));assert(s.parts.every(p=>!p.popped));assert.equal(s.mode,'stunned');}
     if(id===5){assert(s.parts[0].bloomed);assert.equal(s.mode,'gutter');}
   }
 });
