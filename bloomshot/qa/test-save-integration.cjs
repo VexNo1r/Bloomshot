@@ -588,7 +588,7 @@ test('After the beds, the seed reward points at the cheapest decoration, and a f
   app = boot(save); app.finishRush(24, 3); settle(app); assert.equal(app.$('reward-goal').textContent, 'Your meadow is complete!');
   app.click('result-garden-btn'); assert.equal(app.$('meadow-summary').textContent, 'Your meadow is complete!');
 });
-// Sunday 4 October 2026 offers: reach wave 4, clear 2 puzzles, grow or build in the meadow.
+// Sunday 4 October 2026 offers: reach wave 4, clear 2 puzzles, grow, build or say hi in the meadow.
 const GOAL_DAY = '2026-10-04T10:00:00';
 const settle = app => { for (let i = 0; i < 60 && !app.$('result-dialog').open; i++) app.frame(); };
 test("Today's goals: the Garden card lists all three with progress, and each one opens a place to play it", () => {
@@ -596,7 +596,7 @@ test("Today's goals: the Garden card lists all three with progress, and each one
   const app = boot(legacySave(), { today: GOAL_DAY, goals: true }); app.click('garden-btn');
   assert.equal(app.$('goals-count').textContent, '0/3 done');
   const html = app.$('goals-list').innerHTML;
-  assert.match(html, /Reach wave 4<\/span><span class="goal-count">0\/4<\/span>/); assert.match(html, /Clear 2 puzzles/); assert.match(html, /Grow or build in your meadow/);
+  assert.match(html, /Reach wave 4<\/span><span class="goal-count">0\/4<\/span>/); assert.match(html, /Clear 2 puzzles/); assert.match(html, /Grow, build or say hi in your meadow/);
   assert.equal((html.match(/\+4<\/span>/g) || []).length, 3); assert.equal(app.$('goals-bonus').textContent, 'Finish all 3 for +6 bonus seeds.');
   app.click('goals-list', { goal: 'rush' }); assert.equal(app.games.at(-1).mode, 'rush');
   app.click('garden-btn'); app.click('goals-list', { goal: 'moon' }); assert.equal(app.$('world-dialog').open, true);
@@ -614,7 +614,7 @@ test('A Rush run that reaches the wave goal pays 4 more seeds once, says so on t
 test('Growing in the meadow and clearing two puzzles finish the day, paying each goal and the 6-seed bonus', () => {
   const save = legacySave(); save.garden = { seeds: 4, levels: {}, selectedId: 'sunbell' };
   const app = boot(save, { today: GOAL_DAY, goals: true }); app.click('garden-btn');
-  app.click('plant-btn'); assert.equal(app.saved().garden.seeds, 4); assert.equal(app.$('toast').textContent, 'Goal done! Grow or build in your meadow. +4 seeds');
+  app.click('plant-btn'); assert.equal(app.saved().garden.seeds, 4); assert.equal(app.$('toast').textContent, 'Goal done! Grow, build or say hi in your meadow. +4 seeds');
   app.click('rush-btn'); app.finishRush(24, 4); settle(app); assert.match(app.$('result-goals').innerHTML, /1\/3 today|2\/3 today/); app.click('result-garden-btn');
   app.click('level-grid', { level: '1' }); app.games.at(-1).win(); settle(app);
   assert.equal(app.$('result-goals').hidden, true);
@@ -623,6 +623,55 @@ test('Growing in the meadow and clearing two puzzles finish the day, paying each
   assert.equal(app.$('reward-seeds').textContent, '+10 seeds');
   assert.deepEqual(app.saved().goals, { day: '2026-10-04', progress: [4, 2, 1], done: [true, true, true], bonus: true });
   app.click('result-garden-btn'); assert.equal(app.$('goals-count').textContent, '3/3 done'); assert.equal(app.$('goals-bonus').textContent, 'All done! New goals tomorrow.');
+});
+test('A finished meadow never strands its goal: saying hi to a friend there pays it once, and the day can still reach its bonus', () => {
+  const save = legacySave(); save.garden = { seeds: 0, levels: Object.fromEntries(Garden.plots.map(p => [p.id, 3])), decor: Garden.decor.map(d => d.id) };
+  const app = boot(save, { today: GOAL_DAY, goals: true }); app.click('garden-btn');
+  assert.equal(app.$('meadow-summary').textContent, 'Your meadow is complete!');
+  app.click('friend-spots', { friend: 'biscuit' });
+  assert.equal(app.$('toast').textContent, 'Goal done! Grow, build or say hi in your meadow. +4 seeds');
+  assert.equal(app.saved().garden.seeds, 4); assert.deepEqual(app.saved().goals, { day: '2026-10-04', progress: [0, 0, 1], done: [false, false, true], bonus: false });
+  assert.equal(app.$('goals-count').textContent, '1/3 done', 'the goal list ticks the meadow goal right away');
+  app.click('friend-spots', { friend: 'pip' }); assert.equal(app.saved().garden.seeds, 4, 'a second hello pays nothing more');
+  app.click('rush-btn'); app.finishRush(24, 4); settle(app); app.click('result-garden-btn');
+  app.click('level-grid', { level: '1' }); app.games.at(-1).win(); settle(app);
+  app.click('retry-btn'); app.games.at(-1).win(); settle(app);
+  assert.match(app.$('result-goals').innerHTML, /All 3 goals done! \+6 bonus seeds\./);
+  assert.deepEqual(app.saved().goals, { day: '2026-10-04', progress: [4, 2, 1], done: [true, true, true], bonus: true });
+});
+test('Only a friend who has moved in can be greeted for the goal, and a hello on a day without the meadow goal changes nothing', () => {
+  const save = legacySave(); save.garden = { seeds: 0, levels: {}, decor: ['bench'] };
+  let app = boot(save, { today: GOAL_DAY, goals: true }); app.click('garden-btn');
+  app.click('friend-spots', { friend: 'hopper' }); assert.equal(app.saved().garden.seeds, 0, 'Hopper waits for the lilies');
+  app.click('friend-spots', { friend: 'biscuit' }); assert.equal(app.saved().garden.seeds, 4);
+  app = boot(save, { today: '2026-11-02T10:00:00', goals: true }); app.click('garden-btn');
+  assert.deepEqual(Goals.forDay('2026-11-02').map(g => g.id), ['rush-wave', 'daily', 'moon']);
+  app.click('friend-spots', { friend: 'biscuit' }); assert.equal(app.saved().garden.seeds, 0);
+});
+test("The Today strip on the Levels map shows the day's three goals and the bonus, and each goal goes where it is played", () => {
+  let app = boot(legacySave(), { today: GOAL_DAY, goals: true });
+  assert.equal(app.context.bloomshotState.route, 'levels');
+  let html = app.$('today-goals').innerHTML;
+  assert.equal((html.match(/class="today-goal"/g) || []).length, 3);
+  assert.match(html, /data-goal="rush" style="--p:0" aria-label="Reach wave 4\. 0 of 4\."><span class="today-ring" aria-hidden="true"><\/span><span class="today-name" aria-hidden="true">Wave 4<\/span>/);
+  assert.match(html, /data-goal="puzzles"[^>]*>.*2 puzzles/); assert.match(html, /data-goal="meadow"[^>]*aria-label="Grow, build or say hi in your meadow\. 0 of 1\."/);
+  assert.equal(app.$('today-strip').getAttribute('aria-label'), "Today's goals, 0 of 3 done. Finish all 3 for +6 bonus seeds.");
+  assert.match(app.$('today-bonus').innerHTML, /purse-leaf"><\/span>\+6$/);
+  app.finishRush(24, 2); settle(app); app.click('result-garden-btn');
+  assert.match(app.$('today-goals').innerHTML, /data-goal="rush" style="--p:50"/, 'the ring fills as the goal moves');
+  app.click('levels-rush-btn'); app.finishRush(24, 5); settle(app); app.click('result-garden-btn');
+  assert.equal(app.context.bloomshotState.route, 'levels');
+  assert.match(app.$('today-goals').innerHTML, /class="today-goal done" type="button" data-goal="rush" style="--p:100" aria-disabled="true" aria-label="Reach wave 4\. Done\."/);
+  assert.equal(app.$('today-strip').getAttribute('aria-label'), "Today's goals, 1 of 3 done. Finish all 3 for +6 bonus seeds.");
+  const next = app.$('depth-map').querySelector('.depth-card.next'), before = next.scrolled;
+  app.click('today-goals', { goal: 'rush' }); assert.equal(app.context.bloomshotState.route, 'levels'); assert.equal(next.scrolled, before + 1, 'on the map, a Rush goal brings up the level to play next');
+  app.click('today-goals', { goal: 'meadow' }); assert.equal(app.context.bloomshotState.route, 'garden'); assert(app.$('meadow-canvas').scrolled > 0);
+  app.click('rush-btn'); app.click('today-goals', { goal: 'puzzles' }); assert.equal(app.context.bloomshotState.route, 'game'); assert.equal(app.games.at(-1).mode, undefined);
+  app.click('rush-btn'); app.click('today-goals', { goal: 'moon' }); assert.equal(app.$('world-dialog').open, true);
+  const done = legacySave(); done.goals = { day: '2026-10-04', progress: [4, 2, 1], done: [true, true, true], bonus: true };
+  app = boot(done, { today: GOAL_DAY, goals: true });
+  assert.equal(app.$('today-strip').getAttribute('aria-label'), "Today's goals, 3 of 3 done. All done, +6 bonus seeds earned. New goals tomorrow.");
+  assert(app.$('today-bonus').classList.contains('done')); assert.match(app.$('today-bonus').innerHTML, /today-tick/);
 });
 test('Native bridge: planting buzzes through BloomNative only while the Vibration setting is on', () => {
   const on = legacySave(); on.settings.haptics = true;

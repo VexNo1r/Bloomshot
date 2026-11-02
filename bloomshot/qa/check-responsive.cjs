@@ -78,6 +78,21 @@ async function main() {
       rows.push({ size: key, safeTop: size.top, safeBottom: size.bottom, label, ...state });
     };
     if (!previewOnly) {
+    // The Levels map opens with the slim Today strip, and the first level still sits whole above the bottom bar.
+    const map = await page.evaluate(() => {
+      const box = el => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; };
+      return { route: document.body.dataset.view, today: box(document.getElementById('today-strip')), goals: [...document.querySelectorAll('.today-goal')].map(box),
+        clipped: [...document.querySelectorAll('.today-name')].filter(el => el.scrollWidth > el.clientWidth + .5).map(el => el.textContent),
+        first: box(document.querySelector('.depth-card')), nav: box(document.querySelector('.bottom-nav')), scrollWidth: document.documentElement.scrollWidth };
+    });
+    assert.equal(map.route, 'levels', `${key}: the game opens on the Levels map`);
+    assert.equal(map.scrollWidth, size.width, `${key} Levels map: no horizontal overflow`);
+    assert(map.today.height > 0 && map.today.height <= 60, `${key}: slim Today strip ${JSON.stringify(map.today)}`);
+    assert.equal(map.goals.length, 3, `${key}: three goals on the Today strip`);
+    for (const r of map.goals) assert(r.height >= 44 && r.width >= 44, `${key}: 44px Today goal target ${JSON.stringify(r)}`);
+    assert.deepEqual(map.clipped, [], `${key}: Today goal names fit`);
+    assert(map.first.y + map.first.height <= map.nav.y + .6, `${key}: first level sits above the bottom bar ${JSON.stringify(map)}`);
+    rows.push({ size: key, safeTop: size.top, safeBottom: size.bottom, label: 'Levels map', ...map });
     for (let level = 1; level <= 10; level++) for (const wave of [1, 10]) {
       await page.evaluate(({ level, wave }) => window.__layoutQA.startDepth(level, false, wave), { level, wave });
       await page.clock.runFor(2200); await geometry(`Level ${level}, wave ${wave}`);

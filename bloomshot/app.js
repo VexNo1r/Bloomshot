@@ -500,7 +500,7 @@
     const freshCard = freshDepth && !freshShown && route === 'levels' ? $('depth-map').querySelector?.('.depth-card.fresh') : null;
     if (freshCard) { freshShown = true; freshCard.scrollIntoView({ behavior: 'auto', block: 'center' }); }
     $('levels-rush-best').textContent = save.rush.runs || save.rush.best > 0 ? `Best ${fmt(save.rush.best)} · wave ${save.rush.bestWave}` : 'Endless waves. How far can you go?';
-    renderPowerShelf();
+    renderPowerShelf(); renderGoals();
   }
   // Powerups: four above Split in the levels and Meadow Rush, and a shelf on the Levels page.
   // Each one is drawn once by the board art and reused as a picture.
@@ -692,6 +692,11 @@
     void bubble.offsetWidth; bubble.classList.add('pop');
     clearTimeout(bubbleTimer); bubbleTimer = setTimeout(() => { bubble.hidden = true; }, 1600);
     say(`${friend.name} says ${friend.says}`);
+    // Saying hi counts for the meadow goal, so a meadow with nothing left to grow or build can still finish it.
+    if (BloomGarden.summary(save.garden).decor.some(d => d.built && d.friend.id === id)) {
+      const goals = trackGoals({ type: 'greet' });
+      if (goals.paid) { persist(); toast(`${goalNews(goals)} +${goals.paid} seeds`); }
+    }
   }
   // Meadow friends in the Collection: met ones in color with a line about them, the rest as silhouettes.
   const friendIcons = new Map();
@@ -763,6 +768,7 @@
       save.garden = grant.state; paid += grant.awarded;
     }
     if (paid) showSeeds();
+    renderGoals();
     return { paid, finished: result.done.map(slot => list[slot]), bonus: result.bonus, done: result.state.done.filter(Boolean).length };
   }
   const goalNews = goals => goals.bonus ? `All 3 goals done! +${BloomGarden.daily.goalBonus} bonus seeds.` : goals.finished.length > 1 ? `${goals.finished.length} goals done!` : `Goal done! ${goals.finished[0].text}.`;
@@ -772,6 +778,15 @@
     $('goals-count').textContent = `${data.done}/3 done`;
     $('goals-list').innerHTML = data.goals.map(g => `<li><button class="goal${g.done ? ' done' : ''}" type="button" data-goal="${g.play}"${g.done ? ' aria-disabled="true"' : ''} aria-label="${escape(g.text)}. ${g.done ? 'Done.' : `${g.progress} of ${g.target}. Earns ${seeds} seeds.`}"><span class="goal-check" aria-hidden="true"></span><span class="goal-copy"><span class="goal-line"><span class="goal-text">${starry(g.text)}</span>${g.target > 1 && !g.done ? `<span class="goal-count">${g.progress}/${g.target}</span>` : ''}</span><span class="goal-bar" aria-hidden="true"><i style="width:${Math.round(g.progress / g.target * 100)}%"></i></span></span><span class="goal-reward" aria-hidden="true">${g.done ? 'Done!' : `<span class="purse-leaf"></span>+${seeds}`}</span></button></li>`).join('');
     $('goals-bonus').textContent = data.bonus ? 'All done! New goals tomorrow.' : `Finish all 3 for +${BloomGarden.daily.goalBonus} bonus seeds.`;
+    renderToday(data);
+  }
+  // The same three goals as a slim strip at the top of the Levels map, each a ring that fills and a tap that goes to it.
+  function renderToday(data) {
+    const bonus = BloomGarden.daily.goalBonus;
+    $('today-strip').setAttribute('aria-label', `Today's goals, ${data.done} of 3 done. ${data.bonus ? `All done, +${bonus} bonus seeds earned. New goals tomorrow.` : `Finish all 3 for +${bonus} bonus seeds.`}`);
+    $('today-goals').innerHTML = data.goals.map(g => `<li><button class="today-goal${g.done ? ' done' : ''}" type="button" data-goal="${g.play}" style="--p:${Math.round(g.progress / g.target * 100)}"${g.done ? ' aria-disabled="true"' : ''} aria-label="${escape(g.text)}. ${g.done ? 'Done.' : `${g.progress} of ${g.target}.`}"><span class="today-ring" aria-hidden="true"></span><span class="today-name" aria-hidden="true">${starry(g.short)}</span></button></li>`).join('');
+    $('today-bonus').classList.toggle('done', data.bonus);
+    $('today-bonus').innerHTML = `<span class="${data.bonus ? 'today-tick' : 'purse-leaf'}"></span>+${bonus}`;
   }
   function renderCollection() {
     $('collection-grid').innerHTML = flowers.map(flower => {
@@ -2941,16 +2956,26 @@
     const map = meadowCanvas.getBoundingClientRect();
     if (map.top < 0 || map.bottom > window.innerHeight) meadowCanvas.scrollIntoView({ behavior: save.settings.motion ? 'smooth' : 'auto', block: 'center' });
   });
-  $('goals-list').addEventListener('click', event => {
+  // A goal goes where it is played, from the goal list in the meadow and from the Today strip on the Levels map.
+  function goGoal(event) {
     const button = event.target.closest('[data-goal]'); if (!button || button.getAttribute('aria-disabled') === 'true') return;
     BloomSound.wake(); BloomSound.play('tap');
-    const play = button.dataset.goal;
-    if (play === 'rush') openLevels();
+    const play = button.dataset.goal, scroll = { behavior: save.settings.motion ? 'smooth' : 'auto', block: 'center' };
+    if (play === 'rush' && route === 'levels') {
+      // Already on the map: bring up the level to play next, or Meadow Rush once every level is cleared.
+      const next = $('depth-map').querySelector?.('.depth-card.next') || $('levels-rush-btn');
+      next.scrollIntoView(scroll); next.focus?.({ preventScroll: true });
+    } else if (play === 'rush') openLevels();
     else if (play === 'daily') startLevel(BloomLevels.dailyLevel(localDate()));
     else if (play === 'puzzles') openWorld('meadow');
     else if (play === 'moon' || play === 'koi') openWorld(play);
-    else if (play === 'meadow') meadowCanvas.scrollIntoView({ behavior: save.settings.motion ? 'smooth' : 'auto', block: 'center' });
-  });
+    else if (play === 'meadow') {
+      if (route !== 'garden') { if (preview) exitPreview(); closeDialogs(); setRoute('garden'); }
+      meadowCanvas.scrollIntoView(scroll);
+    }
+  }
+  $('goals-list').addEventListener('click', goGoal);
+  $('today-goals').addEventListener('click', goGoal);
   $('collection-btn').addEventListener('click', () => { if (preview) exitPreview(); setRoute('collection'); });
   $('keepsake-shelf').addEventListener('click', event => {
     const buy = event.target.closest('[data-buy]'); if (buy) { buyProduct(buy); return; }

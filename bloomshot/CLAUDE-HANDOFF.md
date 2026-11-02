@@ -27,7 +27,7 @@ Normal save `bloomshot.save.v1`; `?qa` uses `bloomshot.qa.v1`. Trevor plays in b
 
 **Pass 9, decorations.** Six things to build in the meadow once the beds are growing (bench, birdhouse, water lilies, beehive, lantern path, apple tree with swing), 20 to 100 seeds each, 320 in all. Built once, in any order. `garden.js` and `meadow.js`.
 
-**Pass 10, today's goals.** Three goals a day, the same for everyone (one in Rush or the levels, one puzzle, one to explore). Each pays 4 seeds once and all three pay a 6-seed bonus. A missed day costs nothing and nothing counts down. `goals.js` (catalog and progress, `qa/test-goals.cjs`), paid by `garden.js`.
+**Pass 10, today's goals.** Three goals a day, the same for everyone (one in Rush or the levels, one puzzle, one to explore). Each pays 4 seeds once and all three pay a 6-seed bonus. A missed day costs nothing and nothing counts down. `goals.js` (catalog and progress, `qa/test-goals.cjs`), paid by `garden.js`. The meadow goal ("Grow, build or say hi in your meadow", id still `meadow`) also counts a hello to a meadow friend, so a finished meadow can always complete it. A slim Today strip at the top of the Levels map shows the same three goals as rings plus the +6 bonus; each goal there goes where it is played, like the Garden list (a Rush goal brings up the next level on the map).
 
 **Pass 11, meadow friends.** Each decoration brings a friend to tap (Biscuit the cat, Pip the bluebird, Hopper the frog, Buzz the bee, Glimmer the firefly, Nutmeg the squirrel). Looks and sound only; a Meadow friends shelf in the Collection.
 
