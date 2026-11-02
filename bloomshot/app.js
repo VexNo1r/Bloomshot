@@ -1300,7 +1300,8 @@
   }
   // New best: the moment a Rush run or a level replay passes the saved best, the score turns gold for the rest of the
   // run. A small "New best!" ribbon and a soft chime follow once nothing bigger shows (a title, a wave ribbon, a
-  // guardian's name card, the finale), and the ribbon steps aside if one arrives. A first run has no best to beat.
+  // guardian dropping in and its name card, the finale), and the ribbon steps aside if one arrives. A first run has
+  // no best to beat.
   function bestWatch() {
     if (!game.bestBar) return;
     if (!game.bestState && game.score > game.bestBar) game.bestState = 1;
@@ -1308,7 +1309,8 @@
     if (other && game.floaters.some(f => f.best)) game.floaters = game.floaters.filter(f => !f.best);
     if (game.bestState !== 1) return;
     if (game.over) { game.bestState = 2; return; } // the result card tells it from here
-    if (other || finaleHeld() || (feel && feel.out.busy)) return;
+    // A guardian still dropping in has no card up yet, but its landing will clear the top edge for its own name.
+    if (other || (stage.land && stage.game === game) || finaleHeld() || (feel && feel.out.busy)) return;
     game.bestState = 2;
     game.floaters.push({ kind: 'title', size: 'small', best: true, x: 210, y: 32, life: 1.8, maxLife: 1.8, text: 'New best!' });
     BloomSound.play('newBest', {}); say('New best score!');

@@ -316,6 +316,18 @@ test('"New best!" waits behind a wave ribbon, steps aside for a guardian card, a
   app.frame(); assert.equal(bests(game).length, 0, 'it steps aside for a guardian card');
   app.run(3); assert.equal(bests(game).length, 0); assert.equal(app.cues('newBest').length, 1, 'and does not come back');
 });
+test('"New best!" also waits while a guardian is still dropping in, then shows once its name card has gone', () => {
+  const app = level(player(), 3); app.run(1.3);
+  const game = app.game(), boss = bossWave(app, 'Mother Morel');
+  assert(boss && app.cues('bossLand').length === 0, 'the guardian is still in the air');
+  game.bestBar = 3000; game.score = 3001; app.frame();
+  assert(gold(app), 'the score turns gold at once');
+  assert.equal(bests(game).length, 0, 'no ribbon while the guardian drops in'); assert.equal(app.cues('newBest').length, 0, 'and no chime under its landing');
+  assert(app.run(1, () => app.cues('bossLand').length > 0), 'it lands'); assert(titles(game).some(f => f.boss), 'its name card is up');
+  assert.equal(bests(game).length, 0, 'the card speaks first');
+  assert(app.run(3, () => bests(game).length > 0), 'the ribbon follows the card'); assert(!titles(game).some(f => f.boss));
+  assert.equal(app.cues('newBest').length, 1, 'one chime');
+});
 test('Passing the best on the winning bloom leaves the finale win alone: gold score, no ribbon or chime, the record cue at the end', () => {
   const app = level(player(), 1), game = app.game();
   assert(app.run(6, () => !titles(game).length)); game.started = true;
