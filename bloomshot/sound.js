@@ -895,6 +895,13 @@
       phrase([12, 16, 19, 24].map(hz), 0.07, 0.55, 0.1);
       note(hz(28), 0.28, 0.5, 0.034, -0.3, 'chime', 2); note(hz(31), 0.34, 0.5, 0.03, 0.3, 'chime', 2);
     }
+    // A new best mid-run: two soft bells and a glint, quieter than a bloom and with no pad, so play carries on
+    // over it. The fanfare above still waits for the result.
+    else if (type === 'newBest' && allowed('newBest', 1)) {
+      note(hz(19), 0, 0.3, 0.036, -0.2, 'bell', 1, { space: 'high' });
+      note(hz(24), 0.09, 0.42, 0.04, 0.2, 'bell', 1, { space: 'high' });
+      note(hz(28), 0.17, 0.36, 0.02, 0, 'chime', 1);
+    }
     // Split is charged: a bright little rise.
     else if (type === 'splitReady' && allowed('splitReady', 0.5)) { note(hz(19), 0, 0.2, 0.05, 0, 'glass', 1); note(hz(26), 0.07, 0.32, 0.045, 0, 'glass', 1); }
     // Lullaby counting down its last seconds on a music box (E, D, C), then the flowers wake.

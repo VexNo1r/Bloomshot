@@ -274,6 +274,67 @@ test('The tutorial never gets the show, and a level picked up again does not rep
   assert(titles(game).length <= ribbons, 'no second title');
 });
 
+// New best: gold at once, then one small ribbon and a soft chime when nothing bigger is showing.
+const bests = game => game.floaters.filter(f => f.best);
+const gold = app => app.$('score-value').classList.contains('record');
+test('A level replay that passes the saved best turns the score gold at once, then shows one small "New best!" ribbon and a soft chime', () => {
+  const app = level(player(), 1), game = app.game();
+  assert(app.run(6, () => !titles(game).length), 'the opening titles clear'); game.started = true;
+  game.score = 3000; app.frame();
+  assert(!gold(app), 'matching the best is not beating it'); assert.equal(app.cues('newBest').length, 0);
+  game.score = 3001; app.frame();
+  assert(gold(app), 'the score turns gold the moment it passes the best');
+  const [ribbon] = bests(game);
+  assert(ribbon, 'the ribbon shows'); assert.equal(ribbon.kind, 'title'); assert.equal(ribbon.size, 'small'); assert.equal(ribbon.text, 'New best!');
+  assert.equal(ribbon.label, undefined, 'one cached sprite for every run'); assert.equal(ribbon.y, 32);
+  assert.equal(app.cues('newBest').length, 1); assert.equal(app.$('announcement').textContent, 'New best score!');
+  app.run(2); assert.equal(bests(game).length, 0, 'the ribbon has gone'); assert.equal(app.cues('newBest').length, 1, 'once a run');
+  game.score = 5000; app.frame(); assert(gold(app), 'gold for the rest of the run'); assert.equal(app.cues('newBest').length, 1);
+  game._lose(); app.frame(); assert.equal(app.cues('record').length, 1, 'the end-of-run record cue still plays');
+  app.click('restart-btn'); app.click('restart-btn'); app.frame();
+  assert.notEqual(app.game(), game); assert(!gold(app), 'a new run starts in the usual color');
+});
+test('Endless Rush shows "New best!" too, with Animations on or off, and keeps its record fanfare for the end', () => {
+  for (const motion of [true, false]) {
+    const app = boot({ ...player(motion), rush: { best: 500, bestWave: 2, runs: 1, blooms: 10 } }); app.click('levels-rush-btn'); app.frame();
+    const game = app.game(); assert(!game.plan);
+    assert(app.run(6, () => !titles(game).length)); game.started = true;
+    game.score = 501; app.frame();
+    assert(gold(app)); assert.equal(bests(game).length, 1, `ribbon with motion ${motion}`); assert.equal(app.cues('newBest').length, 1);
+    game._lose(); app.frame(); assert.equal(app.cues('record').length, 1, 'the record fanfare at the end');
+  }
+});
+test('"New best!" waits behind a wave ribbon, steps aside for a guardian card, and never comes back', () => {
+  const app = level(player(), 1), game = app.game();
+  assert(app.run(6, () => !titles(game).length)); game.started = true;
+  game.floaters.push({ kind: 'title', size: 'small', x: 210, y: 32, life: .6, maxLife: .6, text: 'Wave 2 of 10', label: 'Watch the gap' });
+  game.score = 3500; app.frame();
+  assert(gold(app), 'gold right away'); assert.equal(bests(game).length, 0, 'the ribbon waits'); assert.equal(app.cues('newBest').length, 0, 'and so does the chime');
+  assert(app.run(1.5, () => bests(game).length > 0), 'it shows once the wave ribbon is gone');
+  assert.equal(titles(game).filter(f => !f.best).length, 0); assert.equal(app.cues('newBest').length, 1);
+  game.floaters.push({ kind: 'title', boss: true, x: 210, y: 178, life: 1.6, maxLife: 1.6, text: 'Old Bramble', label: 'Hit the glowing knots' });
+  app.frame(); assert.equal(bests(game).length, 0, 'it steps aside for a guardian card');
+  app.run(3); assert.equal(bests(game).length, 0); assert.equal(app.cues('newBest').length, 1, 'and does not come back');
+});
+test('Passing the best on the winning bloom leaves the finale win alone: gold score, no ribbon or chime, the record cue at the end', () => {
+  const app = level(player(), 1), game = app.game();
+  assert(app.run(6, () => !titles(game).length)); game.started = true;
+  game.score = 3600; game.wave = 10; game._clearLevel(); app.run(3);
+  assert.equal(game.status, 'won'); assert(gold(app));
+  assert.equal(game.floaters.filter(f => f.best).length, 0, 'no ribbon over the win'); assert.equal(app.cues('newBest').length, 0, 'no chime over the win');
+  assert.equal(app.cues('record').length, 1, 'the record cue still plays for the result');
+});
+test('Nothing for a first run, a level with no best, or the tutorial', () => {
+  const quiet = (app, game, label) => {
+    assert(app.run(6, () => !titles(game).length), label); game.started = true; game.score = 99999; app.run(.5);
+    assert(!gold(app), `${label}: no gold`); assert.equal(bests(game).length, 0, `${label}: no ribbon`); assert.equal(app.cues('newBest').length, 0, `${label}: no chime`);
+  };
+  let app = boot(player()); app.click('levels-rush-btn'); app.frame(); quiet(app, app.game(), 'first endless run');
+  app = level(player(), 3); quiet(app, app.game(), 'first time on level 3');
+  app = boot({ ...player(), rush: { best: 500, bestWave: 2, runs: 1, blooms: 10 } }); app.click('tutorial-replay'); app.frame();
+  assert(app.game().scripted, 'the tutorial is running'); quiet(app, app.game(), 'tutorial');
+});
+
 // The art: every stage piece draws through BloomArt.draw on a recording canvas. Sprites come from an
 // OffscreenCanvas stand-in, so after the first frame the stage adds no gradients, and the vine caches per hp.
 function recordingContext(calls) {

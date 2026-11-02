@@ -29,7 +29,7 @@ const CUES = [
   ['roll', { dur: 0.9 }], ['finale', { x: 210, type: 'gold' }], ['finale', { x: 90, type: 'poppy' }], ['sweep', { i: 0, n: 10, type: 'coral' }], ['sweep', { i: 9, n: 10, type: 'sky' }],
   ['aimTick', { notch: -30 }], ['aimTick', { notch: 4 }], ['aimLock', { type: 'gold' }], ['heartbeat', {}],
   ['intro', { level: 4, boss: false }], ['intro', { level: 10, boss: true }], ['intro', { level: 'rush', boss: false }], ['pluck', { i: 0, n: 24 }], ['pluck', { i: 23, n: 24 }],
-  ['plop', { i: 3, x: 120 }], ['bossLand', { x: 210 }], ['tally', { i: 0, n: 14 }], ['tally', { i: 13, n: 14 }], ['record', {}], ['splitReady', {}],
+  ['plop', { i: 3, x: 120 }], ['bossLand', { x: 210 }], ['tally', { i: 0, n: 14 }], ['tally', { i: 13, n: 14 }], ['record', {}], ['newBest', {}], ['splitReady', {}],
   ['lullabyTick', { left: 3 }], ['lullabyTick', { left: 1 }], ['lullabyWake', {}], ['briarTick', { left: 2, x: 100 }], ['briarTick', { left: 0.5, x: 300 }],
   ['podSeed', { pod: 2 }], ['podSeed', { pod: 4 }], ['dry', { wait: 1.2, grow: .3 }],
   ['bossWarning', { kind: 'sunny', x: 150, at: 4, until: 5.2 }], ['bossGuard', { kind: 'fossil', bud: { x: 300 } }],
@@ -695,6 +695,18 @@ async function main() {
     assert(fanfare.length >= 6, 'the fanfare plays'); assert(fanfare.some(v => tones(h, v).length >= 3), 'over a chord');
     assert(fanfare.every(v => inKey(target(v)) && v.stopAt - now <= 1.1));
     const alone = fixture(); alone.sound.wake(); alone.tick(1); alone.sound.play('record', {}); assert(alone.voices().length >= 6, 'it also plays on its own');
+  });
+  await test('A new best mid-run is a soft, short chime, quieter than the record fanfare and never cutting other sounds', () => {
+    const h = fixture(); h.sound.wake(); h.tick(1); h.sound.play('bloom', { combo: 1 });
+    const before = h.voices(); h.tick(0.02); const now = h.context.currentTime;
+    h.sound.play('newBest', {});
+    const chime = h.voices().filter(v => !before.includes(v));
+    assert(chime.length >= 2 && chime.length <= 3, 'two or three soft notes'); assert(before.every(v => v.stopAt > now + 0.1), 'the bloom rings on');
+    assert(chime.every(v => inKey(target(v)) && v.stopAt - now <= 0.7), 'in key and over in well under a second');
+    const peak = voices => Math.max(...voices.map(v => Math.max(...v.connections[0].gain.events.map(e => e.value || 0))));
+    const loud = fixture(); loud.sound.wake(); loud.tick(1); loud.sound.play('record', {});
+    assert(peak(chime) < peak(loud.voices()), 'softer than the end-of-run record fanfare');
+    h.sound.play('newBest', {}); assert.equal(h.voices().filter(v => !before.includes(v)).length, chime.length, 'once per second at most');
   });
   await test('The seed ladder climbs the chord (root, third, fifth, octave) and stays in it, within 140 Hz to 1.1 kHz', () => {
     const triads = [[0, 4, 7], [9, 0, 4], [5, 9, 0], [7, 11, 2]];

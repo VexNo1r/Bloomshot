@@ -105,6 +105,8 @@ body[data-view="game"] .back-button{display:grid}
 .score-value{font:700 34px/1 var(--display);font-variant-numeric:tabular-nums;color:#ef4f7f;text-shadow:0 2px 0 #f8cdd9;display:inline-block;transform-origin:100% 60%}
 .score-value.bump{animation:score-bump .3s cubic-bezier(.2,1.7,.4,1)}
 .score-value.bump.gold{animation:score-bump .3s cubic-bezier(.2,1.7,.4,1),score-gold .45s ease-out}
+/* Past the saved best, the score stays gold for the rest of the run. */
+.score-value.record{color:#b97a00;text-shadow:0 2px 0 #ffe08a}
 @keyframes score-gold{0%,30%{text-shadow:0 2px 0 #f8cdd9,0 0 14px #ffd148,0 0 4px #fff3b0}100%{text-shadow:0 2px 0 #f8cdd9}}
 /* A harvest orb's last stretch from the board to the score: moved by the compositor, then hidden again. */
 .harvest-spark{position:fixed;left:0;top:0;z-index:30;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;pointer-events:none;opacity:0;

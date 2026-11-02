@@ -236,6 +236,8 @@
     if (!isRush()) for (const key of ['wave', 'lives', 'elapsed', 'splitReady']) delete canvas.dataset[key];
     $('split-btn').hidden = !isRush();
     angle = -Math.PI / 2; pointer = null; aiming = false; guiding = false; resultAt = Infinity; resultShown = false; remembered = null; pressPoint = null;
+    // The best to beat is read once at the start, so the end-of-run save never moves it mid-run.
+    game.bestBar = isRush() && !isTutorial() && !preview && !isTaste() ? record()?.best || 0 : 0; game.bestState = 0;
     displayScore = 0; hudKey = ''; countLeft = 0; countShown = ''; newFlower = null; newKeepsake = null; accumulator = 0; rushRecordBroken = false; depthNews = null; game.shieldSeen = false; game.shellSeen = false; game.geodeSeen = false; game.foesSeen = new Set();
     runId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`; runAward = 0; runBouquet = null; runGoals = null; shotTrail = []; trailTotal = 0;
     if (!preview && typeof level.id === 'number') { save.lastLevel = level.id; persist(); }
@@ -301,6 +303,7 @@
       $('rotate-btn').textContent = game.rotationUsed ? 'Petal turned' : 'Turn petal';
     }
     put($('score-value'), 'textContent', fmt(displayScore));
+    putClass($('score-value'), 'record', game.bestState > 0);
     put($('pause-btn'), 'hidden', !(rush && !isTutorial() && !preview && !game.over));
     putData(canvas, 'balls', game.balls.length);
     putData(canvas, 'world', isChapter() ? game.level.worldId : 'meadow');
@@ -1294,6 +1297,21 @@
     game.floaters = game.floaters.filter(f => !(rankOf(f) > 0 && rankOf(f) <= rank));
     game.floaters.push(item);
     return true;
+  }
+  // New best: the moment a Rush run or a level replay passes the saved best, the score turns gold for the rest of the
+  // run. A small "New best!" ribbon and a soft chime follow once nothing bigger shows (a title, a wave ribbon, a
+  // guardian's name card, the finale), and the ribbon steps aside if one arrives. A first run has no best to beat.
+  function bestWatch() {
+    if (!game.bestBar) return;
+    if (!game.bestState && game.score > game.bestBar) game.bestState = 1;
+    const other = game.floaters.some(f => f.kind === 'title' && !f.best && f.life > 0);
+    if (other && game.floaters.some(f => f.best)) game.floaters = game.floaters.filter(f => !f.best);
+    if (game.bestState !== 1) return;
+    if (game.over) { game.bestState = 2; return; } // the result card tells it from here
+    if (other || finaleHeld() || (feel && feel.out.busy)) return;
+    game.bestState = 2;
+    game.floaters.push({ kind: 'title', size: 'small', best: true, x: 210, y: 32, life: 1.8, maxLife: 1.8, text: 'New best!' });
+    BloomSound.play('newBest', {}); say('New best score!');
   }
   // A score pop waits a quarter second above the flower, so the crack and unfurl read first. A seed's chain (or
   // blooms right next to each other) add up in one pop instead of a stack.
@@ -3174,7 +3192,7 @@
     else if (!paused) {
       accumulator += gdt;
       while (accumulator >= 1 / 120) { game.step(1 / 120); accumulator -= 1 / 120; }
-      processEvents();
+      processEvents(); bestWatch();
       for (const ball of game.balls || []) ball.hot = !isRush() && (game.combo || 0) >= 8;
       game.particles = stepParticles(game.particles, gdt, 24, 396, 530);
       // Words age in real time in the tutorial, so a 'Lovely!' does not hang for 13 s while a card waits at 8% speed.
