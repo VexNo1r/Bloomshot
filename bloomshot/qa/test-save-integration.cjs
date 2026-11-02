@@ -167,6 +167,21 @@ test('The privacy policy is readable without leaving the app or changing the sav
   assert.match(policy, /hello@harborlineleadrecovery\.com/);
 });
 
+test('How to play describes Meadow Rush as it really plays: faster, richer waves and a gift every other wave, with no big bloom', () => {
+  const html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+  const help = html.slice(html.indexOf('<summary><span>Meadow Rush</span>'), html.indexOf('</details>', html.indexOf('<summary><span>Meadow Rush</span>')));
+  assert(help.length > 100, 'the Meadow Rush help section');
+  assert.doesNotMatch(help, /fifth wave|big bloom/i, 'endless Rush has no big bloom');
+  assert.match(help, /Each wave falls a little faster and scores a little more, up to double\. A free gift floats down every other wave\./);
+  // The rules the line describes: tempo from 1 to a cap of 2, faster falling, and a gift on even waves only, never a boss.
+  const tempo = wave => { const g = new Rush.RushGame({ random: () => .5 }); g.wave = wave; return g.tempo; };
+  assert.deepEqual([tempo(1), tempo(2), tempo(11), tempo(30)], [1, 1.1, 2, 2]);
+  const gifts = [];
+  for (let wave = 1; wave <= 10; wave++) { const g = new Rush.RushGame({ random: () => .5 }); g.wave = wave; g.bossWave = false; g._rollGift(); if (g.giftAt !== null) gifts.push(wave); }
+  assert.deepEqual(gifts, [2, 4, 6, 8, 10]);
+  const endless = new Rush.RushGame({ random: () => .5 });
+  for (let wave = 1; wave <= 12; wave++) { endless.wave = wave; endless._loadWave?.(); assert(!endless.buds.some(b => b.boss), `no boss on endless wave ${wave}`); }
+});
 test('Startup migrates an old save once and preserves all existing progress and preferences', () => {
   const before = legacySave(); const app = boot(before); const after = app.saved();
   for (const field of ['progress', 'daily', 'rush', 'lastLevel']) assert.deepEqual(after[field], before[field]);
