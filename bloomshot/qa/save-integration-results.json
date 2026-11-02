@@ -1,5 +1,5 @@
 {
-  "passed": 87,
+  "passed": 100,
   "failed": 0,
   "methodology": "Executes the complete current app.js in an isolated Node VM using real garden/level/engine modules, fake localStorage, and DOM/canvas adapters. Completion fixtures exercise actual engine completion events and app handlers. No real browser or user saves are read or changed.",
   "limitations": [
@@ -9,6 +9,10 @@
   "results": [
     {
       "name": "The privacy policy is readable without leaving the app or changing the save",
+      "passed": true
+    },
+    {
+      "name": "How to play describes Meadow Rush as it really plays: faster, richer waves and a gift every other wave, with no big bloom",
       "passed": true
     },
     {
@@ -132,6 +136,10 @@
       "passed": true
     },
     {
+      "name": "A finished meadow says new seed styles wait in the Collection, and the seed reward points there too",
+      "passed": true
+    },
+    {
       "name": "Today's goals: the Garden card lists all three with progress, and each one opens a place to play it",
       "passed": true
     },
@@ -141,6 +149,22 @@
     },
     {
       "name": "Growing in the meadow and clearing two puzzles finish the day, paying each goal and the 6-seed bonus",
+      "passed": true
+    },
+    {
+      "name": "A finished meadow never strands its goal: saying hi to a friend there pays it once, and the day can still reach its bonus",
+      "passed": true
+    },
+    {
+      "name": "Only a friend who has moved in can be greeted for the goal, and a hello on a day without the meadow goal changes nothing",
+      "passed": true
+    },
+    {
+      "name": "The Today strip on the Levels map shows the day's three goals and the bonus, and each goal goes where it is played",
+      "passed": true
+    },
+    {
+      "name": "Grown seed styles: the Collection grows one with earned seeds, once, wears it, counts for the meadow goal and survives a reload",
       "passed": true
     },
     {
@@ -189,6 +213,30 @@
     },
     {
       "name": "Skip ends it for good, and How to play can start it again",
+      "passed": true
+    },
+    {
+      "name": "A phone interruption opens the Paused card; nothing moves until Resume and its 3, 2, 1 have played",
+      "passed": true
+    },
+    {
+      "name": "With Animations off the count is a short Ready, and leaving the page while it counts brings the card back",
+      "passed": true
+    },
+    {
+      "name": "Escape or a tap outside the card resumes through the same count; a settings card opened from it comes back to it",
+      "passed": true
+    },
+    {
+      "name": "A Paused card that opens again before the last one has finished closing stays a pause, with no count under it",
+      "passed": true
+    },
+    {
+      "name": "Restart on the Paused card starts over at once, and Levels leaves the run waiting with a count when picked up",
+      "passed": true
+    },
+    {
+      "name": "No Paused card over the tutorial, a result, a won or lost board, a preview or a run not yet started, and never on window blur",
       "passed": true
     },
     {
@@ -257,6 +305,10 @@
     },
     {
       "name": "No taste before level 4 is cleared or once the levels are owned",
+      "passed": true
+    },
+    {
+      "name": "Picking the level 5 taste up again from its map card counts in like every other paused run",
       "passed": true
     },
     {

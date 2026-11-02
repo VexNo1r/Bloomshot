@@ -1,5 +1,5 @@
 {
-  "passed": 28,
+  "passed": 31,
   "failed": 0,
   "observations": {
     "starterSeeds": 4,
@@ -18,6 +18,11 @@
       100
     ],
     "completeDecorCost": 320,
+    "seedStyleCosts": [
+      150,
+      250,
+      400
+    ],
     "decentRush": {
       "blooms": 24,
       "wave": 3,
@@ -171,6 +176,18 @@
     },
     {
       "name": "Level runs pay for their blooms, won or lost, and new stars on a level pay once like a garden",
+      "passed": true
+    },
+    {
+      "name": "Three seed styles cost 150, 250 and 400 seeds, grow once each in any order, and refuse too few seeds",
+      "passed": true
+    },
+    {
+      "name": "Grown styles save as a cleaned list that an old save loads without and every normalize keeps",
+      "passed": true
+    },
+    {
+      "name": "Summary lists each seed style with its price and whether it is grown or affordable, and the meadow can be complete without them",
       "passed": true
     }
   ]

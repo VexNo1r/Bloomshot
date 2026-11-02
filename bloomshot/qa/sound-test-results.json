@@ -1,5 +1,5 @@
 {
-  "passed": 38,
+  "passed": 39,
   "failed": 0,
   "limits": "Instrumented Web Audio API scheduling/graph tests, not a rendered browser audio capture or a listening assessment. Device speakers, perceptual loudness, and audio-to-screen latency still require on-device listening.",
   "results": [
@@ -18,7 +18,7 @@
     {
       "name": "Stress measurement",
       "passed": true,
-      "eventsSubmitted": 63000,
+      "eventsSubmitted": 138000,
       "maxVoices": 16,
       "maxOscillators": 40
     },
@@ -136,6 +136,10 @@
     },
     {
       "name": "A new best cuts the tail of the losing phrase and plays its sparkle fanfare",
+      "passed": true
+    },
+    {
+      "name": "A new best mid-run is a soft, short chime, quieter than the record fanfare and never cutting other sounds",
       "passed": true
     },
     {
