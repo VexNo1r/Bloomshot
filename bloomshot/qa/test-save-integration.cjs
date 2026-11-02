@@ -614,13 +614,28 @@ test('A finished meadow says new seed styles wait in the Collection, and the see
   assert.equal(app.$('reward-goal').textContent, '142 more seeds to grow Dewdrop in your Collection.');
   assert.equal(app.$('grow-garden-btn').dataset.to, 'collection'); assert.match(app.$('grow-garden-btn').innerHTML, /^Collection /);
   app.click('grow-garden-btn');
-  assert.equal(app.context.bloomshotState.route, 'collection'); assert.equal(app.$('keepsake-grow').scrolled, 1, 'it opens on the seed styles');
+  // It opens on the style it named, flying in the preview, with that style's Grow button (here off, with what is missing).
+  assert.equal(app.context.bloomshotState.route, 'collection');
+  assert.match(app.$('keepsake-caption').innerHTML, /^<strong>Dewdrop<\/strong>/); assert.match(app.$('keepsake-caption').innerHTML, /data-grow="dewdrop" disabled>Grow · 150 seeds</);
+  assert.match(app.$('keepsake-grow').innerHTML, /data-keepsake="dewdrop" aria-pressed="true"/);
   assert.equal(app.saved().garden.seeds, 8, 'pointing never spends'); assert.deepEqual(app.saved().garden.grown, []);
   app.click('garden-btn');
   assert.equal(app.$('meadow-summary').textContent, 'Your meadow is complete!');
   assert.equal(app.$('garden-earning-hint').textContent, 'New seed styles wait in the Collection. Grow them with the seeds you earn.');
   assert.equal(app.$('meadow-styles-btn').hidden, false);
-  app.click('meadow-styles-btn'); assert.equal(app.context.bloomshotState.route, 'collection'); assert.equal(app.$('keepsake-grow').scrolled, 2);
+  // Left scrolled down at the seed styles, the Collection scrolls back up to the preview, where the Grow button is.
+  const view = app.$('collection-view'), caption = app.$('keepsake-caption');
+  view.getBoundingClientRect = () => ({ top: 46, bottom: 583 }); caption.getBoundingClientRect = () => ({ top: -300, bottom: -100 });
+  app.click('meadow-styles-btn'); assert.equal(app.context.bloomshotState.route, 'collection');
+  assert.match(caption.innerHTML, /^<strong>Dewdrop<\/strong>/); assert.equal(app.$('keepsake-stage').scrolled, 1, 'the preview is brought into view');
+  // Picking a grown style from its row, far below the preview, brings the preview and its Grow button into view too.
+  app.click('keepsake-shelf', { keepsake: 'maple' }); assert.equal(app.$('keepsake-stage').scrolled, 2);
+  assert.match(caption.innerHTML, /data-grow="maple" disabled>Grow · 400 seeds</);
+  // With the preview already in sight nothing moves; below the fold, the caption is scrolled up to.
+  caption.getBoundingClientRect = () => ({ top: 200, bottom: 400 }); app.click('keepsake-shelf', { keepsake: 'bramble' });
+  assert.equal(app.$('keepsake-stage').scrolled, 2); assert.equal(caption.scrolled, 0);
+  caption.getBoundingClientRect = () => ({ top: 500, bottom: 700 }); app.click('keepsake-shelf', { keepsake: 'dewdrop' });
+  assert.equal(app.$('keepsake-stage').scrolled, 2); assert.equal(caption.scrolled, 1);
   // With the seeds in hand it says so, and it names the next one once the first is grown.
   save.garden = { seeds: 150, levels: full, decor: built };
   app = boot(save); app.finishRush(24, 3); settle(app); assert.equal(app.$('reward-goal').textContent, 'Enough to grow Dewdrop in your Collection.');

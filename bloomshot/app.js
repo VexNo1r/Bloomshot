@@ -895,7 +895,14 @@
       save.keepsake = id; persist(); BloomSound.play('tap');
       toast(`Wearing ${style.name}!`);
     }
-    renderKeepsakes();
+    renderKeepsakes(); revealPreview();
+  }
+  // The preview and its caption (with a grown style's Grow button) sit above both rows of styles. A pick made with them
+  // scrolled out of sight above brings them back, so the pick always shows; one below the fold is scrolled up to.
+  function revealPreview() {
+    const box = $('collection-view').getBoundingClientRect(), caption = $('keepsake-caption').getBoundingClientRect(), behavior = save.settings.motion ? 'smooth' : 'auto';
+    if (caption.top < box.top) $('keepsake-stage').scrollIntoView({ behavior, block: 'start' });
+    else if (caption.bottom > box.bottom) $('keepsake-caption').scrollIntoView({ behavior, block: 'end' });
   }
   // The shelf's moving preview: a seed arcs to a bud, blooms, and the loop repeats.
   const showcase = { t: 0, last: 0, particles: [], trail: [], bloomed: 0, style: '', dirty: true };
@@ -2977,10 +2984,13 @@
   function leaveBoard() { if (isChapter()) { const world = game.level.worldId; setRoute('worlds'); openWorld(world); } else setRoute(isRush() ? 'levels' : 'garden'); }
   $('back-btn').addEventListener('click', () => { if (preview) exitPreview(); else leaveBoard(); });
   $('garden-btn').addEventListener('click', () => { if (preview) exitPreview(); setRoute('garden'); });
-  // The seed styles sit below the Collection's keepsakes; bring that panel into view.
+  // From a finished meadow or a seed reward, the Collection opens on the seed style the copy just named, flying in the
+  // preview with its Grow button in view, so the next tap grows it.
   function showSeedStyles() {
     setRoute('collection');
-    const panel = $('keepsake-grow'); if (panel && !panel.hidden) panel.scrollIntoView({ behavior: save.settings.motion ? 'smooth' : 'auto', block: 'start' });
+    const next = styleGoal(BloomGarden.summary(save.garden));
+    if (next) { keepsakePreview = next.id; showcase.t = 0; showcase.dirty = true; renderKeepsakes(); }
+    revealPreview();
   }
   $('grow-garden-btn').addEventListener('click', () => { closeDialogs(); if ($('grow-garden-btn').dataset.to === 'collection') showSeedStyles(); else setRoute('garden'); });
   $('meadow-styles-btn').addEventListener('click', showSeedStyles);
