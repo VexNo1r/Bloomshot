@@ -1371,7 +1371,7 @@ testAsync('Buying says exactly what arrived: one, five, or the bag', async () =>
   app.click('power-shelf', { buy: 'bloomshot.pack.sunburst5' }); await settled(); assert.equal(app.$('toast').textContent, '+5 Sunburst! You have 6.');
   app.click('power-shelf', { buy: 'bloomshot.pack.bag20' }); await settled(); assert.equal(app.$('toast').textContent, '+20 powerups! 5 of each.');
   app.click('depth-map', { buy: BUNDLE }); await settled();
-  assert.equal(app.$('toast').textContent, 'Complete Garden unlocked! Levels 5 to 10, Koi pools and seed styles are yours.');
+  assert.equal(app.$('toast').textContent, 'Complete Garden unlocked! Levels 5 to 10, Koi pools and Keepsake styles are yours.');
 });
 
 testAsync('A paid powerup or pack must fit entirely before the store can open', async () => {

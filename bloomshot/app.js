@@ -199,7 +199,7 @@
       if (amount > 0) try { saving = `${new Intl.NumberFormat(undefined, { style: 'currency', currency: bundle.currency }).format(amount)} less than buying all three`; } catch (_) { /* keep the plain wording */ }
     }
     const separately = parts.every(p => p.price) ? ` (${parts.map(p => p.price).join(' + ')})` : '';
-    return `<div class="bundle-offer"><span class="card-tag gold">Complete Garden</span><strong>Levels ${Depths.free + 1} to ${Depths.total}, Koi pools and seed styles</strong><p>${escape(saving + separately)}.</p><button class="button-secondary bundle-btn" type="button" data-buy="${BUNDLE}">Get everything${bundle.price ? ` · ${escape(bundle.price)}` : ''}</button></div>`;
+    return `<div class="bundle-offer"><span class="card-tag gold">Complete Garden</span><strong>Levels ${Depths.free + 1} to ${Depths.total}, Koi pools and Keepsake styles</strong><p>${escape(saving + separately)}.</p><button class="button-secondary bundle-btn" type="button" data-buy="${BUNDLE}">Get everything${bundle.price ? ` · ${escape(bundle.price)}` : ''}</button></div>`;
   }
   // Keepsakes: Meadow is free, Moonlit is earned in the Moon Garden, three come with the collection and three are grown
   // with earned seeds (the garden keeps which).
@@ -1045,7 +1045,7 @@
   const PURCHASES = {
     [BloomKoi.product]: { thanks: 'Koi Conservatory unlocked! Six new pools.' },
     [Keepsakes.product]: { thanks: 'Keepsake Collection unlocked! Three new styles.' },
-    [BUNDLE]: { thanks: () => `Complete Garden unlocked! Levels ${Depths.free + 1} to ${Depths.total}, Koi pools and seed styles are yours.` },
+    [BUNDLE]: { thanks: () => `Complete Garden unlocked! Levels ${Depths.free + 1} to ${Depths.total}, Koi pools and Keepsake styles are yours.` },
     [Depths.product]: { thanks: () => `Levels ${Depths.free + 1} to ${Depths.total} unlocked! ${depthOpen(Depths.free + 1) ? `${Depths.level(Depths.free + 1).name} is open.` : `Clear level ${Depths.free} to head down.`}` }
   };
   async function buyProduct(button) {
