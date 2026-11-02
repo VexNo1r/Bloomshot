@@ -119,7 +119,10 @@
   const graphics = () => GRAPHICS[save.settings.graphics] || GRAPHICS.maximum;
   const frameMeter = typeof window.BloomFeel?.createFrameMeter === 'function' ? BloomFeel.createFrameMeter({ capacity: 1800, target: 60 }) : null;
   let meterAt = 0;
-  const dialogs = ['result-dialog', 'settings-dialog', 'privacy-dialog', 'help-dialog', 'world-dialog'];
+  const dialogs = ['result-dialog', 'settings-dialog', 'privacy-dialog', 'help-dialog', 'world-dialog', 'pause-dialog'];
+  // Play holds while a card is open, while a phone is sideways, and while the count after a pause is still running.
+  let countLeft = 0, countShown = '';
+  const holding = () => narrowLandscape.matches || dialogs.some(id => $(id).open) || countLeft > 0;
   // Three filled stars, the unearned ones dimmed, so a row of stars always reads the same width.
   const starHTML = n => '<span>★</span>'.repeat(n) + '<span class="off">★</span>'.repeat(3 - n);
   const fmt = number => Math.round(number).toLocaleString();
@@ -207,6 +210,7 @@
   function localDate() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
   function setRoute(next) {
     route = next; cancelInteraction();
+    if (next !== 'game' && countLeft > 0) { countLeft = 0; renderCount(); }
     for (const name of ['game', 'levels', 'garden', 'collection', 'worlds']) $(`${name}-view`).hidden = next !== name;
     for (const name of ['rush', 'garden', 'collection', 'worlds']) {
       const active = next === name || (name === 'rush' && (next === 'game' || next === 'levels'));
@@ -222,7 +226,7 @@
   }
   function startLevel(level, options = {}) {
     closeDialogs();
-    game = level.tutorial ? new BloomRush.RushGame({ scripted: true }) : level.depth ? new BloomRush.RushGame({ plan: depthPlan(level.depth, level.taste), random: Math.random, startWave: level.from || 1 }) : level.id === 'rush' ? new BloomRush.RushGame({ random: Math.random }) : new Game(level); game.particles = []; game.floaters = []; if ($('checkpoint-btn')) $('checkpoint-btn').hidden = true;
+    game = level.tutorial ? new BloomRush.RushGame({ scripted: true }) : level.depth ? new BloomRush.RushGame({ plan: depthPlan(level.depth, level.taste), random: Math.random, startWave: level.from || 1 }) : level.id === 'rush' ? new BloomRush.RushGame({ random: Math.random }) : new Game(level); game.particles = []; game.floaters = []; if ($('checkpoint-btn')) $('checkpoint-btn').hidden = true; $('resume-count').hidden = true;
     tutorial = level.tutorial ? Tutorial.create() : null; tutorialKey = ''; document.body.dataset.tutorial = tutorial ? 'on' : '';
     if (tutorial) tutorial.begin(game);
     preview = Boolean(options.preview); theme = options.theme || (isChapter() ? game.level.worldId : 'meadow');
@@ -232,7 +236,7 @@
     if (!isRush()) for (const key of ['wave', 'lives', 'elapsed', 'splitReady']) delete canvas.dataset[key];
     $('split-btn').hidden = !isRush();
     angle = -Math.PI / 2; pointer = null; aiming = false; guiding = false; resultAt = Infinity; resultShown = false; remembered = null; pressPoint = null;
-    displayScore = 0; hudKey = ''; newFlower = null; newKeepsake = null; accumulator = 0; rushRecordBroken = false; depthNews = null; game.shieldSeen = false; game.shellSeen = false; game.geodeSeen = false; game.foesSeen = new Set();
+    displayScore = 0; hudKey = ''; countLeft = 0; countShown = ''; newFlower = null; newKeepsake = null; accumulator = 0; rushRecordBroken = false; depthNews = null; game.shieldSeen = false; game.shellSeen = false; game.geodeSeen = false; game.foesSeen = new Set();
     runId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`; runAward = 0; runBouquet = null; runGoals = null; shotTrail = []; trailTotal = 0;
     if (!preview && typeof level.id === 'number') { save.lastLevel = level.id; persist(); }
     $('level-name').textContent = level.name;
@@ -297,6 +301,7 @@
       $('rotate-btn').textContent = game.rotationUsed ? 'Petal turned' : 'Turn petal';
     }
     put($('score-value'), 'textContent', fmt(displayScore));
+    put($('pause-btn'), 'hidden', !(rush && !isTutorial() && !preview && !game.over));
     putData(canvas, 'balls', game.balls.length);
     putData(canvas, 'world', isChapter() ? game.level.worldId : 'meadow');
     putData(canvas, 'gatePasses', game.gatePasses || 0);
@@ -533,7 +538,7 @@
   // A shot powerup is only spent when the shot is fired; picking it again puts it back for free.
   function usePower(id) {
     const def = Powers.byId[id];
-    if (!def || !isRush() || preview || game.over) return;
+    if (!def || !isRush() || preview || game.over || countLeft > 0) return;
     BloomSound.wake();
     if (!gate(`power:${id}`)) { nudgeTutorial(); return; }
     if (def.shot && (game.armed === id || powerCount(id))) { if (game.arm(id)) { processEvents(); renderTray(); } return; }
@@ -1009,7 +1014,7 @@
       if (staged() && !game.stage) { intro(); bossIntro(null); }
     }
     if (!game.stage) return;
-    const held = narrowLandscape.matches || dialogs.some(id => $(id).open);
+    const held = holding();
     if (!held && game.harvest && game.harvest.length) stepHarvest(dt);
     if (game.stage.glow > 0) game.stage.glow = Math.max(0, game.stage.glow - dt * 2.6);
     // Each tumbling bud lands with a soft plop, at most eight a wave and never closer than 40 ms.
@@ -1535,7 +1540,7 @@
   // Called every frame with real time: the camera, the governor, the finale watch, the sweep's notes and the result wait.
   function feelStep(dt) {
     if (!game) return;
-    const paused = narrowLandscape.matches || dialogs.some(id => $(id).open);
+    const paused = holding();
     if (feelGame !== game) { feelGame = game; redFlash = 0; mintFlash = 0; aimTarget = null; if (feel) feel.reset(); }
     redFlash = Math.max(0, redFlash - dt / .35); mintFlash = Math.max(0, mintFlash - dt / .25);
     danger.redFlash = redFlash; danger.mintFlash = mintFlash; danger.lastLife = isRush() && game.lives === 1 && !game.over;
@@ -2381,7 +2386,7 @@
     const onGame = route === 'game' && Boolean(game);
     if (onGame) watchCues(); else cueWatch = null;
     const groove = !onGame ? 'home' : isTutorial() ? 'meadow' : isDepth() ? Depths.level(game.plan.id)?.key || 'home' : 'home';
-    const paused = narrowLandscape.matches || dialogs.some(id => $(id).open), result = $('result-dialog').open;
+    const paused = holding(), result = $('result-dialog').open;
     const over = onGame && Boolean(game.over ?? (game.status === 'won' || game.status === 'lost'));
     const key = `${route}|${groove}|${paused}|${result}|${over}|${document.hidden}`;
     if (!force && key === musicKey && timestamp - musicAt < 100) return;
@@ -2663,7 +2668,7 @@
       if (performance.now() / 1000 - (game.feel.wonReal || 0) < SKIP_GRACE) return;
       game.feel.sweeping = false; game.feel.waiting = false; if (feel) feel.reset(); resultAt = game.time; return;
     }
-    if (route !== 'game' || activePointer !== null || !event.isPrimary || !['aiming', 'flying'].includes(game.status) || narrowLandscape.matches) return;
+    if (route !== 'game' || activePointer !== null || !event.isPrimary || !['aiming', 'flying'].includes(game.status) || narrowLandscape.matches || countLeft > 0) return;
     if (curtainUp()) return;
     if (isChapter() && game.status === 'flying') return;
     if (isTutorial() && !tutorial.allows('fire') && !tutorial.allows('rotate')) { nudgeTutorial(); return; }
@@ -2704,7 +2709,7 @@
   canvas.addEventListener('pointercancel', event => { if (event.pointerId === activePointer) cancelInteraction(); });
   canvas.addEventListener('lostpointercapture', event => { if (event.pointerId === activePointer) cancelInteraction(); });
   canvas.addEventListener('keydown', event => {
-    if (route !== 'game' || narrowLandscape.matches || dialogs.some(id => $(id).open)) return;
+    if (route !== 'game' || holding()) return;
     if (!isRush() && !isChapter() && game.status === 'flying' && event.key.startsWith('Arrow')) {
       event.preventDefault();
       const target = game.guideTarget || { x: 210, y: 230 };
@@ -2728,8 +2733,8 @@
   window.addEventListener('blur', cancelInteraction);
   const rotateButton = document.createElement('button'); rotateButton.id = 'rotate-btn'; rotateButton.type = 'button'; rotateButton.className = 'turn-petal-btn'; rotateButton.textContent = 'Turn petal';
   $('restart-btn').parentElement.insertBefore(rotateButton, $('restart-btn'));
-  rotateButton.addEventListener('click', () => { if (!gate('rotate')) nudgeTutorial(); else if (game.bumpers[0]) rotateNearest(game.bumpers[0]); });
-  function openRush() { if (preview) exitPreview(); if (isRush() && !isDepth() && !game.over) { closeDialogs(); setRoute('game'); } else startLevel({ id: 'rush', name: 'Meadow Rush' }); }
+  rotateButton.addEventListener('click', () => { if (countLeft > 0) return; if (!gate('rotate')) nudgeTutorial(); else if (game.bumpers[0]) rotateNearest(game.bumpers[0]); });
+  function openRush() { if (preview) exitPreview(); if (isRush() && !isDepth() && !game.over) { closeDialogs(); resumeBoard(); } else startLevel({ id: 'rush', name: 'Meadow Rush' }); }
   function openLevels() { if (preview) exitPreview(); closeDialogs(); setRoute('levels'); }
   function showUnlock() { const card = $('depth-unlock'); if (card) card.scrollIntoView({ behavior: save.settings.motion ? 'smooth' : 'auto', block: 'center' }); }
   function startDepth(id, taste, from) { if (id === freshDepth) freshDepth = 0; if (preview) exitPreview(); startLevel({ id: 'rush', depth: id, name: Depths.level(id).name, taste: Boolean(taste), from: taste ? 1 : from || (reviewBosses ? 10 : 1) }, { theme: depthTheme(id) }); }
@@ -2746,15 +2751,60 @@
     if (label) label.textContent = on ? 'Tap again' : 'Restart';
     button.setAttribute('aria-label', on ? 'Tap again to restart' : 'Restart this game');
   }
+  const runProgress = () => isRush() && !isTutorial() && !preview && !game.over && (game.score > 0 || game.wave > (game.startWave || 1));
   function restartTap() {
-    const progress = isRush() && !isTutorial() && !preview && !game.over && (game.score > 0 || game.wave > (game.startWave || 1));
-    if (progress && restartArmed === null) { armRestart(true); haptic('tap'); say('Tap Restart again to start over.'); return; }
+    if (runProgress() && restartArmed === null) { armRestart(true); haptic('tap'); say('Tap Restart again to start over.'); return; }
+    restartNow();
+  }
+  function restartNow() {
     if (restartArmed !== null) armRestart(false);
-    if (progress && !isDepth() && (game.score > save.rush.best || game.wave > save.rush.bestWave)) {
+    if (runProgress() && !isDepth() && (game.score > save.rush.best || game.wave > save.rush.bestWave)) {
       save.rush.best = Math.max(save.rush.best, game.score); save.rush.bestWave = Math.max(save.rush.bestWave, game.wave); persist();
     }
     replay();
   }
+  // Pause: the round button in the header, or on its own when the phone hides the game. Only a run still being played
+  // pauses: never the tutorial, a preview, a won or lost board, or over a result card. Resume counts 3, 2, 1 over the
+  // dimmed board (a short 'Ready…' with Animations off) before anything moves; Restart on the card needs no second tap.
+  const COUNT = { step: .6, numbers: 3, still: 1.2 };
+  const countSpan = () => save.settings.motion ? COUNT.step * COUNT.numbers : COUNT.still;
+  const pausable = () => route === 'game' && isRush() && !isTutorial() && !preview && !game.over && !resultShown && !$('result-dialog').open;
+  const boardLine = () => isDepth() ? `Level ${game.plan.id} · wave ${game.wave} of ${game.finalWave}` : `Meadow Rush · wave ${game.wave} · ${fmt(game.score)} points`;
+  function pauseGame(auto = false) {
+    // Coming back from another app with nothing yet moving (no seed fired) needs no card.
+    if (!pausable() || (auto && !game.started)) return false;
+    countLeft = 0; renderCount(); cancelInteraction();
+    // Settings or How to play give way to the Paused card; their changes are already saved.
+    for (const id of dialogs) if (id !== 'pause-dialog' && id !== 'result-dialog') closeDialog(id);
+    $('pause-where').textContent = boardLine();
+    if (!$('pause-dialog').open) { showDialog('pause-dialog'); if (!auto) { BloomSound.wake(); BloomSound.play('tap'); } }
+    say(`Paused. ${boardLine()}.`);
+    return true;
+  }
+  function startCount() {
+    if (route !== 'game' || !inProgress() || isTutorial()) return;
+    countLeft = countSpan(); countShown = ''; renderCount(); cancelInteraction();
+    say(save.settings.motion ? 'Get ready. 3, 2, 1.' : 'Get ready.');
+  }
+  function renderCount() {
+    const box = $('resume-count'), on = countLeft > 0 && route === 'game';
+    put(box, 'hidden', !on);
+    if (!on) { countShown = ''; return; }
+    const text = save.settings.motion ? String(Math.min(COUNT.numbers, Math.ceil(countLeft / COUNT.step - 1e-9))) : 'Ready…';
+    if (text === countShown) return;
+    countShown = text; put($('resume-number'), 'textContent', text); putData(box, 'mode', save.settings.motion ? 'count' : 'ready');
+    // Each number pops in on its own (two names, so the same animation plays again), with a soft tick.
+    if (save.settings.motion) { putData(box, 'tick', box.dataset.tick === 'a' ? 'b' : 'a'); BloomSound.play('tap'); }
+  }
+  // Picking a run up from the map counts in too, so a waiting board never starts the instant it shows.
+  function resumeBoard() { setRoute('game'); startCount(); }
+  $('pause-btn').addEventListener('click', () => pauseGame(false));
+  $('pause-resume').addEventListener('click', () => { BloomSound.wake(); closeDialog('pause-dialog'); startCount(); });
+  $('pause-restart').addEventListener('click', () => { BloomSound.wake(); closeDialog('pause-dialog'); restartNow(); });
+  $('pause-levels').addEventListener('click', () => { BloomSound.wake(); closeDialog('pause-dialog'); leaveBoard(); });
+  $('pause-settings').addEventListener('click', () => { updateSettings(); showDialog('settings-dialog'); });
+  // Escape or a tap outside the card also resumes, through the same count.
+  $('pause-dialog').addEventListener('close', () => { if (countLeft <= 0) startCount(); });
   // The tutorial plays on the Sunny Meadow board. Finishing it (or skipping) marks it seen; the first time through
   // it leads straight into level 1, and it can be played again from How to play.
   function startTutorial() { if (preview) exitPreview(); startLevel({ id: 'rush', name: 'How to play', tutorial: true }, { theme: depthTheme(1) }); }
@@ -2822,7 +2872,7 @@
   }
   $('rush-btn').addEventListener('click', openLevels);
   $('levels-rush-btn').addEventListener('click', openRush);
-  $('resume-btn').addEventListener('click', () => { if (inProgress()) setRoute('game'); else renderLevels(); });
+  $('resume-btn').addEventListener('click', () => { if (inProgress()) resumeBoard(); else renderLevels(); });
   $('depth-map').addEventListener('click', event => {
     const buy = event.target.closest('[data-buy]'); if (buy) { buyProduct(buy); return; }
     const card = event.target.closest('[data-depth]'); if (!card) return;
@@ -2833,12 +2883,12 @@
     if (!depthPaid(id)) { BloomSound.play('tap'); if (id === TASTE.level) toast(`Clear level ${id - 1} to try ${level.name} free.`); else say(`${level.name} is part of levels ${Depths.free + 1} to ${Depths.total}.`); showUnlock(); return; }
     if (!depthOpen(id)) { BloomSound.play('tap'); toast(`Clear level ${id - 1} to open ${level.name}.`); return; }
     // Tapping the level already being played picks it up where it was.
-    if (inProgress() && isDepth() && game.plan.id === id) setRoute('game'); else startDepth(id);
+    if (inProgress() && isDepth() && game.plan.id === id) resumeBoard(); else startDepth(id);
   });
   $('garden-rush-btn').addEventListener('click', openRush);
   for (const group of Object.keys(TRAY)) $(group).addEventListener('click', event => { const chip = event.target.closest('[data-power]'); if (chip) usePower(chip.dataset.power); });
   $('power-shelf').addEventListener('click', event => { const button = event.target.closest('[data-buy]'); if (button) buyPower(button); });
-  $('split-btn').addEventListener('click', () => { BloomSound.wake(); if (!gate('split')) nudgeTutorial(); else if (game.split()) processEvents(); });
+  $('split-btn').addEventListener('click', () => { if (countLeft > 0) return; BloomSound.wake(); if (!gate('split')) nudgeTutorial(); else if (game.split()) processEvents(); });
   $('restart-btn').addEventListener('click', restartTap);
   // A Moon trial or Koi pool goes back to its own list of trials; everything else to the levels or the meadow.
   function leaveBoard() { if (isChapter()) { const world = game.level.worldId; setRoute('worlds'); openWorld(world); } else setRoute(isRush() ? 'levels' : 'garden'); }
@@ -3066,7 +3116,13 @@
   // Safari can emit several resize events while its toolbar moves. Size once at the next paint; route changes
   // still resize immediately, before the first frame of their new scene.
   window.addEventListener('resize', () => { resizePending = true; });
-  document.addEventListener('visibilitychange', () => { lastFrame = 0; accumulator = 0; if (frameMeter) frameMeter.sample(0, 0, false); cancelInteraction(); musicFrame(performance.now(), true); });
+  // A call, the home button or a locked phone hides the game: the Paused card is waiting when it comes back, so no
+  // flower moves before the player is ready. Losing focus alone (a notification pulled down) never pauses.
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) pauseGame(true);
+    lastFrame = 0; accumulator = 0; if (frameMeter) frameMeter.sample(0, 0, false); cancelInteraction(); musicFrame(performance.now(), true);
+  });
+  window.addEventListener('pagehide', () => pauseGame(true));
   function frame(timestamp) {
     requestAnimationFrame(frame);
     const workFrom = performance.now();
@@ -3082,8 +3138,10 @@
     }
     const dt = Math.min(lastFrame ? (timestamp - lastFrame) / 1000 : 0, .06); lastFrame = timestamp;
     game.quality = Math.max(graphics().effects, governor ? governor.tier : 0);
+    // The count after a pause runs only while nothing else holds the board (a card on top, a sideways phone).
+    if (countLeft > 0 && !narrowLandscape.matches && !dialogs.some(id => $(id).open)) { countLeft = Math.max(0, countLeft - dt); renderCount(); }
     feelStep(dt);
-    const paused = narrowLandscape.matches || dialogs.some(id => $(id).open);
+    const paused = holding();
     // In the tutorial the whole board (seeds, flowers, petals and sparkles) runs at the speed its card sets.
     if (!paused && isTutorial()) tutorial.tick(game, dt);
     const gdt = (isTutorial() ? dt * tutorial.scale : dt) * (feel && !isTutorial() ? feel.out.scale : 1);

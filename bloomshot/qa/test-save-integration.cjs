@@ -104,7 +104,11 @@ function boot(raw, { storageFails = false, storageDrops = false, search = '', ot
     return node;
   }
   const $ = id => { if (!nodes.has(id)) nodes.set(id, element(id)); return nodes.get(id); };
-  const document = { getElementById: $, createElement: () => element(), body: element('body'), hidden: false, addEventListener: noop };
+  // Page and window listeners are kept, so a test can hide the page (a call, the home button) or fire a window event.
+  const listeners = { document: new Map(), window: new Map() };
+  const listen = map => (name, fn) => { if (!map.has(name)) map.set(name, []); map.get(name).push(fn); };
+  const fire = (target, name) => { for (const fn of listeners[target].get(name) || []) fn({ type: name }); };
+  const document = { getElementById: $, createElement: () => element(), body: element('body'), hidden: false, addEventListener: listen(listeners.document) };
   class ObservedGame extends Engine.Game { constructor(level) { super(level); games.push(this); } }
   class ObservedRush extends Rush.RushGame { constructor(options) { super(options); games.push(this); } }
   const context = vm.createContext({ console, structuredClone, URLSearchParams, Date: today ? fixedDate(today) : Date, Math, Map, Set,
@@ -125,7 +129,7 @@ function boot(raw, { storageFails = false, storageDrops = false, search = '', ot
       friends: Garden.decor.map((d, i) => ({ id: d.friend.id, decorId: d.id, x: 40 + i * 60, y: 180 })), reactSeconds: 1.1,
       drawDecorIcon: noop, drawFriendIcon: noop, draw: (ctx, options) => meadowDraws.push(clone(options)) }
   });
-  context.window = context; context.addEventListener = noop;
+  context.window = context; context.addEventListener = listen(listeners.window);
   if (nativeFactory) context.BloomNative = nativeFactory(context.localStorage, context);
   vm.runInContext(source, context, { filename: 'app.js' });
   function frame(milliseconds = 17) { now += milliseconds; const fn = nextFrame; assert.equal(typeof fn, 'function'); fn(now); }
@@ -141,7 +145,9 @@ function boot(raw, { storageFails = false, storageDrops = false, search = '', ot
     // An engine completion fixture tests the app's event boundary, not the run's physics.
     game.totalBlooms = blooms; game.wave = wave; game.score = 3200; game._lose(); frame(); return game;
   }
-  return { $, click, frame, preview, finishRush, context, games, meadowDraws, boardDraws, writes, reloads, storage,
+  const hide = () => { document.hidden = true; fire('document', 'visibilitychange'); };
+  const show = () => { document.hidden = false; fire('document', 'visibilitychange'); };
+  return { $, click, frame, preview, finishRush, context, games, meadowDraws, boardDraws, writes, reloads, storage, hide, show, fire,
     saved: () => JSON.parse(storage.get(key)), key };
 }
 
@@ -874,6 +880,89 @@ test('Skip ends it for good, and How to play can start it again', () => {
   app.click('help-btn'); assert.equal(app.$('tutorial-replay').hidden, true, 'no replay button while it plays');
   app.$('help-dialog').close(); app.$('toast').textContent = '';
   app.click('tutorial-skip'); assert.equal(app.context.bloomshotState.route, 'levels'); assert.equal(app.$('toast').textContent, '', 'the reminder only shows the first time');
+});
+// Pause. A level with a seed in the air: the page hides (a call, the home button) and comes back.
+const moving = () => ({ ...legacySave(), settings: { sound: false, haptics: false, motion: true } });
+function pausedLevel(raw = moving()) {
+  const app = boot(raw); app.click('depth-map', { depth: '1' });
+  const game = depthGame(app); settleLevel(app); assert(game.fire(0, -1)); app.frame(); app.frame();
+  return { app, game };
+}
+const frames = (app, seconds) => { for (let t = 0; t < seconds - 1e-9; t += .017) app.frame(17); };
+test('A phone interruption opens the Paused card; nothing moves until Resume and its 3, 2, 1 have played', () => {
+  const { app, game } = pausedLevel();
+  assert.equal(app.$('pause-btn').hidden, false, 'the pause button shows in a level');
+  app.hide(); const time = game.time;
+  assert.equal(app.$('pause-dialog').open, true, 'the card is waiting');
+  assert.equal(app.$('pause-where').textContent, 'Level 1 · wave 1 of 10');
+  app.show(); frames(app, 2);
+  assert.equal(game.time, time, 'the board did not move behind the card');
+  app.click('pause-resume'); assert.equal(app.$('pause-dialog').open, false);
+  assert.equal(app.$('resume-count').hidden, false); assert.equal(app.$('resume-number').textContent, '3');
+  frames(app, .65); assert.equal(app.$('resume-number').textContent, '2');
+  frames(app, .6); assert.equal(app.$('resume-number').textContent, '1');
+  assert.equal(game.time, time, 'still frozen while it counts');
+  // A tap on the board while it counts fires nothing.
+  const shots = game.shotNumber, canvas = app.$('game-canvas');
+  canvas.emit('pointerdown', { isPrimary: true, pointerId: 1, clientX: 210, clientY: 120 }); canvas.emit('pointerup', { pointerId: 1, clientX: 210, clientY: 120 });
+  assert.equal(game.shotNumber, shots);
+  frames(app, .6);
+  assert.equal(app.$('resume-count').hidden, true); assert(game.time > time, 'play picks up after the count');
+});
+test('With Animations off the count is a short Ready, and leaving the page while it counts brings the card back', () => {
+  const { app, game } = pausedLevel({ ...legacySave(), settings: { sound: false, haptics: false, motion: false } });
+  app.click('pause-btn'); assert.equal(app.$('pause-dialog').open, true, 'the header button pauses too');
+  app.click('pause-resume'); assert.equal(app.$('resume-number').textContent, 'Ready…');
+  const time = game.time; frames(app, 1.1); assert.equal(game.time, time);
+  app.hide(); assert.equal(app.$('pause-dialog').open, true); assert.equal(app.$('resume-count').hidden, true, 'the count starts again from the card');
+  app.show(); app.click('pause-resume'); frames(app, 1.3);
+  assert(game.time > time, 'Ready is over in about a second');
+});
+test('Escape or a tap outside the card resumes through the same count; a settings card opened from it comes back to it', () => {
+  const { app, game } = pausedLevel();
+  app.hide(); app.show(); app.click('pause-settings');
+  assert.equal(app.$('settings-dialog').open, true); assert.equal(app.$('pause-dialog').open, true, 'the Paused card waits under Settings');
+  app.click('close-settings'); assert.equal(app.$('pause-dialog').open, true);
+  const time = game.time; app.$('pause-dialog').close(); app.$('pause-dialog').emit('close');
+  assert.equal(app.$('resume-count').hidden, false); frames(app, 1); assert.equal(game.time, time);
+  // How to play opened while it counts holds the count; closing it finishes the count first.
+  app.click('help-btn'); frames(app, 2); assert.equal(game.time, time); app.click('close-help');
+  frames(app, .5); assert.equal(game.time, time); frames(app, .5); assert(game.time > time);
+});
+test('Restart on the Paused card starts over at once, and Levels leaves the run waiting with a count when picked up', () => {
+  let { app, game } = pausedLevel(); game.score = 900;
+  app.click('pause-btn'); const count = app.games.length;
+  app.click('pause-restart');
+  assert.equal(app.games.length, count + 1, 'one tap restarts'); assert.equal(app.$('restart-btn').classList.contains('armed'), false);
+  assert.equal(depthGame(app).plan.id, 1); assert.equal(app.$('pause-dialog').open, false);
+  ({ app, game } = pausedLevel());
+  app.click('pause-btn'); app.click('pause-levels');
+  assert.equal(app.context.bloomshotState.route, 'levels'); assert.equal(app.$('resume-btn').hidden, false);
+  const time = game.time; app.click('resume-btn');
+  assert.equal(app.games.at(-1), game, 'the same run'); assert.equal(app.$('resume-count').hidden, false);
+  frames(app, 1); assert.equal(game.time, time); frames(app, 1); assert(game.time > time);
+  // An endless run over the card keeps its best like the Restart button does.
+  app = boot(legacySave()); app.click('levels-rush-btn'); game = app.games.at(-1); game.started = true; game.score = 5000; game.wave = 4;
+  app.click('pause-btn'); app.click('pause-restart');
+  assert.equal(app.games.length, 2); assert.equal(app.saved().rush.best, 5000);
+});
+test('No Paused card over the tutorial, a result, a won or lost board, a preview or a run not yet started, and never on window blur', () => {
+  const fresh = boot(undefined); fresh.frame(); assert(fresh.games.at(-1).scripted, 'the tutorial runs');
+  assert.equal(fresh.$('pause-btn').hidden, true, 'the tutorial hides the pause button');
+  fresh.hide(); assert.equal(fresh.$('pause-dialog').open, false); fresh.show();
+  let { app, game } = pausedLevel();
+  app.fire('window', 'blur'); assert.equal(app.$('pause-dialog').open, false, 'blur is not an interruption');
+  app.fire('window', 'pagehide'); assert.equal(app.$('pause-dialog').open, true, 'pagehide is'); app.click('pause-resume'); frames(app, 2);
+  game.wave = 6; game._lose(); frames(app, 2);
+  assert.equal(app.$('result-dialog').open, true); assert.equal(app.$('pause-btn').hidden, true);
+  app.hide(); assert.equal(app.$('pause-dialog').open, false, 'never over a result'); app.show();
+  ({ app, game } = pausedLevel()); game.wave = 10; game._clearLevel(); for (let i = 0; i < 3; i++) app.frame();
+  assert(game.over); app.hide(); assert.equal(app.$('pause-dialog').open, false, 'never over a won board'); app.show();
+  app = boot(legacySave()); app.click('depth-map', { depth: '1' }); settleLevel(app);
+  app.hide(); assert.equal(app.$('pause-dialog').open, false, 'nothing moves before the first seed'); app.show();
+  app.click('pause-btn'); assert.equal(app.$('pause-dialog').open, true, 'though the button still pauses');
+  app = boot(legacySave()); app.preview(); app.hide(); assert.equal(app.$('pause-dialog').open, false, 'never over a preview');
+  assert.equal(app.$('pause-btn').hidden, true);
 });
 test('Clearing a level saves its stars, pays run and first-clear seeds once, opens the next level and Next starts it', () => {
   const app = boot(legacySave()); app.click('depth-map', { depth: '1' });

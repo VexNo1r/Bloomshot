@@ -49,10 +49,10 @@ async function main() {
     const geometry = async label => {
       const state = await page.evaluate(() => {
         const visible = el => el && !el.hidden && el.getClientRects().length > 0 && getComputedStyle(el).display !== 'none' && getComputedStyle(el).visibility !== 'hidden';
-        const ids = ['game-canvas', 'scene-canvas', 'back-btn', 'sound-btn', 'help-btn', 'settings-btn', 'game-hint', 'rotate-btn', 'split-btn', 'restart-btn', 'tutorial-card'];
+        const ids = ['game-canvas', 'scene-canvas', 'back-btn', 'pause-btn', 'sound-btn', 'help-btn', 'settings-btn', 'game-hint', 'rotate-btn', 'split-btn', 'restart-btn', 'tutorial-card'];
         const rects = Object.fromEntries(ids.map(id => { const el = document.getElementById(id), r = el?.getBoundingClientRect(); return [id, visible(el) && r ? { x: r.x, y: r.y, width: r.width, height: r.height } : null]; }));
         const powerRects = [...document.querySelectorAll('.power-chip')].filter(visible).map(el => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; });
-        return { rects, powerRects, width: innerWidth, height: innerHeight, scrollWidth: document.documentElement.scrollWidth, route: document.body.dataset.view, tutorial: document.body.dataset.tutorial };
+        return { rects, powerRects, width: innerWidth, height: innerHeight, scrollWidth: document.documentElement.scrollWidth, route: document.body.dataset.view, tutorial: document.body.dataset.tutorial, mode: document.body.dataset.mode };
       });
       assert.equal(state.scrollWidth, size.width, `${key} ${label}: no horizontal overflow`);
       for (const [id, r] of Object.entries(state.rects)) {
@@ -64,10 +64,15 @@ async function main() {
       assert(scene && scene.width === size.width && scene.height === size.height && scene.x === 0 && scene.y === 0, `${key} ${label}: scene fills viewport`);
       if (state.tutorial !== 'on') {
         assert(state.rects['back-btn'], `${key} ${label}: visible exit control`);
+        // The levels show a round 44 px pause button in the header, clear of the other header buttons; the puzzle boards have none.
+        const pause = state.rects['pause-btn'];
+        if (state.mode === 'rush') { assert(pause && pause.width >= 44 && pause.height >= 44, `${key} ${label}: 44px pause button`); for (const id of ['back-btn', 'sound-btn', 'help-btn', 'settings-btn']) if (state.rects[id]) assert(!intersect(pause, state.rects[id]), `${key} ${label}: pause clear of ${id}`); }
+        else assert(!pause, `${key} ${label}: no pause button on a puzzle board`);
         for (const id of ['rotate-btn', 'split-btn', 'restart-btn']) if (state.rects[id]) assert(!intersect(board, state.rects[id]), `${key} ${label}: ${id} clear of the board`);
         for (const r of state.powerRects) { assert(r.width >= 44 && r.height >= 44, `${key} ${label}: 44px power target`); assert(!intersect(board, r), `${key} ${label}: power target clear of board`); }
       } else {
         const card = state.rects['tutorial-card']; assert(card, `${key} ${label}: tutorial card visible`);
+        assert(!state.rects['pause-btn'], `${key} ${label}: the tutorial hides the pause button`);
         for (const r of state.powerRects) if (label.includes('power:')) assert(!intersect(card, r), `${key} ${label}: lesson leaves power target exposed`);
       }
       rows.push({ size: key, safeTop: size.top, safeBottom: size.bottom, label, ...state });

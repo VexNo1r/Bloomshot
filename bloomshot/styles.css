@@ -647,7 +647,7 @@ dialog[open]{animation:dialog-in .34s var(--press)}
 .tutorial-finger{position:fixed;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;background:#fffaf0e8;box-shadow:0 0 0 3px var(--green),0 4px 10px #1d3a2e55;animation:tutorial-drag 1.6s ease-in-out infinite}
 /* The card is the only guide while it plays: the hint line, the tabs and Back/Restart step aside, and the buttons go
    once the last card is up. */
-body[data-tutorial="on"] :is(.bottom-nav,#back-btn,#restart-btn,#game-hint),body[data-tutorial-phase="finale"] :is(.game-actions,.power-tray),body[data-tutorial-phase="end"] :is(.game-actions,.power-tray){visibility:hidden}
+body[data-tutorial="on"] :is(.bottom-nav,#back-btn,#pause-btn,#restart-btn,#game-hint),body[data-tutorial-phase="finale"] :is(.game-actions,.power-tray),body[data-tutorial-phase="end"] :is(.game-actions,.power-tray){visibility:hidden}
 /* A card at the top covers the header; its logo and round buttons would peek out around it, so they step aside until it moves. */
 body:has(.tutorial:not([hidden]):not([data-place="low"])) .app-header>*{visibility:hidden}
 @keyframes tutorial-dim{from{opacity:0}}
@@ -768,6 +768,28 @@ body[data-mode="rush"][data-boss="on"] .fever-banner{display:none}
 body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
 @keyframes super-pop{from{opacity:0;transform:translateX(-50%) translateY(var(--fever-y)) scale(.3) rotate(-12deg)}to{opacity:.94;transform:translateX(-50%) translateY(var(--fever-y)) scale(.62) rotate(-3deg)}}
 #checkpoint-btn{margin-top:10px}
+/* Pause: a round header button in the levels and Meadow Rush, its cream card, and the count before play picks up. */
+.pause-button{display:none}
+body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
+.pause-button svg{width:20px;height:20px}
+.pause-dialog{width:min(340px,calc(100vw - 24px));padding:24px 20px 16px;text-align:center}
+.pause-dialog[open] .result-banner{animation:banner-in .45s var(--press) .05s both}
+.pause-art{display:block;width:120px;height:84px;margin:12px auto 0}
+.pause-where{margin:4px 4px 0;font:700 14px/1.35 var(--body)}
+.pause-dialog .button-primary{margin-top:14px}
+.pause-dialog .button-primary svg{width:24px;height:24px;margin-left:-6px}
+.pause-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.pause-row .button-secondary{min-height:48px;padding:0 10px;font-size:16px}
+.pause-row svg{width:19px;height:19px}
+.pause-dialog .button-link{margin-top:6px}
+.resume-count{position:absolute;inset:0;z-index:10;display:grid;place-items:center;background:#1d3a2e5c;pointer-events:auto;touch-action:none}
+.resume-number{display:grid;place-items:center;min-width:124px;height:124px;padding:0 6px;border-radius:999px;background:var(--cream);color:var(--green-deep);
+  font:700 76px/1 var(--display);font-variant-numeric:tabular-nums;box-shadow:inset 0 0 0 4px var(--edge),0 7px 0 var(--edge-dark),0 18px 40px #10302455}
+.resume-count[data-mode="ready"] .resume-number{min-width:0;height:72px;padding:0 30px;font-size:34px}
+.resume-count[data-tick="a"] .resume-number{animation:count-a .5s var(--press)}
+.resume-count[data-tick="b"] .resume-number{animation:count-b .5s var(--press)}
+@keyframes count-a{from{transform:scale(.45);opacity:0}to{transform:none;opacity:1}}
+@keyframes count-b{from{transform:scale(.45);opacity:0}to{transform:none;opacity:1}}
 .privacy-page{display:block;width:100%;height:min(65svh,560px);border:0;border-radius:12px;background:#f6fcf9}
 #checkpoint-btn+.button-link{margin-top:6px}
 

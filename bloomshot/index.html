@@ -66,6 +66,9 @@
         <span class="sr-only">Back</span>
       </button>
       <div class="header-actions">
+        <button id="pause-btn" class="icon-button pause-button" type="button" aria-label="Pause" title="Pause" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.2" y="5" width="4.2" height="14" rx="2.1" fill="currentColor"/><rect x="13.6" y="5" width="4.2" height="14" rx="2.1" fill="currentColor"/></svg>
+        </button>
         <div class="seed-purse" title="Seeds"><span class="purse-leaf" aria-hidden="true"></span><strong id="garden-seeds">4</strong><span class="sr-only">seeds</span></div>
         <button id="sound-btn" class="icon-button quiet-button" type="button" aria-label="Turn sound off" aria-pressed="true" title="Sound">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.2h3.2L11.6 5c.6-.5 1.4-.1 1.4.7v12.6c0 .8-.8 1.2-1.4.7l-4.4-4.2H4c-.6 0-1-.4-1-1v-3.6c0-.6.4-1 1-1Z" fill="currentColor"/><path class="sound-waves" d="M16 9a4.2 4.2 0 0 1 0 6m2.6-8.6a8 8 0 0 1 0 11.2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
@@ -118,6 +121,7 @@
           <button id="split-btn" class="split-button" type="button" hidden disabled>Split · 0/6</button>
           <button id="restart-btn" class="text-button" type="button" aria-label="Restart this game"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4.3 7.4a6 6 0 1 1-.2 4.3M4 3.5v4.3h4.3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Restart</span></button>
         </div>
+        <div id="resume-count" class="resume-count" aria-hidden="true" hidden><span id="resume-number" class="resume-number">3</span></div>
       </section>
 
       <section id="levels-view" class="view browse-view" aria-labelledby="levels-title" hidden>
@@ -244,6 +248,27 @@
     <button id="checkpoint-btn" class="button-secondary" type="button" hidden>Try from wave 6</button>
     <button id="retry-btn" class="button-secondary" type="button">Play again</button>
     <button id="result-garden-btn" class="button-link" type="button">Back to the meadow</button>
+  </dialog>
+
+  <dialog id="pause-dialog" class="pause-dialog" aria-labelledby="pause-title" aria-describedby="pause-where">
+    <div class="result-topline"><span id="pause-title" class="result-banner">Paused</span></div>
+    <svg class="pause-art" viewBox="0 0 120 84" aria-hidden="true">
+      <ellipse cx="60" cy="78" rx="34" ry="5" fill="#e8dcbd"/>
+      <path d="M60 77C60 64 58 54 61 44" stroke="#3aa978" stroke-width="5" stroke-linecap="round" fill="none"/>
+      <path d="M59 66C46 67 38 60 37 52c10-1 19 4 22 14Z" fill="#5cc98f"/><path d="M61 60c11 2 20-3 22-11-10-1-19 3-22 11Z" fill="#3aa978"/>
+      <path d="M61 46c-14 0-20-11-17-22 3-8 10-13 17-15 7 2 14 7 17 15 3 11-3 22-17 22Z" fill="#ff8fb0"/>
+      <path d="M61 46c-7-5-9-15-7-24 2-6 5-10 7-13 2 3 5 7 7 13 2 9 0 19-7 24Z" fill="#ff6f96"/>
+      <path d="M52.5 32.5q2.2 2 4.4 0M65.1 32.5q2.2 2 4.4 0" stroke="#7a2747" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+      <circle cx="51" cy="37" r="2.4" fill="#ffc2d4"/><circle cx="71" cy="37" r="2.4" fill="#ffc2d4"/>
+      <path d="M84 20h8l-8 9h8M97 8h6l-6 7h6" stroke="#8fa79b" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>
+    <p id="pause-where" class="dialog-copy pause-where">Meadow Rush</p>
+    <button id="pause-resume" class="button-primary" type="button"><svg viewBox="0 0 26 26" aria-hidden="true"><path d="M9.6 6.9c0-1.1 1.2-1.8 2.2-1.2l8.3 5.2c.9.6.9 1.9 0 2.5l-8.3 5.2c-1 .6-2.2-.1-2.2-1.2Z" fill="currentColor"/></svg>Resume</button>
+    <div class="pause-row">
+      <button id="pause-restart" class="button-secondary" type="button"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4.3 7.4a6 6 0 1 1-.2 4.3M4 3.5v4.3h4.3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Restart</button>
+      <button id="pause-levels" class="button-secondary" type="button"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m12.5 4.5-5.5 5.5 5.5 5.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Levels</button>
+    </div>
+    <button id="pause-settings" class="button-link" type="button">Settings</button>
   </dialog>
 
   <dialog id="settings-dialog" class="settings-dialog" aria-labelledby="settings-title">

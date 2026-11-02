@@ -24,7 +24,7 @@ Open http://127.0.0.1:4387/ . Reuse an existing server; an optional port is `nod
 - Keyboard: arrows aim, Space/Enter fires, S splits, R turns the petal.
 - Garden lets you plant six permanent flower patches with earned seeds. Its Garden puzzles section opens 18 three-volley puzzles; Collection shows earned flowers. Play resumes the current game. Start/switch to Rush through Play Meadow Rush in Garden.
 - Moon has six playable trials with real paired gates that teleport a seed and rotate its direction. Each trial gives five single seeds, with no guidance or automatic extra balls. Matching gate marks, entry/exit pulses and a soft chime make crossings readable. New Moon stars earn seeds for your permanent meadow.
-- Browsing, dialogs, hidden tabs, and short landscape screens pause play. Completed records save locally; unfinished runs do not survive a reload.
+- Browsing, dialogs, hidden tabs, and short landscape screens pause play. In the levels and Rush the round pause button opens a Paused card (Resume, Restart, Levels, Settings), and leaving the app mid-run (a call, the home button, a locked phone) opens it on its own; Resume counts 3, 2, 1 (a short Ready with Animations off) before anything moves. Completed records save locally; unfinished runs do not survive a reload.
 
 ## Install and updates
 
