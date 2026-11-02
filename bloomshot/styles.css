@@ -691,7 +691,7 @@ body[data-world="moon"] .desktop-mode-campaign,body[data-world="moon"] .desktop-
 body[data-world="moon"] .desktop-mode-moon,body[data-world="koi"] .desktop-mode-koi{display:block}
 
 /* ---------- Sizes ---------- */
-@media(max-width:1140px){.desktop-note{display:none}}
+@media(max-width:1140px),(pointer:coarse){.desktop-note{display:none}}
 @media(max-width:520px){
   body{display:block}
   .app-shell{width:100%;height:100svh;border-radius:0;box-shadow:none;padding-top:env(safe-area-inset-top)}
@@ -880,7 +880,9 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
   body[data-view="game"][data-mode="rush"] .power-tray{bottom:calc(env(safe-area-inset-bottom) + 66px)}
   body[data-view="game"][data-mode="rush"] .board-region{top:calc(env(safe-area-inset-top) + 116px);bottom:calc(env(safe-area-inset-bottom) + 122px)}
 }
-@media(min-width:521px) and (max-width:1100px){
+/* Tablets fill the screen: any width up to 1100 px, and a touch screen at any width (an iPad held sideways), so
+   only a desktop with a mouse keeps the phone-sized shell with the notes beside it. */
+@media(min-width:521px) and (max-width:1100px),(min-width:521px) and (pointer:coarse){
   body{display:block}
   .app-shell{width:100%;height:100dvh;border-radius:0;box-shadow:none;padding-top:env(safe-area-inset-top)}
   .browse-view{width:100%;max-width:760px;margin:0 auto;padding-left:24px;padding-right:24px}

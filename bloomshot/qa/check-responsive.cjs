@@ -12,7 +12,14 @@ const sizes = [
   { width: 360, height: 800, top: 0, bottom: 0 },
   { width: 390, height: 844, top: 44, bottom: 34 },
   { width: 820, height: 1180, top: 24, bottom: 20 },
-  { width: 360, height: 640, top: 24, bottom: 24 }
+  { width: 360, height: 640, top: 24, bottom: 24 },
+  // iPads: held sideways (Air, mini, Pro 12.9) the menus fill the screen like they do upright.
+  { width: 1180, height: 820, top: 24, bottom: 20 },
+  { width: 1133, height: 744, top: 24, bottom: 20 },
+  { width: 1366, height: 1024, top: 24, bottom: 20 },
+  { width: 1024, height: 1366, top: 24, bottom: 20 },
+  // A desktop browser with a mouse keeps the phone-sized shell with the notes beside it.
+  { width: 1440, height: 900, top: 0, bottom: 0, desktop: true }
 ].filter(size => !sizeFilter || `${size.width}x${size.height}` === sizeFilter);
 assert(sizes.length, 'requested size is part of the responsive matrix');
 const source = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
@@ -27,7 +34,7 @@ async function main() {
   fs.mkdirSync(output, { recursive: true });
   browser = await chromium.launch({ headless: true, executablePath: process.env.BLOOMSHOT_CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe' });
   for (const size of sizes) {
-    const key = `${size.width}x${size.height}`, context = await browser.newContext({ viewport: size, deviceScaleFactor: 2, isMobile: true, hasTouch: true, serviceWorkers: 'block' });
+    const key = `${size.width}x${size.height}`, context = await browser.newContext({ viewport: { width: size.width, height: size.height }, deviceScaleFactor: 2, isMobile: !size.desktop, hasTouch: !size.desktop, serviceWorkers: 'block' });
     const page = await context.newPage();
     page.on('pageerror', error => errors.push({ size: key, error: error.message }));
     await page.route('**/*', async route => {
@@ -83,7 +90,9 @@ async function main() {
       const box = el => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; };
       return { route: document.body.dataset.view, today: box(document.getElementById('today-strip')), goals: [...document.querySelectorAll('.today-goal')].map(box),
         clipped: [...document.querySelectorAll('.today-name')].filter(el => el.scrollWidth > el.clientWidth + .5).map(el => el.textContent),
-        first: box(document.querySelector('.depth-card')), nav: box(document.querySelector('.bottom-nav')), scrollWidth: document.documentElement.scrollWidth };
+        first: box(document.querySelector('.depth-card')), nav: box(document.querySelector('.bottom-nav')), scrollWidth: document.documentElement.scrollWidth,
+        shell: box(document.querySelector('.app-shell')), cards: [...document.querySelectorAll('.depth-card')].map(box), coarse: matchMedia('(pointer:coarse)').matches,
+        notes: [...document.querySelectorAll('.desktop-note')].map(el => getComputedStyle(el).display !== 'none') };
     });
     assert.equal(map.route, 'levels', `${key}: the game opens on the Levels map`);
     assert.equal(map.scrollWidth, size.width, `${key} Levels map: no horizontal overflow`);
@@ -92,6 +101,11 @@ async function main() {
     for (const r of map.goals) assert(r.height >= 44 && r.width >= 44, `${key}: 44px Today goal target ${JSON.stringify(r)}`);
     assert.deepEqual(map.clipped, [], `${key}: Today goal names fit`);
     assert(map.first.y + map.first.height <= map.nav.y + .6, `${key}: first level sits above the bottom bar ${JSON.stringify(map)}`);
+    // One ladder going down, each level under the last; a touch screen fills the screen, a desktop mouse keeps the 440 px shell.
+    assert(map.cards.length >= 10 && map.cards.every((r, i) => Math.abs(r.x - map.cards[0].x) < .6 && (!i || r.y > map.cards[i - 1].y + map.cards[i - 1].height)), `${key}: single descending ladder`);
+    assert.equal(map.coarse, !size.desktop, `${key}: pointer matches the device`);
+    if (size.desktop) { assert.equal(map.shell.width, 440, `${key}: desktop keeps the phone-sized shell`); assert.deepEqual(map.notes, [true, true], `${key}: desktop notes beside it`); }
+    else { assert.equal(map.shell.width, size.width, `${key}: the menus fill the screen`); assert.deepEqual(map.notes, [false, false], `${key}: no desktop notes on a touch screen`); }
     rows.push({ size: key, safeTop: size.top, safeBottom: size.bottom, label: 'Levels map', ...map });
     for (let level = 1; level <= 10; level++) for (const wave of [1, 10]) {
       await page.evaluate(({ level, wave }) => window.__layoutQA.startDepth(level, false, wave), { level, wave });
