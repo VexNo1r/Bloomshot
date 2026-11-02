@@ -859,6 +859,8 @@
     if (!$('keepsake-grid')) return;
     const context = keepsakeContext(), worn = currentKeepsake();
     const shown = Keepsakes.byId[keepsakePreview] || worn;
+    // Rebuilding the rows drops keyboard and screen-reader focus, so note which style held it to put it back.
+    const active = document.activeElement, held = active && active.dataset ? active.dataset.grow || active.dataset.keepsake : null, onGrow = Boolean(held && active.dataset.grow);
     $('keepsake-grid').innerHTML = Keepsakes.styles.filter(style => style.source !== 'grown').map(style => keepsakeCard(style, context, worn, shown)).join('');
     // The grown styles sit in their own row, priced in earned seeds, apart from the paid Keepsake Collection.
     const grown = Keepsakes.styles.filter(style => style.source === 'grown'), have = grown.filter(style => Keepsakes.unlocked(style.id, context)).length;
@@ -869,6 +871,11 @@
     $('keepsake-caption').innerHTML = `<strong>${escape(shown.name)}</strong><p>${escape(shown.blurb)}</p><div class="keepsake-action">${grow ? grow.button : ''}<span class="keepsake-note">${escape(note)}</span></div>`;
     $('keepsake-offer').innerHTML = keepsakeOfferPanel();
     $('keepsake-canvas').setAttribute('aria-label', `Preview of the ${shown.name} seed style: a seed flies to a bud and blooms.`);
+    // Back on the same card, or on the Grow button while it is still there; once grown, the style's card.
+    if (held && Keepsakes.byId[held]) {
+      const back = $('keepsake-shelf').querySelector(onGrow && !Keepsakes.unlocked(held, context) ? `[data-grow="${held}"]` : `[data-keepsake="${held}"]`);
+      if (back && typeof back.focus === 'function') back.focus({ preventScroll: true });
+    }
   }
   // Grows a seed style with earned seeds, once, and puts it on the seed straight away. It counts as growing something
   // for today's meadow goal.

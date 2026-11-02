@@ -750,7 +750,17 @@ test('Grown seed styles: the Collection grows one with earned seeds, once, wears
   app.click('keepsake-shelf', { keepsake: 'bramble' });
   assert.match(app.$('keepsake-caption').innerHTML, /class="button-primary grow-btn" type="button" data-grow="bramble">Grow · 250 seeds</);
   assert.match(app.$('keepsake-caption').innerHTML, /Grown with seeds\. Never sold\./);
+  // Keyboard and screen-reader focus stays with the style: from the Grow button, which goes away, to its card.
+  const shelf = app.$('keepsake-shelf'), focused = [];
+  shelf.querySelector('[data-keepsake="bramble"]').focus = options => focused.push(['card', options.preventScroll]);
+  shelf.querySelector('[data-grow="bramble"]').focus = options => focused.push(['grow', options.preventScroll]);
+  app.context.document.activeElement = { dataset: { grow: 'bramble' } };
   app.click('keepsake-shelf', { grow: 'bramble' });
+  assert.deepEqual(focused, [['card', true]]);
+  app.context.document.activeElement = { dataset: { keepsake: 'maple' } };
+  shelf.querySelector('[data-keepsake="maple"]').focus = options => focused.push(['maple', options.preventScroll]);
+  app.click('keepsake-shelf', { keepsake: 'maple' }); assert.deepEqual(focused, [['card', true], ['maple', true]], 'a picked card keeps focus too');
+  app.click('keepsake-shelf', { keepsake: 'bramble' }); app.context.document.activeElement = undefined;
   let after = app.saved();
   assert.deepEqual(after.garden.grown, ['bramble']); assert.equal(after.keepsake, 'bramble', 'a grown style goes straight on the seed');
   assert.equal(after.garden.seeds, 260 - 250 + 4, 'it counts for the meadow goal, which pays its 4 seeds'); assert.equal(after.garden.totalSeedsSpent, 250);
