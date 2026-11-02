@@ -178,6 +178,18 @@ test('A full board draws with every style worn, in each theme', () => {
     assert(calls.length > 100, `${theme}/${style.id}`);
   }
 });
+test('The grown styles\' price pills are easy to read: their text meets 4.5:1 contrast on the pill', () => {
+  const css = fs.readFileSync(path.join(__dirname, '../styles.css'), 'utf8'), vars = {};
+  for (const [, name, value] of css.matchAll(/--([\w-]+):(#[0-9a-f]{6})\b/gi)) if (!(name in vars)) vars[name] = value;
+  const rule = selector => { const at = css.indexOf(selector + '{'); assert(at >= 0, selector); return css.slice(at + selector.length + 1, css.indexOf('}', at)); };
+  const color = (body, name) => { const m = new RegExp('(?:^|;)' + name + ':([^;]+)').exec(body); assert(m, name); const v = /^var\(--([\w-]+)\)$/.exec(m[1].trim()); return v ? vars[v[1]] : m[1].trim(); };
+  const lum = hex => { const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(v => v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4); return .2126 * r + .7152 * g + .0722 * b; };
+  for (const selector of ['.keepsake-card.grown.locked .keepsake-status', '.keepsake-card.grown.ready .keepsake-status']) {
+    const body = rule(selector), a = lum(color(body, 'color')), b = lum(color(body, 'background'));
+    const ratio = (Math.max(a, b) + .05) / (Math.min(a, b) + .05);
+    assert(ratio >= 4.5, `${selector}: ${ratio.toFixed(2)}:1`);
+  }
+});
 const report = { passed: results.filter(r => r.passed).length, failed: results.filter(r => !r.passed).length,
   methodology: 'Loads keepsakes.js, art.js and store-config.js in Node. Checks catalog rules, unlock logic, purchase ids against the store catalog, physics independence and that every style draws with finite canvas values.',
   limitations: ['A recording canvas checks that drawing runs with valid numbers, not how it looks; screenshots cover appearance.'], results };
