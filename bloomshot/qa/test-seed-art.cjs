@@ -83,6 +83,54 @@ test('Keepsake and power branches retain distinct illustrations without mutating
   assert.equal(signatures.size, 3, 'powered shots keep their bee, sun and parachute silhouettes');
 });
 
+// The three grown styles (Dewdrop, Bramble Berry, Autumn Maple) draw their own bodies, trails and blooms from sprites.
+const grownStyles = Keepsakes.styles.filter(style => style.source === 'grown');
+const grownTrail = Array.from({ length: 20 }, (_, i) => ({ x: 140 + i * 2, y: 470 - i * 9 }));
+test('Grown seed bodies are cached sprites that stay inside the round hit circle; only the maple wing reaches past it', () => {
+  assert.deepEqual(grownStyles.map(style => style.seed.shape), ['dew', 'berry', 'samara']);
+  for (const style of grownStyles) {
+    const { Art, brush, surfaces } = rig(), R = 5.5 + 1.3, before = surfaces.length;
+    Art.drawProjectile(brush().ctx, { ...seed('gold'), trail: [] }, 0, 1, true, false, style);
+    const made = surfaces.slice(before); assert(made.length >= 1 && made.length <= 2, `${style.id} paints its body once (${made.length})`);
+    const body = made.find(surface => surface.rec.calls.some(call => call[0] === 'arc'));
+    for (const [, x, y, radius, a0, a1] of body.rec.calls.filter(call => call[0] === 'arc')) for (let k = 0; k <= 32; k++) {
+      const a = a0 + (a1 - a0) * k / 32; // the swept part of each arc (a seam is a short arc of a wider circle)
+      assert(Math.hypot(x + Math.cos(a) * radius, y + Math.sin(a) * radius) <= R + 1e-6, `${style.id} arc at ${x}, ${y} r ${radius} stays within ${R}`);
+    }
+    const wing = made.find(surface => surface !== body);
+    assert.equal(Boolean(wing), style.seed.shape === 'samara', `${style.id} wing`);
+    if (wing) assert(wing.rec.calls.some(call => call[0] === 'bezierCurveTo' && call[5] > R * 2.5), 'the maple wing reaches well past the nut');
+    for (const hot of [false, true]) Art.drawProjectile(brush().ctx, { ...seed('gold'), trail: [] }, 0, 0, false, hot, style); // its glow and halo, plain and hot
+    const again = surfaces.length; for (let frame = 0; frame < 30; frame++) Art.drawProjectile(brush().ctx, { ...seed('gold'), trail: [] }, 0, frame / 60, false, frame % 2 === 0, style);
+    assert.equal(surfaces.length - again, 0, `${style.id} reuses its body`);
+  }
+});
+test('Grown styles: Animations off draws the seed still with no trail, and every draw leaves the seed and the canvas as it found them', () => {
+  for (const style of grownStyles) {
+    const { Art, brush } = rig(), ball = { ...seed('gold'), trail: grownTrail.slice() }, before = JSON.stringify(ball);
+    const a = brush(), b = brush(); Art.drawProjectile(a.ctx, ball, 0, 1, true, false, style); Art.drawProjectile(b.ctx, ball, 0, 9.3, true, false, style);
+    assert.deepEqual(a.calls, b.calls, `${style.id} is still with Animations off`); assert(a.balanced());
+    assert(!a.calls.some(call => call[0] === 'setTransform' || call[0] === 'lineTo'), `${style.id} draws no trail with Animations off`);
+    for (const hot of [false, true]) { const rec = brush(); Art.drawProjectile(rec.ctx, ball, 0, 2, false, hot, style); assert(rec.balanced()); assert.equal(rec.ctx.globalAlpha, 1); }
+    assert.equal(JSON.stringify(ball), before);
+    for (const p of Keepsakes.burstExtras(style, 200, 200, 48)) for (const still of [false, true]) { const rec = brush(); Art.drawParticle(rec.ctx, p, 1, still); assert(rec.balanced()); }
+  }
+});
+test('The warm-up paints every grown piece ahead, so the seed, its trail and its bloom make no new surface or gradient in play', () => {
+  for (const style of grownStyles) {
+    const { Art, brush, totals } = rig();
+    Art.prewarm({ keepsake: style }).step(1e9);
+    const before = { ...totals };
+    for (let frame = 0; frame < 40; frame++) {
+      const rec = brush();
+      for (const r of [7.4, 8.4]) Art.drawSeed(rec.ctx, 210, 498, r, frame / 60, false, style, r);
+      Art.drawProjectile(rec.ctx, { ...seed('gold'), x: 150 + frame, trail: grownTrail.map(p => ({ x: p.x + frame * 3, y: p.y - frame })) }, 0, frame / 60, false, frame % 3 === 0, style);
+      for (const p of Keepsakes.burstExtras(style, 200, 200, 60)) Art.drawParticle(rec.ctx, { ...p, life: p.maxLife / 2 }, frame / 60, false);
+    }
+    assert.deepEqual(totals, before, `${style.id} is fully warmed`);
+  }
+});
+
 // The seed color glyphs (spec 1.11): from Level 4 each full tray slot shows a tinted disc under its seed and the color's
 // glyph over it, and the cup seed shows its glyph too. A trace keeps every call and setting in order with the
 // translate/scale in force, so each disc and glyph is found where it is drawn and measured in board px.

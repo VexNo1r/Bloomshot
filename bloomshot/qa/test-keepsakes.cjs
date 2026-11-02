@@ -37,10 +37,11 @@ const cleared = count => Object.fromEntries(Moon.levels.slice(0, count).map(leve
 const owns = list => entitlement => list.includes(entitlement);
 const hex = /^#[0-9a-f]{6}$/i;
 
-test('The catalog has one free, one earned and three collection styles, each fully described', () => {
-  assert.deepEqual(Keepsakes.styles.map(s => s.id), ['meadow', 'moonlit', 'sakura', 'firefly', 'gilded']);
-  assert.deepEqual(Keepsakes.styles.map(s => s.source), ['free', 'earned', 'collection', 'collection', 'collection']);
+test('The catalog has one free, one earned, three collection and three grown styles, each fully described', () => {
+  assert.deepEqual(Keepsakes.styles.map(s => s.id), ['meadow', 'moonlit', 'sakura', 'firefly', 'gilded', 'dewdrop', 'bramble', 'maple']);
+  assert.deepEqual(Keepsakes.styles.map(s => s.source), ['free', 'earned', 'collection', 'collection', 'collection', 'grown', 'grown', 'grown']);
   assert.deepEqual(Keepsakes.collection, ['sakura', 'firefly', 'gilded']);
+  assert.deepEqual(Keepsakes.grown, ['dewdrop', 'bramble', 'maple']);
   for (const style of Keepsakes.styles) {
     assert(style.name && style.blurb.length > 20, style.id);
     assert.equal(Keepsakes.byId[style.id], style);
@@ -52,7 +53,7 @@ test('The catalog has one free, one earned and three collection styles, each ful
   assert.match(Keepsakes.byId.moonlit.requirement, /six Moon Garden trials/);
 });
 test('Styles are looks only: no style carries anything the physics engine reads', () => {
-  const allowed = new Set(['id', 'name', 'source', 'requirement', 'blurb', 'seed', 'trail', 'burst']);
+  const allowed = new Set(['id', 'name', 'source', 'requirement', 'cost', 'blurb', 'seed', 'trail', 'burst']);
   for (const style of Keepsakes.styles) for (const key of Object.keys(style)) assert(allowed.has(key), `${style.id}.${key}`);
   const level = Levels.levels[2];
   const plain = new Engine.Game(level), styled = new Engine.Game(level);
@@ -90,7 +91,7 @@ test('A locked, unknown or refunded choice shows Meadow without being forgotten'
 test('Bloom extras scale with the burst, cap at 24 and carry each style\'s own particle', () => {
   let seed = 1; const random = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   assert.deepEqual(Keepsakes.burstExtras(Keepsakes.byId.meadow, 0, 0, 40, random), []);
-  const kinds = { moonlit: 'star', sakura: 'blossom', firefly: 'firefly', gilded: 'flake' };
+  const kinds = { moonlit: 'star', sakura: 'blossom', firefly: 'firefly', gilded: 'flake', dewdrop: 'splash', bramble: 'berry', maple: 'maple' };
   for (const [id, kind] of Object.entries(kinds)) {
     const style = Keepsakes.byId[id];
     const small = Keepsakes.burstExtras(style, 100, 200, 24, random), big = Keepsakes.burstExtras(style, 100, 200, 200, random);
@@ -102,6 +103,56 @@ test('Bloom extras scale with the burst, cap at 24 and carry each style\'s own p
     }
   }
   assert(Keepsakes.burstExtras(Keepsakes.byId.firefly, 0, 0, 40, random).every(p => p.gravity < 0), 'fireflies drift upward');
+});
+const Garden = require('../garden.js');
+test('The three grown styles cost 150, 250 and 400 earned seeds, matching the garden, and the paid collection is untouched', () => {
+  const grown = Keepsakes.styles.filter(s => s.source === 'grown');
+  assert.deepEqual(grown.map(s => [s.id, s.cost]), [['dewdrop', 150], ['bramble', 250], ['maple', 400]]);
+  assert.deepEqual(Garden.seedStyles.map(s => [s.id, s.cost]), grown.map(s => [s.id, s.cost]), 'garden.js spends what the Collection shows');
+  for (const style of Keepsakes.styles) if (style.source !== 'grown') assert.equal(style.cost, undefined, `${style.id} has no seed price`);
+  assert.equal(Keepsakes.product, 'bloomshot.style.collection1'); assert.equal(Keepsakes.entitlement, 'style_collection1');
+  const product = storeProducts.find(item => item.id === Keepsakes.product);
+  assert(!JSON.stringify(product).match(/dewdrop|bramble|maple/), 'the paid product lists none of the grown styles');
+  for (const item of storeProducts) for (const id of Keepsakes.grown) assert(!JSON.stringify(item).includes(id), `${item.id} never sells ${id}`);
+});
+test('Grown styles are new looks, not recolors: each has its own seed shape, trail kind and bloom kind', () => {
+  const others = Keepsakes.styles.filter(s => s.seed && s.source !== 'grown'), grown = Keepsakes.styles.filter(s => s.source === 'grown');
+  const used = { trail: new Set(others.map(s => s.trail.kind)), burst: new Set(others.map(s => s.burst.kind)) };
+  const shapes = new Set();
+  for (const style of grown) {
+    assert(['dew', 'berry', 'samara'].includes(style.seed.shape), `${style.id} has a drawn body`); shapes.add(style.seed.shape);
+    assert(!used.trail.has(style.trail.kind), `${style.id} trail ${style.trail.kind} is new`); used.trail.add(style.trail.kind);
+    assert(!used.burst.has(style.burst.kind), `${style.id} burst ${style.burst.kind} is new`); used.burst.add(style.burst.kind);
+    for (const other of others) assert.notEqual(style.seed.base, other.seed.base);
+    assert(/seed/i.test(style.blurb) && style.blurb.length <= 90, `${style.id} blurb is short`);
+  }
+  assert.equal(shapes.size, 3);
+});
+test('A grown style opens only once its seeds are spent: never with the paid collection, the Moon or a stray list', () => {
+  const base = { moon: cleared(6), moonLevels: Moon.levels, owns: owns([Keepsakes.entitlement]) };
+  for (const id of Keepsakes.grown) {
+    assert.equal(Keepsakes.unlocked(id, base), false, `${id} is not part of the paid collection or the Moon`);
+    assert.equal(Keepsakes.unlocked(id, { ...base, owns: () => true }), false);
+    for (const grown of [undefined, null, 'dewdrop,bramble,maple', { dewdrop: true }, []]) assert.equal(Keepsakes.unlocked(id, { ...base, grown }), false);
+    assert.equal(Keepsakes.unlocked(id, { grown: [id] }), true);
+    assert.equal(Keepsakes.resolve(id, { grown: [] }).id, 'meadow', 'a chosen but ungrown style shows Meadow');
+    assert.equal(Keepsakes.resolve(id, { grown: [id] }).id, id);
+  }
+  assert.equal(Keepsakes.unlocked('dewdrop', { grown: ['bramble'] }), false);
+  for (const id of Keepsakes.collection) assert.equal(Keepsakes.unlocked(id, { grown: Keepsakes.grown.concat(id), owns: owns([]) }), false, `growing never opens ${id}`);
+  assert.equal(Keepsakes.unlocked('moonlit', { grown: ['moonlit'], moon: {}, moonLevels: Moon.levels }), false);
+});
+test('Grown blooms: Dewdrop splashes with one ripple, Bramble Berry hops berries and leaves, Autumn Maple flutters leaves down', () => {
+  let seed = 7; const random = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const splash = Keepsakes.burstExtras(Keepsakes.byId.dewdrop, 50, 60, 40, random);
+  assert.equal(splash.filter(p => p.ripple).length, 1); assert(splash[0].ripple && splash[0].vx === 0 && splash[0].gravity === 0);
+  assert(splash.slice(1).every(p => !p.ripple && p.gravity >= 200 && p.life <= 1.1), 'drops fall fast and short');
+  const berries = Keepsakes.burstExtras(Keepsakes.byId.bramble, 50, 60, 40, random);
+  assert.equal(berries.filter(p => p.leaf).length, Math.floor(berries.length / 3));
+  assert(berries.filter(p => !p.leaf).every(p => p.gravity > 150 && !p.flutter), 'berries drop and bounce');
+  assert(berries.filter(p => p.leaf).every(p => p.flutter > 0 && p.color === Keepsakes.byId.bramble.burst.colors[3]));
+  const leaves = Keepsakes.burstExtras(Keepsakes.byId.maple, 50, 60, 40, random);
+  assert(leaves.every(p => p.flutter >= 18 && p.gravity < 60 && p.life >= 1.3), 'maple leaves sway down slowly');
 });
 test('Every style draws its seed, flying seed with trail, and burst particles with finite values', () => {
   const trail = Array.from({ length: 18 }, (_, i) => ({ x: 60 + i * 9, y: 400 - i * 12 }));

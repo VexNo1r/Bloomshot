@@ -201,8 +201,9 @@
     const separately = parts.every(p => p.price) ? ` (${parts.map(p => p.price).join(' + ')})` : '';
     return `<div class="bundle-offer"><span class="card-tag gold">Complete Garden</span><strong>Levels ${Depths.free + 1} to ${Depths.total}, Koi pools and seed styles</strong><p>${escape(saving + separately)}.</p><button class="button-secondary bundle-btn" type="button" data-buy="${BUNDLE}">Get everything${bundle.price ? ` · ${escape(bundle.price)}` : ''}</button></div>`;
   }
-  // Keepsakes: Meadow is free, Moonlit is earned in the Moon Garden, the rest come with the collection.
-  const keepsakeContext = () => ({ moon: save.moon, moonLevels: BloomMoon.levels, owns: entitlement => Boolean(store && store.owns(entitlement)) });
+  // Keepsakes: Meadow is free, Moonlit is earned in the Moon Garden, three come with the collection and three are grown
+  // with earned seeds (the garden keeps which).
+  const keepsakeContext = () => ({ moon: save.moon, moonLevels: BloomMoon.levels, owns: entitlement => Boolean(store && store.owns(entitlement)), grown: save.garden.grown });
   const keepsakeOpen = id => Keepsakes.unlocked(id, keepsakeContext());
   const currentKeepsake = () => Keepsakes.resolve(save.keepsake, keepsakeContext());
   const collectionOwned = () => Boolean(store && store.owns(Keepsakes.entitlement));
@@ -810,7 +811,8 @@
       // A real seed mid-flight on a short arc, drawn by the same code as play.
       const trail = Array.from({ length: 16 }, (_, i) => { const u = i / 15; return { x: 6 + u * 34 + Math.sin(u * 3) * 3, y: 54 - u * 34 - Math.sin(u * Math.PI) * 6 }; });
       const ball = { x: 41, y: 20, r: 7.4, type: 'coral', trail };
-      BloomArt.drawProjectile(brush, ball, 0, .6, false, false, style.seed ? style : null);
+      // The maple seed's whirling wing is caught trailing behind it, the way a samara reads at a glance.
+      BloomArt.drawProjectile(brush, ball, 0, style.seed && style.seed.shape === 'samara' ? .18 : .6, false, false, style.seed ? style : null);
       keepsakeIcons.set(style.id, icon.toDataURL('image/png'));
     }
     return `<img class="keepsake-swatch" src="${keepsakeIcons.get(style.id)}" alt="" width="60" height="60">`;
@@ -819,7 +821,19 @@
     if (worn) return 'Wearing';
     if (open) return 'Tap to wear';
     if (style.source === 'earned') return `Moon ${BloomMoon.levels.filter(level => save.moon[level.id]?.stars > 0).length}/${BloomMoon.levels.length}`;
+    if (style.source === 'grown') return `<span class="purse-leaf" aria-hidden="true"></span>${style.cost}`;
     return 'Collection';
+  }
+  // A grown style's line under the preview: what it costs in earned seeds, and the green Grow button while it waits.
+  function growAction(style) {
+    const need = style.cost - save.garden.seeds;
+    return { note: need > 0 ? `${need} more ${need === 1 ? 'seed' : 'seeds'} to grow it.` : 'Grown with seeds. Never sold.',
+      button: `<button class="button-primary grow-btn" type="button" data-grow="${style.id}"${need > 0 ? ' disabled' : ''}>Grow · ${style.cost} seeds</button>` };
+  }
+  function keepsakeCard(style, context, worn, shown) {
+    const open = Keepsakes.unlocked(style.id, context), wearing = style.id === worn.id;
+    const where = wearing ? 'wearing now' : open ? 'unlocked' : style.source === 'earned' ? 'earned by clearing the Moon Garden' : style.source === 'grown' ? `grow it with ${style.cost} earned seeds` : 'part of the Keepsake Collection';
+    return `<button class="keepsake-card${wearing ? ' worn' : ''}${open ? '' : ' locked'}${style.source === 'grown' ? ' grown' : ''}${!open && style.source === 'grown' && save.garden.seeds >= style.cost ? ' ready' : ''}" type="button" data-keepsake="${style.id}" aria-pressed="${style.id === shown.id}" aria-label="${escape(style.name)}, ${where}">${keepsakeGraphic(style)}<span class="keepsake-name">${escape(style.name)}</span><span class="keepsake-status">${keepsakeStatus(style, open, wearing)}</span></button>`;
   }
   function keepsakeOfferPanel() {
     if (collectionOwned()) return '';
@@ -834,16 +848,34 @@
     if (!$('keepsake-grid')) return;
     const context = keepsakeContext(), worn = currentKeepsake();
     const shown = Keepsakes.byId[keepsakePreview] || worn;
-    $('keepsake-grid').innerHTML = Keepsakes.styles.map(style => {
-      const open = Keepsakes.unlocked(style.id, context), wearing = style.id === worn.id;
-      const where = wearing ? 'wearing now' : open ? 'unlocked' : style.source === 'earned' ? 'earned by clearing the Moon Garden' : 'part of the Keepsake Collection';
-      return `<button class="keepsake-card${wearing ? ' worn' : ''}${open ? '' : ' locked'}" type="button" data-keepsake="${style.id}" aria-pressed="${style.id === shown.id}" aria-label="${escape(style.name)}, ${where}">${keepsakeGraphic(style)}<span class="keepsake-name">${escape(style.name)}</span><span class="keepsake-status">${keepsakeStatus(style, open, wearing)}</span></button>`;
-    }).join('');
-    const open = Keepsakes.unlocked(shown.id, context);
-    const note = shown.id === worn.id ? 'On your seed now.' : open ? 'Yours to wear.' : shown.source === 'earned' ? `Earned, never sold. ${shown.requirement}` : 'Preview. Part of the Keepsake Collection.';
-    $('keepsake-caption').innerHTML = `<strong>${escape(shown.name)}</strong><p>${escape(shown.blurb)}</p><span class="keepsake-note">${escape(note)}</span>`;
+    $('keepsake-grid').innerHTML = Keepsakes.styles.filter(style => style.source !== 'grown').map(style => keepsakeCard(style, context, worn, shown)).join('');
+    // The grown styles sit in their own row, priced in earned seeds, apart from the paid Keepsake Collection.
+    const grown = Keepsakes.styles.filter(style => style.source === 'grown'), have = grown.filter(style => Keepsakes.unlocked(style.id, context)).length;
+    $('keepsake-grow').innerHTML = `<div class="grow-head"><h3>Grow with seeds</h3><span class="card-meta">${have}/${grown.length} grown</span></div>`
+      + `<p class="grow-sub">Spend seeds you earn in play. Never sold.</p><div class="keepsake-grid grow-grid" role="group" aria-label="Seed styles to grow with seeds">${grown.map(style => keepsakeCard(style, context, worn, shown)).join('')}</div>`;
+    const open = Keepsakes.unlocked(shown.id, context), grow = !open && shown.source === 'grown' ? growAction(shown) : null;
+    const note = shown.id === worn.id ? 'On your seed now.' : open ? 'Yours to wear.' : shown.source === 'earned' ? `Earned, never sold. ${shown.requirement}` : grow ? grow.note : 'Preview. Part of the Keepsake Collection.';
+    $('keepsake-caption').innerHTML = `<strong>${escape(shown.name)}</strong><p>${escape(shown.blurb)}</p><div class="keepsake-action">${grow ? grow.button : ''}<span class="keepsake-note">${escape(note)}</span></div>`;
     $('keepsake-offer').innerHTML = keepsakeOfferPanel();
     $('keepsake-canvas').setAttribute('aria-label', `Preview of the ${shown.name} seed style: a seed flies to a bud and blooms.`);
+  }
+  // Grows a seed style with earned seeds, once, and puts it on the seed straight away. It counts as growing something
+  // for today's meadow goal.
+  function growKeepsake(id) {
+    const style = Keepsakes.byId[id]; if (!style || style.source !== 'grown') return;
+    BloomSound.wake();
+    const grown = BloomGarden.grow(save.garden, id);
+    if (!grown.success) {
+      BloomSound.play('tap');
+      if (grown.reason === 'insufficient-seeds') { const need = grown.cost - save.garden.seeds; toast(`${need} more ${need === 1 ? 'seed' : 'seeds'} to grow ${style.name}.`); }
+      return;
+    }
+    save.garden = grown.state; save.keepsake = id; keepsakePreview = id;
+    const goals = trackGoals({ type: 'meadow' }); persist(); showSeeds();
+    showcase.t = 0; showcase.dirty = true; renderKeepsakes();
+    BloomSound.play('plant', { x: 210 }); haptic('surge');
+    toast(goals.paid ? `${style.name} grown! Goal done, +${goals.paid} seeds.` : `${style.name} grown! It's on your seed now.`);
+    say(`${style.name} grown and on your seed. ${save.garden.seeds} seeds left.`);
   }
   function chooseKeepsake(id) {
     const style = Keepsakes.byId[id]; if (!style) return;
@@ -858,7 +890,7 @@
   const showcase = { t: 0, last: 0, particles: [], trail: [], bloomed: 0, style: '', dirty: true };
   // The scene is drawn 1.5x closer than the board so each style's trail and burst read clearly.
   const SHOW = { zoom: 1.5, loop: 3, launch: .3, flight: 1, from: { x: 46, y: 106 }, peak: { x: 112, y: 0 }, bud: { x: 214, y: 54, r: 17 } };
-  const SHOW_BUD = { sakura: 'lilac', firefly: 'lilac', gilded: 'lilac' };
+  const SHOW_BUD = { sakura: 'lilac', firefly: 'lilac', gilded: 'lilac', dewdrop: 'poppy', bramble: 'gold', maple: 'sky' };
   function showcasePoint(u) {
     const a = SHOW.from, c = SHOW.peak, b = SHOW.bud, v = 1 - u;
     return { x: v * v * a.x + 2 * v * u * c.x + u * u * b.x, y: v * v * a.y + 2 * v * u * c.y + u * u * b.y };
@@ -3001,6 +3033,7 @@
   $('collection-btn').addEventListener('click', () => { if (preview) exitPreview(); setRoute('collection'); });
   $('keepsake-shelf').addEventListener('click', event => {
     const buy = event.target.closest('[data-buy]'); if (buy) { buyProduct(buy); return; }
+    const grow = event.target.closest('[data-grow]'); if (grow) { growKeepsake(grow.dataset.grow); return; }
     const card = event.target.closest('[data-keepsake]'); if (card) chooseKeepsake(card.dataset.keepsake);
   });
   $('worlds-btn').addEventListener('click', () => { if (preview) exitPreview(); else setRoute('worlds'); });

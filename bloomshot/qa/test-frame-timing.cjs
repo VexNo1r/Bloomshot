@@ -127,6 +127,65 @@ test('Newborn seeds and an actual Moon gate exit draw directly until a resolved 
   near(x, (ball.trail.at(-1).x + ball.x) / 2); near(y, (ball.trail.at(-1).y + ball.y) / 2);
 });
 
+// Every seed style worn on a busy Rush board: five seeds with full trails (one in Super Bloom) and two bloom bursts of the
+// style's own particles. A canvas stub counts what one frame really asks the browser to do once the warm-up has run.
+const Keepsakes = require('../keepsakes.js');
+function costRig() {
+  const totals = { surfaces: 0, gradients: 0, shadows: 0, paints: 0 };
+  function brush() {
+    const state = { globalAlpha: 1, fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, shadowBlur: 0 }, stack = [];
+    return new Proxy(state, {
+      get(target, name) {
+        if (name in target) return target[name];
+        if (name === 'getTransform') return () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 });
+        return (...args) => {
+          for (const value of args) if (typeof value === 'number') assert(Number.isFinite(value), `${String(name)} gets finite values`);
+          if (name === 'createRadialGradient' || name === 'createLinearGradient') { totals.gradients++; return { addColorStop() {} }; }
+          if (name === 'drawImage' || name === 'fill' || name === 'stroke' || name === 'fillRect') totals.paints++;
+          if (name === 'measureText') return { width: 10 };
+          if (name === 'save') stack.push({ ...target }); else if (name === 'restore') Object.assign(target, stack.pop());
+        };
+      },
+      set(target, name, value) { if (name === 'shadowBlur' && value > 0) totals.shadows++; target[name] = value; return true; }
+    });
+  }
+  class Canvas { constructor(w, h) { this.width = w; this.height = h; this.ctx = brush(); totals.surfaces++; } getContext() { return this.ctx; } }
+  const scope = vm.createContext({ OffscreenCanvas: Canvas, console }); vm.runInContext(fs.readFileSync(path.join(__dirname, '../art.js'), 'utf8'), scope);
+  return { Art: scope.BloomArt, totals, brush };
+}
+function busyBoard(style, frame) {
+  const types = ['gold', 'coral', 'lilac', 'sky', 'poppy'];
+  const balls = types.map((type, b) => ({ id: b, type, x: 80 + b * 60 + frame, y: 300 - frame * 2, r: 5.5, vx: 60, vy: -400, age: .3, hot: b === 4,
+    trail: Array.from({ length: 22 }, (_, i) => ({ x: 60 + b * 60 + i * 1.3 + frame, y: 480 - i * 9 - frame * 2 })) }));
+  let seed = 11; const random = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const particles = [...Keepsakes.burstExtras(style, 150, 200, 48, random), ...Keepsakes.burstExtras(style, 260, 240, 48, random)];
+  particles.forEach(p => { p.life = p.maxLife * .6; p.x += p.vx * .2; p.y += p.vy * .2; });
+  return { mode: 'rush', status: 'playing', lives: 3, buds: [], balls, bumpers: [], particles, floaters: [], launcher: { x: 210, y: 498 },
+    podSize: 4, pod: 4, podGrow: 0, shotNumber: 2, nextType: 'gold', typeAhead: () => 'gold' };
+}
+function styleFrames(style, quality) {
+  const { Art, totals, brush } = costRig(), keepsake = style.seed ? style : null, options = { reducedMotion: false, backdrop: false, showAim: false, keepsake, quality };
+  Art.prewarm({ keepsake: style }).step(1e9);
+  for (let f = 0; f < 3; f++) Art.draw(brush(), busyBoard(style, f), 1 + f / 60, options);
+  const before = { ...totals };
+  for (let f = 3; f < 63; f++) Art.draw(brush(), busyBoard(style, f), 1 + f / 60, options);
+  return Object.fromEntries(Object.keys(totals).map(key => [key, (totals[key] - before[key]) / 60]));
+}
+test('With each grown seed style on, a busy warmed frame makes no gradient, shadow or surface and paints no more than a paid style', () => {
+  const paid = Keepsakes.styles.filter(style => style.source !== 'grown' && style.seed), grown = Keepsakes.styles.filter(style => style.source === 'grown');
+  assert.equal(grown.length, 3);
+  for (const quality of [0, 1, 2]) {
+    const ceiling = Math.max(...paid.map(style => styleFrames(style, quality).paints));
+    for (const style of grown) {
+      const cost = styleFrames(style, quality);
+      assert.equal(cost.gradients, 0, `${style.id} q${quality} gradients per frame`); assert.equal(cost.shadows, 0, `${style.id} q${quality} shadows`);
+      assert.equal(cost.surfaces, 0, `${style.id} q${quality} new surfaces after the warm-up`);
+      assert(cost.paints <= ceiling, `${style.id} q${quality}: ${cost.paints} paints per frame against ${ceiling} for the heaviest paid style`);
+    }
+  }
+  for (const style of grown) assert(styleFrames(style, 2).paints < styleFrames(style, 0).paints * .85, `${style.id} gets lighter on a struggling phone`);
+});
+
 const report = { passed: results.filter(result => result.passed).length, failed: results.filter(result => !result.passed).length,
   limitations: ['Frame callback observations are not a guarantee of presented frames, a target rate, or an installed-device result.', 'Presentation interpolates resolved positions up to one 120 Hz tick behind physics; no game rules or collision queries change.'], results };
 console.log(JSON.stringify(report, null, 2)); process.exitCode = report.failed ? 1 : 0;

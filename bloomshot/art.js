@@ -2936,6 +2936,7 @@
   }
 
   function paintRestingSeed(ctx, r, look) {
+    if (look && look.shape) { paintGrownSeed(ctx, r, look); return; }
     ctx.shadowColor = look ? look.base + '88' : 'rgba(132,106,43,.23)'; ctx.shadowBlur = look ? 12 : 9; ctx.shadowOffsetY = 2;
     const seed = ctx.createRadialGradient(-r * .3, -r * .4, .2, 0, 0, r * 1.2);
     seed.addColorStop(0, look ? look.core : '#fffef1'); seed.addColorStop(.6, look ? look.light : '#f2dda0'); seed.addColorStop(1, look ? look.base : '#c8a465');
@@ -2945,7 +2946,7 @@
     ctx.lineWidth = .7; ctx.strokeStyle = 'rgba(158,118,48,.40)'; ctx.stroke();
   }
   function restingSeedSprite(r, look) {
-    const edge = r + 14, key = `resting-seed:${look ? [look.core, look.light, look.base, look.rim].join(':') : 'plain'}:${r}`;
+    const edge = r + 14, key = `resting-seed:${look ? [look.core, look.light, look.base, look.rim].join(':') + (look.shape ? ':' + look.shape : '') : 'plain'}:${r}`;
     return atlasSprite(key, -edge, -edge, edge, edge, c => paintRestingSeed(c, r, look));
   }
   function drawSeed(ctx, x, y, r, time, flying, style, nominalRadius = r) {
@@ -3568,6 +3569,7 @@
   // stay put as the trail ages instead of flickering from frame to frame. The ribbon is one tapered path into
   // the seed's drawn head (hx, hy), and firefly glows come from a cached sprite.
   function drawKeepsakeTrail(ctx, ball, style, r, time, hot, hx, hy) {
+    if (style.seed && style.seed.shape) { drawGrownTrail(ctx, ball, style, r, time, hot, Number.isFinite(hx) ? hx : ball.x, Number.isFinite(hy) ? hy : ball.y); return; }
     const trail = ball.trail, spec = style.trail, accents = spec.accents;
     cometTrail(ctx, trail, Number.isFinite(hx) ? hx : ball.x, Number.isFinite(hy) ? hy : ball.y, r * (hot ? 1 : .78), spec.ribbon, hot ? .62 : .45);
     for (let i = 0; i < trail.length; i++) {
@@ -3588,6 +3590,255 @@
       ctx.restore();
     }
     ctx.globalAlpha = 1;
+  }
+  // Grown seed styles: Dewdrop, Bramble Berry and Autumn Maple. Every piece (a seed body, a bead, a drop, a leaf, a
+  // thorn, a berry, a maple wing) is painted once, gradients and all, into a 3x sprite at a reference size and then
+  // only blitted, turned and scaled, so a frame full of trails and blooms costs drawImage calls, never a gradient or a
+  // shadow. The set is small and fixed (three styles, a few colors each), so it lives outside the LRU atlas and never
+  // repaints. In Node there is no canvas and the same paint functions draw plain paths in place.
+  const GROWN_REF = 8, grownArt = new Map();
+  function grownSprite(key, half, paint) {
+    if (grownArt.has(key)) return grownArt.get(key);
+    const px = Math.ceil(half * 6), surface = makeSurface(px, px), g = surface && surface.getContext('2d');
+    let sprite = null;
+    if (g) { g.scale(3, 3); g.translate(half, half); paint(g); sprite = { surface, x: -half, y: -half, w: px / 3, h: px / 3 }; painted++; }
+    grownArt.set(key, sprite);
+    return sprite;
+  }
+  // A clear water bead lit from the top left, with a bright caustic where the light comes through at the bottom.
+  function paintBead(g, s, color) {
+    const fill = g.createRadialGradient(-s * .35, -s * .4, s * .05, 0, 0, s);
+    fill.addColorStop(0, '#ffffff'); fill.addColorStop(.45, color); fill.addColorStop(1, shade(color, .28));
+    circle(g, 0, 0, s, fill, '#2f93c2', s * .12);
+    g.beginPath(); g.arc(0, 0, s * .66, .35, 1.9); g.strokeStyle = '#ffffffb0'; g.lineWidth = s * .16; g.lineCap = 'round'; g.stroke();
+    g.beginPath(); g.ellipse(-s * .34, -s * .38, s * .26, s * .17, -.6, 0, TAU); g.fillStyle = '#ffffff'; g.fill();
+  }
+  // A drop, its tail drawn out to a point along +x (a flying drop leads with its round end, so it is turned to trail).
+  function paintDrop(g, s, color) {
+    g.beginPath(); g.moveTo(s * 1.15, 0);
+    g.bezierCurveTo(s * .55, -s * .2, s * .15, -s * .62, -s * .3, -s * .58);
+    g.arc(-s * .3, 0, s * .58, -Math.PI / 2, Math.PI / 2, true);
+    g.bezierCurveTo(s * .15, s * .62, s * .55, s * .2, s * 1.15, 0); g.closePath();
+    const fill = g.createLinearGradient(0, -s * .6, 0, s * .6);
+    fill.addColorStop(0, '#ffffff'); fill.addColorStop(.5, color); fill.addColorStop(1, shade(color, .3));
+    g.fillStyle = fill; g.fill(); g.lineWidth = s * .1; g.strokeStyle = '#2f93c2'; g.stroke();
+    g.beginPath(); g.ellipse(-s * .38, -s * .2, s * .2, s * .12, -.3, 0, TAU); g.fillStyle = '#ffffff'; g.fill();
+  }
+  // The Dewdrop seed: a fat water bead in the seed's own blue, with a sky reflection and a ring of light at its rim.
+  function paintDewBody(g, r, look) {
+    const R = r + 1.3, fill = g.createRadialGradient(-R * .3, -R * .35, R * .05, 0, 0, R);
+    fill.addColorStop(0, look.core); fill.addColorStop(.35, look.light); fill.addColorStop(.8, look.base); fill.addColorStop(1, look.rim);
+    circle(g, 0, 0, R, fill, look.rim, .7);
+    g.beginPath(); g.arc(0, 0, R * .7, .3, 2.1); g.strokeStyle = '#ffffffc0'; g.lineWidth = R * .16; g.lineCap = 'round'; g.stroke();
+    g.beginPath(); g.ellipse(-R * .32, -R * .36, R * .3, R * .19, -.6, 0, TAU); g.fillStyle = '#ffffff'; g.fill();
+    circle(g, R * .3, -R * .5, R * .08, '#ffffff');
+  }
+  // A blackberry: seven glossy drupelets, each lit from the top left, under a little green cap.
+  const DRUPES = [[0, .05], [-.52, -.18], [.52, -.18], [-.5, .4], [.5, .4], [0, -.5], [0, .62]];
+  function paintBerry(g, s, color, cap) {
+    const d = s * .42;
+    for (const [dx, dy] of DRUPES) {
+      const x = dx * s, y = dy * s, fill = g.createRadialGradient(x - d * .35, y - d * .4, d * .05, x, y, d);
+      fill.addColorStop(0, shade(color, -.55)); fill.addColorStop(.5, color); fill.addColorStop(1, shade(color, .35));
+      circle(g, x, y, d, fill, shade(color, .5), s * .05);
+      circle(g, x - d * .32, y - d * .34, d * .22, '#ffffffcc');
+    }
+    if (!cap) return;
+    g.save(); g.translate(0, -s * .86);
+    for (let k = 0; k < 5; k++) {
+      g.save(); g.rotate(-1.2 + k * .6); g.beginPath(); g.moveTo(0, 0); g.quadraticCurveTo(s * .16, -s * .18, 0, -s * .42); g.quadraticCurveTo(-s * .16, -s * .18, 0, 0);
+      g.fillStyle = k % 2 ? '#4f9a4c' : '#62b65a'; g.fill(); g.restore();
+    }
+    g.restore();
+  }
+  // A bramble leaf pointing along +x: a serrated oval with a pale midrib.
+  function paintBrambleLeaf(g, s, color) {
+    g.beginPath(); g.moveTo(-s, 0);
+    for (let k = 1; k <= 12; k++) {
+      const u = k / 12, a = u * Math.PI, w = Math.sin(a) * s * .5 * (k % 2 ? 1 : .82);
+      g.lineTo(-s + u * 2 * s, -w);
+    }
+    for (let k = 11; k >= 1; k--) {
+      const u = k / 12, a = u * Math.PI, w = Math.sin(a) * s * .5 * (k % 2 ? 1 : .82);
+      g.lineTo(-s + u * 2 * s, w);
+    }
+    g.closePath();
+    const fill = g.createLinearGradient(0, -s * .5, 0, s * .5);
+    fill.addColorStop(0, shade(color, -.25)); fill.addColorStop(1, shade(color, .2));
+    g.fillStyle = fill; g.fill(); g.lineWidth = s * .08; g.strokeStyle = shade(color, .45); g.stroke();
+    g.beginPath(); g.moveTo(-s * .9, 0); g.quadraticCurveTo(0, -s * .06, s * .85, 0); g.strokeStyle = '#e9ffd8b0'; g.lineWidth = s * .09; g.stroke();
+  }
+  // A thorn on the bramble stem, pointing along +x.
+  function paintThorn(g, s) {
+    g.beginPath(); g.moveTo(s, 0); g.quadraticCurveTo(-s * .1, -s * .1, -s * .5, -s * .5); g.lineTo(-s * .5, s * .5); g.quadraticCurveTo(-s * .1, s * .1, s, 0);
+    g.fillStyle = '#9a4a33'; g.fill(); g.lineWidth = s * .12; g.strokeStyle = '#5e2a1d'; g.stroke();
+  }
+  // A five-lobed maple leaf, tip up, stem down: crisp points, a darker edge and veins to each lobe.
+  const MAPLE = [[0, 1], [14, .62], [26, .45], [55, .95], [70, .6], [88, .42], [115, .62], [140, .35], [180, .2]];
+  function paintMapleLeaf(g, s, color) {
+    const points = MAPLE.concat(MAPLE.slice(1, -1).reverse().map(([a, r]) => [-a, r]));
+    g.beginPath();
+    points.forEach(([a, r], k) => { const t = a * Math.PI / 180, x = Math.sin(t) * r * s, y = -Math.cos(t) * r * s; if (k) g.lineTo(x, y); else g.moveTo(x, y); });
+    g.closePath();
+    const fill = g.createLinearGradient(-s, -s, s, s);
+    fill.addColorStop(0, shade(color, -.2)); fill.addColorStop(1, shade(color, .18));
+    g.fillStyle = fill; g.fill(); g.lineJoin = 'round'; g.lineWidth = s * .07; g.strokeStyle = shade(color, .42); g.stroke();
+    g.beginPath(); g.moveTo(0, s * .2); g.lineTo(0, s * .78); g.strokeStyle = shade(color, .5); g.lineWidth = s * .09; g.lineCap = 'round'; g.stroke();
+    g.beginPath();
+    for (const a of [0, 55, -55, 115, -115]) { const t = a * Math.PI / 180; g.moveTo(0, s * .12); g.lineTo(Math.sin(t) * s * .7, -Math.cos(t) * s * .7); }
+    g.strokeStyle = shade(color, -.35); g.lineWidth = s * .05; g.stroke();
+  }
+  // The samara's wing: a papery blade from the nut (at the origin) out along +x, straight along its top edge, rounded
+  // below and at the tip like a real maple key, with veins fanning from the nut.
+  function paintMapleWing(g, s) {
+    g.beginPath(); g.moveTo(0, -s * .22);
+    g.bezierCurveTo(s, -s * .42, s * 2.4, -s * .62, s * 3.15, -s * .5);
+    g.bezierCurveTo(s * 3.65, -s * .38, s * 3.6, s * .55, s * 3, s * .82);
+    g.bezierCurveTo(s * 2.3, s * 1.05, s * 1.3, s * .75, 0, s * .22); g.closePath();
+    const fill = g.createLinearGradient(0, 0, s * 3.4, 0);
+    fill.addColorStop(0, '#c4552af2'); fill.addColorStop(.3, '#e99a52ed'); fill.addColorStop(.75, '#f7cf90e6'); fill.addColorStop(1, '#fbe4b8e0');
+    g.fillStyle = fill; g.fill(); g.lineJoin = 'round'; g.lineWidth = s * .08; g.strokeStyle = '#9a4c22'; g.stroke();
+    g.beginPath(); g.moveTo(0, -s * .2); g.bezierCurveTo(s, -s * .38, s * 2.4, -s * .58, s * 3.12, -s * .47); g.strokeStyle = '#a8562a'; g.lineWidth = s * .13; g.lineCap = 'round'; g.stroke();
+    g.beginPath();
+    for (let k = 0; k < 6; k++) { g.moveTo(s * .25, -s * .12 + k * .05 * s); g.quadraticCurveTo(s * (1.3 + k * .2), -s * (.3 - k * .17), s * (2.6 + k * .1), -s * (.4 - k * .22)); }
+    g.strokeStyle = '#b05a2a66'; g.lineWidth = s * .05; g.stroke();
+  }
+  // The samara's nut: a round, plump seed in the style's orange with a seam curling from where the wing joins.
+  function paintMapleNut(g, R, look) {
+    const fill = g.createRadialGradient(-R * .3, -R * .35, R * .05, 0, 0, R);
+    fill.addColorStop(0, look.core); fill.addColorStop(.4, look.light); fill.addColorStop(.85, look.base); fill.addColorStop(1, look.rim);
+    circle(g, 0, 0, R, fill, look.rim, .7);
+    g.beginPath(); g.arc(R * .55, R * .05, R * .55, 2.2, 3.9); g.strokeStyle = shade(look.base, .3); g.lineWidth = R * .1; g.lineCap = 'round'; g.stroke();
+    g.beginPath(); g.ellipse(-R * .32, -R * .36, R * .26, R * .16, -.6, 0, TAU); g.fillStyle = '#ffffffd0'; g.fill();
+  }
+  // The trail and burst pieces: [box padding over the reference size, paint]. One sprite per piece and color.
+  const PIECES = {
+    bead: [1.1, (g, c) => paintBead(g, GROWN_REF, c)], drop: [1.25, (g, c) => paintDrop(g, GROWN_REF, c)],
+    berry: [1.5, (g, c) => paintBerry(g, GROWN_REF, c, false)], leaf: [1.15, (g, c) => paintBrambleLeaf(g, GROWN_REF, c)],
+    thorn: [1.1, g => paintThorn(g, GROWN_REF)], maple: [1.1, (g, c) => paintMapleLeaf(g, GROWN_REF, c)]
+  };
+  function grownPiece(name, color) {
+    const [pad, paint] = PIECES[name];
+    return grownSprite(`${name}|${color || ''}`, GROWN_REF * pad, g => paint(g, color));
+  }
+  // Places a piece, `size` px across at reference 1, through one setTransform when the base transform is known.
+  function placePiece(ctx, fast, name, color, x, y, turn, sx, sy) {
+    const sprite = grownPiece(name, color);
+    if (fast && sprite) { stamp(ctx, sprite, x, y, turn, sx, sy); return; }
+    ctx.save(); ctx.translate(x, y); ctx.rotate(turn); ctx.scale(sx, sy);
+    if (sprite) blit(ctx, sprite); else PIECES[name][1](ctx, color);
+    ctx.restore();
+  }
+  function grownBody(look, r) {
+    const R = r + 1.3, rk = Math.round(r * 10) / 10;
+    return {
+      R, wing: look.shape === 'samara' ? grownSprite(`samara|wing|${rk}`, R * 3.75, g => paintMapleWing(g, R)) : null,
+      body: grownSprite(`${look.shape}|body|${look.base}|${rk}`, R * 1.35 + 1, g => paintGrownBody(g, r, look))
+    };
+  }
+  function paintGrownBody(g, r, look) {
+    const R = r + 1.3;
+    if (look.shape === 'dew') paintDewBody(g, r, look); else if (look.shape === 'berry') paintBerry(g, R * .92, look.base, true); else paintMapleNut(g, R, look);
+  }
+  // The flying body. Each body fits its round hit circle; only the maple wing reaches past it, and it whirls.
+  function drawGrownBody(ctx, style, x, y, r, time, still) {
+    const look = style.seed, art = grownBody(look, r);
+    ctx.save(); ctx.translate(x, y);
+    if (look.shape === 'samara') {
+      ctx.save(); ctx.rotate(still ? -2.3 : time * 13); ctx.globalAlpha *= .92;
+      if (art.wing) blit(ctx, art.wing); else paintMapleWing(ctx, art.R);
+      ctx.restore();
+    }
+    if (art.body) blit(ctx, art.body); else paintGrownBody(ctx, r, look);
+    ctx.restore();
+  }
+  // The seed resting in the cup and the tray: a dew drop, a blackberry on its cap, a maple samara with its wing.
+  function paintGrownSeed(g, r, look) {
+    g.shadowColor = look.rim + '55'; g.shadowBlur = 8; g.shadowOffsetY = 2;
+    if (look.shape === 'dew') {
+      g.beginPath(); g.moveTo(0, -r * 1.2);
+      g.bezierCurveTo(r * .42, -r * .62, r * .82, -r * .12, r * .82, r * .22);
+      g.arc(0, r * .22, r * .82, 0, Math.PI);
+      g.bezierCurveTo(-r * .82, -r * .12, -r * .42, -r * .62, 0, -r * 1.2); g.closePath();
+      const fill = g.createRadialGradient(-r * .25, -r * .1, r * .05, 0, r * .2, r * 1.1);
+      fill.addColorStop(0, look.core); fill.addColorStop(.4, look.light); fill.addColorStop(.85, look.base); fill.addColorStop(1, look.rim);
+      g.fillStyle = fill; g.fill(); g.shadowColor = 'transparent'; g.lineWidth = .8; g.strokeStyle = look.rim; g.stroke();
+      g.beginPath(); g.arc(0, r * .22, r * .56, .3, 2.2); g.strokeStyle = '#ffffffb8'; g.lineWidth = r * .14; g.lineCap = 'round'; g.stroke();
+      g.beginPath(); g.ellipse(-r * .3, -r * .12, r * .16, r * .3, .35, 0, TAU); g.fillStyle = '#ffffff'; g.fill();
+    } else if (look.shape === 'berry') {
+      g.beginPath(); g.ellipse(0, r * .1, r * .9, r * .95, 0, 0, TAU); g.fillStyle = look.base; g.fill(); g.shadowColor = 'transparent';
+      g.save(); g.translate(0, r * .14); paintBerry(g, r * .9, look.base, true); g.restore();
+      g.beginPath(); g.moveTo(0, -r * .7); g.quadraticCurveTo(r * .1, -r * 1.05, r * .32, -r * 1.2); g.strokeStyle = '#3f8a46'; g.lineWidth = 1; g.lineCap = 'round'; g.stroke();
+    } else {
+      g.save(); g.translate(-r * .4, r * .62); g.rotate(-.95);
+      paintMapleWing(g, r * .62); g.shadowColor = 'transparent'; paintMapleNut(g, r * .62, look); g.restore();
+    }
+  }
+  // Trails for the grown styles. A ribbon underneath (a thin stream of water, a bramble stem, the gust the leaves ride
+  // on) and accents on real trail samples, picked by each sample's own position so they stay put as the trail ages.
+  // On a struggling phone (quality 2) half as many accents, and the bramble's thorns only at full quality.
+  const trailPiece = (kind, color, accents) => kind === 'beads' ? 'bead' : kind === 'leaves' ? 'maple' : color === accents[2] ? 'berry' : 'leaf';
+  function drawGrownTrail(ctx, ball, style, r, time, hot, hx, hy) {
+    const trail = ball.trail, spec = style.trail, kind = spec.kind, accents = spec.accents, n = trail.length, stem = kind === 'brambles';
+    cometTrail(ctx, trail, hx, hy, r * (stem ? .4 : hot ? .95 : .72), spec.ribbon, stem ? .92 : kind === 'beads' ? .5 : .3);
+    const every = (hot ? 2 : 3) * (feelQuality >= 2 ? 2 : 1), fast = readBase(ctx);
+    if (fast) setFrame(0, 0, 0);
+    for (let i = 0; i < n; i++) {
+      const p = trail[i], q = trail[i + 1] || { x: hx, y: hy }, key = Math.abs(Math.round(p.x * 7.3 + p.y * 13.1));
+      if (p.move || !Number.isFinite(p.x) || !Number.isFinite(p.y)) continue;
+      const f = (i + 1) / n, along = Math.atan2(q.y - p.y, q.x - p.x) || 0, side = key % 2 ? 1 : -1, nx = Math.cos(along + side * Math.PI / 2), ny = Math.sin(along + side * Math.PI / 2);
+      let name, color = null, x = p.x, y = p.y, turn = 0, tumble = 1, size;
+      if (key % every) {
+        // Between the leaves the bramble stem carries small thorns.
+        if (!stem || feelQuality >= 1 || key % every !== 1) continue;
+        name = 'thorn'; size = r * (.3 + f * .25); turn = along + side * 1.2; x += nx * r * .3; y += ny * r * .3;
+      } else {
+        color = accents[key % accents.length]; name = trailPiece(kind, color, accents);
+        if (name === 'bead') { size = r * (.32 + f * .42); y += (1 - f) * 7; } // older beads have dripped a little further
+        else if (name === 'berry') size = r * (.42 + f * .3);
+        else if (name === 'leaf') { size = r * (.5 + f * .55); turn = along + side * .85; x += nx * r * .75; y += ny * r * .75; }
+        else {
+          // Maple leaves tumble (narrowing as a leaf turns edge-on) and drift down as the trail ages.
+          size = r * (.6 + f * .6); turn = key * .37 + time * 2.4; tumble = .35 + .65 * Math.abs(Math.cos(time * 3.1 + key));
+          x += Math.sin(time * 2 + key) * 2.5 * (1 - f); y += (1 - f) * 9;
+        }
+      }
+      const scale = size / GROWN_REF;
+      ctx.globalAlpha = Math.min(1, f * 1.15);
+      placePiece(ctx, fast, name, color, x, y, turn, tumble * scale, scale);
+    }
+    if (fast) ctx.setTransform(BASE[0], BASE[1], BASE[2], BASE[3], BASE[4], BASE[5]);
+    ctx.globalAlpha = 1;
+  }
+  // Bloom-burst particles for the grown styles: splashing drops and one ripple, hopping berries and bramble leaves,
+  // tumbling maple leaves. drawParticle has already saved the context and set the fade.
+  const burstPiece = particle => particle.kind === 'splash' ? 'drop' : particle.kind === 'maple' ? 'maple' : particle.leaf ? 'leaf' : 'berry';
+  function drawGrownParticle(ctx, particle, size, color, f, still) {
+    const x = particle.x, y = particle.y;
+    if (particle.ripple) {
+      const rr = size + ease(1 - f) * 30;
+      ctx.globalAlpha = f * .7; ctx.lineWidth = .5 + f * 1.2; ctx.strokeStyle = color;
+      ctx.beginPath(); ctx.ellipse(x, y + 4, rr, rr * .42, 0, 0, TAU); ctx.stroke();
+      return;
+    }
+    const name = burstPiece(particle), scale = size / GROWN_REF * (name === 'maple' ? 1 : 1.15);
+    let turn = particle.rotation || 0, sx = 1, sy = 1;
+    if (name === 'drop') {
+      // A drop stretches along its flight, more the faster it goes.
+      const vx = particle.vx || 0, vy = particle.vy || 0, stretch = still ? 1 : 1 + Math.min(.9, Math.hypot(vx, vy) / 260);
+      turn = (Math.atan2(vy, vx) || 0) + Math.PI; sx = stretch; sy = 1 / Math.sqrt(stretch);
+    } else if (name !== 'berry') sx = still ? .8 : .35 + .65 * Math.abs(Math.cos(turn * .8));
+    placePiece(ctx, false, name, color, x, y, turn, sx * scale, sy * scale);
+  }
+  // Paints every sprite a grown style needs, so the warm-up can do it during a level's intro.
+  function warmGrown(style) {
+    const look = style && style.seed;
+    if (!look || !look.shape) return;
+    for (const r of [5.5, 6]) grownBody(look, r);
+    const spec = style.trail;
+    for (const color of spec.accents) grownPiece(trailPiece(spec.kind, color, spec.accents), color);
+    if (spec.kind === 'brambles') grownPiece('thorn', null);
+    style.burst.colors.forEach((color, i) => grownPiece(burstPiece({ kind: style.burst.kind, leaf: style.burst.kind === 'berry' && i === 3 }), color));
   }
   // A soft colored halo under a seed, cached per color and size, in place of a per-frame shadow blur.
   function seedHalo(color, r, blur) {
@@ -3666,14 +3917,14 @@
     ctx.restore();
   }
 
+  const styledGlow = (style, r, hot) => feelGlow(`styled|${style.id}|${hot ? 1 : 0}`, r * 4.4 * (hot ? 1.25 : 1), [[0, style.seed.light + 'cc'], [1, style.seed.light + '00']]);
   function drawStyledProjectile(ctx, ball, time, reducedMotion, fever, style, index) {
     const s = style.seed, r = ball.r || 5.5, hot = fever || ball.hot;
     const offset = projectileOffset(ball), x = ball.x + offset.x, y = ball.y + offset.y;
     ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     if (!reducedMotion && (ball.trail || []).length > 1 && !(feelQuality >= 1 && index >= 3)) drawKeepsakeTrail(ctx, ball, style, r, time, hot, x, y);
     if (!reducedMotion) {
-      const pulse = style.id === 'firefly' ? 1 + Math.sin(time * 8) * .22 : 1, gr = r * 4.4 * (hot ? 1.25 : 1);
-      const glow = feelGlow(`styled|${style.id}|${hot ? 1 : 0}`, gr, [[0, s.light + 'cc'], [1, s.light + '00']]);
+      const pulse = style.id === 'firefly' ? 1 + Math.sin(time * 8) * .22 : 1, gr = r * 4.4 * (hot ? 1.25 : 1), glow = styledGlow(style, r, hot);
       ctx.globalCompositeOperation = 'lighter';
       if (glow) drawGlowSprite(ctx, glow, x, y, pulse); else circle(ctx, x, y, gr * .55 * pulse, s.light + '44');
       ctx.globalCompositeOperation = 'source-over';
@@ -3682,6 +3933,12 @@
     if (halo) drawGlowSprite(ctx, halo, x, y);
     else { ctx.shadowColor = s.base; ctx.shadowBlur = hot ? 19 : 12; }
     seedStretch(ctx, ball, x, y, reducedMotion);
+    if (s.shape) {
+      // A grown style's body is a cached sprite with its own light, so no shadow and no overlay circles.
+      ctx.shadowBlur = 0; drawGrownBody(ctx, style, x, y, r, time, reducedMotion);
+      if (hot && !reducedMotion) { ctx.globalAlpha = .85; sparkle(ctx, x, y, r * 1.95, '#ffffffaa', time); }
+      ctx.restore(); return;
+    }
     if (style.id === 'gilded') {
       // The gilded body is a cached metal sprite; in Node it falls back to the plain gradient.
       const key = `gilded|${r}`;
@@ -3797,6 +4054,7 @@
       sparkle(ctx, particle.x, particle.y, size * 1.4, color, particle.rotation || 0); ctx.restore(); return;
     }
     if (particle.kind === 'flake') { goldFlake(ctx, particle.x, particle.y, size, color, particle.rotation || 0); ctx.restore(); return; }
+    if (particle.kind === 'splash' || particle.kind === 'berry' || particle.kind === 'maple') { drawGrownParticle(ctx, particle, size, color, f, reducedMotion); ctx.restore(); return; }
     if (particle.kind === 'blossom') {
       ctx.translate(particle.x, particle.y); ctx.rotate(particle.rotation || 0);
       ctx.scale(reducedMotion ? .8 : .45 + Math.abs(Math.cos((particle.rotation || 0) * .8)) * .55, 1);
@@ -4899,6 +5157,8 @@
     const jobs = [], scratch = makeSurface(4, 4), sctx = scratch && scratch.getContext('2d', { willReadFrequently: true }), add = fn => jobs.push(fn);
     let next = 0;
     add(() => { for (const r of [7.4, 8.4]) restingSeedSprite(r, plan.keepsake && plan.keepsake.seed); });
+    // The worn style's glow and halo, plain and in Super Bloom, and a grown style's body, trail and bloom pieces.
+    if (plan.keepsake && plan.keepsake.seed) add(() => { for (const hot of [false, true]) { styledGlow(plan.keepsake, 5.5, hot); seedHalo(plan.keepsake.seed.base, 5.5, hot ? 19 : 12); } warmGrown(plan.keepsake); });
     // The HUD: the gold sky and its band, the sun fan at every count, the turning wheel, the badges.
     add(() => hudSprite('sky:gold', 420, 560, paintGoldSky, 1)); add(() => hudSprite('sky:band', 420, 240, paintGoldBand, 1));
     add(litPetalSprite);

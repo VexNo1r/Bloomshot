@@ -447,7 +447,7 @@ test('Keepsakes: a fresh garden wears Meadow, every style previews, and locked s
   const before = legacySave(), app = boot(before);
   assert.equal(app.saved().keepsake, 'meadow'); assert.deepEqual(app.saved().settings, { ...before.settings, graphics: 'maximum', frameRate: false });
   app.click('collection-btn'); app.frame();
-  const grid = app.$('keepsake-grid').innerHTML;
+  const grid = app.$('keepsake-grid').innerHTML + app.$('keepsake-grow').innerHTML; // the grown styles have their own row
   for (const style of Keepsakes.styles) assert(grid.includes(`data-keepsake="${style.id}"`), style.id);
   assert.match(grid, />Wearing</); assert.match(grid, /Moon 0\/6/); assert.match(grid, /Keepsake Collection/);
   assert.match(app.$('keepsake-offer').innerHTML, /Available in the Bloomshot app/); assert(!app.$('keepsake-offer').innerHTML.includes('data-buy'));
@@ -687,6 +687,42 @@ test("The Today strip on the Levels map shows the day's three goals and the bonu
   app = boot(done, { today: GOAL_DAY, goals: true });
   assert.equal(app.$('today-strip').getAttribute('aria-label'), "Today's goals, 3 of 3 done. All done, +6 bonus seeds earned. New goals tomorrow.");
   assert(app.$('today-bonus').classList.contains('done')); assert.match(app.$('today-bonus').innerHTML, /today-tick/);
+});
+test('Grown seed styles: the Collection grows one with earned seeds, once, wears it, counts for the meadow goal and survives a reload', () => {
+  const save = legacySave(); save.garden = { seeds: 260, levels: {}, selectedId: 'sunbell' };
+  const app = boot(save, { today: GOAL_DAY, goals: true, store: fakeStore({ live: true, available: true }) });
+  app.click('collection-btn'); app.frame();
+  const row = app.$('keepsake-grow').innerHTML, grid = app.$('keepsake-grid').innerHTML, offer = app.$('keepsake-offer').innerHTML;
+  assert.match(row, /Grow with seeds/); assert.match(row, /Never sold/); assert.match(row, /0\/3 grown/);
+  for (const id of Keepsakes.grown) { assert(row.includes(`data-keepsake="${id}"`), id); assert(!grid.includes(`data-keepsake="${id}"`), `${id} sits apart from the paid styles`); }
+  assert.match(row, /grow it with 150 earned seeds/); assert.match(row, /<\/span>400<\/span>/);
+  assert(!/Dewdrop|Bramble|Maple/.test(offer), 'the paid Keepsake Collection names only its own three'); assert.match(offer, /Get all three/);
+  assert(!/data-buy/.test(row) && !/unlock-btn/.test(app.$('keepsake-caption').innerHTML), 'nothing in the grown row opens the store');
+  // Previewing never spends; a style the seeds cannot cover shows how many more, with the button off.
+  app.click('keepsake-shelf', { keepsake: 'maple' }); app.frame();
+  assert.equal(app.saved().keepsake, 'meadow'); assert.equal(app.saved().garden.seeds, 260);
+  assert.match(app.$('keepsake-caption').innerHTML, /data-grow="maple" disabled>Grow · 400 seeds</); assert.match(app.$('keepsake-caption').innerHTML, /140 more seeds to grow it\./);
+  app.click('keepsake-shelf', { grow: 'maple' }); assert.equal(app.saved().garden.seeds, 260); assert.deepEqual(app.saved().garden.grown, []);
+  assert.equal(app.$('toast').textContent, '140 more seeds to grow Autumn Maple.');
+  app.click('keepsake-shelf', { keepsake: 'bramble' });
+  assert.match(app.$('keepsake-caption').innerHTML, /class="button-primary grow-btn" type="button" data-grow="bramble">Grow · 250 seeds</);
+  assert.match(app.$('keepsake-caption').innerHTML, /Grown with seeds\. Never sold\./);
+  app.click('keepsake-shelf', { grow: 'bramble' });
+  let after = app.saved();
+  assert.deepEqual(after.garden.grown, ['bramble']); assert.equal(after.keepsake, 'bramble', 'a grown style goes straight on the seed');
+  assert.equal(after.garden.seeds, 260 - 250 + 4, 'it counts for the meadow goal, which pays its 4 seeds'); assert.equal(after.garden.totalSeedsSpent, 250);
+  assert.deepEqual(after.goals.done, [false, false, true]); assert.equal(app.$('toast').textContent, 'Bramble Berry grown! Goal done, +4 seeds.');
+  assert.match(app.$('keepsake-grow').innerHTML, /1\/3 grown/); assert(!app.$('keepsake-caption').innerHTML.includes('data-grow'));
+  app.click('keepsake-shelf', { grow: 'bramble' }); assert.deepEqual(app.saved(), after, 'growing it again changes nothing');
+  app.click('levels-rush-btn'); app.frame(); assert.equal(app.boardDraws.at(-1), 'bramble');
+  const reloaded = boot(after, { today: GOAL_DAY, goals: true });
+  assert.deepEqual(reloaded.saved().garden.grown, ['bramble']); reloaded.click('levels-rush-btn'); reloaded.frame(); assert.equal(reloaded.boardDraws.at(-1), 'bramble');
+  // The paid collection never opens a grown style, and a grown list never opens a paid one.
+  const owner = boot({ ...legacySave(), garden: { seeds: 0, grown: ['dewdrop'] } }, { store: fakeStore({ owned: [Keepsakes.entitlement] }) });
+  owner.click('collection-btn'); owner.click('keepsake-shelf', { keepsake: 'maple' }); assert.equal(owner.saved().keepsake, 'meadow');
+  owner.click('keepsake-shelf', { keepsake: 'dewdrop' }); assert.equal(owner.saved().keepsake, 'dewdrop');
+  const none = boot({ ...legacySave(), garden: { seeds: 999, grown: ['sakura', 'dewdrop'] } });
+  assert.deepEqual(none.saved().garden.grown, ['dewdrop']); none.click('collection-btn'); none.click('keepsake-shelf', { keepsake: 'sakura' }); assert.equal(none.saved().keepsake, 'meadow');
 });
 test('Native bridge: planting buzzes through BloomNative only while the Vibration setting is on', () => {
   const on = legacySave(); on.settings.haptics = true;

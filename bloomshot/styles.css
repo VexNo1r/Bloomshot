@@ -479,6 +479,19 @@ button.resume-card:active{box-shadow:inset 0 0 0 2px var(--gold-edge),0 1px 0 va
 .keepsake-status{font-size:10.5px;line-height:1.2;color:var(--ink-soft)}
 .keepsake-card.worn .keepsake-status{color:var(--green-deep);font-weight:800}
 .keepsake-card.locked .keepsake-status{color:#9a6a10}
+/* Under the preview: the note, and for a grown style still waiting, the green Grow button (never purchase gold). */
+.keepsake-action{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;min-height:46px}
+.grow-btn{display:inline-flex;width:auto;min-height:44px;margin-top:0;padding:0 18px;font-size:15.5px}
+/* Grow with seeds: its own cream panel between the styles and the paid Keepsake Collection, priced in earned seeds. */
+.keepsake-grow{margin:2px 0 16px;padding:12px 12px 14px}
+.grow-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin:0 2px}
+.grow-head h3{font:700 18px/1.15 var(--display);color:var(--ink)}
+.grow-sub{margin:2px 2px 10px;font-size:12.5px;line-height:1.35;color:var(--ink-soft)}
+.keepsake-grid.grow-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:0}
+.keepsake-card.grown.locked::after{content:none}
+.keepsake-card.grown.locked .keepsake-status{display:inline-flex;align-items:center;gap:5px;margin-top:2px;padding:3px 10px 4px;border-radius:999px;background:var(--cream-2);box-shadow:inset 0 0 0 2px var(--edge);font:600 12.5px/1 var(--display);color:var(--ink-soft)}
+.keepsake-card.grown.ready .keepsake-status{background:var(--green-soft);color:var(--green-deep);box-shadow:inset 0 0 0 2px #b4e3c3}
+.keepsake-card.grown .purse-leaf{width:7px;height:11px}
 .unlock-panel{position:relative;margin:4px 0 6px;padding:16px;border-radius:22px;background:linear-gradient(180deg,#fff4cf,var(--cream) 55%);box-shadow:inset 0 0 0 2px #f1d27e,0 4px 0 #ddb456}
 .unlock-copy strong{display:block;margin:6px 0 3px;font:700 20px/1.2 var(--display)}
 .unlock-copy p{margin:0 0 12px;font-size:13.5px;line-height:1.4;color:var(--ink-soft)}
