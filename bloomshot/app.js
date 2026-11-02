@@ -286,7 +286,7 @@
   function putClass(el, name, on) { if (el.classList.contains(name) !== Boolean(on)) el.classList.toggle(name, Boolean(on)); }
   function updateHud() {
     const rush = isRush();
-    const key = `${game.shotsLeft}|${game.bloomedCount}|${game.status}|${game.rotationUsed}|${game.wave}|${game.lives}|${game.bumpers.length}`;
+    const key = `${game.shotsLeft}|${game.bloomedCount}|${game.status}|${game.rotationUsed}|${game.wave}|${game.lives}|${game.bumpers.length}|${game.bestState > 0}`;
     if (key !== hudKey) {
       hudKey = key;
       const remaining = rush ? game.lives : game.shotsLeft;
@@ -295,7 +295,8 @@
       $('seed-count').setAttribute('aria-label', `${remaining} ${units} remaining`);
       $('bloom-count').textContent = rush ? `${game.bloomedCount} ${game.bloomedCount === 1 ? 'bloom' : 'blooms'}` : `${game.bloomedCount} / ${game.buds.length} bloomed`;
       if (rush) $('level-label').textContent = isTutorial() ? 'Tutorial' : isDepth() ? `Level ${game.plan.id} · Wave ${game.wave}/${game.finalWave}` : `Wave ${game.wave} · ×${game.tempo.toFixed(1)}`;
-      $('best-value').textContent = preview ? 'Preview' : record()?.best ? fmt(record().best) : '—';
+      // Once the run passes the saved best, the caption under the score reads 'Best · beaten!' to the end of the run.
+      $('best-value').textContent = preview ? 'Preview' : game.bestState > 0 ? '· beaten!' : record()?.best ? fmt(record().best) : '—';
       canvas.dataset.status = game.status; canvas.dataset.blooms = game.bloomedCount; canvas.dataset.level = game.level.id; canvas.dataset.shots = game.shotsLeft;
       $('rotate-btn').disabled = game.status !== 'aiming' || game.rotationUsed || !game.bumpers.length;
       // A board with no petal (most Koi pools) has nothing to turn, so the button stays out of the way.

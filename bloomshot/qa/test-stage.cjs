@@ -316,6 +316,20 @@ test('"New best!" waits behind a wave ribbon, steps aside for a guardian card, a
   app.frame(); assert.equal(bests(game).length, 0, 'it steps aside for a guardian card');
   app.run(3); assert.equal(bests(game).length, 0); assert.equal(app.cues('newBest').length, 1, 'and does not come back');
 });
+test('Past the best, the caption under the score reads "Best · beaten!" to the end of the run; a new run shows the number again', () => {
+  const app = level(player(), 1), game = app.game();
+  assert(app.run(6, () => !titles(game).length)); game.started = true;
+  assert.equal(app.$('best-value').textContent, '3,000', 'the best to beat');
+  game.score = 3000; app.frame(); assert.equal(app.$('best-value').textContent, '3,000', 'matching it is not beating it');
+  game.score = 3001; app.frame(); assert.equal(app.$('best-value').textContent, '· beaten!', 'the caption says so at once');
+  game.score = 4000; app.run(.5); assert.equal(app.$('best-value').textContent, '· beaten!');
+  game._lose(); app.run(.5); assert.equal(app.$('best-value').textContent, '· beaten!', 'it stays to the end of the run');
+  app.click('restart-btn'); app.click('restart-btn'); app.frame();
+  assert.notEqual(app.game(), game); assert.match(app.$('best-value').textContent, /^\d[\d,]*$/, 'a new run shows its best to beat');
+  const fresh = boot(player()); fresh.click('levels-rush-btn'); fresh.frame(); const rush = fresh.game();
+  assert(fresh.run(6, () => !titles(rush).length)); rush.started = true; rush.score = 9999; fresh.run(.2);
+  assert.equal(fresh.$('best-value').textContent, '—', 'a first run has no best to beat');
+});
 test('"New best!" also waits while a guardian is still dropping in, then shows once its name card has gone', () => {
   const app = level(player(), 3); app.run(1.3);
   const game = app.game(), boss = bossWave(app, 'Mother Morel');
