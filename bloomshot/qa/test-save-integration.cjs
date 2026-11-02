@@ -993,6 +993,16 @@ test('Escape or a tap outside the card resumes through the same count; a setting
   app.click('help-btn'); frames(app, 2); assert.equal(game.time, time); app.click('close-help');
   frames(app, .5); assert.equal(game.time, time); frames(app, .5); assert(game.time > time);
 });
+test('A Paused card that opens again before the last one has finished closing stays a pause, with no count under it', () => {
+  const { app, game } = pausedLevel();
+  app.hide(); app.show(); app.click('pause-resume'); assert.equal(app.$('resume-count').hidden, false, 'Resume counts in');
+  // The page hides again before the browser has sent the first card's close event.
+  app.hide(); app.show(); assert.equal(app.$('pause-dialog').open, true); assert.equal(app.$('resume-count').hidden, true);
+  const time = game.time; app.$('pause-dialog').emit('close');
+  assert.equal(app.$('resume-count').hidden, true, 'the late close event starts no count under the open card');
+  frames(app, 3); assert.equal(game.time, time, 'and nothing moves until Resume');
+  app.click('pause-resume'); frames(app, 2.5); assert(game.time > time);
+});
 test('Restart on the Paused card starts over at once, and Levels leaves the run waiting with a count when picked up', () => {
   let { app, game } = pausedLevel(); game.score = 900;
   app.click('pause-btn'); const count = app.games.length;
@@ -1248,6 +1258,16 @@ test('No taste before level 4 is cleared or once the levels are owned', () => {
   early.click('depth-map', { depth: '5' }); assert.equal(early.games.length, count);
   const owner = boot(cleared(1, 2, 3, 4), { store: fakeStore({ owned: [Depths.entitlement] }) });
   owner.click('depth-map', { depth: '5' }); assert.equal(depthGame(owner).plan.taste, false); assert.equal(depthGame(owner).finalWave, 10);
+});
+test('Picking the level 5 taste up again from its map card counts in like every other paused run', () => {
+  const { app, game } = tasteReady(); settleLevel(app); assert(game.fire(0, -1)); app.frame(); app.frame();
+  app.click('back-btn'); assert.equal(app.context.bloomshotState.route, 'levels'); assert.equal(app.$('resume-btn').hidden, false);
+  const time = game.time, count = app.games.length;
+  app.click('depth-map', { depth: '5' });
+  assert.equal(app.games.length, count, 'the same taste'); assert.equal(app.context.bloomshotState.route, 'game');
+  assert.equal(app.$('resume-count').hidden, false, 'it counts in');
+  frames(app, 1); assert.equal(game.time, time, 'nothing moves while it counts');
+  frames(app, 1.5); assert(game.time > time, 'play picks up after the count');
 });
 test('Level records are cleaned on load and a cleared level opens the next one', () => {
   const before = legacySave(); before.depths = { 1: { stars: 9, best: -5, wave: 3 }, 2: 'bad', 3: [], 12: { stars: 1, best: 1, wave: 1 } };

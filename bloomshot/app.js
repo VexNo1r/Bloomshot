@@ -2836,8 +2836,9 @@
   $('pause-restart').addEventListener('click', () => { BloomSound.wake(); closeDialog('pause-dialog'); restartNow(); });
   $('pause-levels').addEventListener('click', () => { BloomSound.wake(); closeDialog('pause-dialog'); leaveBoard(); });
   $('pause-settings').addEventListener('click', () => { updateSettings(); showDialog('settings-dialog'); });
-  // Escape or a tap outside the card also resumes, through the same count.
-  $('pause-dialog').addEventListener('close', () => { if (countLeft <= 0) startCount(); });
+  // Escape or a tap outside the card also resumes, through the same count. The close event arrives a moment late, so a
+  // card that has opened again by then (the phone hid once more) stays a plain pause.
+  $('pause-dialog').addEventListener('close', () => { if (countLeft <= 0 && !$('pause-dialog').open) startCount(); });
   // The tutorial plays on the Sunny Meadow board. Finishing it (or skipping) marks it seen; the first time through
   // it leads straight into level 1, and it can be played again from How to play.
   function startTutorial() { if (preview) exitPreview(); startLevel({ id: 'rush', name: 'How to play', tutorial: true }, { theme: depthTheme(1) }); }
@@ -2911,7 +2912,7 @@
     const card = event.target.closest('[data-depth]'); if (!card) return;
     const id = Number(card.dataset.depth), level = Depths.level(id); if (!level) return;
     BloomSound.wake();
-    if (!depthPaid(id) && id === TASTE.level && tasteOpen()) { if (inProgress() && isTaste()) setRoute('game'); else startDepth(id, true); return; }
+    if (!depthPaid(id) && id === TASTE.level && tasteOpen()) { if (inProgress() && isTaste()) resumeBoard(); else startDepth(id, true); return; }
     // A deeper level scrolls to the unlock card, which says the rest (a toast would sit on top of it).
     if (!depthPaid(id)) { BloomSound.play('tap'); if (id === TASTE.level) toast(`Clear level ${id - 1} to try ${level.name} free.`); else say(`${level.name} is part of levels ${Depths.free + 1} to ${Depths.total}.`); showUnlock(); return; }
     if (!depthOpen(id)) { BloomSound.play('tap'); toast(`Clear level ${id - 1} to open ${level.name}.`); return; }
