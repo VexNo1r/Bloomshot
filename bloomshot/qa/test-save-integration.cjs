@@ -599,9 +599,37 @@ test('After the beds, the seed reward points at the cheapest decoration, and a f
   assert.equal(app.$('reward-seeds').textContent, '+8 seeds'); assert.equal(app.$('reward-goal').textContent, '22 more seeds to build the birdhouse.');
   save.garden = { seeds: 30, levels: full, decor: ['bench'] };
   app = boot(save); app.finishRush(24, 3); settle(app); assert.equal(app.$('reward-goal').textContent, 'Enough to build the birdhouse now.');
-  save.garden = { seeds: 0, levels: full, decor: Garden.decor.map(d => d.id) };
+  save.garden = { seeds: 0, levels: full, decor: Garden.decor.map(d => d.id), grown: Garden.seedStyles.map(s => s.id) };
   app = boot(save); app.finishRush(24, 3); settle(app); assert.equal(app.$('reward-goal').textContent, 'Your meadow is complete!');
+  assert.equal(app.$('grow-garden-btn').dataset.to, 'garden');
   app.click('result-garden-btn'); assert.equal(app.$('meadow-summary').textContent, 'Your meadow is complete!');
+  assert.equal(app.$('meadow-styles-btn').hidden, true, 'with every seed style grown there is nothing left to point at');
+  assert.equal(app.$('garden-earning-hint').textContent, 'Every patch is in full bloom.');
+});
+test('A finished meadow says new seed styles wait in the Collection, and the seed reward points there too', () => {
+  const full = { sunbell: 3, coral: 3, lilac: 3, honey: 3, moon: 3, dawn: 3 }, built = Garden.decor.map(d => d.id);
+  const settle = app => { for (let i = 0; i < 40; i++) app.frame(); };
+  const save = legacySave(); save.garden = { seeds: 0, levels: full, decor: built };
+  let app = boot(save); app.finishRush(24, 3); settle(app);
+  assert.equal(app.$('reward-goal').textContent, '142 more seeds to grow Dewdrop in your Collection.');
+  assert.equal(app.$('grow-garden-btn').dataset.to, 'collection'); assert.match(app.$('grow-garden-btn').innerHTML, /^Collection /);
+  app.click('grow-garden-btn');
+  assert.equal(app.context.bloomshotState.route, 'collection'); assert.equal(app.$('keepsake-grow').scrolled, 1, 'it opens on the seed styles');
+  assert.equal(app.saved().garden.seeds, 8, 'pointing never spends'); assert.deepEqual(app.saved().garden.grown, []);
+  app.click('garden-btn');
+  assert.equal(app.$('meadow-summary').textContent, 'Your meadow is complete!');
+  assert.equal(app.$('garden-earning-hint').textContent, 'New seed styles wait in the Collection. Grow them with the seeds you earn.');
+  assert.equal(app.$('meadow-styles-btn').hidden, false);
+  app.click('meadow-styles-btn'); assert.equal(app.context.bloomshotState.route, 'collection'); assert.equal(app.$('keepsake-grow').scrolled, 2);
+  // With the seeds in hand it says so, and it names the next one once the first is grown.
+  save.garden = { seeds: 150, levels: full, decor: built };
+  app = boot(save); app.finishRush(24, 3); settle(app); assert.equal(app.$('reward-goal').textContent, 'Enough to grow Dewdrop in your Collection.');
+  save.garden = { seeds: 0, levels: full, decor: built, grown: ['dewdrop'] };
+  app = boot(save); app.finishRush(24, 3); settle(app); assert.equal(app.$('reward-goal').textContent, '242 more seeds to grow Bramble Berry in your Collection.');
+  // A meadow still being built keeps pointing at the meadow, and shows no Collection button.
+  save.garden = { seeds: 0, levels: full, decor: ['bench'] };
+  app = boot(save); app.finishRush(24, 3); settle(app); assert.equal(app.$('grow-garden-btn').dataset.to, 'garden');
+  app.click('garden-btn'); assert.equal(app.$('meadow-styles-btn').hidden, true);
 });
 // Sunday 4 October 2026 offers: reach wave 4, clear 2 puzzles, grow, build or say hi in the meadow.
 const GOAL_DAY = '2026-10-04T10:00:00';

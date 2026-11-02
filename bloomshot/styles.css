@@ -260,6 +260,7 @@ button.panel:active{transform:translateY(3px);box-shadow:inset 0 0 0 2px var(--e
 .plot-copy p{font-size:13px;line-height:1.35;color:var(--ink-soft)}
 .plant-button{flex:0 0 auto;min-width:150px;margin-left:auto}
 .garden-earning-hint{margin:10px 6px 16px;text-align:center;font-size:12.5px;line-height:1.4;color:var(--ink-soft)}
+.button-secondary.meadow-styles-btn{width:auto;min-height:44px;margin:-6px auto 18px;padding:0 20px;font-size:15.5px}
 .section-count{margin-left:auto;font:600 13px/1 var(--display);color:var(--ink-soft)}
 .friend-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .friend-card{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0;padding:10px 6px 11px;border-radius:16px;background:var(--cream);box-shadow:var(--tile);text-align:center}
@@ -590,6 +591,9 @@ dialog[open]{animation:dialog-in .34s var(--press)}
 .garden-reward p>span{display:block;margin-top:2px;font-size:12.5px;line-height:1.3;color:var(--ink-soft)}
 #grow-garden-btn{min-height:40px;padding:0 14px;border-radius:999px;font:600 15px/1 var(--display);color:var(--gold-ink);background:linear-gradient(180deg,var(--gold-top),var(--gold));box-shadow:inset 0 0 0 2px var(--gold-edge),0 3px 0 var(--gold-edge)}
 #grow-garden-btn:active{transform:translateY(2px);box-shadow:inset 0 0 0 2px var(--gold-edge),0 1px 0 var(--gold-edge)}
+/* Pointing at the seed styles in the Collection: a cream pill, so it never reads as a purchase. */
+#grow-garden-btn[data-to="collection"]{color:var(--ink);background:linear-gradient(180deg,#fffef8,var(--cream-2));box-shadow:inset 0 0 0 2px var(--edge-dark),0 3px 0 var(--edge-dark)}
+#grow-garden-btn[data-to="collection"]:active{box-shadow:inset 0 0 0 2px var(--edge-dark),0 1px 0 var(--edge-dark)}
 
 .setting-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 0;border-bottom:2px dashed var(--edge)}
 .setting-row strong{display:block;font:600 17px/1.2 var(--display)}

@@ -414,10 +414,19 @@
   }
   const lower = name => name.charAt(0).toLowerCase() + name.slice(1);
   const canSpend = data => data.plots.some(p => p.canPlant) || data.decor.some(d => d.canBuild);
-  // One plain next step for the seeds just earned: a patch to grow first, then something to build.
+  // Once the meadow is finished, the next thing seeds can do is grow a seed style in the Collection.
+  function styleGoal(data) {
+    const style = data.complete && data.styles.find(s => !s.grown);
+    return style ? { id: style.id, name: Keepsakes.byId[style.id].name, need: Math.max(0, style.cost - data.seeds) } : null;
+  }
+  // One plain next step for the seeds just earned: a patch to grow first, then something to build, then a seed style.
   function nextGoal() {
     const data = BloomGarden.summary(save.garden), open = data.plots.filter(p => p.stage < 3), unbuilt = data.decor.filter(d => !d.built);
-    if (data.complete) return 'Your meadow is complete!';
+    if (data.complete) {
+      const style = styleGoal(data);
+      if (!style) return 'Your meadow is complete!';
+      return style.need ? `${style.need} more ${style.need === 1 ? 'seed' : 'seeds'} to grow ${style.name} in your Collection.` : `Enough to grow ${style.name} in your Collection.`;
+    }
     const ready = [data.plots.find(p => p.selected), ...open].find(p => p && p.canPlant);
     if (ready) return `Enough to ${ready.stage ? 'grow' : 'plant'} ${ready.name} now.`;
     const piece = unbuilt.find(d => d.canBuild);
@@ -655,7 +664,9 @@
     $('plot-message').textContent = selected.description;
     $('plant-btn').disabled = !selected.canPlant;
     $('plant-btn').textContent = selected.stage === 3 ? 'In full bloom' : `${selected.stage ? 'Grow' : 'Plant'} · ${selected.nextCost} seeds`;
-    $('garden-earning-hint').textContent = selected.stage === 3 ? data.completedPlots === 6 ? 'Every patch is in full bloom.' : 'Pick another patch to grow.' : !selected.canPlant ? `${selected.nextCost - data.seeds} more ${selected.nextCost - data.seeds === 1 ? 'seed' : 'seeds'} needed. Play a level to earn them.` : 'Earn seeds in levels, puzzles and the daily garden.';
+    const waiting = styleGoal(data);
+    $('meadow-styles-btn').hidden = !waiting;
+    $('garden-earning-hint').textContent = waiting ? 'New seed styles wait in the Collection. Grow them with the seeds you earn.' : selected.stage === 3 ? data.completedPlots === 6 ? 'Every patch is in full bloom.' : 'Pick another patch to grow.' : !selected.canPlant ? `${selected.nextCost - data.seeds} more ${selected.nextCost - data.seeds === 1 ? 'seed' : 'seeds'} needed. Play a level to earn them.` : 'Earn seeds in levels, puzzles and the daily garden.';
     $('garden-btn').classList.toggle('has-seeds', canSpend(data));
     renderDecor(data); renderFriendSpots(data);
     meadowCanvas.dataset.seeds = data.seeds; meadowCanvas.dataset.stages = data.totalStages;
@@ -2527,6 +2538,9 @@
     $('garden-reward').hidden = preview || runAward <= 0;
     $('reward-seeds').textContent = `+${runAward} ${runAward === 1 ? 'seed' : 'seeds'}`;
     $('reward-goal').textContent = nextGoal();
+    const toStyles = Boolean(styleGoal(BloomGarden.summary(save.garden)));
+    $('grow-garden-btn').dataset.to = toStyles ? 'collection' : 'garden';
+    $('grow-garden-btn').innerHTML = `${toStyles ? 'Collection' : 'Garden'} <span aria-hidden="true">›</span>`;
     const news = !preview && runGoals && (runGoals.finished.length || runGoals.bonus);
     $('result-goals').hidden = !news;
     if (news) $('result-goals').innerHTML = `<span class="goal-check" aria-hidden="true"></span><span>${starry(goalNews(runGoals))}</span>${runGoals.done < 3 ? `<span class="goal-today">${runGoals.done}/3 today</span>` : ''}`;
@@ -2963,7 +2977,13 @@
   function leaveBoard() { if (isChapter()) { const world = game.level.worldId; setRoute('worlds'); openWorld(world); } else setRoute(isRush() ? 'levels' : 'garden'); }
   $('back-btn').addEventListener('click', () => { if (preview) exitPreview(); else leaveBoard(); });
   $('garden-btn').addEventListener('click', () => { if (preview) exitPreview(); setRoute('garden'); });
-  $('grow-garden-btn').addEventListener('click', () => { closeDialogs(); setRoute('garden'); });
+  // The seed styles sit below the Collection's keepsakes; bring that panel into view.
+  function showSeedStyles() {
+    setRoute('collection');
+    const panel = $('keepsake-grow'); if (panel && !panel.hidden) panel.scrollIntoView({ behavior: save.settings.motion ? 'smooth' : 'auto', block: 'start' });
+  }
+  $('grow-garden-btn').addEventListener('click', () => { closeDialogs(); if ($('grow-garden-btn').dataset.to === 'collection') showSeedStyles(); else setRoute('garden'); });
+  $('meadow-styles-btn').addEventListener('click', showSeedStyles);
   $('plot-markers').addEventListener('click', event => {
     const button = event.target.closest('[data-plot]'); if (!button) return;
     save.garden = BloomGarden.select(save.garden, button.dataset.plot); persist(); renderMeadow();
