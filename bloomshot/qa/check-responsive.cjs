@@ -84,6 +84,18 @@ async function main() {
       }
       rows.push({ size: key, safeTop: size.top, safeBottom: size.bottom, label, ...state });
     };
+    // The longest toast (a meadow goal finished by saying hi) reads in two lines at most, whole and on screen.
+    const longToast = async label => {
+      const t = await page.evaluate(() => {
+        // Measured at rest: the page clock is paused, so a slide from the last toast would still be under way.
+        const el = document.getElementById('toast'), was = el.textContent; el.style.transition = 'none'; el.textContent = 'Goal done! Grow, build or say hi in your meadow. +4 seeds'; el.classList.add('visible');
+        const r = el.getBoundingClientRect(), css = getComputedStyle(el), lines = Math.round((el.clientHeight - parseFloat(css.paddingTop) - parseFloat(css.paddingBottom)) / parseFloat(css.lineHeight));
+        el.classList.remove('visible'); el.textContent = was; void el.offsetWidth; el.style.transition = '';
+        return { x: r.x, right: r.right, width: r.width, height: r.height, lines };
+      });
+      assert(t.lines <= 2, `${key} ${label}: a long toast wraps to ${t.lines} lines ${JSON.stringify(t)}`);
+      assert(t.x >= 11.5 && t.right <= size.width - 11.5, `${key} ${label}: the toast stays on screen ${JSON.stringify(t)}`);
+    };
     if (!previewOnly) {
     // The Levels map opens with the slim Today strip, and the first level still sits whole above the bottom bar.
     const map = await page.evaluate(() => {
@@ -107,15 +119,17 @@ async function main() {
     if (size.desktop) { assert.equal(map.shell.width, 440, `${key}: desktop keeps the phone-sized shell`); assert.deepEqual(map.notes, [true, true], `${key}: desktop notes beside it`); }
     else { assert.equal(map.shell.width, size.width, `${key}: the menus fill the screen`); assert.deepEqual(map.notes, [false, false], `${key}: no desktop notes on a touch screen`); }
     rows.push({ size: key, safeTop: size.top, safeBottom: size.bottom, label: 'Levels map', ...map });
+    await longToast('Levels map');
     for (let level = 1; level <= 10; level++) for (const wave of [1, 10]) {
       await page.evaluate(({ level, wave }) => window.__layoutQA.startDepth(level, false, wave), { level, wave });
       await page.clock.runFor(2200); await geometry(`Level ${level}, wave ${wave}`);
-      if (level === 1 && wave === 1) await page.screenshot({ path: path.join(output, `${key}-sunny.png`) });
+      if (level === 1 && wave === 1) { await page.screenshot({ path: path.join(output, `${key}-sunny.png`) }); await longToast('Level 1 in play'); }
       if (level === 10 && wave === 10) await page.screenshot({ path: path.join(output, `${key}-starseed.png`) });
     }
     for (const chapter of chapters) for (const level of chapter.levels) {
       await page.evaluate(level => window.__layoutQA.startLevel(level), level);
       await page.clock.runFor(300); await geometry(level.name);
+      if (level === chapter.levels[0]) await longToast(level.name);
     }
     await page.evaluate(() => window.__layoutQA.startTutorial());
     let elapsed = 0, shown = '', reacted = false, since = 0; const screens = new Set();
