@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <!-- Bloomshot playtest bundle of d348a3d6aee2fbd12bb7d1bde36a6be2a4612d97, built from bloomshot/ -->
+  <!-- Bloomshot playtest bundle of 8943423a6ef85728f23086f117096ce440627c7b, built from bloomshot/ -->
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#d7f0df">
@@ -120,6 +120,8 @@ body[data-view="game"] .back-button{display:grid}
 .score-value{font:700 34px/1 var(--display);font-variant-numeric:tabular-nums;color:#ef4f7f;text-shadow:0 2px 0 #f8cdd9;display:inline-block;transform-origin:100% 60%}
 .score-value.bump{animation:score-bump .3s cubic-bezier(.2,1.7,.4,1)}
 .score-value.bump.gold{animation:score-bump .3s cubic-bezier(.2,1.7,.4,1),score-gold .45s ease-out}
+/* Past the saved best, the score stays gold for the rest of the run. */
+.score-value.record{color:#b97a00;text-shadow:0 2px 0 #ffe08a}
 @keyframes score-gold{0%,30%{text-shadow:0 2px 0 #f8cdd9,0 0 14px #ffd148,0 0 4px #fff3b0}100%{text-shadow:0 2px 0 #f8cdd9}}
 /* A harvest orb's last stretch from the board to the score: moved by the compositor, then hidden again. */
 .harvest-spark{position:fixed;left:0;top:0;z-index:30;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;pointer-events:none;opacity:0;
@@ -273,6 +275,7 @@ button.panel:active{transform:translateY(3px);box-shadow:inset 0 0 0 2px var(--e
 .plot-copy p{font-size:13px;line-height:1.35;color:var(--ink-soft)}
 .plant-button{flex:0 0 auto;min-width:150px;margin-left:auto}
 .garden-earning-hint{margin:10px 6px 16px;text-align:center;font-size:12.5px;line-height:1.4;color:var(--ink-soft)}
+.button-secondary.meadow-styles-btn{width:auto;min-height:44px;margin:-6px auto 18px;padding:0 20px;font-size:15.5px}
 .section-count{margin-left:auto;font:600 13px/1 var(--display);color:var(--ink-soft)}
 .friend-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .friend-card{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0;padding:10px 6px 11px;border-radius:16px;background:var(--cream);box-shadow:var(--tile);text-align:center}
@@ -318,6 +321,20 @@ button.panel:active{transform:translateY(3px);box-shadow:inset 0 0 0 2px var(--e
 .goal.done .goal-bar i{background:var(--green-soft)}
 .goal.done .goal-reward{background:var(--green-soft);color:var(--green-deep);box-shadow:none}
 .goals-bonus{margin:10px 2px 0;font-size:12.5px;line-height:1.35;color:var(--ink-soft)}
+/* The Today strip on the Levels map: the same three goals in one slim row, each a ring that fills as it goes. */
+.today-strip{display:flex;align-items:center;gap:6px;margin:-4px 0 14px;padding:4px 8px 4px 12px;border-radius:18px}
+.today-label{flex:0 0 auto;font:600 15px/1 var(--display);color:var(--ink)}
+.today-goals{flex:1;min-width:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px;margin:0;padding:0;list-style:none}
+.today-goal{--p:0;width:100%;min-height:46px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:4px 2px;border-radius:12px;transition:transform .12s var(--press),background-color .12s}
+.today-goal:not(.done):active{transform:translateY(2px);background:var(--cream-2)}
+.today-ring{width:20px;height:20px;border-radius:50%;background:radial-gradient(closest-side,var(--cream) 62%,transparent 64%),conic-gradient(var(--green) calc(var(--p) * 1%),var(--edge) 0)}
+.today-goal.done .today-ring{background:var(--green) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'%3E%3Cpath d='m6.5 11.2 3 3 6-6.4' fill='none' stroke='%23fff' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/100% no-repeat;box-shadow:0 0 0 1.5px var(--green-edge)}
+.today-name{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 12px/1.1 var(--display);color:var(--ink)}
+.today-goal.done .today-name{color:var(--ink-soft)}
+.today-bonus{flex:0 0 auto;display:inline-flex;align-items:center;gap:4px;padding:5px 9px 6px;border-radius:999px;background:var(--cream-2);box-shadow:inset 0 0 0 2px var(--edge);font:600 13px/1 var(--display);color:var(--ink)}
+.today-bonus .purse-leaf{width:7px;height:11px}
+.today-bonus.done{background:var(--green-soft);box-shadow:none;color:var(--green-deep)}
+.today-tick{width:13px;height:13px;border-radius:50%;background:var(--green) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'%3E%3Cpath d='m6.5 11.2 3 3 6-6.4' fill='none' stroke='%23fff' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/100% no-repeat}
 .result-goals{display:flex;align-items:center;gap:8px;margin:10px 0 0;padding:8px 12px;border-radius:14px;background:var(--green-soft);font:600 14px/1.25 var(--display);color:var(--green-deep);text-align:left}
 .result-goals .goal-check{flex:0 0 20px;height:20px}
 .goal-today{margin-left:auto;flex:0 0 auto;font:600 12px/1 var(--display);color:var(--ink-soft)}
@@ -478,6 +495,19 @@ button.resume-card:active{box-shadow:inset 0 0 0 2px var(--gold-edge),0 1px 0 va
 .keepsake-status{font-size:10.5px;line-height:1.2;color:var(--ink-soft)}
 .keepsake-card.worn .keepsake-status{color:var(--green-deep);font-weight:800}
 .keepsake-card.locked .keepsake-status{color:#9a6a10}
+/* Under the preview: the note, and for a grown style still waiting, the green Grow button (never purchase gold). */
+.keepsake-action{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;min-height:46px}
+.grow-btn{display:inline-flex;width:auto;min-height:44px;margin-top:0;padding:0 18px;font-size:15.5px}
+/* Grow with seeds: its own cream panel between the styles and the paid Keepsake Collection, priced in earned seeds. */
+.keepsake-grow{margin:2px 0 16px;padding:12px 12px 14px}
+.grow-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin:0 2px}
+.grow-head h3{font:700 18px/1.15 var(--display);color:var(--ink)}
+.grow-sub{margin:2px 2px 10px;font-size:12.5px;line-height:1.35;color:var(--ink-soft)}
+.keepsake-grid.grow-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:0}
+.keepsake-card.grown.locked::after{content:none}
+.keepsake-card.grown.locked .keepsake-status{display:inline-flex;align-items:center;gap:5px;margin-top:2px;padding:3px 10px 4px;border-radius:999px;background:var(--cream-2);box-shadow:inset 0 0 0 2px var(--edge);font:600 12.5px/1 var(--display);color:var(--ink)}
+.keepsake-card.grown.ready .keepsake-status{background:var(--green-soft);color:var(--green-deep);box-shadow:inset 0 0 0 2px #b4e3c3}
+.keepsake-card.grown .purse-leaf{width:7px;height:11px}
 .unlock-panel{position:relative;margin:4px 0 6px;padding:16px;border-radius:22px;background:linear-gradient(180deg,#fff4cf,var(--cream) 55%);box-shadow:inset 0 0 0 2px #f1d27e,0 4px 0 #ddb456}
 .unlock-copy strong{display:block;margin:6px 0 3px;font:700 20px/1.2 var(--display)}
 .unlock-copy p{margin:0 0 12px;font-size:13.5px;line-height:1.4;color:var(--ink-soft)}
@@ -576,6 +606,9 @@ dialog[open]{animation:dialog-in .34s var(--press)}
 .garden-reward p>span{display:block;margin-top:2px;font-size:12.5px;line-height:1.3;color:var(--ink-soft)}
 #grow-garden-btn{min-height:40px;padding:0 14px;border-radius:999px;font:600 15px/1 var(--display);color:var(--gold-ink);background:linear-gradient(180deg,var(--gold-top),var(--gold));box-shadow:inset 0 0 0 2px var(--gold-edge),0 3px 0 var(--gold-edge)}
 #grow-garden-btn:active{transform:translateY(2px);box-shadow:inset 0 0 0 2px var(--gold-edge),0 1px 0 var(--gold-edge)}
+/* Pointing at the seed styles in the Collection: a cream pill, so it never reads as a purchase. */
+#grow-garden-btn[data-to="collection"]{color:var(--ink);background:linear-gradient(180deg,#fffef8,var(--cream-2));box-shadow:inset 0 0 0 2px var(--edge-dark),0 3px 0 var(--edge-dark)}
+#grow-garden-btn[data-to="collection"]:active{box-shadow:inset 0 0 0 2px var(--edge-dark),0 1px 0 var(--edge-dark)}
 
 .setting-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 0;border-bottom:2px dashed var(--edge)}
 .setting-row strong{display:block;font:600 17px/1.2 var(--display)}
@@ -633,7 +666,8 @@ dialog[open]{animation:dialog-in .34s var(--press)}
 .free-tag{display:inline-block;margin-left:8px;padding:1px 7px 2px;border-radius:999px;background:var(--green);color:#fff;font:600 10.5px/1.2 var(--display);vertical-align:2px}
 
 /* ---------- Toast, notes ---------- */
-.toast{position:fixed;z-index:20;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translate(-50%,10px);max-width:min(340px,calc(100vw - 32px));padding:11px 18px;border-radius:999px;background:var(--ink);color:#fff;font:600 15px/1.3 var(--display);text-align:center;box-shadow:0 4px 0 #18302699;opacity:0;pointer-events:none;transition:opacity .18s,transform .18s var(--press)}
+/* Sized to its words (up to 340 px): left at 50% would otherwise leave it only half the screen to wrap in. */
+.toast{position:fixed;z-index:20;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translate(-50%,10px);width:max-content;max-width:min(340px,calc(100vw - 32px));padding:11px 18px;border-radius:999px;background:var(--ink);color:#fff;font:600 15px/1.3 var(--display);text-align:center;box-shadow:0 4px 0 #18302699;opacity:0;pointer-events:none;transition:opacity .18s,transform .18s var(--press)}
 .toast.visible{opacity:1;transform:translate(-50%,0)}
 /* First-time tutorial: one card, a spotlight on the control it names (everything else dims while it waits),
    and a ghost finger showing the drag for a shot. Taps pass through to the game; the game decides what they do. */
@@ -662,7 +696,7 @@ dialog[open]{animation:dialog-in .34s var(--press)}
 .tutorial-finger{position:fixed;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;background:#fffaf0e8;box-shadow:0 0 0 3px var(--green),0 4px 10px #1d3a2e55;animation:tutorial-drag 1.6s ease-in-out infinite}
 /* The card is the only guide while it plays: the hint line, the tabs and Back/Restart step aside, and the buttons go
    once the last card is up. */
-body[data-tutorial="on"] :is(.bottom-nav,#back-btn,#restart-btn,#game-hint),body[data-tutorial-phase="finale"] :is(.game-actions,.power-tray),body[data-tutorial-phase="end"] :is(.game-actions,.power-tray){visibility:hidden}
+body[data-tutorial="on"] :is(.bottom-nav,#back-btn,#pause-btn,#restart-btn,#game-hint),body[data-tutorial-phase="finale"] :is(.game-actions,.power-tray),body[data-tutorial-phase="end"] :is(.game-actions,.power-tray){visibility:hidden}
 /* A card at the top covers the header; its logo and round buttons would peek out around it, so they step aside until it moves. */
 body:has(.tutorial:not([hidden]):not([data-place="low"])) .app-header>*{visibility:hidden}
 @keyframes tutorial-dim{from{opacity:0}}
@@ -690,7 +724,7 @@ body[data-world="moon"] .desktop-mode-campaign,body[data-world="moon"] .desktop-
 body[data-world="moon"] .desktop-mode-moon,body[data-world="koi"] .desktop-mode-koi{display:block}
 
 /* ---------- Sizes ---------- */
-@media(max-width:1140px){.desktop-note{display:none}}
+@media(max-width:1140px),(pointer:coarse){.desktop-note{display:none}}
 @media(max-width:520px){
   body{display:block}
   .app-shell{width:100%;height:100svh;border-radius:0;box-shadow:none;padding-top:env(safe-area-inset-top)}
@@ -783,6 +817,28 @@ body[data-mode="rush"][data-boss="on"] .fever-banner{display:none}
 body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
 @keyframes super-pop{from{opacity:0;transform:translateX(-50%) translateY(var(--fever-y)) scale(.3) rotate(-12deg)}to{opacity:.94;transform:translateX(-50%) translateY(var(--fever-y)) scale(.62) rotate(-3deg)}}
 #checkpoint-btn{margin-top:10px}
+/* Pause: a round header button in the levels and Meadow Rush, its cream card, and the count before play picks up. */
+.pause-button{display:none}
+body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
+.pause-button svg{width:20px;height:20px}
+.pause-dialog{width:min(340px,calc(100vw - 24px));padding:24px 20px 16px;text-align:center}
+.pause-dialog[open] .result-banner{animation:banner-in .45s var(--press) .05s both}
+.pause-art{display:block;width:120px;height:84px;margin:12px auto 0}
+.pause-where{margin:4px 4px 0;font:700 14px/1.35 var(--body)}
+.pause-dialog .button-primary{margin-top:14px}
+.pause-dialog .button-primary svg{width:24px;height:24px;margin-left:-6px}
+.pause-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.pause-row .button-secondary{min-height:48px;padding:0 10px;font-size:16px}
+.pause-row svg{width:19px;height:19px}
+.pause-dialog .button-link{margin-top:6px}
+.resume-count{position:absolute;inset:0;z-index:10;display:grid;place-items:center;background:#1d3a2e5c;pointer-events:auto;touch-action:none}
+.resume-number{display:grid;place-items:center;min-width:124px;height:124px;padding:0 6px;border-radius:999px;background:var(--cream);color:var(--green-deep);
+  font:700 76px/1 var(--display);font-variant-numeric:tabular-nums;box-shadow:inset 0 0 0 4px var(--edge),0 7px 0 var(--edge-dark),0 18px 40px #10302455}
+.resume-count[data-mode="ready"] .resume-number{min-width:0;height:72px;padding:0 30px;font-size:34px}
+.resume-count[data-tick="a"] .resume-number{animation:count-a .5s var(--press)}
+.resume-count[data-tick="b"] .resume-number{animation:count-b .5s var(--press)}
+@keyframes count-a{from{transform:scale(.45);opacity:0}to{transform:none;opacity:1}}
+@keyframes count-b{from{transform:scale(.45);opacity:0}to{transform:none;opacity:1}}
 .privacy-page{display:block;width:100%;height:min(65svh,560px);border:0;border-radius:12px;background:#f6fcf9}
 #checkpoint-btn+.button-link{margin-top:6px}
 
@@ -834,7 +890,7 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
   body[data-view="game"][data-mode="rush"] .game-hint{display:none}
   /* Tips in play slide down over the whole level-and-score bar for a moment, never over the board, the pod or the
      powerups. */
-  body[data-view="game"][data-mode="rush"]:not([data-tutorial="on"]) .toast{left:12px;right:12px;bottom:auto;top:calc(env(safe-area-inset-top) + 60px);display:grid;place-items:center;min-height:52px;max-width:none;padding:6px 16px;border-radius:18px;font-size:14px;transform:translateY(-8px)}
+  body[data-view="game"][data-mode="rush"]:not([data-tutorial="on"]) .toast{left:12px;right:12px;bottom:auto;top:calc(env(safe-area-inset-top) + 60px);display:grid;place-items:center;min-height:52px;width:auto;max-width:none;padding:6px 16px;border-radius:18px;font-size:14px;transform:translateY(-8px)}
   body[data-view="game"][data-mode="rush"]:not([data-tutorial="on"]) .toast.visible{transform:none}
   /* The pod shows lives and refilling; Split carries its own charge. Give those duplicate rows to play. */
   body[data-view="game"][data-mode="rush"] .play-strip{display:none}
@@ -857,7 +913,9 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
   body[data-view="game"][data-mode="rush"] .power-tray{bottom:calc(env(safe-area-inset-bottom) + 66px)}
   body[data-view="game"][data-mode="rush"] .board-region{top:calc(env(safe-area-inset-top) + 116px);bottom:calc(env(safe-area-inset-bottom) + 122px)}
 }
-@media(min-width:521px) and (max-width:1100px){
+/* Tablets fill the screen: any width up to 1100 px, and a touch screen at any width (an iPad held sideways), so
+   only a desktop with a mouse keeps the phone-sized shell with the notes beside it. */
+@media(min-width:521px) and (max-width:1100px),(min-width:521px) and (pointer:coarse){
   body{display:block}
   .app-shell{width:100%;height:100dvh;border-radius:0;box-shadow:none;padding-top:env(safe-area-inset-top)}
   .browse-view{width:100%;max-width:760px;margin:0 auto;padding-left:24px;padding-right:24px}
@@ -890,6 +948,9 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
         <span class="sr-only">Back</span>
       </button>
       <div class="header-actions">
+        <button id="pause-btn" class="icon-button pause-button" type="button" aria-label="Pause" title="Pause" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.2" y="5" width="4.2" height="14" rx="2.1" fill="currentColor"/><rect x="13.6" y="5" width="4.2" height="14" rx="2.1" fill="currentColor"/></svg>
+        </button>
         <div class="seed-purse" title="Seeds"><span class="purse-leaf" aria-hidden="true"></span><strong id="garden-seeds">4</strong><span class="sr-only">seeds</span></div>
         <button id="sound-btn" class="icon-button quiet-button" type="button" aria-label="Turn sound off" aria-pressed="true" title="Sound">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.2h3.2L11.6 5c.6-.5 1.4-.1 1.4.7v12.6c0 .8-.8 1.2-1.4.7l-4.4-4.2H4c-.6 0-1-.4-1-1v-3.6c0-.6.4-1 1-1Z" fill="currentColor"/><path class="sound-waves" d="M16 9a4.2 4.2 0 0 1 0 6m2.6-8.6a8 8 0 0 1 0 11.2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
@@ -942,12 +1003,18 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
           <button id="split-btn" class="split-button" type="button" hidden disabled>Split · 0/6</button>
           <button id="restart-btn" class="text-button" type="button" aria-label="Restart this game"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4.3 7.4a6 6 0 1 1-.2 4.3M4 3.5v4.3h4.3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Restart</span></button>
         </div>
+        <div id="resume-count" class="resume-count" aria-hidden="true" hidden><span id="resume-number" class="resume-number">3</span></div>
       </section>
 
       <section id="levels-view" class="view browse-view" aria-labelledby="levels-title" hidden>
         <div class="screen-head">
           <h1 id="levels-title" class="screen-title">Levels</h1>
           <p id="levels-summary" class="screen-sub">Start at the top and dig down.</p>
+        </div>
+        <div id="today-strip" class="today-strip panel" role="group" aria-label="Today's goals">
+          <span class="today-label" aria-hidden="true">Today</span>
+          <ol id="today-goals" class="today-goals"></ol>
+          <span id="today-bonus" class="today-bonus" aria-hidden="true"><span class="purse-leaf"></span>+6</span>
         </div>
         <button id="resume-btn" class="rush-card resume-card panel" type="button" hidden>
           <span class="rush-card-icon" aria-hidden="true"><svg viewBox="0 0 26 26"><path d="M10 7.8c0-1 1.1-1.6 1.9-1.1l7 4.4c.8.5.8 1.6 0 2.1l-7 4.4c-.8.5-1.9-.1-1.9-1.1Z" fill="currentColor"/></svg></span>
@@ -979,6 +1046,7 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
           <button id="plant-btn" class="plant-button" type="button">Plant · 4 seeds</button>
         </section>
         <p id="garden-earning-hint" class="garden-earning-hint">Bloom flowers in any level to earn seeds.</p>
+        <button id="meadow-styles-btn" class="button-secondary meadow-styles-btn" type="button" hidden>See seed styles <span aria-hidden="true">›</span></button>
         <section class="decor-panel panel" aria-labelledby="decor-title">
           <div class="decor-head"><h2 id="decor-title">Decorate</h2><span id="decor-count" class="card-meta">0/6 built</span></div>
           <div id="decor-grid" class="decor-grid" role="group" aria-label="Things to build with seeds"></div>
@@ -1010,9 +1078,10 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
         </div>
         <h2 class="section-title">Seed styles</h2>
         <div id="keepsake-shelf" class="keepsake-shelf">
-          <div class="keepsake-stage"><canvas id="keepsake-canvas" width="420" height="190" role="img" aria-label="Seed style preview"></canvas></div>
+          <div id="keepsake-stage" class="keepsake-stage"><canvas id="keepsake-canvas" width="420" height="190" role="img" aria-label="Seed style preview"></canvas></div>
           <div id="keepsake-caption" class="keepsake-caption" aria-live="polite"></div>
           <div id="keepsake-grid" class="keepsake-grid" role="group" aria-label="Seed styles"></div>
+          <div id="keepsake-grow" class="keepsake-grow panel"></div>
           <div id="keepsake-offer"></div>
         </div>
         <h2 class="section-title">Meadow friends <small id="friend-count" class="section-count">0/6</small></h2>
@@ -1068,6 +1137,27 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
     <button id="checkpoint-btn" class="button-secondary" type="button" hidden>Try from wave 6</button>
     <button id="retry-btn" class="button-secondary" type="button">Play again</button>
     <button id="result-garden-btn" class="button-link" type="button">Back to the meadow</button>
+  </dialog>
+
+  <dialog id="pause-dialog" class="pause-dialog" aria-labelledby="pause-title" aria-describedby="pause-where">
+    <div class="result-topline"><span id="pause-title" class="result-banner">Paused</span></div>
+    <svg class="pause-art" viewBox="0 0 120 84" aria-hidden="true">
+      <ellipse cx="60" cy="78" rx="34" ry="5" fill="#e8dcbd"/>
+      <path d="M60 77C60 64 58 54 61 44" stroke="#3aa978" stroke-width="5" stroke-linecap="round" fill="none"/>
+      <path d="M59 66C46 67 38 60 37 52c10-1 19 4 22 14Z" fill="#5cc98f"/><path d="M61 60c11 2 20-3 22-11-10-1-19 3-22 11Z" fill="#3aa978"/>
+      <path d="M61 46c-14 0-20-11-17-22 3-8 10-13 17-15 7 2 14 7 17 15 3 11-3 22-17 22Z" fill="#ff8fb0"/>
+      <path d="M61 46c-7-5-9-15-7-24 2-6 5-10 7-13 2 3 5 7 7 13 2 9 0 19-7 24Z" fill="#ff6f96"/>
+      <path d="M52.5 32.5q2.2 2 4.4 0M65.1 32.5q2.2 2 4.4 0" stroke="#7a2747" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+      <circle cx="51" cy="37" r="2.4" fill="#ffc2d4"/><circle cx="71" cy="37" r="2.4" fill="#ffc2d4"/>
+      <path d="M84 20h8l-8 9h8M97 8h6l-6 7h6" stroke="#8fa79b" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>
+    <p id="pause-where" class="dialog-copy pause-where">Meadow Rush</p>
+    <button id="pause-resume" class="button-primary" type="button"><svg viewBox="0 0 26 26" aria-hidden="true"><path d="M9.6 6.9c0-1.1 1.2-1.8 2.2-1.2l8.3 5.2c.9.6.9 1.9 0 2.5l-8.3 5.2c-1 .6-2.2-.1-2.2-1.2Z" fill="currentColor"/></svg>Resume</button>
+    <div class="pause-row">
+      <button id="pause-restart" class="button-secondary" type="button"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4.3 7.4a6 6 0 1 1-.2 4.3M4 3.5v4.3h4.3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Restart</button>
+      <button id="pause-levels" class="button-secondary" type="button"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m12.5 4.5-5.5 5.5 5.5 5.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Levels</button>
+    </div>
+    <button id="pause-settings" class="button-link" type="button">Settings</button>
   </dialog>
 
   <dialog id="settings-dialog" class="settings-dialog" aria-labelledby="settings-title">
@@ -1140,7 +1230,7 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
     </details>
     <details id="rush-help" class="help-mode">
       <summary><span>Meadow Rush</span><small>Endless</small></summary>
-      <ol class="help-steps"><li><span class="help-number">1</span><div><h3>Aim and fire</h3><p>Drag up from the seed, then let go. Your pod holds 4 seeds, and every flower you hit wins seeds back.</p></div></li><li><span class="help-number">2</span><div><h3>Split</h3><p>Six direct hits charge Split. Tap it while a seed is flying for two more.</p></div></li><li><span class="help-number">3</span><div><h3>Super Bloom</h3><p>Good shots fill the sun. When it is full, you get 6 seconds of golden seeds for double points. Quick blooms raise the &times;N badge, and Super Bloom doubles it.</p></div></li><li><span class="help-number">4</span><div><h3>Hold the line</h3><p>A crowned flower blooms its whole bunch. Every fifth wave ends in a big bloom. Three clusters over the line ends the run.</p></div></li></ol>
+      <ol class="help-steps"><li><span class="help-number">1</span><div><h3>Aim and fire</h3><p>Drag up from the seed, then let go. Your pod holds 4 seeds, and every flower you hit wins seeds back.</p></div></li><li><span class="help-number">2</span><div><h3>Split</h3><p>Six direct hits charge Split. Tap it while a seed is flying for two more.</p></div></li><li><span class="help-number">3</span><div><h3>Super Bloom</h3><p>Good shots fill the sun. When it is full, you get 6 seconds of golden seeds for double points. Quick blooms raise the &times;N badge, and Super Bloom doubles it.</p></div></li><li><span class="help-number">4</span><div><h3>Hold the line</h3><p>A crowned flower blooms its whole bunch. Each wave falls a little faster and scores a little more, up to double. A free gift floats down every other wave. Three clusters over the line ends the run.</p></div></li></ol>
       <p class="help-tip">Tap Turn petal to turn the petal and bend your next shots.</p>
     </details>
     <details id="campaign-help" class="help-mode">
@@ -2141,7 +2231,9 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
   'use strict';
   // Garden Keepsakes: seed styles. A style changes how a seed, its trail and a bloom burst
   // look, never how a shot flies. Meadow is free, Moonlit is earned in the Moon Garden,
-  // and the three collection styles come with one purchase. Every style can be previewed.
+  // the three collection styles come with one purchase, and the three grown styles are
+  // grown once each with seeds earned in play (garden.js keeps the list and the cost; they
+  // are never sold). Every style can be previewed.
   var PRODUCT = 'bloomshot.style.collection1', ENTITLEMENT = 'style_collection1';
   var styles = [
     { id: 'meadow', name: 'Meadow', source: 'free',
@@ -2165,7 +2257,23 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
       blurb: 'Gold seed that sheds gold leaf on every bloom.',
       seed: { base: '#e2b04a', light: '#fff1b8', core: '#fff9e2', rim: '#a8771c' },
       trail: { kind: 'flakes', ribbon: '#f0cd6e', accents: ['#ffe9a6', '#f2c04f', '#fffaf0'] },
-      burst: { kind: 'flake', share: .45, colors: ['#ffe28a', '#f2c04f', '#d99a2b', '#fff3c9'] } }
+      burst: { kind: 'flake', share: .45, colors: ['#ffe28a', '#f2c04f', '#d99a2b', '#fff3c9'] } },
+    // Grown with earned seeds. seed.shape picks the body art.js paints: a water bead, a blackberry, a maple samara.
+    { id: 'dewdrop', name: 'Dewdrop', source: 'grown', cost: 150,
+      blurb: 'A water-bead seed. It drips dew as it flies and splashes every bloom.',
+      seed: { base: '#79cfee', light: '#d3f4ff', core: '#f6fdff', rim: '#2d8fbd', shape: 'dew' },
+      trail: { kind: 'beads', ribbon: '#a9e7f8', accents: ['#9fe2f7', '#62c6ec', '#c9f1ff'] },
+      burst: { kind: 'splash', share: .45, colors: ['#b4ebfc', '#79cfee', '#9fe2f7', '#3fa6da'] } },
+    { id: 'bramble', name: 'Bramble Berry', source: 'grown', cost: 250,
+      blurb: 'A blackberry seed on a leafy, thorny vine. Blooms shake loose the berries.',
+      seed: { base: '#6a3489', light: '#b07ad0', core: '#ead1f6', rim: '#3d1a54', shape: 'berry' },
+      trail: { kind: 'brambles', ribbon: '#4f9a4c', accents: ['#62b65a', '#3f8a46', '#d8435d'] },
+      burst: { kind: 'berry', share: .4, colors: ['#5a2878', '#d8435d', '#8a4fb0', '#62b65a'] } },
+    { id: 'maple', name: 'Autumn Maple', source: 'grown', cost: 400,
+      blurb: 'A whirling maple seed. Autumn leaves tumble after it and rain down on every bloom.',
+      seed: { base: '#e8742c', light: '#ffc46c', core: '#fff1d6', rim: '#a5441a', shape: 'samara' },
+      trail: { kind: 'leaves', ribbon: '#f4a64e', accents: ['#e0452b', '#f08a2a', '#f4c03c', '#b4532a'] },
+      burst: { kind: 'maple', share: .45, colors: ['#e0452b', '#f08a2a', '#f4c03c', '#b4532a'] } }
   ];
   var byId = {};
   styles.forEach(function (style) { byId[style.id] = style; });
@@ -2175,11 +2283,13 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
       return Boolean(record && record.stars > 0);
     });
   }
-  // context: { moon: save.moon, moonLevels: BloomMoon.levels, owns: function (entitlement) }
+  // context: { moon: save.moon, moonLevels: BloomMoon.levels, owns: function (entitlement), grown: save.garden.grown }
   function unlocked(id, context) {
     var style = byId[id]; if (!style) return false;
     if (style.source === 'free') return true;
     if (style.source === 'earned') return moonCleared(context && context.moon, context && context.moonLevels);
+    // A grown style is opened only by the seeds spent on it, never by the paid collection.
+    if (style.source === 'grown') return Boolean(context && Array.isArray(context.grown) && context.grown.indexOf(id) >= 0);
     return Boolean(context && typeof context.owns === 'function' && context.owns(ENTITLEMENT));
   }
   // The style a player actually sees: an unknown, locked or refunded choice shows Meadow
@@ -2198,12 +2308,26 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
       else if (spec.kind === 'firefly') { p.gravity = -26; p.drag = 1.8; p.life = p.maxLife = 1.4 + rand() * 1.2; p.size = 1.6 + rand() * 1.4; }
       else if (spec.kind === 'flake') { p.gravity = 55; p.flutter = 10 + rand() * 14; }
       else if (spec.kind === 'star') { p.gravity = 20; p.drag = 1.6; p.size = 2 + rand() * 2.5; }
+      // Dewdrop: drops flung out and pulled down hard, the first a ripple ring that spreads where the bloom was.
+      else if (spec.kind === 'splash') {
+        if (i === 0) { p.ripple = true; p.color = spec.colors[3]; p.vx = p.vy = 0; p.gravity = 0; p.drag = 0; p.spin = 0; p.life = p.maxLife = .7; p.size = 8; }
+        else { p.vx *= 1.25; p.vy = p.vy * 1.1 - 40; p.gravity = 260; p.drag = .7; p.life = p.maxLife = .55 + rand() * .55; p.size = 1.8 + rand() * 1.8; }
+      }
+      // Bramble Berry: round berries that hop out and bounce, and every third a bramble leaf that spins away.
+      else if (spec.kind === 'berry') {
+        p.gravity = 210; p.drag = .55; p.vy -= 40;
+        if (i % 3 === 2) { p.leaf = true; p.color = spec.colors[3]; p.gravity = 70; p.flutter = 10 + rand() * 12; p.size += 1; }
+        else { p.color = spec.colors[i % 3]; p.size = 2 + rand() * 1.4; }
+      }
+      // Autumn Maple: leaves that tumble and sway down slowly, like a gust shaking a tree.
+      else if (spec.kind === 'maple') { p.gravity = 40; p.drag = 1.4; p.flutter = 18 + rand() * 20; p.size = 3.6 + rand() * 2.4; p.life = p.maxLife = 1.3 + rand() * 1.1; }
       extras.push(p);
     }
     return extras;
   }
   return { styles: styles, byId: byId, product: PRODUCT, entitlement: ENTITLEMENT,
     collection: styles.filter(function (s) { return s.source === 'collection'; }).map(function (s) { return s.id; }),
+    grown: styles.filter(function (s) { return s.source === 'grown'; }).map(function (s) { return s.id; }),
     unlocked: unlocked, resolve: resolve, burstExtras: burstExtras, moonCleared: moonCleared };
 });
 
@@ -2267,6 +2391,13 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
     piece('tree', 'Apple tree', 100, 'Shade, apples and a rope swing.',
       { id: 'nutmeg', name: 'Nutmeg', kind: 'squirrel', says: 'Got any acorns?', about: 'Guards the apples. Mostly.' })
   ]);
+  // Seed styles to grow once seeds pile up (keepsakes.js draws them and lists the same costs). Each is grown once,
+  // with earned seeds only, in any order. They are never sold and are not part of the paid Keepsake Collection.
+  var seedStyles = Object.freeze([
+    Object.freeze({ id: 'dewdrop', cost: 150 }),
+    Object.freeze({ id: 'bramble', cost: 250 }),
+    Object.freeze({ id: 'maple', cost: 400 })
+  ]);
   function own(object, key) { return Object.prototype.hasOwnProperty.call(object, key); }
   function record(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
   function integer(value, maximum) {
@@ -2274,6 +2405,7 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
   }
   function validPlot(id) { return typeof id === 'string' && plots.some(function (p) { return p.id === id; }); }
   function findDecor(id) { return typeof id === 'string' ? decor.filter(function (d) { return d.id === id; })[0] || null : null; }
+  function findStyle(id) { return typeof id === 'string' ? seedStyles.filter(function (s) { return s.id === id; })[0] || null : null; }
   // 'daily-YYYY-MM-DD' to a UTC day number, or null for anything that is not a real calendar date.
   function dailyDay(id) {
     var match = typeof id === 'string' && /^daily-(\d{4})-(\d{2})-(\d{2})$/.exec(id);
@@ -2346,11 +2478,15 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
     bouquets = bouquets.sort().slice(-BOUQUET_LIMIT);
     var savedDecor = own(source, 'decor') && Array.isArray(source.decor) ? source.decor : [];
     var built = decor.filter(function (d) { return savedDecor.indexOf(d.id) >= 0; }).map(function (d) { return d.id; });
+    // Grown seed styles: a list of ids, cleaned and kept in catalog order like the decorations. A save from before
+    // them has none.
+    var savedGrown = own(source, 'grown') && Array.isArray(source.grown) ? source.grown : [];
+    var grown = seedStyles.filter(function (s) { return savedGrown.indexOf(s.id) >= 0; }).map(function (s) { return s.id; });
     return { version: 1,
       seeds: isNew ? 4 : (own(source, 'seeds') ? integer(source.seeds, MAX_SEEDS) : 0),
       selectedId: own(source, 'selectedId') && validPlot(source.selectedId) ? source.selectedId : 'sunbell',
       levels: levels, receipts: receipts, campaignBest: campaignBest, moonBest: moonBest, koiBest: koiBest, depthBest: depthBest,
-      dailyBest: dailyBest, bouquets: bouquets, decor: built,
+      dailyBest: dailyBest, bouquets: bouquets, decor: built, grown: grown,
       starterSeeds: isNew ? 4 : (own(source, 'starterSeeds') ? integer(source.starterSeeds, 4) : 0),
       totalSeedsEarned: own(source, 'totalSeedsEarned') ? integer(source.totalSeedsEarned, MAX_TOTAL) : 0,
       totalSeedsSpent: own(source, 'totalSeedsSpent') ? integer(source.totalSeedsSpent, MAX_TOTAL) : 0 };
@@ -2461,6 +2597,18 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
     next.totalSeedsSpent = Math.min(MAX_TOTAL, next.totalSeedsSpent + item.cost);
     return result(true, 'built', item.cost);
   }
+  // Grows one seed style with earned seeds, once. The style is then worn from the Collection like any other.
+  function grow(state, styleId) {
+    var next = normalize(state), item = findStyle(styleId);
+    function result(success, reason, cost) { return { state: next, success: success, reason: reason, cost: cost }; }
+    if (!item) return result(false, 'unknown-style', 0);
+    if (next.grown.indexOf(item.id) >= 0) return result(false, 'grown', item.cost);
+    if (next.seeds < item.cost) return result(false, 'insufficient-seeds', item.cost);
+    next.seeds -= item.cost;
+    next.grown = seedStyles.filter(function (s) { return s.id === item.id || next.grown.indexOf(s.id) >= 0; }).map(function (s) { return s.id; });
+    next.totalSeedsSpent = Math.min(MAX_TOTAL, next.totalSeedsSpent + item.cost);
+    return result(true, 'grown', item.cost);
+  }
   function select(state, plotId) {
     var next = normalize(state);
     if (validPlot(plotId)) next.selectedId = plotId;
@@ -2486,7 +2634,11 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
       return { id: d.id, name: d.name, cost: d.cost, description: d.description, friend: d.friend, built: done, canBuild: !done && current.seeds >= d.cost };
     });
     var builtDecor = current.decor.length;
-    return { seeds: current.seeds, selectedId: current.selectedId,
+    var styles = seedStyles.map(function (s) {
+      var done = current.grown.indexOf(s.id) >= 0;
+      return { id: s.id, cost: s.cost, grown: done, canGrow: !done && current.seeds >= s.cost };
+    });
+    return { seeds: current.seeds, selectedId: current.selectedId, styles: styles, grownStyles: current.grown.length,
       totalStages: totalStages, completedPlots: completedPlots, totalPlots: plots.length,
       decor: pieces, builtDecor: builtDecor, totalDecor: decor.length,
       complete: completedPlots === plots.length && builtDecor === decor.length,
@@ -2494,7 +2646,7 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
       nextCost: current.levels[current.selectedId] < 3 ? COSTS[current.levels[current.selectedId]] : null,
       plots: beds };
   }
-  return Object.freeze({ plots: plots, decor: decor, normalize: normalize, grant: grant, plant: plant, build: build, select: select, summary: summary, week: week,
+  return Object.freeze({ plots: plots, decor: decor, seedStyles: seedStyles, normalize: normalize, grant: grant, plant: plant, build: build, grow: grow, select: select, summary: summary, week: week,
     daily: Object.freeze({ firstClear: [6, 8, 10], perStar: 2, bouquetGoal: BOUQUET_GOAL, bouquetSeeds: BOUQUET_SEEDS, goalSeeds: GOAL_SEEDS, goalBonus: GOAL_BONUS }),
     depths: Object.freeze({ levels: DEPTH_LEVELS, runCap: DEPTH_RUN_CAP }) });
 });
@@ -2511,19 +2663,21 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
 
   // Three small goals a day: one in the levels or Rush, one puzzle, one somewhere else. Each pays seeds once, and all three
   // pay a bonus. A missed day costs nothing, nothing counts down, and tomorrow simply brings three new goals.
-  function goal(id, group, text, target, play) {
-    return Object.freeze({ id: id, group: group, text: text, target: target, play: play });
+  // short is the few words the Today strip on the Levels map shows under each goal's ring.
+  function goal(id, group, text, target, play, short) {
+    return Object.freeze({ id: id, group: group, text: text, target: target, play: play, short: short });
   }
   var catalog = Object.freeze([
-    goal('rush-blooms', 'rush', 'Bloom 50 flowers', 50, 'rush'),
-    goal('rush-wave', 'rush', 'Reach wave 4', 4, 'rush'),
-    goal('rush-chain', 'rush', 'Make an 8 chain', 8, 'rush'),
-    goal('puzzles', 'puzzle', 'Clear 2 puzzles', 2, 'puzzles'),
-    goal('perfect', 'puzzle', 'Get ★★★ on a puzzle', 1, 'puzzles'),
-    goal('daily', 'puzzle', "Clear today's garden", 1, 'daily'),
-    goal('moon', 'explore', 'Clear a Moon trial', 1, 'moon'),
-    goal('koi', 'explore', 'Clear a Koi pool', 1, 'koi'),
-    goal('meadow', 'explore', 'Grow or build in your meadow', 1, 'meadow')
+    goal('rush-blooms', 'rush', 'Bloom 50 flowers', 50, 'rush', '50 blooms'),
+    goal('rush-wave', 'rush', 'Reach wave 4', 4, 'rush', 'Wave 4'),
+    goal('rush-chain', 'rush', 'Make an 8 chain', 8, 'rush', '8 chain'),
+    goal('puzzles', 'puzzle', 'Clear 2 puzzles', 2, 'puzzles', '2 puzzles'),
+    goal('perfect', 'puzzle', 'Get ★★★ on a puzzle', 1, 'puzzles', 'Get ★★★'),
+    goal('daily', 'puzzle', "Clear today's garden", 1, 'daily', 'Daily'),
+    goal('moon', 'explore', 'Clear a Moon trial', 1, 'moon', 'Moon trial'),
+    goal('koi', 'explore', 'Clear a Koi pool', 1, 'koi', 'Koi pool'),
+    // A finished meadow has nothing left to grow or build, so saying hi to a friend there counts too.
+    goal('meadow', 'explore', 'Grow, build or say hi in your meadow', 1, 'meadow', 'Meadow')
   ]);
   var GROUPS = ['rush', 'puzzle', 'explore'];
   var DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -2563,7 +2717,7 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
     return state;
   }
   function count(value) { return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0; }
-  // How far one finished run, clear or meadow action moves a goal. Returns [added, highest] where a goal
+  // How far one finished run, clear, meadow action or friend greeting moves a goal. Returns [added, highest] where a goal
   // counts either a running total (added) or a best value (highest).
   function step(g, event) {
     var type = event.type, mode = event.mode;
@@ -2575,7 +2729,7 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
       if (g.id === 'perfect') return [event.stars === 3 ? 1 : 0, 0];
       if (g.id === 'daily' || g.id === 'moon' || g.id === 'koi') return [mode === g.id ? 1 : 0, 0];
     }
-    if (g.id === 'meadow') return [type === 'meadow' ? 1 : 0, 0];
+    if (g.id === 'meadow') return [type === 'meadow' || type === 'greet' ? 1 : 0, 0];
     return [0, 0];
   }
   function record(state, date, event) {
@@ -2592,7 +2746,7 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
   function summary(state, date) {
     var current = normalize(state, date);
     var list = forDay(date).map(function (g, i) {
-      return { id: g.id, text: g.text, target: g.target, play: g.play, slot: i, progress: current.progress[i], done: current.done[i] };
+      return { id: g.id, text: g.text, short: g.short, target: g.target, play: g.play, slot: i, progress: current.progress[i], done: current.done[i] };
     });
     return { day: date, goals: list, done: current.done.filter(Boolean).length, bonus: current.bonus };
   }
@@ -14007,6 +14161,7 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
   }
 
   function paintRestingSeed(ctx, r, look) {
+    if (look && look.shape) { paintGrownSeed(ctx, r, look); return; }
     ctx.shadowColor = look ? look.base + '88' : 'rgba(132,106,43,.23)'; ctx.shadowBlur = look ? 12 : 9; ctx.shadowOffsetY = 2;
     const seed = ctx.createRadialGradient(-r * .3, -r * .4, .2, 0, 0, r * 1.2);
     seed.addColorStop(0, look ? look.core : '#fffef1'); seed.addColorStop(.6, look ? look.light : '#f2dda0'); seed.addColorStop(1, look ? look.base : '#c8a465');
@@ -14016,7 +14171,7 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
     ctx.lineWidth = .7; ctx.strokeStyle = 'rgba(158,118,48,.40)'; ctx.stroke();
   }
   function restingSeedSprite(r, look) {
-    const edge = r + 14, key = `resting-seed:${look ? [look.core, look.light, look.base, look.rim].join(':') : 'plain'}:${r}`;
+    const edge = r + 14, key = `resting-seed:${look ? [look.core, look.light, look.base, look.rim].join(':') + (look.shape ? ':' + look.shape : '') : 'plain'}:${r}`;
     return atlasSprite(key, -edge, -edge, edge, edge, c => paintRestingSeed(c, r, look));
   }
   function drawSeed(ctx, x, y, r, time, flying, style, nominalRadius = r) {
@@ -14639,6 +14794,7 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
   // stay put as the trail ages instead of flickering from frame to frame. The ribbon is one tapered path into
   // the seed's drawn head (hx, hy), and firefly glows come from a cached sprite.
   function drawKeepsakeTrail(ctx, ball, style, r, time, hot, hx, hy) {
+    if (style.seed && style.seed.shape) { drawGrownTrail(ctx, ball, style, r, time, hot, Number.isFinite(hx) ? hx : ball.x, Number.isFinite(hy) ? hy : ball.y); return; }
     const trail = ball.trail, spec = style.trail, accents = spec.accents;
     cometTrail(ctx, trail, Number.isFinite(hx) ? hx : ball.x, Number.isFinite(hy) ? hy : ball.y, r * (hot ? 1 : .78), spec.ribbon, hot ? .62 : .45);
     for (let i = 0; i < trail.length; i++) {
@@ -14659,6 +14815,255 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
       ctx.restore();
     }
     ctx.globalAlpha = 1;
+  }
+  // Grown seed styles: Dewdrop, Bramble Berry and Autumn Maple. Every piece (a seed body, a bead, a drop, a leaf, a
+  // thorn, a berry, a maple wing) is painted once, gradients and all, into a 3x sprite at a reference size and then
+  // only blitted, turned and scaled, so a frame full of trails and blooms costs drawImage calls, never a gradient or a
+  // shadow. The set is small and fixed (three styles, a few colors each), so it lives outside the LRU atlas and never
+  // repaints. In Node there is no canvas and the same paint functions draw plain paths in place.
+  const GROWN_REF = 8, grownArt = new Map();
+  function grownSprite(key, half, paint) {
+    if (grownArt.has(key)) return grownArt.get(key);
+    const px = Math.ceil(half * 6), surface = makeSurface(px, px), g = surface && surface.getContext('2d');
+    let sprite = null;
+    if (g) { g.scale(3, 3); g.translate(half, half); paint(g); sprite = { surface, x: -half, y: -half, w: px / 3, h: px / 3 }; painted++; }
+    grownArt.set(key, sprite);
+    return sprite;
+  }
+  // A clear water bead lit from the top left, with a bright caustic where the light comes through at the bottom.
+  function paintBead(g, s, color) {
+    const fill = g.createRadialGradient(-s * .35, -s * .4, s * .05, 0, 0, s);
+    fill.addColorStop(0, '#ffffff'); fill.addColorStop(.45, color); fill.addColorStop(1, shade(color, .28));
+    circle(g, 0, 0, s, fill, '#2f93c2', s * .12);
+    g.beginPath(); g.arc(0, 0, s * .66, .35, 1.9); g.strokeStyle = '#ffffffb0'; g.lineWidth = s * .16; g.lineCap = 'round'; g.stroke();
+    g.beginPath(); g.ellipse(-s * .34, -s * .38, s * .26, s * .17, -.6, 0, TAU); g.fillStyle = '#ffffff'; g.fill();
+  }
+  // A drop, its tail drawn out to a point along +x (a flying drop leads with its round end, so it is turned to trail).
+  function paintDrop(g, s, color) {
+    g.beginPath(); g.moveTo(s * 1.15, 0);
+    g.bezierCurveTo(s * .55, -s * .2, s * .15, -s * .62, -s * .3, -s * .58);
+    g.arc(-s * .3, 0, s * .58, -Math.PI / 2, Math.PI / 2, true);
+    g.bezierCurveTo(s * .15, s * .62, s * .55, s * .2, s * 1.15, 0); g.closePath();
+    const fill = g.createLinearGradient(0, -s * .6, 0, s * .6);
+    fill.addColorStop(0, '#ffffff'); fill.addColorStop(.5, color); fill.addColorStop(1, shade(color, .3));
+    g.fillStyle = fill; g.fill(); g.lineWidth = s * .1; g.strokeStyle = '#2f93c2'; g.stroke();
+    g.beginPath(); g.ellipse(-s * .38, -s * .2, s * .2, s * .12, -.3, 0, TAU); g.fillStyle = '#ffffff'; g.fill();
+  }
+  // The Dewdrop seed: a fat water bead in the seed's own blue, with a sky reflection and a ring of light at its rim.
+  function paintDewBody(g, r, look) {
+    const R = r + 1.3, fill = g.createRadialGradient(-R * .3, -R * .35, R * .05, 0, 0, R);
+    fill.addColorStop(0, look.core); fill.addColorStop(.35, look.light); fill.addColorStop(.8, look.base); fill.addColorStop(1, look.rim);
+    circle(g, 0, 0, R, fill, look.rim, .7);
+    g.beginPath(); g.arc(0, 0, R * .7, .3, 2.1); g.strokeStyle = '#ffffffc0'; g.lineWidth = R * .16; g.lineCap = 'round'; g.stroke();
+    g.beginPath(); g.ellipse(-R * .32, -R * .36, R * .3, R * .19, -.6, 0, TAU); g.fillStyle = '#ffffff'; g.fill();
+    circle(g, R * .3, -R * .5, R * .08, '#ffffff');
+  }
+  // A blackberry: seven glossy drupelets, each lit from the top left, under a little green cap.
+  const DRUPES = [[0, .05], [-.52, -.18], [.52, -.18], [-.5, .4], [.5, .4], [0, -.5], [0, .62]];
+  function paintBerry(g, s, color, cap) {
+    const d = s * .42;
+    for (const [dx, dy] of DRUPES) {
+      const x = dx * s, y = dy * s, fill = g.createRadialGradient(x - d * .35, y - d * .4, d * .05, x, y, d);
+      fill.addColorStop(0, shade(color, -.55)); fill.addColorStop(.5, color); fill.addColorStop(1, shade(color, .35));
+      circle(g, x, y, d, fill, shade(color, .5), s * .05);
+      circle(g, x - d * .32, y - d * .34, d * .22, '#ffffffcc');
+    }
+    if (!cap) return;
+    g.save(); g.translate(0, -s * .86);
+    for (let k = 0; k < 5; k++) {
+      g.save(); g.rotate(-1.2 + k * .6); g.beginPath(); g.moveTo(0, 0); g.quadraticCurveTo(s * .16, -s * .18, 0, -s * .42); g.quadraticCurveTo(-s * .16, -s * .18, 0, 0);
+      g.fillStyle = k % 2 ? '#4f9a4c' : '#62b65a'; g.fill(); g.restore();
+    }
+    g.restore();
+  }
+  // A bramble leaf pointing along +x: a serrated oval with a pale midrib.
+  function paintBrambleLeaf(g, s, color) {
+    g.beginPath(); g.moveTo(-s, 0);
+    for (let k = 1; k <= 12; k++) {
+      const u = k / 12, a = u * Math.PI, w = Math.sin(a) * s * .5 * (k % 2 ? 1 : .82);
+      g.lineTo(-s + u * 2 * s, -w);
+    }
+    for (let k = 11; k >= 1; k--) {
+      const u = k / 12, a = u * Math.PI, w = Math.sin(a) * s * .5 * (k % 2 ? 1 : .82);
+      g.lineTo(-s + u * 2 * s, w);
+    }
+    g.closePath();
+    const fill = g.createLinearGradient(0, -s * .5, 0, s * .5);
+    fill.addColorStop(0, shade(color, -.25)); fill.addColorStop(1, shade(color, .2));
+    g.fillStyle = fill; g.fill(); g.lineWidth = s * .08; g.strokeStyle = shade(color, .45); g.stroke();
+    g.beginPath(); g.moveTo(-s * .9, 0); g.quadraticCurveTo(0, -s * .06, s * .85, 0); g.strokeStyle = '#e9ffd8b0'; g.lineWidth = s * .09; g.stroke();
+  }
+  // A thorn on the bramble stem, pointing along +x.
+  function paintThorn(g, s) {
+    g.beginPath(); g.moveTo(s, 0); g.quadraticCurveTo(-s * .1, -s * .1, -s * .5, -s * .5); g.lineTo(-s * .5, s * .5); g.quadraticCurveTo(-s * .1, s * .1, s, 0);
+    g.fillStyle = '#9a4a33'; g.fill(); g.lineWidth = s * .12; g.strokeStyle = '#5e2a1d'; g.stroke();
+  }
+  // A five-lobed maple leaf, tip up, stem down: crisp points, a darker edge and veins to each lobe.
+  const MAPLE = [[0, 1], [14, .62], [26, .45], [55, .95], [70, .6], [88, .42], [115, .62], [140, .35], [180, .2]];
+  function paintMapleLeaf(g, s, color) {
+    const points = MAPLE.concat(MAPLE.slice(1, -1).reverse().map(([a, r]) => [-a, r]));
+    g.beginPath();
+    points.forEach(([a, r], k) => { const t = a * Math.PI / 180, x = Math.sin(t) * r * s, y = -Math.cos(t) * r * s; if (k) g.lineTo(x, y); else g.moveTo(x, y); });
+    g.closePath();
+    const fill = g.createLinearGradient(-s, -s, s, s);
+    fill.addColorStop(0, shade(color, -.2)); fill.addColorStop(1, shade(color, .18));
+    g.fillStyle = fill; g.fill(); g.lineJoin = 'round'; g.lineWidth = s * .07; g.strokeStyle = shade(color, .42); g.stroke();
+    g.beginPath(); g.moveTo(0, s * .2); g.lineTo(0, s * .78); g.strokeStyle = shade(color, .5); g.lineWidth = s * .09; g.lineCap = 'round'; g.stroke();
+    g.beginPath();
+    for (const a of [0, 55, -55, 115, -115]) { const t = a * Math.PI / 180; g.moveTo(0, s * .12); g.lineTo(Math.sin(t) * s * .7, -Math.cos(t) * s * .7); }
+    g.strokeStyle = shade(color, -.35); g.lineWidth = s * .05; g.stroke();
+  }
+  // The samara's wing: a papery blade from the nut (at the origin) out along +x, straight along its top edge, rounded
+  // below and at the tip like a real maple key, with veins fanning from the nut.
+  function paintMapleWing(g, s) {
+    g.beginPath(); g.moveTo(0, -s * .22);
+    g.bezierCurveTo(s, -s * .42, s * 2.4, -s * .62, s * 3.15, -s * .5);
+    g.bezierCurveTo(s * 3.65, -s * .38, s * 3.6, s * .55, s * 3, s * .82);
+    g.bezierCurveTo(s * 2.3, s * 1.05, s * 1.3, s * .75, 0, s * .22); g.closePath();
+    const fill = g.createLinearGradient(0, 0, s * 3.4, 0);
+    fill.addColorStop(0, '#c4552af2'); fill.addColorStop(.3, '#e99a52ed'); fill.addColorStop(.75, '#f7cf90e6'); fill.addColorStop(1, '#fbe4b8e0');
+    g.fillStyle = fill; g.fill(); g.lineJoin = 'round'; g.lineWidth = s * .08; g.strokeStyle = '#9a4c22'; g.stroke();
+    g.beginPath(); g.moveTo(0, -s * .2); g.bezierCurveTo(s, -s * .38, s * 2.4, -s * .58, s * 3.12, -s * .47); g.strokeStyle = '#a8562a'; g.lineWidth = s * .13; g.lineCap = 'round'; g.stroke();
+    g.beginPath();
+    for (let k = 0; k < 6; k++) { g.moveTo(s * .25, -s * .12 + k * .05 * s); g.quadraticCurveTo(s * (1.3 + k * .2), -s * (.3 - k * .17), s * (2.6 + k * .1), -s * (.4 - k * .22)); }
+    g.strokeStyle = '#b05a2a66'; g.lineWidth = s * .05; g.stroke();
+  }
+  // The samara's nut: a round, plump seed in the style's orange with a seam curling from where the wing joins.
+  function paintMapleNut(g, R, look) {
+    const fill = g.createRadialGradient(-R * .3, -R * .35, R * .05, 0, 0, R);
+    fill.addColorStop(0, look.core); fill.addColorStop(.4, look.light); fill.addColorStop(.85, look.base); fill.addColorStop(1, look.rim);
+    circle(g, 0, 0, R, fill, look.rim, .7);
+    g.beginPath(); g.arc(R * .55, R * .05, R * .55, 2.2, 3.9); g.strokeStyle = shade(look.base, .3); g.lineWidth = R * .1; g.lineCap = 'round'; g.stroke();
+    g.beginPath(); g.ellipse(-R * .32, -R * .36, R * .26, R * .16, -.6, 0, TAU); g.fillStyle = '#ffffffd0'; g.fill();
+  }
+  // The trail and burst pieces: [box padding over the reference size, paint]. One sprite per piece and color.
+  const PIECES = {
+    bead: [1.1, (g, c) => paintBead(g, GROWN_REF, c)], drop: [1.25, (g, c) => paintDrop(g, GROWN_REF, c)],
+    berry: [1.5, (g, c) => paintBerry(g, GROWN_REF, c, false)], leaf: [1.15, (g, c) => paintBrambleLeaf(g, GROWN_REF, c)],
+    thorn: [1.1, g => paintThorn(g, GROWN_REF)], maple: [1.1, (g, c) => paintMapleLeaf(g, GROWN_REF, c)]
+  };
+  function grownPiece(name, color) {
+    const [pad, paint] = PIECES[name];
+    return grownSprite(`${name}|${color || ''}`, GROWN_REF * pad, g => paint(g, color));
+  }
+  // Places a piece, `size` px across at reference 1, through one setTransform when the base transform is known.
+  function placePiece(ctx, fast, name, color, x, y, turn, sx, sy) {
+    const sprite = grownPiece(name, color);
+    if (fast && sprite) { stamp(ctx, sprite, x, y, turn, sx, sy); return; }
+    ctx.save(); ctx.translate(x, y); ctx.rotate(turn); ctx.scale(sx, sy);
+    if (sprite) blit(ctx, sprite); else PIECES[name][1](ctx, color);
+    ctx.restore();
+  }
+  function grownBody(look, r) {
+    const R = r + 1.3, rk = Math.round(r * 10) / 10;
+    return {
+      R, wing: look.shape === 'samara' ? grownSprite(`samara|wing|${rk}`, R * 3.75, g => paintMapleWing(g, R)) : null,
+      body: grownSprite(`${look.shape}|body|${look.base}|${rk}`, R * 1.35 + 1, g => paintGrownBody(g, r, look))
+    };
+  }
+  function paintGrownBody(g, r, look) {
+    const R = r + 1.3;
+    if (look.shape === 'dew') paintDewBody(g, r, look); else if (look.shape === 'berry') paintBerry(g, R * .92, look.base, true); else paintMapleNut(g, R, look);
+  }
+  // The flying body. Each body fits its round hit circle; only the maple wing reaches past it, and it whirls.
+  function drawGrownBody(ctx, style, x, y, r, time, still) {
+    const look = style.seed, art = grownBody(look, r);
+    ctx.save(); ctx.translate(x, y);
+    if (look.shape === 'samara') {
+      ctx.save(); ctx.rotate(still ? -2.3 : time * 13); ctx.globalAlpha *= .92;
+      if (art.wing) blit(ctx, art.wing); else paintMapleWing(ctx, art.R);
+      ctx.restore();
+    }
+    if (art.body) blit(ctx, art.body); else paintGrownBody(ctx, r, look);
+    ctx.restore();
+  }
+  // The seed resting in the cup and the tray: a dew drop, a blackberry on its cap, a maple samara with its wing.
+  function paintGrownSeed(g, r, look) {
+    g.shadowColor = look.rim + '55'; g.shadowBlur = 8; g.shadowOffsetY = 2;
+    if (look.shape === 'dew') {
+      g.beginPath(); g.moveTo(0, -r * 1.2);
+      g.bezierCurveTo(r * .42, -r * .62, r * .82, -r * .12, r * .82, r * .22);
+      g.arc(0, r * .22, r * .82, 0, Math.PI);
+      g.bezierCurveTo(-r * .82, -r * .12, -r * .42, -r * .62, 0, -r * 1.2); g.closePath();
+      const fill = g.createRadialGradient(-r * .25, -r * .1, r * .05, 0, r * .2, r * 1.1);
+      fill.addColorStop(0, look.core); fill.addColorStop(.4, look.light); fill.addColorStop(.85, look.base); fill.addColorStop(1, look.rim);
+      g.fillStyle = fill; g.fill(); g.shadowColor = 'transparent'; g.lineWidth = .8; g.strokeStyle = look.rim; g.stroke();
+      g.beginPath(); g.arc(0, r * .22, r * .56, .3, 2.2); g.strokeStyle = '#ffffffb8'; g.lineWidth = r * .14; g.lineCap = 'round'; g.stroke();
+      g.beginPath(); g.ellipse(-r * .3, -r * .12, r * .16, r * .3, .35, 0, TAU); g.fillStyle = '#ffffff'; g.fill();
+    } else if (look.shape === 'berry') {
+      g.beginPath(); g.ellipse(0, r * .1, r * .9, r * .95, 0, 0, TAU); g.fillStyle = look.base; g.fill(); g.shadowColor = 'transparent';
+      g.save(); g.translate(0, r * .14); paintBerry(g, r * .9, look.base, true); g.restore();
+      g.beginPath(); g.moveTo(0, -r * .7); g.quadraticCurveTo(r * .1, -r * 1.05, r * .32, -r * 1.2); g.strokeStyle = '#3f8a46'; g.lineWidth = 1; g.lineCap = 'round'; g.stroke();
+    } else {
+      g.save(); g.translate(-r * .4, r * .62); g.rotate(-.95);
+      paintMapleWing(g, r * .62); g.shadowColor = 'transparent'; paintMapleNut(g, r * .62, look); g.restore();
+    }
+  }
+  // Trails for the grown styles. A ribbon underneath (a thin stream of water, a bramble stem, the gust the leaves ride
+  // on) and accents on real trail samples, picked by each sample's own position so they stay put as the trail ages.
+  // On a struggling phone (quality 2) half as many accents, and the bramble's thorns only at full quality.
+  const trailPiece = (kind, color, accents) => kind === 'beads' ? 'bead' : kind === 'leaves' ? 'maple' : color === accents[2] ? 'berry' : 'leaf';
+  function drawGrownTrail(ctx, ball, style, r, time, hot, hx, hy) {
+    const trail = ball.trail, spec = style.trail, kind = spec.kind, accents = spec.accents, n = trail.length, stem = kind === 'brambles';
+    cometTrail(ctx, trail, hx, hy, r * (stem ? .4 : hot ? .95 : .72), spec.ribbon, stem ? .92 : kind === 'beads' ? .5 : .3);
+    const every = (hot ? 2 : 3) * (feelQuality >= 2 ? 2 : 1), fast = readBase(ctx);
+    if (fast) setFrame(0, 0, 0);
+    for (let i = 0; i < n; i++) {
+      const p = trail[i], q = trail[i + 1] || { x: hx, y: hy }, key = Math.abs(Math.round(p.x * 7.3 + p.y * 13.1));
+      if (p.move || !Number.isFinite(p.x) || !Number.isFinite(p.y)) continue;
+      const f = (i + 1) / n, along = Math.atan2(q.y - p.y, q.x - p.x) || 0, side = key % 2 ? 1 : -1, nx = Math.cos(along + side * Math.PI / 2), ny = Math.sin(along + side * Math.PI / 2);
+      let name, color = null, x = p.x, y = p.y, turn = 0, tumble = 1, size;
+      if (key % every) {
+        // Between the leaves the bramble stem carries small thorns.
+        if (!stem || feelQuality >= 1 || key % every !== 1) continue;
+        name = 'thorn'; size = r * (.3 + f * .25); turn = along + side * 1.2; x += nx * r * .3; y += ny * r * .3;
+      } else {
+        color = accents[key % accents.length]; name = trailPiece(kind, color, accents);
+        if (name === 'bead') { size = r * (.32 + f * .42); y += (1 - f) * 7; } // older beads have dripped a little further
+        else if (name === 'berry') size = r * (.42 + f * .3);
+        else if (name === 'leaf') { size = r * (.5 + f * .55); turn = along + side * .85; x += nx * r * .75; y += ny * r * .75; }
+        else {
+          // Maple leaves tumble (narrowing as a leaf turns edge-on) and drift down as the trail ages.
+          size = r * (.6 + f * .6); turn = key * .37 + time * 2.4; tumble = .35 + .65 * Math.abs(Math.cos(time * 3.1 + key));
+          x += Math.sin(time * 2 + key) * 2.5 * (1 - f); y += (1 - f) * 9;
+        }
+      }
+      const scale = size / GROWN_REF;
+      ctx.globalAlpha = Math.min(1, f * 1.15);
+      placePiece(ctx, fast, name, color, x, y, turn, tumble * scale, scale);
+    }
+    if (fast) ctx.setTransform(BASE[0], BASE[1], BASE[2], BASE[3], BASE[4], BASE[5]);
+    ctx.globalAlpha = 1;
+  }
+  // Bloom-burst particles for the grown styles: splashing drops and one ripple, hopping berries and bramble leaves,
+  // tumbling maple leaves. drawParticle has already saved the context and set the fade.
+  const burstPiece = particle => particle.kind === 'splash' ? 'drop' : particle.kind === 'maple' ? 'maple' : particle.leaf ? 'leaf' : 'berry';
+  function drawGrownParticle(ctx, particle, size, color, f, still) {
+    const x = particle.x, y = particle.y;
+    if (particle.ripple) {
+      const rr = size + ease(1 - f) * 30;
+      ctx.globalAlpha = f * .7; ctx.lineWidth = .5 + f * 1.2; ctx.strokeStyle = color;
+      ctx.beginPath(); ctx.ellipse(x, y + 4, rr, rr * .42, 0, 0, TAU); ctx.stroke();
+      return;
+    }
+    const name = burstPiece(particle), scale = size / GROWN_REF * (name === 'maple' ? 1 : 1.15);
+    let turn = particle.rotation || 0, sx = 1, sy = 1;
+    if (name === 'drop') {
+      // A drop stretches along its flight, more the faster it goes.
+      const vx = particle.vx || 0, vy = particle.vy || 0, stretch = still ? 1 : 1 + Math.min(.9, Math.hypot(vx, vy) / 260);
+      turn = (Math.atan2(vy, vx) || 0) + Math.PI; sx = stretch; sy = 1 / Math.sqrt(stretch);
+    } else if (name !== 'berry') sx = still ? .8 : .35 + .65 * Math.abs(Math.cos(turn * .8));
+    placePiece(ctx, false, name, color, x, y, turn, sx * scale, sy * scale);
+  }
+  // Paints every sprite a grown style needs, so the warm-up can do it during a level's intro.
+  function warmGrown(style) {
+    const look = style && style.seed;
+    if (!look || !look.shape) return;
+    for (const r of [5.5, 6]) grownBody(look, r);
+    const spec = style.trail;
+    for (const color of spec.accents) grownPiece(trailPiece(spec.kind, color, spec.accents), color);
+    if (spec.kind === 'brambles') grownPiece('thorn', null);
+    style.burst.colors.forEach((color, i) => grownPiece(burstPiece({ kind: style.burst.kind, leaf: style.burst.kind === 'berry' && i === 3 }), color));
   }
   // A soft colored halo under a seed, cached per color and size, in place of a per-frame shadow blur.
   function seedHalo(color, r, blur) {
@@ -14737,14 +15142,14 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
     ctx.restore();
   }
 
+  const styledGlow = (style, r, hot) => feelGlow(`styled|${style.id}|${hot ? 1 : 0}`, r * 4.4 * (hot ? 1.25 : 1), [[0, style.seed.light + 'cc'], [1, style.seed.light + '00']]);
   function drawStyledProjectile(ctx, ball, time, reducedMotion, fever, style, index) {
     const s = style.seed, r = ball.r || 5.5, hot = fever || ball.hot;
     const offset = projectileOffset(ball), x = ball.x + offset.x, y = ball.y + offset.y;
     ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     if (!reducedMotion && (ball.trail || []).length > 1 && !(feelQuality >= 1 && index >= 3)) drawKeepsakeTrail(ctx, ball, style, r, time, hot, x, y);
     if (!reducedMotion) {
-      const pulse = style.id === 'firefly' ? 1 + Math.sin(time * 8) * .22 : 1, gr = r * 4.4 * (hot ? 1.25 : 1);
-      const glow = feelGlow(`styled|${style.id}|${hot ? 1 : 0}`, gr, [[0, s.light + 'cc'], [1, s.light + '00']]);
+      const pulse = style.id === 'firefly' ? 1 + Math.sin(time * 8) * .22 : 1, gr = r * 4.4 * (hot ? 1.25 : 1), glow = styledGlow(style, r, hot);
       ctx.globalCompositeOperation = 'lighter';
       if (glow) drawGlowSprite(ctx, glow, x, y, pulse); else circle(ctx, x, y, gr * .55 * pulse, s.light + '44');
       ctx.globalCompositeOperation = 'source-over';
@@ -14753,6 +15158,12 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
     if (halo) drawGlowSprite(ctx, halo, x, y);
     else { ctx.shadowColor = s.base; ctx.shadowBlur = hot ? 19 : 12; }
     seedStretch(ctx, ball, x, y, reducedMotion);
+    if (s.shape) {
+      // A grown style's body is a cached sprite with its own light, so no shadow and no overlay circles.
+      ctx.shadowBlur = 0; drawGrownBody(ctx, style, x, y, r, time, reducedMotion);
+      if (hot && !reducedMotion) { ctx.globalAlpha = .85; sparkle(ctx, x, y, r * 1.95, '#ffffffaa', time); }
+      ctx.restore(); return;
+    }
     if (style.id === 'gilded') {
       // The gilded body is a cached metal sprite; in Node it falls back to the plain gradient.
       const key = `gilded|${r}`;
@@ -14868,6 +15279,7 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
       sparkle(ctx, particle.x, particle.y, size * 1.4, color, particle.rotation || 0); ctx.restore(); return;
     }
     if (particle.kind === 'flake') { goldFlake(ctx, particle.x, particle.y, size, color, particle.rotation || 0); ctx.restore(); return; }
+    if (particle.kind === 'splash' || particle.kind === 'berry' || particle.kind === 'maple') { drawGrownParticle(ctx, particle, size, color, f, reducedMotion); ctx.restore(); return; }
     if (particle.kind === 'blossom') {
       ctx.translate(particle.x, particle.y); ctx.rotate(particle.rotation || 0);
       ctx.scale(reducedMotion ? .8 : .45 + Math.abs(Math.cos((particle.rotation || 0) * .8)) * .55, 1);
@@ -15970,6 +16382,8 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
     const jobs = [], scratch = makeSurface(4, 4), sctx = scratch && scratch.getContext('2d', { willReadFrequently: true }), add = fn => jobs.push(fn);
     let next = 0;
     add(() => { for (const r of [7.4, 8.4]) restingSeedSprite(r, plan.keepsake && plan.keepsake.seed); });
+    // The worn style's glow and halo, plain and in Super Bloom, and a grown style's body, trail and bloom pieces.
+    if (plan.keepsake && plan.keepsake.seed) add(() => { for (const hot of [false, true]) { styledGlow(plan.keepsake, 5.5, hot); seedHalo(plan.keepsake.seed.base, 5.5, hot ? 19 : 12); } warmGrown(plan.keepsake); });
     // The HUD: the gold sky and its band, the sun fan at every count, the turning wheel, the badges.
     add(() => hudSprite('sky:gold', 420, 560, paintGoldSky, 1)); add(() => hudSprite('sky:band', 420, 240, paintGoldBand, 1));
     add(litPetalSprite);
@@ -21346,6 +21760,13 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
       phrase([12, 16, 19, 24].map(hz), 0.07, 0.55, 0.1);
       note(hz(28), 0.28, 0.5, 0.034, -0.3, 'chime', 2); note(hz(31), 0.34, 0.5, 0.03, 0.3, 'chime', 2);
     }
+    // A new best mid-run: two soft bells and a glint, quieter than a bloom and with no pad, so play carries on
+    // over it. The fanfare above still waits for the result.
+    else if (type === 'newBest' && allowed('newBest', 1)) {
+      note(hz(19), 0, 0.3, 0.036, -0.2, 'bell', 1, { space: 'high' });
+      note(hz(24), 0.09, 0.42, 0.04, 0.2, 'bell', 1, { space: 'high' });
+      note(hz(28), 0.17, 0.36, 0.02, 0, 'chime', 1);
+    }
     // Split is charged: a bright little rise.
     else if (type === 'splitReady' && allowed('splitReady', 0.5)) { note(hz(19), 0, 0.2, 0.05, 0, 'glass', 1); note(hz(26), 0.07, 0.32, 0.045, 0, 'glass', 1); }
     // Lullaby counting down its last seconds on a music box (E, D, C), then the flowers wake.
@@ -22374,7 +22795,10 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
   const graphics = () => GRAPHICS[save.settings.graphics] || GRAPHICS.maximum;
   const frameMeter = typeof window.BloomFeel?.createFrameMeter === 'function' ? BloomFeel.createFrameMeter({ capacity: 1800, target: 60 }) : null;
   let meterAt = 0;
-  const dialogs = ['result-dialog', 'settings-dialog', 'privacy-dialog', 'help-dialog', 'world-dialog'];
+  const dialogs = ['result-dialog', 'settings-dialog', 'privacy-dialog', 'help-dialog', 'world-dialog', 'pause-dialog'];
+  // Play holds while a card is open, while a phone is sideways, and while the count after a pause is still running.
+  let countLeft = 0, countShown = '';
+  const holding = () => narrowLandscape.matches || dialogs.some(id => $(id).open) || countLeft > 0;
   // Three filled stars, the unearned ones dimmed, so a row of stars always reads the same width.
   const starHTML = n => '<span>★</span>'.repeat(n) + '<span class="off">★</span>'.repeat(3 - n);
   const fmt = number => Math.round(number).toLocaleString();
@@ -22451,10 +22875,11 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
       if (amount > 0) try { saving = `${new Intl.NumberFormat(undefined, { style: 'currency', currency: bundle.currency }).format(amount)} less than buying all three`; } catch (_) { /* keep the plain wording */ }
     }
     const separately = parts.every(p => p.price) ? ` (${parts.map(p => p.price).join(' + ')})` : '';
-    return `<div class="bundle-offer"><span class="card-tag gold">Complete Garden</span><strong>Levels ${Depths.free + 1} to ${Depths.total}, Koi pools and seed styles</strong><p>${escape(saving + separately)}.</p><button class="button-secondary bundle-btn" type="button" data-buy="${BUNDLE}">Get everything${bundle.price ? ` · ${escape(bundle.price)}` : ''}</button></div>`;
+    return `<div class="bundle-offer"><span class="card-tag gold">Complete Garden</span><strong>Levels ${Depths.free + 1} to ${Depths.total}, Koi pools and Keepsake styles</strong><p>${escape(saving + separately)}.</p><button class="button-secondary bundle-btn" type="button" data-buy="${BUNDLE}">Get everything${bundle.price ? ` · ${escape(bundle.price)}` : ''}</button></div>`;
   }
-  // Keepsakes: Meadow is free, Moonlit is earned in the Moon Garden, the rest come with the collection.
-  const keepsakeContext = () => ({ moon: save.moon, moonLevels: BloomMoon.levels, owns: entitlement => Boolean(store && store.owns(entitlement)) });
+  // Keepsakes: Meadow is free, Moonlit is earned in the Moon Garden, three come with the collection and three are grown
+  // with earned seeds (the garden keeps which).
+  const keepsakeContext = () => ({ moon: save.moon, moonLevels: BloomMoon.levels, owns: entitlement => Boolean(store && store.owns(entitlement)), grown: save.garden.grown });
   const keepsakeOpen = id => Keepsakes.unlocked(id, keepsakeContext());
   const currentKeepsake = () => Keepsakes.resolve(save.keepsake, keepsakeContext());
   const collectionOwned = () => Boolean(store && store.owns(Keepsakes.entitlement));
@@ -22462,6 +22887,7 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
   function localDate() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
   function setRoute(next) {
     route = next; cancelInteraction();
+    if (next !== 'game' && countLeft > 0) { countLeft = 0; renderCount(); }
     for (const name of ['game', 'levels', 'garden', 'collection', 'worlds']) $(`${name}-view`).hidden = next !== name;
     for (const name of ['rush', 'garden', 'collection', 'worlds']) {
       const active = next === name || (name === 'rush' && (next === 'game' || next === 'levels'));
@@ -22477,7 +22903,7 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
   }
   function startLevel(level, options = {}) {
     closeDialogs();
-    game = level.tutorial ? new BloomRush.RushGame({ scripted: true }) : level.depth ? new BloomRush.RushGame({ plan: depthPlan(level.depth, level.taste), random: Math.random, startWave: level.from || 1 }) : level.id === 'rush' ? new BloomRush.RushGame({ random: Math.random }) : new Game(level); game.particles = []; game.floaters = []; if ($('checkpoint-btn')) $('checkpoint-btn').hidden = true;
+    game = level.tutorial ? new BloomRush.RushGame({ scripted: true }) : level.depth ? new BloomRush.RushGame({ plan: depthPlan(level.depth, level.taste), random: Math.random, startWave: level.from || 1 }) : level.id === 'rush' ? new BloomRush.RushGame({ random: Math.random }) : new Game(level); game.particles = []; game.floaters = []; if ($('checkpoint-btn')) $('checkpoint-btn').hidden = true; $('resume-count').hidden = true;
     tutorial = level.tutorial ? Tutorial.create() : null; tutorialKey = ''; document.body.dataset.tutorial = tutorial ? 'on' : '';
     if (tutorial) tutorial.begin(game);
     preview = Boolean(options.preview); theme = options.theme || (isChapter() ? game.level.worldId : 'meadow');
@@ -22487,7 +22913,9 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
     if (!isRush()) for (const key of ['wave', 'lives', 'elapsed', 'splitReady']) delete canvas.dataset[key];
     $('split-btn').hidden = !isRush();
     angle = -Math.PI / 2; pointer = null; aiming = false; guiding = false; resultAt = Infinity; resultShown = false; remembered = null; pressPoint = null;
-    displayScore = 0; hudKey = ''; newFlower = null; newKeepsake = null; accumulator = 0; rushRecordBroken = false; depthNews = null; game.shieldSeen = false; game.shellSeen = false; game.geodeSeen = false; game.foesSeen = new Set();
+    // The best to beat is read once at the start, so the end-of-run save never moves it mid-run.
+    game.bestBar = isRush() && !isTutorial() && !preview && !isTaste() ? record()?.best || 0 : 0; game.bestState = 0;
+    displayScore = 0; hudKey = ''; countLeft = 0; countShown = ''; newFlower = null; newKeepsake = null; accumulator = 0; rushRecordBroken = false; depthNews = null; game.shieldSeen = false; game.shellSeen = false; game.geodeSeen = false; game.foesSeen = new Set();
     runId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`; runAward = 0; runBouquet = null; runGoals = null; shotTrail = []; trailTotal = 0;
     if (!preview && typeof level.id === 'number') { save.lastLevel = level.id; persist(); }
     $('level-name').textContent = level.name;
@@ -22535,7 +22963,7 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
   function putClass(el, name, on) { if (el.classList.contains(name) !== Boolean(on)) el.classList.toggle(name, Boolean(on)); }
   function updateHud() {
     const rush = isRush();
-    const key = `${game.shotsLeft}|${game.bloomedCount}|${game.status}|${game.rotationUsed}|${game.wave}|${game.lives}|${game.bumpers.length}`;
+    const key = `${game.shotsLeft}|${game.bloomedCount}|${game.status}|${game.rotationUsed}|${game.wave}|${game.lives}|${game.bumpers.length}|${game.bestState > 0}`;
     if (key !== hudKey) {
       hudKey = key;
       const remaining = rush ? game.lives : game.shotsLeft;
@@ -22544,7 +22972,8 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
       $('seed-count').setAttribute('aria-label', `${remaining} ${units} remaining`);
       $('bloom-count').textContent = rush ? `${game.bloomedCount} ${game.bloomedCount === 1 ? 'bloom' : 'blooms'}` : `${game.bloomedCount} / ${game.buds.length} bloomed`;
       if (rush) $('level-label').textContent = isTutorial() ? 'Tutorial' : isDepth() ? `Level ${game.plan.id} · Wave ${game.wave}/${game.finalWave}` : `Wave ${game.wave} · ×${game.tempo.toFixed(1)}`;
-      $('best-value').textContent = preview ? 'Preview' : record()?.best ? fmt(record().best) : '—';
+      // Once the run passes the saved best, the caption under the score reads 'Best · beaten!' to the end of the run.
+      $('best-value').textContent = preview ? 'Preview' : game.bestState > 0 ? '· beaten!' : record()?.best ? fmt(record().best) : '—';
       canvas.dataset.status = game.status; canvas.dataset.blooms = game.bloomedCount; canvas.dataset.level = game.level.id; canvas.dataset.shots = game.shotsLeft;
       $('rotate-btn').disabled = game.status !== 'aiming' || game.rotationUsed || !game.bumpers.length;
       // A board with no petal (most Koi pools) has nothing to turn, so the button stays out of the way.
@@ -22552,6 +22981,8 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
       $('rotate-btn').textContent = game.rotationUsed ? 'Petal turned' : 'Turn petal';
     }
     put($('score-value'), 'textContent', fmt(displayScore));
+    putClass($('score-value'), 'record', game.bestState > 0);
+    put($('pause-btn'), 'hidden', !(rush && !isTutorial() && !preview && !game.over));
     putData(canvas, 'balls', game.balls.length);
     putData(canvas, 'world', isChapter() ? game.level.worldId : 'meadow');
     putData(canvas, 'gatePasses', game.gatePasses || 0);
@@ -22659,10 +23090,19 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
   }
   const lower = name => name.charAt(0).toLowerCase() + name.slice(1);
   const canSpend = data => data.plots.some(p => p.canPlant) || data.decor.some(d => d.canBuild);
-  // One plain next step for the seeds just earned: a patch to grow first, then something to build.
+  // Once the meadow is finished, the next thing seeds can do is grow a seed style in the Collection.
+  function styleGoal(data) {
+    const style = data.complete && data.styles.find(s => !s.grown);
+    return style ? { id: style.id, name: Keepsakes.byId[style.id].name, need: Math.max(0, style.cost - data.seeds) } : null;
+  }
+  // One plain next step for the seeds just earned: a patch to grow first, then something to build, then a seed style.
   function nextGoal() {
     const data = BloomGarden.summary(save.garden), open = data.plots.filter(p => p.stage < 3), unbuilt = data.decor.filter(d => !d.built);
-    if (data.complete) return 'Your meadow is complete!';
+    if (data.complete) {
+      const style = styleGoal(data);
+      if (!style) return 'Your meadow is complete!';
+      return style.need ? `${style.need} more ${style.need === 1 ? 'seed' : 'seeds'} to grow ${style.name} in your Collection.` : `Enough to grow ${style.name} in your Collection.`;
+    }
     const ready = [data.plots.find(p => p.selected), ...open].find(p => p && p.canPlant);
     if (ready) return `Enough to ${ready.stage ? 'grow' : 'plant'} ${ready.name} now.`;
     const piece = unbuilt.find(d => d.canBuild);
@@ -22750,7 +23190,7 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
     const freshCard = freshDepth && !freshShown && route === 'levels' ? $('depth-map').querySelector?.('.depth-card.fresh') : null;
     if (freshCard) { freshShown = true; freshCard.scrollIntoView({ behavior: 'auto', block: 'center' }); }
     $('levels-rush-best').textContent = save.rush.runs || save.rush.best > 0 ? `Best ${fmt(save.rush.best)} · wave ${save.rush.bestWave}` : 'Endless waves. How far can you go?';
-    renderPowerShelf();
+    renderPowerShelf(); renderGoals();
   }
   // Powerups: four above Split in the levels and Meadow Rush, and a shelf on the Levels page.
   // Each one is drawn once by the board art and reused as a picture.
@@ -22788,7 +23228,7 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
   // A shot powerup is only spent when the shot is fired; picking it again puts it back for free.
   function usePower(id) {
     const def = Powers.byId[id];
-    if (!def || !isRush() || preview || game.over) return;
+    if (!def || !isRush() || preview || game.over || countLeft > 0) return;
     BloomSound.wake();
     if (!gate(`power:${id}`)) { nudgeTutorial(); return; }
     if (def.shot && (game.armed === id || powerCount(id))) { if (game.arm(id)) { processEvents(); renderTray(); } return; }
@@ -22900,7 +23340,9 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
     $('plot-message').textContent = selected.description;
     $('plant-btn').disabled = !selected.canPlant;
     $('plant-btn').textContent = selected.stage === 3 ? 'In full bloom' : `${selected.stage ? 'Grow' : 'Plant'} · ${selected.nextCost} seeds`;
-    $('garden-earning-hint').textContent = selected.stage === 3 ? data.completedPlots === 6 ? 'Every patch is in full bloom.' : 'Pick another patch to grow.' : !selected.canPlant ? `${selected.nextCost - data.seeds} more ${selected.nextCost - data.seeds === 1 ? 'seed' : 'seeds'} needed. Play a level to earn them.` : 'Earn seeds in levels, puzzles and the daily garden.';
+    const waiting = styleGoal(data);
+    $('meadow-styles-btn').hidden = !waiting;
+    $('garden-earning-hint').textContent = waiting ? 'New seed styles wait in the Collection. Grow them with the seeds you earn.' : selected.stage === 3 ? data.completedPlots === 6 ? 'Every patch is in full bloom.' : 'Pick another patch to grow.' : !selected.canPlant ? `${selected.nextCost - data.seeds} more ${selected.nextCost - data.seeds === 1 ? 'seed' : 'seeds'} needed. Play a level to earn them.` : 'Earn seeds in levels, puzzles and the daily garden.';
     $('garden-btn').classList.toggle('has-seeds', canSpend(data));
     renderDecor(data); renderFriendSpots(data);
     meadowCanvas.dataset.seeds = data.seeds; meadowCanvas.dataset.stages = data.totalStages;
@@ -22942,6 +23384,11 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
     void bubble.offsetWidth; bubble.classList.add('pop');
     clearTimeout(bubbleTimer); bubbleTimer = setTimeout(() => { bubble.hidden = true; }, 1600);
     say(`${friend.name} says ${friend.says}`);
+    // Saying hi counts for the meadow goal, so a meadow with nothing left to grow or build can still finish it.
+    if (BloomGarden.summary(save.garden).decor.some(d => d.built && d.friend.id === id)) {
+      const goals = trackGoals({ type: 'greet' });
+      if (goals.paid) { persist(); toast(`${goalNews(goals)} +${goals.paid} seeds`); }
+    }
   }
   // Meadow friends in the Collection: met ones in color with a line about them, the rest as silhouettes.
   const friendIcons = new Map();
@@ -23013,6 +23460,7 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
       save.garden = grant.state; paid += grant.awarded;
     }
     if (paid) showSeeds();
+    renderGoals();
     return { paid, finished: result.done.map(slot => list[slot]), bonus: result.bonus, done: result.state.done.filter(Boolean).length };
   }
   const goalNews = goals => goals.bonus ? `All 3 goals done! +${BloomGarden.daily.goalBonus} bonus seeds.` : goals.finished.length > 1 ? `${goals.finished.length} goals done!` : `Goal done! ${goals.finished[0].text}.`;
@@ -23022,6 +23470,15 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
     $('goals-count').textContent = `${data.done}/3 done`;
     $('goals-list').innerHTML = data.goals.map(g => `<li><button class="goal${g.done ? ' done' : ''}" type="button" data-goal="${g.play}"${g.done ? ' aria-disabled="true"' : ''} aria-label="${escape(g.text)}. ${g.done ? 'Done.' : `${g.progress} of ${g.target}. Earns ${seeds} seeds.`}"><span class="goal-check" aria-hidden="true"></span><span class="goal-copy"><span class="goal-line"><span class="goal-text">${starry(g.text)}</span>${g.target > 1 && !g.done ? `<span class="goal-count">${g.progress}/${g.target}</span>` : ''}</span><span class="goal-bar" aria-hidden="true"><i style="width:${Math.round(g.progress / g.target * 100)}%"></i></span></span><span class="goal-reward" aria-hidden="true">${g.done ? 'Done!' : `<span class="purse-leaf"></span>+${seeds}`}</span></button></li>`).join('');
     $('goals-bonus').textContent = data.bonus ? 'All done! New goals tomorrow.' : `Finish all 3 for +${BloomGarden.daily.goalBonus} bonus seeds.`;
+    renderToday(data);
+  }
+  // The same three goals as a slim strip at the top of the Levels map, each a ring that fills and a tap that goes to it.
+  function renderToday(data) {
+    const bonus = BloomGarden.daily.goalBonus;
+    $('today-strip').setAttribute('aria-label', `Today's goals, ${data.done} of 3 done. ${data.bonus ? `All done, +${bonus} bonus seeds earned. New goals tomorrow.` : `Finish all 3 for +${bonus} bonus seeds.`}`);
+    $('today-goals').innerHTML = data.goals.map(g => `<li><button class="today-goal${g.done ? ' done' : ''}" type="button" data-goal="${g.play}" style="--p:${Math.round(g.progress / g.target * 100)}"${g.done ? ' aria-disabled="true"' : ''} aria-label="${escape(g.text)}. ${g.done ? 'Done.' : `${g.progress} of ${g.target}.`}"><span class="today-ring" aria-hidden="true"></span><span class="today-name" aria-hidden="true">${starry(g.short)}</span></button></li>`).join('');
+    $('today-bonus').classList.toggle('done', data.bonus);
+    $('today-bonus').innerHTML = `<span class="${data.bonus ? 'today-tick' : 'purse-leaf'}"></span>+${bonus}`;
   }
   function renderCollection() {
     $('collection-grid').innerHTML = flowers.map(flower => {
@@ -23041,7 +23498,8 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
       // A real seed mid-flight on a short arc, drawn by the same code as play.
       const trail = Array.from({ length: 16 }, (_, i) => { const u = i / 15; return { x: 6 + u * 34 + Math.sin(u * 3) * 3, y: 54 - u * 34 - Math.sin(u * Math.PI) * 6 }; });
       const ball = { x: 41, y: 20, r: 7.4, type: 'coral', trail };
-      BloomArt.drawProjectile(brush, ball, 0, .6, false, false, style.seed ? style : null);
+      // The maple seed's whirling wing is caught trailing behind it, the way a samara reads at a glance.
+      BloomArt.drawProjectile(brush, ball, 0, style.seed && style.seed.shape === 'samara' ? .18 : .6, false, false, style.seed ? style : null);
       keepsakeIcons.set(style.id, icon.toDataURL('image/png'));
     }
     return `<img class="keepsake-swatch" src="${keepsakeIcons.get(style.id)}" alt="" width="60" height="60">`;
@@ -23050,7 +23508,19 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
     if (worn) return 'Wearing';
     if (open) return 'Tap to wear';
     if (style.source === 'earned') return `Moon ${BloomMoon.levels.filter(level => save.moon[level.id]?.stars > 0).length}/${BloomMoon.levels.length}`;
+    if (style.source === 'grown') return `<span class="purse-leaf" aria-hidden="true"></span>${style.cost}`;
     return 'Collection';
+  }
+  // A grown style's line under the preview: what it costs in earned seeds, and the green Grow button while it waits.
+  function growAction(style) {
+    const need = style.cost - save.garden.seeds;
+    return { note: need > 0 ? `${need} more ${need === 1 ? 'seed' : 'seeds'} to grow it.` : 'Grown with seeds. Never sold.',
+      button: `<button class="button-primary grow-btn" type="button" data-grow="${style.id}"${need > 0 ? ' disabled' : ''}>Grow · ${style.cost} seeds</button>` };
+  }
+  function keepsakeCard(style, context, worn, shown) {
+    const open = Keepsakes.unlocked(style.id, context), wearing = style.id === worn.id;
+    const where = wearing ? 'wearing now' : open ? 'unlocked' : style.source === 'earned' ? 'earned by clearing the Moon Garden' : style.source === 'grown' ? `grow it with ${style.cost} earned seeds` : 'part of the Keepsake Collection';
+    return `<button class="keepsake-card${wearing ? ' worn' : ''}${open ? '' : ' locked'}${style.source === 'grown' ? ' grown' : ''}${!open && style.source === 'grown' && save.garden.seeds >= style.cost ? ' ready' : ''}" type="button" data-keepsake="${style.id}" aria-pressed="${style.id === shown.id}" aria-label="${escape(style.name)}, ${where}">${keepsakeGraphic(style)}<span class="keepsake-name">${escape(style.name)}</span><span class="keepsake-status">${keepsakeStatus(style, open, wearing)}</span></button>`;
   }
   function keepsakeOfferPanel() {
     if (collectionOwned()) return '';
@@ -23065,16 +23535,41 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
     if (!$('keepsake-grid')) return;
     const context = keepsakeContext(), worn = currentKeepsake();
     const shown = Keepsakes.byId[keepsakePreview] || worn;
-    $('keepsake-grid').innerHTML = Keepsakes.styles.map(style => {
-      const open = Keepsakes.unlocked(style.id, context), wearing = style.id === worn.id;
-      const where = wearing ? 'wearing now' : open ? 'unlocked' : style.source === 'earned' ? 'earned by clearing the Moon Garden' : 'part of the Keepsake Collection';
-      return `<button class="keepsake-card${wearing ? ' worn' : ''}${open ? '' : ' locked'}" type="button" data-keepsake="${style.id}" aria-pressed="${style.id === shown.id}" aria-label="${escape(style.name)}, ${where}">${keepsakeGraphic(style)}<span class="keepsake-name">${escape(style.name)}</span><span class="keepsake-status">${keepsakeStatus(style, open, wearing)}</span></button>`;
-    }).join('');
-    const open = Keepsakes.unlocked(shown.id, context);
-    const note = shown.id === worn.id ? 'On your seed now.' : open ? 'Yours to wear.' : shown.source === 'earned' ? `Earned, never sold. ${shown.requirement}` : 'Preview. Part of the Keepsake Collection.';
-    $('keepsake-caption').innerHTML = `<strong>${escape(shown.name)}</strong><p>${escape(shown.blurb)}</p><span class="keepsake-note">${escape(note)}</span>`;
+    // Rebuilding the rows drops keyboard and screen-reader focus, so note which style held it to put it back.
+    const active = document.activeElement, held = active && active.dataset ? active.dataset.grow || active.dataset.keepsake : null, onGrow = Boolean(held && active.dataset.grow);
+    $('keepsake-grid').innerHTML = Keepsakes.styles.filter(style => style.source !== 'grown').map(style => keepsakeCard(style, context, worn, shown)).join('');
+    // The grown styles sit in their own row, priced in earned seeds, apart from the paid Keepsake Collection.
+    const grown = Keepsakes.styles.filter(style => style.source === 'grown'), have = grown.filter(style => Keepsakes.unlocked(style.id, context)).length;
+    $('keepsake-grow').innerHTML = `<div class="grow-head"><h3>Grow with seeds</h3><span class="card-meta">${have}/${grown.length} grown</span></div>`
+      + `<p class="grow-sub">Spend seeds you earn in play. Never sold.</p><div class="keepsake-grid grow-grid" role="group" aria-label="Seed styles to grow with seeds">${grown.map(style => keepsakeCard(style, context, worn, shown)).join('')}</div>`;
+    const open = Keepsakes.unlocked(shown.id, context), grow = !open && shown.source === 'grown' ? growAction(shown) : null;
+    const note = shown.id === worn.id ? 'On your seed now.' : open ? 'Yours to wear.' : shown.source === 'earned' ? `Earned, never sold. ${shown.requirement}` : grow ? grow.note : 'Preview. Part of the Keepsake Collection.';
+    $('keepsake-caption').innerHTML = `<strong>${escape(shown.name)}</strong><p>${escape(shown.blurb)}</p><div class="keepsake-action">${grow ? grow.button : ''}<span class="keepsake-note">${escape(note)}</span></div>`;
     $('keepsake-offer').innerHTML = keepsakeOfferPanel();
     $('keepsake-canvas').setAttribute('aria-label', `Preview of the ${shown.name} seed style: a seed flies to a bud and blooms.`);
+    // Back on the same card, or on the Grow button while it is still there; once grown, the style's card.
+    if (held && Keepsakes.byId[held]) {
+      const back = $('keepsake-shelf').querySelector(onGrow && !Keepsakes.unlocked(held, context) ? `[data-grow="${held}"]` : `[data-keepsake="${held}"]`);
+      if (back && typeof back.focus === 'function') back.focus({ preventScroll: true });
+    }
+  }
+  // Grows a seed style with earned seeds, once, and puts it on the seed straight away. It counts as growing something
+  // for today's meadow goal.
+  function growKeepsake(id) {
+    const style = Keepsakes.byId[id]; if (!style || style.source !== 'grown') return;
+    BloomSound.wake();
+    const grown = BloomGarden.grow(save.garden, id);
+    if (!grown.success) {
+      BloomSound.play('tap');
+      if (grown.reason === 'insufficient-seeds') { const need = grown.cost - save.garden.seeds; toast(`${need} more ${need === 1 ? 'seed' : 'seeds'} to grow ${style.name}.`); }
+      return;
+    }
+    save.garden = grown.state; save.keepsake = id; keepsakePreview = id;
+    const goals = trackGoals({ type: 'meadow' }); persist(); showSeeds();
+    showcase.t = 0; showcase.dirty = true; renderKeepsakes();
+    BloomSound.play('plant', { x: 210 }); haptic('surge');
+    toast(goals.paid ? `${style.name} grown! Goal done, +${goals.paid} seeds.` : `${style.name} grown! It's on your seed now.`);
+    say(`${style.name} grown and on your seed. ${save.garden.seeds} seeds left.`);
   }
   function chooseKeepsake(id) {
     const style = Keepsakes.byId[id]; if (!style) return;
@@ -23083,13 +23578,20 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
       save.keepsake = id; persist(); BloomSound.play('tap');
       toast(`Wearing ${style.name}!`);
     }
-    renderKeepsakes();
+    renderKeepsakes(); revealPreview();
+  }
+  // The preview and its caption (with a grown style's Grow button) sit above both rows of styles. A pick made with them
+  // scrolled out of sight above brings them back, so the pick always shows; one below the fold is scrolled up to.
+  function revealPreview() {
+    const box = $('collection-view').getBoundingClientRect(), caption = $('keepsake-caption').getBoundingClientRect(), behavior = save.settings.motion ? 'smooth' : 'auto';
+    if (caption.top < box.top) $('keepsake-stage').scrollIntoView({ behavior, block: 'start' });
+    else if (caption.bottom > box.bottom) $('keepsake-caption').scrollIntoView({ behavior, block: 'end' });
   }
   // The shelf's moving preview: a seed arcs to a bud, blooms, and the loop repeats.
   const showcase = { t: 0, last: 0, particles: [], trail: [], bloomed: 0, style: '', dirty: true };
   // The scene is drawn 1.5x closer than the board so each style's trail and burst read clearly.
   const SHOW = { zoom: 1.5, loop: 3, launch: .3, flight: 1, from: { x: 46, y: 106 }, peak: { x: 112, y: 0 }, bud: { x: 214, y: 54, r: 17 } };
-  const SHOW_BUD = { sakura: 'lilac', firefly: 'lilac', gilded: 'lilac' };
+  const SHOW_BUD = { sakura: 'lilac', firefly: 'lilac', gilded: 'lilac', dewdrop: 'poppy', bramble: 'gold', maple: 'sky' };
   function showcasePoint(u) {
     const a = SHOW.from, c = SHOW.peak, b = SHOW.bud, v = 1 - u;
     return { x: v * v * a.x + 2 * v * u * c.x + u * u * b.x, y: v * v * a.y + 2 * v * u * c.y + u * u * b.y };
@@ -23219,7 +23721,7 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
   const PURCHASES = {
     [BloomKoi.product]: { thanks: 'Koi Conservatory unlocked! Six new pools.' },
     [Keepsakes.product]: { thanks: 'Keepsake Collection unlocked! Three new styles.' },
-    [BUNDLE]: { thanks: () => `Complete Garden unlocked! Levels ${Depths.free + 1} to ${Depths.total}, Koi pools and seed styles are yours.` },
+    [BUNDLE]: { thanks: () => `Complete Garden unlocked! Levels ${Depths.free + 1} to ${Depths.total}, Koi pools and Keepsake styles are yours.` },
     [Depths.product]: { thanks: () => `Levels ${Depths.free + 1} to ${Depths.total} unlocked! ${depthOpen(Depths.free + 1) ? `${Depths.level(Depths.free + 1).name} is open.` : `Clear level ${Depths.free} to head down.`}` }
   };
   async function buyProduct(button) {
@@ -23264,7 +23766,7 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
       if (staged() && !game.stage) { intro(); bossIntro(null); }
     }
     if (!game.stage) return;
-    const held = narrowLandscape.matches || dialogs.some(id => $(id).open);
+    const held = holding();
     if (!held && game.harvest && game.harvest.length) stepHarvest(dt);
     if (game.stage.glow > 0) game.stage.glow = Math.max(0, game.stage.glow - dt * 2.6);
     // Each tumbling bud lands with a soft plop, at most eight a wave and never closer than 40 ms.
@@ -23530,6 +24032,23 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
     game.floaters.push(item);
     return true;
   }
+  // New best: the moment a Rush run or a level replay passes the saved best, the score turns gold for the rest of the
+  // run. A small "New best!" ribbon and a soft chime follow once nothing bigger shows (a title, a wave ribbon, a
+  // guardian dropping in and its name card, the finale), and the ribbon steps aside if one arrives. A first run has
+  // no best to beat.
+  function bestWatch() {
+    if (!game.bestBar) return;
+    if (!game.bestState && game.score > game.bestBar) game.bestState = 1;
+    const other = game.floaters.some(f => f.kind === 'title' && !f.best && f.life > 0);
+    if (other && game.floaters.some(f => f.best)) game.floaters = game.floaters.filter(f => !f.best);
+    if (game.bestState !== 1) return;
+    if (game.over) { game.bestState = 2; return; } // the result card tells it from here
+    // A guardian still dropping in has no card up yet, but its landing will clear the top edge for its own name.
+    if (other || (stage.land && stage.game === game) || finaleHeld() || (feel && feel.out.busy)) return;
+    game.bestState = 2;
+    game.floaters.push({ kind: 'title', size: 'small', best: true, x: 210, y: 32, life: 1.8, maxLife: 1.8, text: 'New best!' });
+    BloomSound.play('newBest', {}); say('New best score!');
+  }
   // A score pop waits a quarter second above the flower, so the crack and unfurl read first. A seed's chain (or
   // blooms right next to each other) add up in one pop instead of a stack.
   function scorePop(event, golden) {
@@ -23790,7 +24309,7 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
   // Called every frame with real time: the camera, the governor, the finale watch, the sweep's notes and the result wait.
   function feelStep(dt) {
     if (!game) return;
-    const paused = narrowLandscape.matches || dialogs.some(id => $(id).open);
+    const paused = holding();
     if (feelGame !== game) { feelGame = game; redFlash = 0; mintFlash = 0; aimTarget = null; if (feel) feel.reset(); }
     redFlash = Math.max(0, redFlash - dt / .35); mintFlash = Math.max(0, mintFlash - dt / .25);
     danger.redFlash = redFlash; danger.mintFlash = mintFlash; danger.lastLife = isRush() && game.lives === 1 && !game.over;
@@ -24636,7 +25155,7 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
     const onGame = route === 'game' && Boolean(game);
     if (onGame) watchCues(); else cueWatch = null;
     const groove = !onGame ? 'home' : isTutorial() ? 'meadow' : isDepth() ? Depths.level(game.plan.id)?.key || 'home' : 'home';
-    const paused = narrowLandscape.matches || dialogs.some(id => $(id).open), result = $('result-dialog').open;
+    const paused = holding(), result = $('result-dialog').open;
     const over = onGame && Boolean(game.over ?? (game.status === 'won' || game.status === 'lost'));
     const key = `${route}|${groove}|${paused}|${result}|${over}|${document.hidden}`;
     if (!force && key === musicKey && timestamp - musicAt < 100) return;
@@ -24709,6 +25228,9 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
     $('garden-reward').hidden = preview || runAward <= 0;
     $('reward-seeds').textContent = `+${runAward} ${runAward === 1 ? 'seed' : 'seeds'}`;
     $('reward-goal').textContent = nextGoal();
+    const toStyles = Boolean(styleGoal(BloomGarden.summary(save.garden)));
+    $('grow-garden-btn').dataset.to = toStyles ? 'collection' : 'garden';
+    $('grow-garden-btn').innerHTML = `${toStyles ? 'Collection' : 'Garden'} <span aria-hidden="true">›</span>`;
     const news = !preview && runGoals && (runGoals.finished.length || runGoals.bonus);
     $('result-goals').hidden = !news;
     if (news) $('result-goals').innerHTML = `<span class="goal-check" aria-hidden="true"></span><span>${starry(goalNews(runGoals))}</span>${runGoals.done < 3 ? `<span class="goal-today">${runGoals.done}/3 today</span>` : ''}`;
@@ -24918,7 +25440,7 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
       if (performance.now() / 1000 - (game.feel.wonReal || 0) < SKIP_GRACE) return;
       game.feel.sweeping = false; game.feel.waiting = false; if (feel) feel.reset(); resultAt = game.time; return;
     }
-    if (route !== 'game' || activePointer !== null || !event.isPrimary || !['aiming', 'flying'].includes(game.status) || narrowLandscape.matches) return;
+    if (route !== 'game' || activePointer !== null || !event.isPrimary || !['aiming', 'flying'].includes(game.status) || narrowLandscape.matches || countLeft > 0) return;
     if (curtainUp()) return;
     if (isChapter() && game.status === 'flying') return;
     if (isTutorial() && !tutorial.allows('fire') && !tutorial.allows('rotate')) { nudgeTutorial(); return; }
@@ -24959,7 +25481,7 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
   canvas.addEventListener('pointercancel', event => { if (event.pointerId === activePointer) cancelInteraction(); });
   canvas.addEventListener('lostpointercapture', event => { if (event.pointerId === activePointer) cancelInteraction(); });
   canvas.addEventListener('keydown', event => {
-    if (route !== 'game' || narrowLandscape.matches || dialogs.some(id => $(id).open)) return;
+    if (route !== 'game' || holding()) return;
     if (!isRush() && !isChapter() && game.status === 'flying' && event.key.startsWith('Arrow')) {
       event.preventDefault();
       const target = game.guideTarget || { x: 210, y: 230 };
@@ -24983,8 +25505,8 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
   window.addEventListener('blur', cancelInteraction);
   const rotateButton = document.createElement('button'); rotateButton.id = 'rotate-btn'; rotateButton.type = 'button'; rotateButton.className = 'turn-petal-btn'; rotateButton.textContent = 'Turn petal';
   $('restart-btn').parentElement.insertBefore(rotateButton, $('restart-btn'));
-  rotateButton.addEventListener('click', () => { if (!gate('rotate')) nudgeTutorial(); else if (game.bumpers[0]) rotateNearest(game.bumpers[0]); });
-  function openRush() { if (preview) exitPreview(); if (isRush() && !isDepth() && !game.over) { closeDialogs(); setRoute('game'); } else startLevel({ id: 'rush', name: 'Meadow Rush' }); }
+  rotateButton.addEventListener('click', () => { if (countLeft > 0) return; if (!gate('rotate')) nudgeTutorial(); else if (game.bumpers[0]) rotateNearest(game.bumpers[0]); });
+  function openRush() { if (preview) exitPreview(); if (isRush() && !isDepth() && !game.over) { closeDialogs(); resumeBoard(); } else startLevel({ id: 'rush', name: 'Meadow Rush' }); }
   function openLevels() { if (preview) exitPreview(); closeDialogs(); setRoute('levels'); }
   function showUnlock() { const card = $('depth-unlock'); if (card) card.scrollIntoView({ behavior: save.settings.motion ? 'smooth' : 'auto', block: 'center' }); }
   function startDepth(id, taste, from) { if (id === freshDepth) freshDepth = 0; if (preview) exitPreview(); startLevel({ id: 'rush', depth: id, name: Depths.level(id).name, taste: Boolean(taste), from: taste ? 1 : from || (reviewBosses ? 10 : 1) }, { theme: depthTheme(id) }); }
@@ -25001,15 +25523,61 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
     if (label) label.textContent = on ? 'Tap again' : 'Restart';
     button.setAttribute('aria-label', on ? 'Tap again to restart' : 'Restart this game');
   }
+  const runProgress = () => isRush() && !isTutorial() && !preview && !game.over && (game.score > 0 || game.wave > (game.startWave || 1));
   function restartTap() {
-    const progress = isRush() && !isTutorial() && !preview && !game.over && (game.score > 0 || game.wave > (game.startWave || 1));
-    if (progress && restartArmed === null) { armRestart(true); haptic('tap'); say('Tap Restart again to start over.'); return; }
+    if (runProgress() && restartArmed === null) { armRestart(true); haptic('tap'); say('Tap Restart again to start over.'); return; }
+    restartNow();
+  }
+  function restartNow() {
     if (restartArmed !== null) armRestart(false);
-    if (progress && !isDepth() && (game.score > save.rush.best || game.wave > save.rush.bestWave)) {
+    if (runProgress() && !isDepth() && (game.score > save.rush.best || game.wave > save.rush.bestWave)) {
       save.rush.best = Math.max(save.rush.best, game.score); save.rush.bestWave = Math.max(save.rush.bestWave, game.wave); persist();
     }
     replay();
   }
+  // Pause: the round button in the header, or on its own when the phone hides the game. Only a run still being played
+  // pauses: never the tutorial, a preview, a won or lost board, or over a result card. Resume counts 3, 2, 1 over the
+  // dimmed board (a short 'Ready…' with Animations off) before anything moves; Restart on the card needs no second tap.
+  const COUNT = { step: .6, numbers: 3, still: 1.2 };
+  const countSpan = () => save.settings.motion ? COUNT.step * COUNT.numbers : COUNT.still;
+  const pausable = () => route === 'game' && isRush() && !isTutorial() && !preview && !game.over && !resultShown && !$('result-dialog').open;
+  const boardLine = () => isDepth() ? `Level ${game.plan.id} · wave ${game.wave} of ${game.finalWave}` : `Meadow Rush · wave ${game.wave} · ${fmt(game.score)} points`;
+  function pauseGame(auto = false) {
+    // Coming back from another app with nothing yet moving (no seed fired) needs no card.
+    if (!pausable() || (auto && !game.started)) return false;
+    countLeft = 0; renderCount(); cancelInteraction();
+    // Settings or How to play give way to the Paused card; their changes are already saved.
+    for (const id of dialogs) if (id !== 'pause-dialog' && id !== 'result-dialog') closeDialog(id);
+    $('pause-where').textContent = boardLine();
+    if (!$('pause-dialog').open) { showDialog('pause-dialog'); if (!auto) { BloomSound.wake(); BloomSound.play('tap'); } }
+    say(`Paused. ${boardLine()}.`);
+    return true;
+  }
+  function startCount() {
+    if (route !== 'game' || !inProgress() || isTutorial()) return;
+    countLeft = countSpan(); countShown = ''; renderCount(); cancelInteraction();
+    say(save.settings.motion ? 'Get ready. 3, 2, 1.' : 'Get ready.');
+  }
+  function renderCount() {
+    const box = $('resume-count'), on = countLeft > 0 && route === 'game';
+    put(box, 'hidden', !on);
+    if (!on) { countShown = ''; return; }
+    const text = save.settings.motion ? String(Math.min(COUNT.numbers, Math.ceil(countLeft / COUNT.step - 1e-9))) : 'Ready…';
+    if (text === countShown) return;
+    countShown = text; put($('resume-number'), 'textContent', text); putData(box, 'mode', save.settings.motion ? 'count' : 'ready');
+    // Each number pops in on its own (two names, so the same animation plays again), with a soft tick.
+    if (save.settings.motion) { putData(box, 'tick', box.dataset.tick === 'a' ? 'b' : 'a'); BloomSound.play('tap'); }
+  }
+  // Picking a run up from the map counts in too, so a waiting board never starts the instant it shows.
+  function resumeBoard() { setRoute('game'); startCount(); }
+  $('pause-btn').addEventListener('click', () => pauseGame(false));
+  $('pause-resume').addEventListener('click', () => { BloomSound.wake(); closeDialog('pause-dialog'); startCount(); });
+  $('pause-restart').addEventListener('click', () => { BloomSound.wake(); closeDialog('pause-dialog'); restartNow(); });
+  $('pause-levels').addEventListener('click', () => { BloomSound.wake(); closeDialog('pause-dialog'); leaveBoard(); });
+  $('pause-settings').addEventListener('click', () => { updateSettings(); showDialog('settings-dialog'); });
+  // Escape or a tap outside the card also resumes, through the same count. The close event arrives a moment late, so a
+  // card that has opened again by then (the phone hid once more) stays a plain pause.
+  $('pause-dialog').addEventListener('close', () => { if (countLeft <= 0 && !$('pause-dialog').open) startCount(); });
   // The tutorial plays on the Sunny Meadow board. Finishing it (or skipping) marks it seen; the first time through
   // it leads straight into level 1, and it can be played again from How to play.
   function startTutorial() { if (preview) exitPreview(); startLevel({ id: 'rush', name: 'How to play', tutorial: true }, { theme: depthTheme(1) }); }
@@ -25077,29 +25645,38 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
   }
   $('rush-btn').addEventListener('click', openLevels);
   $('levels-rush-btn').addEventListener('click', openRush);
-  $('resume-btn').addEventListener('click', () => { if (inProgress()) setRoute('game'); else renderLevels(); });
+  $('resume-btn').addEventListener('click', () => { if (inProgress()) resumeBoard(); else renderLevels(); });
   $('depth-map').addEventListener('click', event => {
     const buy = event.target.closest('[data-buy]'); if (buy) { buyProduct(buy); return; }
     const card = event.target.closest('[data-depth]'); if (!card) return;
     const id = Number(card.dataset.depth), level = Depths.level(id); if (!level) return;
     BloomSound.wake();
-    if (!depthPaid(id) && id === TASTE.level && tasteOpen()) { if (inProgress() && isTaste()) setRoute('game'); else startDepth(id, true); return; }
+    if (!depthPaid(id) && id === TASTE.level && tasteOpen()) { if (inProgress() && isTaste()) resumeBoard(); else startDepth(id, true); return; }
     // A deeper level scrolls to the unlock card, which says the rest (a toast would sit on top of it).
     if (!depthPaid(id)) { BloomSound.play('tap'); if (id === TASTE.level) toast(`Clear level ${id - 1} to try ${level.name} free.`); else say(`${level.name} is part of levels ${Depths.free + 1} to ${Depths.total}.`); showUnlock(); return; }
     if (!depthOpen(id)) { BloomSound.play('tap'); toast(`Clear level ${id - 1} to open ${level.name}.`); return; }
     // Tapping the level already being played picks it up where it was.
-    if (inProgress() && isDepth() && game.plan.id === id) setRoute('game'); else startDepth(id);
+    if (inProgress() && isDepth() && game.plan.id === id) resumeBoard(); else startDepth(id);
   });
   $('garden-rush-btn').addEventListener('click', openRush);
   for (const group of Object.keys(TRAY)) $(group).addEventListener('click', event => { const chip = event.target.closest('[data-power]'); if (chip) usePower(chip.dataset.power); });
   $('power-shelf').addEventListener('click', event => { const button = event.target.closest('[data-buy]'); if (button) buyPower(button); });
-  $('split-btn').addEventListener('click', () => { BloomSound.wake(); if (!gate('split')) nudgeTutorial(); else if (game.split()) processEvents(); });
+  $('split-btn').addEventListener('click', () => { if (countLeft > 0) return; BloomSound.wake(); if (!gate('split')) nudgeTutorial(); else if (game.split()) processEvents(); });
   $('restart-btn').addEventListener('click', restartTap);
   // A Moon trial or Koi pool goes back to its own list of trials; everything else to the levels or the meadow.
   function leaveBoard() { if (isChapter()) { const world = game.level.worldId; setRoute('worlds'); openWorld(world); } else setRoute(isRush() ? 'levels' : 'garden'); }
   $('back-btn').addEventListener('click', () => { if (preview) exitPreview(); else leaveBoard(); });
   $('garden-btn').addEventListener('click', () => { if (preview) exitPreview(); setRoute('garden'); });
-  $('grow-garden-btn').addEventListener('click', () => { closeDialogs(); setRoute('garden'); });
+  // From a finished meadow or a seed reward, the Collection opens on the seed style the copy just named, flying in the
+  // preview with its Grow button in view, so the next tap grows it.
+  function showSeedStyles() {
+    setRoute('collection');
+    const next = styleGoal(BloomGarden.summary(save.garden));
+    if (next) { keepsakePreview = next.id; showcase.t = 0; showcase.dirty = true; renderKeepsakes(); }
+    revealPreview();
+  }
+  $('grow-garden-btn').addEventListener('click', () => { closeDialogs(); if ($('grow-garden-btn').dataset.to === 'collection') showSeedStyles(); else setRoute('garden'); });
+  $('meadow-styles-btn').addEventListener('click', showSeedStyles);
   $('plot-markers').addEventListener('click', event => {
     const button = event.target.closest('[data-plot]'); if (!button) return;
     save.garden = BloomGarden.select(save.garden, button.dataset.plot); persist(); renderMeadow();
@@ -25146,19 +25723,30 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
     const map = meadowCanvas.getBoundingClientRect();
     if (map.top < 0 || map.bottom > window.innerHeight) meadowCanvas.scrollIntoView({ behavior: save.settings.motion ? 'smooth' : 'auto', block: 'center' });
   });
-  $('goals-list').addEventListener('click', event => {
+  // A goal goes where it is played, from the goal list in the meadow and from the Today strip on the Levels map.
+  function goGoal(event) {
     const button = event.target.closest('[data-goal]'); if (!button || button.getAttribute('aria-disabled') === 'true') return;
     BloomSound.wake(); BloomSound.play('tap');
-    const play = button.dataset.goal;
-    if (play === 'rush') openLevels();
+    const play = button.dataset.goal, scroll = { behavior: save.settings.motion ? 'smooth' : 'auto', block: 'center' };
+    if (play === 'rush' && route === 'levels') {
+      // Already on the map: bring up the level to play next, or Meadow Rush once every level is cleared.
+      const next = $('depth-map').querySelector?.('.depth-card.next') || $('levels-rush-btn');
+      next.scrollIntoView(scroll); next.focus?.({ preventScroll: true });
+    } else if (play === 'rush') openLevels();
     else if (play === 'daily') startLevel(BloomLevels.dailyLevel(localDate()));
     else if (play === 'puzzles') openWorld('meadow');
     else if (play === 'moon' || play === 'koi') openWorld(play);
-    else if (play === 'meadow') meadowCanvas.scrollIntoView({ behavior: save.settings.motion ? 'smooth' : 'auto', block: 'center' });
-  });
+    else if (play === 'meadow') {
+      if (route !== 'garden') { if (preview) exitPreview(); closeDialogs(); setRoute('garden'); }
+      meadowCanvas.scrollIntoView(scroll);
+    }
+  }
+  $('goals-list').addEventListener('click', goGoal);
+  $('today-goals').addEventListener('click', goGoal);
   $('collection-btn').addEventListener('click', () => { if (preview) exitPreview(); setRoute('collection'); });
   $('keepsake-shelf').addEventListener('click', event => {
     const buy = event.target.closest('[data-buy]'); if (buy) { buyProduct(buy); return; }
+    const grow = event.target.closest('[data-grow]'); if (grow) { growKeepsake(grow.dataset.grow); return; }
     const card = event.target.closest('[data-keepsake]'); if (card) chooseKeepsake(card.dataset.keepsake);
   });
   $('worlds-btn').addEventListener('click', () => { if (preview) exitPreview(); else setRoute('worlds'); });
@@ -25321,7 +25909,13 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
   // Safari can emit several resize events while its toolbar moves. Size once at the next paint; route changes
   // still resize immediately, before the first frame of their new scene.
   window.addEventListener('resize', () => { resizePending = true; });
-  document.addEventListener('visibilitychange', () => { lastFrame = 0; accumulator = 0; if (frameMeter) frameMeter.sample(0, 0, false); cancelInteraction(); musicFrame(performance.now(), true); });
+  // A call, the home button or a locked phone hides the game: the Paused card is waiting when it comes back, so no
+  // flower moves before the player is ready. Losing focus alone (a notification pulled down) never pauses.
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) pauseGame(true);
+    lastFrame = 0; accumulator = 0; if (frameMeter) frameMeter.sample(0, 0, false); cancelInteraction(); musicFrame(performance.now(), true);
+  });
+  window.addEventListener('pagehide', () => pauseGame(true));
   function frame(timestamp) {
     requestAnimationFrame(frame);
     const workFrom = performance.now();
@@ -25337,8 +25931,10 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
     }
     const dt = Math.min(lastFrame ? (timestamp - lastFrame) / 1000 : 0, .06); lastFrame = timestamp;
     game.quality = Math.max(graphics().effects, governor ? governor.tier : 0);
+    // The count after a pause runs only while nothing else holds the board (a card on top, a sideways phone).
+    if (countLeft > 0 && !narrowLandscape.matches && !dialogs.some(id => $(id).open)) { countLeft = Math.max(0, countLeft - dt); renderCount(); }
     feelStep(dt);
-    const paused = narrowLandscape.matches || dialogs.some(id => $(id).open);
+    const paused = holding();
     // In the tutorial the whole board (seeds, flowers, petals and sparkles) runs at the speed its card sets.
     if (!paused && isTutorial()) tutorial.tick(game, dt);
     const gdt = (isTutorial() ? dt * tutorial.scale : dt) * (feel && !isTutorial() ? feel.out.scale : 1);
@@ -25346,7 +25942,7 @@ body[data-mode="rush"][data-ribbon="on"] .fever-banner{display:none}
     else if (!paused) {
       accumulator += gdt;
       while (accumulator >= 1 / 120) { game.step(1 / 120); accumulator -= 1 / 120; }
-      processEvents();
+      processEvents(); bestWatch();
       for (const ball of game.balls || []) ball.hot = !isRush() && (game.combo || 0) >= 8;
       game.particles = stepParticles(game.particles, gdt, 24, 396, 530);
       // Words age in real time in the tutorial, so a 'Lovely!' does not hang for 13 s while a card waits at 8% speed.
