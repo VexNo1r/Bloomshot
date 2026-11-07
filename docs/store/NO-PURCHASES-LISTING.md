@@ -36,7 +36,7 @@ Free to download. No ads or subscriptions. Gameplay works offline and needs no p
 
 The app has no player login, ads or active purchases. It opens the tutorial for a fresh player and then the campaign map. Levels 1–4, endless Rush, Garden, Moon and Koi pools 1–2 are free. Clearing level 4 allows a three-wave level-5 taste. Further paid content remains unavailable in this build; no purchase or Restore action is offered while the native store is inactive. Review/all-level shortcuts and simulated ownership are disabled in native apps.
 
-Gameplay is bundled locally. Test a completed level/meadow/settings save, close/reopen, interruptions, audio and offline launch on the installed app. Website and native saves are separate; an unfinished run restarts after reload. No device or purchase evidence is implied by these notes.
+Gameplay is bundled locally. Test a completed level/meadow/settings save, close/reopen, interruptions, audio and offline launch on the installed app. Website and native saves are separate; after a reload an unfinished level run is offered on the map to resume from the start of the wave it was on, and an unfinished Rush run restarts. No device or purchase evidence is implied by these notes.
 
 ## Before submitting
 

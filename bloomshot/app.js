@@ -36,6 +36,13 @@
         const losses = raw.bossLosses?.[level.id];
         if (Number.isSafeInteger(losses) && losses >= 0) valid.bossLosses[level.id] = losses;
       }
+      // A level run the phone closed (save.run, kept by keepRun below). Every field is checked, or the whole run is dropped.
+      const run = raw.run;
+      if (run && typeof run === 'object' && !Array.isArray(run) && Number.isInteger(run.level) && Depths.level(run.level)
+        && Number.isInteger(run.wave) && run.wave >= 1 && run.wave <= Depths.waveCount && Number.isInteger(run.lives) && run.lives >= 1 && run.lives <= 3
+        && Number.isFinite(run.score) && run.score >= 0 && Number.isInteger(run.from) && run.from >= 1 && run.from <= run.wave
+        && Number.isSafeInteger(run.blooms) && run.blooms >= 0 && Number.isSafeInteger(run.chain) && run.chain >= 0 && typeof run.gift === 'boolean')
+        valid.run = { level: run.level, wave: run.wave, lives: run.lives, score: Math.floor(run.score), from: run.from, blooms: run.blooms, chain: run.chain, gift: run.gift };
       // Powerups are counted, never reset; a save from before them starts with one of each.
       valid.powers = Powers.normalize(raw.powers); valid.powerReceipts = Powers.receipts(raw.powerReceipts); valid.powersMet = raw.powersMet === true;
       valid.podMet = raw.podMet === true;
@@ -224,6 +231,31 @@
   const tasteOpen = () => !depthsOwned() && Boolean(Depths.level(TASTE.level)) && (save.depths[TASTE.level - 1]?.stars || 0) > 0;
   const isTaste = () => isDepth() && Boolean(game.plan.taste);
   function depthPlan(id, taste) { const level = Depths.level(id); return { id, name: level.name, waves: taste ? TASTE.waves : Depths.waveCount, wave: n => Depths.wave(id, n), taste: Boolean(taste) }; }
+  // A phone can close the app while it is hidden, so a level run under way keeps a checkpoint in the save (save.run):
+  // the wave being played, the lives left, the wave the run began at (from, for its stars), and the score, blooms and
+  // best chain it had when this wave began, so replaying the wave never counts twice. It is written at each wave start,
+  // on each lost life, when a gift shows and when the page hides; a finished run, Restart or any other run clears it.
+  // The free taste, the tutorial and the all-levels preview never keep one.
+  const keepsRun = () => isDepth() && !isTaste() && !preview && !reviewAll && game.started && !game.over;
+  function keepRun() {
+    if (!keepsRun()) return false;
+    const from = game.waveFrom || { score: 0, blooms: 0, chain: 0 };
+    save.run = { level: game.plan.id, wave: game.wave, lives: game.lives, score: from.score, from: game.startWave || 1, blooms: from.blooms, chain: from.chain,
+      gift: game.bossWave ? Boolean(game.bossLastLifeGift) : game.giftWave === game.wave };
+    return persist();
+  }
+  function dropRun(write = true) { if (!save.run || reviewAll) return; delete save.run; if (write) persist(); }
+  // The map offers the kept run only while its level is still open and owned; otherwise it is dropped. While the store
+  // is still answering at startup, a paid level's run waits for that answer (the map is drawn again when it comes).
+  function keptRun() {
+    const run = save.run;
+    if (!run || reviewAll) return null;
+    if (depthOpen(run.level) && depthPaid(run.level)) return run;
+    if (!depthPaid(run.level) && store && store.ready === false) return null;
+    dropRun(); return null;
+  }
+  // Picking the kept run up starts its level at the beginning of that wave and counts in, like any resume.
+  function resumeRun(run) { startDepth(run.level, false, run.wave, run); startCount(); }
   // The level the map points at: the first open one without stars, otherwise the deepest open one.
   function nextDepth() { const open = Depths.levels.filter(level => depthOpen(level.id)); return (open.find(level => !save.depths[level.id]?.stars) || open.at(-1) || Depths.levels[0]).id; }
   // In a level the wave's own tip stays up while playing; waves without one keep the basic reminder.
@@ -287,7 +319,9 @@
   }
   function startLevel(level, options = {}) {
     closeDialogs();
-    game = level.tutorial ? new BloomRush.RushGame({ scripted: true }) : level.depth ? new BloomRush.RushGame({ plan: depthPlan(level.depth, level.taste), random: Math.random, startWave: level.from || 1 }) : level.id === 'rush' ? new BloomRush.RushGame({ random: Math.random }) : new Game(level); game.particles = []; game.floaters = []; if ($('checkpoint-btn')) $('checkpoint-btn').hidden = true; $('resume-count').hidden = true;
+    // Any other run started in its place lets the kept level run go (the board behind the map and a world preview do not).
+    if (!options.behind && !options.preview && !level.resume) dropRun();
+    game = level.tutorial ? new BloomRush.RushGame({ scripted: true }) : level.depth ? new BloomRush.RushGame({ plan: depthPlan(level.depth, level.taste), random: Math.random, startWave: level.from || 1, resume: level.resume || null }) : level.id === 'rush' ? new BloomRush.RushGame({ random: Math.random }) : new Game(level); game.particles = []; game.floaters = []; if ($('checkpoint-btn')) $('checkpoint-btn').hidden = true; $('resume-count').hidden = true;
     tutorial = level.tutorial ? Tutorial.create() : null; tutorialKey = ''; document.body.dataset.tutorial = tutorial ? 'on' : '';
     if (tutorial) tutorial.begin(game);
     preview = Boolean(options.preview); theme = options.theme || (isChapter() ? game.level.worldId : 'meadow');
@@ -299,7 +333,7 @@
     angle = -Math.PI / 2; pointer = null; aiming = false; guiding = false; resultAt = Infinity; resultShown = false; remembered = null; pressPoint = null;
     // The best to beat is read once at the start, so the end-of-run save never moves it mid-run.
     game.bestBar = isRush() && !isTutorial() && !preview && !isTaste() ? record()?.best || 0 : 0; game.bestState = 0;
-    displayScore = 0; hudKey = ''; countLeft = 0; countShown = ''; newFlower = null; newKeepsake = null; accumulator = 0; rushRecordBroken = false; depthNews = null; game.shieldSeen = false; game.shellSeen = false; game.geodeSeen = false; game.foesSeen = new Set();
+    displayScore = game.score || 0; hudKey = ''; countLeft = 0; countShown = ''; newFlower = null; newKeepsake = null; accumulator = 0; rushRecordBroken = false; depthNews = null; game.shieldSeen = false; game.shellSeen = false; game.geodeSeen = false; game.foesSeen = new Set();
     runId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`; runAward = 0; runBouquet = null; runGoals = null; shotTrail = []; trailTotal = 0;
     if (!preview && typeof level.id === 'number') { save.lastLevel = level.id; persist(); }
     $('level-name').textContent = level.name;
@@ -553,11 +587,15 @@
     const list = Depths.levels, suggested = nextDepth();
     const cleared = list.filter(level => save.depths[level.id]?.stars).length, stars = list.reduce((n, level) => n + (save.depths[level.id]?.stars || 0), 0);
     $('levels-summary').textContent = reviewBosses ? 'Boss preview. Your progress here stays separate.' : reviewAll ? 'All levels preview. Your progress here stays separate.' : cleared ? `${cleared} of ${Depths.total} cleared · ${stars} ★` : 'Start at the top and dig down.';
-    const resume = inProgress();
-    $('resume-btn').hidden = !resume;
+    const resume = inProgress(), kept = resume ? null : keptRun();
+    $('resume-btn').hidden = !resume && !kept;
     if (resume) {
       $('resume-title').textContent = isDepth() ? `Resume level ${game.plan.id}` : 'Resume Meadow Rush';
       $('resume-sub').textContent = isDepth() ? `${Depths.level(game.plan.id).name} · wave ${game.wave} of ${game.finalWave}` : `Wave ${game.wave} · ${fmt(game.score)} points`;
+    } else if (kept) {
+      // A run the phone closed reads the same as one left a moment ago.
+      $('resume-title').textContent = `Resume level ${kept.level}`;
+      $('resume-sub').textContent = `${Depths.level(kept.level).name} · wave ${kept.wave} of ${Depths.waveCount}`;
     }
     const owned = depthsOwned();
     $('depth-map').innerHTML = list.map(level => {
@@ -2561,6 +2599,7 @@
           game.bossHint = event.boss ? event.hint || '' : ''; // what phaseBloom compares a kit's new rule with
           $('game-hint').textContent = event.hint || `Wave ${game.wave} of ${game.finalWave}.`;
           say(`Wave ${game.wave} of ${game.finalWave}. ${bossName ? `${bossName}! ` : ''}${event.hint || ''} ${met ? `${met} ` : ''}${game.lives} ${game.lives === 1 ? 'life' : 'lives'} left.`);
+          keepRun();
         } else {
           $('game-hint').textContent = `Wave ${game.wave}! Faster flowers, ×${game.tempo.toFixed(1)} points.`;
           say(`Wave ${game.wave}. Tempo times ${game.tempo.toFixed(1)}. ${game.lives} lives left.`);
@@ -2666,6 +2705,7 @@
         // The bubble floats in at the top among score pops, so it announces itself: two gold rings and a note up top.
         if (save.settings.motion) for (const slow of [0, .3]) game.particles.push({ x: event.x, y: event.y, vx: 0, vy: 0, life: .7 + slow, maxLife: .7 + slow, kind: 'ring', color: '#ffd148', size: 16, grow: 26 + slow * 50, gravity: 0, drag: 0 });
         if (!isTutorial()) toast(`Gift bubble! Shoot it for a free ${Powers.byId[event.power].name}.`); else say($('game-hint').textContent);
+        keepRun(); // a level picked up again later does not offer this wave's gift twice
       } else if (event.type === 'gift') {
         const def = Powers.byId[event.power];
         save.powers = Powers.add(save.powers, event.power, 1); persist(); trayKey = '';
@@ -2685,6 +2725,7 @@
         $('game-hint').textContent = !game.lives ? 'The flowers reached the line.' : event.boss ? `The big bloom touched the line and climbed back up! ${game.lives} ${game.lives === 1 ? 'life' : 'lives'} left.` : `Flowers crossed the line! ${game.lives} ${game.lives === 1 ? 'life' : 'lives'} left.`;
         haptic('warn');
         say($('game-hint').textContent);
+        keepRun(); // closing the app never gives a lost life back
       } else if (event.type === 'burst') {
         burst(event.bud, 45); game.floaters = game.floaters.filter(item => item.kind !== 'bonus');
         game.floaters.push({ x: 210, y: 418, text: '+2', life: 1.05, maxLife: 1.05, kind: 'bonus' });
@@ -2757,14 +2798,16 @@
           else if (recorded.firstClear && id + 1 === TASTE.level && tasteOpen()) { freshDepth = TASTE.level; freshShown = false; }
           awardSeeds({ mode: 'depths', levelId: id, stars: won ? game.stars : 0, previousStars, blooms: game.bloomedCount, wave: game.wave - (game.startWave || 1) + 1 });
           runGoals = trackGoals({ type: 'rush', blooms: game.bloomedCount, wave: game.wave, chain: game.bestCombo }); runAward += runGoals.paid;
-          persist(); hudKey = '';
+          dropRun(false); persist(); hudKey = '';
           $('game-hint').textContent = won ? 'Level clear!' : 'Out of lives. Try a new angle.';
           say(won ? `Level ${id} clear. ${game.stars} stars. ${game.score} points.` : `Out of lives on wave ${game.wave} of ${game.finalWave}. ${game.bloomedCount} blooms.`);
           continue;
         }
         if (isRush()) {
-          rushRecordBroken = game.score > save.rush.best;
-          if (rushRecordBroken && save.rush.best > 0) BloomSound.play('record', {});
+          // The best kept when the page hid mid-run is this run's own, so the record is the one from before the run.
+          const before = game.rushBefore ?? save.rush.best;
+          rushRecordBroken = game.score > before;
+          if (rushRecordBroken && before > 0) BloomSound.play('record', {});
           save.rush.best = Math.max(save.rush.best, game.score);
           save.rush.bestWave = Math.max(save.rush.bestWave, game.wave);
           save.rush.blooms += game.bloomedCount; save.rush.runs++;
@@ -3195,10 +3238,10 @@
   const rotateButton = document.createElement('button'); rotateButton.id = 'rotate-btn'; rotateButton.type = 'button'; rotateButton.className = 'turn-petal-btn'; rotateButton.textContent = 'Turn petal';
   $('restart-btn').parentElement.insertBefore(rotateButton, $('restart-btn'));
   rotateButton.addEventListener('click', () => { if (countLeft > 0) return; if (!gate('rotate')) nudgeTutorial(); else if (game.bumpers[0]) rotateNearest(game.bumpers[0]); });
-  function openRush() { if (preview) exitPreview(); if (isRush() && !isDepth() && !game.over) { closeDialogs(); resumeBoard(); } else startLevel({ id: 'rush', name: 'Meadow Rush' }); }
+  function openRush() { if (preview) exitPreview(); if (isRush() && !isDepth() && !game.over) { closeDialogs(); dropRun(); resumeBoard(); } else startLevel({ id: 'rush', name: 'Meadow Rush' }); }
   function openLevels() { if (preview) exitPreview(); closeDialogs(); setRoute('levels'); }
   function showUnlock() { const card = $('depth-unlock'); if (card) card.scrollIntoView({ behavior: save.settings.motion ? 'smooth' : 'auto', block: 'center' }); }
-  function startDepth(id, taste, from) { if (id === freshDepth) freshDepth = 0; if (preview) exitPreview(); startLevel({ id: 'rush', depth: id, name: Depths.level(id).name, taste: Boolean(taste), from: taste ? 1 : from || (reviewBosses ? 10 : 1) }, { theme: depthTheme(id) }); }
+  function startDepth(id, taste, from, resume) { if (id === freshDepth) freshDepth = 0; if (preview) exitPreview(); startLevel({ id: 'rush', depth: id, name: Depths.level(id).name, taste: Boolean(taste), from: taste ? 1 : from || (reviewBosses ? 10 : 1), resume: taste ? null : resume || null }, { theme: depthTheme(id) }); }
   function replay() { if (isDepth()) startDepth(game.plan.id, isTaste()); else startLevel(game.level, { preview, theme }); }
   // Restart sits next to Split, so a run with progress asks for a second tap within two seconds. Starting an endless
   // run over keeps its best score and wave (it pays nothing: only a finished run earns seeds and counts).
@@ -3219,10 +3262,14 @@
   }
   function restartNow() {
     if (restartArmed !== null) armRestart(false);
-    if (runProgress() && !isDepth() && (game.score > save.rush.best || game.wave > save.rush.bestWave)) {
-      save.rush.best = Math.max(save.rush.best, game.score); save.rush.bestWave = Math.max(save.rush.bestWave, game.wave); persist();
-    }
-    replay();
+    keepRushBest(); replay();
+  }
+  // An endless run set aside (started over, or the page hidden, since the phone may then close the app) keeps the best
+  // score and wave it has passed. The result at the end of the run still compares with the best from before it.
+  function keepRushBest() {
+    if (!runProgress() || isDepth() || !(game.score > save.rush.best || game.wave > save.rush.bestWave)) return;
+    if (game.rushBefore === undefined) game.rushBefore = save.rush.best;
+    save.rush.best = Math.max(save.rush.best, game.score); save.rush.bestWave = Math.max(save.rush.bestWave, game.wave); persist();
   }
   // Pause: the round button in the header, or on its own when the phone hides the game. Only a run still being played
   // pauses: never the tutorial, a preview, a won or lost board, or over a result card. Resume counts 3, 2, 1 over the
@@ -3334,7 +3381,7 @@
   }
   $('rush-btn').addEventListener('click', openLevels);
   $('levels-rush-btn').addEventListener('click', openRush);
-  $('resume-btn').addEventListener('click', () => { if (inProgress()) resumeBoard(); else renderLevels(); });
+  $('resume-btn').addEventListener('click', () => { if (inProgress()) { resumeBoard(); return; } const kept = keptRun(); if (kept) resumeRun(kept); else renderLevels(); });
   $('depth-map').addEventListener('click', event => {
     const buy = event.target.closest('[data-buy]'); if (buy) { buyProduct(buy); return; }
     const card = event.target.closest('[data-depth]'); if (!card) return;
@@ -3344,8 +3391,8 @@
     // A deeper level scrolls to the unlock card, which says the rest (a toast would sit on top of it).
     if (!depthPaid(id)) { BloomSound.play('tap'); if (id === TASTE.level) toast(`Clear level ${id - 1} to try ${level.name} free.`); else say(`${level.name} is part of levels ${Depths.free + 1} to ${Depths.total}.`); showUnlock(); return; }
     if (!depthOpen(id)) { BloomSound.play('tap'); toast(`Clear level ${id - 1} to open ${level.name}.`); return; }
-    // Tapping the level already being played picks it up where it was.
-    if (inProgress() && isDepth() && game.plan.id === id) resumeBoard(); else startDepth(id);
+    // Tapping the level already being played picks it up where it was, as does a level run the phone closed.
+    if (inProgress() && isDepth() && game.plan.id === id) resumeBoard(); else if (!inProgress() && keptRun()?.level === id) resumeRun(save.run); else startDepth(id);
   });
   $('garden-rush-btn').addEventListener('click', openRush);
   for (const group of Object.keys(TRAY)) $(group).addEventListener('click', event => { const chip = event.target.closest('[data-power]'); if (chip) usePower(chip.dataset.power); });
@@ -3600,11 +3647,13 @@
   window.addEventListener('resize', () => { resizePending = true; });
   // A call, the home button or a locked phone hides the game: the Paused card is waiting when it comes back, so no
   // flower moves before the player is ready. Losing focus alone (a notification pulled down) never pauses.
+  // The phone may close the app while it is hidden, so the level run's checkpoint and an endless run's best are kept first.
+  function keepProgress() { keepRun(); keepRushBest(); }
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) pauseGame(true);
+    if (document.hidden) { keepProgress(); pauseGame(true); }
     lastFrame = 0; accumulator = 0; if (frameMeter) frameMeter.sample(0, 0, false); cancelInteraction(); musicFrame(performance.now(), true);
   });
-  window.addEventListener('pagehide', () => pauseGame(true));
+  window.addEventListener('pagehide', () => { keepProgress(); pauseGame(true); });
   function frame(timestamp) {
     requestAnimationFrame(frame);
     const workFrom = performance.now();

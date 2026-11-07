@@ -130,7 +130,23 @@
       // The foes' own clock (it stops during a Lullaby), Moon Jelly vents, and a guardian's nap on the aim guide.
       this.foeClock = 0; this.foeWave = false; this.vents = []; this.aimNapUntil = 0; this.colorAhead = false;
       if (first) this._applyWave(first);
+      if (plan && options.resume && typeof options.resume === 'object') this._resume(options.resume);
       this._rollGift();
+      this.waveFrom = { score: this.score, blooms: this.totalBlooms, chain: this.bestCombo };
+    }
+    // A run picked up after the phone closed the app (app.js save.run) starts its board on the wave it was on, with the
+    // lives it had left and the score, blooms and best chain it had when that wave began, so replaying the wave never
+    // counts twice. Its stars still follow the wave the run first began at (from), and a free gift the wave already
+    // showed (or the guardian's last-life Lullaby) does not come again.
+    _resume(run) {
+      const whole = (value, low, high) => Number.isInteger(value) ? Math.max(low, Math.min(high, value)) : low;
+      this.startWave = whole(run.from, 1, this.wave);
+      this.lives = whole(run.lives, 1, 3);
+      this.score = Number.isFinite(run.score) ? Math.max(0, Math.floor(run.score)) : 0;
+      this.totalBlooms = whole(run.blooms, 0, Number.MAX_SAFE_INTEGER); this.bestCombo = whole(run.chain, 0, Number.MAX_SAFE_INTEGER);
+      if (run.gift === true) { if (this.bossWave) this.bossLastLifeGift = true; else this.giftWave = this.wave; }
+      // Already under way, as at any later wave's start: the flowers fall as soon as the count-in ends.
+      this.started = true;
     }
     _applyWave(spec) {
       this.speed = spec.speed; this.descentSpeed = spec.descent; this.waveFireDelay = spec.fireDelay;
@@ -625,6 +641,7 @@
       this._rollGift();
       this.level.subtitle = 'Wave ' + this.wave + '. Keep the flowers above the line.';
       const boss = this.buds.find(bud => bud.boss);
+      this.waveFrom = { score: this.score, blooms: this.totalBlooms, chain: this.bestCombo };
       this.event('wave', { wave: this.wave, speed: this.speed, descentSpeed: this.descentSpeed, buds: this.buds.length, tempo: this.tempo, hint: this.waveHint, boss: Boolean(this.bossWave), bossName: boss && boss.name || null });
       // A sun that filled while the last wave was clearing opens this one in Super Bloom.
       if (this.superQueued) this._startSuper();
