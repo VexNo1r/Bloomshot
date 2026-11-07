@@ -1,5 +1,5 @@
 {
-  "passed": 13,
+  "passed": 14,
   "failed": 0,
   "results": [
     {
@@ -52,6 +52,10 @@
     },
     {
       "name": "The aim forecast meets a moving guardian: it says she is hit exactly when the real rocket links her",
+      "passed": true
+    },
+    {
+      "name": "The Whizzbang draws cheaply: unlit, aimed at, lit, flying and banging, finite and balanced, no gradient, shadow or surface once warm, with or without the rules",
       "passed": true
     }
   ]

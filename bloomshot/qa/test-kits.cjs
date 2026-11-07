@@ -1493,6 +1493,77 @@ test('Crystal Heart replays identically at 30, 60 and 144 FPS, and a strike loop
     g.drainEvents(); advance(g, 3);
     assert(wz.every(p => p.bloomed && !p.whizz), 'the rockets bloom plainly'); assert(!foeEvents(g.drainEvents(), 'whizzbang:launch').length);
   });
+  // The art, in a sandbox with a recording canvas (Lily's harness): every move with Animations on and off and quality 0
+  // and 2, after her sprites are warmed.
+  function emberArt(canvas = true) {
+    const vm = require('node:vm'), tally = { gradients: 0, blur: 0, calls: {}, hook: null, face: [], kit: null };
+    const brush = () => {
+      const stack = [], state = { globalAlpha: 1, globalCompositeOperation: 'source-over', fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, shadowBlur: 0, lineDashOffset: 0 };
+      const ctx = new Proxy(state, {
+        get(t, name) {
+          if (name in t) return t[name];
+          if (name === 'canvas') return { width: 420, height: 560 };
+          return (...args) => {
+            for (const a of args) if (typeof a === 'number') assert(Number.isFinite(a), `${String(name)} received ${a}`);
+            if (tally.hook) tally.calls[tally.hook] = (tally.calls[tally.hook] || 0) + 1;
+            if (tally.hook === 'face' && /To$|^arc$|^ellipse$/.test(name)) tally.face.push(name, ...args.map(n => Math.round(n * 100)));
+            if (name === 'save') stack.push({ ...state });
+            else if (name === 'restore') { assert(stack.length, 'restore without save'); Object.assign(state, stack.pop()); }
+            else if (name === 'measureText') return { width: String(args[0]).length * 7 };
+            else if (name === 'getTransform') return { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+            else if (/Gradient$|^createPattern$/.test(name)) { if (tally.hook) tally.gradients++; return { addColorStop() {} }; }
+          };
+        },
+        set(t, name, value) {
+          if (['globalAlpha', 'lineWidth', 'shadowBlur', 'lineDashOffset'].includes(name)) assert(Number.isFinite(value), `${name} is finite`);
+          if (name === 'shadowBlur' && value > 0 && tally.hook) tally.blur++;
+          t[name] = value; return true;
+        }
+      });
+      return { ctx, balanced: () => stack.length === 0 };
+    };
+    class Canvas { constructor(w, h) { this.width = w; this.height = h; this.rec = brush(); } getContext() { return this.rec.ctx; } }
+    const scope = vm.createContext({ console, Math, Map, Set, WeakMap, Array, Object, Number, String, JSON, Date, performance, ...(canvas ? { OffscreenCanvas: Canvas } : {}) });
+    for (const file of ['foe-art.js', 'art.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), scope, { filename: file });
+    const kits = scope.BloomFoeArt.kits, drawn = new Set(), look = scope.BloomFoeArt.KIT_LOOKS.ember;
+    for (const hook of ['under', 'part', 'face', 'over', 'aim']) {
+      const call = kits[hook]; kits[hook] = (...args) => { const outer = tally.hook; tally.hook = hook; try { const done = call(...args); if (done) drawn.add(hook === 'part' ? args[2].bossPart : hook); return done; } finally { tally.hook = outer; } };
+    }
+    const own = look.under; look.under = (ctx, state, s, time, still, kit, quality) => { if (!tally.kit) { tally.kit = kit; look.warm(kit); tally.gradients = 0; } return own(ctx, state, s, time, still, kit, quality); };
+    const frame = (game, still, quality = 0) => {
+      const rec = brush(); scope.BloomArt.draw(rec.ctx, game, game.time, { showAim: false, theme: 'depth-ember', reducedMotion: still, quality });
+      assert(rec.balanced(), 'transforms balance');
+    };
+    return { tally, frame, drawn };
+  }
+  test("Ember Rose's art draws every move, Animations on and off, with no gradient or blur per frame; her three moods are three faces", () => {
+    const { tally, frame, drawn } = emberArt(), seen = new Set(), during = {};
+    const film = (g, seconds, label) => {
+      for (let n = 0; n < seconds * 120; n++) {
+        g.step(1 / 120); if (n % 12) continue;
+        const before = { ...tally.calls }; frame(g, false, n % 24 ? 0 : 2); frame(g, true);
+        for (const hook of ['under', 'over', 'part']) if ((tally.calls[hook] || 0) > (before[hook] || 0)) (during[label] = during[label] || new Set()).add(hook);
+      }
+    };
+    // Her dive, the fire rings (the teleport dive in and the burst out), the stomp's tell and Olé, the barrage's tell and
+    // its rockets, and two cinders falling to coals; each from its warning.
+    for (const [tier, move, seconds] of [[0, 'ember', 4], [1, 'rings', 5], [1, 'stomp', 2.8], [2, 'barrage', 3]]) {
+      const { g, b } = emberArena(); b.hp = tier ? 60 - 25 * (tier - 1) : 90; emberMove(g, tier, move); seen.add(move);
+      film(g, seconds, move);
+      if (move === 'rings') assert(g.gates.filter(m => m.bossRing).every(m => m.kitDrawn), 'the kit draws her rings');
+    }
+    const { g } = emberArena(); g.bossState.next = g.bossState.age + 99; cinderAt(g, 150, 300); cinderAt(g, 300, 261);
+    film(g, 1, 'cinder'); for (let n = 0; n < 60 && !g.bumpers.some(r => r.bossCoal); n++) film(g, .1, 'cinder');
+    film(g, 1, 'coal'); assert(g.bumpers.some(r => r.bossCoal && r.kitDrawn), 'a coal the kit draws');
+    film(g, 4.5, 'cooled'); assert(!g.bumpers.some(r => r.bossCoal), 'the coals cool away');
+    assert.deepEqual([...seen].sort(), ['barrage', 'ember', 'rings', 'stomp']);
+    assert.equal(tally.gradients, 0, 'no gradient inside her hooks once warm'); assert.equal(tally.blur, 0, 'no shadow blur');
+    for (const piece of ['face', 'cinder']) assert(drawn.has(piece), piece + ' drawn by the kit');
+    for (const move of ['rings', 'stomp', 'barrage']) assert(during[move] && during[move].has('over'), `the kit draws ${move}: its tell and action`);
+    assert(during.coal && during.coal.has('under'), 'the kit draws the coals');
+    const flat = emberArt(false), faces = [0, 1, 2].map(tier => { const h = arena(7); h.bossState.tier = tier; flat.tally.face = []; flat.frame(h, true); return JSON.stringify(flat.tally.face); });
+    assert(faces.every(f => f.length > 100)); assert.equal(new Set(faces).size, 3, 'Flickering, Dancing and Blazing');
+  });
 }
 
 // ── Geode King (Level 8, `geode`) ──

@@ -149,6 +149,78 @@ test("The aim forecast meets a moving guardian: it says she is hit exactly when 
   assert(verdicts.length >= 6 && verdicts.includes(true), 'some rockets meet her');
 });
 
+// ── Art ──
+// Records real Canvas commands from art.js and foe-art.js without a device (the harness of test-foes-level5.cjs): every
+// number finite and every save restored. The look is wrapped so the recorder knows when it is drawing: once its sprites
+// are warm, a frame of it makes no gradient, no shadow and no new surface. With `rules`, foes.js and bosses.js load
+// too, so the column tell (the one rules call in the art) has its forecast.
+function artScope(rules) {
+  const vm = require('node:vm'), totals = { surfaces: 0, gradients: 0, shadows: 0, hook: null, images: [], calls: {} };
+  function brush() {
+    const stack = [], state = { globalAlpha: 1, globalCompositeOperation: 'source-over', fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, shadowBlur: 0, lineDashOffset: 0, font: '', textAlign: 'left', textBaseline: 'alphabetic', lineCap: 'butt', lineJoin: 'miter' };
+    const ctx = new Proxy(state, {
+      get(t, name) {
+        if (name in t) return t[name];
+        if (name === 'canvas') return { width: 420, height: 560 };
+        if (name === 'getTransform') return () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 });
+        return (...args) => {
+          args.forEach(a => { if (typeof a === 'number') assert(Number.isFinite(a), `${String(name)} received ${a}`); });
+          if (totals.hook) totals.calls[totals.hook] = (totals.calls[totals.hook] || 0) + 1;
+          if (name === 'save') stack.push({ ...state });
+          else if (name === 'restore') { assert(stack.length, 'restore without save'); Object.assign(state, stack.pop()); }
+          else if (name === 'measureText') return { width: String(args[0]).length * 7 };
+          else if (name === 'drawImage' && totals.hook) totals.images.push([totals.hook, args[0], state.globalAlpha]);
+          else if (/^create(Linear|Radial|Conic)Gradient$|^createPattern$/.test(name)) { if (totals.hook) totals.gradients++; return { addColorStop() {} }; }
+        };
+      },
+      set(t, name, value) {
+        if (['globalAlpha', 'lineWidth', 'shadowBlur', 'lineDashOffset'].includes(name)) assert(Number.isFinite(value), `${name} is finite`);
+        if (name === 'shadowBlur' && value > 0 && totals.hook) totals.shadows++;
+        t[name] = value; return true;
+      }
+    });
+    return { ctx, balanced: () => stack.length === 0 };
+  }
+  class Canvas { constructor(w, h) { this.width = w; this.height = h; if (totals.hook) totals.surfaces++; this.rec = brush(); } getContext() { return this.rec.ctx; } }
+  const scope = vm.createContext({ console, Math, Map, Set, WeakMap, Array, Object, Number, String, JSON, Date, OffscreenCanvas: Canvas });
+  for (const file of [...(rules ? ['foes.js', 'bosses.js'] : []), 'art.js', 'foe-art.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), scope, { filename: file });
+  assert.equal(Boolean(scope.BloomFoes), Boolean(rules));
+  const FoeArt = scope.BloomFoeArt, look = FoeArt.LOOKS.whizzbang;
+  for (const hook of ['under', 'bud', 'over', 'aim']) {
+    const own = look[hook];
+    look[hook] = function (...args) {
+      totals.kit = args[hook === 'bud' ? 5 : 4];
+      const was = totals.hook; totals.hook = 'whizzbang:' + hook;
+      try { return own.apply(this, args); } finally { totals.hook = was; }
+    };
+  }
+  return { Art: scope.BloomArt, FoeArt, brush, totals };
+}
+test('The Whizzbang draws cheaply: unlit, aimed at, lit, flying and banging, finite and balanced, no gradient, shadow or surface once warm, with or without the rules', () => {
+  for (const rules of [true, false]) {
+    const { Art, FoeArt, brush, totals } = artScope(rules);
+    const draw = (board, time, still, quality) => { const rec = brush(); Art.draw(rec.ctx, board, time, { theme: 'depth-ember', reducedMotion: still, quality, showAim: true }); assert(rec.balanced(), 'saves balance'); };
+    // Boards: swaying unlit with the aim on it, lit a moment, flying through the column, and just after its bang.
+    const boards = [], lit = seconds => { const g = stack(14), [wz] = foesOf(g, 'whizzbang'); advance(g, .3, 120); touch(g, wz); advance(g, seconds, 120); boards.push(g); return wz; };
+    let g = stack(14); advance(g, .3, 120); const [aimed] = foesOf(g, 'whizzbang');
+    g.aim = [{ x: 210, y: 498 }, { x: aimed.x, y: aimed.y + 14 }]; g.aim.target = aimed; boards.push(g);
+    assert.equal(lit(.4).whizz.mode, 'lit'); assert.equal(lit(1.12).whizz.mode, 'fly');
+    g = stack(); const [wz] = foesOf(g, 'whizzbang'); touch(g, wz); for (let n = 0; n < 400 && !wz.bloomed; n++) g.step(1 / 120);
+    assert(wz.bloomed && wz.whizz.done); advance(g, .1, 120); boards.push(g);
+    // The level's intro paints its sprites ahead, as app.js warmPlan does.
+    draw(boards[0], boards[0].time, false, 0);
+    totals.hook = 'warm'; FoeArt.warm([['whizzbang', 12, 'poppy']], totals.kit); totals.hook = null;
+    for (const still of [false, true]) for (const quality of [0, 1, 2]) for (const board of boards) draw(board, board.time, still, quality);
+    assert(totals.images.some(([hook]) => hook === 'whizzbang:bud'), 'the body drew');
+    assert(totals.images.some(([hook]) => hook === 'whizzbang:over'), 'the rocket and its bang drew');
+    if (rules) assert(totals.calls['whizzbang:under'] > 0 && totals.calls['whizzbang:aim'] > 0, 'the column tell drew');
+    else assert(!totals.calls['whizzbang:under'] && !totals.calls['whizzbang:aim'], 'no rules, no column, and no throw');
+    const warm = { ...totals };
+    for (const still of [false, true]) for (const quality of [0, 1, 2]) for (const dt of [.07, .23, .41]) for (const board of boards) draw(board, board.time + dt, still, quality);
+    assert.deepEqual([totals.gradients, totals.shadows, totals.surfaces], [warm.gradients, warm.shadows, warm.surfaces], `rules ${rules}`);
+  }
+});
+
 const report = { passed: results.filter(r => r.passed).length, failed: results.filter(r => !r.passed).length, results };
 fs.writeFileSync(path.join(__dirname, 'foes-level7-results.json'), JSON.stringify(report, null, 2) + '\n');
 console.log(JSON.stringify(report, null, 2)); process.exitCode = report.failed ? 1 : 0;

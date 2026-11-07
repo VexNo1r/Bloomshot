@@ -1,5 +1,5 @@
 {
-  "passed": 85,
+  "passed": 86,
   "failed": 0,
   "results": [
     {
@@ -340,6 +340,10 @@
     },
     {
       "name": "Ember Rose: beaten mid-ring, mid-Olé or right after a barrage, she leaves no ring, coal, cinder or rocket behind",
+      "passed": true
+    },
+    {
+      "name": "Ember Rose's art draws every move, Animations on and off, with no gradient or blur per frame; her three moods are three faces",
       "passed": true
     }
   ]

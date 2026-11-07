@@ -1620,7 +1620,7 @@
   const EMBER = { alcove: [128, 292], ringR: 18, ringTop: 52, ringLow: 372, ringLife: 6, hide: .45, cinderR: 9, cinderAge: .4, spit: [30, 18],
     cinderFall: 42, cinderSway: 14, cinderW: 2.4, cinderCap: 4, coalY: 404, coalLen: 26, coalLife: 4, coalCap: 3,
     shove: 16, room: 70, clicks: [.43, .86], ole: 1.2, oleDamage: 2, trio: [-48, 0, 48], trioDrop: 128, trioSway: 26,
-    rocket: 3, ring: 3, tunnel: 1, lift: 1 };
+    rocket: 3, ring: 3, tunnel: 1, lift: 1, petalGap: 58 };
   const emberSmooth = p => { p = clamp(p, 0, 1); return p * p * (3 - 2 * p); };
   const emberRings = game => (game.gates || []).filter(g => g.bossRing);
   // A seed whose last tunnel hop was one of her rings (both mouths are stamped with the hop's time).
@@ -1641,7 +1641,10 @@
     plan: {
       rings(game, s, b) {
         const at = positions(s, TELEGRAPH).get(b.id), to = at.x < 210 ? EMBER.alcove[1] : EMBER.alcove[0];
-        const a = { x: clamp(at.x, 140, 280), y: EMBER.ringLow, r: EMBER.ringR, role: 'ringA' };
+        // Ring A keeps clear of the launcher's petal (the leaf at y 350 reaches y 373), so the way in is never blocked by it.
+        let ax = clamp(at.x, 140, 280); const petal = (game.bumpers || []).find(r => r.id === 'petal');
+        if (petal && Math.abs(petal.y - EMBER.ringLow) < 60 && Math.abs(ax - petal.x) < EMBER.petalGap) ax = petal.x + (ax < petal.x ? -1 : 1) * EMBER.petalGap;
+        const a = { x: ax, y: EMBER.ringLow, r: EMBER.ringR, role: 'ringA' };
         return { targets: [a, { x: to, y: EMBER.ringTop, r: EMBER.ringR, role: 'ringB' }] };
       },
       stomp(game, s, b) {
