@@ -1,5 +1,5 @@
 {
-  "passed": 14,
+  "passed": 15,
   "failed": 0,
   "results": [
     {
@@ -36,6 +36,10 @@
     },
     {
       "name": "The bot: the forecast pins what the rocket pins, an unlit one is worth its column, a lit one is a ghost worth nothing",
+      "passed": true
+    },
+    {
+      "name": "The bot values a falling whizzbang from where it is now, not from its trace copy (already moved to the hit)",
       "passed": true
     },
     {

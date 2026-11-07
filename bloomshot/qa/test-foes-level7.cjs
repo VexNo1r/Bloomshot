@@ -109,6 +109,14 @@ test('The bot: the forecast pins what the rocket pins, an unlit one is worth its
   assert.equal(Foes.value(g, { bud: wz, nx: 0, ny: 1, time: 0 }, null), 0);
   advance(g, 1.01, 120); assert.deepEqual(wz.whizz.path.pins.map(p => p.id), plan.pins.map(p => p.id), 'game and forecast agree');
 });
+test("The bot values a falling whizzbang from where it is now, not from its trace copy (already moved to the hit)", () => {
+  // The bot's trace hands value() a copy of the bud posed where the seed meets it; the fall to the launch is counted once.
+  const g = sandbox(7, 5, [['whizzbang', 210, 300, { sway: 0 }]], { keepBuds: false }); g.descentSpeed = 30; g.drainEvents();
+  g.buds.push(plain('top', 210, 80)); const [wz] = foesOf(g, 'whizzbang'), t = .6, out = {};
+  Foes.predict(g, wz, t, out); const copy = { ...wz, x: out.x, y: out.y }, live = W.plan(g, wz, t + 1, null);
+  assert.equal(live.pins.length, 1, 'from the live bud the top bud is in the column');
+  assert.equal(Foes.value(g, { bud: copy, nx: 0, ny: 1, time: t }, null), 4 + 8 * live.pins.length + 4 * live.bangs.length);
+});
 test('A rocket that meets a tunnel mouth comes out of the other and flies on; a downward exit stops at the floor', () => {
   const g = sandbox(7, 5, [['whizzbang', 150, 280, { sway: 0 }]], { keepBuds: false }); g.descentSpeed = 0;
   const mouthA = { id: 'a', pair: 'b', x: 150, y: 200, r: 17, angle: Math.atan2(200 - 498, 150 - 210), lastUsed: -100 };

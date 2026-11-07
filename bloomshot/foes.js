@@ -1137,6 +1137,8 @@
     },
     // The bot lights it where its column will meet the most: 4, plus 8 a pin, 4 a bang, 40 for Ember Rose or an open guardian.
     value(game, bud, hit, prepared) {
+      // The bot's trace passes a copy already posed at the hit, so the forecast starts from the live bud (its fall counted once).
+      bud = (game.buds || []).find(b => b.id === bud.id) || bud;
       if (bud.whizz) return 0;
       const plan = whizzForecast(game, bud, (hit.time || 0) + WHIZ.fuse, prepared);
       const boss = plan.boss && game.bossState && (game.bossState.kind === 'ember' || game.bossState.vulnerable) ? 40 : 0;
