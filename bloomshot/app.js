@@ -137,11 +137,54 @@
   const fmt = number => Math.round(number).toLocaleString();
   const escape = text => String(text).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
   function say(text) { $('announcement').textContent = text; }
-  function toast(text) {
+  // speak: false when the caller has already said it (a guardian's mood line carries its new rule).
+  const TOAST_LIFE = 2800;
+  let toastAt = -Infinity, tipTimer = null, tipQueue = [];
+  function toast(text, speak = true) {
+    toastAt = performance.now();
     $('toast').textContent = text; $('toast').classList.add('visible');
-    clearTimeout(toastTimer); toastTimer = setTimeout(() => $('toast').classList.remove('visible'), 2800);
-    say(text);
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => $('toast').classList.remove('visible'), TOAST_LIFE);
+    if (speak) say(text);
+    if (tipQueue.length) pumpTips(); // a tip that was waiting goes after this toast, never instead of it
   }
+  // A tip that teaches something (a turned-away seed, a guardian's new rule). In a level or Rush the hint bar is hidden
+  // (styles.css keeps the bottom edge for the pod), so there it is a toast. Each `key` waits `again` seconds of play
+  // before it shows again (Infinity: once a run), counted from when it showed. A tip that comes while another toast is
+  // being read waits for it to finish (two wait at most, and a once-a-run tip is never the one let go), and a tip shows
+  // only while the board is in play: not behind the pause card, on the map or over a result.
+  function levelTip(text, { again = 12, key = text, speak = true } = {}) {
+    if (!text) return;
+    $('game-hint').textContent = text;
+    if (!game || !isRush() || isTutorial() || game.over) return;
+    const last = game.tipsSeen && game.tipsSeen.get(key);
+    if (last != null && game.time - last < again) return;
+    tipQueue = tipQueue.filter(t => t.run === game);
+    if (tipQueue.some(t => t.key === key)) return;
+    if (tipQueue.length >= 2) {
+      const drop = tipQueue.findIndex(t => t.again !== Infinity);
+      if (again !== Infinity || drop < 0) return;
+      tipQueue.splice(drop, 1);
+    }
+    tipQueue.push({ text, key, again, speak, run: game });
+    pumpTips();
+  }
+  function pumpTips() {
+    clearTimeout(tipTimer); tipTimer = null;
+    tipQueue = tipQueue.filter(t => t.run === game && !game.over);
+    if (!tipQueue.length) return;
+    const wait = Math.max(0, toastAt + TOAST_LIFE - performance.now());
+    if (wait || route !== 'game' || holding() || resultShown) { tipTimer = setTimeout(pumpTips, Math.max(wait, 400)); return; }
+    const tip = tipQueue.shift();
+    (game.tipsSeen || (game.tipsSeen = new Map())).set(tip.key, game.time);
+    toast(tip.text, tip.speak);
+  }
+  // A guardian is held while it changes mood (bosses.js held()): seeds glance off even its real heart then.
+  function bossHeld() {
+    const s = game && game.bossState;
+    return Boolean(s && s.tierAt && (s.shiftPending || (s.warning && s.warning.move === 'stage') || (s.tier < 2 && s.boss.hp <= s.tierAt[s.tier])));
+  }
+  // A first-time piece tip stays in the hint bar when the wave's own ribbon already teaches that piece.
+  const waveTeaches = pattern => isDepth() && pattern.test(game.waveHint || '');
   function showDialog(id) {
     cancelInteraction();
     const dialog = $(id);
@@ -269,6 +312,7 @@
       const depth = Depths.level(game.plan.id);
       $('level-name').textContent = depth.name;
       $('game-hint').textContent = game.waveHint || depth.twist;
+      game.bossHint = game.waveHint || ''; // a run that starts on the guardian's wave sends no wave event (phaseBloom)
       canvas.setAttribute('aria-label', `Level ${depth.id}, ${depth.name}. ${isTaste() ? `The first ${TASTE.waves} waves, free to try.` : 'Ten waves of flowers.'} Keep them above the line: three clusters over it ends the level. Arrow keys aim, Space fires, S splits after six direct hits, R turns the petal.`);
     }
     $('back-btn').querySelector('span').textContent = isRush() ? 'Levels' : isChapter() ? 'Worlds' : 'Meadow';
@@ -2037,14 +2081,14 @@
       jolt(.12, .07, .2); haptic('surge'); foeRing(e.x, e.y, '#ffffff', 10, 34, .5); foeRing(e.x, e.y, '#ffd65a', 8, 24, .4);
       for (const p of e.path || []) foeGlow(p.x, p.y, 3, WISH_GOLD, { spread: 20, fall: 6, life: .6 });
       if (e.bud) { e.bud.wishPath = e.path || []; e.bud.wishAt = game.time; } // art only: the shooting star's streak (foe-art.js); the rules never read it
-      // The star medallion (art.js STAMPS.slam) under the word.
-      if (save.settings.motion) game.floaters.push({ kind: 'trick', trick: 'slam', text: 'Wish!', label: '', x: clamp(e.x, 70, 350), y: Math.max(44, e.y - 54), life: 1.1, maxLife: 1.1 });
+      // The star medallion (art.js STAMPS.slam) under the word, with Animations off too (drawn still): it is the wish's reward.
+      game.floaters.push({ kind: 'trick', trick: 'slam', text: 'Wish!', label: '', x: clamp(e.x, 70, 350), y: Math.max(44, e.y - 54), life: 1.1, maxLife: 1.1 });
     },
     guard(e) {
       foeRing(e.x, e.y, '#ffffff', 6, 14, .3); haptic('tick');
       if (e.bud) e.bud.nopeAt = game.time; // art only: the star's "not yet" shake (foe-art.js); the rules never read it
       const star = game.buds.find(b => b.foe === 'wishstar' && b.wish === e.bud?.wish && !b.bloomed && (!e.bud || b.pip < e.bud.pip));
-      if (star) $('game-hint').textContent = `Star ${star.pip} first!`;
+      if (star) levelTip(`Star ${star.pip} first!`, { again: 8, key: 'wishstar' });
     }
   };
 
@@ -2079,7 +2123,12 @@
     bossCallout(x, y - 20, event.mood ? `${event.mood}!` : '', 1.3);
     const vine = game.stage && game.stage.vine;
     if (vine) { vine.knotAt = vine.knotAt || []; vine.knotAt[(event.stage || 1) - 1] = game.time; }
-    if (event.name && event.mood) say(`${event.name} is ${event.mood.toLowerCase()}!`);
+    // A kit that changes what reaches its guardian (Ember Rose's tunnels and rings) says so as the new mood starts: one
+    // announcement carries both, and the rule pops up (bossHint is the hint the fight started with, set in startLevel and
+    // on each wave).
+    const rule = game.waveHint && game.waveHint !== game.bossHint ? game.waveHint : '';
+    if (event.name && event.mood) say(`${event.name} is ${event.mood.toLowerCase()}!${rule ? ` ${rule}` : ''}`);
+    if (rule) { game.bossHint = rule; levelTip(rule, { again: Infinity, speak: !(event.name && event.mood) }); }
   }
   // A special hit on a guardian says what made it special.
   const CRIT_TEXT = { roll: 'Bowled over!', mirror: 'Mirror shot!', moon: 'Moon shot!' };
@@ -2105,7 +2154,7 @@
     },
     'snooze:nap'(e) {
       foeRing(e.x, e.y, '#9fd6ff', 12, 26, .6); foeDust(e.x, e.y, 4, '#eaf7ff', 30); haptic('warn');
-      const hint = "Old Sunny's snooze made your aim guide nap!"; $('game-hint').textContent = hint; say(hint);
+      levelTip("Old Sunny's snooze made your aim guide nap!", { again: 0 });
     }
   };
 
@@ -2216,7 +2265,7 @@
       const type = crystalHue(e), heart = game.bossState && game.bossState.parts.find(p => p.bossPart === 'heart' && p.real);
       if (!type) return;
       if (heart) { foeRing(heart.x, heart.y, FOE_COLORS[type], heart.r + 4, 30, .5); foeRing(heart.x, heart.y, '#ffffff', heart.r, 18, .3); burst({ x: heart.x, y: heart.y, type, r: heart.r }, 14, game.particles, currentKeepsake(), false); }
-      const text = BOSS_FX.crystal.tip(); $('game-hint').textContent = text; say(text); haptic('tick');
+      levelTip(BOSS_FX.crystal.tip(), { again: 0 }); haptic('tick');
     },
     // The hint line while the hues are up (also after a seed of the wrong color glances off).
     tip() { const type = crystalHue(null); return type ? `Crystal Heart wants ${type} seeds!` : ''; }
@@ -2273,7 +2322,7 @@
     'tide:rise'(e) {
       for (let x = 50; x <= 370; x += 64) foeDust(x, e.y, 2, LILY_FX.water, 40);
       jolt(.06); haptic('warn');
-      const hint = 'The tide is up! Clear your lowest buds.'; $('game-hint').textContent = hint; say(hint);
+      levelTip('The tide is up! Clear your lowest buds.', { again: 0 });
     },
     'tide:recede'(e) { for (let x = 82; x <= 340; x += 86) foeDust(x, e.y, 2, LILY_FX.water, 25); }
   };
@@ -2496,6 +2545,7 @@
         const bossName = event.boss ? event.bossName || (game.buds.find(bud => bud.boss) || {}).name || '' : '';
         if (isDepth()) {
           const met = meetFoes(event.hint || ''); // a foe's first-contact hint rides in the one wave announcement
+          game.bossHint = event.boss ? event.hint || '' : ''; // what phaseBloom compares a kit's new rule with
           $('game-hint').textContent = event.hint || `Wave ${game.wave} of ${game.finalWave}.`;
           say(`Wave ${game.wave} of ${game.finalWave}. ${bossName ? `${bossName}! ` : ''}${event.hint || ''} ${met ? `${met} ` : ''}${game.lives} ${game.lives === 1 ? 'life' : 'lives'} left.`);
         } else {
@@ -2541,15 +2591,29 @@
       } else if (event.type === 'shield') {
         burst({ x: event.x, y: event.y, type: 'gold', r: 6 }, 6); haptic('tick');
         // A kit may name its own tip for a turned-away seed (Crystal Heart's wanted color, in her block above).
-        if (event.bud?.bossKind) $('game-hint').textContent = game.bossWarning?.text || BOSS_FX[event.bud.bossKind]?.tip?.(event) || bossOpeningTip(event.bud);
-        else if (event.shell && !game.shellSeen) { game.shellSeen = true; $('game-hint').textContent = 'Shells only open on one side. Wait for the gap.'; }
-        else if (!event.shell && !game.shieldSeen) { game.shieldSeen = true; $('game-hint').textContent = 'Cups block shots from below. Hit them from the side.'; }
+        if (event.bud?.bossKind) {
+          // A seed turned away while a move is being warned about, or while the guardian changes mood, is no lesson: the
+          // board already says what is happening, so the warning keeps the hint bar and nothing pops up. Otherwise the
+          // kit's own tip (or the opening one) pops up, once in 20 s for each guardian.
+          const tip = BOSS_FX[event.bud.bossKind]?.tip?.(event) || bossOpeningTip(event.bud);
+          if (game.bossWarning?.text || bossHeld()) $('game-hint').textContent = game.bossWarning?.text || tip;
+          else levelTip(tip, { again: 20, key: `guard:${event.bud.bossKind}` });
+        } else if (event.shell && !game.shellSeen) {
+          game.shellSeen = true; const tip = 'Shells only open on one side. Wait for the gap.';
+          if (waveTeaches(/shell/i)) $('game-hint').textContent = tip; else levelTip(tip, { again: Infinity });
+        } else if (!event.shell && !game.shieldSeen) {
+          game.shieldSeen = true; const tip = 'Cups block shots from below. Hit them from the side.';
+          if (waveTeaches(/cup/i)) $('game-hint').textContent = tip; else levelTip(tip, { again: Infinity });
+        }
       } else if (event.type === 'geode') {
         burst(event.bud, 30); burst({ x: event.bud.x, y: event.bud.y, type: 'lilac', r: 10 }, 18); jolt(.16, .04, .2);
-        if (!game.geodeSeen) { game.geodeSeen = true; $('game-hint').textContent = `${event.count} gems! Bloom them before they fall.`; }
+        if (!game.geodeSeen) {
+          game.geodeSeen = true; const tip = `${event.count} gems! Bloom them before they fall.`;
+          if (waveTeaches(/geode|gem/i)) $('game-hint').textContent = tip; else levelTip(tip, { again: Infinity, key: 'geode' });
+        }
       } else if (event.type === 'regrow') {
         burst({ x: event.x, y: event.y, type: 'coral', r: 8 }, 14); haptic('tick');
-        $('game-hint').textContent = 'The briars grew back! Bloom the whole patch fast.';
+        { const tip = 'The briars grew back! Bloom the whole patch fast.'; if (waveTeaches(/briar|grow/i)) $('game-hint').textContent = tip; else levelTip(tip, { again: Infinity }); }
       } else if (event.type === 'boss') {
         const name = event.name || (event.bud && event.bud.name) || '';
         game.floaters = game.floaters.filter(item => !['wave', 'combo', 'bonus', 'pop', 'trick'].includes(item.kind));

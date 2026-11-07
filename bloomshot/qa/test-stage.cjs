@@ -26,9 +26,13 @@ function test(name, fn) {
 const player = (motion = true) => ({ version: 1, tutorial: true, powersMet: true, depths: { 1: { stars: 3, best: 3000, wave: 10 }, 2: { stars: 2, best: 2000, wave: 10 } },
   settings: { sound: true, haptics: true, motion } });
 // art: BloomArt pieces to add to the stand-in, such as the real art's spentFlower.
-function boot(raw, art = {}) {
+// search: the page's query string (`?alllevels` opens every level, as the review link does). timers: run setTimeout
+// callbacks on the frame clock (most tests leave them unrun).
+function boot(raw, art = {}, search = '', { timers = false } = {}) {
+  const pending = new Map(); let timerId = 0;
   const storage = new Map();
-  if (raw !== undefined) storage.set('bloomshot.save.v1', JSON.stringify(raw));
+  // The review link keeps its own save (app.js STORAGE), so the player is put under that key too.
+  if (raw !== undefined) storage.set(search.includes('alllevels') ? 'bloomshot.qa.v1' : 'bloomshot.save.v1', JSON.stringify(raw));
   const nodes = new Map(), games = [], sounds = [];
   let nextFrame, now = 0;
   const noop = () => {};
@@ -65,10 +69,12 @@ function boot(raw, art = {}) {
   class ObservedGame extends Engine.Game { constructor(level) { super(level); games.push(this); } }
   class ObservedRush extends Rush.RushGame { constructor(options) { super(options); games.push(this); } }
   const context = vm.createContext({ console, structuredClone, URLSearchParams, Date, Math, Map, Set,
-    document, location: { search: '', reload: noop }, navigator: {}, crypto: { randomUUID: () => 'run' },
+    document, location: { search, reload: noop }, navigator: {}, crypto: { randomUUID: () => 'run' },
     localStorage: { getItem: name => storage.get(name) || null, setItem: (name, value) => { storage.set(name, value); } },
     performance: { now: () => now }, devicePixelRatio: 1, matchMedia: () => ({ matches: false, addEventListener: noop }),
-    requestAnimationFrame: fn => { nextFrame = fn; }, setTimeout: () => 1, clearTimeout: noop,
+    requestAnimationFrame: fn => { nextFrame = fn; },
+    setTimeout: timers ? (fn, ms = 0) => { pending.set(++timerId, { fn, at: now + ms }); return timerId; } : () => 1,
+    clearTimeout: timers ? id => pending.delete(id) : noop,
     BloomLevels: Levels, BloomMoon: Moon, BloomKoi: Koi, BloomGarden: Garden, BloomGoals: QuietGoals,
     BloomEngine: { ...Engine, Game: ObservedGame }, BloomRush: { RushGame: ObservedRush }, BloomDepths: Depths, BloomPowers: Powers,
     BloomTutorial: require('../tutorial.js'), BloomPetals: require('../petals.js'), BloomScenery: { paint: noop, has: () => true },
@@ -83,7 +89,11 @@ function boot(raw, art = {}) {
   });
   context.window = context; context.addEventListener = noop;
   vm.runInContext(source, context, { filename: 'app.js' });
-  function frame(milliseconds = 17) { now += milliseconds; const fn = nextFrame; assert.equal(typeof fn, 'function'); fn(now); }
+  function frame(milliseconds = 17) {
+    now += milliseconds;
+    for (const [id, t] of [...pending].filter(([, t]) => t.at <= now).sort((a, b) => a[1].at - b[1].at)) { pending.delete(id); t.fn(); }
+    const fn = nextFrame; assert.equal(typeof fn, 'function'); fn(now);
+  }
   // Frames for a span of game time (17 ms each), stopping early once `until` holds.
   function run(seconds, until) { for (let t = 0; t < seconds; t += .017) { frame(); if (until && until()) return true; } return false; }
   function click(id, dataset) { const target = dataset ? Object.assign(element(), { dataset }) : $(id); $(id).emit('click', { target }); }
@@ -93,7 +103,7 @@ function boot(raw, art = {}) {
 const titles = game => game.floaters.filter(f => f.kind === 'title');
 // Values made inside the app's sandbox carry its own Object and Array, so they are copied out before a deep compare.
 function plain(value) { return JSON.parse(JSON.stringify(value)); }
-const level = (raw, id, art) => { const app = boot(raw, art); app.click('depth-map', { depth: String(id) }); app.frame(); return app; };
+const level = (raw, id, art, search, opts) => { const app = boot(raw, art, search, opts); app.click('depth-map', { depth: String(id) }); app.frame(); return app; };
 // Blooms every open flower so the wave clears on the next frame, after adding extra spent blooms when asked.
 function clearWave(app, extra = 0) {
   const game = app.game(); game.started = true; game.drops = [];
@@ -168,6 +178,77 @@ test('A foe the wave\'s own hint does not name is taught once in the toast and i
   // Said once a run: the next wave with a rolypoly says nothing new.
   app.$('toast').textContent = ''; game.wave = 7; game.drops = []; game._loadWave(); app.frame();
   assert.equal(app.$('toast').textContent, ''); assert(!app.$('announcement').textContent.includes(roly));
+});
+// Keeps a guardian from starting a move (and its warning) for the rest of a test.
+function quietBoss(game) { const st = game.bossState; st.next = 1e9; st.warning = null; game.bossWarning = null; st.boss.bossWarning = null; }
+// Every text the toast showed, in order.
+function toastLog(app) { const node = app.$('toast'), log = []; let text = node.textContent; Object.defineProperty(node, 'textContent', { get: () => text, set: v => { text = v; if (v) log.push(v); } }); return log; }
+test('In a level a teaching tip is a toast: a guardian\'s turned-away tip once per 20 s, one that comes mid-toast waits', () => {
+  // The level view hides #game-hint (styles.css), so a tip written only there reached nobody.
+  const app = level(player(), 4, {}, '?alllevels'), game = app.game(); app.run(1.3);
+  const boss = bossWave(app, 'Crystal Heart'); app.run(3); quietBoss(game);
+  const tip = 'Find the beating heart', shield = () => { game.events.push({ type: 'shield', bud: boss, x: boss.x, y: boss.y }); app.frame(); };
+  shield();
+  assert.equal(app.$('toast').textContent, tip); assert(app.$('toast').classList.contains('visible'));
+  app.$('toast').textContent = ''; app.run(2.9); shield();
+  assert.equal(app.$('toast').textContent, '', 'not again within 20 s of play');
+  game.time += 21; shield();
+  assert.equal(app.$('toast').textContent, tip, 'again after 20 s');
+  // A different tip right behind it waits for that toast to be read (this harness never runs the timer).
+  app.$('toast').textContent = 'reading'; game.events.push({ type: 'geode', bud: { x: 210, y: 200, r: 12, type: 'lilac' }, count: 3 }); app.frame();
+  assert.equal(app.$('toast').textContent, 'reading', 'the gem tip waits');
+  assert.equal(app.$('game-hint').textContent, '3 gems! Bloom them before they fall.');
+});
+test('A guardian\'s turned-away tip stays quiet while a move is warned about or it changes mood', () => {
+  const app = level(player(), 4, {}, '?alllevels'), game = app.game(); app.run(1.3);
+  const boss = bossWave(app, 'Crystal Heart'); app.run(3); quietBoss(game); app.$('toast').textContent = '';
+  const shield = () => { game.events.push({ type: 'shield', bud: boss, x: boss.x, y: boss.y }); app.frame(); };
+  game.bossWarning = { move: 'mirrors', text: 'Mirror shards! Bank a seed off one.' }; shield();
+  assert.equal(app.$('toast').textContent, '', 'a warned move: no pop-up'); assert.equal(app.$('game-hint').textContent, 'Mirror shards! Bank a seed off one.');
+  game.bossWarning = null; game.bossState.shiftPending = true; shield();
+  assert.equal(app.$('toast').textContent, '', 'a mood change: no pop-up');
+  game.bossState.shiftPending = false; quietBoss(game); shield(); // (the pending change had raised its warning)
+  assert.equal(app.$('toast').textContent, 'Find the beating heart', 'and it still teaches afterwards');
+});
+test('A fight that starts on the guardian\'s wave pops up no "new rule" at the first mood change', () => {
+  // A run from wave 10 ("Try the boss", the boss preview) sends no wave event, so the baseline comes from startLevel.
+  const app = level(player(), 4, {}, '?alllevels&bosses'), game = app.game(); const log = toastLog(app);
+  assert(game.bossWave && game.buds.some(b => b.boss), 'the run starts on the guardian');
+  game.started = true; app.run(1.5); const s = game.bossState; s.boss.hp = s.tierAt[0];
+  assert(app.run(12, () => s.tier === 1), 'Crystal Heart turns Shining'); app.run(1);
+  assert(!log.includes(Depths.wave(4, 10).hint), `no old opening hint as a rule (${log.join(' | ')})`);
+});
+test('A tip that waits is never lost: it shows after the toast before it, and not while the game is paused', () => {
+  const app = level(player(), 6, {}, '?alllevels', { timers: true }), game = app.game(); app.run(1.3); const log = toastLog(app);
+  app.run(3);
+  game.events.push({ type: 'shield', bud: { x: 210, y: 200, r: 11, type: 'coral' } }); app.frame();
+  const cups = 'Cups block shots from below. Hit them from the side.';
+  assert.equal(log.at(-1), cups);
+  game.events.push({ type: 'geode', bud: { x: 210, y: 200, r: 12, type: 'lilac' }, count: 3 }); app.frame();
+  game.events.push({ type: 'giftAppear', power: 'lullaby', x: 210, y: 60 }); app.frame(); // any other toast in between
+  const gems = '3 gems! Bloom them before they fall.';
+  assert(!log.includes(gems), 'the gem tip waits for the toast being read');
+  app.$('pause-dialog').open = true; app.run(4);
+  assert(!log.includes(gems), 'not behind the pause card');
+  app.$('pause-dialog').open = false; app.run(4);
+  assert(log.includes(gems), `it shows once play is back (${log.join(' | ')})`);
+  // Each toast had its full time on screen before the next.
+});
+test('Ember Rose\'s new rule for each mood shows as a toast when the mood starts, once', () => {
+  const app = level(player(), 7, {}, '?alllevels'), game = app.game(); app.run(1.3);
+  const boss = bossWave(app, 'Ember Rose'), s = game.bossState; app.run(1.7);
+  boss.hp = s.tierAt[0];
+  const rule = 'Fire rings hit triple now. Tunnels hit once.';
+  assert(app.run(12, () => app.$('toast').textContent === rule), `the Dancing rule is toasted (toast: ${app.$('toast').textContent})`);
+  assert.equal(s.tier, 1);
+  assert(app.$('announcement').textContent.includes('dancing') && app.$('announcement').textContent.includes(rule), `one announcement says both (${app.$('announcement').textContent})`);
+  app.$('toast').textContent = ''; app.run(1.7); game.events.push({ type: 'bossStage', kind: 'ember', stage: 1, mood: 'Dancing', name: 'Ember Rose', x: boss.x, y: boss.y }); app.frame();
+  assert.equal(app.$('toast').textContent, '', 'the same rule is not said twice');
+});
+test('A wish shows its "Wish!" stamp with Animations off too', () => {
+  const app = level(player(false), 10, {}, '?alllevels'), game = app.game(); app.run(1.3);
+  game.events.push({ type: 'foe', kind: 'wishstar:wish', x: 210, y: 200, path: [] }); app.frame();
+  assert(game.floaters.some(f => f.kind === 'trick' && f.text === 'Wish!'), 'the stamp shows');
 });
 test('A cleared wave sends at most 24 orbs, latest first, that all land within 1.4 s and pluck', () => {
   const app = level(player(), 1), game = app.game(); app.run(1.3);
