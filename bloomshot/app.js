@@ -137,6 +137,7 @@
   const fmt = number => Math.round(number).toLocaleString();
   const escape = text => String(text).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
   function say(text) { $('announcement').textContent = text; }
+  // The toast is aria-hidden, so #announcement is the one live region and a pop-up is read once.
   // speak: false when the caller has already said it (a guardian's mood line carries its new rule).
   const TOAST_LIFE = 2800, TIP_HELD = 1500;
   let toastAt = -Infinity, tipTimer = null, tipQueue = [], tipShown = null;

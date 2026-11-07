@@ -282,6 +282,15 @@ test('A wish shows its "Wish!" stamp with Animations off too', () => {
   game.events.push({ type: 'foe', kind: 'wishstar:wish', x: 210, y: 200, path: [] }); app.frame();
   assert(game.floaters.some(f => f.kind === 'trick' && f.text === 'Wish!'), 'the stamp shows');
 });
+test('A pop-up is read aloud once: the toast is hidden from screen readers and the announcement carries it', () => {
+  const tag = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8').match(/<div id="toast"[^>]*>/)[0];
+  assert(!/role="(status|alert|log)"|aria-live/.test(tag), `the toast is not a second live region: ${tag}`);
+  assert(/aria-hidden="true"/.test(tag), 'the toast itself is hidden from screen readers');
+  const app = boot(player());
+  app.click('depth-map', { depth: '4' });
+  assert.equal(app.$('toast').textContent, 'Clear level 3 to open Crystal Caves.');
+  assert.equal(app.$('announcement').textContent, app.$('toast').textContent, 'the one live region says the same words');
+});
 test('A cleared wave sends at most 24 orbs, latest first, that all land within 1.4 s and pluck', () => {
   const app = level(player(), 1), game = app.game(); app.run(1.3);
   clearWave(app, 30);
