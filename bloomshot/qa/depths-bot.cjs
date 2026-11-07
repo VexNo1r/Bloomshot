@@ -75,11 +75,11 @@ function trace(game, angle, bounces = 3, prepared = prepareTrace(game)) {
       const time = step * dt + dt - remaining + duration * hit.t;
       p.gateCooldown = Math.max(0, p.gateCooldown - duration * hit.t);
       remaining -= duration * hit.t;
-      if (hit.kind === 'bud') return { bud: { ...hit.item }, nx: hit.nx, ny: hit.ny, time, gateHops: p.gateHops, mirror: p.mirrorAt != null && time - p.mirrorAt <= 1.2 };
+      if (hit.kind === 'bud') return { bud: { ...hit.item }, nx: hit.nx, ny: hit.ny, time, gateHops: p.gateHops, ring: Boolean(p.ring), mirror: p.mirrorAt != null && time - p.mirrorAt <= 1.2 };
       if (hit.kind === 'gate') {
         const transfer = Engine.gateTransfer(state.gates, hit.item, vx, vy);
         if (!transfer) return null;
-        p.x = transfer.x; p.y = transfer.y; vx = transfer.vx; vy = transfer.vy; p.gateCooldown = Engine.GATE_COOLDOWN; p.gateHops++;
+        p.x = transfer.x; p.y = transfer.y; vx = transfer.vx; vy = transfer.vy; p.gateCooldown = Engine.GATE_COOLDOWN; p.gateHops++; p.ring = Boolean(hit.item.bossRing); // Ember Rose's fire rings (bosses.js kit)
         continue;
       }
       if (--bounces < 0) return null;
@@ -93,7 +93,7 @@ function trace(game, angle, bounces = 3, prepared = prepareTrace(game)) {
 }
 function value(game, hit, timing, prepared) {
   const bud = hit.bud;
-  if (prepared && prepared.rich && (bud.boss || bud.bossPart) && !Bosses.canHit(game, bud, hit, { gateHops: hit.gateHops, type: game.nextType, mirrorAt: hit.mirror ? 0 : null })) return -1;
+  if (prepared && prepared.rich && (bud.boss || bud.bossPart) && !Bosses.canHit(game, bud, hit, { gateHops: hit.gateHops, ring: hit.ring, type: game.nextType, mirrorAt: hit.mirror ? 0 : null })) return -1;
   if (bud.bossPart === 'satellite' && bud.lit === false) return -1;
   // A foe knows its own rules: a decoy is never worth a seed, and some shots are better than others.
   if (bud.decoy) return -1;
