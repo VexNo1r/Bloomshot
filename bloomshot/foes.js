@@ -1062,7 +1062,8 @@
     hit(game, bud, chain, isCredited, seed) {
       if (!direct(game, chain, isCredited, seed)) return null;
       if (!onMoss(seed.bossContact || { nx: 0, ny: 1 })) return { blocked: true };
-      game.event('foe', { kind: 'lodestone:moss', bud, x: bud.x, y: bud.y - bud.r, hp: bud.hp - 1, curl: curled(game, bud, seed) });
+      // The opening touch is heard as the open alone (bloomed), never as a moss tuft on the same tick as well.
+      if (bud.hp > 1) game.event('foe', { kind: 'lodestone:moss', bud, x: bud.x, y: bud.y - bud.r, hp: bud.hp - 1, curl: curled(game, bud, seed) });
       return null;
     },
     bloomed(game, bud, chain, credit) {

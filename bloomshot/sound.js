@@ -519,9 +519,9 @@
 
   // ── Lodestone (Level 8, `lodestone`) ──
   // A magnet in the mine. Its field takes a seed with a soft glassy "whee-oo" that bends up to the needle's note; the
-  // moss answers a mallet that climbs C-D-E as the tufts wear (a curled seed adds a glass ping); the iron is a dull
-  // clink; and the open is a magnet clack and bell with every tugged gem ringing in up the pentatonic, .08 s apart,
-  // in time with the chains themselves.
+  // moss answers a mallet that climbs C-E as the tufts wear (a curled seed adds a glass ping); the iron is a dull
+  // clink; and the last tuft is the open alone: a magnet clack and bell with every tugged gem ringing in up the
+  // pentatonic, .08 s apart, in time with the chains themselves.
   FOE_CUES['lodestone:pull'] = (data, pan) => { note(step(4), 0, .2, .032, pan, 'glass', 0, { from: .8, bend: .14 }); note(step(9), .07, .18, .024, pan, 'glass', 0, { from: .84, bend: .1 }); };
   FOE_CUES['lodestone:moss'] = (data, pan) => {
     const left = clamp(num(data.hp, 2), 0, 2);

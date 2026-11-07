@@ -52,8 +52,10 @@ test('The iron turns a seed away (a guard, no refund); only the moss opens it, o
   ({ game, lode } = lone()); touch(game, lode, .9, .4); assert.equal(lode.hp, 3, 'a side touch on the iron is blocked');
   touch(game, lode, 0, -1); assert.equal(lode.hp, 2);
   assert.deepEqual(game.drainEvents().filter(e => e.type === 'foe').map(e => [e.kind, e.hp, e.curl]), [['lodestone:moss', 2, false]]);
-  touch(game, lode, .5, -.86); touch(game, lode, -.2, -.97); assert(lode.bloomed);
-  const open = game.drainEvents().find(e => e.kind === 'lodestone:open'); assert(open && open.curl === false && open.gems.length === 0);
+  touch(game, lode, .5, -.86); assert.deepEqual(foeKinds(game.drainEvents()), ['lodestone:moss']); touch(game, lode, -.2, -.97); assert(lode.bloomed);
+  // The opening touch is the open alone: no moss cue doubling it on the same tick.
+  const last = game.drainEvents(), open = last.find(e => e.kind === 'lodestone:open'); assert(open && open.curl === false && open.gems.length === 0);
+  assert.deepEqual(foeKinds(last), ['lodestone:open']);
 });
 test('Its field curls a seed passing on the needle side onto the moss; the speed never changes and it never circles', () => {
   let curled = 0, straightMiss = 0;
