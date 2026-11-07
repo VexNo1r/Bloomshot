@@ -173,6 +173,85 @@ test('foes.js never touches the seed pod and never uses Math.random', () => {
   assert(!/Math\.random/.test(source), 'no Math.random');
 });
 
+// ── Art ──
+// Records real Canvas commands from art.js and foe-art.js without a device (as qa/test-foes-level5.cjs does): every
+// number finite and every save restored. The roses' look is wrapped so the recorder knows when it is drawing: once its
+// sprites are warm, a frame of it makes no gradient, no shadow and no new surface.
+const vm = require('node:vm');
+function artScope() {
+  const totals = { surfaces: 0, gradients: 0, shadows: 0, hook: null, images: [], arcs: [] };
+  function brush() {
+    const stack = [], state = { globalAlpha: 1, globalCompositeOperation: 'source-over', fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, shadowBlur: 0, shadowColor: '', font: '', textAlign: 'left', textBaseline: 'alphabetic', lineCap: 'butt', lineJoin: 'miter' };
+    const ctx = new Proxy(state, {
+      get(t, name) {
+        if (name in t) return t[name];
+        if (name === 'canvas') return { width: 420, height: 560 };
+        if (name === 'getTransform') return () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 });
+        return (...args) => {
+          args.forEach(a => { if (typeof a === 'number') assert(Number.isFinite(a), `${String(name)} received ${a}`); });
+          if (name === 'save') stack.push({ ...state });
+          else if (name === 'restore') { assert(stack.length, 'restore without save'); Object.assign(state, stack.pop()); }
+          else if (name === 'measureText') return { width: String(args[0]).length * 7 };
+          else if (name === 'drawImage' && totals.hook) totals.images.push([totals.hook, args[0], state.globalAlpha]);
+          else if (name === 'arc' && totals.hook) totals.arcs.push([totals.hook, args[2]]);
+          else if (/^create(Linear|Radial|Conic)Gradient$|^createPattern$/.test(name)) { if (totals.hook) totals.gradients++; return { addColorStop() {} }; }
+        };
+      },
+      set(t, name, value) {
+        if (['globalAlpha', 'lineWidth', 'shadowBlur'].includes(name)) assert(Number.isFinite(value), `${name} is finite`);
+        if (name === 'shadowBlur' && value > 0 && totals.hook) totals.shadows++;
+        t[name] = value; return true;
+      }
+    });
+    return { ctx, balanced: () => stack.length === 0 };
+  }
+  class Canvas { constructor(w, h) { this.width = w; this.height = h; if (totals.hook) totals.surfaces++; this.rec = brush(); } getContext() { return this.rec.ctx; } }
+  const scope = vm.createContext({ console, Math, Map, Set, WeakMap, Array, Object, Number, String, JSON, Date, OffscreenCanvas: Canvas });
+  for (const file of ['art.js', 'foe-art.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), scope, { filename: file });
+  const FoeArt = scope.BloomFoeArt, look = FoeArt.LOOKS.sweetheart;
+  for (const hook of ['under', 'bud', 'over', 'aim']) {
+    const own = look[hook];
+    look[hook] = function (...args) {
+      totals.kit = args[hook === 'bud' ? 5 : 4];
+      const was = totals.hook; totals.hook = 'sweetheart:' + hook;
+      try { return own.apply(this, args); } finally { totals.hook = was; }
+    };
+  }
+  return { Art: scope.BloomArt, FoeArt, brush, totals };
+}
+function draw(Art, brush, board, time, still, quality = 0) {
+  const rec = brush(); Art.draw(rec.ctx, board, time, { theme: 'meadow', reducedMotion: still, quality, showAim: true }); assert(rec.balanced(), 'saves balance');
+}
+test('The roses draw cheaply: finite, balanced, no gradient, shadow or surface once warm, and the blush and its arc at every quality', () => {
+  const { Art, FoeArt, brush, totals } = artScope();
+  assert(FoeArt.LOOKS.sweetheart, 'the roses have a look');
+  // An idle pair; a blushing pair (ring and arc up); 0.3 s after a kiss and after a Cupid kiss; a pout; the aim guide on
+  // a rose whose sweetheart blushes.
+  const boards = [];
+  let p = pair(); advance(p.game, .5); boards.push(p.game);
+  const blush = pair(); touch(blush.game, blush.a); advance(blush.game, .4); boards.push(blush.game);
+  p = pair(); touch(p.game, p.a); advance(p.game, .2); touch(p.game, p.b); advance(p.game, .3); boards.push(p.game);
+  p = pair(); const seed = touch(p.game, p.a); advance(p.game, .3); p.game.striker = seed; p.game.strike(p.b); p.game.striker = null; advance(p.game, .3); boards.push(p.game);
+  p = pair(); touch(p.game, p.a); advance(p.game, 1.3); boards.push(p.game);
+  p = pair(); touch(p.game, p.a); advance(p.game, .2); { const aim = [{ x: 210, y: 498 }, { x: p.b.x, y: p.b.y + 11 }]; aim.target = p.b; p.game.aim = aim; } boards.push(p.game);
+  assert(boards[2].buds.some(q => q.kiss && !q.kiss.cupid) && boards[3].buds.some(q => q.kiss && q.kiss.cupid), 'a kiss and a Cupid kiss');
+  // The level's intro paints the sprites ahead, as app.js warmPlan does.
+  draw(Art, brush, boards[0], boards[0].time, false);
+  totals.hook = 'warm'; FoeArt.warm([['sweetheart', 11, 'coral']], totals.kit); totals.hook = null;
+  for (const still of [false, true]) for (const quality of [0, 1, 2]) for (const board of boards) draw(Art, brush, board, board.time, still, quality);
+  for (const hook of ['under', 'bud', 'over', 'aim']) assert(totals.images.some(([h]) => h === 'sweetheart:' + hook), hook + ' drew');
+  const warm = { ...totals };
+  for (const still of [false, true]) for (const quality of [0, 1, 2]) for (const dt of [.05, .13, .29]) for (const board of boards) draw(Art, brush, board, board.time + dt, still, quality);
+  assert.deepEqual([totals.gradients, totals.shadows, totals.surfaces], [warm.gradients, warm.shadows, warm.surfaces]);
+  // The tells stay at the lightest quality and with Animations off: the blush sprite and the countdown arc round its mate.
+  const sprite = totals.kit.atlasSprite('foe:sweet:rose:11:blush', 0, 0, 1, 1, () => {}).surface;
+  for (const [still, quality] of [[false, 2], [true, 0], [true, 2]]) {
+    totals.images.length = 0; totals.arcs.length = 0; draw(Art, brush, blush.game, blush.game.time, still, quality);
+    assert(totals.images.some(([h, surface]) => h === 'sweetheart:bud' && surface === sprite), `the blush sprite (still ${still}, quality ${quality})`);
+    assert(totals.arcs.some(([h, radius]) => h === 'sweetheart:over' && radius === blush.b.r + 4), `the countdown arc (still ${still}, quality ${quality})`);
+  }
+});
+
 const report = { passed: results.filter(r => r.passed).length, failed: results.filter(r => !r.passed).length, results };
 fs.writeFileSync(path.join(__dirname, 'foes-level9-results.json'), JSON.stringify(report, null, 2) + '\n');
 console.log(JSON.stringify(report, null, 2)); process.exitCode = report.failed ? 1 : 0;

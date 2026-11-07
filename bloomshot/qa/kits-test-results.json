@@ -1,5 +1,5 @@
 {
-  "passed": 88,
+  "passed": 89,
   "failed": 0,
   "results": [
     {
@@ -352,6 +352,10 @@
     },
     {
       "name": "Thornmother plays the same at 30, 60 and 144 FPS",
+      "passed": true
+    },
+    {
+      "name": "Thornmother: her moods, reel, sweetheart vine, Lovestruck float, lasso and arch draw balanced, finite and with no per-frame gradients",
       "passed": true
     }
   ]

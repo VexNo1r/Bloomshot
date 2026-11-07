@@ -1491,6 +1491,47 @@ test('Crystal Heart replays identically at 30, 60 and 144 FPS, and a strike loop
     });
     assert.deepEqual(snaps[0], snaps[1]); assert.deepEqual(snaps[1], snaps[2]);
   });
+  test('Thornmother: her moods, reel, sweetheart vine, Lovestruck float, lasso and arch draw balanced, finite and with no per-frame gradients', () => {
+    const { Art, looks, brush, totals } = sunnyArt(), drawn = new Set();
+    for (const hook of ['face', 'part', 'under', 'over']) {
+      const own = looks.briar[hook];
+      // Counts what the hook really draws: under() and over() return nothing, so their return value proves nothing.
+      looks.briar[hook] = (ctx, state, s, piece, ...rest) => {
+        let calls = 0;
+        const spy = new Proxy(ctx, { get: (t, n) => { const v = t[n]; return typeof v === 'function' && /^(fill|stroke|drawImage|fillRect|fillText)$/.test(n) ? (...a) => { calls++; return v.apply(t, a); } : typeof v === 'function' ? v.bind(t) : v; },
+          set: (t, n, v) => { t[n] = v; return true; } });
+        const done = own(spy, state, s, piece, ...rest); if (done === true || (done !== false && calls > 0)) drawn.add(hook === 'part' ? piece.bossPart : hook); return done;
+      };
+    }
+    const snap = (label, state) => {
+      for (const reducedMotion of [false, true]) for (const quality of [0, 1, 2]) {
+        const options = { theme: 'meadow', reducedMotion, showAim: true, quality };
+        Art.draw(brush().ctx, state, state.time, options);
+        const warm = totals.gradients, rec = brush(); Art.draw(rec.ctx, state, state.time + .05, options);
+        assert(rec.balanced(), `${label}: balanced`); const kitGradients = totals.gradients - warm;
+        const look = looks.briar; delete looks.briar; const bare = totals.gradients; Art.draw(brush().ctx, state, state.time + .05, options); looks.briar = look;
+        assert.equal(kitGradients, totals.gradients - bare, `${label}: the kit adds no per-frame gradient`);
+      }
+    };
+    // Each mood's face, a hit, and the shiver near the end.
+    for (const tier of [0, 1, 2]) { const h = arena(9); h.bossState.tier = tier; snap(`mood ${tier}`, h); h.time = 2.95; snap(`mood ${tier} blink`, h); }
+    let h = arena(9); h.bossState.boss.hp = 12; h.bossState.boss.hitAt = h.time; snap('hurt, shivering', h);
+    // The reel: its tell, the slide, docked with sap running, a snip whipping its vine back; her own rosebuds' tell.
+    let g = thorn(0, 1), s = g.bossState; advance(g, .7); snap('reel tell', g); play(g); advance(g, .5); snap('reel slide', g);
+    until(g, () => s.kitAge >= s.reel.next - .3); snap('reel sap', g); hit(g, docked(s)[0]); advance(g, .1); snap('snip', g);
+    g = thorn(0, 1, { flowers: false }); advance(g, .7); snap('rosebud tell', g); play(g); advance(g, .4); snap('rosebuds docked', g);
+    // Sweetheart Vines: the tell, the pair on its vine with sap running, a kiss, the float and the ring with its arc.
+    g = thorn(1, 0, { flowers: false }); s = g.bossState; advance(g, .7); snap('sweet tell', g); play(g); advance(g, .5); snap('pair', g);
+    const v = s.vines.find(v => !v.cut); until(g, () => s.kitAge >= v.next - .5); snap('pair sap', g);
+    const [r0, r1] = g.buds.filter(p => p.foe === 'sweetheart'); s.drift = 200; hit(g, r0); hit(g, r1); assert.equal(s.mode, 'smitten');
+    advance(g, .2); snap('swept off her feet', g); advance(g, 1); snap('lovestruck', g);
+    // The lasso: the tell, crawling with its bow, untied by the bow, and an arch bursting up and shrivelling.
+    g = thorn(2, 0); s = g.bossState; advance(g, .7); snap('lasso tell', g); play(g); advance(g, 1); snap('lasso', g);
+    hit(g, knots(s)[1]); advance(g, .15); snap('untied', g);
+    g = thorn(2, 0); s = g.bossState; play(g); until(g, () => !s.lasso, 6); advance(g, .1); snap('arch', g);
+    const rock = g.bumpers.find(p => p.bossArch); until(g, () => s.kitAge >= rock.kitUntil - .15); snap('arch withering', g);
+    for (const hook of ['face', 'lasso', 'under', 'over']) assert(drawn.has(hook), hook);
+  });
 }
 
 // ── The Starseed (Level 10, `core`) ──

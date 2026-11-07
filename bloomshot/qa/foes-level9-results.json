@@ -1,5 +1,5 @@
 {
-  "passed": 12,
+  "passed": 13,
   "failed": 0,
   "results": [
     {
@@ -48,6 +48,10 @@
     },
     {
       "name": "foes.js never touches the seed pod and never uses Math.random",
+      "passed": true
+    },
+    {
+      "name": "The roses draw cheaply: finite, balanced, no gradient, shadow or surface once warm, and the blush and its arc at every quality",
       "passed": true
     }
   ]
