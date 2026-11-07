@@ -516,6 +516,21 @@
   // ── Amberkeeper (Level 6, `amberkeeper`) ──
 
   // ── Whizzbang (Level 7, `whizzbang`) ──
+  // A firework in soft C major. Lit: a match-strike and a fizz of glass ticks that climb and hurry with the fuse. The
+  // launch is a rising whoosh with a pop; each flower it pins on the way up is a glass tick climbing the pentatonic; a
+  // tunnel hop is two quick glass notes; the bang is a bell chord over a thump, with sparkles chiming down after it.
+  const WHIZZ_BANG = [['crunch', 'burst', 0, .8], ['thump', step(-7), 0, .12, .06], ['bell', step(7), 0, .3, .06], ['bell', step(9), .03, .3, .05],
+    ['bell', step(11), .06, .34, .05], ['chime', step(14), .14, .36, .04], ['chime', step(16), .32, .34, .03, 0], ['chime', step(13), .5, .36, .025, 0],
+    ['chime', step(11), .68, .38, .02, 0]];                                  // last: .68 + .38 = 1.06
+  FOE_CUES['whizzbang:light'] = (data, pan) => {                             // a match-strike, then a fizz that climbs and hurries
+    const f = clamp(num(data.fuse, 1), .3, 1);
+    crunch('click', 0, pan, .7); note(step(7), 0, .05, .045, pan, 'pan', 1);
+    [.3, .55, .75, .9].forEach((k, i) => note(step(9 + i), k * f, .04, .026 + .004 * i, pan, 'glass', 0));
+  };
+  FOE_CUES['whizzbang:launch'] = (data, pan) => { note(step(4), 0, .24, .05, pan, 'drop', 1, { from: .55, bend: .2 }); crunch('burst', 0, pan, .45); note(step(11), .12, .1, .03, pan, 'glass', 0); };
+  FOE_CUES['whizzbang:pin'] = (data, pan) => note(pent(7 + Math.min(num(data.k, 1), 4)), 0, .05, .035, pan, 'glass', 0);
+  FOE_CUES['whizzbang:tunnel'] = [['glass', step(11), 0, .06, .04], ['glass', step(14), .05, .08, .035], ['crunch', 'click', 0, .4]];
+  FOE_CUES['whizzbang:bang'] = (data, pan) => { foeRows(WHIZZ_BANG, pan); if (num(data.n, 0) >= 4) note(step(18), .2, .4, .035, pan, 'chime', 1); };
 
   // ── Lodestone (Level 8, `lodestone`) ──
 
@@ -619,6 +634,19 @@
   // ── Ammonite Queen (Level 6, `fossil`) ──
 
   // ── Ember Rose (Level 7, `ember`) ──
+  // Flamenco in E Phrygian on the white keys, over the hollows' Am-G-F-G groove. Her dive swoops down a falling drop
+  // with a puff of flame; the rings strike up an E-F-E flourish and a harp, and she bursts out of the far one on a
+  // steel-pan ta-da. The stomp's tell is three castanet clicks (the third a step higher), then a timpani STOMP and a
+  // marimba "O-le!". The barrage pops up three fuses, a caught cinder rings a bell, and a missed one lands as a coal.
+  BOSS_ACTS['ember:ember:start'] = (data, pan) => { note(step(9), 0, .3, .05, pan, 'drop', 1, { from: 1.6, bend: .26 }); crunch('burst', 0, pan, .5); note(step(2), .24, .16, .045, pan, 'marimba', 1); };
+  BOSS_ACTS['ember:rings:start'] = [['marimba', step(2), 0, .08, .05], ['marimba', step(3), .07, .08, .05], ['marimba', step(2), .14, .1, .05], ['crunch', 'burst', .02, .5], ['harp', step(6), .22, .22, .045]];
+  BOSS_ACTS['ember:rings:land'] = [['pan', step(7), 0, .12, .055], ['pan', step(11), .06, .16, .05], ['crunch', 'pop', 0, .6]];
+  // The clicks start on F5: the wood timbre's 5.4x partial on E5 would sit above the 3.6 kHz ceiling after its bend.
+  BOSS_ACTS['ember:stomp:click'] = (data, pan) => { const hi = num(data.n, 1) >= 3 ? 2 : 0; note(step(10 + hi), 0, .035, .05, pan, 'wood', 1); note(step(11 + hi), .05, .03, .04, pan, 'wood', 1); crunch('click', 0, pan, .8); };
+  BOSS_ACTS['ember:stomp:start'] = [['thump', step(-5), 0, .16, .07], ['crunch', 'thock', 0, 1], ['timp', step(-3), .03, .3, .05], ['crunch', 'crack', .03, .5], ['marimba', step(9), .22, .1, .05], ['marimba', step(11), .32, .18, .05]];
+  BOSS_ACTS['ember:barrage:start'] = [['wood', step(4), 0, .05, .045], ['crunch', 'click', 0, .5], ['wood', step(5), .12, .05, .045], ['crunch', 'click', .12, .5], ['wood', step(7), .24, .06, .05], ['crunch', 'click', .24, .5], ['pan', step(11), .34, .2, .045]];
+  BOSS_ACTS['ember:cinder:catch'] = [['bell', step(9), 0, .14, .055], ['crunch', 'click', 0, .4], ['chime', step(14), .05, .26, .04]];
+  BOSS_ACTS['ember:cinder:coal'] = [['thump', step(-3), 0, .07, .04], ['crunch', 'crack', 0, .5], ['drop', step(2), .04, .14, .03, 0]];
 
   // ── Geode King (Level 8, `geode`) ──
 

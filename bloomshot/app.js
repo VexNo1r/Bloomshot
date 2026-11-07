@@ -1916,6 +1916,22 @@
   // ── Amberkeeper (Level 6, `amberkeeper`) ──
 
   // ── Whizzbang (Level 7, `whizzbang`) ──
+  // A spark and a tick as the fuse catches; a puff of smoke and a ring at the launch; a poppy ring on every flower it
+  // pins; a gold ring through a tunnel; and the bang: a burst of poppy and gold, two rings, a beat of hit-stop, and
+  // "Whoosh-bang!" when it takes four or more.
+  FOE_FX.whizzbang = {
+    light(e) { foeRing(e.x, e.y - 14, '#ffd148', 3, 10, .25); foeDust(e.x, e.y - 14, 3, '#fff2b1', 30); haptic('tick'); },
+    launch(e) { foeDust(e.x, e.y + 12, 6, '#ffc27a', 70); foeRing(e.x, e.y + 10, '#fff6ce', 8, 22, .3); jolt(.04); },
+    pin(e) { foeRing(e.x, e.y, '#ff7433', 5, 14, .22); },
+    tunnel(e) { foeRing(e.x, e.y, '#ffd148', 8, 20, .3); },
+    bang(e) {
+      burst({ x: e.x, y: e.y, type: 'poppy', r: 16 }, 18, game.particles, currentKeepsake(), false);
+      burst({ x: e.x, y: e.y, type: 'gold', r: 12 }, 12, game.particles, currentKeepsake(), false);
+      foeRing(e.x, e.y, '#ffd148', 12, 40, .45); foeRing(e.x, e.y, '#ffffff', 8, 26, .3); jolt(.12, .05, .15); haptic('surge');
+      // Rockets bang high, so a bang near the top puts its word under the burst, clear of the wave banner.
+      if ((e.n || 0) >= 4 && save.settings.motion) game.floaters.push({ kind: 'trick', trick: 'whizz', text: 'Whoosh-bang!', label: '', x: clamp(e.x, 60, 360), y: e.y < 110 ? e.y + 44 : e.y - 30, life: 1, maxLife: 1 });
+    }
+  };
 
   // ── Lodestone (Level 8, `lodestone`) ──
 
@@ -2156,6 +2172,27 @@
   // ── Ammonite Queen (Level 6, `fossil`) ──
 
   // ── Ember Rose (Level 7, `ember`) ──
+  // A puff of embers as she dives; rings of flame where her fire rings open and a poppy burst with a gold ring where
+  // she bursts out of the far one; a ring per castanet click, then the STOMP: two shock rings, dust, a heavy hit-stop and
+  // "Stomp!"; a ring and sparks where each barrage whizzbang will sprout; "Catch!" with a gold burst for a caught
+  // cinder, and ash where a missed one lands. Crits name the shot: a ring shot, an Olé, a whizz-bang.
+  CRIT_TEXT.ring = 'Ring shot!'; CRIT_TEXT.ole = 'Olé!'; CRIT_TEXT.whizz = 'Whizz-bang!';
+  const EMBER_FIRE = '#ff9652', EMBER_GOLD = '#fff2b1', EMBER_ASH = '#5b3b35';
+  BOSS_FX.ember = {
+    'ember:start'(e) { foeDust(e.x, e.y, 6, '#ffc27a', 70); haptic('tick'); },
+    'rings:start'(e) { for (const t of (e.targets || []).filter(t => /^ring/.test(t.role))) { foeRing(t.x, t.y, EMBER_FIRE, 10, 30, .45); foeDust(t.x, t.y, 5, '#ffc27a', 60); } jolt(.08); haptic('warn'); },
+    'rings:land'(e) { burst({ x: e.x, y: e.y, type: 'poppy', r: 18 }, 14, game.particles, currentKeepsake(), false); foeRing(e.x, e.y, EMBER_GOLD, 14, 40, .4); jolt(.06); haptic('tick'); },
+    'stomp:click'(e) { foeRing(e.x, e.y + 30, EMBER_GOLD, 4, 12 + 4 * (e.n || 1), .22); haptic('tick'); },
+    'stomp:stomp'(e) {
+      foeRing(e.x, e.y + 24, EMBER_FIRE, 18, 150, .55); foeRing(e.x, e.y + 24, EMBER_GOLD, 12, 90, .4); foeDust(e.x, e.y + 30, 8, '#ffc27a', 120);
+      jolt(.2, .08, .25); haptic('surge'); bossCallout(e.x, e.y, 'Stomp!', .8);
+    },
+    'barrage:start'(e) { for (const t of (e.targets || []).filter(t => t.role === 'whizz')) { foeRing(t.x, t.y, '#ff7433', 8, 22, .35); foeDust(t.x, t.y, 4, '#ffd148', 50); } haptic('warn'); },
+    'cinder:catch'(e) { burst({ x: e.x, y: e.y, type: 'gold', r: 9 }, 10, game.particles, currentKeepsake(), false); foeRing(e.x, e.y, '#ffd148', 6, 22, .3); bossCallout(e.x, e.y, 'Catch!', .8); haptic('tick'); },
+    'cinder:coal'(e) { foeDust(e.x, e.y, 6, EMBER_ASH, 50); foeRing(e.x, e.y, EMBER_FIRE, 6, 18, .3); },
+    // A seed turned away at Blazing (through a level tunnel) says what does reach her.
+    tip() { const s = game.bossState; return s && s.kind === 'ember' && s.tier >= 2 ? 'Too hot for tunnels! Shoot through her fire rings.' : ''; }
+  };
 
   // ── Geode King (Level 8, `geode`) ──
 

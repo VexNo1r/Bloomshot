@@ -1008,8 +1008,7 @@
   // lets a caller forecast the other pieces (the aim line and the bot look ahead; the game passes nothing).
   function whizzPath(game, x, y, opts = {}) {
     const pose = opts.pose || (p => p), skip = opts.skip || null, pts = [[x, y - WHIZ.r]];
-    const pieces = [];
-    for (const p of game.buds || []) if (whizzable(game, p, skip) && p.id !== (skip && skip.id)) { const at = pose(p) || p; pieces.push({ p, x: at.x, y: at.y, r: p.r }); }
+    const pieces = whizzPieces(game, skip, pose);
     let px = x, py = y - WHIZ.r, ux = 0, uy = -1, left = WHIZ.reach, hops = 0, gate = null, boss = null, cool = 0, len = 0, hopAt = null;
     while (left > 1e-9) {
       const s = Math.min(WHIZ.step, left), nx = px + ux * s, ny = py + uy * s;
@@ -1052,9 +1051,17 @@
     }
     pins.sort((a, b) => a.d - b.d || (a.id < b.id ? -1 : 1));
     const kept = pins.slice(0, WHIZ.pins), end = { x: px, y: py }, near = new Set(kept.map(k => k.id));
-    const bangs = pieces.filter(q => !q.p.boss && !near.has(q.p.id) && Math.hypot(q.x - px, q.y - py) <= WHIZ.bang + q.r)
-      .sort((a, b) => Math.hypot(a.x - px, a.y - py) - Math.hypot(b.x - px, b.y - py) || (a.p.id < b.p.id ? -1 : 1)).slice(0, WHIZ.bangs).map(q => q.p.id);
-    return { pts, pins: kept, bangs, end, boss: boss ? boss.id : null, gate, hop: hopAt, len: Math.max(len, 1) };
+    return { pts, pins: kept, bangs: whizzBangs(pieces, px, py, near), end, boss: boss ? boss.id : null, gate, hop: hopAt, len: Math.max(len, 1) };
+  }
+  function whizzPieces(game, skip, pose = p => p) {
+    const pieces = [];
+    for (const p of game.buds || []) if (whizzable(game, p, skip) && p.id !== (skip && skip.id)) { const at = pose(p) || p; pieces.push({ p, x: at.x, y: at.y, r: p.r }); }
+    return pieces;
+  }
+  // The bang set: the pieces within WHIZ.bang of (x, y) that the column did not pin, nearest first.
+  function whizzBangs(pieces, x, y, pinned) {
+    return pieces.filter(q => !q.p.boss && !pinned.has(q.p.id) && Math.hypot(q.x - x, q.y - y) <= WHIZ.bang + q.r)
+      .sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y) || (a.p.id < b.p.id ? -1 : 1)).slice(0, WHIZ.bangs).map(q => q.p.id);
   }
   // Where along the flight (d px from the nose) the rocket is.
   function whizzAlong(path, d) {
@@ -1089,10 +1096,11 @@
     }
     if (w.path.hop != null && !w.hopped && d >= w.path.hop) { w.hopped = true; game.event('foe', { kind: 'whizzbang:tunnel', bud, x: bud.x, y: bud.y, gate: w.path.gate }); }
     if (d < w.path.len - 1e-9) return;
-    // The bang: what is near the end now (the column's pieces already have their links), then the rocket itself.
+    // The bang: what is near the rocket now (the column's pieces already have their links), then the rocket itself.
+    // Measured round the rocket, not from a fresh flight: a fresh flight would pin the buds it flew past (over the
+    // four-pin cap) and leave a bud right under the bang untouched.
     w.done = true; w.mode = 'bang';
-    const end = whizzPath(game, w.x0, w.y0, { skip: bud }), taken = new Set(w.path.pins.map(p => p.id));
-    const near = end.bangs.filter(id => !taken.has(id));
+    const near = whizzBangs(whizzPieces(game, bud), bud.x, bud.y, new Set(w.path.pins.map(p => p.id)));
     near.forEach((id, k) => game.pending.push(game._linkBy(id, game.time + .04 + k * WHIZ.ripple, bud, 'whizz', w.by)));
     if (w.path.boss) game.pending.push(game._linkBy(w.path.boss, game.time + WHIZ.link, bud, 'whizz', w.by));
     game.pending.push(game._linkBy(bud.id, game.time + WHIZ.link, bud, 'whizz', w.by));

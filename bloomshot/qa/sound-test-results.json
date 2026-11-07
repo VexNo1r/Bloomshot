@@ -18,7 +18,7 @@
     {
       "name": "Stress measurement",
       "passed": true,
-      "eventsSubmitted": 138000,
+      "eventsSubmitted": 153600,
       "maxVoices": 16,
       "maxOscillators": 40
     },
