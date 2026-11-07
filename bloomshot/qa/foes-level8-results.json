@@ -1,5 +1,5 @@
 {
-  "passed": 10,
+  "passed": 12,
   "failed": 0,
   "results": [
     {
@@ -40,6 +40,14 @@
     },
     {
       "name": "foes.js keeps the Lodestone free of the seed pod and of Math.random",
+      "passed": true
+    },
+    {
+      "name": "The Lodestone draws cheaply in every state: finite, balanced, and no gradient, shadow or surface once warm",
+      "passed": true
+    },
+    {
+      "name": "The drawn needle is the rules' needle, with Animations on and off, and it holds through a Lullaby",
       "passed": true
     }
   ]

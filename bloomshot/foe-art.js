@@ -1474,6 +1474,318 @@
   // ── Whizzbang (Level 7, `whizzbang`) ──
 
   // ── Lodestone (Level 8, `lodestone`) ──
+  // A round magnet rock prised from the mine roof: slate iron in a cream sticker rim, a red horseshoe band round its
+  // belly with silver poles (it reads as a magnet at a glance), a cushion of moss over its top half (the part a seed
+  // must touch) with one green tuft per hit left, and a kind face inside the horseshoe. A little compass needle of
+  // light rides the rim, swaying shoulder to shoulder across the moss on the foe clock (the rules' own sway), and the
+  // stone's eyes follow it. Beneath it a dashed sky arc marks how far its field reaches on the needle's side (the ring
+  // shrinks as the moss wears), with chevrons drifting in toward the needle. Tugging a seed it strains ("> <") and a
+  // dotted tether runs from the needle to the seed; a seed turned off its iron gets a smug look; a moss hit makes it
+  // wince. When it opens, the iron clacks apart in two halves and its last tufts fly. While the aim guide ends on it, a
+  // chip at the touch says what happens: a green leaf on the moss, a grey shield on the iron. Animations off: the
+  // needle and arc still show the real field, but nothing breathes, drifts or glances, and the halves just fade.
+  const LODE_ART = { iron: '#6f788b', light: '#9aa5b9', dark: '#4b5262', ink: '#2c303c', rim: '#fff4e2', fleck: '#c3cad6',
+    band: '#e2504a', bandLight: '#ff8f84', bandDark: '#a3313a', silver: '#eef2f7', silverDark: '#9aa3b3', moss: '#86c450',
+    mossLight: '#c4ea8e', mossDark: '#5d9a3e', mossInk: '#2f5a26', needle: '#fff6cf', field: '#45adff', fieldPale: '#c6e9ff',
+    eye: '#232733', cheek: '#ff9f8f', mouth: '#fff0dc',
+    jaw: 1.4, swing: 1, period: 5, rings: [40, 40, 60, 84], moss: 1.318, smug: .4, oof: .25, pull: .15, open: .4,
+    tufts: [[], [0], [-.36, .36], [-.62, 0, .62]] };
+  // The needle's angle, the same sway as foes.js (LODE.swing either side of straight up, once every LODE.period s on
+  // the foe clock, from a phase hashed off the stone's id); kept here so the art has no dependency on the rules.
+  const lodePhases = new Map();
+  function lodePhase(id) {
+    let p = lodePhases.get(id);
+    if (p === undefined) {
+      const s = `${id}:7`; let h = 2166136261;
+      for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+      p = (h >>> 0) / 4294967296 * TAU;
+      if (lodePhases.size > 64) lodePhases.clear();
+      lodePhases.set(id, p);
+    }
+    return p;
+  }
+  const lodeNeedle = (bud, clock) => -Math.PI / 2 + LODE_ART.swing * Math.sin(TAU / LODE_ART.period * (clock - (bud.born || 0)) + lodePhase(bud.id));
+  // The rock's lumpy outline (a circle with gentle bumps, never past r + .5).
+  const LODE_LUMPS = [1, .95, .99, .94, 1.02, .96, .99, .93, 1.01, .96];
+  function lodeOutline(c, r) {
+    const n = LODE_LUMPS.length, pt = k => { const a = k / n * TAU - Math.PI / 2, q = r * LODE_LUMPS[k % n]; return [Math.cos(a) * q, Math.sin(a) * q]; };
+    c.beginPath();
+    for (let k = 0; k <= n; k++) {
+      const [x0, y0] = pt(k), [x1, y1] = pt(k + 1), mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+      if (k === 0) c.moveTo(mx, my); else c.quadraticCurveTo(x0, y0, mx, my);
+    }
+    c.closePath();
+  }
+  // The iron with its horseshoe band (no moss, no face): the halves that fly apart are cut from this too.
+  function paintLodeIron(c, r) {
+    const L = LODE_ART;
+    c.lineJoin = 'round'; c.lineCap = 'round';
+    lodeOutline(c, r); c.lineWidth = 3.4; c.strokeStyle = L.rim; c.stroke();
+    c.fillStyle = L.iron; c.fill();
+    c.save(); lodeOutline(c, r); c.clip();
+    c.beginPath(); c.arc(r * .3, r * .38, r * .95, 0, TAU); c.fillStyle = L.dark; c.fill();
+    c.beginPath(); c.arc(-r * .06, -r * .1, r * .84, 0, TAU); c.fillStyle = L.iron; c.fill();
+    c.beginPath(); c.ellipse(-r * .42, r * .12, r * .26, r * .5, .25, 0, TAU); c.fillStyle = L.light; c.globalAlpha = .55; c.fill(); c.globalAlpha = 1;
+    // Flecks of ore and a hairline crack.
+    for (const [fx, fy, fr] of [[-.18, .52, .07], [.36, .1, .06], [.08, .66, .05], [-.5, -.05, .05], [.55, .42, .05]]) { c.beginPath(); c.arc(fx * r, fy * r, fr * r + .3, 0, TAU); c.fillStyle = L.fleck; c.fill(); }
+    c.beginPath(); c.moveTo(r * .62, r * .02); c.lineTo(r * .48, r * .2); c.lineTo(r * .56, r * .34); c.strokeStyle = L.dark; c.lineWidth = .8; c.stroke();
+    c.restore();
+    // The horseshoe: a red band hugging the lower rim, its ends silver poles that point up at the moss.
+    const R = r * .74, w = r * .26, a0 = -.04, a1 = Math.PI + .04, pole = .46;
+    c.lineCap = 'butt';
+    c.beginPath(); c.arc(0, 0, R, a0, a1); c.lineWidth = w + 1.8; c.strokeStyle = L.ink; c.stroke();
+    c.beginPath(); c.arc(0, 0, R, a0 + pole, a1 - pole); c.lineWidth = w; c.strokeStyle = L.band; c.stroke();
+    c.beginPath(); c.arc(0, 0, R + w * .22, a0 + pole + .05, a1 - pole - .05); c.lineWidth = w * .3; c.strokeStyle = L.bandLight; c.stroke();
+    c.beginPath(); c.arc(0, 0, R - w * .3, a0 + pole, a1 - pole); c.lineWidth = w * .25; c.strokeStyle = L.bandDark; c.globalAlpha = .7; c.stroke(); c.globalAlpha = 1;
+    for (const [s0, s1] of [[a0, a0 + pole], [a1 - pole, a1]]) {
+      c.beginPath(); c.arc(0, 0, R, s0, s1); c.lineWidth = w; c.strokeStyle = L.silver; c.stroke();
+      c.beginPath(); c.arc(0, 0, R - w * .28, s0, s1); c.lineWidth = w * .3; c.strokeStyle = L.silverDark; c.stroke();
+    }
+    // Ink ticks where the poles meet the red, and a white glint on the band.
+    c.strokeStyle = L.ink; c.lineWidth = .9; c.lineCap = 'round';
+    for (const a of [a0 + pole, a1 - pole]) { c.beginPath(); c.moveTo(Math.cos(a) * (R - w / 2), Math.sin(a) * (R - w / 2)); c.lineTo(Math.cos(a) * (R + w / 2), Math.sin(a) * (R + w / 2)); c.stroke(); }
+    c.beginPath(); c.arc(Math.cos(2.35) * R, Math.sin(2.35) * R, .9, 0, TAU); c.fillStyle = '#ffffff'; c.fill();
+    lodeOutline(c, r); c.lineWidth = 1.5; c.strokeStyle = L.ink; c.stroke();
+  }
+  // One tuft at angle a on the rim: a soft moss bump with a two-leaf sprout standing up out of it (one per hit left).
+  function paintLodeTuft(c, r, a) {
+    const L = LODE_ART, ux = Math.cos(a), uy = Math.sin(a), tx = -uy, ty = ux, at = (d, s) => [ux * d + tx * s, uy * d + ty * s];
+    c.lineCap = 'round'; c.lineJoin = 'round';
+    const [bx, by] = at(r + .2, 0);
+    c.beginPath(); c.arc(bx, by, 2.7, 0, TAU); c.fillStyle = L.moss; c.fill(); c.lineWidth = .9; c.strokeStyle = L.mossInk; c.stroke();
+    c.beginPath(); c.arc(...at(r + 1, -.8), 1, 0, TAU); c.fillStyle = L.mossLight; c.fill();
+    // The stem leans with the rim and a little to the right, then two leaves open off its tip.
+    const [sx, sy] = at(r + 1.6, 0), [ex, ey] = at(r + 5.4, .5);
+    c.beginPath(); c.moveTo(sx, sy); c.quadraticCurveTo(...at(r + 4, -.3), ex, ey); c.lineWidth = 2.3; c.strokeStyle = L.mossInk; c.stroke();
+    c.lineWidth = 1.1; c.strokeStyle = L.mossLight; c.stroke();
+    for (const side of [-1, 1]) {
+      const la = Math.atan2(uy, ux) + side * .95, lx = ex + Math.cos(la) * 2.2, ly = ey + Math.sin(la) * 2.2;
+      c.beginPath(); c.ellipse(lx, ly, 2.4, 1.35, la, 0, TAU); c.fillStyle = L.mossLight; c.fill(); c.lineWidth = .8; c.strokeStyle = L.mossInk; c.stroke();
+      c.beginPath(); c.moveTo(ex, ey); c.lineTo(lx + Math.cos(la) * .9, ly + Math.sin(la) * .9); c.lineWidth = .5; c.strokeStyle = L.moss; c.stroke();
+    }
+  }
+  // The iron, the moss cushion over the top (its ends at the rules' moss line, ny = -.25) and hp sprouts.
+  function paintLodeBody(c, r, hp) {
+    const L = LODE_ART, m = L.moss, top = -Math.PI / 2;
+    paintLodeIron(c, r);
+    // The cushion: a scalloped crown along the rim and a fringe of little drips over the iron.
+    const n = 7, cushion = () => {
+      c.beginPath();
+      for (let k = 0; k < n; k++) {
+        const e0 = top - m + k / n * 2 * m, e1 = top - m + (k + 1) / n * 2 * m, em = (e0 + e1) / 2, q = r + (k % 2 ? 1.1 : 1.7);
+        if (k === 0) c.moveTo(Math.cos(e0) * r, Math.sin(e0) * r);
+        c.quadraticCurveTo(Math.cos(em) * (q + 1.1), Math.sin(em) * (q + 1.1), Math.cos(e1) * (r + .4), Math.sin(e1) * (r + .4));
+      }
+      const fr = [[.9, -.2], [.62, -.42], [.3, -.52], [0, -.58], [-.3, -.52], [-.62, -.42], [-.9, -.2]];
+      for (let k = 0; k < fr.length; k++) {
+        const [x0, y0] = k ? fr[k - 1] : [Math.sin(m), -Math.cos(m)], [x1, y1] = fr[k];
+        c.quadraticCurveTo((x0 + x1) / 2 * r, ((y0 + y1) / 2 + .13) * r, x1 * r, y1 * r);
+      }
+      c.closePath();
+    };
+    c.save(); c.translate(0, 1.3); cushion(); c.fillStyle = L.ink; c.globalAlpha = .28; c.fill(); c.restore();
+    cushion(); c.lineWidth = 2.2; c.strokeStyle = L.mossInk; c.stroke(); c.fillStyle = L.mossDark; c.fill();
+    // Lit from the upper left: the fringe and right shoulder stay dark, a pale sheen along the crown.
+    c.save(); cushion(); c.clip();
+    c.beginPath(); c.arc(-r * .1, -r * .2, r * 1.02, 0, TAU); c.fillStyle = L.moss; c.fill();
+    c.beginPath(); c.arc(-r * .1, -r * .08, r * .93, top - 1.05, top + .3); c.lineWidth = r * .13; c.strokeStyle = L.mossLight; c.globalAlpha = .85; c.stroke(); c.globalAlpha = 1;
+    for (const [a, d] of [[-.85, .66], [.1, .74], [.7, .64], [-.35, .58]]) { c.beginPath(); c.arc(Math.cos(top + a) * d * r, Math.sin(top + a) * d * r, .7, 0, TAU); c.fillStyle = L.mossLight; c.fill(); }
+    c.restore();
+    for (const a of L.tufts[clamp(hp | 0, 1, 3)]) paintLodeTuft(c, r, top + a);
+  }
+  // Faces, inside the horseshoe. Calm and pull leave their pupils to the live draw (they follow the needle, or the
+  // seed being tugged).
+  function paintLodeFace(c, r, face) {
+    const L = LODE_ART, ey = -r * .04, ex = r * .3;
+    c.lineCap = 'round'; c.lineJoin = 'round';
+    const cheeks = a => { c.globalAlpha = a; for (const s of [-1, 1]) { c.beginPath(); c.ellipse(s * r * .53, r * .2, r * .13, r * .085, 0, 0, TAU); c.fillStyle = L.cheek; c.fill(); } c.globalAlpha = 1; };
+    const white = (x, sy = 1) => { c.beginPath(); c.ellipse(x, ey, r * .17, r * .2 * sy, 0, 0, TAU); c.fillStyle = '#ffffff'; c.fill(); c.lineWidth = .8; c.strokeStyle = L.ink; c.stroke(); };
+    const smile = (y, w, a0 = .2, a1 = .8) => { c.beginPath(); c.arc(0, y, w, a0 * Math.PI, a1 * Math.PI); c.lineWidth = 1.4; c.strokeStyle = L.ink; c.stroke(); c.lineWidth = .7; c.strokeStyle = L.mouth; c.stroke(); };
+    if (face === 'calm') {
+      for (const s of [-1, 1]) white(s * ex);
+      cheeks(.75); smile(r * .2, r * .15);
+    } else if (face === 'pull') {
+      // Tugging: wide eyes on the seed under brows knit down hard, cheeks flushed, teeth gritted in a grin.
+      for (const s of [-1, 1]) {
+        white(s * ex);
+        c.beginPath(); c.moveTo(s * (ex + r * .2), ey - r * .3); c.lineTo(s * (ex - r * .14), ey - r * .19); c.lineWidth = 1.6; c.strokeStyle = L.ink; c.stroke();
+      }
+      cheeks(1);
+      c.beginPath(); c.moveTo(-r * .22, r * .19); c.quadraticCurveTo(0, r * .37, r * .22, r * .19); c.closePath(); c.fillStyle = '#ffffff'; c.fill(); c.lineWidth = .9; c.strokeStyle = L.ink; c.stroke();
+      c.beginPath(); c.moveTo(-r * .17, r * .24); c.lineTo(r * .17, r * .24); c.lineWidth = .6; c.stroke();
+    } else if (face === 'smug') {
+      // A seed turned off its iron: lids half down, eyes slid aside, one brow up, a crooked smirk.
+      for (const s of [-1, 1]) {
+        white(s * ex);
+        c.beginPath(); c.arc(s * ex + r * .08, ey + r * .06, r * .09, 0, TAU); c.fillStyle = L.eye; c.fill();
+        c.save(); c.beginPath(); c.ellipse(s * ex, ey, r * .17, r * .2, 0, 0, TAU); c.clip();
+        c.fillStyle = L.light; c.fillRect(s * ex - r * .2, ey - r * .25, r * .4, r * .24); c.restore();
+        c.beginPath(); c.moveTo(s * ex - r * .17, ey - r * .01); c.lineTo(s * ex + r * .17, ey - r * .01); c.lineWidth = 1; c.strokeStyle = L.ink; c.stroke();
+      }
+      c.beginPath(); c.moveTo(r * .16, ey - r * .34); c.quadraticCurveTo(r * .3, ey - r * .44, r * .46, ey - r * .32); c.lineWidth = 1.2; c.strokeStyle = L.ink; c.stroke();
+      cheeks(.6);
+      c.beginPath(); c.moveTo(-r * .14, r * .25); c.quadraticCurveTo(r * .08, r * .3, r * .21, r * .15); c.lineWidth = 1.4; c.strokeStyle = L.ink; c.stroke(); c.lineWidth = .7; c.strokeStyle = L.mouth; c.stroke();
+    } else {
+      // A moss hit: "ow!", eyes squeezed to "> <", mouth a little "o".
+      c.lineWidth = 2.2; c.strokeStyle = L.ink;
+      const wince = () => { for (const s of [-1, 1]) { c.beginPath(); c.moveTo(s * (ex + r * .14), ey - r * .14); c.lineTo(s * (ex - r * .1), ey); c.lineTo(s * (ex + r * .14), ey + r * .14); c.stroke(); } };
+      wince(); c.lineWidth = 1.1; c.strokeStyle = '#ffffff'; wince();
+      cheeks(.9);
+      c.beginPath(); c.ellipse(0, r * .25, r * .09, r * .11, 0, 0, TAU); c.fillStyle = L.ink; c.fill(); c.lineWidth = .7; c.strokeStyle = L.mouth; c.stroke();
+    }
+  }
+  // The compass needle (pointing along +x from the rim, its tip the point the field aims seeds at): a slim sliver of
+  // light, white and sky on its outer half, silver on its inner half, and its glow, painted once.
+  function paintLodeNeedle(c) {
+    const L = LODE_ART;
+    c.lineJoin = 'round';
+    const sliver = () => { c.beginPath(); c.moveTo(-3, 0); c.lineTo(2.4, -2.1); c.lineTo(10.5, 0); c.lineTo(2.4, 2.1); c.closePath(); };
+    sliver(); c.lineWidth = 2.4; c.strokeStyle = '#ffffff'; c.stroke(); c.fillStyle = L.needle; c.fill();
+    c.beginPath(); c.moveTo(2.4, -2.1); c.lineTo(10.5, 0); c.lineTo(2.4, 0); c.closePath(); c.fillStyle = '#8ed2ff'; c.fill();
+    c.beginPath(); c.moveTo(-3, 0); c.lineTo(2.4, -2.1); c.lineTo(2.4, 2.1); c.closePath(); c.fillStyle = L.silverDark; c.fill();
+    sliver(); c.lineWidth = .9; c.strokeStyle = '#1d6ad6'; c.stroke();
+    c.beginPath(); c.arc(2.4, 0, 1, 0, TAU); c.fillStyle = '#ffffff'; c.fill(); c.lineWidth = .6; c.stroke();
+  }
+  function paintLodeGlow(c) {
+    const g = c.createRadialGradient(0, 0, 0, 0, 0, 10);
+    g.addColorStop(0, 'rgba(230,247,255,.95)'); g.addColorStop(.4, 'rgba(142,210,255,.5)'); g.addColorStop(1, 'rgba(69,173,255,0)');
+    c.beginPath(); c.arc(0, 0, 10, 0, TAU); c.fillStyle = g; c.fill();
+  }
+  // Half of the iron (side -1 left, 1 right), cut along the middle with a jagged break.
+  function paintLodeHalf(c, r, side) {
+    c.save(); c.beginPath();
+    const zig = [[0, -r - 4], [side * 1.5, -r * .5], [-side * 1.2, -r * .1], [side * 1.4, r * .3], [-side * .8, r * .7], [0, r + 4]];
+    c.moveTo(...zig[0]); for (const p of zig.slice(1)) c.lineTo(...p);
+    c.lineTo(side * (r + 6), r + 4); c.lineTo(side * (r + 6), -r - 4); c.closePath(); c.clip();
+    paintLodeIron(c, r);
+    c.restore();
+    c.beginPath(); c.moveTo(0, -r); const zig2 = [[side * 1.5, -r * .5], [-side * 1.2, -r * .1], [side * 1.4, r * .3], [-side * .8, r * .7], [0, r]];
+    for (const p of zig2) c.lineTo(...p);
+    c.lineWidth = 1.3; c.strokeStyle = LODE_ART.ink; c.stroke();
+  }
+  // The aim chip: a moss leaf (it counts) or an iron shield (turned away), each in a cream rim.
+  function paintLodeChip(c, moss) {
+    const L = LODE_ART;
+    c.lineJoin = 'round'; c.lineCap = 'round';
+    if (moss) {
+      const leaf = () => { c.beginPath(); c.moveTo(-5, 4); c.quadraticCurveTo(-5, -4.5, 5, -5); c.quadraticCurveTo(4.5, 4, -5, 4); c.closePath(); };
+      leaf(); c.lineWidth = 3; c.strokeStyle = L.rim; c.stroke(); c.fillStyle = L.moss; c.fill(); c.lineWidth = 1.1; c.strokeStyle = L.mossInk; c.stroke();
+      c.beginPath(); c.moveTo(-4, 3); c.quadraticCurveTo(0, -.5, 3.6, -3.6); c.lineWidth = .9; c.strokeStyle = L.mossLight; c.stroke();
+    } else {
+      const shield = () => { c.beginPath(); c.moveTo(0, -5.5); c.lineTo(4.6, -3.8); c.quadraticCurveTo(4.6, 3, 0, 5.8); c.quadraticCurveTo(-4.6, 3, -4.6, -3.8); c.closePath(); };
+      shield(); c.lineWidth = 3; c.strokeStyle = L.rim; c.stroke(); c.fillStyle = L.light; c.fill(); c.lineWidth = 1.1; c.strokeStyle = L.ink; c.stroke();
+      c.beginPath(); c.moveTo(0, -3.8); c.lineTo(3, -2.6); c.quadraticCurveTo(3, 2, 0, 4); c.closePath(); c.fillStyle = L.dark; c.fill();
+    }
+  }
+  const lodeBox = r => { const e = r + 10; return [-e, -e, e, r + 4]; };
+  const lodeBody = (r, hp) => [`foe:lodestone:${r}:body${hp}`, lodeBox(r), c => paintLodeBody(c, r, hp)];
+  const lodeFace = (r, face) => [`foe:lodestone:${r}:face-${face}`, [-r * .7, -r * .4, r * .7, r * .45], c => paintLodeFace(c, r, face)];
+  const lodeHalf = (r, side) => [`foe:lodestone:${r}:half${side}`, [-r - 4, -r - 4, r + 4, r + 4], c => paintLodeHalf(c, r, side)];
+  const LODE_NEEDLE = ['foe:lodestone:needle', [-5, -4, 12, 4], paintLodeNeedle];
+  const LODE_GLOW = ['foe:lodestone:glow', [-10, -10, 10, 10], paintLodeGlow];
+  const lodeChip = moss => [`foe:lodestone:chip-${moss ? 'moss' : 'iron'}`, [-7, -7.5, 7, 7.5], c => paintLodeChip(c, moss)];
+  const stampLode = (ctx, kit, [key, box, paint], x, y, turn, sx, sy) => stamp(ctx, kit, key, box, paint, x, y, turn, sx, sy);
+  BloomFoeLook('lodestone', {
+    warm(kit, r) {
+      const jobs = [lodeBody(r, 3), lodeBody(r, 2), lodeBody(r, 1), lodeFace(r, 'calm'), lodeFace(r, 'pull'), lodeFace(r, 'smug'), lodeFace(r, 'oof'),
+        lodeHalf(r, -1), lodeHalf(r, 1), LODE_NEEDLE, LODE_GLOW, lodeChip(true), lodeChip(false)];
+      for (const [key, box, paint] of jobs) kit.atlasSprite(key, box[0], box[1], box[2], box[3], paint);
+    },
+    // Its field under the buds: a dashed arc at the ring's reach on the needle's side, and chevrons drifting in.
+    under(ctx, state, time, still, kit, quality) {
+      const L = LODE_ART, clock = Number(state.foeClock) || 0;
+      for (const bud of state.buds || []) {
+        if (bud.foe !== 'lodestone' || bud.bloomed || bud.hidden || bud.visible === false) continue;
+        const m = kit.budShift(bud, time, still), x = bud.x + m.dx, y = bud.y + m.dy, r = bud.r || 13;
+        const R = L.rings[clamp(bud.hp | 0, 1, 3)], a = lodeNeedle(bud, clock);
+        ctx.globalAlpha = m.alpha * (quality > 1 ? .55 : .75);
+        ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.arc(x, y, R, a - L.jaw, a + L.jaw); ctx.lineWidth = 3.2; ctx.strokeStyle = 'rgba(198,233,255,.35)'; ctx.stroke();
+        ctx.setLineDash([3, 6]); ctx.lineDashOffset = still ? 0 : -time * 9;
+        ctx.lineWidth = 1.6; ctx.strokeStyle = L.field; ctx.stroke(); ctx.setLineDash([]);
+        // The arc's two ends tick in toward the stone, so the wedge reads as a jaw.
+        for (const e of [a - L.jaw, a + L.jaw]) { ctx.beginPath(); ctx.moveTo(x + Math.cos(e) * R, y + Math.sin(e) * R); ctx.lineTo(x + Math.cos(e) * (R - 6), y + Math.sin(e) * (R - 6)); ctx.stroke(); }
+        if (still || quality > 0) continue;
+        // Three chevrons slide from the arc toward the needle's tip, once every 1.2 s, fading in and out.
+        const tx = x + Math.cos(a) * r, ty = y + Math.sin(a) * r;
+        ctx.strokeStyle = L.fieldPale; ctx.lineWidth = 1.4; ctx.lineJoin = 'round';
+        for (const off of [-.75, 0, .75]) {
+          const q = ((time / 1.2 + (off + 1) * .31) % 1 + 1) % 1, d = R - 4 - (R - r - 10) * q, e = a + off;
+          const px = x + Math.cos(e) * d, py = y + Math.sin(e) * d, dir = Math.atan2(ty - py, tx - px);
+          ctx.globalAlpha = m.alpha * .7 * Math.sin(q * Math.PI);
+          ctx.save(); ctx.translate(px, py); ctx.rotate(dir);
+          ctx.beginPath(); ctx.moveTo(-2.2, -3); ctx.lineTo(1.4, 0); ctx.lineTo(-2.2, 3); ctx.stroke(); ctx.restore();
+        }
+      }
+    },
+    bud(ctx, bud, time, still, state, kit, quality) {
+      const L = LODE_ART, r = bud.r || 13, x = bud.x, y = bud.y, hp = clamp(bud.hp | 0, 1, 3), a = lodeNeedle(bud, Number(state.foeClock) || 0);
+      const since = at => time - (Number.isFinite(at) ? at : -100);
+      let face = 'calm', seed = null;
+      if (!still) {
+        seed = (state.balls || []).find(b => b && b.pullBy === bud.id && since(b.pullAt) >= 0 && since(b.pullAt) < L.pull) || null;
+        if (since(bud.hitAt) >= 0 && since(bud.hitAt) < L.oof) face = 'oof';
+        else if (seed) face = 'pull';
+        else if (since(bud.guardAt) >= 0 && since(bud.guardAt) < L.smug) face = 'smug';
+      }
+      const breathe = still ? 1 : 1 + Math.sin(time * 2.2 + x * .05) * .015;
+      stampLode(ctx, kit, lodeBody(r, hp), x, y, 0, breathe, 1 / breathe);
+      stampLode(ctx, kit, lodeFace(r, face), x, y);
+      if (face === 'calm' || face === 'pull') {
+        // The pupils glance toward the needle (straight up with Animations off), or stare at the seed being tugged.
+        const g = seed ? Math.atan2(seed.y - y, seed.x - x) : still ? -Math.PI / 2 : a, px = Math.cos(g) * r * .06, py = Math.sin(g) * r * .07;
+        for (const s of [-1, 1]) {
+          kit.circle(ctx, x + s * r * .3 + px, y - r * .04 + py, r * .1, L.eye);
+          kit.circle(ctx, x + s * r * .3 + px - r * .035, y - r * .04 + py - r * .04, r * .035 + .2, '#ffffff');
+        }
+      }
+      // The needle's glow, then the needle on the rim.
+      const nx = x + Math.cos(a) * (r - .5), ny = y + Math.sin(a) * (r - .5);
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha *= still ? .55 : .45 + .2 * Math.sin(time * 4 + x * .03);
+      stampLode(ctx, kit, LODE_GLOW, x + Math.cos(a) * (r + 3), y + Math.sin(a) * (r + 3)); ctx.restore();
+      stampLode(ctx, kit, LODE_NEEDLE, nx, ny, a);
+    },
+    over(ctx, state, time, still, kit, quality) {
+      const L = LODE_ART, clock = Number(state.foeClock) || 0;
+      for (const bud of state.buds || []) {
+        if (bud.foe !== 'lodestone') continue;
+        const r = bud.r || 13;
+        if (!bud.bloomed) {
+          // A dotted tether from the needle's tip to the seed it is tugging.
+          if (still || quality > 1 || bud.hidden) continue;
+          const a = lodeNeedle(bud, clock), tx = bud.x + Math.cos(a) * (r + 7), ty = bud.y + Math.sin(a) * (r + 7);
+          for (const b of state.balls || []) {
+            const age = time - (Number.isFinite(b && b.pullAt) ? b.pullAt : -100);
+            if (!b || b.pullBy !== bud.id || age < 0 || age >= L.pull) continue;
+            ctx.globalAlpha = .8 * (1 - age / L.pull);
+            dotted(ctx, [[tx, ty], [b.x, b.y]], L.field, 1.5, 7, time * 40);
+            ctx.globalAlpha = 1;
+          }
+          continue;
+        }
+        // Opening: the iron clacks apart in two halves that tip out and drop; the last moss puffs fly up.
+        const age = time - (Number.isFinite(bud.bloomAt) ? bud.bloomAt : -100);
+        if (bud.popped || age < 0 || age >= L.open) continue;
+        const q = age / L.open, out = still ? .4 : kit.ease(q);
+        ctx.globalAlpha = still ? .7 * (1 - q) : 1 - q * q;
+        for (const side of [-1, 1]) stampLode(ctx, kit, lodeHalf(r, side), bud.x + side * (2 + 14 * out), bud.y + (still ? 0 : 10 * q * q), still ? 0 : side * .7 * out);
+        if (still || quality > 1) { ctx.globalAlpha = 1; continue; }
+        for (let k = 0; k < 5; k++) {
+          const e = -Math.PI / 2 + (k - 2) * .45, d = r + 22 * out;
+          kit.circle(ctx, bud.x + Math.cos(e) * d, bud.y + Math.sin(e) * d + 30 * q * q, 2.4 * (1 - q * .5), k % 2 ? L.mossLight : L.moss, L.mossInk, .8);
+        }
+        ctx.globalAlpha = 1;
+      }
+    },
+    // The aim guide ending on a stone: a leaf chip on the moss, a shield chip on the iron.
+    aim(ctx, state, time, still, kit) {
+      const aim = state.aim, target = aim && aim.target;
+      if (!target || target.foe !== 'lodestone' || target.bloomed || !aim.normal) return;
+      const r = target.r || 13, nx = aim.normal.x, ny = aim.normal.y, moss = ny <= -.25;
+      const pop = still ? 1 : 1 + .08 * Math.sin(time * 8);
+      stampLode(ctx, kit, lodeChip(moss), target.x + nx * (r + 9), target.y + ny * (r + 9), 0, pop);
+    }
+  });
 
   // ── Sweetheart Roses (Level 9, `sweetheart`) ──
 
@@ -3392,6 +3704,403 @@
   // ── Ember Rose (Level 7, `ember`) ──
 
   // ── Geode King (Level 8, `geode`) ──
+  // His stone body, amethyst heart and cart stay art.js's own; the kit gives him a face for each mood, a brass miner's
+  // lantern swinging off his crown, and every piece of his moves. Proud: half-lidded and chin up over a curled crystal
+  // moustache. Grumbly: brows knit into a V, moustache drooping, a frown, three grumble dots over his crown. Magnetic:
+  // wide sky eyes with star pupils, a sky jewel and lantern, a cool aura; he hums "O" while his heart pulls. Every
+  // heave (s.rise) puffs his cheeks and kicks dust off the cart wheels. Tells sit on top of the shared footprints:
+  // dotted arcs to each toss mark (the fool's gold mark carries a little brass cube, the real ones a gem), the dotted
+  // arc and a pulsing ring at the shoulder a gem is lobbed at, and the magnet's needle fading in with chevrons on the
+  // gems he will pull. Flights spin along their arcs over a landing shadow; fool's gold is a brassy striated cube with a
+  // sly wink; a lobbed gem carries its countdown ring at the shoulder and a dashed catch ring once it is low; a burr is a
+  // stone bar studded with amethyst spikes that shows its time left. While his heart pulls: a dashed sky ring, the
+  // jaw wedge round a spinning needle on his rim, iron caps riveted on his plates and gold sparkles at the gaps.
+  const GEO = { ink: '#453849', face: '#d4a2f0', lid: '#b47fdc', lilac: '#f2cdff', lilacDark: '#7751b2', eye: '#6258ab', cheek: '#ff9fb6',
+    brass: '#d9a93a', brassLight: '#f6dc84', brassDark: '#8d764f', brassInk: '#5e4718', iron: '#7c8696', ironLight: '#b3bccb', ironDark: '#545d6c',
+    ironInk: '#30353f', sky: '#9fd3ff', skyDeep: '#2f7fd0', dirt: '#8c6a47', dirtLight: '#c49a6c', dirtDark: '#5a4029', gold: '#ffd148',
+    moods: ['proud', 'grumbly', 'magnetic'], lob: 72, toss: 46, lift: .8, burrLife: 6, tipX: .69, tipY: -1.22, blink: 3.4 };
+  const GEO_GEMS = { coral: ['#ff7aa2', '#ffc6d6', '#a5305a'], gold: ['#ffc94a', '#fff2b0', '#9a6516'], lilac: ['#a77cff', '#e0ceff', '#57359f'] };
+  const GEO_TOSS = ['sky', 'coral', 'lilac', 'poppy'];
+  const GEO_FACES = ['proud', 'proud-blink', 'proud-heave', 'grumbly', 'grumbly-blink', 'grumbly-heave', 'magnetic', 'magnetic-blink', 'magnetic-hum', 'magnetic-heave', 'hurt'];
+  // A face, centred where art.js puts the guardian's face (r * faceY below his middle), inside his amethyst disc.
+  function paintGeodeFace(c, r, variant) {
+    const G = GEO, [mood, look] = variant.split('-'), u = r / 26;
+    c.lineCap = 'round'; c.lineJoin = 'round';
+    const line = (w, color = G.ink) => { c.lineWidth = w * u; c.strokeStyle = color; c.stroke(); };
+    // The forehead jewel (sky and glinting while Magnetic).
+    const magnetic = mood === 'magnetic';
+    c.beginPath(); c.moveTo(0, -r * .45); c.lineTo(r * .1, -r * .33); c.lineTo(0, -r * .21); c.lineTo(-r * .1, -r * .33); c.closePath();
+    c.fillStyle = magnetic ? G.sky : '#e4d7eb'; c.fill(); line(1.1, magnetic ? G.skyDeep : '#65586f');
+    c.beginPath(); c.moveTo(0, -r * .45); c.lineTo(r * .1, -r * .33); c.lineTo(0, -r * .33); c.closePath(); c.fillStyle = magnetic ? '#e6f7ff' : '#ffffff'; c.globalAlpha = .7; c.fill(); c.globalAlpha = 1;
+    // Cheeks, puffed and bright on a heave.
+    const heave = look === 'heave';
+    c.globalAlpha = heave ? .95 : .6;
+    for (const s of [-1, 1]) { c.beginPath(); c.ellipse(s * r * .32, r * .12, r * (heave ? .11 : .085), r * (heave ? .085 : .055), 0, 0, TAU); c.fillStyle = G.cheek; c.fill(); }
+    c.globalAlpha = 1;
+    const ex = r * .2, ey = -r * .03;
+    // Eyes.
+    if (variant === 'hurt' || heave) {
+      for (const s of [-1, 1]) { c.beginPath(); c.moveTo(s * (ex + r * .09), ey - r * .08); c.lineTo(s * (ex - r * .06), ey); c.lineTo(s * (ex + r * .09), ey + r * .08); line(2); }
+    } else if (look === 'blink') {
+      for (const s of [-1, 1]) { c.beginPath(); c.arc(s * ex, ey - r * .03, r * .1, .2 * Math.PI, .8 * Math.PI); line(1.8); }
+    } else {
+      const ry = mood === 'grumbly' ? .085 : mood === 'magnetic' ? .135 : .12, rx = mood === 'magnetic' ? .13 : .115;
+      for (const s of [-1, 1]) {
+        c.beginPath(); c.ellipse(s * ex, ey, r * rx, r * ry, 0, 0, TAU); c.fillStyle = '#ffffff'; c.fill(); line(1.2);
+        if (magnetic) {
+          c.beginPath(); c.arc(s * ex, ey + r * .01, r * .085, 0, TAU); c.fillStyle = '#5fb6ff'; c.fill(); line(.8, G.skyDeep);
+          c.save(); c.translate(s * ex, ey + r * .01); c.beginPath();
+          for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4 - Math.PI / 2, q = k % 2 ? r * .018 : r * .06; c.lineTo(Math.cos(a) * q, Math.sin(a) * q); }
+          c.closePath(); c.fillStyle = '#ffffff'; c.fill(); c.restore();
+        } else {
+          const py = mood === 'proud' ? ey + r * .04 : ey + r * .01;
+          c.beginPath(); c.arc(s * ex, py, r * .055, 0, TAU); c.fillStyle = G.eye; c.fill();
+          c.beginPath(); c.arc(s * ex - r * .02, py - r * .025, r * .02, 0, TAU); c.fillStyle = '#ffffff'; c.fill();
+        }
+        if (mood === 'proud') {
+          // Heavy lids, half down: he is very pleased with himself.
+          c.save(); c.beginPath(); c.ellipse(s * ex, ey, r * rx, r * ry, 0, 0, TAU); c.clip();
+          c.fillStyle = G.lid; c.fillRect(s * ex - r * .14, ey - r * .15, r * .28, r * .14); c.restore();
+          c.beginPath(); c.moveTo(s * ex - r * rx, ey - r * .01); c.lineTo(s * ex + r * rx, ey - r * .01); line(1.3);
+        }
+      }
+    }
+    // Brows: arched high (proud), a hard V (grumbly), level and set (magnetic).
+    for (const s of [-1, 1]) {
+      c.beginPath();
+      if (mood === 'proud') { c.moveTo(s * r * .09, -r * .18); c.quadraticCurveTo(s * r * .2, -r * .3, s * r * .33, -r * .2); line(1.8); }
+      else if (mood === 'grumbly') { c.moveTo(s * r * .07, -r * .12); c.lineTo(s * r * .34, -r * .24); line(2.6); }
+      else { c.moveTo(s * r * .08, -r * .2); c.lineTo(s * r * .33, -r * .24); line(2); }
+    }
+    // The crystal moustache: curled up (proud), drooping (grumbly), bristling straight out (magnetic).
+    const tip = mood === 'proud' ? -1 : mood === 'grumbly' ? 1 : 0;
+    const stache = () => {
+      c.beginPath();
+      for (const s of [-1, 1]) {
+        c.moveTo(s * r * .02, r * .13);
+        c.quadraticCurveTo(s * r * .13, r * .2, s * r * .23, r * (.15 + tip * .02));
+        c.quadraticCurveTo(s * r * .29, r * (.12 + tip * .06), s * r * .26, r * (.08 + tip * .11));
+      }
+    };
+    stache(); line(3.8); stache(); line(2, G.lilac);
+    c.beginPath(); c.arc(0, r * .125, r * .03, 0, TAU); c.fillStyle = G.lilacDark; c.fill();
+    // Mouth, under the moustache.
+    c.beginPath();
+    if (variant === 'hurt') { c.moveTo(-r * .08, r * .29); c.quadraticCurveTo(-r * .04, r * .25, 0, r * .29); c.quadraticCurveTo(r * .04, r * .33, r * .08, r * .29); line(1.5); }
+    else if (heave) { c.moveTo(-r * .07, r * .28); c.lineTo(r * .07, r * .28); line(1.8); }
+    else if (look === 'hum') { c.ellipse(0, r * .3, r * .055, r * .07, 0, 0, TAU); c.fillStyle = G.ink; c.fill(); c.beginPath(); c.ellipse(0, r * .315, r * .03, r * .032, 0, 0, TAU); c.fillStyle = G.sky; c.fill(); }
+    else if (mood === 'grumbly') { c.arc(0, r * .35, r * .08, 1.2 * Math.PI, 1.8 * Math.PI); line(1.6); }
+    else { c.arc(0, r * .22, r * .07, .25 * Math.PI, .75 * Math.PI); line(1.5); }
+  }
+  // The miner's lantern, hanging from its bail at (0, 0): brass cap and base, glass glowing gold (sky when Magnetic).
+  function paintGeodeLantern(c, glass) {
+    const G = GEO, sky = glass === 'sky';
+    const rr = (x, y, w, h, q) => { c.beginPath(); c.moveTo(x + q, y); c.arcTo(x + w, y, x + w, y + h, q); c.arcTo(x + w, y + h, x, y + h, q); c.arcTo(x, y + h, x, y, q); c.arcTo(x, y, x + w, y, q); c.closePath(); };
+    c.lineCap = 'round'; c.lineJoin = 'round';
+    c.beginPath(); c.arc(0, 2.2, 2.3, Math.PI * 1.1, Math.PI * 1.9); c.lineWidth = 1.1; c.strokeStyle = G.brassInk; c.stroke();
+    c.beginPath(); c.moveTo(-3.6, 4.4); c.lineTo(-2.4, 2.4); c.lineTo(2.4, 2.4); c.lineTo(3.6, 4.4); c.closePath(); c.fillStyle = G.brass; c.fill(); c.lineWidth = .9; c.stroke();
+    rr(-3.2, 4.4, 6.4, 6.6, 1.6); c.fillStyle = sky ? G.sky : '#ffd76a'; c.fill(); c.stroke();
+    rr(-2, 5.2, 2.4, 4.6, 1); c.fillStyle = sky ? '#e6f7ff' : '#fff4c2'; c.fill();
+    c.beginPath(); c.moveTo(0, 4.6); c.lineTo(0, 10.8); c.lineWidth = .7; c.strokeStyle = G.brassDark; c.stroke();
+    rr(-3.9, 10.8, 7.8, 1.9, .8); c.fillStyle = G.brass; c.fill(); c.lineWidth = .9; c.strokeStyle = G.brassInk; c.stroke();
+    c.beginPath(); c.moveTo(-2.7, 3.2); c.lineTo(-1, 3.2); c.lineWidth = .6; c.strokeStyle = G.brassLight; c.stroke();
+  }
+  function paintGeodeGlow(c, rgb, R) {
+    const g = c.createRadialGradient(0, 0, 0, 0, 0, R);
+    g.addColorStop(0, `rgba(${rgb},.75)`); g.addColorStop(.45, `rgba(${rgb},.3)`); g.addColorStop(1, `rgba(${rgb},0)`);
+    c.beginPath(); c.arc(0, 0, R, 0, TAU); c.fillStyle = g; c.fill();
+  }
+  // Fool's gold: a chunky brass cube, striated like real pyrite, with a sly wink.
+  function paintGeodePyrite(c, face = true) {
+    const G = GEO;
+    c.lineJoin = 'round'; c.lineCap = 'round';
+    const poly = (pts, fill) => { c.beginPath(); pts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.closePath(); c.fillStyle = fill; c.fill(); };
+    const outline = [[-8.5, -5.5], [-5, -9], [8.5, -9], [8.5, 4], [5, 7.5], [-8.5, 7.5]];
+    c.beginPath(); outline.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.closePath(); c.lineWidth = 3.2; c.strokeStyle = '#fff3d0'; c.stroke();
+    poly([[-8.5, -5.5], [-5, -9], [8.5, -9], [5, -5.5]], G.brassLight);
+    poly([[5, -5.5], [8.5, -9], [8.5, 4], [5, 7.5]], '#a8812e');
+    poly([[-8.5, -5.5], [5, -5.5], [5, 7.5], [-8.5, 7.5]], G.brass);
+    // Striations across each face.
+    c.lineWidth = .6; c.strokeStyle = G.brassDark; c.globalAlpha = .55;
+    for (const y of [-2.5, 4.6]) { c.beginPath(); c.moveTo(-7.6, y); c.lineTo(4.2, y); c.stroke(); }
+    for (const k of [.35, .7]) { c.beginPath(); c.moveTo(-8.5 + 3.5 * k + 1, -5.5 - 3.5 * k); c.lineTo(5 + 3.5 * k - 1, -5.5 - 3.5 * k); c.stroke(); }
+    for (const k of [.35, .7]) { c.beginPath(); c.moveTo(5 + 3.5 * k, -5.5 - 3.5 * k + 1.2); c.lineTo(5 + 3.5 * k, 7.5 - 3.5 * k - 1.2); c.stroke(); }
+    c.globalAlpha = 1;
+    c.beginPath(); outline.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.closePath(); c.lineWidth = 1.3; c.strokeStyle = G.brassInk; c.stroke();
+    c.beginPath(); c.moveTo(-8.5, -5.5); c.lineTo(5, -5.5); c.lineTo(8.5, -9); c.moveTo(5, -5.5); c.lineTo(5, 7.5); c.lineWidth = .8; c.stroke();
+    if (!face) return;
+    // A wink, a cocked brow and a smirk: he knows he is not a real gem.
+    c.beginPath(); c.arc(-4.4, .4, 1.5, 1.15 * Math.PI, 1.85 * Math.PI); c.lineWidth = 1.2; c.strokeStyle = G.brassInk; c.stroke();
+    c.beginPath(); c.arc(1, .2, 1.2, 0, TAU); c.fillStyle = G.brassInk; c.fill();
+    c.beginPath(); c.arc(.6, -.2, .4, 0, TAU); c.fillStyle = '#ffffff'; c.fill();
+    c.beginPath(); c.moveTo(-.6, -2.6); c.quadraticCurveTo(1.2, -3.6, 2.8, -2.4); c.lineWidth = 1; c.strokeStyle = G.brassInk; c.stroke();
+    c.beginPath(); c.moveTo(-4, 3.6); c.quadraticCurveTo(-.8, 5, 2.4, 2.8); c.lineWidth = 1.1; c.stroke();
+    c.beginPath(); c.ellipse(-5.6, 3, 1.3, .8, 0, 0, TAU); c.fillStyle = '#f39a7c'; c.globalAlpha = .7; c.fill(); c.globalAlpha = 1;
+  }
+  // A real gem in flight, cut like art.js's loose gems (the same three colors).
+  function paintGeodeGem(c, col, r) {
+    const [base, light, ink] = GEO_GEMS[col] || GEO_GEMS.coral, pts = [[0, -r * 1.05], [r * .9, -r * .38], [r * .62, r * .62], [0, r * 1.05], [-r * .62, r * .62], [-r * .9, -r * .38]];
+    const path = () => { c.beginPath(); pts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.closePath(); };
+    c.lineJoin = 'round';
+    path(); c.lineWidth = 3; c.strokeStyle = '#ffffff'; c.globalAlpha = .8; c.stroke(); c.globalAlpha = 1; c.fillStyle = base; c.fill();
+    c.beginPath(); c.moveTo(-r * .9, -r * .38); c.lineTo(0, -r * 1.05); c.lineTo(r * .9, -r * .38); c.lineTo(r * .36, -r * .1); c.lineTo(-r * .36, -r * .1); c.closePath(); c.fillStyle = light; c.fill();
+    c.beginPath(); c.moveTo(r * .36, -r * .1); c.lineTo(r * .9, -r * .38); c.lineTo(r * .62, r * .62); c.lineTo(0, r * 1.05); c.closePath(); c.fillStyle = 'rgba(40,20,60,.2)'; c.fill();
+    path(); c.lineWidth = 1.4; c.strokeStyle = ink; c.stroke();
+    c.beginPath(); c.arc(-r * .34, -r * .52, 1.3, 0, TAU); c.fillStyle = '#ffffff'; c.fill();
+  }
+  // The lobbed gem: a round brilliant in its flower's colors, an octagon with a table and lit facets.
+  function paintGeodeLobGem(c, F, r) {
+    const R = r + 1, T = R * .5, oct = (q, off = 0) => Array.from({ length: 8 }, (_, k) => { const a = k * Math.PI / 4 + Math.PI / 8 + off; return [Math.cos(a) * q, Math.sin(a) * q]; });
+    const o = oct(R), t = oct(T);
+    c.lineJoin = 'round';
+    c.beginPath(); o.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.closePath(); c.lineWidth = 3.4; c.strokeStyle = '#ffffff'; c.stroke();
+    const tones = [F.dark, F.base, F.light, F.tip, F.light, F.base, F.dark, F.dark];
+    for (let k = 0; k < 8; k++) {
+      const a = o[k], b = o[(k + 1) % 8], p = t[(k + 1) % 8], q = t[k];
+      c.beginPath(); c.moveTo(...a); c.lineTo(...b); c.lineTo(...p); c.lineTo(...q); c.closePath(); c.fillStyle = tones[k]; c.fill();
+    }
+    c.beginPath(); t.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.closePath(); c.fillStyle = F.base; c.fill(); c.lineWidth = .7; c.strokeStyle = F.dark; c.stroke();
+    c.beginPath(); c.moveTo(...t[5]); c.lineTo(...t[6]); c.lineTo(...t[0]); c.closePath(); c.fillStyle = 'rgba(255,255,255,.45)'; c.fill();
+    c.globalAlpha = .5; c.lineWidth = .6;
+    for (let k = 0; k < 8; k++) { c.beginPath(); c.moveTo(...o[k]); c.lineTo(...t[k]); c.stroke(); }
+    c.globalAlpha = 1;
+    c.beginPath(); o.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.closePath(); c.lineWidth = 1.4; c.strokeStyle = F.dark; c.stroke();
+    c.beginPath(); c.arc(-T * .5, -T * .7, 1.3, 0, TAU); c.fillStyle = '#ffffff'; c.fill();
+  }
+  // A burr: a 30 px bar of brown stone studded with amethyst spikes on both sides.
+  function paintGeodeBurr(c, length) {
+    const G = GEO, h = length / 2;
+    c.lineJoin = 'round'; c.lineCap = 'round';
+    for (let i = 0; i < 5; i++) {
+      const x = -h + 3 + i * (length - 6) / 4, side = i % 2 ? 1 : -1, tipX = x + side * 1.5, tipY = side * 12;
+      c.beginPath(); c.moveTo(x - 3.8, 0); c.lineTo(tipX, tipY); c.lineTo(x + 3.8, 0); c.closePath(); c.fillStyle = '#b77eee'; c.fill(); c.lineWidth = 1; c.strokeStyle = G.lilacDark; c.stroke();
+      c.beginPath(); c.moveTo(x - 1.6, side * 1); c.lineTo(tipX, tipY - side * 1.2); c.lineTo(x, side * 1); c.closePath(); c.fillStyle = G.lilac; c.fill();
+    }
+    c.beginPath(); c.moveTo(-h, -1); c.quadraticCurveTo(-h, -4.4, -h + 4, -4.2); c.quadraticCurveTo(0, -5.4, h - 4, -4); c.quadraticCurveTo(h + .5, -3.6, h, 0);
+    c.quadraticCurveTo(h + .4, 4, h - 4, 4.2); c.quadraticCurveTo(0, 5.2, -h + 4, 4.3); c.quadraticCurveTo(-h - .4, 3.8, -h, -1); c.closePath();
+    c.lineWidth = 3; c.strokeStyle = '#fff3d0'; c.stroke(); c.fillStyle = G.dirt; c.fill(); c.lineWidth = 1.3; c.strokeStyle = G.dirtDark; c.stroke();
+    c.beginPath(); c.moveTo(-h + 4, -2.4); c.quadraticCurveTo(0, -3.4, h - 5, -2.2); c.lineWidth = 1.2; c.strokeStyle = G.dirtLight; c.stroke();
+    for (const [x, y] of [[-8, 1.5], [3, 2], [9, .5]]) { c.beginPath(); c.arc(x, y, .8, 0, TAU); c.fillStyle = G.dirtDark; c.fill(); }
+  }
+  // An iron cap over a plate (the plate's own outline, steel blue, three rivets) while his heart pulls.
+  function paintGeodeIron(c, r) {
+    const G = GEO, p = pts => { c.beginPath(); pts.forEach(([x, y], i) => i ? c.lineTo(x * r, y * r) : c.moveTo(x * r, y * r)); c.closePath(); };
+    const shape = [[-.83, -.47], [-.44, -.94], [.53, -.74], [.93, -.1], [.57, .81], [-.52, .83], [-.96, .13]];
+    c.lineJoin = 'round';
+    p(shape); c.fillStyle = G.iron; c.fill();
+    p([[-.83, -.47], [-.44, -.94], [.17, -.58], [-.06, .06], [-.88, .12]]); c.fillStyle = G.ironLight; c.fill();
+    p([[.53, -.74], [.93, -.1], [.57, .81], [.13, .35]]); c.fillStyle = G.ironDark; c.fill();
+    c.beginPath(); c.moveTo(-.6 * r, -.5 * r); c.lineTo(-.2 * r, -.78 * r); c.lineWidth = 1.2; c.strokeStyle = '#e6f2ff'; c.globalAlpha = .8; c.stroke(); c.globalAlpha = 1;
+    // An iron strap across it, riveted at both ends, and a sky sheen of magnetism on its lit face.
+    c.save(); p(shape); c.clip();
+    c.beginPath(); c.moveTo(-r, .02 * r); c.lineTo(r, -.18 * r); c.lineTo(r, .14 * r); c.lineTo(-r, .34 * r); c.closePath(); c.fillStyle = G.ironDark; c.fill();
+    c.beginPath(); c.moveTo(-r, .02 * r); c.lineTo(r, -.18 * r); c.lineWidth = .9; c.strokeStyle = G.ironLight; c.stroke();
+    c.restore();
+    c.beginPath(); c.moveTo(-.55 * r, -.62 * r); c.quadraticCurveTo(-.2 * r, -.82 * r, .2 * r, -.66 * r); c.lineWidth = 1.1; c.strokeStyle = GEO.sky; c.globalAlpha = .9; c.stroke(); c.globalAlpha = 1;
+    p(shape); c.lineWidth = 1.5; c.strokeStyle = G.ironInk; c.stroke();
+    for (const [x, y] of [[-.62, .17], [.6, -.02]]) { c.beginPath(); c.arc(x * r, y * r, 1.5, 0, TAU); c.fillStyle = G.ironLight; c.fill(); c.lineWidth = .8; c.strokeStyle = G.ironInk; c.stroke(); c.beginPath(); c.arc(x * r - .45, y * r - .45, .45, 0, TAU); c.fillStyle = '#ffffff'; c.fill(); }
+  }
+  // A little grumble cloud with a scribble in it, over his crown while Grumbly.
+  function paintGeodeGrumble(c) {
+    const G = GEO, puffs = [[-5, 1, 3.6], [0, -1.6, 4.4], [5, 1, 3.6], [0, 2.4, 3.4]];
+    c.lineJoin = 'round'; c.lineCap = 'round';
+    for (const [x, y, q] of puffs) { c.beginPath(); c.arc(x, y, q + 1.3, 0, TAU); c.fillStyle = G.ink; c.fill(); }
+    for (const [x, y, q] of puffs) { c.beginPath(); c.arc(x, y, q, 0, TAU); c.fillStyle = '#e4d7eb'; c.fill(); }
+    c.beginPath(); c.moveTo(-5.2, 1.4); c.lineTo(-2.8, -1.6); c.lineTo(-1, 1.6); c.lineTo(1, -1.8); c.lineTo(2.8, 1.6); c.lineTo(5, -1);
+    c.lineWidth = 1.2; c.strokeStyle = G.ink; c.stroke();
+  }
+  // The Magnet Heart's needle, pointing along +x from his rim.
+  function paintGeodeNeedle(c) {
+    c.lineJoin = 'round';
+    const sliver = () => { c.beginPath(); c.moveTo(-5, 0); c.lineTo(4, -3.4); c.lineTo(19, 0); c.lineTo(4, 3.4); c.closePath(); };
+    sliver(); c.lineWidth = 3; c.strokeStyle = '#ffffff'; c.stroke(); c.fillStyle = '#fff6cf'; c.fill();
+    c.beginPath(); c.moveTo(4, -3.4); c.lineTo(19, 0); c.lineTo(4, 0); c.closePath(); c.fillStyle = '#8ed2ff'; c.fill();
+    c.beginPath(); c.moveTo(-5, 0); c.lineTo(4, -3.4); c.lineTo(4, 3.4); c.closePath(); c.fillStyle = '#9aa3b3'; c.fill();
+    sliver(); c.lineWidth = 1.1; c.strokeStyle = '#1d6ad6'; c.stroke();
+    c.beginPath(); c.arc(4, 0, 1.5, 0, TAU); c.fillStyle = '#ffffff'; c.fill(); c.lineWidth = .8; c.stroke();
+  }
+  const GEO_SPRITES = {
+    face: (r, v) => [`kit:geode:face:${r}:${v}`, [-r * .55, -r * .55, r * .55, r * .5], c => paintGeodeFace(c, r, v)],
+    lantern: glass => [`kit:geode:lantern:${glass}`, [-5, -1, 5, 14], c => paintGeodeLantern(c, glass)],
+    glow: (rgb, R) => [`kit:geode:glow:${rgb}:${R}`, [-R, -R, R, R], c => paintGeodeGlow(c, rgb, R)],
+    pyrite: (face = true) => [`kit:geode:pyrite:${face ? 'face' : 'plain'}`, [-11, -11, 11, 10], c => paintGeodePyrite(c, face)],
+    gem: col => [`kit:geode:gem:${col}`, [-12, -12, 12, 12], c => paintGeodeGem(c, col, 10)],
+    lobgem: (kit, type) => [`kit:geode:lobgem:${type}`, [-14, -14, 14, 14], c => paintGeodeLobGem(c, kit.FLOWERS[type] || kit.FLOWERS.sky, 10)],
+    burr: length => [`kit:geode:burr:${length}`, [-length / 2 - 3, -13, length / 2 + 3, 13], c => paintGeodeBurr(c, length)],
+    iron: r => [`kit:geode:iron:${r}`, [-r - 2, -r - 2, r + 2, r + 2], c => paintGeodeIron(c, r)],
+    needle: () => ['kit:geode:needle', [-7, -5, 21, 5], paintGeodeNeedle],
+    grumble: () => ['kit:geode:grumble', [-11, -9, 11, 8], paintGeodeGrumble]
+  };
+  const GEO_SKY = '159,211,255', GEO_WARM = '255,214,110';
+  const geoStamp = (ctx, kit, [key, box, paint], x, y, turn, sx, sy) => stamp(ctx, kit, key, box, paint, x, y, turn, sx, sy);
+  const geoGemCol = type => (GEO_GEMS[type] ? type : 'coral');
+  // A toss flight's color: the landed gem's own (bosses.js picks GEO_TOSS[i % 4] by its place in the toss).
+  function geodeFlightCol(s, l) { const same = s.lobs.filter(q => q.t0 === l.t0); return geoGemCol(GEO_TOSS[Math.max(0, same.indexOf(l)) % 4]); }
+  const geoArc = (x0, y0, x1, y1, h, from = 0, n = 12) => Array.from({ length: n + 1 }, (_, k) => { const at = lobAt(x0, y0, x1, y1, 1, from + (1 - from) * k / n, h); return [at.x, at.y]; });
+  // A tell's arc from his middle, dotted only once it has left his body (so it never crosses his face).
+  const geoTellArc = (boss, x1, y1, h, r) => { const pts = geoArc(boss.x, boss.y, x1, y1, h, 0, 24), k = pts.findIndex(([x, y]) => Math.hypot(x - boss.x, y - boss.y) > r + 4); return pts.slice(Math.max(0, k)); };
+  // The needle of his Magnet Heart (the rules' own closed form: mid + spin * t on the kit clock).
+  const geodeNeedle = (m, clock) => m.mid + m.spin * clamp(clock - m.t0, 0, m.until);
+  function drawGeodeLantern(ctx, kit, s, bud, time, still, quality) {
+    const r = Number(bud.r) || 26, sky = (s.tier | 0) >= 2, swing = still ? 0 : .2 * Math.sin((Number(s.age) || 0) * 2);
+    const px = bud.x + r * GEO.tipX, py = bud.y + r * GEO.tipY;
+    ctx.save(); ctx.translate(px, py); ctx.rotate(swing);
+    if (quality <= 1) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha *= still ? .55 : .45 + .12 * Math.sin(time * 3.3); geoStamp(ctx, kit, GEO_SPRITES.glow(sky ? GEO_SKY : GEO_WARM, 16), 0, 9.5); ctx.restore(); }
+    geoStamp(ctx, kit, GEO_SPRITES.lantern(sky ? 'sky' : 'gold'), 0, 0, 0, 1.25);
+    ctx.restore();
+  }
+  kitLook('geode', {
+    warm(kit) {
+      const r = 26, jobs = [...GEO_FACES.map(v => GEO_SPRITES.face(r, v)), GEO_SPRITES.lantern('gold'), GEO_SPRITES.lantern('sky'), GEO_SPRITES.glow(GEO_SKY, 16), GEO_SPRITES.glow(GEO_WARM, 16),
+        GEO_SPRITES.glow(GEO_SKY, Math.round(r * 1.7)), GEO_SPRITES.pyrite(true), GEO_SPRITES.pyrite(false), ...Object.keys(GEO_GEMS).map(GEO_SPRITES.gem),
+        ...['sky', 'coral', 'gold', 'lilac', 'poppy'].map(t => GEO_SPRITES.lobgem(kit, t)), GEO_SPRITES.burr(30), GEO_SPRITES.iron(13), GEO_SPRITES.needle(), GEO_SPRITES.grumble()];
+      for (const [key, box, paint] of jobs) kit.atlasSprite(key, box[0], box[1], box[2], box[3], paint);
+    },
+    under(ctx, state, s, time, still, kit, quality) {
+      const boss = s.boss, clock = Number(s.kitAge) || 0;
+      // Magnetic: a cool aura behind him, stronger while his heart pulls.
+      if (boss && !boss.bloomed && (s.tier | 0) >= 2) {
+        const r = Number(boss.r) || 26, on = Boolean(s.magnet);
+        ctx.save(); ctx.globalAlpha *= (on ? .75 : .4) * (still ? 1 : .85 + .15 * Math.sin(time * (on ? 5 : 1.8)));
+        geoStamp(ctx, kit, GEO_SPRITES.glow(GEO_SKY, Math.round(r * 1.7)), boss.x, boss.y); ctx.restore();
+      }
+      // Burrs on the shoulders: a fresh one wobbles as it lands; a thin arc counts down its time.
+      for (const burr of state.bumpers || []) {
+        if (!burr.bossBurr) continue;
+        const age = clock - (Number(burr.t0) || 0), left = clamp(((Number(burr.kitUntil) || 0) - clock) / GEO.burrLife, 0, 1);
+        const wob = still || age >= .4 ? 0 : Math.sin(age * 20) * .1 * (1 - age / .4), len = Number(burr.length) || 30;
+        if (!still && quality <= 1) { ctx.globalAlpha = .25; ctx.beginPath(); ctx.ellipse(burr.x, burr.y + 7, len * .5, 3.5, 0, 0, TAU); ctx.fillStyle = '#1b1024'; ctx.fill(); ctx.globalAlpha = 1; }
+        geoStamp(ctx, kit, GEO_SPRITES.burr(len), burr.x, burr.y, (Number(burr.angle) || 0) + wob);
+        ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.arc(burr.x, burr.y, len / 2 + 6, -Math.PI / 2, -Math.PI / 2 + TAU * left); ctx.lineWidth = 3.4; ctx.strokeStyle = 'rgba(255,248,220,.7)'; ctx.stroke();
+        ctx.lineWidth = 1.6; ctx.strokeStyle = GEO.lilacDark; ctx.stroke();
+      }
+      // A heave: dust kicks off the cart wheels as he lifts.
+      if (boss && s.rise && !still && quality === 0) {
+        const r = Number(boss.r) || 26, q = (clock - s.rise.at) / GEO.lift;
+        if (q >= 0 && q < 1) {
+          ctx.globalAlpha = .55 * (1 - q);
+          for (const side of [-1, 1]) for (let k = 0; k < 3; k++) {
+            const d = side * (r * .77 + (k - 1) * 5 + side * q * 10), y = boss.y + r * 1.42 - q * 6 - k * 1.5;
+            kit.circle(ctx, boss.x + d, y, 2.2 + q * 4 + k * .6, '#e9dcd0', null);
+          }
+          ctx.globalAlpha = 1;
+        }
+      }
+    },
+    part(ctx, state, s, bud, time, still, kit, quality) {
+      const clock = Number(s.kitAge) || 0;
+      if (bud.bossPart === 'pyrite') {
+        // Fool's gold eases toward half strength over its last 40 px above the line.
+        const line = Number(state.dangerY) || 470, fade = clamp((line - (bud.y + bud.r)) / 40, 0, 1);
+        ctx.globalAlpha *= .5 + .5 * fade;
+        const bob = still ? 0 : Math.sin(time * 3 + bud.x * .05) * .6;
+        geoStamp(ctx, kit, GEO_SPRITES.pyrite(true), bud.x, bud.y + bob);
+        // A glint runs along his top edge every 2 s.
+        if (!still && quality <= 1) { const g = ((time + bud.x * .01) % 2 + 2) % 2; if (g < .45) kit.sparkle(ctx, bud.x - 6.5 + g / .45 * 14, bud.y + bob - 8.6, 3.2 * Math.sin(g / .45 * Math.PI), '#fffbe6', g * 3); }
+        return true;
+      }
+      if (bud.bossPart !== 'lobgem') return false;
+      const T = Number(bud.T) || 2.2, u = clamp((clock - (Number(bud.t0) || 0)) / T, 0, 1), type = kit.FLOWERS[bud.type] ? bud.type : 'sky';
+      // Its landing: a shadow growing on the shoulder, a ring that counts down, and the rest of its arc dotted ahead.
+      ctx.globalAlpha = .18 + .22 * u; ctx.beginPath(); ctx.ellipse(bud.x1, bud.y1 + 6, 6 + 6 * u, 2.5 + 1.5 * u, 0, 0, TAU); ctx.fillStyle = '#1b1024'; ctx.fill(); ctx.globalAlpha = 1;
+      ctx.setLineDash([4, 4]); kit.circle(ctx, bud.x1, bud.y1, 16, null, '#fff6ce', 3.6); kit.circle(ctx, bud.x1, bud.y1, 16, null, '#b55c67', 1.8); ctx.setLineDash([]);
+      ctx.lineCap = 'round'; ctx.beginPath(); ctx.arc(bud.x1, bud.y1, 20, -Math.PI / 2, -Math.PI / 2 + TAU * (1 - u)); ctx.lineWidth = 2.4; ctx.strokeStyle = GEO.gold; ctx.stroke();
+      dotted(ctx, geoArc(Number(bud.x0), Number(bud.y0), Number(bud.x1), Number(bud.y1), Number(bud.h) || GEO.lob, u, 10), kit.FLOWERS[type].dark, 1.6, 8, still ? 0 : time * 30);
+      // Low enough to catch: a dashed white catch ring round it.
+      if (bud.y > 300) { ctx.setLineDash([3, 3]); kit.circle(ctx, bud.x, bud.y, (bud.r || 10) + 5, null, '#ffffff', 1.6); ctx.setLineDash([]); }
+      geoStamp(ctx, kit, GEO_SPRITES.lobgem(kit, type), bud.x, bud.y, still ? 0 : clock * 6);
+      return true;
+    },
+    face(ctx, state, s, bud, time, still, kit, quality) {
+      if (!bud.boss) return false;
+      const r = Number(bud.r) || 26, tier = clamp(s.tier | 0, 0, 2), clock = Number(s.kitAge) || 0, mood = GEO.moods[tier];
+      const health = (Number(bud.hp) || 0) / Math.max(1, Number(bud.maxHp) || 1);
+      // His shiver near the end (art.js's own wobble) carries the face, lantern and dots with the body.
+      if (!still && health <= .2) { ctx.translate(bud.x, bud.y); ctx.rotate(Math.sin(time * TAU * 6) * .04); ctx.translate(-bud.x, -bud.y); }
+      drawGeodeLantern(ctx, kit, s, bud, time, still, quality);
+      // Grumbly: three grumble dots puff up over his crown, one after another.
+      if (tier === 1) {
+        const bob = still ? 0 : Math.sin(time * 3.2), puff = still ? 1 : 1 + .06 * Math.sin(time * 6.4);
+        geoStamp(ctx, kit, GEO_SPRITES.grumble(), bud.x - r * .55, bud.y - r * 1.62 - 1.5 * bob, still ? 0 : .08 * bob, puff);
+      }
+      const hurt = typeof bud.hitAt === 'number' && time - bud.hitAt >= 0 && time - bud.hitAt < .3;
+      const heaving = s.rise && clock - s.rise.at >= 0 && clock - s.rise.at < GEO.lift;
+      const blink = !still && (time + r * .1) % GEO.blink < .12;
+      const variant = hurt ? 'hurt' : heaving && !still ? `${mood}-heave` : tier === 2 && s.magnet ? 'magnetic-hum' : mood + (blink ? '-blink' : '');
+      ctx.translate(bud.x, bud.y + r * .05);
+      geoStamp(ctx, kit, GEO_SPRITES.face(r, variant), 0, 0);
+      return true;
+    },
+    over(ctx, state, s, time, still, kit, quality) {
+      const boss = s.boss, clock = Number(s.kitAge) || 0;
+      if (!boss || boss.bloomed) return;
+      const r = Number(boss.r) || 26;
+      // Toss flights: each piece spins along its arc over a shadow on its landing mark.
+      for (const l of s.lobs || []) {
+        if (l.look !== 'gem' && l.look !== 'pyrite') continue;
+        const at = lobAt(l.x0, l.y0, l.x1, l.y1, l.T, clock - l.t0, l.h || GEO.toss);
+        if (at.u >= 1) continue;
+        if (quality <= 1) { ctx.globalAlpha = .15 + .2 * at.u; ctx.beginPath(); ctx.ellipse(l.x1, l.y1 + 5, 5 + 5 * at.u, 2 + 1.5 * at.u, 0, 0, TAU); ctx.fillStyle = '#1b1024'; ctx.fill(); ctx.globalAlpha = 1; }
+        const turn = still ? 0 : (clock - l.t0) * (l.look === 'pyrite' ? 7 : 9);
+        geoStamp(ctx, kit, l.look === 'pyrite' ? GEO_SPRITES.pyrite(false) : GEO_SPRITES.gem(geodeFlightCol(s, l)), at.x, at.y, turn);
+      }
+      // The Magnet Heart: the ring, the jaw round the needle, iron caps on his plates and sparkles at the gaps.
+      const m = s.magnet;
+      if (m) {
+        const a = geodeNeedle(m, clock), left = m.until - clamp(clock - m.t0, 0, m.until), fade = clamp(left / .6, 0, 1);
+        ctx.save(); ctx.globalAlpha *= fade; ctx.lineCap = 'round';
+        if (quality <= 1) { ctx.beginPath(); ctx.moveTo(m.x, m.y); ctx.arc(m.x, m.y, m.R, a - m.jaw, a + m.jaw); ctx.closePath(); ctx.fillStyle = 'rgba(159,211,255,.13)'; ctx.fill(); }
+        ctx.beginPath(); ctx.arc(m.x, m.y, m.R, 0, TAU); ctx.lineWidth = 3.4; ctx.strokeStyle = 'rgba(230,247,255,.3)'; ctx.stroke();
+        ctx.setLineDash([5, 6]); ctx.lineDashOffset = still ? 0 : -time * 14; ctx.lineWidth = 1.8; ctx.strokeStyle = 'rgba(69,173,255,.75)'; ctx.stroke(); ctx.setLineDash([]);
+        for (const e of [a - m.jaw, a + m.jaw]) { ctx.beginPath(); ctx.moveTo(m.x + Math.cos(e) * (r + 8), m.y + Math.sin(e) * (r + 8)); ctx.lineTo(m.x + Math.cos(e) * m.R, m.y + Math.sin(e) * m.R); ctx.lineWidth = 1.2; ctx.strokeStyle = 'rgba(159,211,255,.55)'; ctx.stroke(); }
+        if (!still && quality === 0) {
+          ctx.strokeStyle = '#e6f7ff'; ctx.lineWidth = 1.5; ctx.lineJoin = 'round';
+          for (const off of [-.85, -.3, .3, .85]) {
+            const q = ((time / 1.1 + (off + 1) * .37) % 1 + 1) % 1, d = m.R - 6 - (m.R - r - 16) * q, e = a + off * m.jaw * .8;
+            ctx.save(); ctx.globalAlpha *= .75 * Math.sin(q * Math.PI); ctx.translate(m.x + Math.cos(e) * d, m.y + Math.sin(e) * d); ctx.rotate(e + Math.PI);
+            ctx.beginPath(); ctx.moveTo(-2.5, -3.4); ctx.lineTo(1.6, 0); ctx.lineTo(-2.5, 3.4); ctx.stroke(); ctx.restore();
+          }
+        }
+        ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha *= still ? .6 : .5 + .2 * Math.sin(time * 6);
+        geoStamp(ctx, kit, GEO_SPRITES.glow(GEO_SKY, 16), m.x + Math.cos(a) * (r + 10), m.y + Math.sin(a) * (r + 10)); ctx.restore();
+        geoStamp(ctx, kit, GEO_SPRITES.needle(), m.x + Math.cos(a) * (r - 3), m.y + Math.sin(a) * (r - 3), a);
+        for (const p of s.parts || []) {
+          if (p.bossPart !== 'plate') continue;
+          if (!p.bloomed) { geoStamp(ctx, kit, GEO_SPRITES.iron(Number(p.r) || 13), p.x, p.y); continue; }
+          // A gap: where the broken plate's quarter faces now (the rules' own angle), a gold sparkle to aim a curl at.
+          const e = (Number(p.slot) || 0) * Math.PI / 2 + (Number(s.age) || 0) * .18, pulse = still ? 1 : .8 + .3 * Math.sin(time * 7 + p.slot);
+          const gx = boss.x + Math.cos(e) * (r + 6), gy = boss.y + Math.sin(e) * (r + 6);
+          kit.sparkle(ctx, gx, gy, 7.5 * pulse, '#fff3c4', .2); kit.sparkle(ctx, gx, gy, 5 * pulse, GEO.gold, .2);
+        }
+        ctx.restore();
+      }
+      // Tells on top of the shared footprints.
+      const w = s.warning;
+      if (!w || !Number.isFinite(w.until) || !(time < w.until)) return;
+      const span = Math.max(.1, w.until - (Number(w.at) || 0)), prog = clamp(1 - (w.until - time) / span, 0, 1), phase = still ? 0 : time * 24;
+      for (const t of w.targets || []) {
+        if (t.role === 'toss') {
+          dotted(ctx, geoTellArc(boss, t.x, t.y, GEO.toss, r), t.pyrite ? GEO.brassDark : GEO.lilacDark, 1.5, 8, phase);
+          geoStamp(ctx, kit, t.pyrite ? GEO_SPRITES.pyrite(false) : GEO_SPRITES.gem('lilac'), t.x, t.y, 0, .62);
+        } else if (t.role === 'shoulder') {
+          dotted(ctx, geoArc(boss.x, boss.y + r, t.x, t.y, GEO.lob), GEO.lilacDark, 1.7, 8, phase);
+          const pulse = still ? 0 : Math.sin(time * 8) * 2;
+          kit.circle(ctx, t.x, t.y, 21 + pulse, null, 'rgba(255,248,220,.8)', 3.6); kit.circle(ctx, t.x, t.y, 21 + pulse, null, GEO.gold, 1.8);
+          geoStamp(ctx, kit, GEO_SPRITES.lobgem(kit, 'lilac'), t.x, t.y, 0, .55);
+        } else if (t.role === 'magnet') {
+          // The needle fades in, pointing where it will start (straight down).
+          ctx.save(); ctx.globalAlpha *= .25 + .75 * prog; geoStamp(ctx, kit, GEO_SPRITES.needle(), boss.x, boss.y + r - 3, Math.PI / 2); ctx.restore();
+        } else if (t.role === 'pull') {
+          // A gem he will pull: a chevron toward him (pop it during the tell and it stays out of his crust).
+          const e = Math.atan2(boss.y - t.y, boss.x - t.x), d = (t.r || 10) + 7 + (still ? 0 : 3 * Math.sin(time * 9));
+          ctx.save(); ctx.translate(t.x + Math.cos(e) * d, t.y + Math.sin(e) * d); ctx.rotate(e); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+          ctx.beginPath(); ctx.moveTo(-3, -4.5); ctx.lineTo(2.5, 0); ctx.lineTo(-3, 4.5);
+          ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.stroke(); ctx.lineWidth = 2; ctx.strokeStyle = GEO.skyDeep; ctx.stroke(); ctx.restore();
+        }
+      }
+    }
+  });
 
   // ── Thornmother (Level 9, `briar`) ──
 

@@ -1494,6 +1494,46 @@ test('Geode King: beaten mid-magnet and mid-lob, he leaves no field, lob, fool\'
   assert(!g.bossState || (!g.bossState.magnet && !g.bossState.rise)); assert(!g.buds.some(p => ['lobgem', 'pyrite'].includes(p.bossPart) && !p.bloomed));
   assert(!g.bumpers.some(m => m.bossBurr)); assert.equal(Foes.fields(g), null);
 });
+test('Geode King: his moods, flights, fool\'s gold, lobbed gems, burrs, magnet and tells draw balanced, finite and with no per-frame gradients', () => {
+  const { Art, looks, brush, totals } = sunnyArt(), drawn = new Set();
+  for (const hook of ['face', 'part', 'under', 'over']) {
+    const own = looks.geode[hook];
+    // Counts what the hook really draws (under() and over() return nothing).
+    looks.geode[hook] = (ctx, state, s, piece, ...rest) => {
+      let calls = 0;
+      const spy = new Proxy(ctx, { get: (t, n) => { const v = t[n]; return typeof v === 'function' && /^(fill|stroke|drawImage|fillRect|fillText)$/.test(n) ? (...a) => { calls++; return v.apply(t, a); } : typeof v === 'function' ? v.bind(t) : v; },
+        set: (t, n, v) => { t[n] = v; return true; } });
+      const done = own(spy, state, s, piece, ...rest); if (done === true || (done !== false && calls > 0)) drawn.add(hook === 'part' ? piece.bossPart : hook); return done;
+    };
+  }
+  const snap = (label, state) => {
+    for (const reducedMotion of [false, true]) for (const quality of reducedMotion ? [0] : [0, 2]) {
+      const options = { theme: 'meadow', reducedMotion, showAim: true, quality };
+      Art.draw(brush().ctx, state, state.time, options);
+      const warm = totals.gradients, rec = brush(); Art.draw(rec.ctx, state, state.time + .05, options);
+      assert(rec.balanced(), `${label}: balanced`); const kitGradients = totals.gradients - warm;
+      const look = looks.geode; delete looks.geode; const bare = totals.gradients; Art.draw(brush().ctx, state, state.time + .05, options); looks.geode = look;
+      assert.equal(kitGradients, totals.gradients - bare, `${label}: the kit adds no per-frame gradient`);
+    }
+  };
+  const tell = (tier, turn, prep) => { const g = arena(8), s = g.bossState; if (prep) prep(g, s); s.tier = tier; if (tier) s.cycle = turn; else s.action = turn; s.next = 0; s.warning = null;
+    for (let n = 0; n < 240 && !s.warning; n++) g.step(1 / 120); for (let n = 0; n < 80; n++) g.step(1 / 120); assert(s.warning); return g; };
+  // Every face: each mood, blinking, a hit, the heave, the hum, the shiver near the end.
+  for (const tier of [0, 1, 2]) { const h = arena(8); h.bossState.tier = tier; snap(`mood ${tier}`, h); h.time = 1.2; snap(`mood ${tier} blink`, h); }
+  let h = arena(8); h.bossState.boss.hp = 8; h.bossState.boss.hitAt = h.time; snap('hurt, shivering', h);
+  // The Pyrite Toss: its tell, the pieces in the air (and his heave), landed, a fool's gold near the line.
+  snap('pyrite tell', tell(0, 1));
+  let g = arena(8), s = g.bossState; s.drift = 30; geodeMove(g, 0, 1); advance(g, .4); snap('toss flight, heave', g); advance(g, .6); snap('landed', g);
+  const fool = piecesOf(s, 'pyrite')[0]; fool.y = fool.startY = g.dangerY - 30; fool.sink = 0; advance(g, .05); snap('fool near the line', g);
+  // The Gem Lob: its tell, high in its flight, low enough to catch, landed as a burr.
+  snap('lob tell', tell(1, 0));
+  g = arena(8); s = g.bossState; geodeMove(g, 1, 0); advance(g, .4); snap('lob high', g); advance(g, 1.5); snap('lob low', g); advance(g, .4); snap('burr', g);
+  assert(g.bumpers.some(m => m.bossBurr), 'it landed');
+  // The Magnet Heart: its tell (with a gem marked to pull), then the ring, the iron and the gap.
+  snap('magnet tell', tell(2, 0, (g, s) => { breakPlate(g, platesOf(s)[0]); breakPlate(g, platesOf(s)[1]); g.buds.push({ id: 'loose', group: 'loose', x: s.boss.x + 60, y: s.boss.y + 40, baseX: s.boss.x + 60, startY: s.boss.y + 40, r: 10, type: 'coral', hp: 1, maxHp: 1, gem: true, fall: 1, sway: 0, relay: false, hitAt: -100, bloomAt: -100, bloomed: false }); }));
+  g = arena(8); s = g.bossState; breakPlate(g, platesOf(s)[0]); geodeMove(g, 2, 0); advance(g, 1); assert(s.magnet); snap('magnet on', g); advance(g, 4.7); snap('magnet ending', g);
+  for (const hook of ['face', 'pyrite', 'lobgem', 'under', 'over']) assert(drawn.has(hook), hook);
+});
 test('The good bot beats the Geode King', () => {
   for (const seed of [7, 19]) {
     const run = bot.play(8, { seed, startWave: 10, noise: 2.5, think: .3, thinkSpread: .3, bounces: 2 });

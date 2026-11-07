@@ -2,7 +2,7 @@
 // Level 8's new piece: the Lodestone. Checked like the other levels' foes: where the level places it, what a credited
 // seed, a chain, a power and an uncredited strike do to it, its field (one pure pull shared by the seed, the aim line
 // and the practice bot), that it plays the same at 30, 60 and 144 FPS, the Lullaby, and what the bot thinks of it.
-const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
 const Engine = require('../engine.js'), bot = require('./depths-bot.cjs');
 const { sandbox, advance, strikeOut, shoot, foesOf, Foes, Depths, RushGame } = require('./foe-harness.cjs');
 const results = []; let serial = 0;
@@ -157,6 +157,96 @@ test('The bot shoots only the moss, and more for the last tuft when gems are nea
 test('foes.js keeps the Lodestone free of the seed pod and of Math.random', () => {
   const source = fs.readFileSync(path.join(__dirname, '../foes.js'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
   assert(!/\.(pod|podGrow|shotGap)\b/.test(source)); assert(!/Math\.random/.test(source));
+});
+
+// ── Art ──
+// Records real Canvas commands from art.js and foe-art.js without a device (as test-foes-level5.cjs does): every number
+// finite and every save restored; once the stone's sprites are warm, a frame of it makes no gradient, no shadow and no
+// new surface. Its hooks are wrapped so the recorder knows when the Lodestone is drawing.
+function artScope() {
+  const totals = { surfaces: 0, gradients: 0, shadows: 0, hook: null, images: [], turns: [], kit: null };
+  function brush() {
+    const stack = [], state = { globalAlpha: 1, globalCompositeOperation: 'source-over', fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, shadowBlur: 0, shadowColor: '', font: '', textAlign: 'left', textBaseline: 'alphabetic', lineCap: 'butt', lineJoin: 'miter', lineDashOffset: 0 };
+    const ctx = new Proxy(state, {
+      get(t, name) {
+        if (name in t) return t[name];
+        if (name === 'canvas') return { width: 420, height: 560 };
+        if (name === 'getTransform') return () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 });
+        return (...args) => {
+          args.forEach(a => { if (typeof a === 'number') assert(Number.isFinite(a), `${String(name)} received ${a}`); });
+          if (name === 'save') stack.push({ ...state });
+          else if (name === 'restore') { assert(stack.length, 'restore without save'); Object.assign(state, stack.pop()); }
+          else if (name === 'measureText') return { width: String(args[0]).length * 7 };
+          else if (name === 'rotate' && totals.hook) totals.turns.push([totals.hook, args[0]]);
+          else if (name === 'drawImage' && totals.hook) totals.images.push([totals.hook, args[0], state.globalAlpha]);
+          else if (/^create(Linear|Radial|Conic)Gradient$|^createPattern$/.test(name)) { if (totals.hook) totals.gradients++; return { addColorStop() {} }; }
+        };
+      },
+      set(t, name, value) {
+        if (['globalAlpha', 'lineWidth', 'shadowBlur', 'lineDashOffset'].includes(name)) assert(Number.isFinite(value), `${name} is finite`);
+        if (name === 'shadowBlur' && value > 0 && totals.hook) totals.shadows++;
+        t[name] = value; return true;
+      }
+    });
+    return { ctx, balanced: () => stack.length === 0 };
+  }
+  class Canvas { constructor(w, h) { this.width = w; this.height = h; if (totals.hook) totals.surfaces++; this.rec = brush(); } getContext() { return this.rec.ctx; } }
+  const scope = vm.createContext({ console, Math, Map, Set, WeakMap, Array, Object, Number, String, JSON, Date, OffscreenCanvas: Canvas });
+  for (const file of ['art.js', 'foe-art.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), scope, { filename: file });
+  const FoeArt = scope.BloomFoeArt, look = FoeArt.LOOKS.lodestone;
+  for (const hook of ['under', 'bud', 'over', 'aim']) {
+    const own = look && look[hook];
+    if (!own) continue;
+    look[hook] = function (...args) {
+      totals.kit = args[hook === 'bud' ? 5 : 4];
+      const was = totals.hook; totals.hook = 'lodestone:' + hook;
+      try { return own.apply(this, args); } finally { totals.hook = was; }
+    };
+  }
+  return { Art: scope.BloomArt, FoeArt, brush, totals };
+}
+function draw(Art, brush, board, time, still, quality = 0) {
+  const rec = brush(); Art.draw(rec.ctx, board, time, { theme: 'meadow', reducedMotion: still, quality }); assert(rec.balanced(), 'saves balance');
+}
+test('The Lodestone draws cheaply in every state: finite, balanced, and no gradient, shadow or surface once warm', () => {
+  const { Art, FoeArt, brush, totals } = artScope();
+  assert(FoeArt.LOOKS.lodestone, 'the Lodestone has a look');
+  // Boards for every state: calm at full moss, worn to two tufts and to one, just turned a seed off its iron (smug),
+  // just hit on the moss (oof), tugging a seed (pull, with its tether), the aim guide ending on its moss and on its
+  // iron, and the open (the halves flying).
+  const boards = [];
+  let { game } = lone(); boards.push(game);
+  ({ game } = lone()); touch(game, foesOf(game, 'lodestone')[0], 0, -1); advance(game, .5, 120); boards.push(game);
+  ({ game } = lone()); touch(game, foesOf(game, 'lodestone')[0], 0, -1); touch(game, foesOf(game, 'lodestone')[0], 0, -1); advance(game, .1, 120); boards.push(game);
+  ({ game } = lone()); foesOf(game, 'lodestone')[0].guardAt = game.time; boards.push(game);
+  ({ game } = lone()); const pulled = foesOf(game, 'lodestone')[0]; game.balls.push({ id: 'qa-seed', x: pulled.x + 30, y: pulled.y - 30, vx: 0, vy: -400, r: 6, type: 'sky', pullBy: pulled.id, pullAt: game.time }); boards.push(game);
+  for (const ny of [-1, 1]) {
+    ({ game } = lone()); const target = foesOf(game, 'lodestone')[0];
+    game.aim = Object.defineProperties([{ x: 210, y: 470 }, { x: target.x, y: target.y - ny * target.r }], { target: { value: target }, normal: { value: { x: 0, y: ny } } });
+    boards.push(game);
+  }
+  ({ game } = lone()); const opened = foesOf(game, 'lodestone')[0]; for (let k = 0; k < 3; k++) touch(game, opened, 0, -1); advance(game, .1, 120); assert(opened.bloomed); boards.push(game);
+  assert(boards.every(board => board.foeWave));
+  // The level's intro paints the sprites ahead (app.js warmPlan).
+  draw(Art, brush, boards[0], boards[0].time, false);
+  totals.hook = 'warm'; FoeArt.warm([['lodestone', LODE.r, 'sky']], totals.kit); totals.hook = null;
+  for (const still of [false, true]) for (const quality of [0, 1, 2]) for (const board of boards) draw(Art, brush, board, board.time, still, quality);
+  for (const hook of ['under', 'bud', 'over', 'aim']) assert(hook === 'under' || totals.images.some(([h]) => h === 'lodestone:' + hook), `lodestone:${hook} drew`);
+  const warm = { ...totals };
+  for (const still of [false, true]) for (const quality of [0, 1, 2]) for (const dt of [.07, .19, .33, 1.9]) for (const board of boards) draw(Art, brush, board, board.time + dt, still, quality);
+  assert.deepEqual([totals.gradients, totals.shadows, totals.surfaces], [warm.gradients, warm.shadows, warm.surfaces]);
+});
+test('The drawn needle is the rules\' needle, with Animations on and off, and it holds through a Lullaby', () => {
+  const { Art, brush, totals } = artScope();
+  const { game, lode } = lone(210, 240, 0);
+  const rules = () => { const f = Foes.fields(game).find(q => q.id === lode.id); return needleAt(f, f.t); };
+  const drawn = still => { totals.turns.length = 0; draw(Art, brush, game, game.time, still); const turns = totals.turns.filter(([h]) => h === 'lodestone:bud').map(t => t[1]); assert.equal(turns.length, 1, 'one turned piece: the needle'); return turns[0]; };
+  for (let k = 0; k < 12; k++) {
+    advance(game, .37, 120);
+    for (const still of [false, true]) assert(Math.abs(drawn(still) - rules()) < 1e-9, `needle at ${game.foeClock.toFixed(2)} s (still ${still})`);
+  }
+  game.lullaby = 1; const held = drawn(false); advance(game, .5, 120);
+  assert(Math.abs(drawn(false) - held) < 1e-9, 'a Lullaby holds the drawn needle too');
 });
 
 const report = { passed: results.filter(r => r.passed).length, failed: results.filter(r => !r.passed).length, results };

@@ -1,5 +1,5 @@
 {
-  "passed": 88,
+  "passed": 89,
   "failed": 0,
   "results": [
     {
@@ -348,6 +348,10 @@
     },
     {
       "name": "Geode King: beaten mid-magnet and mid-lob, he leaves no field, lob, fool's gold, burr or planted feet behind",
+      "passed": true
+    },
+    {
+      "name": "Geode King: his moods, flights, fool's gold, lobbed gems, burrs, magnet and tells draw balanced, finite and with no per-frame gradients",
       "passed": true
     },
     {
