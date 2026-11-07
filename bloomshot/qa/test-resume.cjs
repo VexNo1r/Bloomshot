@@ -580,9 +580,18 @@ test('The kept level\'s own card says Resume, and picking a run up says where it
   assert.match(card(app, 3), /Resume wave 8 of 10\./, 'and its label says so');
   app.click('resume-btn'); app.frame();
   assert.equal(app.$('announcement').textContent, 'Level 3 · wave 8 of 10. 2 lives left. Get ready. 3, 2, 1.');
+  // A cleared level holding the run says Resume in place of its stars (a tap there picks the run up), while the next
+  // level still says Play.
+  app = boot(player({ run: kept({ level: 1, wave: 8 }) }, 2));
+  assert.match(card(app, 1), /<span class="depth-go">Resume<\/span>/, 'the cleared level\'s card says Resume');
+  assert.doesNotMatch(card(app, 1), /depth-stars/, 'in place of its stars'); assert.match(card(app, 1), /3 of 3 stars\. Resume wave 8 of 10\./);
+  assert.match(card(app, 3), /<span class="depth-go">Play<\/span>/);
+  app.click('depth-map', { depth: '1' }); app.frame();
+  assert.equal(app.game().wave, 8, 'and tapping it picks the run up');
   // A level with no run says Play, as before.
   app = boot(player({}, 2));
   assert.match(card(app, 3), /<span class="depth-go">Play<\/span>/);
+  assert.match(card(app, 1), /depth-stars/, 'and a cleared one shows its stars');
   // A run left a moment ago through Levels reads the same.
   const game = playLevel(app, 3); shoot(app); nextWave(app); app.click('back-btn'); app.frame();
   assert.match(card(app, 3), /<span class="depth-go">Resume<\/span>/);

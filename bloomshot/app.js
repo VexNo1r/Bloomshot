@@ -707,7 +707,8 @@
     const cleared = list.filter(level => save.depths[level.id]?.stars).length, stars = list.reduce((n, level) => n + (save.depths[level.id]?.stars || 0), 0);
     $('levels-summary').textContent = reviewBosses ? 'Boss preview. Your progress here stays separate.' : reviewAll ? 'All levels preview. Your progress here stays separate.' : cleared ? `${cleared} of ${Depths.total} cleared · ${stars} ★` : 'Start at the top and dig down.';
     const resume = inProgress(), kept = resume ? null : keptRun();
-    // The level with a run to pick up says so on its own card too (tapping it resumes), instead of 'Play'.
+    // The level with a run to pick up says so on its own card too (tapping it resumes): Resume in place of 'Play', or of
+    // a cleared level's stars, since a tap there picks the run up instead of starting the level over.
     const going = resume && isDepth() && !isTaste() ? game.plan.id : kept ? kept.level : 0, goingWave = resume ? game.wave : kept ? kept.wave : 0;
     $('resume-btn').hidden = !resume && !kept;
     if (resume) {
@@ -727,7 +728,7 @@
       return `<li class="depth-stop"><button class="depth-card${open || taste ? '' : ' locked'}${paid ? '' : ' paid'}${taste ? ' taste' : ''}${done ? ' cleared' : ''}${next || taste ? ' next' : ''}${fresh ? ' fresh' : ''}" type="button" data-depth="${level.id}" aria-label="Level ${level.id}, ${escape(level.name)}. ${escape(level.twist)}. ${state}.${level.id === going ? ` Resume wave ${goingWave} of ${Depths.waveCount}.` : ''}">`
         + `<span class="depth-window" aria-hidden="true">${art ? `<img class="depth-scene" src="${art}" alt="">` : ''}<span class="depth-badge">${level.id}</span>${fresh ? '<span class="depth-new">New!</span>' : ''}${open || taste ? '' : '<span class="depth-lock"><i class="level-lock"></i></span>'}</span>`
         + `<span class="depth-foot" aria-hidden="true"><span class="depth-copy"><strong>${escape(level.name)}</strong><span>${escape(taste ? state : open || !paid ? data?.wave && !done ? state : level.twist : state)}</span></span>`
-        + (taste ? '<span class="depth-go">Try it</span>' : next ? `<span class="depth-go">${level.id === going ? 'Resume' : 'Play'}</span>` : open ? `<span class="depth-stars">${starHTML(done)}</span>` : '') + '</span></button></li>'
+        + (taste ? '<span class="depth-go">Try it</span>' : level.id === going ? '<span class="depth-go">Resume</span>' : next ? '<span class="depth-go">Play</span>' : open ? `<span class="depth-stars">${starHTML(done)}</span>` : '') + '</span></button></li>'
         + (level.id === TASTE.level && !owned ? depthUnlockCard() : '');
     }).join('');
     // The first time the map shows a newly opened level, it brings that card into view.
