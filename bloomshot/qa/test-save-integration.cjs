@@ -697,6 +697,30 @@ test('A finished meadow never strands its goal: saying hi to a friend there pays
   assert.match(app.$('result-goals').innerHTML, /All 3 goals done! \+6 bonus seeds\./);
   assert.deepEqual(app.saved().goals, { day: '2026-10-04', progress: [4, 2, 1], done: [true, true, true], bonus: true });
 });
+test('Growing, building, planting or saying hi that finishes the meadow goal is read as one announcement with the goal in it', () => {
+  // The toast is hidden from screen readers, so the goal's seeds must be in the one live region next to the action's own line.
+  const goalLine = 'Goal done! Grow, build or say hi in your meadow.';
+  const fresh = garden => { const save = legacySave(); save.garden = garden; const app = boot(save, { today: GOAL_DAY, goals: true }); app.click('garden-btn'); return app; };
+  let app = fresh({ seeds: 500, levels: {}, selectedId: 'sunbell' });
+  app.click('keepsake-shelf', { grow: 'dewdrop' });
+  assert.equal(app.saved().keepsake, 'dewdrop'); assert.equal(app.$('toast').textContent, 'Dewdrop grown! Goal done, +4 seeds.');
+  assert.equal(app.$('announcement').textContent, 'Dewdrop grown and on your seed. Goal done, +4 seeds. 354 seeds left.');
+  app.click('keepsake-shelf', { grow: 'bramble' });
+  assert.equal(app.$('announcement').textContent, 'Bramble Berry grown and on your seed. 104 seeds left.', 'the goal pays once');
+  app = fresh({ seeds: 500, levels: {}, selectedId: 'sunbell' });
+  app.click('decor-grid', { decor: 'bench' });
+  assert.equal(app.$('announcement').textContent, 'Garden bench built. Goal done, +4 seeds. 484 seeds left.');
+  let said;
+  app = fresh({ seeds: 4, levels: {}, selectedId: 'sunbell' });
+  app.click('plant-btn'); said = app.$('announcement').textContent;
+  assert(said.includes(`${goalLine} +4 seeds`) && said.includes('Sunbell planted.'), said);
+  app = fresh({ seeds: 0, levels: Object.fromEntries(Garden.plots.map(p => [p.id, 3])), decor: Garden.decor.map(d => d.id) });
+  app.click('friend-spots', { friend: 'biscuit' }); said = app.$('announcement').textContent;
+  assert(said.startsWith('Biscuit says') && said.endsWith(`${goalLine} +4 seeds`), said);
+  // Separate taps are read on their own: the next one starts the announcement afresh.
+  app.click('friend-spots', { friend: 'pip' }); assert(app.$('announcement').textContent.startsWith('Pip says'), app.$('announcement').textContent);
+  assert(!app.$('announcement').textContent.includes('Biscuit'));
+});
 test('Only a friend who has moved in can be greeted for the goal, and a hello on a day without the meadow goal changes nothing', () => {
   const save = legacySave(); save.garden = { seeds: 0, levels: {}, decor: ['bench'] };
   let app = boot(save, { today: GOAL_DAY, goals: true }); app.click('garden-btn');
@@ -1595,8 +1619,11 @@ test('Boss tells name the flower change in the hint and announce both the attack
   assert(warning.flowerText, 'the actual controller supplied an eligible flower tell');
   app.frame();
   assert.equal(app.$('game-hint').textContent, warning.flowerText);
-  assert.equal(app.$('announcement').textContent, `${warning.name}: ${warning.text} ${warning.flowerText}`);
+  // The wave began in the same frame here, so the one announcement carries the wave's line first, then the warning.
+  const said = app.$('announcement').textContent;
+  assert(said.startsWith('Wave 10 of 10.') && said.endsWith(`${warning.name}: ${warning.text} ${warning.flowerText}`), said);
   game.event('bossWarning', { name: 'Old Sunny', text: 'Quick sprouts! Pop both.' }); app.frame();
+  assert.equal(app.$('announcement').textContent, 'Old Sunny: Quick sprouts! Pop both.', 'a warning in a later frame is read on its own');
   assert.equal(app.$('game-hint').textContent, 'Quick sprouts! Pop both.', 'no flower change keeps the main attack hint');
 });
 

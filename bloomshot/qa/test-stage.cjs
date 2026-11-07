@@ -291,6 +291,23 @@ test('A pop-up is read aloud once: the toast is hidden from screen readers and t
   assert.equal(app.$('toast').textContent, 'Clear level 3 to open Crystal Caves.');
   assert.equal(app.$('announcement').textContent, app.$('toast').textContent, 'the one live region says the same words');
 });
+test('A guardian fight\'s second lost life and its free Lullaby, in the same frame, are read as one announcement', () => {
+  // Losing the second life drops the last-life gift bubble in the same tick: the gift's pop-up used to replace the
+  // "1 life left" line before a screen reader read it.
+  for (const id of [1, 4, 7]) {
+    const app = level(player(), id, {}, '?alllevels'); app.run(1.3);
+    const game = app.game(); bossWave(app); app.run(2);
+    game.lives = 2;
+    const bud = game.buds.find(b => !b.bloomed && !b.gift && !b.foe && !b.boss && !b.bossPart && !b.hidden && !b.inert);
+    assert(bud, `L${id}: a flower to let through`);
+    bud.y = game.dangerY + 2; app.frame();
+    assert.equal(game.lives, 1); assert(game.buds.some(b => b.freeBossGift), `L${id}: the free Lullaby floats in`);
+    const said = app.$('announcement').textContent;
+    assert(said.includes('1 life left.') && said.endsWith('Gift bubble! Shoot it for a free Lullaby.'), `L${id}: ${said}`);
+    // The next frame says nothing new, so the joined line stands; a later line is read on its own.
+    app.frame(); assert.equal(app.$('announcement').textContent, said);
+  }
+});
 test('A cleared wave sends at most 24 orbs, latest first, that all land within 1.4 s and pluck', () => {
   const app = level(player(), 1), game = app.game(); app.run(1.3);
   clearWave(app, 30);

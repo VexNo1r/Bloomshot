@@ -205,7 +205,24 @@
   const starHTML = n => '<span>★</span>'.repeat(n) + '<span class="off">★</span>'.repeat(3 - n);
   const fmt = number => Math.round(number).toLocaleString();
   const escape = text => String(text).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
-  function say(text) { $('announcement').textContent = text; }
+  // #announcement is read once the task that wrote it is over, so a line written over another in the same go (one
+  // frame, one tap) would never be heard: lines said together are joined, each once. A line that already holds an
+  // earlier one (a wave announcement carrying a foe's first hint) takes its place.
+  let sayLines = null;
+  function say(text) {
+    if (sayLines) {
+      if (!text || sayLines.some(line => line.includes(text))) return;
+      sayLines = sayLines.filter(line => !text.includes(line)); sayLines.push(text); text = sayLines.join(' ');
+    }
+    $('announcement').textContent = text;
+  }
+  // Runs fn as one go: everything it says is read as one announcement. saidTogether wraps a handler the same way.
+  function sayTogether(fn, ...args) {
+    if (sayLines) return fn(...args);
+    sayLines = [];
+    try { return fn(...args); } finally { sayLines = null; }
+  }
+  const saidTogether = fn => (...args) => sayTogether(fn, ...args);
   // The toast is aria-hidden, so #announcement is the one live region and a pop-up is read once.
   // speak: false when the caller has already said it (a guardian's mood line carries its new rule).
   const TOAST_LIFE = 2800, TIP_HELD = 1500;
@@ -333,6 +350,7 @@
   // Picking the kept run up starts its level at the beginning of that wave and counts in, like any resume. Powerups
   // spent on that wave come back with it (the wave starts over), in the same save that starts it.
   function resumeRun(run) {
+    if (!sayLines) return sayTogether(resumeRun, run);
     if (!runReady(run)) { BloomSound.play('tap'); toast('Checking your levels. Try again in a moment.'); return; }
     if (run.spent) { for (const [id, n] of Object.entries(run.spent)) save.powers = Powers.add(save.powers, id, n); delete run.spent; }
     startDepth(run.level, false, run.wave, run); startCount(`${whereLine()} `);
@@ -878,6 +896,7 @@
     for (const d of data.decor) spots.querySelector(`[data-friend="${d.friend.id}"]`).hidden = !d.built;
   }
   function greetFriend(id) {
+    if (!sayLines) return sayTogether(greetFriend, id); // the hello and a goal it finishes are read as one line
     const friend = BloomGarden.decor.map(d => d.friend).find(f => f.id === id), spot = BloomMeadow.friends.find(f => f.id === id);
     if (!friend || !spot) return;
     friendPokes[id] = performance.now(); meadowDirty = true;
@@ -1076,8 +1095,9 @@
     const goals = trackGoals({ type: 'meadow' }); persist(); showSeeds();
     showcase.t = 0; showcase.dirty = true; renderKeepsakes();
     BloomSound.play('plant', { x: 210 }); haptic('surge');
-    toast(goals.paid ? `${style.name} grown! Goal done, +${goals.paid} seeds.` : `${style.name} grown! It's on your seed now.`);
-    say(`${style.name} grown and on your seed. ${save.garden.seeds} seeds left.`);
+    // The toast is not read out: the one announcement says it all, with the goal's seeds when it finished one.
+    toast(goals.paid ? `${style.name} grown! Goal done, +${goals.paid} seeds.` : `${style.name} grown! It's on your seed now.`, false);
+    say(`${style.name} grown and on your seed. ${goals.paid ? `Goal done, +${goals.paid} seeds. ` : ''}${save.garden.seeds} seeds left.`);
   }
   function chooseKeepsake(id) {
     const style = Keepsakes.byId[id]; if (!style) return;
@@ -2662,6 +2682,7 @@
   };
 
   function processEvents() {
+    if (!sayLines) { sayTogether(processEvents); return; } // a frame's events are read as one announcement
     for (const event of game.drainEvents()) {
       if (isTutorial()) tutorial.observe(event);
       if (feel && !isTutorial()) feelEvent(event);
@@ -3237,6 +3258,7 @@
     catch (_) { toast('Sharing is not available here.'); }
   }
   function rotateNearest(point) {
+    if (!sayLines) return sayTogether(rotateNearest, point);
     if (!gate('rotate')) return false;
     const near = game.bumpers.find(b => b.kind !== 'rock' && Math.hypot(b.x - point.x, b.y - point.y) <= b.length / 2 + 14);
     if (!near) return false;
@@ -3565,7 +3587,8 @@
     save.garden = BloomGarden.select(save.garden, button.dataset.plot); persist(); renderMeadow();
     BloomSound.wake(); BloomSound.play('tap');
   });
-  $('plant-btn').addEventListener('click', () => {
+  // A planting that also finishes today's goal says both in one announcement (sayTogether).
+  $('plant-btn').addEventListener('click', saidTogether(() => {
     const id = save.garden.selectedId, fromStage = save.garden.levels[id];
     const planted = BloomGarden.plant(save.garden, id); if (!planted.success) return;
     save.garden = planted.state;
@@ -3575,7 +3598,7 @@
     BloomSound.wake(); BloomSound.play('plant', { x: BloomMeadow.plots.find(p => p.id === id).x });
     haptic('tap');
     say(`${BloomGarden.plots.find(p => p.id === id).name} ${fromStage ? 'grew' : 'planted'}. ${save.garden.seeds} seeds left.`);
-  });
+  }));
   $('friend-spots').addEventListener('click', event => {
     const spot = event.target.closest('[data-friend]'); if (spot) greetFriend(spot.dataset.friend);
   });
@@ -3601,8 +3624,8 @@
     growth = { decorId: id, started: performance.now() };
     const spot = BloomMeadow.decor.find(d => d.id === id);
     BloomSound.play('plant', { x: spot.x }); haptic('surge');
-    toast(goals.paid ? `${piece.name} built! Goal done, +${goals.paid} seeds.` : `${piece.name} built!`);
-    say(`${piece.name} built. ${save.garden.seeds} seeds left.`);
+    toast(goals.paid ? `${piece.name} built! Goal done, +${goals.paid} seeds.` : `${piece.name} built!`, false);
+    say(`${piece.name} built. ${goals.paid ? `Goal done, +${goals.paid} seeds. ` : ''}${save.garden.seeds} seeds left.`);
     const map = meadowCanvas.getBoundingClientRect();
     if (map.top < 0 || map.bottom > window.innerHeight) meadowCanvas.scrollIntoView({ behavior: save.settings.motion ? 'smooth' : 'auto', block: 'center' });
   });
@@ -3953,6 +3976,7 @@
   });
   window.addEventListener('pagehide', () => { keepProgress(); pauseGame(true); });
   function frame(timestamp) {
+    if (!sayLines) return sayTogether(frame, timestamp); // what one frame says is read as one announcement
     requestAnimationFrame(frame);
     const workFrom = performance.now();
     if (resizePending) resize();
