@@ -36,9 +36,9 @@ function fakeStore({ owned = false, ready = true } = {}) {
   return store;
 }
 // raw: the save to start from (or storage: a whole storage map from an earlier boot). search: the page's query string.
-// sound: a stand-in for BloomSound. worlds: a different world list. prefs: run the real native.js first (as index.html
+// sound: a stand-in for BloomSound. native: a stand-in for BloomNative (its haptics). worlds: a different world list. prefs: run the real native.js first (as index.html
 // does), as the native app with this map as the phone's preferences; its timers never fire, like a hidden app's.
-function boot(raw, { search = '', store = null, storage = new Map(), sound = null, worlds = null, prefs = null } = {}) {
+function boot(raw, { search = '', store = null, storage = new Map(), sound = null, worlds = null, prefs = null, native = null } = {}) {
   const key = search.includes('alllevels') || search.includes('qa') ? QA : MAIN;
   if (raw !== undefined) storage.set(key, JSON.stringify(raw));
   const nodes = new Map(), games = [];
@@ -85,7 +85,7 @@ function boot(raw, { search = '', store = null, storage = new Map(), sound = nul
     localStorage: { getItem: name => storage.get(name) || null, setItem: (name, value) => { storage.set(name, value); } },
     performance: { now: () => now }, devicePixelRatio: 1, matchMedia: () => ({ matches: false, addEventListener: noop }),
     requestAnimationFrame: fn => { nextFrame = fn; }, setTimeout: () => 1, clearTimeout: noop,
-    BloomLevels: worlds ? { ...Levels, worlds } : Levels, BloomMoon: Moon, BloomKoi: Koi, BloomGarden: Garden, BloomGoals: QuietGoals, ...(store ? { BloomStore: store } : {}),
+    BloomLevels: worlds ? { ...Levels, worlds } : Levels, BloomMoon: Moon, BloomKoi: Koi, BloomGarden: Garden, BloomGoals: QuietGoals, ...(store ? { BloomStore: store } : {}), ...(native ? { BloomNative: native } : {}),
     BloomEngine: { ...Engine, Game: ObservedGame }, BloomRush: { RushGame: ObservedRush }, BloomDepths: Depths, BloomPowers: Powers,
     BloomTutorial: require('../tutorial.js'), BloomPetals: require('../petals.js'), BloomScenery: { paint: noop, has: () => true },
     BloomSound: sound || { wake: noop, setEnabled: noop, play: noop }, BloomKeepsakes: Keepsakes,
@@ -210,6 +210,39 @@ test('Hiding during the guardian\'s cascade can only keep the win: a flower just
     app.show(); assert(app.run(4, () => app.$('result-dialog').open), 'coming back shows the result');
     assert.equal(game.stars, Math.min(3, lives));
   }
+});
+test('A guardian beaten as the page hides leaves no Paused card or count over the board, and the settle is not heard or felt', () => {
+  const downNow = (options = {}) => {
+    const app = boot(player({ run: kept({ level: 3, wave: 10, lives: 3, from: 1, score: 9000 }) }, 2), options);
+    app.click('resume-btn'); app.frame(); countDone(app); app.run(4);
+    const game = app.game(), boss = game.buds.find(b => b.boss); game.started = true;
+    boss.hp = 1; game.bloom(boss); app.run(.3); assert(game.bossDown && !game.over);
+    return { app, game };
+  };
+  // Paused during the cascade, or with the count after that pause still running, and then the phone hides the app.
+  for (const counting of [false, true]) {
+    const { app, game } = downNow();
+    app.click('pause-btn'); assert(app.$('pause-dialog').open);
+    if (counting) { app.click('pause-resume'); app.run(.5); assert.equal(app.$('resume-count').hidden, false, 'the count runs'); }
+    app.hide();
+    assert.equal(game.status, 'won');
+    assert.equal(app.$('pause-dialog').open, false, `counting ${counting}: no Paused card over the beaten board`);
+    assert.equal(app.$('resume-count').hidden, true, `counting ${counting}: and no count`);
+    app.show();
+    let counted = false;
+    assert(app.run(4, () => { counted ||= !app.$('resume-count').hidden; return app.$('result-dialog').open; }), 'coming back shows the result');
+    assert.equal(counted, false, 'with no count over it');
+  }
+  // A navigation or a reload sends pagehide while the page still shows: the sound sleeps before the settle plays.
+  let asleep = false; const heard = [], felt = [];
+  const sound = { wake() {}, setEnabled() {}, play: name => { if (!asleep) heard.push(name); }, music: { frame: state => { if (typeof state.hidden === 'boolean') asleep = state.hidden; } } };
+  const native = { haptic: kind => felt.push(kind), mirror() {}, flush() {}, restore: () => false, isNative: false, saveReady: true };
+  const { app, game } = downNow({ sound, native });
+  heard.length = 0; felt.length = 0;
+  app.fire('window', 'pagehide');
+  assert.equal(game.status, 'won', 'the win is kept');
+  assert.deepEqual(heard, [], 'none of the cascade\'s cues reach an awake sound');
+  assert.deepEqual(felt, [], 'and nothing buzzes');
 });
 test('A guardian\'s cascade left waiting behind the map is not settled by a hide: its wave-10 run is kept and Resume plays it to the result', () => {
   const app = boot(player({ run: kept({ level: 3, wave: 10, lives: 3, from: 1, score: 9000 }) }, 2));

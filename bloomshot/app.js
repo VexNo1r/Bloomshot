@@ -155,9 +155,9 @@
   // A phone's vibrator plays one pattern at a time and a new call cuts the one still running, so a weaker buzz never
   // follows a stronger one inside its ~65 ms pattern (a warn or a payoff's surge is felt whole, not cut to a tick).
   const BUZZ_RANK = { tick: 1, tap: 2, surge: 3, warn: 3 };
-  let buzzAt = -1e9, buzzRank = 0;
+  let buzzAt = -1e9, buzzRank = 0, hushed = false; // hushed: a beaten guardian's win settled as the page hides (settleWin)
   function haptic(kind) {
-    if (!save.settings.haptics || !native) return;
+    if (!save.settings.haptics || !native || hushed) return;
     const now = performance.now(), rank = BUZZ_RANK[kind] || 2;
     if (now - buzzAt < 70 && rank < buzzRank) return;
     buzzAt = now; buzzRank = rank; native.haptic(kind);
@@ -340,14 +340,20 @@
   // garden keeps its wave-10 checkpoint, and the Resume card plays it out to its result as before.
   function settleWin() {
     if (route !== 'game' || !keepsRun() || !game.bossDown) return;
-    if (document.hidden) musicFrame(performance.now(), true);
+    // Nothing of it is heard or felt: the sound is put to sleep first, as a navigation or a reload sends pagehide while
+    // the page is still showing, and nothing buzzes.
+    BloomSound.music?.frame?.({ hidden: true });
     const lullaby = game.lullaby;
     for (let i = 0; i < 240 && !game.over; i++) {
       for (const item of game.pending) item.when = Math.min(item.when, game.time);
       game.lullaby = Math.max(game.lullaby, 1); game.step(1 / 120);
     }
     if (!game.over) game.lullaby = lullaby;
-    processEvents();
+    hushed = true;
+    try { processEvents(); } finally { hushed = false; }
+    // A Paused card or a count left over the beaten board would hold its result back (and Restart there would start the
+    // level again), so both go: coming back shows the result.
+    if (game.over) { countLeft = 0; renderCount(); closeDialog('pause-dialog'); }
   }
   function dropRun(write = true) { if (!save.run || reviewAll) return; delete save.run; if (write) persist(); }
   // A run's first seed: a level run keeps its checkpoint from here, and any other run (Meadow Rush, the taste, the
