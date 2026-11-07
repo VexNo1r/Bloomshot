@@ -1,5 +1,5 @@
 {
-  "passed": 77,
+  "passed": 88,
   "failed": 0,
   "results": [
     {
@@ -308,6 +308,50 @@
     },
     {
       "name": "The good bot beats Lantern Lily",
+      "passed": true
+    },
+    {
+      "name": "Thornmother has 100 health, turns Smitten at 67 and Wild at 34, and every word fits a phone",
+      "passed": true
+    },
+    {
+      "name": "Prickly opens on her old patch at 2.2 s; Smitten opens on Sweetheart Vines and Wild on the Vine Lasso",
+      "passed": true
+    },
+    {
+      "name": "Bramble Reel: the tell marks the nearest plain flowers; they slide 1.1 s onto her skirt, each heals +1 at 4 and 8 s, then drop",
+      "passed": true
+    },
+    {
+      "name": "With nothing to reel she sprouts three 2-hit rosebuds already docked; low on the board she plants a patch instead",
+      "passed": true
+    },
+    {
+      "name": "Sweetheart Vines: a pair sprouts at the landing spot and heals her +1 every 4 s until it blooms",
+      "passed": true
+    },
+    {
+      "name": "A kiss makes her Lovestruck for 2.5 s: she floats up 160 px, her skirt opens and every seed lands double; a plain cut does neither",
+      "passed": true
+    },
+    {
+      "name": "Her float eases up over 0.5 s of kit time (exact for the bot, held by a Lullaby), and a Lovestruck outlasts her next patch move",
+      "passed": true
+    },
+    {
+      "name": "Vine Lasso: five knots crawl from her skirt at 70 px/s; plain knots turn seeds away and the pink bow unties it for +1 sun",
+      "passed": true
+    },
+    {
+      "name": "If the lasso arrives it wraps that side in a two-piece thorn arch below y 430 for 4 s of kit time; a power unties a plain knot",
+      "passed": true
+    },
+    {
+      "name": "The bot goes for the bow, the docked flowers, the sweethearts and her open skirt; it never values a plain knot",
+      "passed": true
+    },
+    {
+      "name": "Thornmother plays the same at 30, 60 and 144 FPS",
       "passed": true
     }
   ]

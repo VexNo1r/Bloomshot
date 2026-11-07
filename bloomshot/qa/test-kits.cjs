@@ -1368,6 +1368,130 @@ test('Crystal Heart replays identically at 30, 60 and 144 FPS, and a strike loop
 // ── Geode King (Level 8, `geode`) ──
 
 // ── Thornmother (Level 9, `briar`) ──
+{
+  const flower = (id, x, y, extra) => ({ id, group: id, x, y, baseX: x, startY: y, r: 11, type: 'gold', hp: 1, maxHp: 1, relay: false, fall: 1, sway: 0, hitAt: -100, bloomAt: -100, bloomed: false, ...extra });
+  // Thornmother on her board with her next move forced (the tier, and the move's place in that tier's list) and its
+  // warning up. Unless told otherwise the board holds three plain flowers she could reel (a, b, c) and one too far (d).
+  function thorn(tier, index, { flowers = true, buds = [] } = {}) {
+    const g = arena(9), s = g.bossState;
+    if (flowers) g.buds.push(flower('a', 150, 200), flower('b', 210, 230), flower('c', 270, 200), flower('d', 380, 320));
+    g.buds.push(...buds); s.tier = tier; if (tier) s.cycle = index; else s.action = index; s.next = 0; g.step(1 / 120); return g;
+  }
+  function until(g, done, seconds = 10) { const events = []; for (let n = 0; n < seconds * 120 && !done(); n++) { g.step(1 / 120); events.push(...g.drainEvents()); } return events; }
+  const play = g => until(g, () => !g.bossState.warning, 2);
+  const acts = (events, act) => events.filter(e => e.type === 'bossAbility' && e.kind === 'briar' && e.act === act);
+  const K = () => Bosses.kits.briar;
+  const docked = s => s.carried.filter(p => p.carried && p.carried.reel && !p.bloomed);
+  const knots = s => s.parts.filter(p => p.bossPart === 'lasso' && !p.bloomed && !p.closed);
+
+  test('Thornmother has 100 health, turns Smitten at 67 and Wild at 34, and every word fits a phone', () => {
+    const g = arena(9), s = g.bossState, k = K();
+    assert.equal(Bosses.health.briar, 100); assert.equal(s.boss.maxHp, 100); assert.deepEqual(s.tierAt, [67, 34]);
+    assert(Bosses.health.core >= Bosses.health.briar, 'the Starseed keeps the largest health');
+    assert.deepEqual(k.moods, ['Prickly', 'Smitten', 'Wild']); assert.deepEqual(k.stageText, [null, 'Thornmother is in love!', 'Thornmother is running wild!']);
+    assert.deepEqual(k.moves, [['briar', 'reel'], ['sweet', 'briar', 'reel'], ['lasso', 'briar', 'sweet', 'reel']]);
+    for (const text of [...Object.values(k.text), ...k.stageText.slice(1), ...k.moods]) assert(text.length <= 52, text);
+  });
+  test('Prickly opens on her old patch at 2.2 s; Smitten opens on Sweetheart Vines and Wild on the Vine Lasso', () => {
+    const g = arena(9), s = g.bossState; until(g, () => s.warning, 3);
+    assert.equal(s.warning.move, 'briar'); assert(Math.abs(s.warning.at - 2.2) < .01); assert.equal(s.warning.text, 'Cut the vines! Clear a whole patch.');
+    for (const [tier, text, mood, move, words] of [[0, 'Thornmother is in love!', 'Smitten', 'sweet', 'Sweethearts! Hit both together to win her heart.'], [1, 'Thornmother is running wild!', 'Wild', 'lasso', 'Vine lasso! Shoot the pink bow to untie it.']]) {
+      const g2 = arena(9), s2 = g2.bossState, b = s2.boss, line = s2.tierAt[tier]; s2.tier = tier; b.hp = line + 1; s2.next = s2.age + 9;
+      hit(g2, b, { ny: -1 }); hit(g2, b, { ny: -1 }); assert.equal(b.hp, line, 'held at the line'); assert(s2.shiftPending);
+      g2.step(1 / 120); assert.equal(s2.warning.move, 'stage'); assert.equal(s2.warning.text, text);
+      const stage = play(g2).find(e => e.type === 'bossStage'); assert(stage && stage.mood === mood);
+      until(g2, () => s2.warning, 2); assert.equal(s2.warning.move, move); assert.equal(s2.warning.text, words); assert(s2.warning.until - s2.warning.at >= 1.3 - 1e-9);
+    }
+  });
+  test('Bramble Reel: the tell marks the nearest plain flowers; they slide 1.1 s onto her skirt, each heals +1 at 4 and 8 s, then drop', () => {
+    const g = thorn(0, 1, { buds: [flower('p', 210, 180, { healing: true, bossSummon: true }), flower('q', 180, 170, { briar: true })] }), s = g.bossState, b = s.boss, w = s.warning;
+    assert.equal(w.move, 'reel'); assert.equal(w.text, 'Bramble reel! Snip the flowers off her vines.');
+    assert.deepEqual(w.targets.filter(t => t.role === 'reel').map(t => t.id).sort(), ['a', 'b', 'c'], 'never a patch bud, a briar or one out of reach');
+    const events = play(g), at = s.kitAge; assert.equal(acts(events, 'start').length, 1);
+    assert.deepEqual(docked(s).map(p => [p.id, p.carried.slot]), [['a', 0], ['b', 1], ['c', 2]]);
+    advance(g, 1.1); const pose = Bosses.predictVisible(g, 0);
+    for (const p of docked(s)) { const [ox, oy] = [[-46, 30], [0, 44], [46, 30]][p.carried.slot]; assert(Math.abs(p.x - (b.x + ox)) < .5 && Math.abs(p.y - (b.y + oy)) < .5); assert.equal(pose.get(p.id).x, p.x); }
+    b.hp = 80; until(g, () => s.kitAge >= at + 5.1 - 1e-9); assert.equal(b.hp, 83, 'three docked flowers drink at 4 s (80 stays above her Smitten line at 67)');
+    hit(g, docked(s)[0], { ny: 1 }); const snip = acts(g.drainEvents(), 'snip'); assert.equal(snip.length, 1); assert.equal(docked(s).length, 2);
+    until(g, () => s.kitAge >= at + 9.1 - 1e-9); assert.equal(b.hp, 85, 'two still docked drink again at 8 s');
+    advance(g, .05); assert.equal(docked(s).length, 0, 'then she lets them drop'); assert(['b', 'c'].every(id => !g.buds.find(p => p.id === id).carried));
+  });
+  test('With nothing to reel she sprouts three 2-hit rosebuds already docked; low on the board she plants a patch instead', () => {
+    const g = thorn(0, 1, { flowers: false }), s = g.bossState, w = s.warning;
+    assert.equal(w.move, 'reel'); assert.equal(w.targets.filter(t => t.role === 'bud').length, 3);
+    const events = play(g); assert.equal(acts(events, 'sprout').length, 1);
+    const own = docked(s); assert.equal(own.length, 3); assert(own.every(p => p.thornBud && p.hp === 2 && p.bossSummon));
+    const low = arena(9), ls = low.bossState; ls.drift = 200; ls.action = 1; ls.next = 0; low.step(1 / 120); assert.equal(ls.warning.move, 'briar');
+  });
+  test('Sweetheart Vines: a pair sprouts at the landing spot and heals her +1 every 4 s until it blooms', () => {
+    const g = thorn(1, 0, { flowers: false }), s = g.bossState, b = s.boss, w = s.warning;
+    assert.equal(w.move, 'sweet'); const mid = w.targets.find(t => t.role === 'sweet'); assert.equal(mid.y, 70);
+    play(g); const roses = g.buds.filter(p => p.foe === 'sweetheart'); assert.equal(roses.length, 2);
+    assert.deepEqual(roses.map(p => [p.x, p.y, p.bossSummon, p.group]), [[mid.x - 24, 70, true, roses[0].group], [mid.x + 24, 70, true, roses[0].group]]);
+    b.hp = 50; const at = s.kitAge; until(g, () => s.kitAge >= at + 4 - 1e-9); assert.equal(b.hp, 51);
+    g.lull(); advance(g, 6); assert.equal(b.hp, 51, 'a Lullaby holds the vine'); advance(g, 0);
+  });
+  test('A kiss makes her Lovestruck for 2.5 s: she floats up 160 px, her skirt opens and every seed lands double; a plain cut does neither', () => {
+    const g = thorn(1, 0, { flowers: false }), s = g.bossState, b = s.boss; play(g);
+    const [r0, r1] = g.buds.filter(p => p.foe === 'sweetheart'); s.drift = 200; b.hp = 50;
+    hit(g, r0); hit(g, r1); const kiss = acts(g.drainEvents(), 'kiss'); assert.equal(kiss.length, 1);
+    assert.equal(s.mode, 'smitten'); assert.equal(s.drift, 40); assert(Bosses.canHit(g, b, { nx: 0, ny: 1 }, {}), 'open from below');
+    hit(g, b, { ny: 1 }); assert.equal(b.hp, 48); const crit = g.drainEvents().find(e => e.type === 'bossCritical'); assert(crit && crit.via === 'heart' && crit.damage === 2);
+    advance(g, 2.45); assert.equal(s.mode, 'smitten'); advance(g, .1); assert.equal(s.mode, 'skirt');
+    const g2 = thorn(1, 0, { flowers: false }), s2 = g2.bossState; play(g2); const r = g2.buds.find(p => p.foe === 'sweetheart');
+    g2.strike(r, true); advance(g2, .1); assert(g2.buds.filter(p => p.foe === 'sweetheart').every(p => p.bloomed)); assert.equal(acts(g2.drainEvents(), 'cut').length, 1); assert.notEqual(s2.mode, 'smitten');
+  });
+  test('Her float eases up over 0.5 s of kit time (exact for the bot, held by a Lullaby), and a Lovestruck outlasts her next patch move', () => {
+    const g = thorn(1, 0, { flowers: false }), s = g.bossState, b = s.boss; play(g);
+    const [r0, r1] = g.buds.filter(p => p.foe === 'sweetheart'); s.drift = 200; Bosses.step(g, 0); const y0 = b.y;
+    hit(g, r0); hit(g, r1); assert.equal(s.drift, 40); Bosses.step(g, 0); assert(Math.abs(b.y - y0) < 1e-9, 'no jump: she starts where she was');
+    const later = Bosses.predictVisible(g, .5).get(b.id).y; advance(g, .25); assert(b.y < y0 - 40 && b.y > later + 40, 'half way up');
+    g.lull(); const held = K().rise(s, s.kitAge); advance(g, .4); assert.equal(K().rise(s, s.kitAge), held, 'a Lullaby holds the float');
+    const g2 = thorn(1, 0, { flowers: false }), s2 = g2.bossState; play(g2); const [a, c] = g2.buds.filter(p => p.foe === 'sweetheart'); s2.drift = 200; Bosses.step(g2, 0);
+    const ahead = Bosses.predictVisible(g2, .5); hit(g2, a); hit(g2, c); const to = Bosses.predictVisible(g2, .5).get(s2.boss.id).y;
+    advance(g2, .5); assert(Math.abs(s2.boss.y - to) < 1e-6, 'the forecast is the board'); assert(ahead.get(s2.boss.id).y - to > 100);
+    s2.next = s2.age; until(g2, () => s2.warning, 1); assert.equal(s2.warning.move, 'briar'); const love = s2.modeUntil;
+    play(g2); assert(s2.patches.length >= 1, 'the patch is planted'); assert.equal(s2.mode, 'smitten'); assert.equal(s2.modeUntil, love, 'the Lovestruck keeps its time');
+    until(g2, () => s2.mode !== 'smitten', 3); assert.equal(s2.mode, 'skirt');
+    const g3 = thorn(1, 0, { flowers: false }), s3 = g3.bossState; play(g3); const [d, e] = g3.buds.filter(p => p.foe === 'sweetheart'); s3.drift = 200; Bosses.step(g3, 0);
+    hit(g3, d); hit(g3, e); advance(g3, .1); assert(K().rise(s3, s3.kitAge) < -100, 'floating'); Bosses.breach(g3); assert.equal(K().rise(s3, s3.kitAge), 0, 'a breach ends the float');
+    assert.equal(s3.boss.y, Bosses.predictVisible(g3, 0).get(s3.boss.id).y); assert(s3.boss.y < s3.boss.startY + 20, 'back at the top, not left floating down from below it');
+  });
+  test('Vine Lasso: five knots crawl from her skirt at 70 px/s; plain knots turn seeds away and the pink bow unties it for +1 sun', () => {
+    const g = thorn(2, 0), s = g.bossState, b = s.boss, w = s.warning, t = w.targets.find(t => t.role === 'lasso'), arch = w.targets.find(t => t.role === 'arch');
+    assert.equal(w.move, 'lasso'); assert(arch.y < 430);
+    play(g); const ks = knots(s); assert.equal(ks.length, 5); assert.deepEqual(ks.map(p => p.bow), [false, true, false, false, false]);
+    const head = ks[0], t0 = s.kitAge; advance(g, 1); const moved = Math.hypot(head.x - t.sx, head.y - t.sy); assert(moved > 88 + 70 * .9 - 15 && moved < 88 + 70 * 1.1 + 15, `head ${moved}`);
+    assert.equal(Bosses.canHit(g, ks[0], { nx: 0, ny: 1 }, {}), false); assert.equal(Bosses.canHit(g, ks[1], { nx: 0, ny: 1 }, {}), true);
+    hit(g, ks[0]); assert(!ks[0].bloomed, 'a plain knot turns a seed away');
+    s.drift = 100; const charge = g.sunCharge; hit(g, ks[1]); assert(ks[1].bloomed); assert.equal(knots(s).length, 0); assert.equal(s.lasso, null);
+    assert.equal(acts(g.drainEvents(), 'untie').length, 1); assert.equal(s.drift, 40, 'the rope yanks her up 60 px'); assert(g.sunCharge > charge);
+  });
+  test('If the lasso arrives it wraps that side in a two-piece thorn arch below y 430 for 4 s of kit time; a power unties a plain knot', () => {
+    const g = thorn(2, 0), s = g.bossState; play(g); const l = s.lasso;
+    const events = until(g, () => !s.lasso, 6); assert.equal(acts(events, 'wrap').length, 1); assert(Math.abs(s.kitAge - l.until) < 1 / 120 + 1e-9);
+    const rocks = g.bumpers.filter(p => p.bossArch); assert.equal(rocks.length, 2);
+    for (const r of rocks) { const dy = Math.abs(Math.sin(r.angle)) * r.length / 2; assert(r.y + dy < 430); assert.equal(r.kitUntil, s.kitAge + 4 - (s.kitAge - r.kitAt)); }
+    g.lull(); advance(g, 5); assert.equal(g.bumpers.filter(p => p.bossArch).length, 2, 'a Lullaby holds it');
+    until(g, () => !g.bumpers.some(p => p.bossArch), 5); assert(!g.bumpers.some(p => p.bossArch));
+    const g2 = thorn(2, 0), s2 = g2.bossState; play(g2); hit(g2, knots(s2)[3], { power: 'dandelion' }); assert.equal(knots(s2).length, 0);
+  });
+  test('The bot goes for the bow, the docked flowers, the sweethearts and her open skirt; it never values a plain knot', () => {
+    const g = thorn(2, 0), s = g.bossState; play(g);
+    const list = Bosses.targets(g), of = p => list.find(t => t.bud === p);
+    assert.equal(of(knots(s)[1]).priority, 95); assert.equal(of(knots(s)[0]).priority, 0);
+    assert.equal(bot.value(g, { bud: knots(s)[0], nx: 0, ny: 1, time: .3 }, .1, bot.prepareTrace(g)), -1);
+    const g2 = thorn(0, 1), s2 = g2.bossState; play(g2); assert(docked(s2).length >= 2); // the flower encounter may keep one group for itself
+    assert.deepEqual(Bosses.targets(g2).filter(t => t.reason === 'reel').map(t => [t.bud.id, t.priority]), docked(s2).map(p => [p.id, 70]));
+  });
+  test('Thornmother plays the same at 30, 60 and 144 FPS', () => {
+    const snaps = [30, 60, 144].map(fps => {
+      const g = thorn(2, 0); advance(g, 6, fps); const s = g.bossState;
+      return [s.mode, s.action, s.cycle, +s.kitAge.toFixed(6), ...s.parts.map(p => [p.id, +p.x.toFixed(4), +p.y.toFixed(4), p.bloomed]), ...g.bumpers.filter(p => p.bossArch).map(p => [p.id, +p.x.toFixed(4)])];
+    });
+    assert.deepEqual(snaps[0], snaps[1]); assert.deepEqual(snaps[1], snaps[2]);
+  });
+}
 
 // ── The Starseed (Level 10, `core`) ──
 

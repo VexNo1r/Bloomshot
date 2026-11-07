@@ -1,0 +1,54 @@
+{
+  "passed": 12,
+  "failed": 0,
+  "results": [
+    {
+      "name": "Registry: two coral r 11 one-hit roses, one group, 46 px apart, with a hint of 52 characters or fewer",
+      "passed": true
+    },
+    {
+      "name": "Placements: L9 W3 debuts one pair with its hint; pairs recur in W5, W7, W9 and a W8 drop; W1 and W10 stay clear",
+      "passed": true
+    },
+    {
+      "name": "A credited touch blushes one rose: no damage, refund, split charge or sun, and a heart ring on its sweetheart",
+      "passed": true
+    },
+    {
+      "name": "A kiss: the sweetheart touched within 1.2 s blooms both, refunds both to that seed and pays +1 sun and 300 x tempo",
+      "passed": true
+    },
+    {
+      "name": "A Cupid shot: one seed that blushes one rose and ricochets into the other pays +2 sun and 600 x tempo",
+      "passed": true
+    },
+    {
+      "name": "A blush runs out at exactly 1.2 s of foe time (a pout) and the pair resets; a Lullaby holds it",
+      "passed": true
+    },
+    {
+      "name": "Chains, powers and uncredited strikes are plain, and its sweetheart always blooms with it",
+      "passed": true
+    },
+    {
+      "name": "A missed pair costs one life, not two; a lone pair holds its wave open",
+      "passed": true
+    },
+    {
+      "name": "Real seeds: a double tap at the pair kisses, and a split seed can take both",
+      "passed": true
+    },
+    {
+      "name": "The same at 30, 60 and 144 FPS",
+      "passed": true
+    },
+    {
+      "name": "The bot: an idle rose is worth a little, its sweetheart a lot while it blushes or a seed flies at it, a blushing rose nothing",
+      "passed": true
+    },
+    {
+      "name": "foes.js never touches the seed pod and never uses Math.random",
+      "passed": true
+    }
+  ]
+}
