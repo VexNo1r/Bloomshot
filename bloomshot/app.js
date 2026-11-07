@@ -1995,6 +1995,21 @@
   };
 
   // ── Sweetheart Roses (Level 9, `sweetheart`) ──
+  // A blush puffs a pink ring round its sweetheart (hit that one next) and a few pink motes off the shy one; a pout
+  // sighs out a little grey puff. A kiss bursts coral petals between the two in a pink-and-white ring, with a beat of
+  // hit-stop and "Sweethearts!" (or "Cupid shot!" with a gold ring for one seed that did both) over the pair.
+  const SWEET_TOP = 70; // a callout centred above this would sit under the health vine and name across the top
+  FOE_FX.sweetheart = {
+    blush(e) { foeRing(e.mx, e.my, '#ff6f9e', 12, 18, .35); foeDust(e.x, e.y, 3, '#ffc1d6', 24); haptic('tick'); },
+    pout(e) { foeDust(e.x, e.y - 12, 3, '#d9d2dc', 16); },
+    kiss(e) {
+      burst({ x: e.x, y: e.y, type: 'coral', r: 14 }, e.cupid ? 22 : 16, game.particles, currentKeepsake(), false);
+      foeRing(e.x, e.y, '#ff6f9e', 10, 36, .45); foeRing(e.x, e.y, '#ffffff', 6, 22, .3); if (e.cupid) foeRing(e.x, e.y, '#ffd148', 8, 48, .5);
+      jolt(e.cupid ? .14 : .1, .04, .15); haptic('surge');
+      // A pair near the top (Thornmother's, at y 70) gets its callout below it, clear of the guardian's health vine.
+      game.floaters.push({ kind: 'trick', trick: 'sweet', text: e.cupid ? 'Cupid shot!' : 'Sweethearts!', label: e.gain ? `+${e.gain}` : '', x: clamp(e.x, 60, 360), y: e.y - 34 < SWEET_TOP ? e.y + 40 : e.y - 34, life: 1.1, maxLife: 1.1 });
+    }
+  };
 
   // ── Wishing Stars (Level 10, `wishstar`) ──
 
@@ -2308,6 +2323,31 @@
   };
 
   // ── Thornmother (Level 9, `briar`) ──
+  // Leafy rings and dust where her vines hook the marked flowers, pink pops where her own rosebuds sprout, "Snip!" with
+  // a spray of leaves when a docked flower is shot off its vine, a sap-cream ring when she drinks. Sweetheart Vines ring
+  // the two rose spots; a kiss on her pair bursts coral petals round her with a big pink ring, hit-stop and
+  // "Lovestruck!". The lasso kicks up dust where it uncoils; untied, a coral burst and "Untied!"; arriving, it cracks up
+  // out of the soil in brown dust. A seed turned away by a plain knot says to shoot the bow ("Heart shot!" is the crit).
+  CRIT_TEXT.heart = 'Heart shot!';
+  const THORN_PINK = '#ea65b4', THORN_LEAF = '#83ac57', THORN_SAP = '#ffe4bb';
+  BOSS_FX.briar = {
+    'reel:start'(e) { for (const t of (e.targets || []).filter(t => t.role === 'reel')) { foeRing(t.x, t.y, THORN_LEAF, t.r + 2, 16, .35); foeDust(t.x, t.y, 3, '#cfe3a8', 30); } jolt(.06); haptic('warn'); },
+    'reel:sprout'(e) { for (const m of e.marks || []) { foeRing(m.x, m.y, THORN_PINK, 6, 16, .3); foeDust(m.x, m.y, 3, '#ffc5e0', 26); } },
+    'reel:snip'(e) { foeRing(e.x, e.y, THORN_LEAF, 6, 20, .3); foeDust(e.x, e.y, 5, '#a2c77c', 50); bossCallout(e.x, e.y, 'Snip!', .7); haptic('tick'); },
+    'reel:drink'(e) { foeRing(e.x, e.y, THORN_SAP, 10, 26, .35); },
+    'reel:drop'(e) { foeDust(e.x, e.y, 4, '#a2c77c', 40); },
+    'sweet:start'(e) { for (const t of (e.targets || []).filter(t => t.role === 'rose')) foeRing(t.x, t.y, THORN_PINK, 8, 18, .35); haptic('warn'); },
+    'sweet:kiss'(e) {
+      burst({ x: e.x, y: e.y, type: 'coral', r: 20 }, 20, game.particles, currentKeepsake(), false); foeRing(e.x, e.y, THORN_PINK, 20, 60, .6); foeRing(e.x, e.y, '#ffffff', 14, 40, .4);
+      jolt(.16, .06, .2); haptic('surge'); bossCallout(e.x, Math.max(e.y, 104), 'Lovestruck!', 1.2); // never under her health vine
+    },
+    'sweet:cut'(e) { foeDust(e.x, e.y, 4, '#a2c77c', 40); },
+    'lasso:start'(e) { const t = (e.targets || []).find(t => t.role === 'lasso'); if (t) { foeDust(t.sx, t.sy, 6, '#a2c77c', 60); foeRing(t.sx, t.sy, THORN_LEAF, 10, 24, .35); } jolt(.08); haptic('warn'); },
+    'lasso:untie'(e) { burst({ x: e.x, y: e.y, type: 'coral', r: 12 }, 12, game.particles, currentKeepsake(), false); foeRing(e.x, e.y, '#ffffff', 8, 26, .35); bossCallout(e.x, e.y, 'Untied!', .9); haptic('tick'); },
+    'lasso:wrap'(e) { foeDust(e.x, e.y, 8, '#8a6a4a', 70); foeRing(e.x, e.y, THORN_LEAF, 16, 40, .45); jolt(.12, .04, .1); haptic('warn'); },
+    'lasso:wither'(e) { foeDust(e.x, e.y, 4, '#b9a77f', 30); },
+    tip(e) { return e && e.bud && e.bud.bossPart === 'lasso' && !e.bud.bow ? 'Shoot the pink bow! Plain knots turn seeds away.' : ''; }
+  };
 
   // ── The Starseed (Level 10, `core`) ──
 

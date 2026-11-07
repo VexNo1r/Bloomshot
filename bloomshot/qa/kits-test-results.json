@@ -311,55 +311,55 @@
       "passed": true
     },
     {
-      "name": "Geode King: 104 health (no more than the finale), Proud, Grumbly and Magnetic, opening on his old toss; words fit",
+      "name": "Thornmother has 100 health, turns Smitten at 67 and Wild at 34, and every word fits a phone",
       "passed": true
     },
     {
-      "name": "Geode King: the Pyrite Toss lobs three pieces to the top on a shown arc; one is fool's gold, the rest real gems",
+      "name": "Prickly opens on her old patch at 2.2 s; Smitten opens on Sweetheart Vines and Wild on the Vine Lasso",
       "passed": true
     },
     {
-      "name": "Geode King: a seed's own touch on fool's gold glues his newest broken plate back on; powers, chains and strikes never do",
+      "name": "Bramble Reel: the tell marks the nearest plain flowers; they slide 1.1 s onto her skirt, each heals +1 at 4 and 8 s, then drop",
       "passed": true
     },
     {
-      "name": "Geode King: the Gem Lob arcs a gem at a shoulder; a seed meeting it is a catch, a landed one is a burr until knocked off",
+      "name": "With nothing to reel she sprouts three 2-hit rosebuds already docked; low on the board she plants a patch instead",
       "passed": true
     },
     {
-      "name": "Geode King: the Magnet Heart plants him in a field that curls seeds through his gaps for a Magnet shot of 3; his plates turn iron",
+      "name": "Sweetheart Vines: a pair sprouts at the landing spot and heals her +1 every 4 s until it blooms",
       "passed": true
     },
     {
-      "name": "Geode King: with a whole crust there is no gap, so no Magnet Heart; fool's gold is never pulled in",
+      "name": "A kiss makes her Lovestruck for 2.5 s: she floats up 160 px, her skirt opens and every seed lands double; a plain cut does neither",
       "passed": true
     },
     {
-      "name": "Geode King: a Lullaby holds the magnet's needle and its end, the lobbed gem and the sinking fool's gold",
+      "name": "Her float eases up over 0.5 s of kit time (exact for the bot, held by a Lullaby), and a Lovestruck outlasts her next patch move",
       "passed": true
     },
     {
-      "name": "Geode King: every move heaves him up (at most 24 px, never above where he started)",
+      "name": "Vine Lasso: five knots crawl from her skirt at 70 px/s; plain knots turn seeds away and the pink bow unties it for +1 sun",
       "passed": true
     },
     {
-      "name": "Geode King: a long slow fight never sinks him onto the shoulders or the line (past 150 px a heave lifts him back)",
+      "name": "If the lasso arrives it wraps that side in a two-piece thorn arch below y 430 for 4 s of kit time; a power unties a plain knot",
       "passed": true
     },
     {
-      "name": "Geode King: Magnetic plays the same at 30, 60 and 144 FPS",
+      "name": "The bot goes for the bow, the docked flowers, the sweethearts and her open skirt; it never values a plain knot",
       "passed": true
     },
     {
-      "name": "Geode King: beaten mid-magnet and mid-lob, he leaves no field, lob, fool's gold, burr or planted feet behind",
+      "name": "Her defeat ends her vines: the gold cascade blooms a live pair with no cut or kiss of hers over the finale",
       "passed": true
     },
     {
-      "name": "Geode King: his moods, flights, fool's gold, lobbed gems, burrs, magnet and tells draw balanced, finite and with no per-frame gradients",
+      "name": "Thornmother plays the same at 30, 60 and 144 FPS",
       "passed": true
     },
     {
-      "name": "The good bot beats the Geode King",
+      "name": "Thornmother: her moods, reel, sweetheart vine, Lovestruck float, lasso and arch draw balanced, finite and with no per-frame gradients",
       "passed": true
     }
   ]

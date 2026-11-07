@@ -10,8 +10,8 @@
       100,
       18,
       96,
-      104,
-      52,
+      64,
+      100,
       104
     ],
     "budsPerLevel": [
@@ -22,8 +22,8 @@
       399,
       353,
       358,
-      419,
-      364,
+      403,
+      387,
       411
     ],
     "fallSpeed": [
@@ -76,8 +76,8 @@
       0,
       4,
       4,
-      7,
-      4,
+      9,
+      15,
       14
     ],
     "averagePlayerSuperBlooms": [
@@ -88,8 +88,8 @@
       7.3,
       5.7,
       7,
-      8.3,
-      7,
+      7.3,
+      4.7,
       6
     ],
     "averagePlayerTricks": [
@@ -100,8 +100,8 @@
       18.7,
       14.3,
       33.7,
-      22,
-      19.7,
+      23,
+      15.7,
       17.7
     ],
     "difficultySampleScope": "Three average seeds per level are a smoke observation, not a reliable individual-level ranking. Validate the final curve with the frozen 128-average/32-heldout/48-boss/16-good corpus from qa/measure-depths.cjs and document it in qa/MEASUREMENTS.md.",
@@ -125,8 +125,8 @@
       "L5 won with 2",
       "L6 lost at wave 4",
       "L7 lost at wave 4",
-      "L8 lost at wave 8",
-      "L9 lost at wave 3",
+      "L8 lost at wave 5",
+      "L9 lost at wave 8",
       "L10 lost at wave 4"
     ],
     "masherShotsPerSecond": [
@@ -137,7 +137,7 @@
       0.71,
       1.01,
       1.14,
-      1.68,
+      1.56,
       0.98,
       1.1,
       1.11,
@@ -147,8 +147,8 @@
       1.24,
       0.93,
       1.05,
-      1.51,
-      1.15,
+      1.56,
+      1.37,
       1.56
     ],
     "goodPlayerShotsPerSecond": [
@@ -166,14 +166,14 @@
       1.45,
       1.41,
       1.43,
-      1.33,
-      1.38,
+      1.56,
+      1.62,
+      1.4,
       1.52,
-      1.46,
       1.51,
       1.54
     ],
-    "runtimeSeconds": 39.9
+    "runtimeSeconds": 37.3
   },
   "results": [
     {

@@ -186,14 +186,14 @@
     ]),
     lv(9, 'briar', 'Briar Vault', 'Briars grow back', 2.8, [
       { f: 'square', s: 'tri', d: 10.5, briar: [0, 1], regrow: 5, then: [{ t: 6, f: 'top3', s: 'tri' }], hint: 'Briars regrow. Bloom all three fast!' },
-      { f: 'wall', s: 'line', d: 11, briar: [0, 2, 4], regrow: 4.5, puffs: [[70, 178], [210, 178], [350, 178]], then: [{ t: 6, f: 'top4', s: 'tri', hp: 1 }], hint: 'A puffcap blooms a whole briar patch.' },
-      { f: 'vee', s: 'tri', d: 11.5, hp: 1, briar: [1, 3], cup: [0, 4], regrow: 4.5, then: [{ t: 6, f: 'top5', s: 'tri', briar: [1, 3] }] },
-      { f: 'grid', s: 'tri', d: 12, hp: 1, briar: [0, 2, 3, 5], regrow: 4, rocks: [[210, 300, 64, 0]], then: [{ t: 6, f: 'topvee', s: 'tri', hp: 1, briar: [0, 4] }, { t: 12, f: 'top3', s: 'stack' }], hint: 'Crack ringed briars first, then bloom.' },
-      { f: 'stacks', s: 'stack', d: 12, briar: [0, 1, 2, 3], regrow: 4, then: [{ t: 6, f: 'topstacks', s: 'stack', briar: [1, 2] }], hint: 'Stacked briars. Fire fast, bottom up.' },
-      { f: 'ring', s: 'tri', d: 12.5, hp: 2, briar: [0, 2, 4], puffs: [[210, 171]], regrow: 4, then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, briar: [2] }, { t: 12, f: 'topvee', s: 'line' }] },
-      { f: 'zigzag', s: 'line', d: 13, hp: 1, briar: [0, 1, 2, 3, 4], regrow: 4, gates: [[96, 404, 360, 250, -150], [324, 404, 60, 250, -30]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, briar: [0, 4] }, { t: 12, f: 'top4', s: 'line', hp: 1 }] },
-      { f: 'columns', s: 'tri', d: 13, hp: 1, briar: [1, 3, 5], cup: [0, 2, 4], regrow: 4, currents: [[210, 330, 330, 56, 0, 4]], then: [{ t: 6, f: 'topstacks', s: 'stack', hp: 2 }, { t: 12, f: 'top5', s: 'tri', hp: 3, briar: [1, 3] }] },
-      { f: 'grid', s: 'tri', d: 13.5, hp: 3, briar: [0, 1, 2, 3, 4, 5], regrow: 3.6, puffs: [[150, 158], [270, 158]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, briar: [0, 2, 4] }, { t: 12, f: 'topvee', s: 'line', hp3: 1 }] },
+      { f: 'wall', s: 'line', d: 11, briar: [0, 2, 4], regrow: 4.5, puffs: [[70, 178], [210, 178], [350, 178]], then: [{ t: 6, f: 'top4', s: 'tri', hp: 1 }], foes: [['fibcap', 210, 232]], hint: 'A puffcap blooms a whole briar patch.' },
+      { f: 'vee', s: 'tri', d: 11.5, hp: 1, briar: [1, 3], cup: [0, 4], regrow: 4.5, then: [{ t: 6, f: 'top5', s: 'tri', briar: [1, 3] }], foes: [['sweetheart', 210, 250]], hint: 'Sweethearts bloom together. Hit both fast!' },
+      { f: 'grid', s: 'tri', d: 12, hp: 1, briar: [0, 2, 3, 5], regrow: 4, rocks: [[210, 300, 64, 0]], then: [{ t: 6, f: 'topvee', s: 'tri', hp: 1, briar: [0, 4] }, { t: 12, f: 'top3', s: 'stack' }], foes: [['mole', 90, 280]], hint: 'Crack ringed briars first, then bloom.' },
+      { f: 'stacks', s: 'stack', d: 12, briar: [0, 1, 2, 3], regrow: 4, then: [{ t: 6, f: 'topstacks', s: 'stack', briar: [1, 2] }], foes: [['sweetheart', 205, 250, { dx: 52, dy: 24 }], ['inkcap', 100, 262]], hint: 'Stacked briars. Fire fast, bottom up.' },
+      { f: 'ring', s: 'tri', d: 12.5, hp: 2, briar: [0, 2, 4], puffs: [[210, 171]], regrow: 4, then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, briar: [2] }, { t: 12, f: 'topvee', s: 'line' }], foes: [['lodestone', 120, 276], ['fibcap', 300, 272]] },
+      { f: 'zigzag', s: 'line', d: 13, hp: 1, briar: [0, 1, 2, 3, 4], regrow: 4, gates: [[96, 404, 360, 250, -150], [324, 404, 60, 250, -30]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, briar: [0, 4] }, { t: 12, f: 'top4', s: 'line', hp: 1 }], foes: [['sweetheart', 210, 262]] },
+      { f: 'columns', s: 'tri', d: 13, hp: 1, briar: [1, 3, 5], cup: [0, 2, 4], regrow: 4, currents: [[210, 330, 330, 56, 0, 4]], then: [{ t: 6, f: 'topstacks', s: 'stack', hp: 2 }, { t: 12, f: 'top5', s: 'tri', hp: 3, briar: [1, 3], foes: [['sweetheart', 175, 115]] }], foes: [['inkcap', 210, 280], ['mole', 96, 274]] },
+      { f: 'grid', s: 'tri', d: 13.5, hp: 3, briar: [0, 1, 2, 3, 4, 5], regrow: 3.6, puffs: [[150, 158], [270, 158]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, briar: [0, 2, 4] }, { t: 12, f: 'topvee', s: 'line', hp3: 1 }], foes: [['sweetheart', 210, 262], ['fibcap', 90, 272]] },
       { f: [[80, 190], [340, 190]], s: 'tri', d: 8.5, hp: 1, briar: [0], regrow: 4, boss: { name: 'Thornmother', hp: 17, r: 26, type: 'lilac', sway: 58, x: 210, y: 100 }, then: [{ t: 8, f: 'topsides', s: 'tri', hp: 1, briar: [0, 3] }, { t: 16, f: 'topsides', s: 'line', hp: 2 }], hint: 'Big bloom! Seventeen hits.' }
     ]),
     lv(10, 'core', 'Starseed Core', 'The final test', 2.15, [

@@ -1374,6 +1374,97 @@
   });
 
   // ── Sweetheart Roses (Level 9, `sweetheart`) ──
+  // Two shy coral rose buds on one pink ribbon with a heart-shaped leaf where it ties. A seed's own touch on one makes it
+  // blush (it hides its face behind a leaf and opens nothing: no refund, no split charge) for SWEET.window s on the foe
+  // clock, and a heart ring rises over its sweetheart. Touch the other rose while the first still blushes and they kiss:
+  // both bloom (the second through a forced link credited to that seed, so it refunds and scores like a chain) and pay
+  // SWEET.kiss sun and SWEET.pay x tempo ("Sweethearts!"). One seed that blushes the first and ricochets into the second
+  // is a Cupid shot (SWEET.cupid sun, SWEET.cupidPay x tempo). A blush that runs out is a pout: the pair resets. A chain,
+  // a power or an uncredited strike blooms a rose plainly, and its sweetheart always blooms with it (a plain forced link),
+  // so strike loops end and the two always bloom together. One pure function, blushLeft(game, rose, ahead), is the rule
+  // the game (ahead 0), the art and aim line (the flight time) and the bot (hit.time) all read.
+  const SWEET = { r: 11, gap: 46, window: 1.2, link: .06, kiss: 1, cupid: 2, pay: 300, cupidPay: 600, worth: 12, urgent: 70, margin: .12, lead: 1.4, seed: 5.5 };
+  function sweetMate(game, bud) {
+    for (let i = 0; i < game.buds.length; i++) if (game.buds[i].id === bud.mate) return game.buds[i];
+    return null;
+  }
+  // THE rule: seconds rose `bud` will still be blushing `ahead` seconds from now (0: not blushing then). A Lullaby holds it.
+  function blushLeft(game, bud, ahead = 0) {
+    if (!bud || bud.bloomed || !(bud.blushUntil >= 0)) return 0;
+    const late = Math.max(0, (ahead || 0) - Math.max(0, game.lullaby || 0));
+    return Math.max(0, bud.blushUntil - (game.foeClock || 0) - late);
+  }
+  // When a seed already flying would first reach `bud` along its straight path (walls and other pieces ignored, the
+  // rose falling as it does), within SWEET.lead s; Infinity when none will. Pure; the bot's pair rule reads it.
+  function sweetIncoming(game, bud) {
+    const fall = game.lullaby > 0 ? 0 : (game.descentSpeed || 0) * (bud.fall ?? 1), reach = bud.r + SWEET.seed;
+    let best = Infinity;
+    for (const ball of game.balls || []) {
+      if (ball.dead || ball.power) continue;
+      const px = ball.x - bud.x, py = ball.y - bud.y, vx = ball.vx, vy = ball.vy - fall;
+      const a = vx * vx + vy * vy, b = 2 * (px * vx + py * vy), c = px * px + py * py - reach * reach, disc = b * b - 4 * a * c;
+      if (a < 1e-9 || disc < 0) continue;
+      const t = (-b - Math.sqrt(disc)) / (2 * a);
+      if (t >= 0 && t <= SWEET.lead && t < best) best = t;
+    }
+    return best;
+  }
+  define('sweetheart', {
+    r: SWEET.r, hp: 1, fall: .9, type: 'coral', hint: 'Sweethearts bloom together. Hit both fast!',
+    // [name, x, y, {dx, dy}]: the pair's centre; the roses sit dx (46) apart, the right one dy lower. A guardian's
+    // spawn passes i = null and gets group = tag.
+    make(spot, tag, i) {
+      const G = i == null ? tag : `${tag}-foe${i}`, o = spot[3] || {}, dx = (o.dx ?? SWEET.gap) / 2, dy = (o.dy || 0) / 2;
+      return [0, 1].map(k => piece('sweetheart', `${G}-${k}`, G, spot[1] + (k ? dx : -dx), spot[2] + (k ? dy : -dy),
+        { side: k, mate: `${G}-${1 - k}`, blushUntil: -1, blushAt: -100, blushBy: null, poutAt: -100, kiss: null, kissAt: -100 }));
+    },
+    init(game, bud) { bud.blushUntil = -1; bud.blushBy = null; bud.kiss = null; },
+    step(game, bud) {
+      if (bud.blushUntil >= 0 && game.foeClock >= bud.blushUntil - 1e-9) {
+        bud.blushUntil = -1; bud.blushBy = null; bud.poutAt = game.foeClock;
+        game.event('foe', { kind: 'sweetheart:pout', bud, x: bud.x, y: bud.y });
+      }
+    },
+    hit(game, bud, chain, isCredited, seed) {
+      if (!direct(game, chain, isCredited, seed)) return null;
+      const mate = sweetMate(game, bud);
+      if (!mate || mate.bloomed) return null;
+      if (blushLeft(game, mate) > 0) { bud.kiss = { by: seed.id, cupid: mate.blushBy === seed.id }; return null; }
+      if (blushLeft(game, bud) > 0) return { blocked: true };
+      bud.blushUntil = game.foeClock + SWEET.window; bud.blushAt = game.foeClock; bud.blushBy = seed.id;
+      game.event('foe', { kind: 'sweetheart:blush', bud, x: bud.x, y: bud.y - bud.r, mx: mate.x, my: mate.y });
+      return { blocked: true };
+    },
+    bloomed(game, bud, chain, credit) {
+      bud.blushUntil = -1;
+      const mate = sweetMate(game, bud);
+      if (!mate || mate.bloomed) return;
+      // Its sweetheart opens with it a moment later, so a blush it still wears ends here, quietly: a kiss (or a chain)
+      // in a blush's last SWEET.link s must not let it pout in the gap before it blooms.
+      mate.blushUntil = -1; mate.blushBy = null;
+      if (game.pending.some(item => item.id === mate.id)) return;
+      const kiss = bud.kiss;
+      game.pending.push(game._linkBy(mate.id, game.time + SWEET.link, bud, kiss ? 'kiss' : 'sweet', kiss ? kiss.by : credit ? credit.by : null, true));
+      if (!kiss) return;
+      bud.kissAt = mate.kissAt = game.foeClock;
+      const gain = Math.round((kiss.cupid ? SWEET.cupidPay : SWEET.pay) * game.tempo); game.score += gain;
+      game._charge(kiss.cupid ? SWEET.cupid : SWEET.kiss, credit);
+      game.event('foe', { kind: 'sweetheart:kiss', bud, x: (bud.x + mate.x) / 2, y: (bud.y + mate.y) / 2 - 6, cupid: kiss.cupid, gain, ax: bud.x, ay: bud.y, bx: mate.x, by: mate.y });
+    },
+    // The bot's pair rule: the sweetheart of a rose that will be blushing when this seed lands (or that a seed already
+    // flying will make blush in time) is worth a lot; a rose already blushing, or already being aimed at, is worth nothing.
+    value(game, bud, hit) {
+      const t = hit && hit.time || 0, mate = sweetMate(game, bud);
+      if (!mate || mate.bloomed) return 0;
+      if (blushLeft(game, mate, t) > SWEET.margin) return SWEET.urgent;
+      if (blushLeft(game, bud, t) > 0) return -1;
+      const at = sweetIncoming(game, mate);
+      if (at < Infinity && Math.abs(at - t) < SWEET.window - SWEET.margin) return SWEET.urgent;
+      if (sweetIncoming(game, bud) < Infinity) return -1;
+      return SWEET.worth;
+    },
+    SWEET, blushLeft, sweetMate, sweetIncoming
+  });
 
   // ── Wishing Stars (Level 10, `wishstar`) ──
 

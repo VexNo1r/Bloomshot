@@ -2368,6 +2368,332 @@
   });
 
   // ── Sweetheart Roses (Level 9, `sweetheart`) ──
+  // Two shy coral rosebuds facing each other on a slack pink ribbon, a heart-shaped leaf tied at its lowest point. Each
+  // bud is a cup of curled petals round a rolled heart, with two leafy sepals, a stub of stem and a little face on its
+  // front petal: dot eyes glancing at its sweetheart, a smile and a rosy cheek. They lean in and back, never quite
+  // touching. Touched, a rose blushes: it flushes hot pink in a soft glow and pops, squeezes its eyes into happy arcs and
+  // hides behind a leaf, and the ribbon pulls taut; over its sweetheart a ring of hearts turns round a countdown arc that
+  // empties in 1.2 s (blinking through its last .3 s), and that rose goes wide-eyed and bounces on its stem: me, now! A
+  // kiss pops a big heart between them (an arrow through it for a Cupid shot) with little hearts flying out; a pout
+  // puffs a grey "hmph" cloud and both turn their backs. The aim guide marks a shot that will land as a kiss with a
+  // beating heart, the other rose of an idle pair with an open heart, and a rose already blushing with a grey ring.
+  // Painted once into sprites; Animations off keeps the arc, the faces, the colours and the heart still.
+  const SWH = { ink: '#9b1f55', face: '#6b2a4a', ribbon: '#ff9fc8', ribbonInk: '#b23a6e', blush: '#ff6f9e', blushInk: '#e0407a', leaf: '#83ac57',
+    leafDark: '#527644', leafLight: '#b9d78c', cream: '#fff2f6', grey: '#d9d2dc', greyInk: '#9a91a3', cheek: '#ff7fa6', heart: '#ff5c93',
+    gold: '#ffd148', goldInk: '#b8861f', window: 1.2 };
+  const SWH_PAL = { rest: { dark: '#d32871', base: '#fa558b', light: '#ff94b0', tip: '#ffe1ce' }, blush: { dark: '#f47aaa', base: '#ffaac9', light: '#ffd3e3', tip: '#ffd0de' } };
+  // The rule the game reads (foes.js blushLeft), or the same formula where the rules are not loaded (art tests).
+  function swhLeft(state, bud, ahead = 0) {
+    const rule = root.BloomFoes && root.BloomFoes.FOES && root.BloomFoes.FOES.sweetheart;
+    if (rule && rule.blushLeft) return rule.blushLeft(state, bud, ahead);
+    if (!bud || bud.bloomed || !(bud.blushUntil >= 0)) return 0;
+    return Math.max(0, bud.blushUntil - (Number(state.foeClock) || 0) - Math.max(0, ahead - Math.max(0, state.lullaby || 0)));
+  }
+  const swhMate = (state, bud) => (state.buds || []).find(b => b.id === bud.mate) || null;
+  const swhPhase = bud => ((String(bud.group || bud.id).length * 1.7 + (bud.baseX || bud.x || 0) * .031) % TAU);
+  function swhStroke(c, width, color) { c.lineWidth = width; c.strokeStyle = color; c.stroke(); }
+  function swhHeartPath(c, s) {
+    c.beginPath(); c.moveTo(0, s * .95);
+    c.bezierCurveTo(-s * 1.32, s * .02, -s * .98, -s * 1.08, 0, -s * .42);
+    c.bezierCurveTo(s * .98, -s * 1.08, s * 1.32, s * .02, 0, s * .95); c.closePath();
+  }
+  // A pointed leaf from (x, y), len long at angle `turn`, with a midrib.
+  function swhLeaf(c, x, y, len, wide, turn, fill, edge) {
+    c.save(); c.translate(x, y); c.rotate(turn);
+    c.beginPath(); c.moveTo(0, 0); c.bezierCurveTo(len * .3, -wide, len * .75, -wide * .8, len, 0); c.bezierCurveTo(len * .75, wide * .8, len * .3, wide, 0, 0); c.closePath();
+    c.fillStyle = fill; c.fill(); swhStroke(c, 1, edge);
+    c.beginPath(); c.moveTo(len * .1, 0); c.quadraticCurveTo(len * .5, -wide * .12, len * .85, 0); swhStroke(c, .6, edge);
+    c.restore();
+  }
+  // The rosebud, facing right (the right rose of a pair is mirrored, so the two face each other): a plump bud wound
+  // round its rolled heart, the front petal's lip rising to the far side, a petal wrapping the near side up over it,
+  // and three leafy sepals cupping it from below. Every piece is first stroked in white, so the whole bud keeps a soft
+  // white rim like every other target on the board. A blushing bud is painted pale and glowing, with flustered lines.
+  function paintSwhRose(c, r, blush) {
+    const P = blush ? SWH_PAL.blush : SWH_PAL.rest;
+    c.lineJoin = 'round'; c.lineCap = 'round';
+    if (blush) {
+      const g = c.createRadialGradient(0, 0, r * .5, 0, 0, r * 1.75);
+      g.addColorStop(0, 'rgba(255,170,205,.7)'); g.addColorStop(1, 'rgba(255,170,205,0)');
+      c.beginPath(); c.arc(0, 0, r * 1.75, 0, TAU); c.fillStyle = g; c.fill();
+    }
+    const stem = () => { c.beginPath(); c.moveTo(0, r * .7); c.quadraticCurveTo(-r * .12, r * 1.05, -r * .04, r * 1.32); };
+    const body = () => {
+      c.beginPath(); c.moveTo(0, r * .9);
+      c.bezierCurveTo(-r * .62, r * .9, -r * .98, r * .42, -r * .92, -r * .2);
+      c.bezierCurveTo(-r * .86, -r * .72, -r * .42, -r * 1.04, r * .12, -r * 1.04);
+      c.bezierCurveTo(r * .62, -r * 1.02, r * .98, -r * .64, r * .95, -r * .14);
+      c.bezierCurveTo(r * .92, r * .44, r * .56, r * .9, 0, r * .9); c.closePath();
+    };
+    const front = () => {
+      c.beginPath(); c.moveTo(-r * .93, -r * .36);
+      c.bezierCurveTo(-r * 1.0, r * .4, -r * .52, r * .93, r * .02, r * .92);
+      c.bezierCurveTo(r * .5, r * .9, r * .78, r * .62, r * .74, r * .1);
+      c.bezierCurveTo(r * .42, -r * .04, r * .02, -r * .18, -r * .38, -r * .34);
+      c.quadraticCurveTo(-r * .7, -r * .46, -r * .93, -r * .36); c.closePath();
+    };
+    const wrap = () => {
+      c.beginPath(); c.moveTo(r * .3, r * .86);
+      c.bezierCurveTo(r * .78, r * .66, r * 1.06, r * .2, r * .96, -r * .5);
+      c.quadraticCurveTo(r * .8, -r * .66, r * .62, -r * .6);
+      c.bezierCurveTo(r * .78, -r * .2, r * .8, r * .34, r * .3, r * .86); c.closePath();
+    };
+    const sepals = [[-r * .22, r * .76, r * .82, r * .27, 2.72], [r * .22, r * .78, r * .8, r * .26, .4], [-r * .02, r * .86, r * .5, r * .2, 1.95]];
+    const sepal = ([x, y, len, wide, turn], fill) => {
+      c.save(); c.translate(x, y); c.rotate(turn);
+      c.beginPath(); c.moveTo(0, -wide * .4); c.bezierCurveTo(len * .35, -wide * 1.1, len * .8, -wide * .7, len, -wide * .9);
+      c.bezierCurveTo(len * .8, -wide * .1, len * .4, wide * .9, 0, wide * .5); c.closePath();
+      if (fill) { c.fillStyle = SWH.leaf; c.fill(); swhStroke(c, 1, SWH.leafDark); c.beginPath(); c.moveTo(len * .1, 0); c.quadraticCurveTo(len * .5, -wide * .25, len * .82, -wide * .7); swhStroke(c, .6, SWH.leafDark); }
+      else swhStroke(c, 3.2, '#ffffff');
+      c.restore();
+    };
+    // The white rim first, then the bud on top of it.
+    c.save(); c.globalAlpha = .92;
+    stem(); swhStroke(c, 5, '#ffffff'); body(); swhStroke(c, 3.4, '#ffffff'); wrap(); swhStroke(c, 3.4, '#ffffff');
+    for (const s of sepals) sepal(s, false);
+    c.restore();
+    stem(); swhStroke(c, 3, SWH.leafDark); stem(); swhStroke(c, 1.5, SWH.leaf);
+    // The bud: deeper toward its wound top, as a rose is.
+    const shade = c.createLinearGradient(0, -r, 0, r * .3); shade.addColorStop(0, P.dark); shade.addColorStop(1, P.base);
+    body(); c.fillStyle = shade; c.fill(); swhStroke(c, 1.3, SWH.ink);
+    // The heart wound tight at the top: two petal edges spiralling into a curl.
+    c.beginPath(); c.moveTo(-r * .66, -r * .52); c.bezierCurveTo(-r * .5, -r * .92, r * .4, -r * .98, r * .56, -r * .56); swhStroke(c, 1, SWH.ink);
+    c.beginPath(); c.moveTo(-r * .4, -r * .5); c.bezierCurveTo(-r * .3, -r * .78, r * .24, -r * .82, r * .28, -r * .56);
+    c.quadraticCurveTo(r * .26, -r * .38, r * .04, -r * .42); c.quadraticCurveTo(-r * .1, -r * .5, r * .02, -r * .6); swhStroke(c, .95, SWH.ink);
+    c.beginPath(); c.moveTo(-r * .5, -r * .66); c.quadraticCurveTo(-r * .2, -r * .88, r * .2, -r * .8); swhStroke(c, 1.1, P.light);
+    front(); c.fillStyle = P.light; c.fill(); swhStroke(c, 1.3, SWH.ink);
+    // Its lip rolls back in a pale band, and a soft shine sits on the far shoulder.
+    c.beginPath(); c.moveTo(-r * .84, -r * .34); c.quadraticCurveTo(-r * .6, -r * .4, -r * .38, -r * .3); c.bezierCurveTo(-r * .02, -r * .14, r * .38, -r * .02, r * .66, r * .1);
+    swhStroke(c, 1.25, P.tip);
+    c.beginPath(); c.ellipse(-r * .6, r * .2, r * .12, r * .28, .3, 0, TAU); c.fillStyle = 'rgba(255,255,255,.45)'; c.fill();
+    wrap(); c.fillStyle = P.base; c.fill(); swhStroke(c, 1.2, SWH.ink);
+    c.beginPath(); c.moveTo(r * .84, -r * .42); c.quadraticCurveTo(r * .94, 0, r * .66, r * .52); swhStroke(c, 1, P.light);
+    for (const s of sepals) sepal(s, true);
+    // A glint where the light comes from (the upper left, like every flower here).
+    c.beginPath(); c.ellipse(-r * .5, -r * .66, r * .17, r * .08, -.75, 0, TAU); c.fillStyle = 'rgba(255,255,255,.8)'; c.fill();
+    if (blush) {
+      // Flustered: three little strokes fly off the side it faces.
+      for (const a of [-1.45, -1.05, -.65]) {
+        const x0 = r * .32 + Math.cos(a) * r * 1.12, y0 = -r * .1 + Math.sin(a) * r * 1.12, x1 = r * .32 + Math.cos(a) * r * 1.42, y1 = -r * .1 + Math.sin(a) * r * 1.42;
+        c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); swhStroke(c, 2.6, '#ffffff'); c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); swhStroke(c, 1.3, SWH.blushInk);
+      }
+    }
+  }
+  // Faces, painted facing right (the way the rose looks), centred on the front petal. look: shy, eager, blush, pout.
+  function paintSwhFace(c, r, look) {
+    c.lineCap = 'round'; c.lineJoin = 'round';
+    const E = [[-r * .1, r * .26, .9], [r * .34, r * .23, 1]];
+    const cheek = (x, y, k, a = .85) => { c.save(); c.globalAlpha = a; c.beginPath(); c.ellipse(x, y, r * .13 * k, r * .085 * k, 0, 0, TAU); c.fillStyle = SWH.cheek; c.fill(); c.restore(); };
+    if (look === 'blush') {
+      // Squeezed shut with delight, three blush lines a cheek, and a heart-shaped leaf held up over the mouth.
+      cheek(-r * .3, r * .44, 1.15, .95); cheek(r * .56, r * .4, 1.3, .95);
+      for (const [x, y, k] of E) { c.beginPath(); c.moveTo(x - r * .11 * k, y + r * .04); c.quadraticCurveTo(x, y - r * .12 * k, x + r * .11 * k, y + r * .04); swhStroke(c, 1.3, SWH.face); }
+      for (const [x, y] of [[-r * .32, r * .43], [r * .56, r * .39]]) for (let i = -1; i <= 1; i++) { c.beginPath(); c.moveTo(x + i * r * .09 - r * .03, y + r * .05); c.lineTo(x + i * r * .09 + r * .03, y - r * .05); swhStroke(c, .8, SWH.blushInk); }
+      c.save(); c.translate(r * .16, r * .66); c.rotate(-.28);
+      c.beginPath(); c.moveTo(-r * .02, r * .3); c.quadraticCurveTo(-r * .2, r * .5, -r * .32, r * .62); swhStroke(c, 1.3, SWH.leafDark);
+      swhHeartPath(c, r * .3); c.fillStyle = SWH.leaf; c.fill(); swhStroke(c, 1, SWH.leafDark);
+      c.beginPath(); c.moveTo(0, r * .26); c.lineTo(0, -r * .1); swhStroke(c, .7, SWH.leafDark);
+      c.beginPath(); c.ellipse(-r * .12, -r * .08, r * .08, r * .05, -.6, 0, TAU); c.fillStyle = SWH.leafLight; c.fill();
+      c.restore();
+      return;
+    }
+    if (look === 'pout') {
+      // Looking away under flat lids, one cheek puffed round, a small turned-down "hmph".
+      for (const [x, y, k] of E) {
+        c.beginPath(); c.arc(x - r * .04, y + r * .02, r * .095 * k, 0, TAU); c.fillStyle = SWH.face; c.fill();
+        c.beginPath(); c.moveTo(x - r * .14 * k, y - r * .03); c.lineTo(x + r * .12 * k, y - r * .05); swhStroke(c, 1.2, SWH.face);
+      }
+      cheek(-r * .3, r * .46, 1, .7);
+      c.beginPath(); c.arc(r * .5, r * .5, r * .17, 0, TAU); c.fillStyle = 'rgba(255,127,166,.55)'; c.fill();
+      c.beginPath(); c.arc(r * .5, r * .5, r * .17, -1.2, 1.4); swhStroke(c, .8, SWH.blushInk);
+      c.beginPath(); c.arc(r * .1, r * .6, r * .09, Math.PI * 1.15, Math.PI * 1.85); swhStroke(c, 1.2, SWH.face);
+      return;
+    }
+    cheek(-r * .3, r * .44, .85, .7); cheek(r * .54, r * .42, 1, .85);
+    if (look === 'eager') {
+      // Wide awake and shining: big eyes on the sweetheart, two catch-lights each, and an open "oh!".
+      for (const [x, y, k] of E) {
+        c.beginPath(); c.ellipse(x, y, r * .13 * k, r * .16 * k, 0, 0, TAU); c.fillStyle = '#ffffff'; c.fill(); swhStroke(c, 1, SWH.face);
+        c.beginPath(); c.arc(x + r * .03, y + r * .02, r * .09 * k, 0, TAU); c.fillStyle = SWH.face; c.fill();
+        c.beginPath(); c.arc(x + r * .06, y - r * .03, r * .035, 0, TAU); c.fillStyle = '#ffffff'; c.fill();
+        c.beginPath(); c.arc(x, y + r * .06, r * .018, 0, TAU); c.fill();
+      }
+      c.beginPath(); c.ellipse(r * .14, r * .52, r * .07, r * .085, 0, 0, TAU); c.fillStyle = SWH.face; c.fill();
+      c.beginPath(); c.ellipse(r * .14, r * .57, r * .045, r * .03, 0, 0, TAU); c.fillStyle = SWH.cheek; c.fill();
+      return;
+    }
+    // Shy: dot eyes glancing at the sweetheart, a tiny smile.
+    for (const [x, y, k] of E) {
+      c.beginPath(); c.ellipse(x + r * .02, y, r * .085 * k, r * .11 * k, 0, 0, TAU); c.fillStyle = SWH.face; c.fill();
+      c.beginPath(); c.arc(x + r * .05, y - r * .04, r * .035, 0, TAU); c.fillStyle = '#ffffff'; c.fill();
+    }
+    c.beginPath(); c.arc(r * .14, r * .43, r * .1, .25 * Math.PI, .8 * Math.PI); swhStroke(c, 1.1, SWH.face);
+  }
+  // The ribbon's knot: a heart-shaped leaf on a little pink bow with two tails.
+  function paintSwhKnot(c) {
+    c.lineCap = 'round'; c.lineJoin = 'round';
+    for (const side of [-1, 1]) { c.beginPath(); c.moveTo(side * 1, 2); c.quadraticCurveTo(side * 3.5, 6, side * 3, 9); swhStroke(c, 2.8, SWH.ribbonInk); c.beginPath(); c.moveTo(side * 1, 2); c.quadraticCurveTo(side * 3.5, 6, side * 3, 9); swhStroke(c, 1.5, SWH.ribbon); }
+    c.save(); c.translate(0, -1.5); swhHeartPath(c, 4.6);
+    swhStroke(c, 2.6, '#ffffff'); c.fillStyle = SWH.leaf; c.fill(); swhStroke(c, 1, SWH.leafDark);
+    c.beginPath(); c.moveTo(0, 3.5); c.lineTo(0, -1.2); swhStroke(c, .6, SWH.leafDark);
+    c.beginPath(); c.ellipse(-1.8, -1.6, 1.1, .7, -.6, 0, TAU); c.fillStyle = SWH.leafLight; c.fill();
+    c.restore();
+    c.beginPath(); c.arc(0, 2.4, 1.6, 0, TAU); c.fillStyle = SWH.ribbon; c.fill(); swhStroke(c, .9, SWH.ribbonInk);
+  }
+  function paintSwhHeart(c, s, fill, rim = '#ffffff') {
+    c.lineJoin = 'round';
+    swhHeartPath(c, s); swhStroke(c, Math.max(1.4, s * .4), rim); c.fillStyle = fill; c.fill(); swhStroke(c, .7, SWH.ink);
+    c.beginPath(); c.ellipse(-s * .42, -s * .38, s * .24, s * .14, -.6, 0, TAU); c.fillStyle = 'rgba(255,255,255,.85)'; c.fill();
+  }
+  function paintSwhBig(c) {
+    c.lineJoin = 'round';
+    swhHeartPath(c, 9.5); swhStroke(c, 3.2, '#ffffff'); c.fillStyle = SWH.heart; c.fill(); swhStroke(c, 1.2, SWH.ink);
+    c.save(); c.translate(0, .6); swhHeartPath(c, 5.6); c.fillStyle = SWH.cream; c.fill(); c.restore();
+    c.save(); c.translate(0, 1); swhHeartPath(c, 2.6); c.fillStyle = '#ffb0c9'; c.fill(); c.restore();
+    c.beginPath(); c.ellipse(-4.6, -4.4, 2.2, 1.2, -.6, 0, TAU); c.fillStyle = 'rgba(255,255,255,.9)'; c.fill();
+  }
+  // Cupid's arrow: a gold shaft and head with coral fletching, 26 px long, pointing right.
+  function paintSwhArrow(c) {
+    c.lineCap = 'round'; c.lineJoin = 'round';
+    c.beginPath(); c.moveTo(-12, 0); c.lineTo(9, 0); swhStroke(c, 3.6, '#ffffff'); swhStroke(c, 2, SWH.goldInk); c.beginPath(); c.moveTo(-12, 0); c.lineTo(9, 0); swhStroke(c, .9, SWH.gold);
+    c.beginPath(); c.moveTo(13, 0); c.lineTo(7, -3.6); c.lineTo(8.4, 0); c.lineTo(7, 3.6); c.closePath(); swhStroke(c, 2.2, '#ffffff'); c.fillStyle = SWH.gold; c.fill(); swhStroke(c, .9, SWH.goldInk);
+    for (const side of [-1, 1]) for (const x of [-12.5, -9.5]) { c.beginPath(); c.moveTo(x, 0); c.lineTo(x - 2.4, side * 3.6); c.lineTo(x + 1.6, side * 3.4); c.lineTo(x + 2.6, 0); c.closePath(); c.fillStyle = SWH.heart; c.fill(); swhStroke(c, .7, SWH.ink); }
+  }
+  // The pout's "hmph": a two-lobed grey cloud with a puff line.
+  function paintSwhPuff(c) {
+    c.lineJoin = 'round';
+    const cloud = () => { c.beginPath(); c.arc(-2.4, .6, 3.3, Math.PI * .5, Math.PI * 1.6); c.arc(1.6, -.6, 3.9, Math.PI * 1.15, Math.PI * .35); c.lineTo(-2.4, 3.9); c.closePath(); };
+    cloud(); swhStroke(c, 2.4, '#ffffff'); c.fillStyle = SWH.grey; c.fill(); swhStroke(c, .9, SWH.greyInk);
+    c.beginPath(); c.arc(-1, -.4, 1.6, Math.PI * 1.1, Math.PI * 1.7); swhStroke(c, .8, '#ffffff');
+  }
+  const SWH_SPRITE = {
+    rose: (r, blush) => [`foe:sweet:rose:${r}${blush ? ':blush' : ''}`, [-r * 1.8, -r * 1.8, r * 1.8, r * 1.55], c => paintSwhRose(c, r, blush)],
+    face: (r, look) => [`foe:sweet:face-${look}:${r}`, [-r * .6, -r * .1, r * .85, r * 1.0], c => paintSwhFace(c, r, look)],
+    knot: () => ['foe:sweet:knot', [-6.5, -8, 6.5, 11], paintSwhKnot],
+    heart: () => ['foe:sweet:heart-6', [-5, -5, 5, 5], c => paintSwhHeart(c, 3.4, SWH.heart)],
+    big: () => ['foe:sweet:heart-big', [-14, -12.5, 14, 12.5], paintSwhBig],
+    arrow: () => ['foe:sweet:arrow', [-16, -5.5, 15, 5.5], paintSwhArrow],
+    puff: () => ['foe:sweet:puff', [-7.5, -6.5, 7.5, 6.5], paintSwhPuff]
+  };
+  const swhStamp = (ctx, kit, [key, box, paint], x, y, turn, sx, sy) => stamp(ctx, kit, key, box, paint, x, y, turn, sx, sy);
+  // Where each pair's ribbon runs: from the stem of the left rose to the stem of the right, sagging `sag` px.
+  function swhRibbon(a, b, sa, sb, sag) {
+    const r = a.r || 11, ax = a.x + sa.dx + r * .5, ay = a.y + sa.dy + r * .78, bx = b.x + sb.dx - r * .5, by = b.y + sb.dy + r * .78;
+    return { ax, ay, bx, by, cx: (ax + bx) / 2, cy: (ay + by) / 2 + 2 * sag, kx: (ax + bx) / 2, ky: (ay + by) / 2 + sag };
+  }
+  BloomFoeLook('sweetheart', {
+    warm(kit, r = 11) {
+      const jobs = [SWH_SPRITE.rose(r, false), SWH_SPRITE.rose(r, true), ...['shy', 'eager', 'blush', 'pout'].map(v => SWH_SPRITE.face(r, v)),
+        SWH_SPRITE.knot(), SWH_SPRITE.heart(), SWH_SPRITE.big(), SWH_SPRITE.arrow(), SWH_SPRITE.puff()];
+      for (const [key, box, paint] of jobs) kit.atlasSprite(key, box[0], box[1], box[2], box[3], paint);
+    },
+    // The ribbon between each pair, taut and pink while one of them blushes.
+    under(ctx, state, time, still, kit, quality) {
+      const clock = Number(state.foeClock) || 0;
+      ctx.lineCap = 'round';
+      for (const a of state.buds || []) {
+        if (a.foe !== 'sweetheart' || a.side !== 0 || a.bloomed || a.hidden || a.visible === false) continue;
+        const b = swhMate(state, a); if (!b || b.bloomed || b.hidden || b.visible === false) continue;
+        const sa = kit.budShift(a, time, still), sb = kit.budShift(b, time, still), taut = swhLeft(state, a) > 0 || swhLeft(state, b) > 0;
+        const sag = taut ? 3 : 8 + (still || quality >= 2 ? 0 : 2 * Math.sin(1.6 * clock + swhPhase(a))), R = swhRibbon(a, b, sa, sb, sag);
+        ctx.save(); ctx.globalAlpha *= Math.min(sa.alpha, sb.alpha);
+        for (const [width, color] of [[4.2, '#ffffff'], [2.6, SWH.ribbonInk], [1.4, taut ? SWH.blush : SWH.ribbon]]) {
+          ctx.beginPath(); ctx.moveTo(R.ax, R.ay); ctx.quadraticCurveTo(R.cx, R.cy, R.bx, R.by); ctx.lineWidth = width; ctx.strokeStyle = color; ctx.stroke();
+        }
+        swhStamp(ctx, kit, SWH_SPRITE.knot(), R.kx, R.ky, still ? 0 : .12 * Math.sin(1.6 * clock + swhPhase(a) - .6));
+        ctx.restore();
+      }
+    },
+    bud(ctx, bud, time, still, state, kit) {
+      const r = bud.r || 11, clock = Number(state.foeClock) || 0, mate = swhMate(state, bud), face = bud.side ? -1 : 1;
+      const blush = swhLeft(state, bud) > 0, eager = !blush && mate && !mate.bloomed && swhLeft(state, mate) > 0;
+      const since = t => clock - (Number.isFinite(t) ? t : -100), pout = since(bud.poutAt) >= 0 && since(bud.poutAt) < .5 || mate && since(mate.poutAt) >= 0 && since(mate.poutAt) < .5;
+      // They lean in and back toward each other (an eager rose leans right in and bounces); a blush pops and fidgets.
+      const ph = swhPhase(bud);
+      let turn = still ? 0 : face * .06 * Math.sin(1.2 * clock + ph + bud.side * 1.3), size = 1, hop = 0;
+      if (blush) {
+        const k = since(bud.blushAt);
+        size = still ? 1.04 : k < .12 ? 1 + .08 * kit.easeBack(clamp(k / .12, 0, 1)) : 1.04 + .04 * (1 - kit.smooth((k - .12) / .25));
+        if (!still) turn = -face * (.08 + .05 * Math.sin(k * 16) * Math.max(0, 1 - k / .6));
+      } else if (eager) { turn = face * (still ? .1 : .1 + .04 * Math.sin(clock * 9)); hop = still ? 0 : -1.6 * Math.abs(Math.sin(clock * 7)); }
+      const look = blush ? 'blush' : pout ? 'pout' : eager ? 'eager' : 'shy', sx = (pout && !blush ? -face : face) * size;
+      ctx.translate(bud.x, bud.y + hop); if (turn) ctx.rotate(turn);
+      swhStamp(ctx, kit, SWH_SPRITE.rose(r, blush), 0, 0, 0, sx, size);
+      swhStamp(ctx, kit, SWH_SPRITE.face(r, look), 0, 0, 0, sx, size);
+    },
+    // The tell over a blushing rose's sweetheart, the kiss and the pout.
+    over(ctx, state, time, still, kit, quality) {
+      const clock = Number(state.foeClock) || 0, ring = [6, 4, 1][clamp(quality | 0, 0, 2)];
+      for (const a of state.buds || []) {
+        if (a.foe !== 'sweetheart' || a.hidden || a.visible === false) continue;
+        const r = a.r || 11, b = swhMate(state, a);
+        // Tell: hearts turning round the sweetheart of a blushing rose, round an arc that empties as the blush runs out.
+        const left = swhLeft(state, a);
+        if (left > 0 && b && !b.bloomed && !b.hidden) {
+          const sb = kit.budShift(b, time, still), x = b.x + sb.dx, y = b.y + sb.dy, k = clamp(left / SWH.window, 0, 1);
+          const spin = still ? 0 : clock * 2, blink = !still && left < .3 && Math.floor(clock * 20) % 2 === 1;
+          for (let i = 0; i < ring; i++) {
+            const t = spin + i * TAU / ring - Math.PI / 2, hx = x + Math.cos(t) * (r + 9), hy = y + Math.sin(t) * (r + 9);
+            swhStamp(ctx, kit, SWH_SPRITE.heart(), hx, hy, still ? 0 : .25 * Math.sin(clock * 6 + i), 1);
+          }
+          if (!blink) {
+            ctx.beginPath(); ctx.arc(x, y, r + 4, -Math.PI / 2, -Math.PI / 2 + TAU * k); ctx.lineWidth = 3.6; ctx.strokeStyle = '#ffffff'; ctx.stroke();
+            ctx.beginPath(); ctx.arc(x, y, r + 4, -Math.PI / 2, -Math.PI / 2 + TAU * k); ctx.lineWidth = 2.2; ctx.strokeStyle = SWH.blush; ctx.stroke();
+          }
+        }
+        // Pout: a grey "hmph" puffs up off the rose and fades.
+        const pt = clock - (Number.isFinite(a.poutAt) ? a.poutAt : -100);
+        if (pt >= 0 && pt < .5 && !a.bloomed) {
+          const k = pt / .5, side = a.side ? 1 : -1;
+          ctx.save(); ctx.globalAlpha *= 1 - k * k;
+          swhStamp(ctx, kit, SWH_SPRITE.puff(), a.x + side * (r * .9 + (still ? 3 : 6 * k)), a.y - r - (still ? 4 : 10 * k), 0, still ? 1 : .8 + .4 * k);
+          ctx.restore();
+        }
+        // Kiss: once per pair, from the rose whose touch made it (it carries the kiss); a bloomed rose keeps its x, y.
+        const kt = clock - (Number.isFinite(a.kissAt) ? a.kissAt : -100);
+        if (a.kiss && a.bloomed && kt >= 0 && kt < .6 && b) {
+          const k = kt / .6, mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2 - 6;
+          const fly = [8, 5, 0][clamp(quality | 0, 0, 2)];
+          if (!still) for (let i = 0; i < fly; i++) {
+            const t = i * TAU / fly - Math.PI / 2 + .3, d = 10 + 34 * kit.ease(k);
+            ctx.save(); ctx.globalAlpha *= 1 - k; swhStamp(ctx, kit, SWH_SPRITE.heart(), mx + Math.cos(t) * d, my + Math.sin(t) * d - 8 * k, Math.sin(t) * .4, .8 + .3 * (1 - k)); ctx.restore();
+          }
+          ctx.save(); ctx.globalAlpha *= still ? .8 : 1 - k * k;
+          const pop = still ? 1 : .3 + .9 * kit.easeBack(clamp(k / .35, 0, 1)) - .1 * clamp((k - .35) / .65, 0, 1);
+          swhStamp(ctx, kit, SWH_SPRITE.big(), mx, my, 0, pop);
+          if (a.kiss.cupid) { const slide = still ? 0 : 20 * kit.ease(k) - 10; swhStamp(ctx, kit, SWH_SPRITE.arrow(), mx + slide * Math.cos(-.35), my + slide * Math.sin(-.35), -.35, pop); }
+          ctx.restore();
+        }
+      }
+    },
+    // On the aim guide: a beating heart where the seed lands as a kiss, an open heart on the other rose of an idle pair,
+    // and a grey ring where a seed would only bounce off a rose that is already blushing.
+    aim(ctx, state, time, still, kit) {
+      const aim = state.aim, target = aim && aim.target;
+      if (!target || target.foe !== 'sweetheart' || target.bloomed || !Array.isArray(aim) || aim.length < 2) return;
+      const mate = swhMate(state, target); if (!mate || mate.bloomed) return;
+      let length = 0; for (let i = 1; i < aim.length; i++) length += Math.hypot(aim[i].x - aim[i - 1].x, aim[i].y - aim[i - 1].y);
+      const ahead = length / Math.max(1, Number(state.speed) || 1), end = aim[aim.length - 1], r = target.r || 11;
+      const dash = (x0, y0, x1, y1, color, pattern) => {
+        ctx.save(); ctx.setLineDash(pattern); ctx.lineCap = 'round';
+        for (const [w, col] of [[3.4, '#ffffff'], [1.6, color]]) { ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.lineWidth = w; ctx.strokeStyle = col; ctx.stroke(); }
+        ctx.restore();
+      };
+      if (swhLeft(state, mate, ahead) > 0) {
+        const beat = still ? 2 : 2 + .35 * Math.pow(Math.max(0, Math.sin(time * 8)), 4);
+        dash(target.x, target.y, mate.x, mate.y, SWH.blush, [3, 4]);
+        swhStamp(ctx, kit, SWH_SPRITE.heart(), end.x, end.y - 1, 0, beat);
+      } else if (swhLeft(state, target) <= 0) {
+        dash(target.x, target.y, mate.x, mate.y, SWH.ribbon, [2, 5]);
+        ctx.save(); ctx.translate(mate.x, mate.y - r - 7); ctx.lineJoin = 'round'; swhHeartPath(ctx, 3.6);
+        ctx.lineWidth = 3.2; ctx.strokeStyle = '#ffffff'; ctx.stroke(); ctx.lineWidth = 1.5; ctx.strokeStyle = SWH.blushInk; ctx.stroke(); ctx.restore();
+      } else {
+        ctx.save(); ctx.setLineDash([2, 3]);
+        for (const [w, col] of [[3.2, '#ffffff'], [1.5, SWH.greyInk]]) { ctx.beginPath(); ctx.arc(target.x, target.y, r + 5, 0, TAU); ctx.lineWidth = w; ctx.strokeStyle = col; ctx.stroke(); }
+        ctx.restore();
+      }
+    }
+  });
 
   // ── Wishing Stars (Level 10, `wishstar`) ──
 
@@ -5429,6 +5755,477 @@
   });
 
   // ── Thornmother (Level 9, `briar`) ──
+  // A rose guardian in a thorny bell of a skirt. Prickly, she looks down her nose under heavy lids with one brow up and a
+  // smirk, a three-thorn tiara on her brow; her Bramble Reel creeps dotted vines out to the flowers it will hook (a dashed
+  // hook ring on each), then reels them in on thorny vines that end in a curl round each stem; sap beads run up the vines
+  // to her as they drink, and a snipped vine whips back. Smitten, her eyes are hearts: a dashed heart and two ghost roses
+  // mark where her Sweetheart Vines will sprout (a heart bubbles over her head), and a pink rose-stem vine feeds her from
+  // the pair; a kiss sweeps her off her feet in a column of hearts and petals, swooning (^ ^, a pucker, hearts rising)
+  // inside a turning ring of hearts and a gold countdown arc. Wild, she grins with a thorn fang, petals flying off her
+  // crown: a lasso loop twirls over her head while a dotted line, a ghost bow and the arch's dashed outline show the
+  // throw; then five thorny knots slither down on a vine rope, a friendly leaf-snouted head in front and the coral satin
+  // bow, ringed and breathing, second. Untied, the rope drops away; arriving, a bramble arch bursts up across that side
+  // of the fan and shrivels at the end. Animations off keeps every tell, ring and arc as a still mark.
+  const TM = { base: '#ea65b4', ink: '#623354', eye: '#66547b', lid: '#e98fc0', vine: '#43613b', vineLight: '#a2c77c', thorn: '#648549',
+    thornLight: '#dae3a5', satin: '#ff9fc8', sap: '#ffe4bb', sapInk: '#b98d55', stem: '#5d7a46', stemPink: '#ffb9dc', coral: '#fa558b',
+    coralDark: '#d32871', bowInk: '#a3285e', cheek: '#ff7fae', heart: '#ff5c93', gold: '#ffd148', goldInk: '#b8861f', knot: '#6f9a4a',
+    knotDark: '#2f4a2a', cream: '#f4efc4', mouth: '#6e2450', tongue: '#ff8aa6', tell: '#ff6f9e' };
+  // The rules' numbers the art needs (bosses.js THORN; the art keeps no dependency on the rules).
+  const TM_SLOTS = [[-46, 30], [0, 44], [46, 30]], TM_TELL = 1.3, TM_LOVE = 2.5, TM_FLOAT = .5, TM_ARCH = 45;
+  const TM_LASSO = { knots: 5, gap: 22, speed: 70, wig: 14, w: 4.2, phase: 1.6, R: 118, arch: [36, 58, 80] };
+  const TM_LOOKS = ['calm', 'blink', 'hurt', 'swoon'];
+  const tmArch = side => TM_LASSO.arch.map(d => { const a = d * Math.PI / 180; return { x: 210 + (side ? 1 : -1) * TM_LASSO.R * Math.cos(a), y: 498 - TM_LASSO.R * Math.sin(a) }; });
+  // Where lasso knot k of a rope (born, sx, sy, ux, uy, len) sits at kit time `clock` (bosses.js thornKnot).
+  function tmKnotAt(p, k, clock) {
+    const L = TM_LASSO, t = Math.max(0, clock - p.born), head = Math.min(p.len, (L.knots - 1) * L.gap + L.speed * t), a = Math.max(0, head - k * L.gap);
+    const w = L.wig * Math.sin(L.w * t - k * L.phase) * clamp(a / 40, 0, 1);
+    return { x: p.sx + p.ux * a - p.uy * w, y: p.sy + p.uy * a + p.ux * w };
+  }
+  function tmStroke(c, width, color) { c.lineWidth = width; c.strokeStyle = color; c.stroke(); }
+  function tmHeartPath(c, s) {
+    c.beginPath(); c.moveTo(0, s * .95); c.bezierCurveTo(-s * 1.25, s * .1, -s * 1.05, -s * 1.05, 0, -s * .45);
+    c.bezierCurveTo(s * 1.05, -s * 1.05, s * 1.25, s * .1, 0, s * .95); c.closePath();
+  }
+  // A vine from a to b that droops under its own weight (a cubic bezier: [ax, ay, c1x, c1y, c2x, c2y, bx, by]).
+  function tmVine(ax, ay, bx, by, low = 6) { const droop = clamp(Math.hypot(bx - ax, by - ay) * .22, low, 26); return [ax, ay, ax + (bx - ax) * .2, ay + droop, bx - (bx - ax) * .2, by + droop, bx, by]; }
+  function tmAt(v, t) {
+    const u = 1 - t, a = u * u * u, b = 3 * u * u * t, c = 3 * u * t * t, d = t * t * t;
+    const dx = 3 * u * u * (v[2] - v[0]) + 6 * u * t * (v[4] - v[2]) + 3 * t * t * (v[6] - v[4]), dy = 3 * u * u * (v[3] - v[1]) + 6 * u * t * (v[5] - v[3]) + 3 * t * t * (v[7] - v[5]);
+    return { x: a * v[0] + b * v[2] + c * v[4] + d * v[6], y: a * v[1] + b * v[3] + c * v[5] + d * v[7], a: Math.atan2(dy, dx) };
+  }
+  function tmDrawVine(ctx, v, outer, inner, wo, wi) {
+    for (const [w, col] of [[wo, outer], [wi, inner]]) { ctx.beginPath(); ctx.moveTo(v[0], v[1]); ctx.bezierCurveTo(v[2], v[3], v[4], v[5], v[6], v[7]); tmStroke(ctx, w, col); }
+  }
+  function tmThorn(ctx, x, y, a, side, size = 1) {
+    const tx = Math.cos(a), ty = Math.sin(a), nx = -ty * side, ny = tx * side;
+    ctx.beginPath(); ctx.moveTo(x - tx * 2 * size, y - ty * 2 * size); ctx.lineTo(x + (nx * 4.6 + tx * 1.6) * size, y + (ny * 4.6 + ty * 1.6) * size); ctx.lineTo(x + tx * 2 * size, y + ty * 2 * size); ctx.closePath();
+    ctx.fillStyle = TM.thorn; ctx.fill(); tmStroke(ctx, .8, TM.thornLight);
+  }
+  // The move's label (art.js drawBossWarning) is drawn before this look's over hook, so a tell is drawn at full strength
+  // around the label and faint across it, keeping the words readable.
+  function tmTell(ctx, w, draw) {
+    ctx.save(); ctx.font = '600 12px Fredoka';
+    const width = Math.min(310, Math.max(130, ctx.measureText(String(w.text || 'A guardian is stirring')).width + 28)); ctx.restore();
+    const x = clamp(w.x, width / 2 + 10, 410 - width / 2) - width / 2 - 2, y = clamp(w.y + 61, 45, 395) - 15;
+    ctx.save(); ctx.beginPath(); ctx.rect(-120, -120, 660, 900); ctx.rect(x, y, width + 4, 30); ctx.clip('evenodd'); draw(); ctx.restore();
+    ctx.save(); ctx.beginPath(); ctx.rect(x, y, width + 4, 30); ctx.clip(); ctx.globalAlpha *= .22; draw(); ctx.restore();
+  }
+  function tmSap(ctx, kit, x, y) { kit.circle(ctx, x, y, 2.5, TM.sap, TM.sapInk, .9); kit.circle(ctx, x - .8, y - .8, .7, '#ffffff'); }
+  // A rope (a smooth line through the points) in the heart-vine strokes.
+  function tmRope(ctx, pts, wo = 5, wi = 2.2) {
+    const path = () => {
+      ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length - 1; i++) ctx.quadraticCurveTo(pts[i][0], pts[i][1], (pts[i][0] + pts[i + 1][0]) / 2, (pts[i][1] + pts[i + 1][1]) / 2);
+      ctx.lineTo(pts[pts.length - 1][0], pts[pts.length - 1][1]);
+    };
+    ctx.save(); ctx.globalAlpha *= .4; path(); tmStroke(ctx, wo + 2.4, '#ffffff'); ctx.restore();
+    path(); tmStroke(ctx, wo, TM.vine); path(); tmStroke(ctx, wi, TM.vineLight);
+  }
+  // A ball of twisted vine (r 9) with six cream thorns; the head adds a leaf snout, two friendly eyes and a curly tongue.
+  function paintTmKnot(c, head) {
+    c.lineCap = 'round'; c.lineJoin = 'round';
+    const R = 8.6;
+    for (let i = 0; i < 6; i++) {
+      const a = i * TAU / 6 + .52; if (head && Math.cos(a) > .5) continue;
+      const x = Math.cos(a) * (R - .8), y = Math.sin(a) * (R - .8), nx = -Math.sin(a) * 2.3, ny = Math.cos(a) * 2.3, tip = R + 4.8;
+      c.beginPath(); c.moveTo(x - nx, y - ny); c.lineTo(Math.cos(a + .22) * tip, Math.sin(a + .22) * tip); c.lineTo(x + nx, y + ny); c.closePath();
+      c.fillStyle = TM.cream; c.fill(); tmStroke(c, 1, TM.knotDark);
+    }
+    if (head) {
+      const snout = () => { c.beginPath(); c.moveTo(4, -5.4); c.quadraticCurveTo(14, -8, 19.5, 0); c.quadraticCurveTo(14, 8, 4, 5.4); c.closePath(); };
+      c.beginPath(); c.moveTo(19.4, 0); c.bezierCurveTo(23.2, .4, 23.4, -3.6, 21, -3.4); tmStroke(c, 2.6, TM.knotDark); c.beginPath(); c.moveTo(19.4, 0); c.bezierCurveTo(23.2, .4, 23.4, -3.6, 21, -3.4); tmStroke(c, 1.2, TM.cheek);
+      snout(); c.fillStyle = '#9cc46a'; c.fill(); tmStroke(c, 1.4, TM.knotDark);
+      c.beginPath(); c.moveTo(7, 0); c.quadraticCurveTo(12, -.6, 17, 0); tmStroke(c, .8, '#5f8c45');
+      c.beginPath(); c.ellipse(13, -2.6, 2.6, 1, -.2, 0, TAU); c.fillStyle = 'rgba(255,255,255,.55)'; c.fill();
+    }
+    c.beginPath(); c.arc(0, 0, R, 0, TAU); c.fillStyle = TM.knot; c.fill();
+    c.save(); c.beginPath(); c.arc(0, 0, R, 0, TAU); c.clip();
+    for (const [a, col] of [[-.95, '#8fbb5f'], [.25, '#a7cc7e'], [1.35, '#7aa652']]) { c.save(); c.rotate(a); c.beginPath(); c.ellipse(0, 0, R * 1.08, R * .42, 0, 0, TAU); c.fillStyle = col; c.fill(); tmStroke(c, .9, TM.vine); c.restore(); }
+    c.restore();
+    c.beginPath(); c.arc(0, 0, R, 0, TAU); tmStroke(c, 1.7, TM.knotDark);
+    c.beginPath(); c.ellipse(-3, -3.8, 2.3, 1.1, -.6, 0, TAU); c.fillStyle = 'rgba(255,255,255,.62)'; c.fill();
+    if (head) for (const side of [-1, 1]) {
+      c.beginPath(); c.arc(2.8, side * 3.8, 2.6, 0, TAU); c.fillStyle = '#ffffff'; c.fill(); tmStroke(c, .9, TM.knotDark);
+      c.beginPath(); c.arc(3.6, side * 3.6, 1.4, 0, TAU); c.fillStyle = '#2d3a22'; c.fill();
+      c.beginPath(); c.arc(4, side * 3.6 - .6, .55, 0, TAU); c.fillStyle = '#ffffff'; c.fill();
+    }
+  }
+  // The coral satin bow tied over a knot: loops across the rope, notched tails trailing along it, a white rim and glints.
+  function paintTmBow(c) {
+    c.save(); c.scale(.8, .8); paintTmKnot(c, false); c.restore();
+    c.lineCap = 'round'; c.lineJoin = 'round';
+    const loop = s => { c.beginPath(); c.moveTo(0, 0); c.bezierCurveTo(-7, s * 2.5, -9, s * 13, -1.5, s * 14.6); c.bezierCurveTo(6, s * 15.8, 8.4, s * 4.5, 0, 0); c.closePath(); };
+    const tail = s => { c.beginPath(); c.moveTo(0, -s * 1.4); c.lineTo(15.6, s * 4.4); c.lineTo(12.6, s * 6.8); c.lineTo(14.4, s * 10.4); c.lineTo(0, s * 2.6); c.closePath(); };
+    for (const s of [-1, 1]) { tail(s); tmStroke(c, 4.2, '#ffffff'); loop(s); tmStroke(c, 4.2, '#ffffff'); }
+    for (const s of [-1, 1]) { tail(s); c.fillStyle = TM.coralDark; c.fill(); tmStroke(c, 1.1, TM.bowInk); }
+    for (const s of [-1, 1]) {
+      loop(s); c.fillStyle = TM.coral; c.fill(); tmStroke(c, 1.2, TM.bowInk);
+      c.beginPath(); c.moveTo(.6, s * 2.4); c.quadraticCurveTo(-2.2, s * 7.5, -.6, s * 11.4); tmStroke(c, 1, TM.bowInk);
+      c.beginPath(); c.moveTo(-4.6, s * 6); c.quadraticCurveTo(-5.6, s * 10.5, -2.2, s * 12.6); tmStroke(c, 1.6, TM.satin);
+      c.beginPath(); c.ellipse(3.2, s * 9.4, 1.5, 2.6, s * .5, 0, TAU); c.fillStyle = 'rgba(255,255,255,.85)'; c.fill();
+    }
+    c.beginPath(); c.ellipse(0, 0, 3.6, 4.4, 0, 0, TAU); c.fillStyle = TM.coral; c.fill(); tmStroke(c, 1.2, TM.bowInk);
+    c.beginPath(); c.moveTo(-1.6, -2.4); c.lineTo(-1.6, 2.4); tmStroke(c, .8, TM.bowInk);
+    c.beginPath(); c.ellipse(1, -1.6, 1, 1.4, 0, 0, TAU); c.fillStyle = '#ffffff'; c.fill();
+  }
+  // The thorn arch: a 45 x 14 capsule of twisted bramble (a white edge so it reads), ten thorns, two tiny pink roses.
+  function paintTmArch(c) {
+    const h = TM_ARCH / 2, y = x => -1.6 * (1 - (x / h) * (x / h));
+    c.lineCap = 'round'; c.lineJoin = 'round';
+    const body = () => { c.beginPath(); c.moveTo(-h, 0); c.quadraticCurveTo(0, -3.2, h, 0); };
+    for (let i = 0; i < 10; i++) {
+      const x = -h + 2.5 + i * (2 * h - 5) / 9, side = i % 2 ? 1 : -1, a = side < 0 ? -.35 : .35;
+      c.save(); c.translate(x, y(x) + side * 3.6); c.rotate(a * side);
+      c.beginPath(); c.moveTo(-2.4, 0); c.lineTo(.9, side * 6.6); c.lineTo(2.4, 0); c.closePath(); c.fillStyle = TM.cream; c.fill(); tmStroke(c, 1, TM.knotDark);
+      c.restore();
+    }
+    c.save(); c.globalAlpha = .85; body(); tmStroke(c, 12.8, '#ffffff'); c.restore();
+    body(); tmStroke(c, 10.6, TM.knotDark); body(); tmStroke(c, 8, '#5f8a45');
+    // Two strands twisting round each other.
+    for (let i = -6; i <= 6; i++) { const x = i * h / 6.6, yy = y(x); c.beginPath(); c.moveTo(x - 2.6, yy - 3.4); c.quadraticCurveTo(x + .6, yy - .6, x + 2.2, yy + 3.4); tmStroke(c, 1.5, i % 2 ? '#a7cc7e' : '#86b35c'); }
+    c.beginPath(); c.moveTo(-h + 3, -2.6); c.quadraticCurveTo(0, -5.4, h - 3, -2.6); tmStroke(c, 1, 'rgba(230,255,200,.6)');
+    for (const [x, s] of [[-8.5, 1], [10.5, .85]]) {
+      const yy = y(x) - 4.6;
+      c.save(); c.translate(x + 3.4, yy + 1.2); c.rotate(.5); c.beginPath(); c.ellipse(0, 0, 2.8 * s, 1.3 * s, 0, 0, TAU); c.fillStyle = '#83ac57'; c.fill(); tmStroke(c, .7, TM.knotDark); c.restore();
+      c.beginPath(); c.arc(x, yy, 3.5 * s, 0, TAU); c.fillStyle = TM.coral; c.fill(); tmStroke(c, 1, TM.bowInk);
+      c.beginPath(); c.arc(x + .3, yy - .2, 1.8 * s, -2.2, 2.6); tmStroke(c, .8, TM.bowInk);
+      c.beginPath(); c.arc(x - 1.2 * s, yy - 1.3 * s, .7 * s, 0, TAU); c.fillStyle = '#ffffff'; c.fill();
+    }
+  }
+  // A curl of vine round a docked flower's stem (origin at the stem), with two thorns and a curling end.
+  function paintTmCuff(c) {
+    c.lineCap = 'round'; c.lineJoin = 'round';
+    const curl = () => { c.beginPath(); c.arc(0, -4.6, 7.6, .08 * Math.PI, .92 * Math.PI); c.moveTo(7.5, -3.4); c.bezierCurveTo(10.4, -5.6, 9.6, -9.4, 7.4, -8.6); };
+    c.save(); c.globalAlpha = .8; curl(); tmStroke(c, 5.6, '#ffffff'); c.restore();
+    curl(); tmStroke(c, 3.6, TM.vine); curl(); tmStroke(c, 1.6, TM.vineLight);
+    for (const a of [.32 * Math.PI, .68 * Math.PI]) { const x = Math.cos(a) * 7.6, y = -4.6 + Math.sin(a) * 7.6; tmThorn(c, x, y, a + Math.PI / 2, -1, .8); }
+  }
+  function paintTmHeart(c) { tmHeartPath(c, 4.3); c.lineJoin = 'round'; tmStroke(c, 2.6, '#ffffff'); c.fillStyle = TM.heart; c.fill(); tmStroke(c, .9, TM.bowInk); c.beginPath(); c.ellipse(-1.7, -1.5, 1, .7, -.6, 0, TAU); c.fillStyle = 'rgba(255,255,255,.9)'; c.fill(); }
+  function paintTmPetal(c) {
+    c.beginPath(); c.moveTo(-5.4, 0); c.bezierCurveTo(-3, -4.4, 3.6, -4.2, 5.6, 0); c.bezierCurveTo(3.6, 3.2, -3, 3.4, -5.4, 0); c.closePath();
+    c.fillStyle = TM.base; c.fill(); c.lineWidth = .9; c.strokeStyle = '#a34080'; c.stroke();
+    c.beginPath(); c.moveTo(-3.4, -.4); c.quadraticCurveTo(0, -2.4, 3.6, -.8); c.lineWidth = 1.1; c.strokeStyle = '#ffc5e0'; c.stroke();
+  }
+  // Her faces, around the face's middle (r is her radius; the skin is an ellipse 0.53r x 0.49r just above it).
+  // tier: 0 Prickly, 1 Smitten, 2 Wild. look: calm, blink, hurt, swoon (Lovestruck).
+  function paintTmFace(c, r, tier, look) {
+    const u = r / 26, ink = TM.ink, shut = look === 'blink';
+    c.lineCap = 'round'; c.lineJoin = 'round';
+    const E = [-1, 1].map(side => [side, side * 6.4 * u, -3.4 * u]);
+    const cheeks = (rx, ry, color, alpha, y = 2.2 * u, x = 10 * u) => { c.save(); c.globalAlpha = alpha; for (const s of [-1, 1]) { c.beginPath(); c.ellipse(s * x, y, rx, ry, 0, 0, TAU); c.fillStyle = color; c.fill(); } c.restore(); };
+    const closed = (down = false) => { for (const [, ex, ey] of E) { c.beginPath(); c.moveTo(ex - 3.2 * u, ey + (down ? -.6 : .8) * u); c.quadraticCurveTo(ex, ey + (down ? 2.4 : -2.6) * u, ex + 3.2 * u, ey + (down ? -.6 : .8) * u); tmStroke(c, 1.6 * u, ink); } };
+    // A hit squeezes her eyes shut: > <.
+    const squeeze = () => { for (const [side, ex, ey] of E) { c.beginPath(); c.moveTo(ex - side * 3 * u, ey - 2.6 * u); c.lineTo(ex + side * 2.2 * u, ey); c.lineTo(ex - side * 3 * u, ey + 2.6 * u); tmStroke(c, 1.7 * u, ink); } };
+    if (look === 'swoon') {
+      // Swept off her feet: eyes shut in bliss, flushed, a little pucker.
+      cheeks(3.6 * u, 2.3 * u, '#ff6f9e', .85);
+      for (const s of [-1, 1]) for (let i = -1; i <= 1; i++) { c.beginPath(); c.moveTo(s * 10 * u + i * 1.9 * u - .6 * u, 3.4 * u); c.lineTo(s * 10 * u + i * 1.9 * u + .6 * u, 1 * u); tmStroke(c, .8 * u, '#d23a6e'); }
+      closed(false);
+      for (const [side, ex, ey] of E) { c.beginPath(); c.moveTo(ex + side * 3.1 * u, ey + .6 * u); c.lineTo(ex + side * 4.6 * u, ey - .6 * u); tmStroke(c, 1 * u, ink); }
+      for (const s of [-1, 1]) { c.beginPath(); c.moveTo(s * 3.2 * u, -10.4 * u); c.quadraticCurveTo(s * 6.4 * u, -12.6 * u, s * 9.6 * u, -10.8 * u); tmStroke(c, 1.1 * u, ink); }
+      c.beginPath(); c.ellipse(.6 * u, 5.2 * u, 1.7 * u, 2 * u, 0, 0, TAU); c.fillStyle = '#d23a6e'; c.fill(); tmStroke(c, .9 * u, ink);
+      c.beginPath(); c.arc(.1 * u, 4.6 * u, .5 * u, 0, TAU); c.fillStyle = '#ffffff'; c.fill();
+      return;
+    }
+    if (tier === 0) {
+      // Prickly: narrow eyes under heavy lids, one brow raised, a tight smirk, a three-thorn tiara.
+      cheeks(2.8 * u, 1.6 * u, TM.cheek, .45);
+      if (look === 'hurt') squeeze(); else if (shut) closed(true);
+      else for (const [side, ex, ey] of E) {
+        c.beginPath(); c.ellipse(ex, ey, 3.6 * u, 2.9 * u, 0, 0, TAU); c.fillStyle = '#ffffff'; c.fill();
+        c.save(); c.clip();
+        c.beginPath(); c.arc(ex + 1.1 * u, ey + .7 * u, 2.2 * u, 0, TAU); c.fillStyle = TM.eye; c.fill();
+        c.beginPath(); c.arc(ex + 1.2 * u, ey + .8 * u, 1.1 * u, 0, TAU); c.fillStyle = '#33263f'; c.fill();
+        c.beginPath(); c.arc(ex + .4 * u, ey + .1 * u, .6 * u, 0, TAU); c.fillStyle = '#ffffff'; c.fill();
+        c.beginPath(); c.rect(ex - 4 * u, ey - 4 * u, 8 * u, 3.7 * u); c.fillStyle = TM.lid; c.fill();
+        c.restore();
+        c.beginPath(); c.ellipse(ex, ey, 3.6 * u, 2.9 * u, 0, 0, TAU); tmStroke(c, .8 * u, ink);
+        c.beginPath(); c.moveTo(ex - 3.8 * u, ey - .1 * u); c.quadraticCurveTo(ex, ey - .9 * u, ex + 3.8 * u, ey - .4 * u); tmStroke(c, 1.9 * u, ink);
+        c.beginPath(); c.moveTo(ex + side * 3.6 * u, ey - .3 * u); c.lineTo(ex + side * 5.3 * u, ey - 1.9 * u); tmStroke(c, 1.2 * u, ink);
+      }
+      c.beginPath(); c.moveTo(-10 * u, -9.4 * u); c.quadraticCurveTo(-7 * u, -13.8 * u, -2.8 * u, -10.8 * u); tmStroke(c, 1.5 * u, ink);
+      c.beginPath(); c.moveTo(2.8 * u, -8.6 * u); c.quadraticCurveTo(6.5 * u, -9.6 * u, 10 * u, -8.8 * u); tmStroke(c, 1.8 * u, ink);
+      if (look === 'hurt') { c.beginPath(); c.moveTo(-3.4 * u, 5 * u); c.lineTo(-1.7 * u, 3.8 * u); c.lineTo(0, 5 * u); c.lineTo(1.7 * u, 3.8 * u); c.lineTo(3.4 * u, 5 * u); tmStroke(c, 1.3 * u, ink); }
+      else {
+        c.beginPath(); c.moveTo(-3.8 * u, 4.2 * u); c.quadraticCurveTo(.6 * u, 6.4 * u, 4.4 * u, 3 * u); tmStroke(c, 1.4 * u, ink);
+        c.beginPath(); c.moveTo(3.8 * u, 2.2 * u); c.quadraticCurveTo(5.2 * u, 2.9 * u, 4.8 * u, 4.2 * u); tmStroke(c, 1 * u, ink);
+      }
+      // The tiara: a vine circlet on her brow with three thorns standing up, a tiny rose at the middle one.
+      const R = 17.4 * u, cy = 2.2 * u;
+      c.beginPath(); c.arc(0, cy, R, -2.2, -.94); tmStroke(c, 3 * u, TM.vine); c.beginPath(); c.arc(0, cy, R, -2.2, -.94); tmStroke(c, 1.3 * u, TM.vineLight);
+      for (const [a, len] of [[-1.97, 5.4], [-Math.PI / 2, 7.6], [-1.17, 5.4]]) {
+        const bx = Math.cos(a) * R, by = cy + Math.sin(a) * R, tx = Math.cos(a), ty = Math.sin(a), w = 2.1 * u;
+        c.beginPath(); c.moveTo(bx - ty * w, by + tx * w); c.lineTo(bx + tx * len * u, by + ty * len * u); c.lineTo(bx + ty * w, by - tx * w); c.closePath();
+        c.fillStyle = TM.cream; c.fill(); tmStroke(c, 1 * u, TM.knotDark);
+      }
+      c.beginPath(); c.arc(0, cy - R + .4 * u, 2.3 * u, 0, TAU); c.fillStyle = TM.coral; c.fill(); tmStroke(c, .9 * u, TM.bowInk);
+      c.beginPath(); c.arc(.2 * u, cy - R + .2 * u, 1.1 * u, -2, 2.6); tmStroke(c, .7 * u, TM.bowInk);
+      return;
+    }
+    if (tier === 1) {
+      // Smitten: heart eyes with white glints, rosy cheeks, an open smile.
+      cheeks(2.9 * u, 2.9 * u, TM.cheek, .75, 2.6 * u);
+      if (look === 'hurt') squeeze(); else if (shut) closed(true);
+      else for (const [, ex, ey] of E) {
+        c.save(); c.translate(ex, ey - .4 * u); tmHeartPath(c, 3.7 * u); c.fillStyle = TM.coral; c.fill(); tmStroke(c, 1 * u, ink);
+        c.beginPath(); c.ellipse(-1.4 * u, -1.2 * u, .9 * u, .65 * u, -.6, 0, TAU); c.fillStyle = '#ffffff'; c.fill(); c.restore();
+      }
+      for (const s of [-1, 1]) { c.beginPath(); c.moveTo(s * 3.2 * u, -9.8 * u); c.quadraticCurveTo(s * 6.6 * u, -12.2 * u, s * 9.8 * u, -10 * u); tmStroke(c, 1.2 * u, ink); }
+      if (look === 'hurt') { c.beginPath(); c.ellipse(0, 5 * u, 1.8 * u, 1.4 * u, 0, 0, TAU); c.fillStyle = TM.mouth; c.fill(); tmStroke(c, 1 * u, ink); return; }
+      const mouth = () => { c.beginPath(); c.moveTo(-4.2 * u, 3 * u); c.quadraticCurveTo(0, 3.9 * u, 4.2 * u, 3 * u); c.quadraticCurveTo(3.6 * u, 8.6 * u, 0, 8.7 * u); c.quadraticCurveTo(-3.6 * u, 8.6 * u, -4.2 * u, 3 * u); c.closePath(); };
+      mouth(); c.fillStyle = TM.mouth; c.fill(); c.save(); c.clip(); c.beginPath(); c.ellipse(0, 8.4 * u, 2.6 * u, 1.8 * u, 0, 0, TAU); c.fillStyle = TM.tongue; c.fill(); c.restore();
+      mouth(); tmStroke(c, 1.1 * u, ink);
+      return;
+    }
+    // Wild: wide eyes with small pupils, brows angled in, a toothy grin with one thorn fang.
+    cheeks(3 * u, 1.8 * u, '#ff5c7a', .7);
+    if (look === 'hurt') squeeze(); else if (shut) closed(true);
+    else for (const [side, ex, ey] of E) {
+      c.beginPath(); c.arc(ex, ey - .4 * u, 4.1 * u, 0, TAU); c.fillStyle = '#ffffff'; c.fill(); tmStroke(c, 1 * u, ink);
+      c.beginPath(); c.arc(ex - side * .5 * u, ey - .2 * u, 1.35 * u, 0, TAU); c.fillStyle = '#33263f'; c.fill();
+      c.beginPath(); c.arc(ex - side * .2 * u, ey - .7 * u, .45 * u, 0, TAU); c.fillStyle = '#ffffff'; c.fill();
+    }
+    for (const s of [-1, 1]) { c.beginPath(); c.moveTo(s * 11 * u, -12 * u); c.lineTo(s * 2.6 * u, -8.4 * u); tmStroke(c, 2.3 * u, ink); }
+    if (look === 'hurt') { c.beginPath(); c.moveTo(-4.4 * u, 5 * u); c.lineTo(-2.2 * u, 3.6 * u); c.lineTo(0, 5 * u); c.lineTo(2.2 * u, 3.6 * u); c.lineTo(4.4 * u, 5 * u); tmStroke(c, 1.4 * u, ink); return; }
+    const grin = () => { c.beginPath(); c.moveTo(-6.4 * u, 2.2 * u); c.quadraticCurveTo(0, 4.4 * u, 6.4 * u, 2.2 * u); c.quadraticCurveTo(4.8 * u, 9.2 * u, 0, 9.4 * u); c.quadraticCurveTo(-4.8 * u, 9.2 * u, -6.4 * u, 2.2 * u); c.closePath(); };
+    grin(); c.fillStyle = TM.mouth; c.fill();
+    c.save(); c.clip();
+    c.beginPath(); c.moveTo(-7 * u, 1.6 * u); c.lineTo(7 * u, 1.6 * u); for (let j = 0; j <= 6; j++) c.lineTo(6.6 * u - j * 2.2 * u, (j % 2 ? 5.4 : 4.2) * u); c.closePath(); c.fillStyle = '#ffffff'; c.fill();
+    c.beginPath(); c.ellipse(1 * u, 9.4 * u, 2.6 * u, 1.6 * u, 0, 0, TAU); c.fillStyle = TM.tongue; c.fill();
+    c.restore();
+    grin(); tmStroke(c, 1.2 * u, ink);
+    c.beginPath(); c.moveTo(-3.6 * u, 3.4 * u); c.lineTo(-2.3 * u, 8.4 * u); c.lineTo(-1 * u, 3.6 * u); c.closePath(); c.fillStyle = TM.thornLight; c.fill(); tmStroke(c, .8 * u, TM.vine);
+  }
+  const TM_SPRITE = {
+    knot: () => ['kit:briar:knot', [-15, -15, 15, 15], c => paintTmKnot(c, false)],
+    head: () => ['kit:briar:head', [-15, -15, 25, 15], c => paintTmKnot(c, true)],
+    bow: () => ['kit:briar:bow', [-16, -19, 19, 19], paintTmBow],
+    arch: () => ['kit:briar:arch', [-TM_ARCH / 2 - 9, -15, TM_ARCH / 2 + 9, 15], paintTmArch],
+    cuff: () => ['kit:briar:cuff', [-12, -13, 12, 6], paintTmCuff],
+    heart: () => ['kit:briar:heart', [-7, -7, 7, 7], paintTmHeart],
+    petal: () => ['kit:briar:petal', [-7, -5, 7, 5], paintTmPetal],
+    face: (tier, look) => [`kit:briar:face:${tier}:${look}`, [-21, -29, 21, 14], c => paintTmFace(c, 26, tier, look)]
+  };
+  const tmStamp = (ctx, kit, [key, box, paint], x, y, turn, sx, sy) => stamp(ctx, kit, key, box, paint, x, y, turn, sx, sy);
+  // Reel vines seen docked last frame, per fight, so a snipped or dropped one can whip back to her (art memory only).
+  const tmSeen = new WeakMap();
+  const tmDocked = s => (s.carried || []).filter(p => p.carried && p.carried.reel && !p.bloomed && !p.hidden && p.visible !== false);
+  const tmLove = s => s.mode === 'smitten' && s.modeUntil > s.age;
+  kitLook('briar', {
+    warm(kit) {
+      for (const make of [TM_SPRITE.knot(), TM_SPRITE.head(), TM_SPRITE.bow(), TM_SPRITE.arch(), TM_SPRITE.cuff(), TM_SPRITE.heart(), TM_SPRITE.petal()]) kit.atlasSprite(make[0], ...make[1], make[2]);
+      for (let tier = 0; tier < 3; tier++) for (const look of TM_LOOKS) { const [key, box, paint] = TM_SPRITE.face(tier, look); kit.atlasSprite(key, ...box, paint); }
+      if (LOOKS.sweetheart && LOOKS.sweetheart.warm) LOOKS.sweetheart.warm(kit, 11, 'coral');
+    },
+    under(ctx, state, s, time, still, kit, quality) {
+      const b = s.boss; if (!b || b.bloomed) return;
+      const clock = Number(s.kitAge) || 0, r = b.r || 26, skirt = b.y + r * .6;
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      // The arch: bursts up out of the soil over .25 s (overshooting a little) and shrivels through its last .3 s.
+      for (const rock of state.bumpers || []) {
+        if (!rock.bossArch) continue;
+        const grow = still ? 1 : kit.easeBack(clamp((clock - rock.kitAt) / .25, 0, 1)), wither = clamp((rock.kitUntil - clock) / .3, 0, 1);
+        const out = Math.sin(rock.angle) * (rock.x - 210) - Math.cos(rock.angle) * (rock.y - 498) >= 0 ? 1 : -1;
+        ctx.save(); ctx.translate(rock.x, rock.y); ctx.rotate(rock.angle); ctx.globalAlpha *= .35 + .65 * wither;
+        ctx.translate(0, out * (1 - wither) * 3);
+        tmStamp(ctx, kit, TM_SPRITE.arch(), 0, 0, 0, Math.max(.05, grow) * (Number(rock.length) || TM_ARCH) / TM_ARCH, out * Math.max(.05, Math.min(1.1, grow) * (.55 + .45 * wither)));
+        ctx.restore();
+      }
+      // Bramble Reel: a thorny vine from her skirt to each docked flower (drawn to wherever it is, so it reels in), and
+      // in the last .6 s before a drink a bead of sap runs up it to her.
+      let seen = tmSeen.get(s); if (!seen) { seen = new Map(); tmSeen.set(s, seen); }
+      const docked = tmDocked(s), live = new Set();
+      for (const p of docked) {
+        const ox = (TM_SLOTS[p.carried.slot] || [0])[0], v = tmVine(b.x + ox * .4, skirt, p.x, p.y + (p.r || 11) - 2, 18);
+        live.add(p.id); seen.set(p.id, { p, ox, gone: null });
+        tmDrawVine(ctx, v, TM.vine, TM.vineLight, 4, 1.6);
+        if (quality === 0) [.3, .55, .8].forEach((t, i) => { const at = tmAt(v, t); tmThorn(ctx, at.x, at.y, at.a, i % 2 ? 1 : -1); });
+        if (s.reel) {
+          const left = s.reel.next - clock;
+          if (still) { const at = tmAt(v, .5); tmSap(ctx, kit, at.x, at.y); }
+          else if (left >= 0 && left < .6) { const at = tmAt(v, left / .6); tmSap(ctx, kit, at.x, at.y); }
+        }
+      }
+      // Snipped or let go: the vine whips back to her skirt.
+      for (const [id, e] of seen) {
+        if (live.has(id)) continue;
+        if (e.gone == null) e.gone = { at: time, x: e.p.x, y: e.p.y + (e.p.r || 11) - 2 };
+        const k = (time - e.gone.at) / .3;
+        if (k < 0 || k >= 1) { seen.delete(id); continue; }
+        if (still) continue;
+        const f = kit.ease(k), ax = b.x + e.ox * .4, x = e.gone.x + (ax - e.gone.x) * f, y = e.gone.y + (skirt - e.gone.y) * f;
+        ctx.save(); ctx.globalAlpha *= 1 - k; tmDrawVine(ctx, tmVine(ax, skirt, x, y + 8 * Math.sin(k * Math.PI), 18), TM.vine, TM.vineLight, 4 - 2 * k, 1.6 - .6 * k); ctx.restore();
+      }
+      // Sweetheart Vines: a rose-stem vine from her skirt to the pair's ribbon knot, a heart-shaped leaf on it, and in
+      // the last second before the next drink a bead of sap runs from the pair to her.
+      for (const vine of s.vines || []) {
+        if (vine.cut) continue;
+        const roses = (state.buds || []).filter(p => p.group === vine.group && p.foe === 'sweetheart' && !p.bloomed && !p.hidden);
+        if (!roses.length) continue;
+        const mx = roses.reduce((t, p) => t + p.x, 0) / roses.length, my = roses.reduce((t, p) => t + p.y, 0) / roses.length + 14;
+        const v = tmVine(b.x + Math.sign(mx - b.x) * 10, skirt, mx, my);
+        ctx.save(); ctx.globalAlpha *= .45; tmDrawVine(ctx, v, '#ffffff', '#ffffff', 6.4, 0); ctx.restore();
+        tmDrawVine(ctx, v, TM.stem, TM.stemPink, 4, 1.6);
+        const leaf = tmAt(v, .5), side = mx < b.x ? -1 : 1;
+        ctx.save(); ctx.translate(leaf.x, leaf.y); ctx.rotate(leaf.a - side * 2.3); ctx.translate(0, -5);
+        tmHeartPath(ctx, 4); ctx.fillStyle = '#83ac57'; ctx.fill(); tmStroke(ctx, 1, TM.vine);
+        ctx.beginPath(); ctx.moveTo(0, 3.6); ctx.lineTo(0, -1.4); tmStroke(ctx, .7, TM.vine); ctx.restore();
+        const left = (Number(vine.next) || 0) - clock;
+        if (still) { const at = tmAt(v, .3); tmSap(ctx, kit, at.x, at.y); }
+        else if (left >= 0 && left < 1) { const at = tmAt(v, left); tmSap(ctx, kit, at.x, at.y); }
+      }
+      // The lasso's rope: from her skirt through the tail knot to the head.
+      const knots = (s.parts || []).filter(p => p.bossPart === 'lasso' && !p.bloomed && !p.closed).sort((p, q) => q.k - p.k);
+      if (knots.length) tmRope(ctx, [[b.x, skirt], ...knots.map(p => [p.x, p.y])]);
+    },
+    // Lasso knots, turned along the rope; the head leads and the bow (the answer) breathes inside a marching ring.
+    part(ctx, state, s, piece, time, still, kit) {
+      if (piece.bossPart !== 'lasso') return false;
+      if (piece.bloomed || piece.closed) return true;
+      const rope = (s.parts || []).filter(q => q.bossPart === 'lasso' && q.lasso === piece.lasso && !q.bloomed && !q.closed);
+      const ahead = rope.find(q => q.k === piece.k - 1) || piece, behind = rope.find(q => q.k === piece.k + 1) || piece;
+      const turn = ahead === behind ? Math.atan2(piece.uy || 1, piece.ux || 0) : Math.atan2(ahead.y - behind.y, ahead.x - behind.x);
+      const age = (Number(s.kitAge) || 0) - (Number(piece.born) || 0), pop = still ? 1 : kit.easeBack(clamp(age / .22, 0, 1));
+      if (piece.bow) {
+        const breathe = still ? 1 : 1 + .08 * Math.sin((Number(s.kitAge) || 0) * 6), rr = (piece.r || 9) + 7;
+        ctx.save(); ctx.setLineDash([4, 3]); ctx.lineDashOffset = still ? 0 : -time * 14;
+        ctx.beginPath(); ctx.arc(piece.x, piece.y, rr * breathe, 0, TAU); tmStroke(ctx, 3.4, '#ffffff'); tmStroke(ctx, 1.5, TM.coral); ctx.restore();
+        tmStamp(ctx, kit, TM_SPRITE.bow(), piece.x, piece.y, turn, Math.max(.05, pop * breathe));
+      } else tmStamp(ctx, kit, piece.k === 0 ? TM_SPRITE.head() : TM_SPRITE.knot(), piece.x, piece.y, turn, Math.max(.05, pop));
+      return true;
+    },
+    face(ctx, state, s, boss, time, still, kit, quality) {
+      if (!boss.boss) return false;
+      const r = Number(boss.r) || 26, look = kit.BOSS_LOOKS.briar || {}, tier = clamp(s.tier | 0, 0, 2), health = (Number(boss.hp) || 0) / Math.max(1, Number(boss.maxHp) || 1);
+      // The face sways with her body (art.js's briar tilt, and the shiver when nearly beaten).
+      let tilt = still ? 0 : Math.sin(time * 2.2) * .065;
+      if (!still && health <= .2) tilt += Math.sin(time * TAU * 6) * .04;
+      ctx.translate(boss.x, boss.y); if (tilt) ctx.rotate(tilt); ctx.translate(0, r * (look.faceY != null ? look.faceY : -.08));
+      const hurt = Boolean(boss.bloomed) || (typeof boss.hitAt === 'number' && time - boss.hitAt >= 0 && time - boss.hitAt < .3);
+      const love = tmLove(s), blink = !still && (time + .7) % 3.3 < .12;
+      tmStamp(ctx, kit, TM_SPRITE.face(tier, hurt ? 'hurt' : love ? 'swoon' : blink ? 'blink' : 'calm'), 0, 0);
+      // Lovestruck: three small hearts rise off her crown, one a second.
+      if (love && quality < 2) for (let i = 0; i < 3; i++) {
+        const ph = still ? .3 + i * .2 : (time + i / 3) % 1;
+        ctx.save(); ctx.globalAlpha *= still ? .9 : Math.sin(Math.PI * ph);
+        tmStamp(ctx, kit, TM_SPRITE.heart(), (i - 1) * 9 + (still ? 0 : Math.sin(ph * TAU + i) * 2.4), -r * .72 - ph * 20, 0, .7 + .35 * ph); ctx.restore();
+      }
+      // Wild: two loose petals flutter off her crown (two frames, 6 a second).
+      if (tier === 2 && !love && quality < 2) {
+        const f = still ? 0 : Math.floor(time * 6) % 2;
+        tmStamp(ctx, kit, TM_SPRITE.petal(), -r * .62 - f * 1.6, -r * .86 + f * 1.8, -.7 + f * .55);
+        tmStamp(ctx, kit, TM_SPRITE.petal(), r * .7 + f * 1.4, -r * .98 - f * 1.4, .9 - f * .6, .85);
+      }
+      return true;
+    },
+    over(ctx, state, s, time, still, kit, quality) {
+      const b = s.boss; if (!b || b.bloomed) return;
+      const clock = Number(s.kitAge) || 0, r = b.r || 26, skirt = b.y + r * .6, w = s.warning;
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      // A curl of vine round each docked flower's stem (it reads as hooked even with Animations off).
+      for (const p of tmDocked(s)) tmStamp(ctx, kit, TM_SPRITE.cuff(), p.x, p.y + (p.r || 11) - 2);
+      // Tells, over the warning's 1.3 s.
+      if (w && Number.isFinite(w.at) && Number.isFinite(w.x) && Number.isFinite(w.y) && ['reel', 'sweet', 'lasso'].includes(w.move)) tmTell(ctx, w, () => {
+        const p = still ? 1 : clamp((time - w.at) / TM_TELL, 0, 1), march = still ? 0 : -time * 18;
+        const ring = (x, y, rad, color, dash = [4, 3]) => { ctx.save(); ctx.setLineDash(dash); ctx.lineDashOffset = still ? 0 : -time * 12; ctx.beginPath(); ctx.arc(x, y, rad, 0, TAU); tmStroke(ctx, 3.4, '#ffffff'); tmStroke(ctx, 1.7, color); ctx.restore(); };
+        if (w.move === 'reel') for (const t of w.targets || []) {
+          if (t.role === 'reel') {
+            // A dotted vine creeps out to the flower, and a hook ring closes round it.
+            const v = tmVine(b.x + clamp((t.x - b.x) * .4, -18, 18), skirt, t.x, t.y + (t.r || 11) - 2, 18), pts = [];
+            for (let i = 0; i <= 20; i++) { const at = tmAt(v, p * i / 20); pts.push([at.x, at.y]); }
+            dotted(ctx, pts, TM.vineLight, 2.1, 7, march);
+            ring(t.x, t.y, (t.r || 11) + 4 + (still ? 0 : 4 * (1 - p)), TM.vine);
+          } else if (t.role === 'bud') {
+            // Where one of her own rosebuds will sprout: a dashed coral ring and a little sprout coming up.
+            ring(t.x, t.y, (t.r || 10) + 3, TM.coralDark);
+            const g = still ? 1 : kit.easeBack(clamp(p * 1.4, 0, 1));
+            ctx.save(); ctx.translate(t.x, t.y + 5); ctx.scale(1.4 * g, 1.4 * g);
+            ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -7); tmStroke(ctx, 3.2, '#ffffff'); tmStroke(ctx, 1.5, TM.vine);
+            for (const side of [-1, 1]) { ctx.beginPath(); ctx.ellipse(side * 2.6, -6.4, 2.6, 1.3, side * -.5, 0, TAU); ctx.fillStyle = TM.vineLight; ctx.fill(); tmStroke(ctx, .8, TM.vine); }
+            ctx.restore();
+          }
+        } else if (w.move === 'sweet') {
+          const mid = (w.targets || []).find(t => t.role === 'sweet');
+          if (mid) {
+            // A dashed heart where the pair will sprout, their two ghosts, and a dotted pink vine filling toward them.
+            ctx.save(); ctx.translate(mid.x, mid.y + 2); ctx.setLineDash([6, 5]); ctx.lineDashOffset = still ? 0 : -time * 12; tmHeartPath(ctx, (mid.r || 36) * .8);
+            ctx.globalAlpha *= .55 + .45 * p; ctx.fillStyle = 'rgba(255,111,158,.16)'; ctx.fill(); tmStroke(ctx, 3.6, '#ffffff'); tmStroke(ctx, 1.8, TM.tell); ctx.restore();
+            if (LOOKS.sweetheart && LOOKS.sweetheart.bud) for (const t of (w.targets || []).filter(t => t.role === 'rose')) {
+              ctx.save(); ctx.globalAlpha *= .45;
+              bud(ctx, { foe: 'sweetheart', id: 'ghost', x: t.x, y: t.y, r: 11, side: t.x < mid.x ? 0 : 1, blushUntil: -1, blushAt: -100, poutAt: -100, kissAt: -100 }, time, true, state, kit, quality);
+              ctx.restore();
+            }
+            const v = tmVine(b.x + Math.sign(mid.x - b.x) * 10, skirt, mid.x, mid.y + 14), pts = [];
+            for (let i = 0; i <= 20; i++) { const at = tmAt(v, p * i / 20); pts.push([at.x, at.y]); }
+            dotted(ctx, pts, TM.satin, 2.1, 7, march);
+            // Her anticipation: a heart bubbles up over her head.
+            const beat = still ? 1.5 : 1.3 + .3 * Math.pow(Math.max(0, Math.sin(time * 7)), 3);
+            tmStamp(ctx, kit, TM_SPRITE.heart(), b.x + r * .55, b.y - r * 1.25 - (still ? 0 : 3 * Math.sin(time * 3)), still ? 0 : .15 * Math.sin(time * 4), beat);
+          }
+        } else if (w.move === 'lasso') {
+          const t = (w.targets || []).find(t => t.role === 'lasso');
+          if (t) {
+            // The throw's line, the arch's two rocks, and the bow where it will be: shoot that.
+            const len = Math.hypot(t.ex - t.sx, t.ey - t.sy) || 1, ux = (t.ex - t.sx) / len, uy = (t.ey - t.sy) / len, pts = [];
+            for (let i = 0; i <= 24; i++) { const k = p * i / 24; pts.push([t.sx + (t.ex - t.sx) * k, t.sy + (t.ey - t.sy) * k]); }
+            dotted(ctx, pts, TM.vineLight, 2.1, 8, march);
+            const [c0, c1, c2] = tmArch(t.side);
+            ctx.save(); ctx.setLineDash([5, 4]); ctx.lineDashOffset = still ? 0 : -time * 10; ctx.globalAlpha *= .5 + .5 * p;
+            for (const [a, c] of [[c0, c1], [c1, c2]]) {
+              const l = Math.hypot(c.x - a.x, c.y - a.y);
+              ctx.save(); ctx.translate((a.x + c.x) / 2, (a.y + c.y) / 2); ctx.rotate(Math.atan2(c.y - a.y, c.x - a.x));
+              ctx.beginPath(); ctx.moveTo(-l / 2, -7); ctx.lineTo(l / 2, -7); ctx.arc(l / 2, 0, 7, -Math.PI / 2, Math.PI / 2); ctx.lineTo(-l / 2, 7); ctx.arc(-l / 2, 0, 7, Math.PI / 2, Math.PI * 1.5);
+              tmStroke(ctx, 3.4, '#ffffff'); tmStroke(ctx, 1.7, TM.vine); ctx.restore();
+            }
+            ctx.restore();
+            const a = (TM_LASSO.knots - 2) * TM_LASSO.gap;
+            if (still || Math.floor(time * 6) % 2 === 0) { ctx.save(); ctx.globalAlpha *= .7; tmStamp(ctx, kit, TM_SPRITE.bow(), t.sx + ux * a, t.sy + uy * a, Math.atan2(uy, ux)); ctx.restore(); }
+          }
+        }
+      });
+      // Her wind-up for the lasso: she swings a loop of vine round over her head on a vine held out to the side.
+      if (w && w.move === 'lasso' && Number.isFinite(w.at) && time < w.until) {
+        const spin = still ? 1 : Math.cos(time * 9), side = (w.targets || []).some(t => t.role === 'lasso' && t.side) ? 1 : -1;
+        const hx = b.x + side * r * 1.05, hy = b.y + r * .05, lx = b.x + side * r * 1.15, ly = b.y - r * 1.45 + (still ? 0 : 1.5 * Math.sin(time * 9));
+        tmRope(ctx, [[hx, hy], [hx + side * 6, hy - r * .7], [lx, ly + 4]], 4, 1.7);
+        ctx.save(); ctx.translate(lx, ly); ctx.rotate(side * .18);
+        ctx.beginPath(); ctx.ellipse(0, 0, 5 + 13 * Math.abs(spin), 5.5, 0, 0, TAU); tmStroke(ctx, 6.6, 'rgba(255,255,255,.45)'); tmStroke(ctx, 4, TM.vine); tmStroke(ctx, 1.7, TM.vineLight);
+        for (const a of [.6, 2.4, 3.9, 5.5]) { const x = Math.cos(a) * (5 + 13 * Math.abs(spin)), y = Math.sin(a) * 5.5; tmThorn(ctx, x, y, a + Math.PI / 2, -1, .7); }
+        ctx.restore();
+      }
+      // Lovestruck: a ring of hearts turning round her and a gold arc counting down the 2.5 s.
+      if (tmLove(s)) {
+        const n = quality === 0 ? 8 : 4, spin = still ? 0 : clock * 1.5, R = r + 12, cy = b.y + 4;
+        for (let i = 0; i < n; i++) { const a = spin + i * TAU / n; tmStamp(ctx, kit, TM_SPRITE.heart(), b.x + Math.cos(a) * R, cy + Math.sin(a) * R, still ? 0 : .25 * Math.sin(clock * 5 + i), 1.15); }
+        const k = clamp((s.modeUntil - s.age) / TM_LOVE, 0, 1);
+        for (const [wd, col] of [[4.4, '#ffffff'], [2.6, TM.gold]]) { ctx.beginPath(); ctx.arc(b.x, cy, R + 8, -Math.PI / 2, -Math.PI / 2 + TAU * k); tmStroke(ctx, wd, col); }
+      }
+      // Swept off her feet: a column of hearts and petals from where she was up to where she floats, for half a second.
+      if (Number.isFinite(s.swoonAt) && Number.isFinite(s.swoonFrom)) {
+        const k = (clock - s.swoonAt) / TM_FLOAT;
+        if (k >= 0 && k < 1) {
+          ctx.save(); ctx.globalAlpha *= still ? .6 : 1 - k;
+          const from = s.swoonFrom + r * .9, to = b.y + r * 1.2;
+          for (let i = 0; i < 6; i++) { const u = i / 5, y = from + (to - from) * u * .92; tmStamp(ctx, kit, TM_SPRITE.heart(), b.x + Math.sin(i * 2.1 + (still ? 0 : k * 4)) * 9, y, Math.sin(i * 1.3) * .3, 1.2 - .45 * u); }
+          for (const [u, side] of [[.33, -1], [.7, 1]]) tmStamp(ctx, kit, TM_SPRITE.petal(), b.x + side * 13, from + (to - from) * u, side * (still ? .6 : .6 + k * 3));
+          ctx.restore();
+        }
+      }
+      // Untied: the rope falls slack from the knot that was shot, its knots dropping and shrinking away.
+      if (!still) for (const cut of s.parts || []) {
+        if (cut.bossPart !== 'lasso' || !cut.bloomed || cut.k == null) continue;
+        const age = time - (Number(cut.bloomAt) || 0); if (age < 0 || age >= .5) continue;
+        const k = age / .5, at = clock - age, drop = 160 * age * age;
+        const pose = []; for (let j = 0; j < TM_LASSO.knots; j++) { const q = tmKnotAt(cut, j, at); pose.push([q.x + (j - cut.k) * 6 * k, q.y + drop + Math.abs(j - cut.k) * 10 * k]); }
+        ctx.save(); ctx.globalAlpha *= 1 - k;
+        const head = pose.slice(0, cut.k + 1), tail = [[b.x, skirt], ...pose.slice(cut.k).reverse()];
+        if (head.length > 1) tmRope(ctx, head, 4, 1.7);
+        if (tail.length > 1) tmRope(ctx, tail, 4, 1.7);
+        pose.forEach(([x, y], j) => { if (j !== cut.k) tmStamp(ctx, kit, j === 0 ? TM_SPRITE.head() : TM_SPRITE.knot(), x, y, (j - cut.k) * k * 2, 1 - .5 * k); });
+        ctx.restore();
+      }
+    }
+  });
 
   // ── The Starseed (Level 10, `core`) ──
 
