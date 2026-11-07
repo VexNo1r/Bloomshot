@@ -1622,8 +1622,9 @@
   // points, and a miner's lantern on his crown. The crust is his own as always (a seed through a broken plate's quarter
   // lands double). Every move but the Magnet Heart regrows the plates that are due, exactly as his old move did: due
   // GEODE.regrow[tier] s after they break (8 s while Proud, at once after), and each mood makes them tougher
-  // (GEODE.plateHp). Every move heaves him up to GEODE.lift px (never above where he started) so a long fight never sinks
-  // him to the line, and a grumpier king moves sooner (GEODE.pause).
+  // (GEODE.plateHp). Every move heaves him up GEODE.lift px, or back up to GEODE.deep px under where he started if he has
+  // sunk lower (never above his start), so a long fight never sinks him onto the shoulders or the line, and a grumpier
+  // king moves sooner (GEODE.pause).
   //   Proud (tier 0): his old toss (the crust grows back, three gems land at the top), then, new, the Pyrite Toss: he
   //     lobs a handful of gems along a drawn arc to the top of the board, and GEODE.pyrites[tier] of them are pyrite,
   //     fool's gold: square, brassy, sly. A seed's own touch crumbles a pyrite and glues his newest broken plate back on
@@ -1640,7 +1641,7 @@
   //     ends fly into him and each glues a broken plate back (pop them during the tell). Two gems lob at once from now on.
   // Lobs, timers, the field, pyrite falls and burrs all run on the kit clock (a Lullaby holds them); every choice comes
   // from the board, s.cycle and hash01.
-  const GEODE = { hp: 104, lift: 24, liftT: .8, gemR: 10, gemFall: .85, tossT: .9, tossH: 46, toss: [[0, -16], [-20, 14], [20, 14], [0, 40]],
+  const GEODE = { hp: 104, lift: 24, deep: 150, liftT: .8, gemR: 10, gemFall: .85, tossT: .9, tossH: 46, toss: [[0, -16], [-20, 14], [20, 14], [0, 40]],
     pyrites: [1, 1, 2], tossN: [3, 4, 4], lobT: 2.2, lobH: 72, lobR: 10, shoulders: [[150, 404], [270, 404]], burrLen: 30, burrLife: 6,
     catchPay: 300, knockPay: 150, plateHp: [2, 3, 3], regrow: [8, 0, 0], magR: 100, magW: 34, magJaw: 1.3, magSpin: 1.6, magLife: 6, magCrit: 3, magCurl: .5, gemPull: 140, magRest: .4, pause: [null, 4.75, 4.25] };
   // A grumpier king moves sooner (seconds between moves, after the tier pace; tier 0 keeps his old 7.25 s).
@@ -1657,7 +1658,8 @@
   }
   function geodeRise(game, s) {
     if (s.rise) return;
-    const by = Math.min(GEODE.lift, Math.max(0, s.drift));
+    // A slow fight sinks him faster than GEODE.lift a move, so past GEODE.deep the heave takes him back up to it.
+    const by = Math.min(Math.max(GEODE.lift, s.drift - GEODE.deep), Math.max(0, s.drift));
     if (by < 1) return;
     s.rise = { at: s.kitAge, by }; after(s, GEODE.liftT, 'risen', s.rise);
   }

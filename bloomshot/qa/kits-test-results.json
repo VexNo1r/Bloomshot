@@ -1,5 +1,5 @@
 {
-  "passed": 89,
+  "passed": 90,
   "failed": 0,
   "results": [
     {
@@ -340,6 +340,10 @@
     },
     {
       "name": "Geode King: every move heaves him up (at most 24 px, never above where he started)",
+      "passed": true
+    },
+    {
+      "name": "Geode King: a long slow fight never sinks him onto the shoulders or the line (past 150 px a heave lifts him back)",
       "passed": true
     },
     {

@@ -1479,6 +1479,14 @@ test('Geode King: every move heaves him up (at most 24 px, never above where he 
   assert(s.boss.y < y0 - 20 && s.boss.y >= y0 - 24 - 1e-6, `lifted ${y0 - s.boss.y}`); assert.equal(s.drift, 26);
   const h = arena(8), t = h.bossState; t.drift = 0; t.stunUntil = t.age + 9; h.step(1 / 120); const y1 = t.boss.y; geodeMove(h, 1, 0); advance(h, .9); assert(t.boss.y >= y1 - 1e-6, 'not above his start');
 });
+test('Geode King: a long slow fight never sinks him onto the shoulders or the line (past 150 px a heave lifts him back)', () => {
+  const g = arena(8), s = g.bossState; s.boss.bossFall = Depths.bosses[7].descent; s.tier = 1; s.boss.hp = 60; s.next = 0;
+  let low = 0;
+  for (let n = 0; n < 160 * 120; n++) { g.step(1 / 120); low = Math.max(low, s.boss.y); }
+  // His crust reaches 52 px below his middle (plates ride 39 px out, r 13); the Gem Lob's shoulder marks sit at y 404 (r 16).
+  assert(low + 52 < 404 - 16, `he sank to y ${low.toFixed(0)}`); assert.equal(s.lostLives, 0, 'he never reached the line');
+  const h = arena(8), t = h.bossState; t.drift = 230; t.stunUntil = t.age + 9; geodeMove(h, 1, 0); advance(h, .9); assert.equal(t.drift, 150, 'one heave back up to 150 px');
+});
 test('Geode King: Magnetic plays the same at 30, 60 and 144 FPS', () => {
   const runs = [30, 60, 144].map(fps => {
     const g = arena(8), s = g.bossState; breakPlate(g, platesOf(s)[0]); s.tier = 2; s.boss.hp = 30; s.next = 0; const log = [];
