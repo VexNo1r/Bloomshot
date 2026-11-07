@@ -1923,6 +1923,7 @@
   // A blush puffs a pink ring round its sweetheart (hit that one next) and a few pink motes off the shy one; a pout
   // sighs out a little grey puff. A kiss bursts coral petals between the two in a pink-and-white ring, with a beat of
   // hit-stop and "Sweethearts!" (or "Cupid shot!" with a gold ring for one seed that did both) over the pair.
+  const SWEET_TOP = 70; // a callout centred above this would sit under the health vine and name across the top
   FOE_FX.sweetheart = {
     blush(e) { foeRing(e.mx, e.my, '#ff6f9e', 12, 18, .35); foeDust(e.x, e.y, 3, '#ffc1d6', 24); haptic('tick'); },
     pout(e) { foeDust(e.x, e.y - 12, 3, '#d9d2dc', 16); },
@@ -1930,7 +1931,8 @@
       burst({ x: e.x, y: e.y, type: 'coral', r: 14 }, e.cupid ? 22 : 16, game.particles, currentKeepsake(), false);
       foeRing(e.x, e.y, '#ff6f9e', 10, 36, .45); foeRing(e.x, e.y, '#ffffff', 6, 22, .3); if (e.cupid) foeRing(e.x, e.y, '#ffd148', 8, 48, .5);
       jolt(e.cupid ? .14 : .1, .04, .15); haptic('surge');
-      game.floaters.push({ kind: 'trick', trick: 'sweet', text: e.cupid ? 'Cupid shot!' : 'Sweethearts!', label: e.gain ? `+${e.gain}` : '', x: clamp(e.x, 60, 360), y: Math.max(40, e.y - 34), life: 1.1, maxLife: 1.1 });
+      // A pair near the top (Thornmother's, at y 70) gets its callout below it, clear of the guardian's health vine.
+      game.floaters.push({ kind: 'trick', trick: 'sweet', text: e.cupid ? 'Cupid shot!' : 'Sweethearts!', label: e.gain ? `+${e.gain}` : '', x: clamp(e.x, 60, 360), y: e.y - 34 < SWEET_TOP ? e.y + 40 : e.y - 34, life: 1.1, maxLife: 1.1 });
     }
   };
 
@@ -2189,7 +2191,7 @@
     'sweet:start'(e) { for (const t of (e.targets || []).filter(t => t.role === 'rose')) foeRing(t.x, t.y, THORN_PINK, 8, 18, .35); haptic('warn'); },
     'sweet:kiss'(e) {
       burst({ x: e.x, y: e.y, type: 'coral', r: 20 }, 20, game.particles, currentKeepsake(), false); foeRing(e.x, e.y, THORN_PINK, 20, 60, .6); foeRing(e.x, e.y, '#ffffff', 14, 40, .4);
-      jolt(.16, .06, .2); haptic('surge'); bossCallout(e.x, e.y, 'Lovestruck!', 1.2);
+      jolt(.16, .06, .2); haptic('surge'); bossCallout(e.x, Math.max(e.y, 104), 'Lovestruck!', 1.2); // never under her health vine
     },
     'sweet:cut'(e) { foeDust(e.x, e.y, 4, '#a2c77c', 40); },
     'lasso:start'(e) { const t = (e.targets || []).find(t => t.role === 'lasso'); if (t) { foeDust(t.sx, t.sy, 6, '#a2c77c', 60); foeRing(t.sx, t.sy, THORN_LEAF, 10, 24, .35); } jolt(.08); haptic('warn'); },
