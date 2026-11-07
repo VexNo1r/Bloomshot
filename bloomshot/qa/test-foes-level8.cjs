@@ -156,6 +156,43 @@ test('The bot shoots only the moss, and more for the last tuft when gems are nea
   lode.hp = 1; assert.equal(Foes.value(game, { bud: lode, nx: 0, ny: -1 }), LODE.worth + 2 * LODE.gem);
   const run = bot.play(8, { seed: 7, startWave: 3, waves: 1 }); assert(run && typeof run === 'object');
 });
+// One wave played by the practice bot's own choices at the good-bot settings (test-depths), until it clears.
+function botWave(id, n, seed) {
+  let s = seed | 0; const random = () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const gauss = () => { let g = 0; for (let i = 0; i < 6; i++) g += random(); return (g - 3) / Math.sqrt(.5); };
+  const game = new RushGame({ plan: bot.plan(id), startWave: n }), stones = new Set(game.buds.filter(b => b.foe === 'lodestone').map(b => b.group));
+  let think = 0, cleared = false, stoneLives = 0;
+  for (let t = 0; t < 60 && !game.over && !cleared; t += 1 / 60) {
+    think -= 1 / 60;
+    if (game.splitReady && random() < .5) game.split();
+    if (think <= 0 && game.canFire) {
+      const prepared = bot.prepareTrace(game), angles = []; let best = null;
+      for (let deg = -170; deg <= -10; deg += 2.5) angles.push(deg * Math.PI / 180);
+      for (const target of prepared.targets.slice(0, 12)) {
+        const direct = Math.atan2(target.bud.y - game.launcher.y, target.bud.x - game.launcher.x);
+        if (direct > -Math.PI + .16 && direct < -.16) for (const o of [-.8, 0, .8]) angles.push(direct + o * Math.PI / 180);
+      }
+      for (const angle of angles) { const hit = bot.trace(game, angle, 2, prepared), score = hit ? bot.value(game, hit, .1, prepared) : 0; if (score > 0 && (!best || score > best.score)) best = { angle, score }; }
+      if (best || !prepared.rich) { const a = (best ? best.angle : -Math.PI / 2) + gauss() * 2.5 * Math.PI / 180; game.fire(Math.cos(a), Math.sin(a)); think = game.superBloom > 0 ? .12 + random() * .1 : .3 + random() * .3; } else think = .12;
+    }
+    game.step(1 / 60);
+    for (const e of game.drainEvents()) { if (e.type === 'life' && stones.has(e.group)) stoneLives++; if (e.type === 'cleared' && e.wave === n) cleared = true; }
+  }
+  return { cleared, stoneLives, stones: stones.size };
+}
+test('No Lodestone placement is a life trap: a careful player clears each Lodestone wave and never loses a life to the stone', () => {
+  // L9 W6's stone once started at (120, 276), low under the closing lower-left briar cluster, and reached the line in
+  // 5.7 s with its moss covered: a good player lost a life to it about one run in four.
+  const waves = [];
+  for (let l = 6; l <= 10; l++) for (let n = 1; n <= 10; n++) if (Depths.wave(l, n).buds.some(b => b.foe === 'lodestone')) waves.push([l, n]);
+  assert.deepEqual(waves, [[8, 3], [8, 8], [8, 9], [9, 6], [10, 7]]);
+  for (const [l, n] of waves) {
+    const runs = []; for (let k = 0; k < 12; k++) runs.push(botWave(l, n, 9000 + l * 101 + n * 7 + k * 7919));
+    assert(runs.every(r => r.stones === 1), `L${l} W${n} opens with its stone`);
+    assert.equal(runs.filter(r => r.cleared).length, 12, `L${l} W${n}: the good bot clears all 12 runs`);
+    assert.equal(runs.reduce((sum, r) => sum + r.stoneLives, 0), 0, `L${l} W${n}: lives lost to the Lodestone in 12 good runs`);
+  }
+});
 test('foes.js keeps the Lodestone free of the seed pod and of Math.random', () => {
   const source = fs.readFileSync(path.join(__dirname, '../foes.js'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
   assert(!/\.(pod|podGrow|shotGap)\b/.test(source)); assert(!/Math\.random/.test(source));
