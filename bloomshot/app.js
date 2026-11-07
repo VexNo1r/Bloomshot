@@ -3482,6 +3482,9 @@
   function startCount(lead = '') {
     if (route !== 'game' || !inProgress() || isTutorial()) return;
     countLeft = countSpan(); countShown = ''; renderCount(); cancelInteraction();
+    // Callouts frozen behind the pause ("Wave clear!", "Super Bloom!", a trick stamp, praise, score pops) are stale by
+    // now and would sit half hidden round the count, so they go, as at a wave's clear; ribbons and name cards stay.
+    game.floaters = game.floaters.filter(item => !['wave', 'combo', 'bonus', 'pop', 'trick'].includes(item.kind));
     say(`${lead}${save.settings.motion ? 'Get ready. 3, 2, 1.' : 'Get ready.'}`);
   }
   function renderCount() {

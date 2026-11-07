@@ -308,6 +308,20 @@ test('A guardian fight\'s second lost life and its free Lullaby, in the same fra
     app.frame(); assert.equal(app.$('announcement').textContent, said);
   }
 });
+test('The count after a pause clears the callouts frozen behind it, and keeps the wave ribbon and a guardian\'s name card', () => {
+  for (const motion of [true, false]) {
+    const app = level(player(motion), 1); app.run(1.3);
+    const game = app.game(); game.started = true; game.floaters = [];
+    game.floaters.push({ kind: 'wave', text: 'Wave clear!', x: 210, y: 290, life: 1, maxLife: 1 }, { kind: 'wave', text: 'Super Bloom!', x: 210, y: 250, life: 1.3, maxLife: 1.3 },
+      { kind: 'trick', text: 'Hat trick!', x: 300, y: 470, life: 1, maxLife: 1 }, { kind: 'combo', text: 'Lovely!', x: 210, y: 92, life: 1, maxLife: 1 },
+      { kind: 'pop', text: '+120', x: 120, y: 200, life: 1, maxLife: 1 }, { kind: 'title', size: 'small', text: 'Wave 2 of 10', x: 210, y: 32, life: 2, maxLife: 2 },
+      { kind: 'title', boss: true, text: 'Old Sunny', x: 210, y: 178, life: 1.6, maxLife: 1.6 });
+    app.click('pause-btn'); assert(app.$('pause-dialog').open, 'paused');
+    assert.equal(game.floaters.length >= 7, true, 'the callouts wait behind the Paused card');
+    app.click('pause-resume'); assert.equal(app.$('resume-count').hidden, false, 'the count runs');
+    assert.deepEqual(plain(game.floaters.map(f => f.text)), ['Wave 2 of 10', 'Old Sunny'], `motion ${motion}: only the ribbon and the name card stay`);
+  }
+});
 test('A cleared wave sends at most 24 orbs, latest first, that all land within 1.4 s and pluck', () => {
   const app = level(player(), 1), game = app.game(); app.run(1.3);
   clearWave(app, 30);
