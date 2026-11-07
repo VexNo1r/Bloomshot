@@ -1,5 +1,5 @@
 {
-  "passed": 13,
+  "passed": 14,
   "failed": 0,
   "results": [
     {
@@ -24,6 +24,10 @@
     },
     {
       "name": "A blush runs out at exactly 1.2 s of foe time (a pout) and the pair resets; a Lullaby holds it",
+      "passed": true
+    },
+    {
+      "name": "A kiss or a chain in a blush's last moment opens both quietly: the rose waiting to follow never pouts",
       "passed": true
     },
     {

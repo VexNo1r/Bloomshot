@@ -1058,7 +1058,11 @@
     bloomed(game, bud, chain, credit) {
       bud.blushUntil = -1;
       const mate = sweetMate(game, bud);
-      if (!mate || mate.bloomed || game.pending.some(item => item.id === mate.id)) return;
+      if (!mate || mate.bloomed) return;
+      // Its sweetheart opens with it a moment later, so a blush it still wears ends here, quietly: a kiss (or a chain)
+      // in a blush's last SWEET.link s must not let it pout in the gap before it blooms.
+      mate.blushUntil = -1; mate.blushBy = null;
+      if (game.pending.some(item => item.id === mate.id)) return;
       const kiss = bud.kiss;
       game.pending.push(game._linkBy(mate.id, game.time + SWEET.link, bud, kiss ? 'kiss' : 'sweet', kiss ? kiss.by : credit ? credit.by : null, true));
       if (!kiss) return;

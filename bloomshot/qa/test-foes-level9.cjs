@@ -100,6 +100,17 @@ test('A blush runs out at exactly 1.2 s of foe time (a pout) and the pair resets
   assert(Math.abs(blushLeft(game, b) - left) < 1e-9, 'the Lullaby holds the blush');
   touch(game, a); advance(game, .1); assert(a.bloomed && b.bloomed, 'and a kiss still lands in it');
 });
+test('A kiss or a chain in a blush\'s last moment opens both quietly: the rose waiting to follow never pouts', () => {
+  for (const how of ['kiss', 'chain']) {
+    const { game, a, b } = pair(); touch(game, a); const at = game.foeClock;
+    // .03 s left on a's blush; its sweetheart's link comes .06 s after b blooms, so the blush would run out first.
+    toClock(game, at + SWEET.window - .03); assert(blushLeft(game, a) > 0); game.drainEvents();
+    if (how === 'kiss') touch(game, b); else { game.due = { by: 'seedX', via: 'puff', from: { x: 210, y: 150 } }; game.strike(b, true); game.due = null; }
+    advance(game, .2); const kinds = foeKinds(game.drainEvents());
+    assert(a.bloomed && b.bloomed, how); assert(!kinds.includes('sweetheart:pout'), `${how}: ${kinds}`);
+    assert.equal(kinds.includes('sweetheart:kiss'), how === 'kiss');
+  }
+});
 test('Chains, powers and uncredited strikes are plain, and its sweetheart always blooms with it', () => {
   // Uncredited: the strike loop ends at once, and the mate follows.
   let { game, a, b } = pair();
