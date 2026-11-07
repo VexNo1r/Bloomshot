@@ -1700,8 +1700,10 @@
       // A family's hint (a molehill's is the mole's) is said once a run.
       const hint = game.foeHint(bud.foe);
       if (!hint || seen.has(hint)) continue;
-      seen.add(hint); $('game-hint').textContent = hint; say(hint); return;
+      // The level view hides #game-hint (styles.css keeps the bottom edge for the pod), so the hint is a toast.
+      seen.add(hint); toast(hint); return hint;
     }
+    return '';
   }
   // Small shared pieces for the effects: a ring, a few motes of dust, a quick sparkle.
   function foeRing(x, y, color, size = 10, grow = 24, life = .4) {
@@ -2483,9 +2485,9 @@
       } else if (event.type === 'wave') {
         const bossName = event.boss ? event.bossName || (game.buds.find(bud => bud.boss) || {}).name || '' : '';
         if (isDepth()) {
-          meetFoes(event.hint || '');
+          const met = meetFoes(event.hint || ''); // a foe's first-contact hint rides in the one wave announcement
           $('game-hint').textContent = event.hint || `Wave ${game.wave} of ${game.finalWave}.`;
-          say(`Wave ${game.wave} of ${game.finalWave}. ${bossName ? `${bossName}! ` : ''}${event.hint || ''} ${game.lives} ${game.lives === 1 ? 'life' : 'lives'} left.`);
+          say(`Wave ${game.wave} of ${game.finalWave}. ${bossName ? `${bossName}! ` : ''}${event.hint || ''} ${met ? `${met} ` : ''}${game.lives} ${game.lives === 1 ? 'life' : 'lives'} left.`);
         } else {
           $('game-hint').textContent = `Wave ${game.wave}! Faster flowers, ×${game.tempo.toFixed(1)} points.`;
           say(`Wave ${game.wave}. Tempo times ${game.tempo.toFixed(1)}. ${game.lives} lives left.`);

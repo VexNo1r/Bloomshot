@@ -156,6 +156,19 @@ test('A depth wave shows "Wave 3 of 10" and keeps its hint', () => {
   assert.deepEqual(plain(titles(game).map(f => [f.text, f.size])), [['Wave 3 of 10', 'small']]);
   assert.equal(app.$('game-hint').textContent, Depths.wave(2, 3).hint || 'Wave 3 of 10.');
 });
+test('A foe the wave\'s own hint does not name is taught once in the toast and in the wave announcement', () => {
+  // The level view hides #game-hint, so a first-contact hint written only there was never seen (a checkpoint start,
+  // or an old save meeting batch-2 foes in later levels), and the wave's announcement replaced it in the same tick.
+  const app = level(player(), 2), game = app.game(); app.run(1.3);
+  const roly = 'Bump a rolypoly and it bowls into the rest!';
+  assert(!Depths.wave(2, 8).hint && Depths.wave(2, 8).buds.some(b => b.foe === 'rolypoly'), 'L2 W8 has a rolypoly and no hint of its own');
+  game.started = true; game.wave = 7; game.drops = []; game._loadWave(); app.frame();
+  assert.equal(app.$('toast').textContent, roly); assert(app.$('toast').classList.contains('visible'), 'the toast shows');
+  assert(app.$('announcement').textContent.startsWith('Wave 8 of 10.') && app.$('announcement').textContent.includes(roly), app.$('announcement').textContent);
+  // Said once a run: the next wave with a rolypoly says nothing new.
+  app.$('toast').textContent = ''; game.wave = 7; game.drops = []; game._loadWave(); app.frame();
+  assert.equal(app.$('toast').textContent, ''); assert(!app.$('announcement').textContent.includes(roly));
+});
 test('A cleared wave sends at most 24 orbs, latest first, that all land within 1.4 s and pluck', () => {
   const app = level(player(), 1), game = app.game(); app.run(1.3);
   clearWave(app, 30);
