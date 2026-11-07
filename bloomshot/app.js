@@ -440,7 +440,9 @@
     $('split-btn').hidden = !isRush();
     angle = -Math.PI / 2; pointer = null; aiming = false; guiding = false; resultAt = Infinity; resultShown = false; remembered = null; pressPoint = null;
     // The best to beat is read once at the start, so the end-of-run save never moves it mid-run.
-    game.bestBar = isRush() && !isTutorial() && !preview && !isTaste() ? record()?.best || 0 : 0; game.bestState = 0;
+    game.bestBar = isRush() && !isTutorial() && !preview && !isTaste() ? record()?.best || 0 : 0;
+    // A run picked up after the phone closed the app has already had its "New best!" if its kept points are past the best.
+    game.bestState = game.resumed && game.bestBar && game.score > game.bestBar ? 2 : 0;
     displayScore = game.score || 0; hudKey = ''; countLeft = 0; countShown = ''; newFlower = null; newKeepsake = null; accumulator = 0; rushRecordBroken = false; depthNews = null; game.shieldSeen = false; game.shellSeen = false; game.geodeSeen = false; game.foesSeen = new Set();
     runId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`; runAward = 0; runBouquet = null; runGoals = null; shotTrail = []; trailTotal = 0;
     if (!preview && typeof level.id === 'number') { save.lastLevel = level.id; persist(); }

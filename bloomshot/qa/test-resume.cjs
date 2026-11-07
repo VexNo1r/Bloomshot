@@ -187,6 +187,26 @@ test('Hiding just after the guardian blooms keeps the win, and hiding just after
     'wave 2 is kept as it will start, with nothing spent on it');
   assert(game.score > 0);
 });
+test('A run picked up past its level\'s best does not celebrate "New best!" again, and one picked up below it still can', () => {
+  const cues = [], sound = { wake() {}, setEnabled() {}, play: name => cues.push(name) };
+  // Level 3's best is 3000; the run passed it (and heard "New best!") before the phone closed the app.
+  let app = boot(player({ run: kept({ level: 3, wave: 3, lives: 3, score: 7460 }) }), { sound });
+  app.click('resume-btn'); app.frame(); countDone(app); app.run(5);
+  let game = app.game();
+  assert.equal(game.score >= 7460 && game.resumed, true);
+  assert.equal(cues.filter(n => n === 'newBest').length, 0, 'no second "New best!" cue');
+  assert(!game.floaters.some(f => f.best), 'and no ribbon');
+  assert(!app.$('announcement').textContent.includes('New best'), app.$('announcement').textContent);
+  assert.equal(app.$('best-value').textContent, '· beaten!', 'the caption still says the best is beaten');
+  assert(app.$('score-value').classList.contains('record'), 'and the score stays gold');
+  // Picked up below the best, passing it is still news.
+  cues.length = 0;
+  app = boot(player({ run: kept({ level: 3, wave: 3, lives: 3, score: 2000 }) }), { sound });
+  app.click('resume-btn'); app.frame(); countDone(app); app.run(3);
+  game = app.game(); assert.equal(cues.filter(n => n === 'newBest').length, 0);
+  game.score = 3500; app.run(4);
+  assert.equal(cues.filter(n => n === 'newBest').length, 1, 'passing the best plays "New best!" once');
+});
 test('The checkpoint is let go when the run is won or lost, on Restart and when another run starts, and kept when leaving through Levels', () => {
   const started = app => { const game = playLevel(app, 3); game.started = true; nextWave(app); assert.equal(app.saved().run?.wave, 2); return game; };
   // Levels keeps it, and the map offers this run as before.
