@@ -527,6 +527,8 @@
   // notes into a high chime. A star out of turn answers with a small glassy "not yet" over a dull knock.
   const WISH_BELLS = [7, 9, 11, 14];
   FOE_CUES['wishstar:ring'] = (data, pan) => {
+    // The fourth bell of an unbroken chord is the wish's own strum (wishstar:wish, the same tick): one C6, not two.
+    if (num(data.pip) === 4 && num(data.rings) === 4) return;
     const n = WISH_BELLS[clamp(Math.round(num(data.pip, 1)) - 1, 0, 3)];
     foeRows([['bell', step(n), 0, .3, .06], ['chime', step(n + 4), .03, .25, .025]], pan);
   };
@@ -662,6 +664,8 @@
   for (const move of ['waltz', 'rocket', 'gem', 'lasso']) BOSS_ACTS[`core:${move}:answer`] = STAR_CATCH;
   BOSS_ACTS['core:dome:start'] = DOME_BELLS.map((n, k) => ['bell', step(n), .08 * k, k === 4 ? .3 : .15, .05]);
   BOSS_ACTS['core:dome:ring'] = (data, pan) => {
+    // The fifth ring of an unbroken dome is the Shooting star's own run of five bells (core:dome:shoot, the same tick).
+    if (num(data.rings) === 5) return;
     const n = DOME_BELLS[clamp(Math.round(num(data.n, 1)) - 1, 0, 4)];
     foeRows([['bell', step(n), 0, .3, .06], ['chime', step(n + 4), .03, .25, .025]], pan);
   };

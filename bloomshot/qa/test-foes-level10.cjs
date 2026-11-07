@@ -234,6 +234,33 @@ test('The Wishing Stars draw cheaply in every state: finite, balanced, and no gr
   assert.deepEqual([totals.gradients, totals.shadows, totals.surfaces], [warm.gradients, warm.shadows, warm.surfaces]);
 });
 
+// Sound: sound.js's own cue rows for the events a wish sends on one tick (its voices captured instead of played).
+function cueRows() {
+  const source = fs.readFileSync(path.join(__dirname, '..', 'sound.js'), 'utf8')
+    .replace('  function foeRows(rows, pan) {', '  function foeRows(rows, pan) { if (globalThis.__rows) { globalThis.__rows.push(...rows); return; }')
+    .replace('  function play(type, data = {}) {', '  globalThis.__cues = { FOE_CUES, BOSS_ACTS };\n  function play(type, data = {}) {');
+  const scope = vm.createContext({ console, Math, Date }); vm.runInContext(source, scope, { filename: 'sound.js' });
+  // Each row tagged with the cue (the event) that played it.
+  return events => {
+    const rows = [];
+    for (const [k, e] of events.entries()) { scope.__rows = []; const cue = scope.__cues.FOE_CUES[e.kind]; if (typeof cue === 'function') cue(e, 0); else if (cue) scope.__rows.push(...cue); rows.push(...scope.__rows.map(r => ({ cue: k, row: r }))); }
+    scope.__rows = null; return rows;
+  };
+}
+test('The wish strums its chord once: the fourth bell is not struck twice on the tick that rings it and makes the wish', () => {
+  const rowsOf = cueRows(), f = figure();
+  const tones = rows => rows.filter(({ row }) => row[0] !== 'crunch').map(({ cue, row }) => ({ cue, pitch: Math.round(row[1] * 100), at: row[2] }));
+  for (const [k, b] of f.stars.entries()) {
+    touch(f.game, b); const events = f.game.drainEvents().filter(e => e.type === 'foe');
+    const rows = rowsOf(events), notes = tones(rows);
+    assert(notes.some(n => n.at === 0), `star ${k + 1}: a note on the hit`);
+    // Two cues on one tick never strike the same note within .2 s of each other (a flam).
+    for (const [i, a] of notes.entries()) for (const z of notes.slice(i + 1)) assert(!(a.cue !== z.cue && a.pitch === z.pitch && Math.abs(a.at - z.at) < .2), `star ${k + 1}: no note doubled within .2 s`);
+    if (k < 3) assert.equal(notes.filter(n => n.at === 0).length, 1, 'a lone bell for stars 1-3');
+    else assert(events.some(e => e.kind === 'wishstar:wish'), 'the fourth makes the wish');
+  }
+});
+
 const out = { suite: 'foes-level10', passed: results.every(r => r.passed), results };
 fs.writeFileSync(path.join(__dirname, 'foes-level10-results.json'), JSON.stringify(out, null, 2) + '\n');
 console.log(JSON.stringify(out, null, 2));

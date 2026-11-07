@@ -1928,7 +1928,8 @@
   const WISH_GOLD = ['#ffd65a', '#fff4aa', '#ffffff'];
   FOE_FX.wishstar = {
     ring(e) {
-      foeRing(e.x, e.y, '#ffd65a', 8, 18 + 3 * (e.pip || 1), .4); haptic('tick');
+      // The fourth bell of an unbroken chord is the wish (same tick): its surge is the one buzz.
+      foeRing(e.x, e.y, '#ffd65a', 8, 18 + 3 * (e.pip || 1), .4); if (!(e.pip === 4 && e.rings === 4)) haptic('tick');
       if (e.fromX != null && save.settings.motion) for (let k = 1; k <= 3; k++) foeGlow(e.fromX + (e.x - e.fromX) * k / 4, e.fromY + (e.y - e.fromY) * k / 4, 1, WISH_GOLD, { spread: 8, fall: 4, life: .5 });
     },
     wish(e) {

@@ -45,6 +45,10 @@
     {
       "name": "The Wishing Stars draw cheaply in every state: finite, balanced, and no gradient, shadow or surface once warm",
       "passed": true
+    },
+    {
+      "name": "The wish strums its chord once: the fourth bell is not struck twice on the tick that rings it and makes the wish",
+      "passed": true
     }
   ]
 }

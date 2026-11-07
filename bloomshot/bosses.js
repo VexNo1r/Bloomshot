@@ -2019,7 +2019,7 @@
         const dome = s.dome, credited = !game.scripted && (game.due ? game.due.by != null : Boolean(game.striker)), power = Foes.isPower(game, game.striker) || Boolean(game.due && ['sun', 'boss'].includes(game.due.via));
         if (bud.pip === dome.next && credited && !power) {
           dome.rings++;
-          game.event('bossAbility', { kind: s.kind, move: 'dome', act: 'ring', x: bud.x, y: bud.y, n: bud.pip });
+          game.event('bossAbility', { kind: s.kind, move: 'dome', act: 'ring', x: bud.x, y: bud.y, n: bud.pip, rings: dome.rings });
         }
         let next = 0; for (const p of starSats(s)) if (p.pip && !p.bloomed && p !== bud && (!next || p.pip < next)) next = p.pip;
         dome.next = next;

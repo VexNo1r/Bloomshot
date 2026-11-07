@@ -1627,6 +1627,31 @@ test('Crystal Heart replays identically at 30, 60 and 144 FPS, and a strike loop
     const flat = starArt(false), faces = [0, 1, 2].map(tier => { const h = arena(10); h.bossState.tier = tier; flat.tally.face = []; flat.frame(h, true); return JSON.stringify(flat.tally.face); });
     assert(faces.every(f => f.length > 100)); assert.equal(new Set(faces).size, 3, 'Wishful, Dazzling and Radiant');
   });
+  test("The Starseed's dome rings each bell once: the fifth star's bell is the Shooting star's own run, not struck twice", () => {
+    // sound.js's own cue rows for the events of one tick (its voices captured instead of played).
+    const vm = require('node:vm'), source = fs.readFileSync(path.join(__dirname, '..', 'sound.js'), 'utf8')
+      .replace('  function foeRows(rows, pan) {', '  function foeRows(rows, pan) { if (globalThis.__rows) { globalThis.__rows.push(...rows); return; }')
+      .replace('  function play(type, data = {}) {', '  globalThis.__cues = { FOE_CUES, BOSS_ACTS };\n  function play(type, data = {}) {');
+    const scope = vm.createContext({ console, Math, Date }); vm.runInContext(source, scope, { filename: 'sound.js' });
+    const tones = events => {
+      scope.__rows = [];
+      const notes = [];
+      for (const [cueAt, e] of events.entries()) {
+        scope.__rows = []; const cue = scope.__cues.BOSS_ACTS[`core:${e.move}:${e.act}`]; if (typeof cue === 'function') cue(e, 0); else if (cue) scope.__rows.push(...cue);
+        for (const r of scope.__rows) if (r[0] !== 'crunch') notes.push({ cue: cueAt, pitch: Math.round(r[1] * 100), at: r[2] });
+      }
+      scope.__rows = null; return notes;
+    };
+    const { g, s } = star(1, 0), order = sats(s).sort((p, q) => p.pip - q.pip);
+    for (const p of order) {
+      const n = p.pip; hit(g, p); const events = g.drainEvents().filter(e => e.type === 'bossAbility'), notes = tones(events);
+      assert(notes.some(n => n.at === 0), `star ${n}: a note on the hit`);
+      // Two cues on one tick never strike the same note within .2 s of each other (a flam).
+      for (const [i, a] of notes.entries()) for (const z of notes.slice(i + 1)) assert(!(a.cue !== z.cue && a.pitch === z.pitch && Math.abs(a.at - z.at) < .2), `star ${n}: no note doubled within .2 s`);
+      if (n === 5) assert(events.some(e => e.act === 'shoot'), 'the fifth shoots');
+      advance(g, .3); g.drainEvents();
+    }
+  });
   test("The Starseed's tells mark where each trick will be: the gold gem's landing, the rocket's 58 px orbit round her, the swirl rider's first spot", () => {
     // Her `over` hook drawn on a recording canvas: each sprite stamped (its key and where), and each dot of a dotted line.
     const vm = require('node:vm'), marks = []; let key = null, live = false;
