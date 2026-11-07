@@ -1,5 +1,5 @@
 {
-  "passed": 99,
+  "passed": 150,
   "failed": 0,
   "results": [
     {
@@ -308,6 +308,210 @@
     },
     {
       "name": "The good bot beats Lantern Lily",
+      "passed": true
+    },
+    {
+      "name": "Ammonite Queen: 32 rings, moods at 22 and 11, Regal opens on her two locks, and her own words for each move",
+      "passed": true
+    },
+    {
+      "name": "Ammonite Queen: Pearl Volley lobs three pearls to shown marks on her kit clock, forecast exactly; uncaught they land armoured in turning shells",
+      "passed": true
+    },
+    {
+      "name": "Ammonite Queen: a seed that meets a pearl in the air is a Pearl catch (bloom, +1 sun, 250 x tempo); a chain or power just blooms it",
+      "passed": true
+    },
+    {
+      "name": "Ammonite Queen: Stony opens on Petrify: three buds (or bare-bed slabs) turn to stone for 5 s on the kit clock, faced to bank toward her",
+      "passed": true
+    },
+    {
+      "name": "Ammonite Queen: a Fossil bank (a seed that banked off a slab within 1.2 s and gets through her gaps) lands for three",
+      "passed": true
+    },
+    {
+      "name": "Ammonite Queen: Brooding spins her lock ring at 1.4 rad/s and opens on an amber egg that hatches an Amberkeeper where it was shown",
+      "passed": true
+    },
+    {
+      "name": "Ammonite Queen: each move lifts her up to 36 px over .9 s (never above where she started), forecast exactly",
+      "passed": true
+    },
+    {
+      "name": "Ammonite Queen: a Lullaby holds her pearls in the air, her slabs and her lift; it all carries on after",
+      "passed": true
+    },
+    {
+      "name": "Ammonite Queen: the same fight at 30, 60 and 144 FPS",
+      "passed": true
+    },
+    {
+      "name": "Ammonite Queen: only her jet waits for a clicked mouth; her other moves start, and a click cancels only a jet warning",
+      "passed": true
+    },
+    {
+      "name": "Ammonite Queen: defeat clears her slabs, wakes their buds and blooms her keeper; the good bot wins her fight",
+      "passed": true
+    },
+    {
+      "name": "Ammonite Queen: her pearls and her egg never land on her, however low she has sunk",
+      "passed": true
+    },
+    {
+      "name": "Ammonite Queen: her moods, pearls, slabs, egg and lift draw balanced, finite, with no gradient or shadow and no new surface once warm",
+      "passed": true
+    },
+    {
+      "name": "Level 6 sounds and buzzes each beat once: no two cues of one tick strike the same note together, one buzz an action",
+      "passed": true
+    },
+    {
+      "name": "Ember Rose: 100 health with moods at 67 and 34, three moods, her familiar dive first, and every word fits",
+      "passed": true
+    },
+    {
+      "name": "Ember Rose: a seed into her flame spits a cinder you can catch for a sun; a missed one cools to a coal that rolls off tunnel mouths",
+      "passed": true
+    },
+    {
+      "name": "Ember Rose: her fire rings hide her and land her at the far ring; a ring shot deals 3, and at Blazing a level tunnel is too hot",
+      "passed": true
+    },
+    {
+      "name": "Ember Rose: three castanet clicks, then the stomp shoves flowers 16 px (never past line - 70, never up, never into each other) and Olé opens her",
+      "passed": true
+    },
+    {
+      "name": "Ember Rose: an Olé hit that brings on her next mood keeps her standing still until Olé ends",
+      "passed": true
+    },
+    {
+      "name": "Ember Rose: the wave hint keeps up with her moods (tunnels hit triple only while Flickering)",
+      "passed": true
+    },
+    {
+      "name": "Ember Rose: a Lullaby holds Olé, a falling cinder and her dive",
+      "passed": true
+    },
+    {
+      "name": "Ember Rose: her barrage sows three whizzbangs in one swaying group, and one lit under her deals 3",
+      "passed": true
+    },
+    {
+      "name": "Ember Rose: the same fight at 30, 60 and 144 FPS",
+      "passed": true
+    },
+    {
+      "name": "Ember Rose: beaten mid-ring, mid-Olé or right after a barrage, she leaves no ring, coal, cinder or rocket behind",
+      "passed": true
+    },
+    {
+      "name": "Ember Rose's art draws every move, Animations on and off, with no gradient or blur per frame; her three moods are three faces",
+      "passed": true
+    },
+    {
+      "name": "Geode King: 104 health (no more than the finale), Proud, Grumbly and Magnetic, opening on his old toss; words fit",
+      "passed": true
+    },
+    {
+      "name": "Geode King: the Pyrite Toss lobs three pieces to the top on a shown arc; one is fool's gold, the rest real gems",
+      "passed": true
+    },
+    {
+      "name": "Geode King: a seed's own touch on fool's gold glues his newest broken plate back on; powers, chains and strikes never do",
+      "passed": true
+    },
+    {
+      "name": "Geode King: the Gem Lob arcs a gem at a shoulder; a seed meeting it is a catch, a landed one is a burr until knocked off",
+      "passed": true
+    },
+    {
+      "name": "Geode King: the Magnet Heart plants him in a field that curls seeds through his gaps for a Magnet shot of 3; his plates turn iron",
+      "passed": true
+    },
+    {
+      "name": "Geode King: with a whole crust there is no gap, so no Magnet Heart; fool's gold is never pulled in",
+      "passed": true
+    },
+    {
+      "name": "Geode King: a Lullaby holds the magnet's needle and its end, the lobbed gem and the sinking fool's gold",
+      "passed": true
+    },
+    {
+      "name": "Geode King: every move heaves him up (at most 24 px, never above where he started)",
+      "passed": true
+    },
+    {
+      "name": "Geode King: a long slow fight never sinks him onto the shoulders or the line (past 150 px a heave lifts him back)",
+      "passed": true
+    },
+    {
+      "name": "Geode King: Magnetic plays the same at 30, 60 and 144 FPS",
+      "passed": true
+    },
+    {
+      "name": "Geode King: beaten mid-magnet and mid-lob, he leaves no field, lob, fool's gold, burr or planted feet behind",
+      "passed": true
+    },
+    {
+      "name": "Geode King: his moods, flights, fool's gold, lobbed gems, burrs, magnet and tells draw balanced, finite and with no per-frame gradients",
+      "passed": true
+    },
+    {
+      "name": "The good bot beats the Geode King",
+      "passed": true
+    },
+    {
+      "name": "Thornmother has 100 health, turns Smitten at 67 and Wild at 34, and every word fits a phone",
+      "passed": true
+    },
+    {
+      "name": "Prickly opens on her old patch at 2.2 s; Smitten opens on Sweetheart Vines and Wild on the Vine Lasso",
+      "passed": true
+    },
+    {
+      "name": "Bramble Reel: the tell marks the nearest plain flowers; they slide 1.1 s onto her skirt, each heals +1 at 4 and 8 s, then drop",
+      "passed": true
+    },
+    {
+      "name": "With nothing to reel she sprouts three 2-hit rosebuds already docked; low on the board she plants a patch instead",
+      "passed": true
+    },
+    {
+      "name": "Sweetheart Vines: a pair sprouts at the landing spot and heals her +1 every 4 s until it blooms",
+      "passed": true
+    },
+    {
+      "name": "A kiss makes her Lovestruck for 2.5 s: she floats up 160 px, her skirt opens and every seed lands double; a plain cut does neither",
+      "passed": true
+    },
+    {
+      "name": "Her float eases up over 0.5 s of kit time (exact for the bot, held by a Lullaby), and a Lovestruck outlasts her next patch move",
+      "passed": true
+    },
+    {
+      "name": "Vine Lasso: five knots crawl from her skirt at 70 px/s; plain knots turn seeds away and the pink bow unties it for +1 sun",
+      "passed": true
+    },
+    {
+      "name": "If the lasso arrives it wraps that side in a two-piece thorn arch below y 430 for 4 s of kit time; a power unties a plain knot",
+      "passed": true
+    },
+    {
+      "name": "The bot goes for the bow, the docked flowers, the sweethearts and her open skirt; it never values a plain knot",
+      "passed": true
+    },
+    {
+      "name": "Her defeat ends her vines: the gold cascade blooms a live pair with no cut or kiss of hers over the finale",
+      "passed": true
+    },
+    {
+      "name": "Thornmother plays the same at 30, 60 and 144 FPS",
+      "passed": true
+    },
+    {
+      "name": "Thornmother: her moods, reel, sweetheart vine, Lovestruck float, lasso and arch draw balanced, finite and with no per-frame gradients",
       "passed": true
     },
     {

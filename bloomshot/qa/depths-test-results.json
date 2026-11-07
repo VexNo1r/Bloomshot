@@ -8,10 +8,10 @@
       62,
       50,
       100,
-      18,
-      96,
-      64,
-      52,
+      32,
+      100,
+      104,
+      100,
       200
     ],
     "budsPerLevel": [
@@ -20,11 +20,11 @@
       415,
       483,
       399,
-      353,
-      358,
-      403,
-      364,
-      437
+      366,
+      378,
+      420,
+      388,
+      444
     ],
     "fallSpeed": [
       [
@@ -60,12 +60,12 @@
         29.7
       ],
       [
-        29.4,
-        37.8
+        28.4,
+        36.5
       ],
       [
-        23.7,
-        29
+        25.3,
+        31.1
       ]
     ],
     "averagePlayerLivesLost": [
@@ -75,10 +75,10 @@
       9,
       0,
       4,
-      4,
+      2,
+      10,
       9,
-      4,
-      19
+      5
     ],
     "averagePlayerSuperBlooms": [
       6,
@@ -86,11 +86,11 @@
       8,
       7.7,
       7.3,
-      5.7,
-      7,
+      6.3,
       7.3,
-      7,
-      4.3
+      8,
+      6.7,
+      11
     ],
     "averagePlayerTricks": [
       14.3,
@@ -98,11 +98,11 @@
       18,
       15.7,
       18.7,
-      14.3,
-      33.7,
-      23,
-      19.7,
-      15
+      18.7,
+      31.7,
+      22,
+      23.3,
+      25.7
     ],
     "difficultySampleScope": "Three average seeds per level are a smoke observation, not a reliable individual-level ranking. Validate the final curve with the frozen 128-average/32-heldout/48-boss/16-good corpus from qa/measure-depths.cjs and document it in qa/MEASUREMENTS.md.",
     "wildMasher": [
@@ -111,11 +111,11 @@
       "L3 lost at wave 8",
       "L4 lost at wave 3",
       "L5 lost at wave 3",
-      "L6 lost at wave 4",
+      "L6 lost at wave 5",
       "L7 lost at wave 2",
       "L8 lost at wave 3",
-      "L9 lost at wave 2",
-      "L10 lost at wave 4"
+      "L9 lost at wave 1",
+      "L10 lost at wave 2"
     ],
     "lazyMasher": [
       "L1 won with 2",
@@ -124,10 +124,10 @@
       "L4 lost at wave 7",
       "L5 won with 2",
       "L6 lost at wave 4",
-      "L7 lost at wave 4",
-      "L8 lost at wave 5",
-      "L9 lost at wave 3",
-      "L10 lost at wave 7"
+      "L7 lost at wave 6",
+      "L8 lost at wave 7",
+      "L9 lost at wave 4",
+      "L10 lost at wave 2"
     ],
     "masherShotsPerSecond": [
       0.76,
@@ -135,21 +135,21 @@
       1.1,
       1.36,
       0.71,
-      1.01,
+      1.15,
       1.14,
-      1.56,
-      0.98,
-      1.18,
+      1.68,
+      0.92,
+      1.32,
       1.11,
       0.62,
       1.21,
       1.37,
       1.24,
-      0.93,
-      1.05,
-      1.56,
-      1.15,
-      1.66
+      0.88,
+      1.2,
+      1.59,
+      1.24,
+      1.1
     ],
     "goodPlayerShotsPerSecond": [
       1.47,
@@ -162,18 +162,18 @@
       1.31,
       1.45,
       1.28,
-      1.42,
-      1.45,
-      1.41,
+      1.31,
+      1.48,
+      1.21,
+      1.25,
       1.43,
-      1.56,
-      1.62,
-      1.52,
-      1.46,
       1.36,
-      1.46
+      1.51,
+      1.47,
+      1.56,
+      1.42
     ],
-    "runtimeSeconds": 37.4
+    "runtimeSeconds": 38.9
   },
   "results": [
     {

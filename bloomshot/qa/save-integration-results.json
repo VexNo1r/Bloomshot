@@ -1,5 +1,5 @@
 {
-  "passed": 100,
+  "passed": 101,
   "failed": 0,
   "methodology": "Executes the complete current app.js in an isolated Node VM using real garden/level/engine modules, fake localStorage, and DOM/canvas adapters. Completion fixtures exercise actual engine completion events and app handlers. No real browser or user saves are read or changed.",
   "limitations": [
@@ -353,6 +353,10 @@
     },
     {
       "name": "Taps on an empty pod tick the phone at most once a quarter second, and only with Vibration on",
+      "passed": true
+    },
+    {
+      "name": "A weaker buzz never cuts a stronger one still playing: a warning is felt whole, not cut to the tick that follows it",
       "passed": true
     },
     {

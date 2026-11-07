@@ -1,5 +1,5 @@
 {
-  "passed": 17,
+  "passed": 18,
   "failed": 0,
   "results": [
     {
@@ -51,7 +51,7 @@
       "passed": true
     },
     {
-      "name": "The no-dive rule: low on the board (y + 10 > 360) or with no other open hill, he stays up",
+      "name": "The no-dive rule: low on the board (his hill's y + 6 > 360) or with no other open hill, he stays up",
       "passed": true
     },
     {
@@ -64,6 +64,10 @@
     },
     {
       "name": "The bot sees a hidden mole once his rumble is public: hidden until rumbleUntil, his hill a ghost from then; hills are -1, a mole +30",
+      "passed": true
+    },
+    {
+      "name": "The forecast knows the no-dive rule: a mole who will be low by his duck is forecast up, and his hill a ghost, past downAt",
       "passed": true
     },
     {

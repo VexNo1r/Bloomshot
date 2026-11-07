@@ -1,5 +1,5 @@
 {
-  "passed": 12,
+  "passed": 13,
   "failed": 0,
   "results": [
     {
@@ -36,6 +36,10 @@
     },
     {
       "name": "The bot shoots only the moss, and more for the last tuft when gems are near",
+      "passed": true
+    },
+    {
+      "name": "No Lodestone placement is a life trap: a careful player clears each Lodestone wave and never loses a life to the stone",
       "passed": true
     },
     {
