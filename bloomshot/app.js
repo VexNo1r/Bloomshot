@@ -364,7 +364,12 @@
     if (!sayLines) return sayTogether(resumeRun, run);
     if (!runReady(run)) { BloomSound.play('tap'); toast('Checking your levels. Try again in a moment.'); return; }
     if (run.spent) { for (const [id, n] of Object.entries(run.spent)) save.powers = Powers.add(save.powers, id, n); delete run.spent; }
-    startDepth(run.level, false, run.wave, run); startCount(`${whereLine()} `);
+    startDepth(run.level, false, run.wave, run);
+    // Its wave began before the phone closed the app, so the wave's own line (the guardian's name, the hint its ribbon
+    // shows once the count ends) is said with where it is, and a foe whose first tip is that hint is not told it again.
+    const boss = game.bossWave ? (game.buds.find(bud => bud.boss) || {}).name : '';
+    if (game.waveHint) game.foesSeen.add(game.waveHint);
+    startCount(`${boardLine()}. ${boss ? `${boss}! ` : ''}${game.waveHint ? `${game.waveHint} ` : ''}${livesLeft()} `);
   }
   // The level the map points at: the first open one without stars, otherwise the deepest open one.
   function nextDepth() { const open = Depths.levels.filter(level => depthOpen(level.id)); return (open.find(level => !save.depths[level.id]?.stars) || open.at(-1) || Depths.levels[0]).id; }
@@ -3458,7 +3463,7 @@
   const pausable = () => route === 'game' && isRush() && !isTutorial() && !preview && !game.over && !resultShown && !$('result-dialog').open;
   const boardLine = () => isDepth() ? `Level ${game.plan.id} · wave ${game.wave} of ${game.finalWave}` : `Meadow Rush · wave ${game.wave} · ${fmt(game.score)} points`;
   // A run picked up from the map says where it is, the way each wave start does, before the count.
-  const whereLine = () => `${boardLine()}. ${game.lives} ${game.lives === 1 ? 'life' : 'lives'} left.`;
+  const livesLeft = () => `${game.lives} ${game.lives === 1 ? 'life' : 'lives'} left.`, whereLine = () => `${boardLine()}. ${livesLeft()}`;
   function pauseGame(auto = false) {
     // Coming back from another app with nothing yet moving (no seed fired) needs no card.
     if (!pausable() || (auto && !game.started)) return false;

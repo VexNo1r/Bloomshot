@@ -589,6 +589,23 @@ test('The kept level\'s own card says Resume, and picking a run up says where it
   app.click('resume-btn'); app.frame();
   assert.equal(app.$('announcement').textContent, `Level 3 · wave 2 of 10. ${game.lives} lives left. Get ready. 3, 2, 1.`);
 });
+test('A run picked up after a relaunch says its wave\'s hint (and the guardian\'s name) with where it is, and a foe\'s same tip is not told again', () => {
+  const hint = (level, wave) => Depths.wave(level, wave).hint;
+  let app = boot(player({ run: kept({ level: 1, wave: 3, lives: 1 }) }));
+  app.click('resume-btn'); app.frame();
+  assert.equal(app.$('announcement').textContent, `Level 1 · wave 3 of 10. ${hint(1, 3)} 1 life left. Get ready. 3, 2, 1.`);
+  app = boot(player({ run: kept({ level: 3, wave: 10 }) }, 2));
+  app.click('resume-btn'); app.frame();
+  assert.equal(app.$('announcement').textContent, `Level 3 · wave 10 of 10. Mother Morel! ${hint(3, 10)} 2 lives left. Get ready. 3, 2, 1.`);
+  // Level 3 wave 6's hint is the inkcap's own first tip: said with the pickup, it is not shown or said again after the count.
+  app = boot(player({ run: kept({ level: 3, wave: 6 }) }));
+  app.click('resume-btn'); app.frame();
+  assert(app.$('announcement').textContent.includes(hint(3, 6)));
+  const toasts = [];
+  for (let i = 0; i < 300; i++) { app.frame(); if (app.$('toast').textContent && toasts.at(-1) !== app.$('toast').textContent) toasts.push(app.$('toast').textContent); }
+  assert(!toasts.includes(hint(3, 6)), `the inkcap's tip is not repeated: ${JSON.stringify(toasts)}`);
+  assert(toasts.some(text => /fibcap/i.test(text)), `another foe's first tip still shows: ${JSON.stringify(toasts)}`);
+});
 
 (async () => {
   for (const { name, fn } of tests) {
