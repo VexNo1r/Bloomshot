@@ -38,6 +38,11 @@ module.exports = [
   ['foe', { kind: 'glowworm:ripple', x: 200, n: 0 }], ['foe', { kind: 'glowworm:split', x: 140 }], ['foe', { kind: 'glowworm:spawn', x: 300 }],
 
   // ── Amberkeeper (Level 6, `amberkeeper`) ──
+  ['foe', { kind: 'amberkeeper:tell', x: 210, n: 0 }], ['foe', { kind: 'amberkeeper:seal', x: 180, n: 2 }], ['foe', { kind: 'amberkeeper:flinch', x: 240 }],
+  ['foe', { kind: 'amberkeeper:break', x: 150, freed: 0 }], ['foe', { kind: 'amberkeeper:break', x: 210, freed: 2 }], ['foe', { kind: 'amberkeeper:break', x: 270, freed: 9 }],
+  ['foe', { kind: 'amberkeeper:break', x: 210 }], ['foe', { kind: 'amberkeeper:hatch', x: 210 }], ['foe', { kind: 'amber:clink', x: 120 }],
+  ['foe', { kind: 'amber:crack', x: 300 }], ['foe', { kind: 'amber:shatter', x: 180 }], ['foe', { kind: 'amber:melt', x: 90 }], ['foe', { kind: 'amber:pop', x: 330 }],
+  ['foe', { kind: 'amber:fizzle', x: 60 }],
 
   // ── Whizzbang (Level 7, `whizzbang`) ──
 
@@ -94,6 +99,13 @@ module.exports = [
   ['bossStage', { kind: 'lotus', stage: 1, mood: 'Glowing', x: 210 }],
 
   // ── Ammonite Queen (Level 6, `fossil`) ──
+  ['bossAbility', { kind: 'fossil', move: 'pearls', act: 'start', x: 210 }], ['bossAbility', { kind: 'fossil', move: 'pearls', act: 'land', x: 160 }],
+  ['bossAbility', { kind: 'fossil', move: 'pearls', act: 'catch', x: 260, bonus: 475 }], ['bossAbility', { kind: 'fossil', move: 'petrify', act: 'start', x: 210 }],
+  ['bossAbility', { kind: 'fossil', move: 'petrify', act: 'stone', x: 210 }], ['bossAbility', { kind: 'fossil', move: 'petrify', act: 'clack', x: 96 }],
+  ['bossAbility', { kind: 'fossil', move: 'petrify', act: 'bank', x: 210 }], ['bossAbility', { kind: 'fossil', move: 'petrify', act: 'thaw', x: 324, n: 3 }],
+  ['bossAbility', { kind: 'fossil', move: 'hatch', act: 'start', x: 210 }],
+  ['bossAbility', { kind: 'fossil', move: 'fossil', act: 'start', x: 292 }], ['bossCritical', { kind: 'fossil', damage: 3, via: 'fossil', x: 210 }],
+  ['bossStage', { kind: 'fossil', stage: 1, mood: 'Stony', x: 210 }], ['bossStage', { kind: 'fossil', stage: 2, mood: 'Brooding', x: 210 }],
 
   // ── Ember Rose (Level 7, `ember`) ──
 

@@ -514,6 +514,25 @@
   FOE_CUES['glowworm:spawn'] = [['marimba', pent(5), 0, .08, .05], ['marimba', pent(7), .08, .1, .05]];
 
   // ── Amberkeeper (Level 6, `amberkeeper`) ──
+  // Honey and glass. His tell stretches up like a thread of honey (two harp notes and a drop gliding up); the seal is a
+  // thick glug under a glassy tink as the amber sets; a seed clinks off a bead; a flinch is a woody "eep!" falling a
+  // step. Breaking him cracks his shell and then rings one rising glass note per bud set free (up to three) and a chime;
+  // a bead cracked by a power is a crisp crack over falling glass; beads that shatter together share one quieter crack
+  // (the foe throttle merges them); a bead that melts drips once. An egg Brooding lays hatches with a crack and a "hi!".
+  FOE_CUES['amberkeeper:tell'] = [['harp', step(4), 0, .12, .045], ['harp', step(7), .1, .12, .045], ['drop', step(9), .2, .3, .035]];
+  FOE_CUES['amberkeeper:seal'] = [['drop', step(-3), 0, .16, .06], ['crunch', 'thock', 0, .6], ['glass', step(11), .08, .18, .045], ['chime', step(14), .14, .3, .03, 0]];
+  FOE_CUES['amberkeeper:flinch'] = [['wood', step(5), 0, .05, .05], ['wood', step(4), .06, .06, .045], ['crunch', 'click', 0, .5]];
+  FOE_CUES['amberkeeper:break'] = (data, pan) => {
+    const freed = Math.min(Math.max(0, Math.floor(num(data.freed, 0))), 3);
+    crunch('crack', 0, pan, .8); note(step(2), 0, .1, .06, pan, 'wood', 1);
+    for (let k = 0; k < freed; k++) note(pent(8 + 2 * k), .08 + .07 * k, .16, .055, pan, 'glass', 1);
+    note(step(freed ? 14 : 9), .1 + .07 * freed, .3, .04, pan, 'chime', 0);
+  };
+  FOE_CUES['amberkeeper:hatch'] = [['wood', step(4), 0, .06, .05], ['crunch', 'crack', 0, .7], ['marimba', pent(7), .08, .08, .05], ['marimba', pent(9), .15, .1, .05]];
+  FOE_CUES['amber:clink'] = [['glass', step(9), 0, .06, .045], ['crunch', 'click', 0, .45]];
+  FOE_CUES['amber:crack'] = [['glass', step(11), 0, .08, .05], ['crunch', 'crack', 0, .7], ['glass', step(7), .05, .12, .045], ['chime', step(16), .1, .25, .03, 0]];
+  FOE_CUES['amber:shatter'] = [['glass', step(9), 0, .08, .04], ['crunch', 'crack', 0, .5], ['chime', step(14), .06, .22, .025, 0]];
+  FOE_CUES['amber:melt'] = [['drop', step(4), 0, .14, .035, 0]];
 
   // ── Whizzbang (Level 7, `whizzbang`) ──
 
@@ -617,6 +636,20 @@
 
 
   // ── Ammonite Queen (Level 6, `fossil`) ──
+  // Pearls and stone. Her volley strings three glass notes up the C chord as she blows the pearls out; they land as
+  // three woody ploks walking back down; a caught pearl rings a bell under a bright pentatonic run and a high chime.
+  // Petrify grinds in low (a thump and a creaking knock), sets with a timpani thunk, clacks softly when a seed banks off
+  // a slab, and a Fossil bank adds a stony clack ringing up into a bell over the critical's own C-E; the slabs thaw on
+  // three notes climbing. Brooding coos two bells as she lays the egg (the hatch itself is the keeper's own cue).
+  BOSS_ACTS['fossil:pearls:start'] = [['glass', step(7), 0, .08, .045], ['glass', step(9), .1, .08, .045], ['glass', step(11), .2, .1, .045], ['crunch', 'click', 0, .3]];
+  BOSS_ACTS['fossil:pearls:land'] = [['wood', step(4), 0, .06, .05], ['wood', step(2), .07, .06, .045], ['wood', step(0), .14, .08, .045], ['crunch', 'thock', 0, .6]];
+  BOSS_ACTS['fossil:pearls:catch'] = [['bell', step(9), 0, .2, .07], ['glass', pent(10), .05, .1, .055], ['glass', pent(11), .1, .1, .055], ['glass', pent(12), .15, .1, .055], ['chime', step(16), .22, .35, .035]];
+  BOSS_ACTS['fossil:petrify:start'] = [['thump', step(-7), 0, .12, .05], ['wood', step(-5), .12, .1, .045], ['crunch', 'crack', .12, .5]];
+  BOSS_ACTS['fossil:petrify:stone'] = [['timp', step(-7), 0, .25, .06], ['crunch', 'thock', 0, .9], ['wood', step(-3), .05, .08, .045]];
+  BOSS_ACTS['fossil:petrify:clack'] = [['wood', step(5), 0, .05, .04, 0], ['crunch', 'click', 0, .4]];
+  BOSS_ACTS['fossil:petrify:bank'] = [['wood', step(7), 0, .06, .05], ['crunch', 'crack', 0, .6], ['bell', step(11), .06, .2, .045], ['chime', step(14), .12, .3, .03]];
+  BOSS_ACTS['fossil:petrify:thaw'] = [['wood', step(0), 0, .06, .035], ['marimba', step(4), .06, .08, .04], ['marimba', step(7), .12, .12, .04]];
+  BOSS_ACTS['fossil:hatch:start'] = [['bell', step(4), 0, .2, .045], ['bell', step(2), .18, .25, .04]];
 
   // ── Ember Rose (Level 7, `ember`) ──
 
