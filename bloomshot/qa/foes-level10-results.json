@@ -41,6 +41,10 @@
     {
       "name": "A real seed: the debut wave plays, and the next star is the one an aimed shot opens",
       "passed": true
+    },
+    {
+      "name": "The Wishing Stars draw cheaply in every state: finite, balanced, and no gradient, shadow or surface once warm",
+      "passed": true
     }
   ]
 }

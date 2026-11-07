@@ -2,7 +2,7 @@
 // Level 10's new piece: the Wishing Stars. Checked the same way as every foe: where the level places it, what a credited
 // seed, a chain, a power and an uncredited strike do to it, that it plays the same at 30, 60 and 144 FPS, that it never
 // costs a life it should not, and what the practice bot thinks of it.
-const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
 const { sandbox, advance, strikeOut, foesOf, Foes, Depths, RushGame } = require('./foe-harness.cjs');
 const results = []; let serial = 0;
 function test(name, fn) { try { fn(); results.push({ name, passed: true }); } catch (error) { results.push({ name, passed: false, error: error.stack }); } }
@@ -158,6 +158,80 @@ test('A real seed: the debut wave plays, and the next star is the one an aimed s
   game.fireCooldown = 0; game.shotGap = 0; game.fire(ax / l2, ay / l2);
   const events = []; for (let t = 0; t < 2 && !one.bloomed; t += 1 / 120) { game.step(1 / 120); events.push(...game.drainEvents()); }
   assert(one.bloomed || events.some(e => e.kind === 'wishstar:guard'), 'it reached the figure');
+});
+// Art: records real Canvas commands from art.js and foe-art.js without a device (as test-foes-level5.cjs does): every
+// number finite and every save restored; once its sprites are warm, a frame of the Wishing Stars makes no gradient, no
+// shadow and no new surface.
+function artScope() {
+  const totals = { surfaces: 0, gradients: 0, shadows: 0, hook: null, images: [], kit: null };
+  function brush() {
+    const stack = [], state = { globalAlpha: 1, globalCompositeOperation: 'source-over', fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, shadowBlur: 0, shadowColor: '', font: '', textAlign: 'left', textBaseline: 'alphabetic', lineCap: 'butt', lineJoin: 'miter' };
+    const ctx = new Proxy(state, {
+      get(t, name) {
+        if (name in t) return t[name];
+        if (name === 'canvas') return { width: 420, height: 560 };
+        if (name === 'getTransform') return () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 });
+        return (...args) => {
+          args.forEach(a => { if (typeof a === 'number') assert(Number.isFinite(a), `${String(name)} received ${a}`); });
+          if (name === 'save') stack.push({ ...state });
+          else if (name === 'restore') { assert(stack.length, 'restore without save'); Object.assign(state, stack.pop()); }
+          else if (name === 'measureText') return { width: String(args[0]).length * 7 };
+          else if (name === 'drawImage' && totals.hook) totals.images.push([totals.hook, args[0], state.globalAlpha, state.globalCompositeOperation]);
+          else if (/^create(Linear|Radial|Conic)Gradient$|^createPattern$/.test(name)) { if (totals.hook) totals.gradients++; return { addColorStop() {} }; }
+        };
+      },
+      set(t, name, value) {
+        if (['globalAlpha', 'lineWidth', 'shadowBlur'].includes(name)) assert(Number.isFinite(value), `${name} is finite`);
+        if (name === 'shadowBlur' && value > 0 && totals.hook) totals.shadows++;
+        t[name] = value; return true;
+      }
+    });
+    return { ctx, balanced: () => stack.length === 0 };
+  }
+  class Canvas { constructor(w, h) { this.width = w; this.height = h; if (totals.hook) totals.surfaces++; this.rec = brush(); } getContext() { return this.rec.ctx; } }
+  const scope = vm.createContext({ console, Math, Map, Set, WeakMap, Array, Object, Number, String, JSON, Date, OffscreenCanvas: Canvas });
+  for (const file of ['art.js', 'foe-art.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), scope, { filename: file });
+  const FoeArt = scope.BloomFoeArt, look = FoeArt.LOOKS.wishstar;
+  for (const hook of ['under', 'bud', 'over']) {
+    const own = look && look[hook];
+    if (!own) continue;
+    look[hook] = function (...args) {
+      totals.kit = args[hook === 'bud' ? 5 : 4];
+      const was = totals.hook; totals.hook = 'wishstar:' + hook;
+      try { return own.apply(this, args); } finally { totals.hook = was; }
+    };
+  }
+  return { Art: scope.BloomArt, FoeArt, brush, totals };
+}
+function draw(Art, brush, board, time, still, quality = 0) {
+  const rec = brush(); Art.draw(rec.ctx, board, time, { theme: 'meadow', reducedMotion: still, quality }); assert(rec.balanced(), 'saves balance');
+}
+test('The Wishing Stars draw cheaply in every state: finite, balanced, and no gradient, shadow or surface once warm', () => {
+  const { Art, FoeArt, brush, totals } = artScope();
+  assert(FoeArt.LOOKS.wishstar, 'the stars have a look');
+  // Boards that show every state: the debut figure falling, one star rung (its node and pointer), a star turning a seed
+  // away, three rung, a wish (its flash and shooting star), a broken figure (grey lines), and W7's reversed spin.
+  const boards = [];
+  let g = level(10, 2); advance(g, .5, 120); boards.push(g);
+  let f = figure(); touch(f.game, f.stars[0]); settle(f.game, .3); boards.push(f.game);
+  f = figure(); touch(f.game, f.stars[2]); f.stars[2].nopeAt = f.game.time; boards.push(f.game);
+  f = figure(); for (const b of f.stars.slice(0, 3)) touch(f.game, b); settle(f.game, .2); boards.push(f.game);
+  f = figure([['chroma', 150, 120, { type: 'gold' }], ['chroma', 270, 110, { type: 'sky' }]]);
+  for (const b of f.stars) touch(f.game, b);
+  const wish = f.game.drainEvents().find(e => e.kind === 'wishstar:wish');
+  assert(wish && wish.bud, 'the wish names its last star'); wish.bud.wishPath = wish.path; wish.bud.wishAt = f.game.time; boards.push(f.game);
+  f = figure(); f.game.striker = { id: 'bee', power: 'beeline', bossContact: { nx: 0, ny: 1 } }; f.game.strike(f.stars[1]); f.game.striker = null; touch(f.game, f.stars[0]); boards.push(f.game);
+  g = level(10, 7); advance(g, .5, 120); boards.push(g);
+  // The level's intro paints the stars' sprites ahead, as app.js warmPlan does.
+  draw(Art, brush, boards[0], boards[0].time, false);
+  assert(totals.kit, 'the look was handed the kit');
+  totals.hook = 'warm'; FoeArt.warm([['wishstar', 10]], totals.kit); totals.hook = null;
+  for (const still of [false, true]) for (const quality of [0, 1, 2]) for (const board of boards) draw(Art, brush, board, board.time + .05, still, quality);
+  for (const hook of ['under', 'bud', 'over']) assert(totals.images.some(([h]) => h === 'wishstar:' + hook), hook + ' drew');
+  assert(totals.images.some(([h, , , mode]) => h === 'wishstar:bud' && mode === 'lighter'), 'the next star glows');
+  const warm = { ...totals };
+  for (const still of [false, true]) for (const quality of [0, 1, 2]) for (const dt of [.02, .13, .41, .77, 1.9]) for (const board of boards) draw(Art, brush, board, board.time + dt, still, quality);
+  assert.deepEqual([totals.gradients, totals.shadows, totals.surfaces], [warm.gradients, warm.shadows, warm.surfaces]);
 });
 
 const out = { suite: 'foes-level10', passed: results.every(r => r.passed), results };

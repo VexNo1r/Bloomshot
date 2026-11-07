@@ -1738,6 +1738,11 @@
   }
   // Only the dome star whose number is next is worth a seed: the bot leaves the rest (they turn seeds away).
   function starPips(s) { const dome = s.dome; for (const p of starSats(s)) p.decoy = Boolean(dome && p.pip && !p.bloomed && p.pip !== dome.next); }
+  // A dome star's number (1-5) for the action that raises the dome: round the pentagram from a hashed first star.
+  function starPipOf(s, action, slot) {
+    const first = Math.floor(Foes.hash01(s.boss.id, action * 5) * 5);
+    return STAR.dome.order.findIndex(d => (first + d) % 5 === slot) + 1;
+  }
   // Ends a dome: the numbers come off her stars.
   function starDomeEnd(s) { s.dome = null; for (const p of starSats(s)) { p.pip = 0; p.decoy = false; } }
   kit('core', {
@@ -1799,7 +1804,8 @@
         const nova = starNova(game, s, b); if (nova) return nova;
         // After her Supernova there is no dome to raise: she rains comets instead.
         if (s.phase === 2) return { move: 'starfall', targets: starLines(game, s) };
-        return { targets: starSats(s).map(p => ({ id: p.id, x: p.x, y: p.y, r: p.r, role: 'satellite' })) };
+        // Each star's number rides on its target, so the tell can show them (the act counts one more action).
+        return { targets: starSats(s).map(p => ({ id: p.id, x: p.x, y: p.y, r: p.r, role: 'satellite', pip: starPipOf(s, s.action + 1, p.slot) })) };
       },
       starfall(game, s, b) { return starNova(game, s, b) || { targets: starLines(game, s) }; }
     },
@@ -1857,14 +1863,11 @@
         return STAR.pause.lasso;
       },
       dome(game, s) {
-        const sats = starSats(s), first = Math.floor(Foes.hash01(s.boss.id, s.action * 5) * 5);
         s.dome = { next: 1, rings: 0 };
-        STAR.dome.order.forEach((d, k) => {
-          const p = sats.find(q => q.slot === (first + d) % 5);
-          if (!p) return;
+        for (const p of starSats(s)) {
           if (p.bloomed) revive(p, game);
-          p.lit = true; p.hp = 1; p.pip = k + 1;
-        });
+          p.lit = true; p.hp = 1; p.pip = starPipOf(s, s.action, p.slot);
+        }
         starPips(s);
         return STAR.pause.dome;
       },

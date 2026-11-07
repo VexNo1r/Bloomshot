@@ -1478,6 +1478,196 @@
   // ── Sweetheart Roses (Level 9, `sweetheart`) ──
 
   // ── Wishing Stars (Level 10, `wishstar`) ──
+  // Four chubby gold stars with rounded tips, a dark-gold edge, a blush and a big upright number (hand-drawn strokes, so a
+  // cached sprite never keeps a fallback font). The star whose turn it is twinkles: brighter, a little bigger, a pale halo
+  // and a glint circling it. A faint dotted route joins the four in order; each star rung in turn leaves a pale node on the
+  // turning figure, joined to the one before by a solid gold line, and a dotted pointer crawls on to the next star, so the
+  // figure reads as a little constellation being drawn (a broken chord's lines go grey). A star turned away shakes "not
+  // yet". All four rung, the finished figure flashes and a shooting star streaks along the wish's hops. With Animations
+  // off: no pulse, glint, shake, crawl or streak; the numbers, halo, size, lines and nodes all stay (the figure still turns).
+  const WISH_ART = { R: 30, spin: .8, gold: '#ffd65a', bright: '#ffe680', shade: '#f2b43c', ink: '#8a5a14', numeral: '#6b3f0c',
+    halo: '#fff4aa', node: '#fffbe0', line: '#ffd65a', broken: '#c9c1b3', pulse: 1.6, cheek: '#ff9f8f', glow: '255,244,170', hop: .08 };
+  // A chubby five-point star (outer radius R, inner R * inner) centred on (x, y), its tips rounded off by `round` of an edge.
+  function wishStarPath(c, R, inner = .52, x = 0, y = 0, round = .3) {
+    c.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const at = k => { const a = -Math.PI / 2 + ((k + 10) % 10) * Math.PI / 5, d = k % 2 ? R * inner : R; return [x + Math.cos(a) * d, y + Math.sin(a) * d]; };
+      const [vx, vy] = at(i), [px, py] = at(i - 1), [nx, ny] = at(i + 1), k = i % 2 ? round * .5 : round;
+      if (i) c.lineTo(vx + (px - vx) * k, vy + (py - vy) * k); else c.moveTo(vx + (px - vx) * k, vy + (py - vy) * k);
+      c.quadraticCurveTo(vx, vy, vx + (nx - vx) * k, vy + (ny - vy) * k);
+    }
+    c.closePath();
+  }
+  // A four-point glint (as art.js sparkle), for the sprites, which are painted without the toolbox.
+  function wishGlint(c, x, y, s, color) {
+    c.beginPath(); c.moveTo(x, y - s); c.quadraticCurveTo(x + s * .16, y - s * .13, x + s, y); c.quadraticCurveTo(x + s * .15, y + s * .14, x, y + s);
+    c.quadraticCurveTo(x - s * .16, y + s * .14, x - s, y); c.quadraticCurveTo(x - s * .14, y - s * .15, x, y - s); c.fillStyle = color; c.fill();
+  }
+  // The numbers 1-5 as strokes in a unit box (a rounded bold sans), and a number h px tall drawn with them: a white
+  // edge under it when `edge` is given.
+  const WISH_DIGITS = {
+    1: c => { c.moveTo(-.22, -.27); c.lineTo(.04, -.5); c.lineTo(.04, .5); },
+    2: c => { c.moveTo(-.27, -.26); c.bezierCurveTo(-.24, -.56, .3, -.58, .28, -.24); c.bezierCurveTo(.26, -.02, .02, .12, -.28, .5); c.lineTo(.3, .5); },
+    3: c => {
+      c.moveTo(-.26, -.38); c.bezierCurveTo(-.12, -.56, .3, -.54, .27, -.26); c.bezierCurveTo(.25, -.08, .1, -.03, -.05, -.03);
+      c.bezierCurveTo(.22, -.03, .33, .1, .31, .25); c.bezierCurveTo(.28, .54, -.15, .56, -.29, .36);
+    },
+    4: c => { c.moveTo(.13, .5); c.lineTo(.13, -.5); c.lineTo(-.31, .19); c.lineTo(.33, .19); },
+    5: c => { c.moveTo(.27, -.5); c.lineTo(-.17, -.5); c.lineTo(-.22, -.05); c.bezierCurveTo(.02, -.18, .34, -.12, .32, .17); c.bezierCurveTo(.3, .52, -.13, .56, -.29, .36); }
+  };
+  function wishDigit(c, n, x, y, h, color, width, edge = null, edgeWidth = 0) {
+    const path = WISH_DIGITS[n];
+    if (!path) return;
+    c.save(); c.translate(x, y); c.scale(h, h); c.lineCap = 'round'; c.lineJoin = 'round';
+    c.beginPath(); path(c);
+    if (edge) { c.strokeStyle = edge; c.lineWidth = edgeWidth / h; c.stroke(); }
+    c.strokeStyle = color; c.lineWidth = width / h; c.stroke();
+    c.restore();
+  }
+  // A storybook gold star: a soft violet shadow, the shaded body, its lit face (the star again, nudged up-left, clipped),
+  // a shine across the upper arms, the dark edge and a glint on the top arm. The Starseed's lent stars wear it too.
+  function wishBody(c, R, fill = WISH_ART.gold, shade = WISH_ART.shade, ink = WISH_ART.ink, shine = 'rgba(255,255,240,.6)') {
+    c.lineJoin = 'round'; c.lineCap = 'round';
+    wishStarPath(c, R, .52, R * .03, R * .1); c.fillStyle = 'rgba(44,26,86,.3)'; c.fill();
+    wishStarPath(c, R, .52); c.fillStyle = shade; c.fill();
+    c.save(); c.clip();
+    wishStarPath(c, R * .97, .52, -R * .07, -R * .1); c.fillStyle = fill; c.fill();
+    c.beginPath(); c.ellipse(-R * .3, -R * .33, R * .34, R * .13, -.72, 0, TAU); c.fillStyle = shine; c.fill();
+    c.restore();
+    wishStarPath(c, R, .52); c.strokeStyle = ink; c.lineWidth = 1.4; c.stroke();
+    wishGlint(c, -R * .1, -R * .6, R * .17, '#ffffff');
+  }
+  // A Wishing Star's sprite: the star and its number; the next one is brighter, with a pale halo ring.
+  function paintWishStar(c, r, pip, next) {
+    const A = WISH_ART, R = r + 2;
+    if (next) { c.globalAlpha = .55; c.beginPath(); c.arc(0, 0, r + 6, 0, TAU); c.strokeStyle = A.halo; c.lineWidth = 2; c.stroke(); c.globalAlpha = 1; }
+    wishBody(c, R, next ? A.bright : A.gold);
+    c.save(); wishStarPath(c, R, .52); c.clip(); c.globalAlpha = .45;
+    for (const side of [-1, 1]) { c.beginPath(); c.ellipse(side * R * .47, R * .12, R * .12, R * .075, 0, 0, TAU); c.fillStyle = A.cheek; c.fill(); }
+    c.restore();
+    wishDigit(c, pip, 0, R * .06, R * .86, A.numeral, 2.3, '#ffffff', 4.6);
+  }
+  // The next star's warm light, laid on with 'lighter' under it so it glows on the night sky.
+  function paintWishGlow(c, r) {
+    const g = c.createRadialGradient(0, 0, 0, 0, 0, r + 9);
+    g.addColorStop(0, `rgba(${WISH_ART.glow},.9)`); g.addColorStop(.45, `rgba(${WISH_ART.glow},.35)`); g.addColorStop(1, `rgba(${WISH_ART.glow},0)`);
+    c.beginPath(); c.arc(0, 0, r + 9, 0, TAU); c.fillStyle = g; c.fill();
+  }
+  // A rung star's place on the turning figure: a small pale star.
+  function paintWishNode(c) { wishStarPath(c, 5, .5, 0, 0, .25); c.fillStyle = WISH_ART.node; c.fill(); c.strokeStyle = WISH_ART.shade; c.lineWidth = 1; c.stroke(); }
+  const wishSprite = (r, pip, next) => [`wishstar:star:${r}:${pip}:${next ? 'next' : 'wait'}`, next ? [-r - 8, -r - 8, r + 8, r + 8] : [-r - 4, -r - 4, r + 4, r + 4],
+    c => paintWishStar(c, r, pip, next)];
+  const WISH_NODE = ['wishstar:node', [-6, -6, 6, 6], paintWishNode];
+  const wishGlow = r => [`wishstar:glow:${r}`, [-r - 9, -r - 9, r + 9, r + 9], c => paintWishGlow(c, r)];
+  const wishStamp = (ctx, kit, [key, box, paint], x, y, sx = 1) => stamp(ctx, kit, key, box, paint, x, y, 0, sx);
+  // Where a star of its figure sits at foe time `clock` (the closed form of foes.js wishAt), for the stars already bloomed.
+  function wishSpot(bud, clock, wy) {
+    const a = bud.a0 + bud.dir * WISH_ART.spin * (clock - (bud.born || 0)) + bud.slot * TAU / 4;
+    return { x: bud.wx + WISH_ART.R * Math.cos(a), y: wy + WISH_ART.R * Math.sin(a) };
+  }
+  // The stars by figure (bud.wish), each list in number order.
+  function wishFigures(state) {
+    const figs = new Map();
+    for (const b of state.buds || []) if (b.foe === 'wishstar' && b.wish != null) { const list = figs.get(b.wish); if (list) list.push(b); else figs.set(b.wish, [b]); }
+    for (const list of figs.values()) list.sort((a, b) => a.pip - b.pip);
+    return figs;
+  }
+  // The number whose turn it is in a star's figure (the lowest still open).
+  function wishNextOf(state, bud) {
+    let n = 0;
+    for (const o of state.buds || []) if (o.foe === 'wishstar' && o.wish === bud.wish && !o.bloomed && (!n || o.pip < n)) n = o.pip;
+    return n;
+  }
+  // Dots that crawl from a line's start to its end (dotted() moves them back toward the start as its phase grows).
+  const wishCrawl = (time, speed, gap) => gap - (time * speed) % gap;
+  BloomFoeLook('wishstar', {
+    warm(kit, r) {
+      for (const pip of [1, 2, 3, 4]) for (const next of [false, true]) { const [key, box, paint] = wishSprite(r, pip, next); kit.atlasSprite(key, box[0], box[1], box[2], box[3], paint); }
+      for (const [key, box, paint] of [WISH_NODE, wishGlow(r)]) kit.atlasSprite(key, box[0], box[1], box[2], box[3], paint);
+    },
+    // art.js calls this once for every Wishing Star on the board, so it draws every figure that still has an open star.
+    under(ctx, state, time, still, kit, quality) {
+      const A = WISH_ART, clock = Number(state.foeClock) || 0;
+      for (const stars of wishFigures(state).values()) {
+        const open = stars.filter(b => !b.bloomed);
+        if (!open.length) continue;
+        const lead = open[0], wy = Number(lead.wy) || 0, m = kit.budShift(lead, time, still), at = [];
+        for (const b of stars) { const p = b.bloomed ? wishSpot(b, clock, wy) : b; at[b.pip] = { x: p.x + m.dx, y: p.y + m.dy, b }; }
+        ctx.save(); ctx.globalAlpha *= m.alpha; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        // 1. The faint route, 1 to 4.
+        if (quality <= 1) {
+          const route = [1, 2, 3, 4].filter(k => at[k]).map(k => [at[k].x, at[k].y]);
+          ctx.save(); ctx.globalAlpha *= .35; dotted(ctx, route, A.halo, 1.4, 6); ctx.restore();
+        }
+        // 2. Lines between neighbours already bloomed: gold over white while the chord holds, thin grey once it is broken.
+        const broken = stars.some(b => b.bloomed && !b.rang);
+        ctx.beginPath();
+        for (let k = 1; k < 4; k++) if (at[k] && at[k + 1] && at[k].b.bloomed && at[k + 1].b.bloomed) { ctx.moveTo(at[k].x, at[k].y); ctx.lineTo(at[k + 1].x, at[k + 1].y); }
+        if (broken) { ctx.strokeStyle = A.broken; ctx.lineWidth = 1.5; ctx.stroke(); }
+        else { ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 4; ctx.stroke(); ctx.strokeStyle = A.line; ctx.lineWidth = 2; ctx.stroke(); }
+        // 3. A node where each bloomed star's place is (paler for a star bloomed out of the chord).
+        let last = null;
+        for (const p of at) if (p && p.b.bloomed) {
+          if (p.b.pip < lead.pip && (!last || p.b.pip > last.b.pip)) last = p;
+          ctx.save(); if (!p.b.rang) ctx.globalAlpha *= .5; wishStamp(ctx, kit, WISH_NODE, p.x, p.y); ctx.restore();
+        }
+        // 4. The pointer: dots crawling from the last bloomed place on to the star whose turn it is.
+        const to = at[lead.pip];
+        if (last && to) {
+          const dx = to.x - last.x, dy = to.y - last.y, d = Math.hypot(dx, dy), r = (lead.r || 10) + 6;
+          if (d > r + 8) {
+            const ux = dx / d, uy = dy / d;
+            dotted(ctx, [[last.x + ux * 6, last.y + uy * 6], [to.x - ux * r, to.y - uy * r]], broken ? A.broken : A.line, 1.5, 6, still ? 0 : wishCrawl(time, 14, 6));
+          }
+        }
+        ctx.restore();
+      }
+    },
+    bud(ctx, bud, time, still, state, kit, quality) {
+      const A = WISH_ART, r = Number(bud.r) || 10, next = wishNextOf(state, bud) === bud.pip;
+      let x = bud.x, s = next ? 1 : .94;
+      if (next && !still) s += .07 * Math.sin(TAU * A.pulse * time);
+      // "Not yet": a star turned away shakes for a quarter second (FOE_FX.wishstar.guard sets nopeAt; the rules never read it).
+      const nope = time - (Number.isFinite(bud.nopeAt) ? bud.nopeAt : -100);
+      if (!still && nope >= 0 && nope < .25) x += 2 * Math.sin(time * 60) * (1 - nope / .25);
+      if (next) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha *= still ? .6 : .5 + .15 * Math.sin(TAU * A.pulse * time); wishStamp(ctx, kit, wishGlow(r), x, bud.y, s); ctx.restore(); }
+      else ctx.globalAlpha *= .9;
+      wishStamp(ctx, kit, wishSprite(r, bud.pip, next), x, bud.y, s);
+      if (next && !still && quality <= 1) { const a = time * 2; kit.sparkle(ctx, x + Math.cos(a) * (r + 4), bud.y + Math.sin(a) * (r + 4), 2.5, '#ffffff', a); }
+    },
+    over(ctx, state, time, still, kit, quality) {
+      const A = WISH_ART;
+      for (const stars of wishFigures(state).values()) {
+        // A wish: the finished figure flashes gold where it closed and fades (.9 s). A star stops where it blooms (its x, y
+        // and wy freeze), so the last one's own place gives the figure's turn as it closed.
+        if (stars.length < 4 || stars.some(b => !b.bloomed || !b.rang)) continue;
+        const at0 = b => Number.isFinite(b.bloomAt) ? b.bloomAt : -100, last = stars.reduce((m, b) => at0(b) > at0(m) ? b : m), age = time - at0(last);
+        if (age < 0 || age >= .9) continue;
+        const turn = Math.atan2(last.y - last.wy, last.x - last.wx), k = 1 - age / .9;
+        const at = stars.map(b => { const a = turn + (b.slot - last.slot) * TAU / 4; return { x: last.wx + A.R * Math.cos(a), y: last.wy + A.R * Math.sin(a) }; });
+        ctx.save(); ctx.globalAlpha *= k; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.beginPath(); at.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 6; ctx.stroke(); ctx.strokeStyle = A.bright; ctx.lineWidth = 3; ctx.stroke();
+        for (const p of at) wishStamp(ctx, kit, WISH_NODE, p.x, p.y, still ? 1.3 : 1 + .6 * kit.easeBack(clamp(age / .3, 0, 1)));
+        ctx.restore();
+      }
+      // The shooting star: from the fourth star along the wish's hops (FOE_FX.wishstar.wish stamps bud.wishPath, art only),
+      // one hop every .08 s as the links fly, its tail shorter as the quality drops; with Animations off, a still dotted trail.
+      for (const b of state.buds || []) {
+        if (b.foe !== 'wishstar' || !Array.isArray(b.wishPath) || !b.wishPath.length) continue;
+        const pts = [b, ...b.wishPath], n = pts.length - 1, age = time - (Number.isFinite(b.wishAt) ? b.wishAt : -100), end = n * A.hop;
+        if (age < 0 || age >= end + .3) continue;
+        if (still) { ctx.save(); ctx.globalAlpha *= .7; dotted(ctx, pts.map(p => [p.x, p.y]), A.bright, 1.5, 7); ctx.restore(); continue; }
+        const along = u => { u = clamp(u, 0, n); const i = Math.min(n - 1, Math.floor(u)), f = u - i; return { x: pts[i].x + (pts[i + 1].x - pts[i].x) * f, y: pts[i].y + (pts[i + 1].y - pts[i].y) * f }; };
+        const u = age / A.hop, tail = quality >= 2 ? 0 : quality >= 1 ? 2 : 4;
+        ctx.save(); ctx.globalAlpha *= age > end ? 1 - (age - end) / .3 : 1;
+        for (let k = tail; k >= 1; k--) { const p = along(u - k * .22); kit.circle(ctx, p.x, p.y, 4.2 - k * .7, `rgba(${A.glow},${.75 - k * .14})`); }
+        const head = along(u);
+        kit.circle(ctx, head.x, head.y, 5, `rgba(${A.glow},.8)`); kit.sparkle(ctx, head.x, head.y, 6.5, '#ffffff', time * 6);
+        ctx.restore();
+      }
+    }
+  });
 
   // -----------------------------------------------------------------------------------------------------------------
   // The guardians' kits (bosses.js). art.js calls these during a fight with a kit guardian (state.bossState.kind):
@@ -3396,6 +3586,522 @@
   // ── Thornmother (Level 9, `briar`) ──
 
   // ── The Starseed (Level 10, `core`) ──
+  // She keeps her old gold star body; her look adds a face for each mood on a clean seed plate (Wishful: dreamy half-closed
+  // eyes looking up, a little "o" and sparkle freckles; Dazzling: big eyes with star catchlights, a wide grin and rosy
+  // cheeks; Radiant: gold-rimmed eyes, set brows and an open smile, with eight slow rays behind her). Every trick she
+  // borrows is a little gold star in its guardian's costume (a ripple ring, a portal, a puffcap, fins, a gem, a rope bow),
+  // tied by a dotted gold tether to the star that lent it. The Constellation Dome numbers her stars on white badges and
+  // draws its pentagram as they ring; the fakes are glass-blue, coral or thorny. Tells: a ghost of each coming piece at
+  // its spot, the gem arcs, the lasso's crawl line and thorns, the rocket's orbit and the comets' lines. With Animations
+  // off nothing pulses, flashes, turns or streams; every badge, tether, fuse, shadow and tell stays.
+  // (The kit borrows the Wishing Stars' star, glint and numbers above: both are Level 10's.)
+  const STAR_LOOK = { gold: '#ffd65a', bright: '#ffe680', shade: '#f2b43c', ink: '#8a5a14', pale: '#fff4aa', glass: '#bfe3ff', glassShade: '#93c4ea',
+    glassInk: '#5b8fbf', coral: '#f2a08f', coralLight: '#ffd2c6', coralShade: '#d97f6e', coralInk: '#a5574a', lilac: '#c9a6f0', lilacShade: '#a687d8',
+    lilacInk: '#73559f', thorn: '#9a6a43', night: '#3b3f7a', poppy: '#f2604f', poppyInk: '#9c3530', rope: '#b9824a', ropeInk: '#6e4a25',
+    plate: '#e6f7dc', plateEdge: '#e7b866', faceInk: '#5b537b', eye: '#56718d', pupil: '#2f3d5a', mouth: '#8a3f5e', tongue: '#ff9fb8', cheek: '#f2a08f',
+    // Copies of bosses.js STAR numbers the art needs (art keeps no dependency on the rules).
+    glassWait: .3, glassSwap: .8, fuse: 4, gemT: 1.5, gemH: 70, life: { burr: 6, arch: 4 }, arch: [36, 58, 80], ring: 118 };
+  // Her face, r px, for a mood (0-2) or 'hurt'; blink closes the eyes. Painted about the face's middle (art.js faceY).
+  function paintStarFace(c, r, tier, blink) {
+    const L = STAR_LOOK, ink = L.faceInk, hurt = tier === 'hurt', py = -r * .03;
+    c.lineCap = 'round'; c.lineJoin = 'round';
+    // The seed plate: clean (a little of the spiral shows through), with its gold edge and a shine.
+    c.globalAlpha = .9; c.beginPath(); c.arc(0, py, r * .55, 0, TAU); c.fillStyle = L.plate; c.fill(); c.globalAlpha = 1;
+    c.strokeStyle = L.plateEdge; c.lineWidth = 1; c.stroke();
+    c.beginPath(); c.arc(0, py, r * .47, -2.65, -1.65); c.strokeStyle = 'rgba(255,255,255,.9)'; c.lineWidth = 1.5; c.stroke();
+    const ex = r * .25, ey = -r * .03;
+    const brow = (side, pts, width) => { c.beginPath(); c.moveTo(side * r * pts[0][0], r * pts[0][1]); c.quadraticCurveTo(side * r * pts[1][0], r * pts[1][1], side * r * pts[2][0], r * pts[2][1]); c.strokeStyle = ink; c.lineWidth = width; c.stroke(); };
+    const cheeks = alpha => { c.globalAlpha = alpha; for (const side of [-1, 1]) { c.beginPath(); c.ellipse(side * r * .39, r * .17, r * .1, r * .06, side * -.2, 0, TAU); c.fillStyle = L.cheek; c.fill(); } c.globalAlpha = 1; };
+    if (hurt) {
+      for (const side of [-1, 1]) {
+        const x = side * ex; c.beginPath(); c.moveTo(x - side * r * .09, ey - r * .08); c.lineTo(x + side * r * .06, ey); c.lineTo(x - side * r * .09, ey + r * .08);
+        c.strokeStyle = ink; c.lineWidth = 1.8; c.stroke();
+        brow(side, [[.12, -.3], [.24, -.33], [.38, -.25]], 1.4);
+      }
+      cheeks(.6);
+      c.beginPath(); c.ellipse(0, r * .27, r * .075, r * .06, 0, 0, TAU); c.fillStyle = L.mouth; c.fill(); c.strokeStyle = ink; c.lineWidth = 1.1; c.stroke();
+      return;
+    }
+    if (tier === 0) {
+      // Wishful: dreamy eyes gazing up at the sky (the lower lids raised in a soft smile, the pupils high), a small "o"
+      // and two sparkle freckles.
+      for (const side of [-1, 1]) {
+        const x = side * ex, rx = r * .12, base = ey + r * .05;
+        const lids = () => { c.beginPath(); c.moveTo(x - rx, base); c.bezierCurveTo(x - rx, ey - r * .16, x + rx, ey - r * .16, x + rx, base); c.quadraticCurveTo(x, base - r * .07, x - rx, base); c.closePath(); };
+        if (blink) { c.beginPath(); c.moveTo(x - rx, base - r * .02); c.quadraticCurveTo(x, base - r * .1, x + rx, base - r * .02); c.strokeStyle = ink; c.lineWidth = 1.7; c.stroke(); }
+        else {
+          lids(); c.fillStyle = '#ffffff'; c.fill();
+          c.save(); c.clip(); c.beginPath(); c.arc(x + side * r * .015, ey - r * .055, r * .075, 0, TAU); c.fillStyle = L.eye; c.fill();
+          c.beginPath(); c.arc(x + side * r * .015, ey - r * .05, r * .038, 0, TAU); c.fillStyle = L.pupil; c.fill(); c.restore();
+          lids(); c.strokeStyle = ink; c.lineWidth = 1.2; c.stroke();
+          c.beginPath(); c.moveTo(x + side * rx * .8, ey - r * .085); c.lineTo(x + side * r * .17, ey - r * .13); c.lineWidth = 1.3; c.stroke();
+          c.beginPath(); c.arc(x - side * r * .02, ey - r * .085, r * .026, 0, TAU); c.fillStyle = '#ffffff'; c.fill();
+        }
+        brow(side, [[.13, -.27], [.26, -.37], [.39, -.31]], 1.2);
+        wishGlint(c, side * r * .39, r * .16, r * .07, L.shade);
+      }
+      c.beginPath(); c.ellipse(0, r * .26, r * .055, r * .07, 0, 0, TAU); c.fillStyle = L.mouth; c.fill(); c.strokeStyle = ink; c.lineWidth = 1.1; c.stroke();
+      c.beginPath(); c.arc(-r * .015, r * .245, r * .018, 0, TAU); c.fillStyle = '#ffffff'; c.fill();
+      return;
+    }
+    const radiant = tier === 2;
+    for (const side of [-1, 1]) {
+      const x = side * ex, rx = r * (radiant ? .115 : .13), ry = r * (radiant ? .14 : .16);
+      if (blink) {
+        // Happy closed eyes (Dazzling), or set ones (Radiant).
+        c.beginPath();
+        if (radiant) { c.moveTo(x - rx, ey); c.quadraticCurveTo(x, ey + r * .05, x + rx, ey); }
+        else { c.moveTo(x - rx, ey + r * .03); c.quadraticCurveTo(x, ey - r * .09, x + rx, ey + r * .03); }
+        c.strokeStyle = ink; c.lineWidth = 1.8; c.stroke();
+      } else {
+        // Radiant's eyes wear gold rims.
+        if (radiant) { c.beginPath(); c.ellipse(x, ey, rx + 1.2, ry + 1.2, 0, 0, TAU); c.fillStyle = L.gold; c.fill(); c.strokeStyle = L.shade; c.lineWidth = .7; c.stroke(); }
+        c.beginPath(); c.ellipse(x, ey, rx, ry, 0, 0, TAU); c.fillStyle = '#ffffff'; c.fill(); c.strokeStyle = ink; c.lineWidth = radiant ? .9 : 1.2; c.stroke();
+        c.beginPath(); c.arc(x, ey + r * .02, r * (radiant ? .075 : .09), 0, TAU); c.fillStyle = L.eye; c.fill();
+        c.beginPath(); c.arc(x, ey + r * .025, r * .045, 0, TAU); c.fillStyle = L.pupil; c.fill();
+        if (radiant) wishGlint(c, x - r * .03, ey - r * .03, r * .055, '#ffffff');
+        else { wishStarPath(c, r * .06, .5, x - r * .035, ey - r * .04, .2); c.fillStyle = '#ffffff'; c.fill(); }
+        c.beginPath(); c.arc(x + r * .04, ey + r * .06, r * .018, 0, TAU); c.fillStyle = '#ffffff'; c.fill();
+      }
+      if (radiant) brow(side, [[.12, -.29], [.25, -.43], [.41, -.34]], 2);
+      else brow(side, [[.13, -.3], [.26, -.39], [.39, -.31]], 1.4);
+    }
+    cheeks(radiant ? .45 : .8);
+    // Dazzling: a wide grin with a row of teeth; Radiant: a deeper open smile.
+    const w = r * (radiant ? .17 : .22), top = r * (radiant ? .2 : .17), low = r * (radiant ? .5 : .44);
+    c.beginPath(); c.moveTo(-w, top); c.quadraticCurveTo(0, top + r * .05, w, top); c.quadraticCurveTo(w * .9, low, 0, low); c.quadraticCurveTo(-w * .9, low, -w, top); c.closePath();
+    c.fillStyle = L.mouth; c.fill();
+    c.save(); c.clip();
+    c.beginPath(); c.ellipse(0, low, w * .55, r * .09, 0, 0, TAU); c.fillStyle = L.tongue; c.fill();
+    if (!radiant) { c.beginPath(); c.moveTo(-w, top - 1); c.quadraticCurveTo(0, top + r * .05 - 1, w, top - 1); c.lineTo(w, top + r * .06); c.quadraticCurveTo(0, top + r * .1, -w, top + r * .06); c.closePath(); c.fillStyle = '#ffffff'; c.fill(); }
+    c.restore();
+    c.beginPath(); c.moveTo(-w, top); c.quadraticCurveTo(0, top + r * .05, w, top); c.quadraticCurveTo(w * .9, low, 0, low); c.quadraticCurveTo(-w * .9, low, -w, top); c.closePath();
+    c.strokeStyle = ink; c.lineWidth = 1.2; c.stroke();
+  }
+  // Radiant's eight rays (long and short in turn): slim gold beams with white cores, turned live behind her.
+  function paintStarRays(c, r) {
+    for (let k = 0; k < 8; k++) {
+      const a = k * TAU / 8, len = r * (k % 2 ? 1.42 : 1.62), ca = Math.cos(a), sa = Math.sin(a), at = (u, v) => [ca * u - sa * v, sa * u + ca * v];
+      for (const [w, color] of [[r * .13, 'rgba(255,196,64,.92)'], [r * .05, '#fff8d8']]) {
+        c.beginPath(); c.moveTo(...at(r * .95, -w)); c.quadraticCurveTo(...at(len * .8, -w * .5), ...at(len, 0)); c.quadraticCurveTo(...at(len * .8, w * .5), ...at(r * .95, w)); c.closePath();
+        c.fillStyle = color; c.fill();
+      }
+      wishGlint(c, ...at(len + 3, 0), 2.6, '#fff8d8');
+    }
+  }
+  // A faceted gem (gold for the real one, coral for a fake).
+  function paintStarGem(c, fill, light, shade, ink) {
+    c.lineJoin = 'round';
+    const outline = () => { c.beginPath(); c.moveTo(-11, -3); c.lineTo(-6, -10); c.lineTo(6, -10); c.lineTo(11, -3); c.lineTo(0, 12); c.closePath(); };
+    outline(); c.fillStyle = 'rgba(44,26,86,.3)'; c.save(); c.translate(.4, 1.3); c.fill(); c.restore();
+    outline(); c.fillStyle = fill; c.fill();
+    c.beginPath(); c.moveTo(0, -3); c.lineTo(11, -3); c.lineTo(0, 12); c.closePath(); c.fillStyle = shade; c.fill();
+    c.beginPath(); c.moveTo(-11, -3); c.lineTo(-6, -10); c.lineTo(6, -10); c.lineTo(11, -3); c.closePath(); c.fillStyle = light; c.fill();
+    c.beginPath(); c.moveTo(-3.5, -10); c.lineTo(3.5, -10); c.lineTo(2.6, -3); c.lineTo(-2.6, -3); c.closePath(); c.fillStyle = '#ffffff'; c.globalAlpha = .55; c.fill(); c.globalAlpha = 1;
+    c.beginPath(); c.moveTo(-11, -3); c.lineTo(11, -3); c.moveTo(-5.5, -3); c.lineTo(0, 12); c.lineTo(5.5, -3); c.strokeStyle = ink; c.lineWidth = .8; c.globalAlpha = .55; c.stroke(); c.globalAlpha = 1;
+    outline(); c.strokeStyle = ink; c.lineWidth = 1.4; c.stroke();
+    wishGlint(c, -5, -6.5, 2.6, '#ffffff');
+  }
+  // Old Sunny's portal (gold rim, five studs) or the Ammonite Queen's (a ribbed lilac shell rim), the lent star in its hole.
+  function paintStarPortal(c, pearl) {
+    const L = STAR_LOOK, r = 14;
+    c.beginPath(); c.arc(0, 0, r, 0, TAU); c.fillStyle = '#2c2152'; c.fill();
+    c.beginPath(); for (let i = 0; i <= 28; i++) { const a = i / 28 * TAU * 1.5, d = r * .8 * (1 - i / 32); if (i) c.lineTo(Math.cos(a) * d, Math.sin(a) * d); else c.moveTo(d, 0); }
+    c.strokeStyle = '#5d4b9c'; c.lineWidth = 1.5; c.lineCap = 'round'; c.stroke();
+    c.beginPath(); c.arc(0, 0, r, 0, TAU); c.strokeStyle = pearl ? L.lilacInk : L.ink; c.lineWidth = 6; c.stroke();
+    c.strokeStyle = pearl ? L.lilac : L.gold; c.lineWidth = 4; c.stroke();
+    if (pearl) {
+      c.beginPath(); for (let k = 0; k < 12; k++) { const a = k * TAU / 12 + .2, ca = Math.cos(a), sa = Math.sin(a); c.moveTo(ca * (r - 2), sa * (r - 2)); c.lineTo(ca * (r + 2), sa * (r + 2)); }
+      c.strokeStyle = L.lilacShade; c.lineWidth = 1.2; c.stroke();
+      c.beginPath(); c.arc(0, 0, r + 1, -2.6, -1.4); c.strokeStyle = '#f3eaff'; c.lineWidth = 1.2; c.stroke();
+    } else {
+      c.beginPath(); c.arc(0, 0, r + .8, -2.6, -1.5); c.strokeStyle = '#fff6cf'; c.lineWidth = 1.2; c.stroke();
+      for (let k = 0; k < 5; k++) { const a = -Math.PI / 2 + k * TAU / 5; c.beginPath(); c.arc(Math.cos(a) * r, Math.sin(a) * r, 2.3, 0, TAU); c.fillStyle = L.bright; c.fill(); c.strokeStyle = L.ink; c.lineWidth = .9; c.stroke(); }
+    }
+    wishBody(c, 7.5);
+  }
+  // Mother Morel's partner in lilac, a gold star on its cap.
+  function paintStarWaltz(c) {
+    const L = STAR_LOOK, r = 12;
+    c.beginPath(); c.moveTo(-r * .42, r * .5); c.quadraticCurveTo(0, r * 1.15, r * .42, r * .5); c.closePath(); c.fillStyle = '#f1e4f7'; c.fill(); c.strokeStyle = L.lilacInk; c.lineWidth = 1; c.stroke();
+    c.beginPath(); c.ellipse(0, 0, r, r * .88, 0, 0, TAU); c.fillStyle = L.lilac; c.fill();
+    c.save(); c.clip(); c.beginPath(); c.ellipse(r * .25, r * .3, r, r * .88, 0, 0, TAU); c.rect(-r * 2, -r * 2, r * 4, r * 4); c.fillStyle = L.lilacShade; c.fill('evenodd'); c.restore();
+    c.beginPath(); c.ellipse(0, 0, r, r * .88, 0, 0, TAU); c.strokeStyle = L.lilacInk; c.lineWidth = 1.5; c.stroke();
+    for (const [sx, sy, sr] of [[-.5, .15, .13], [.42, .3, .1], [.12, .52, .09]]) { c.beginPath(); c.arc(sx * r, sy * r, sr * r, 0, TAU); c.fillStyle = '#ece0ff'; c.fill(); }
+    c.beginPath(); c.arc(-r * .35, -r * .25, r * .34, 3.5, 4.6); c.strokeStyle = 'rgba(255,255,255,.95)'; c.lineWidth = 1.6; c.lineCap = 'round'; c.stroke();
+    c.save(); c.translate(0, -r * .5); wishBody(c, 6.5); c.restore();
+  }
+  // Ember Rose's firework: a gold star on two poppy fins and a nozzle (all white for its last-second flash).
+  function paintStarRocket(c, white) {
+    // A firework: the star rides a striped paper tube with two little fins, its fuse (drawn live) at the tube's foot.
+    const L = STAR_LOOK, tube = () => { c.beginPath(); c.moveTo(-4.6, 4); c.lineTo(4.6, 4); c.lineTo(4.6, 17); c.quadraticCurveTo(0, 19, -4.6, 17); c.closePath(); };
+    c.lineJoin = 'round'; c.lineCap = 'round';
+    for (const side of [-1, 1]) {
+      c.beginPath(); c.moveTo(side * 4.2, 10); c.quadraticCurveTo(side * 9.5, 13, side * 10, 19.5); c.quadraticCurveTo(side * 7, 17.6, side * 4.2, 17.4); c.closePath();
+      c.fillStyle = white ? '#ffffff' : L.poppy; c.fill(); if (!white) { c.strokeStyle = L.poppyInk; c.lineWidth = 1.1; c.stroke(); }
+    }
+    tube(); c.fillStyle = '#ffffff'; c.fill();
+    if (!white) {
+      c.save(); tube(); c.clip(); c.beginPath(); for (let y = 0; y < 24; y += 5) { c.moveTo(-6, y); c.lineTo(6, y + 4.5); } c.strokeStyle = L.poppy; c.lineWidth = 2.6; c.stroke(); c.restore();
+      tube(); c.strokeStyle = L.poppyInk; c.lineWidth = 1.2; c.stroke();
+    }
+    if (white) { wishStarPath(c, 12.6, .52); c.fillStyle = '#ffffff'; c.fill(); }
+    else wishBody(c, 12);
+  }
+  // Rootknot's knot: a gold star tied round its middle with a rope bow.
+  function paintStarKnot(c) {
+    const L = STAR_LOOK;
+    wishBody(c, 12.5);
+    c.save(); wishStarPath(c, 12.5, .52); c.clip();
+    c.beginPath(); c.moveTo(-14, 2); c.quadraticCurveTo(0, 5.5, 14, 2); c.strokeStyle = L.ropeInk; c.lineWidth = 4.2; c.stroke(); c.strokeStyle = L.rope; c.lineWidth = 2.6; c.stroke();
+    c.beginPath(); for (let x = -10; x <= 10; x += 3.4) { const y = 2 + 3.5 * (1 - (x / 14) * (x / 14)); c.moveTo(x - 1, y - 1.2); c.lineTo(x + 1, y + 1.2); } c.strokeStyle = L.ropeInk; c.lineWidth = .7; c.stroke();
+    c.restore();
+    c.lineCap = 'round';
+    for (const side of [-1, 1]) {
+      c.beginPath(); c.ellipse(side * 4, .5, 4, 2.4, side * -.45, 0, TAU); c.strokeStyle = L.ropeInk; c.lineWidth = 2.8; c.stroke(); c.strokeStyle = L.rope; c.lineWidth = 1.5; c.stroke();
+      c.beginPath(); c.moveTo(side * .8, 4.5); c.quadraticCurveTo(side * 2.5, 7.5, side * 3.5, 10); c.strokeStyle = L.ropeInk; c.lineWidth = 2.6; c.stroke(); c.strokeStyle = L.rope; c.lineWidth = 1.3; c.stroke();
+    }
+    c.beginPath(); c.arc(0, 4.2, 2, 0, TAU); c.fillStyle = L.rope; c.fill(); c.strokeStyle = L.ropeInk; c.lineWidth = 1; c.stroke();
+  }
+  // A lasso thorn: a coral ball with six short spikes.
+  function paintStarThorn(c) {
+    const L = STAR_LOOK;
+    c.lineJoin = 'round';
+    for (let k = 0; k < 6; k++) {
+      const a = -Math.PI / 2 + k * TAU / 6, ca = Math.cos(a), sa = Math.sin(a);
+      c.beginPath(); c.moveTo(ca * 6.5 - sa * 2.8, sa * 6.5 + ca * 2.8); c.lineTo(ca * 12.5, sa * 12.5); c.lineTo(ca * 6.5 + sa * 2.8, sa * 6.5 - ca * 2.8); c.closePath();
+      c.fillStyle = L.thorn; c.fill(); c.strokeStyle = '#5e3f24'; c.lineWidth = .9; c.stroke();
+    }
+    c.beginPath(); c.arc(0, 0, 8, 0, TAU); c.fillStyle = L.coral; c.fill();
+    c.save(); c.clip(); c.beginPath(); c.arc(2.5, 3, 8, 0, TAU); c.rect(-12, -12, 24, 24); c.fillStyle = L.coralShade; c.fill('evenodd'); c.restore();
+    c.beginPath(); c.arc(0, 0, 8, 0, TAU); c.strokeStyle = L.coralInk; c.lineWidth = 1.3; c.stroke();
+    c.beginPath(); c.arc(-2.5, -2.6, 3.4, 3.4, 4.7); c.strokeStyle = 'rgba(255,255,255,.9)'; c.lineWidth = 1.4; c.lineCap = 'round'; c.stroke();
+  }
+  // The gem burr: three pink and lilac crystals on a rock 40 px wide (its middle on the wall's line).
+  function paintStarBurr(c) {
+    c.lineJoin = 'round';
+    c.beginPath(); c.moveTo(-21, 4); c.quadraticCurveTo(-20, -3, -11, -3.5); c.quadraticCurveTo(-3, -6, 5, -4); c.quadraticCurveTo(16, -5, 20, 0); c.quadraticCurveTo(22, 6, 14, 7);
+    c.lineTo(-15, 7); c.quadraticCurveTo(-22, 8, -21, 4); c.closePath(); c.fillStyle = '#8d6b8c'; c.fill(); c.strokeStyle = '#4b2f4d'; c.lineWidth = 1.3; c.stroke();
+    c.beginPath(); c.moveTo(-16, 2); c.quadraticCurveTo(-6, -.5, 6, 1); c.strokeStyle = '#b392b1'; c.lineWidth = 1.1; c.stroke();
+    for (const [x, h, w, tilt, light, dark] of [[-10, 18, 8, -.32, '#e6cdfb', '#b18ae0'], [11, 15, 7, .34, '#e6cdfb', '#b18ae0'], [1, 26, 9, .04, '#ffd0e6', '#ef8fc0']]) {
+      c.save(); c.translate(x, -2); c.rotate(tilt);
+      const top = -h, shoulder = -h + w * .7;
+      c.beginPath(); c.moveTo(-w / 2, 0); c.lineTo(-w / 2, shoulder); c.lineTo(0, top); c.lineTo(0, 0); c.closePath(); c.fillStyle = light; c.fill();
+      c.beginPath(); c.moveTo(0, 0); c.lineTo(0, top); c.lineTo(w / 2, shoulder); c.lineTo(w / 2, 0); c.closePath(); c.fillStyle = dark; c.fill();
+      c.beginPath(); c.moveTo(-w / 2, 0); c.lineTo(-w / 2, shoulder); c.lineTo(0, top); c.lineTo(w / 2, shoulder); c.lineTo(w / 2, 0); c.strokeStyle = '#6b3f7a'; c.lineWidth = 1.2; c.stroke();
+      c.beginPath(); c.moveTo(-w * .22, -2); c.lineTo(-w * .22, shoulder + 1.5); c.strokeStyle = 'rgba(255,255,255,.8)'; c.lineWidth = 1; c.stroke();
+      c.restore();
+    }
+    wishGlint(c, -1, -24, 2.6, '#ffffff');
+  }
+  // A thorn arch: one curved vine through its three points (pts, about the middle one), thorns along it, two gold buds.
+  function paintStarArch(c, pts) {
+    const L = STAR_LOOK, [a, m, b] = pts, ext = (p, q, d) => { const dx = p[0] - q[0], dy = p[1] - q[1], n = Math.hypot(dx, dy) || 1; return [p[0] + dx / n * d, p[1] + dy / n * d]; };
+    const s = ext(a, m, 5), e = ext(b, m, 5), cx = 2 * m[0] - (s[0] + e[0]) / 2, cy = 2 * m[1] - (s[1] + e[1]) / 2;
+    const at = u => [(1 - u) * (1 - u) * s[0] + 2 * u * (1 - u) * cx + u * u * e[0], (1 - u) * (1 - u) * s[1] + 2 * u * (1 - u) * cy + u * u * e[1]];
+    c.lineCap = 'round'; c.lineJoin = 'round';
+    for (let i = 1; i < 12; i++) {
+      const u = i / 12, [x, y] = at(u), [x2, y2] = at(u + .01), tx = x2 - x, ty = y2 - y, n = Math.hypot(tx, ty) || 1, side = i % 2 ? 1 : -1, nx = -ty / n * side, ny = tx / n * side;
+      c.beginPath(); c.moveTo(x - tx / n * 3.2, y - ty / n * 3.2); c.quadraticCurveTo(x + nx * 5 - tx / n, y + ny * 5 - ty / n, x + nx * 10.5 + tx / n * 2, y + ny * 10.5 + ty / n * 2); c.lineTo(x + tx / n * 3.2, y + ty / n * 3.2); c.closePath();
+      c.fillStyle = L.thorn; c.fill(); c.strokeStyle = '#5e3f24'; c.lineWidth = .9; c.stroke();
+      c.beginPath(); c.arc(x + nx * 9.6 + tx / n * 1.8, y + ny * 9.6 + ty / n * 1.8, 1.3, 0, TAU); c.fillStyle = L.coral; c.fill();
+    }
+    c.beginPath(); c.moveTo(s[0], s[1]); c.quadraticCurveTo(cx, cy, e[0], e[1]);
+    c.strokeStyle = '#3f5a35'; c.lineWidth = 8.5; c.stroke(); c.strokeStyle = '#7d9a52'; c.lineWidth = 5.2; c.stroke();
+    c.save(); c.translate(-.8, -1.2); c.beginPath(); c.moveTo(s[0], s[1]); c.quadraticCurveTo(cx, cy, e[0], e[1]); c.strokeStyle = '#c3d98e'; c.lineWidth = 1.3; c.stroke(); c.restore();
+    for (const u of [.3, .74]) { const [x, y] = at(u); c.save(); c.translate(x, y - 1); wishBody(c, 4.5); c.restore(); }
+  }
+  // A comet's head: a gold star with a white core and a night-blue edge.
+  function paintStarComet(c) { wishBody(c, 12, STAR_LOOK.gold, STAR_LOOK.shade, STAR_LOOK.night); c.beginPath(); c.arc(-.4, .6, 3.6, 0, TAU); c.fillStyle = 'rgba(255,255,255,.92)'; c.fill(); }
+  // A numbered dome badge: a white disk, its ink edge and the number.
+  function paintStarPip(c, n) { c.beginPath(); c.arc(0, 0, 8, 0, TAU); c.fillStyle = '#ffffff'; c.fill(); c.strokeStyle = STAR_LOOK.ink; c.lineWidth = 1; c.stroke(); wishDigit(c, n, 0, .3, 9.4, STAR_LOOK.ink, 2.1); }
+  // Glass-blue twin of a lent star (Crystal Heart's fake), with a white diagonal facet.
+  function paintStarGlass(c) {
+    const L = STAR_LOOK;
+    wishBody(c, 12.5, L.glass, L.glassShade, L.glassInk, 'rgba(255,255,255,.7)');
+    c.save(); wishStarPath(c, 12.5, .52); c.clip();
+    c.beginPath(); c.moveTo(-11, 5); c.lineTo(5, -11); c.lineTo(9, -7); c.lineTo(-7, 9); c.closePath(); c.fillStyle = 'rgba(255,255,255,.65)'; c.fill();
+    c.restore();
+  }
+  const STAR_SPRITES = {
+    face: (r, tier, blink) => [`core:face:${r}:${tier}${blink ? ':blink' : ''}`, [-r * .62, -r * .64, r * .62, r * .58], c => paintStarFace(c, r, tier, blink)],
+    rays: r => [`core:rays:${r}`, [-r * 1.92, -r * 1.92, r * 1.92, r * 1.92], c => paintStarRays(c, r)],
+    swirlstar: ['core:lent:swirlstar', [-18, -15, 18, 16], c => {
+      c.beginPath(); c.ellipse(0, 9, 16, 5, 0, 0, TAU); c.fillStyle = 'rgba(127,214,232,.6)'; c.fill(); c.strokeStyle = '#e9fbff'; c.lineWidth = 1.3; c.stroke();
+      c.beginPath(); c.ellipse(0, 9.5, 10, 3, 0, 0, TAU); c.strokeStyle = 'rgba(255,255,255,.75)'; c.lineWidth = 1; c.stroke();
+      wishBody(c, 12.5);
+    }],
+    portal: ['core:lent:portal', [-19, -19, 19, 19], c => paintStarPortal(c, false)],
+    pearl: ['core:lent:pearl', [-19, -19, 19, 19], c => paintStarPortal(c, true)],
+    waltz: ['core:lent:waltz', [-14, -15, 14, 15], paintStarWaltz],
+    rocket: ['core:lent:rocket', [-15, -15, 15, 22], c => paintStarRocket(c, false)],
+    flash: ['core:flash:rocket', [-15, -15, 15, 22], c => paintStarRocket(c, true)],
+    glass: ['core:lent:glass', [-15, -15, 15, 15], c => wishBody(c, 12.5)],
+    glassFake: ['core:glass:fake', [-15, -15, 15, 15], paintStarGlass],
+    gem: ['core:lent:gem', [-13, -12, 13, 15], c => paintStarGem(c, STAR_LOOK.gold, STAR_LOOK.bright, STAR_LOOK.shade, STAR_LOOK.ink)],
+    gemFake: ['core:gem:fake', [-13, -12, 13, 15], c => paintStarGem(c, STAR_LOOK.coral, STAR_LOOK.coralLight, STAR_LOOK.coralShade, STAR_LOOK.coralInk)],
+    knot: ['core:lent:knot', [-15, -15, 15, 15], paintStarKnot],
+    thorn: ['core:thorn', [-14, -14, 14, 14], paintStarThorn],
+    comet: ['core:comet', [-15, -15, 15, 15], paintStarComet],
+    sat: kit => ['core:sat', [-19, -19, 19, 19], c => kit.paintTargetPart(c, 'satellite', 'core', 11, true, true)],
+    pip: n => [`core:pip:${n}`, [-10, -10, 10, 10], c => paintStarPip(c, n)],
+    burr: ['core:burr', [-24, -31, 24, 9], paintStarBurr],
+    ghost: ['core:ghost', [-13, -13, 13, 13], c => { wishStarPath(c, 11, .52); c.fillStyle = 'rgba(255,244,170,.3)'; c.fill(); c.strokeStyle = STAR_LOOK.pale; c.lineWidth = 1.5; c.stroke(); }],
+    mark: ['core:mark', [-8, -8, 8, 8], c => wishBody(c, 6)]
+  };
+  const starStamp = (ctx, kit, [key, box, paint], x, y, turn = 0, sx = 1, sy = sx) => stamp(ctx, kit, key, box, paint, x, y, turn, sx, sy);
+  // A thorn arch's sprite from its three points about the middle one (the arch's shape on a side never changes).
+  function starArchSprite(side, rel) {
+    const xs = rel.map(q => q[0]), ys = rel.map(q => q[1]), box = [Math.min(...xs) - 16, Math.min(...ys) - 16, Math.max(...xs) + 16, Math.max(...ys) + 16].map(Math.round);
+    return [`core:arch:${side}`, box, c => paintStarArch(c, rel)];
+  }
+  const STAR_LENT = { swirlstar: 'swirlstar', waltz: 'waltz', rocket: 'rocket', knot: 'knot', thorn: 'thorn', comet: 'comet' };
+  // The move's label (art.js drawBossWarning) is drawn before the kit's `over`: a tell on top of it fades to keep it readable.
+  const STAR_LABELS = new Map();
+  function starLabel(ctx, w) {
+    const text = String(w.text || 'A guardian is stirring');
+    let lw = STAR_LABELS.get(text);
+    if (lw == null) { ctx.save(); ctx.font = '600 12px Fredoka'; lw = Math.min(310, Math.max(130, Number(ctx.measureText(text).width) + 28 || 130)); ctx.restore(); STAR_LABELS.set(text, lw); }
+    return { x: clamp(w.x, lw / 2 + 10, 410 - lw / 2), y: clamp(w.y + 61, 45, 395), w: lw };
+  }
+  // How much a star on her ring dims while it crosses the move's label (1 = not at all, down to .4), so the words stay readable.
+  function starShy(ctx, s, bud, time) {
+    const w = s.warning, boss = s.boss;
+    if (!boss || boss.bloomed || !w || !Number.isFinite(w.until) || !(w.until > w.at) || !(time < w.until) || !Number.isFinite(w.x) || !Number.isFinite(w.y)) return 1;
+    const label = starLabel(ctx, w), r = Number(bud.r) || 11, out = Math.max(Math.abs(bud.x - label.x) - label.w / 2, Math.abs(bud.y - label.y) - 13);
+    return 1 - .6 * clamp((r - out) / 8, 0, 1);
+  }
+  // A tell's filling ring (art.js marks every target but a portal this way; the portal's is drawn here).
+  function starRing(ctx, kit, x, y, r, p, still) {
+    ctx.save(); ctx.lineCap = 'round'; ctx.setLineDash([4, 4]); kit.circle(ctx, x, y, r, null, '#fff6ce', 3); ctx.setLineDash([]);
+    if (!still) { ctx.beginPath(); ctx.arc(x, y, r + 4, -Math.PI / 2, -Math.PI / 2 + TAU * p); ctx.strokeStyle = STAR_LOOK.gold; ctx.lineWidth = 2; ctx.stroke(); }
+    ctx.restore();
+  }
+  // The tells of her current warning, filling as its 1.3 s runs.
+  function starTells(ctx, s, w, time, still, kit) {
+    const L = STAR_LOOK, boss = s.boss, p = clamp((time - w.at) / Math.max(.1, w.until - w.at), 0, 1), since = time - w.at, label = starLabel(ctx, w), T = w.targets || [];
+    const shy = (x, y, r) => Math.abs(x - label.x) < label.w / 2 + r && Math.abs(y - label.y) < 13 + r * .4 ? .35 : 1;
+    const grow = k => still ? 1 : k <= 0 ? 0 : kit.easeBack(clamp(k, 0, 1));
+    const ghost = (sprite, x, y, r, scale, alpha = .6) => { if (scale <= .01) return; ctx.save(); ctx.globalAlpha *= alpha * shy(x, y, r); starStamp(ctx, kit, sprite, x, y, 0, scale); ctx.restore(); };
+    const S = STAR_SPRITES;
+    switch (w.move) {
+      case 'swirl': for (const t of T) if (t.role === 'swirl') ghost(S.swirlstar, t.x, t.y, 16, grow(p * 2.5)); break;
+      case 'portal': case 'pearl': {
+        const t = T.find(t => t.role === 'portal');
+        if (!t) break;
+        ghost(w.move === 'pearl' ? S.pearl : S.portal, t.x, t.y, 19, .3 + .7 * kit.smooth(p), .7);
+        ctx.save(); ctx.globalAlpha *= shy(t.x, t.y, 23); starRing(ctx, kit, t.x, t.y, 23, p, still); ctx.restore();
+        break;
+      }
+      case 'waltz': for (const t of T) if (t.role === 'waltz') ghost(S.waltz, t.x, t.y, 15, grow(p * 2.5)); break;
+      case 'rocket': {
+        const t = T.find(t => t.role === 'rocket');
+        if (!t || !boss) break;
+        const R = Math.hypot(t.x - w.x, t.y - w.y), ring = [];
+        for (let k = 0; k <= 48; k++) { const a = k / 48 * TAU; ring.push([boss.x + Math.cos(a) * R, boss.y + Math.sin(a) * R]); }
+        ctx.save(); ctx.globalAlpha *= .3 + .45 * p; dotted(ctx, ring, L.pale, 1.2, 8, still ? 0 : time * 12); ctx.restore();
+        ghost(S.rocket, t.x, t.y, 16, grow(p * 2.5));
+        break;
+      }
+      case 'glass': for (const t of T) if (t.role === 'glass') ghost(t.real ? S.glass : S.glassFake, t.x, t.y, 13, grow(p * 2.5 - (t.slot || 0) * .3), t.real ? .85 : .65); break;
+      case 'gem': {
+        if (!boss) break;
+        const x0 = boss.x, y0 = boss.y + (Number(boss.r) || 27);
+        for (const t of T) if (t.role === 'gem') {
+          const arc = []; for (let k = 0; k <= 18; k++) { const q = lobAt(x0, y0, t.x, t.y, 1, k / 18 * p, L.gemH); arc.push([q.x, q.y]); }
+          ctx.save(); ctx.globalAlpha *= .7; dotted(ctx, arc, L.pale, 1.3, 7); ctx.restore();
+        }
+        break;
+      }
+      case 'lasso': {
+        const knot = T.find(t => t.role === 'knot');
+        if (!knot || !boss) break;
+        ctx.save(); ctx.globalAlpha *= .75;
+        dotted(ctx, [[boss.x, boss.y], [boss.x + (knot.x - boss.x) * p, boss.y + (knot.y - boss.y) * p]], L.gold, 1.4, 7, still ? 0 : wishCrawl(time, 14, 7));
+        ctx.restore();
+        T.filter(t => t.role === 'arch').forEach((t, k) => ghost(S.thorn, t.x, t.y, 12, grow(p * 2.2 - k * .3), .7));
+        break;
+      }
+      case 'dome': for (const t of T) {
+        if (t.role !== 'satellite' || !t.pip) continue;
+        const sat = (s.parts || []).find(q => q.id === t.id) || t;
+        ghost(S.pip(t.pip), sat.x, sat.y, 8, grow((since - .2 * (t.pip - 1)) / .2), .9);
+      } break;
+      case 'starfall': for (const t of T) {
+        if (t.role !== 'comet') continue;
+        ctx.save(); ctx.globalAlpha *= .7; dotted(ctx, [[t.x0, t.y0], [t.x0 + (t.x1 - t.x0) * p, t.y0 + (t.y1 - t.y0) * p]], L.pale, 1.4, 8); ctx.restore();
+        ghost(S.ghost, t.x1, t.y1, 11, .5 + .5 * p, .3 + .45 * p);
+      } break;
+      default: break;
+    }
+  }
+  kitLook('core', {
+    warm(kit) {
+      const r = 27, jobs = [...[0, 1, 2].flatMap(t => [STAR_SPRITES.face(r, t, false), STAR_SPRITES.face(r, t, true)]), STAR_SPRITES.face(r, 'hurt', false), STAR_SPRITES.rays(r),
+        STAR_SPRITES.sat(kit), ...[1, 2, 3, 4, 5].map(n => STAR_SPRITES.pip(n)), ...['swirlstar', 'portal', 'pearl', 'waltz', 'rocket', 'flash', 'glass', 'glassFake', 'gem', 'gemFake',
+          'knot', 'thorn', 'comet', 'burr', 'ghost', 'mark'].map(k => STAR_SPRITES[k])];
+      for (const side of [0, 1]) {
+        // bosses.js starArch: the arch's three points round the launcher (210, 498), about the middle one.
+        const pts = STAR_LOOK.arch.map(d => [(side ? 1 : -1) * STAR_LOOK.ring * Math.cos(d * Math.PI / 180), -STAR_LOOK.ring * Math.sin(d * Math.PI / 180)]);
+        jobs.push(starArchSprite(side, pts.map(q => [q[0] - pts[1][0], q[1] - pts[1][1]])));
+      }
+      for (const lit of [true, false]) jobs.push([`core:ring:11:${lit}`, [-18.95, -18.95, 18.95, 18.95], c => kit.paintTargetPart(c, 'satellite', 'core', 11, lit, true)]);
+      for (const [key, box, paint] of jobs) kit.atlasSprite(key, box[0], box[1], box[2], box[3], paint);
+    },
+    under(ctx, state, s, time, still, kit, quality) {
+      const L = STAR_LOOK, boss = s.boss, live = boss && !boss.bloomed, parts = s.parts || [];
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      // Radiant: eight short rays turning slowly behind her.
+      if (live && (s.tier | 0) >= 2 && quality < 2) { ctx.save(); ctx.globalAlpha *= still ? .9 : .8 + .15 * Math.sin(time * 2.2); starStamp(ctx, kit, STAR_SPRITES.rays(Number(boss.r) || 27), boss.x, boss.y, still ? 0 : time * .2); ctx.restore(); }
+      // The dome's pentagram, 1 to 5 and back to 1: gold where both stars have rung (grey once a star broke out of turn), dotted where they have not.
+      const dome = s.dome;
+      if (dome) {
+        const pips = []; for (const p of parts) if (p.bossPart === 'satellite' && p.pip) pips[p.pip] = p;
+        const broken = pips.filter(p => p && p.bloomed).length > (dome.rings || 0), rung = [];
+        for (let k = 1; k <= 5; k++) {
+          const a = pips[k], b = pips[k % 5 + 1];
+          if (!a || !b) continue;
+          if (a.bloomed && b.bloomed) rung.push([a, b]);
+          else if (quality <= 1) { ctx.save(); ctx.globalAlpha *= .38; dotted(ctx, [[a.x, a.y], [b.x, b.y]], L.pale, 1, 7); ctx.restore(); }
+        }
+        if (rung.length) {
+          ctx.beginPath(); for (const [a, b] of rung) { ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); }
+          if (broken) { ctx.strokeStyle = '#c9c1b3'; ctx.lineWidth = 1.6; ctx.stroke(); }
+          else { ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 4; ctx.stroke(); ctx.strokeStyle = L.gold; ctx.lineWidth = 2; ctx.stroke(); }
+        }
+      }
+      // Tethers: a dotted gold line from each lending star (or her, lending her own) to the piece it lent.
+      for (const p of parts) {
+        if (!p.lent || p.bloomed || p.closed || p.hidden) continue;
+        const from = p.lender != null && parts.find(q => q.id === p.lender) || boss;
+        if (!from) continue;
+        const dx = p.x - from.x, dy = p.y - from.y, d = Math.hypot(dx, dy), a = (Number(from.r) || 11) + 3, b = (Number(p.r) || 12) + 5;
+        if (d < a + b + 6) continue;
+        const ax = from.x + dx / d * a, ay = from.y + dy / d * a, bx = p.x - dx / d * b, by = p.y - dy / d * b;
+        let pts = [[ax, ay], [bx, by]];
+        if (from !== boss && boss) {
+          // A star across from its piece: the line bows round her rather than over her face.
+          const sx = bx - ax, sy = by - ay, l2 = sx * sx + sy * sy || 1, u = clamp(((boss.x - ax) * sx + (boss.y - ay) * sy) / l2, 0, 1);
+          const cx = ax + sx * u, cy = ay + sy * u, gap = Math.hypot(cx - boss.x, cy - boss.y), clear = (Number(boss.r) || 27) + 14;
+          if (gap < clear) {
+            const l = Math.sqrt(l2), nx = gap > .5 ? (cx - boss.x) / gap : -sy / l, ny = gap > .5 ? (cy - boss.y) / gap : sx / l, qx = cx + nx * 2 * (clear - gap), qy = cy + ny * 2 * (clear - gap);
+            pts = []; for (let k = 0; k <= 12; k++) { const t = k / 12, m = 1 - t; pts.push([m * m * ax + 2 * m * t * qx + t * t * bx, m * m * ay + 2 * m * t * qy + t * t * by]); }
+          }
+        }
+        ctx.save(); ctx.globalAlpha *= .8;
+        dotted(ctx, pts, L.gold, 1.1, 6, still ? 0 : wishCrawl(time, 10, 6));
+        ctx.restore();
+      }
+      // Starfall: each comet's line on to its end, and a ghost star waiting there.
+      for (const p of parts) {
+        if (p.bossPart !== 'comet' || p.bloomed || p.closed) continue;
+        ctx.save(); ctx.globalAlpha *= .55; dotted(ctx, [[p.x1, p.y1], [p.x, p.y]], L.pale, 1.3, 8); ctx.restore();
+        ctx.save(); ctx.globalAlpha *= .55; starStamp(ctx, kit, STAR_SPRITES.ghost, p.x1, p.y1); ctx.restore();
+      }
+    },
+    part(ctx, state, s, bud, time, still, kit, quality) {
+      const L = STAR_LOOK, role = bud.bossPart, S = STAR_SPRITES, clock = Number(s.kitAge) || 0, age = clock - (Number(bud.born) || 0);
+      if (role === 'satellite') {
+        const shy = starShy(ctx, s, bud, time);
+        if (!s.dome || !bud.pip || bud.bloomed) {
+          if (shy >= 1) return false;
+          // art.js's own satellite (sprite, the faded bloomed one, its health arc), dimmed while it crosses the label.
+          const r = Math.max(3, Math.round(Number(bud.r) || 12)), e = r * 1.45 + 3, lit = !bud.bloomed && bud.lit !== false && !(bud.hp === 0);
+          ctx.save(); ctx.globalAlpha *= shy * (bud.bloomed ? .28 : 1);
+          starStamp(ctx, kit, [`core:ring:${r}:${lit}`, [-e, -e, e, e], c => kit.paintTargetPart(c, 'satellite', 'core', r, lit, true)], bud.x, bud.y);
+          if (!bud.bloomed && Number(bud.maxHp) > 1) {
+            ctx.beginPath(); ctx.arc(bud.x, bud.y, r + 3.5, -.5 * Math.PI, -.5 * Math.PI + TAU * clamp((Number(bud.hp) || 0) / bud.maxHp, 0, 1)); ctx.strokeStyle = '#fff4c5'; ctx.lineWidth = 1.4; ctx.stroke();
+          }
+          ctx.restore();
+          return true;
+        }
+        // A dome star: whole, with its number (one hit, so no health arc); the next one pulses inside a gold halo.
+        const next = bud.pip === s.dome.next, k = next && !still ? 1 + .08 * Math.sin(TAU * 1.6 * time) : 1;
+        ctx.save(); ctx.globalAlpha *= shy;
+        if (next) { kit.circle(ctx, bud.x, bud.y, 17 * k, null, '#ffffff', 3.6); kit.circle(ctx, bud.x, bud.y, 17 * k, null, L.gold, 2); }
+        else ctx.globalAlpha *= .75;
+        starStamp(ctx, kit, S.sat(kit), bud.x, bud.y, 0, k); starStamp(ctx, kit, S.pip(bud.pip), bud.x, bud.y, 0, k);
+        ctx.restore();
+        return true;
+      }
+      let sprite = null;
+      if (role === 'portal') sprite = bud.pearly ? S.pearl : S.portal;
+      else if (role === 'glass') {
+        // The real glass star hides as glass while they shuffle (a little cup game), then shows gold again.
+        const shuffling = !still && bud.real && age >= L.glassWait && age < L.glassWait + L.glassSwap;
+        sprite = bud.real && !shuffling ? S.glass : S.glassFake;
+      } else if (role === 'gem') sprite = bud.real ? S.gem : S.gemFake;
+      else if (STAR_LENT[role]) sprite = S[STAR_LENT[role]];
+      else return false;
+      // A new piece pops in (.25 s).
+      const pop = still ? 1 : kit.easeBack(clamp(age / .25, 0, 1));
+      if (pop <= .01) return true;
+      if (role === 'gem' && Number.isFinite(bud.x1)) {
+        // Its shadow waits where it will land, growing as it falls.
+        const u = clamp(age / L.gemT, 0, 1);
+        ctx.save(); ctx.globalAlpha *= .14 + .26 * u; ctx.beginPath(); ctx.ellipse(bud.x1, bud.y1 + 8, 5 + 9 * u, 2 + 2.6 * u, 0, 0, TAU); ctx.fillStyle = '#2a1a4a'; ctx.fill(); ctx.restore();
+      }
+      if (role === 'comet' && Number.isFinite(bud.x1)) {
+        // Its tail: circles back along its line, smaller and fainter (the two nearest at quality 1 and 2).
+        const dx = bud.x0 - bud.x1, dy = bud.y0 - bud.y1, d = Math.hypot(dx, dy) || 1, n = quality >= 1 ? 2 : 4;
+        ctx.save(); ctx.globalCompositeOperation = 'lighter';
+        for (let k = n; k >= 1; k--) kit.circle(ctx, bud.x + dx / d * 8 * k, bud.y + dy / d * 8 * k, 8.5 - 1.5 * k, `rgba(255,214,110,${.7 - .13 * k})`);
+        ctx.restore();
+      }
+      if (role === 'rocket') {
+        // The fuse burns down from the nozzle over its 4 s, a spark at its tip; in its last second it flashes white.
+        const left = clamp((L.fuse - age) / L.fuse, 0, 1), len = 12 * left, tip = 18 + len, wig = still ? 0 : Math.sin(time * 9) * 1.2;
+        if (len > .5) {
+          ctx.beginPath(); ctx.moveTo(bud.x, bud.y + 18); ctx.quadraticCurveTo(bud.x + 3 + wig, bud.y + 18 + len * .5, bud.x + wig * .5, bud.y + tip);
+          ctx.strokeStyle = '#6e4a25'; ctx.lineWidth = 1.8; ctx.lineCap = 'round'; ctx.stroke();
+        }
+        ctx.save(); ctx.globalCompositeOperation = 'lighter'; kit.circle(ctx, bud.x + wig * .5, bud.y + tip, still ? 4.5 : 4 + Math.abs(Math.sin(time * 17)) * 1.5, 'rgba(255,150,60,.55)'); ctx.restore();
+        kit.circle(ctx, bud.x + wig * .5, bud.y + tip, 2.4, 'rgba(255,214,90,.9)');
+        kit.sparkle(ctx, bud.x + wig * .5, bud.y + tip, still ? 3.6 : 3.2 + Math.abs(Math.sin(time * 23)) * 1.6, '#ffffff', still ? .3 : time * 7);
+        const last = age >= L.fuse - 1;
+        if (last && still) starStamp(ctx, kit, S.flash, bud.x, bud.y, 0, 1.18 * pop);
+        starStamp(ctx, kit, sprite, bud.x, bud.y, 0, pop);
+        if (last && !still && Math.floor((age - (L.fuse - 1)) / .25) % 2 === 0) { ctx.save(); ctx.globalAlpha *= .85; starStamp(ctx, kit, S.flash, bud.x, bud.y, 0, pop); ctx.restore(); }
+        return true;
+      }
+      starStamp(ctx, kit, sprite, bud.x, bud.y, 0, pop);
+      return true;
+    },
+    face(ctx, state, s, bud, time, still, kit) {
+      if (!bud.boss) return false;
+      const r = Number(bud.r) || 27, look = kit.BOSS_LOOKS.core || {}, health = (Number(bud.hp) || 0) / Math.max(1, Number(bud.maxHp) || 1), tier = clamp(s.tier | 0, 0, 2);
+      // The face moves with her body: the Supernova's stretch (art.js bossBodyPose) and the shiver near the end (bossWobble).
+      ctx.translate(bud.x, bud.y);
+      if (!still && s.mode === 'supernova') { const k = 1 + Math.sin(time * 8) * .025; ctx.scale(k, k); }
+      if (!still && health <= .2) ctx.rotate(Math.sin(time * TAU * 6) * .04);
+      ctx.translate(r * (look.faceX || 0), r * (look.faceY != null ? look.faceY : .03));
+      const hurt = typeof bud.hitAt === 'number' && time - bud.hitAt >= 0 && time - bud.hitAt < .3, blink = !still && time % 3.4 < .12;
+      starStamp(ctx, kit, hurt ? STAR_SPRITES.face(r, 'hurt', false) : STAR_SPRITES.face(r, tier, blink), 0, 0);
+      return true;
+    },
+    over(ctx, state, s, time, still, kit) {
+      const L = STAR_LOOK, w = s.warning, boss = s.boss, clock = Number(s.kitAge) || 0;
+      if (boss && !boss.bloomed && w && Number.isFinite(w.until) && w.until > w.at && time < w.until) starTells(ctx, s, w, time, still, kit);
+      // Her rocks on the board (art.js leaves kitDrawn walls to her): gem burrs and thorn arches, popping in and fading out
+      // over their last half second.
+      const arches = [[], []];
+      for (const b of state.bumpers || []) {
+        if (!b.kitDrawn || !(b.burr || b.thorn)) continue;
+        if (b.thorn) { arches[b.x < 210 ? 0 : 1].push(b); continue; }
+        const left = (Number(b.kitUntil) || 0) - clock, k = still ? 1 : kit.easeBack(clamp((L.life.burr - left) / .3, 0, 1));
+        ctx.save(); ctx.globalAlpha *= clamp(left / .5, 0, 1); starStamp(ctx, kit, STAR_SPRITES.burr, b.x, b.y, 0, k); ctx.restore();
+      }
+      arches.forEach((walls, side) => {
+        if (walls.length < 2) return;
+        const ends = walls.map(b => { const h = (Number(b.length) || 0) / 2, ca = Math.cos(b.angle || 0), sa = Math.sin(b.angle || 0); return [[b.x - ca * h, b.y - sa * h], [b.x + ca * h, b.y + sa * h]]; });
+        const [a, m] = ends[0], z = ends[1][1], rel = [a, m, z].map(q => [q[0] - m[0], q[1] - m[1]]);
+        const left = (Number(walls[0].kitUntil) || 0) - clock, k = still ? 1 : kit.easeBack(clamp((L.life.arch - left) / .3, 0, 1));
+        ctx.save(); ctx.globalAlpha *= clamp(left / .5, 0, 1); starStamp(ctx, kit, starArchSprite(side, rel), m[0], m[1], 0, k); ctx.restore();
+      });
+      // A comet nobody caught lands as a fallen star: a little gold star on it.
+      for (const bud of state.buds || []) if (bud.fallenStar && !bud.bloomed && !bud.hidden && bud.visible !== false) starStamp(ctx, kit, STAR_SPRITES.mark, bud.x, bud.y - 1);
+    }
+  });
 
   root.BloomFoeArt = { define, LOOKS, has, bud, under, over, aim, warm, kitLook, KIT_LOOKS, kits };
 })(typeof window !== 'undefined' ? window : globalThis);

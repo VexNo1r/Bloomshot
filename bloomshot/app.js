@@ -1934,6 +1934,7 @@
     wish(e) {
       jolt(.12, .07, .2); haptic('surge'); foeRing(e.x, e.y, '#ffffff', 10, 34, .5); foeRing(e.x, e.y, '#ffd65a', 8, 24, .4);
       for (const p of e.path || []) foeGlow(p.x, p.y, 3, WISH_GOLD, { spread: 20, fall: 6, life: .6 });
+      if (e.bud) { e.bud.wishPath = e.path || []; e.bud.wishAt = game.time; } // art only: the shooting star's streak (foe-art.js); the rules never read it
       // The star medallion (art.js STAMPS.slam) under the word.
       if (save.settings.motion) game.floaters.push({ kind: 'trick', trick: 'slam', text: 'Wish!', label: '', x: clamp(e.x, 70, 350), y: Math.max(44, e.y - 54), life: 1.1, maxLife: 1.1 });
     },

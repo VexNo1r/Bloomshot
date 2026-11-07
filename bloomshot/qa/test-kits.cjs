@@ -1445,6 +1445,7 @@ test('Crystal Heart replays identically at 30, 60 and 144 FPS, and a strike loop
     assert.equal(lit(s), 5); assert.equal(s.mode, 'domed');
     const order = sats(s).sort((p, q) => p.pip - q.pip);
     assert.deepEqual(order.map(p => p.pip), [1, 2, 3, 4, 5]);
+    assert.deepEqual(w.targets.map(t => t.pip), w.targets.map(t => s.parts.find(p => p.id === t.id).pip), 'the tell showed the numbers the dome got');
     for (let k = 1; k < 5; k++) assert.equal((order[k].slot - order[k - 1].slot + 5) % 5, 2, 'each next star two slots on: a pentagram');
     assert(order.every(p => p.hp === 1));
     assert.equal(Bosses.canHit(g, order[2], { nx: 0, ny: 1 }, {}), false); assert(order[2].decoy, 'the bot leaves it');
@@ -1548,6 +1549,83 @@ test('Crystal Heart replays identically at 30, 60 and 144 FPS, and a strike loop
     assert(!list.some(t => t.bud.decoy)); assert.equal(list.find(t => t.bud.lent).priority, 75);
     ({ g, s } = star(1, 0)); list = Bosses.targets(g);
     const pips = list.filter(t => t.bud.bossPart === 'satellite'); assert.equal(pips.length, 1); assert.equal(pips[0].bud.pip, 1); assert.equal(pips[0].priority, 90);
+  });
+  // The art, in a sandbox with a recording canvas: every move's tell and action with Animations on and off and at each
+  // quality, once her sprites are warm (as the level's intro warms them).
+  function starArt(canvas = true) {
+    const vm = require('node:vm'), tally = { gradients: 0, blur: 0, surfaces: 0, calls: {}, hook: null, face: [], kit: null, warm: false };
+    const brush = () => {
+      const stack = [], state = { globalAlpha: 1, globalCompositeOperation: 'source-over', fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, shadowBlur: 0, lineDashOffset: 0 };
+      const ctx = new Proxy(state, {
+        get(t, name) {
+          if (name in t) return t[name];
+          if (name === 'canvas') return { width: 420, height: 560 };
+          return (...args) => {
+            for (const a of args) if (typeof a === 'number') assert(Number.isFinite(a), `${String(name)} received ${a}`);
+            if (tally.hook) tally.calls[tally.hook] = (tally.calls[tally.hook] || 0) + 1;
+            if (tally.hook === 'face' && /To$|^arc$|^ellipse$/.test(name)) tally.face.push(name, ...args.map(n => Math.round(n * 100)));
+            if (name === 'save') stack.push({ ...state });
+            else if (name === 'restore') { assert(stack.length, 'restore without save'); Object.assign(state, stack.pop()); }
+            else if (name === 'measureText') return { width: String(args[0]).length * 7 };
+            else if (name === 'getTransform') return { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+            else if (/Gradient$|^createPattern$/.test(name)) { if (tally.hook) tally.gradients++; return { addColorStop() {} }; }
+          };
+        },
+        set(t, name, value) {
+          if (['globalAlpha', 'lineWidth', 'shadowBlur', 'lineDashOffset'].includes(name)) assert(Number.isFinite(value), `${name} is finite`);
+          if (name === 'shadowBlur' && value > 0 && tally.hook) tally.blur++;
+          t[name] = value; return true;
+        }
+      });
+      return { ctx, balanced: () => stack.length === 0 };
+    };
+    class Canvas { constructor(w, h) { this.width = w; this.height = h; if (tally.hook && tally.warm) tally.surfaces++; this.rec = brush(); } getContext() { return this.rec.ctx; } }
+    const scope = vm.createContext({ console, Math, Map, Set, WeakMap, Array, Object, Number, String, JSON, Date, performance, ...(canvas ? { OffscreenCanvas: Canvas } : {}) });
+    for (const file of ['foe-art.js', 'art.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), scope, { filename: file });
+    const kits = scope.BloomFoeArt.kits, drawn = new Set(), look = scope.BloomFoeArt.KIT_LOOKS.core;
+    for (const hook of ['under', 'part', 'face', 'over']) {
+      const call = kits[hook]; kits[hook] = (...args) => { const outer = tally.hook; tally.hook = hook; try { const done = call(...args); if (done) drawn.add(hook === 'part' ? args[2].bossPart : hook); return done; } finally { tally.hook = outer; } };
+    }
+    // Every sprite she uses is painted by warm: a sprite key first asked for later would be painted mid-fight.
+    // The kit is frozen, so her hooks are handed a copy whose atlasSprite notes each key.
+    const known = new Set(); tally.late = new Set();
+    const spyOf = kit => {
+      if (!tally.kit) {
+        tally.kit = { ...kit, atlasSprite: (key, ...rest) => { if (/^core:/.test(key)) (tally.warm ? known.has(key) || tally.late.add(key) : known.add(key)); return kit.atlasSprite(key, ...rest); } };
+        look.warm(tally.kit); tally.gradients = 0; tally.warm = true;
+      }
+      return tally.kit;
+    };
+    for (const [hook, at] of [['under', 5], ['part', 6], ['face', 6], ['over', 5]]) {
+      const own = look[hook]; look[hook] = (...args) => { args[at] = spyOf(args[at]); return own(...args); };
+    }
+    const frame = (game, still, quality = 0) => {
+      const rec = brush(); scope.BloomArt.draw(rec.ctx, game, game.time, { showAim: false, theme: 'depth-core', reducedMotion: still, quality });
+      assert(rec.balanced(), 'transforms balance');
+    };
+    return { tally, frame, drawn };
+  }
+  test("The Starseed's art draws every move's tell and action, Animations on and off, with no gradient, blur or new surface per frame; her three moods are three faces", () => {
+    const { tally, frame, drawn } = starArt(), seen = new Set();
+    const film = (g, seconds) => { for (let n = 0; n < seconds * 120; n++) { g.step(1 / 120); if (n % 12 === 0) { frame(g, false, (n / 12) % 3); frame(g, true, 1); } } };
+    const buds = () => [flower('f1', 120, 200), flower('f2', 110, 240), flower('f3', 300, 160)];
+    for (const [tier, index, seconds] of [[0, 0, 3], [0, 1, 3], [0, 2, 4], [0, 3, 3], [0, 4, 3], [1, 0, 1], [1, 1, 4], [1, 2, 4.5], [1, 3, 3], [1, 4, 6.5], [2, 0, 4]]) {
+      const g = arena(10), s = g.bossState; g.buds.push(...buds());
+      s.tier = tier; if (tier) { s.cycle = index; s.phase = Math.max(s.phase, 1); } else s.action = index;
+      s.next = s.age; g.step(1 / 120); assert(s.warning, 'a warning is up'); seen.add(s.warning.move);
+      while (s.warning) { g.step(1 / 120); if (Math.round(g.time * 120) % 12 === 0) { frame(g, false); frame(g, true); } }
+      if (s.warning === null && tier === 1 && index === 0) { const order = s.parts.filter(p => p.bossPart === 'satellite').sort((p, q) => p.pip - q.pip); hit(g, order[0]); film(g, .5); hit(g, order[1]); }
+      film(g, seconds);
+    }
+    // Her old Supernova, low on health in her last mood.
+    const g = arena(10), s = g.bossState; s.tier = 2; s.phase = 1; s.boss.hp = 25; s.next = s.age; g.step(1 / 120); while (s.warning) g.step(1 / 120); film(g, 1);
+    assert.deepEqual([...seen].sort(), ['dome', 'gem', 'glass', 'lasso', 'pearl', 'portal', 'rocket', 'satellites', 'starfall', 'swirl', 'waltz']);
+    assert.equal(tally.gradients, 0, 'no gradient inside her hooks once warm'); assert.equal(tally.blur, 0, 'no shadow blur'); assert.equal(tally.surfaces, 0, 'no new surface once warm');
+    assert.deepEqual([...tally.late], [], 'every sprite painted ahead');
+    for (const hook of ['under', 'over']) assert(tally.calls[hook] > 0, hook + ' draws');
+    for (const piece of ['face', 'satellite', 'portal', 'waltz', 'rocket', 'glass', 'gem', 'knot', 'thorn', 'comet', 'swirlstar']) assert(drawn.has(piece), piece + ' drawn by the kit');
+    const flat = starArt(false), faces = [0, 1, 2].map(tier => { const h = arena(10); h.bossState.tier = tier; flat.tally.face = []; flat.frame(h, true); return JSON.stringify(flat.tally.face); });
+    assert(faces.every(f => f.length > 100)); assert.equal(new Set(faces).size, 3, 'Wishful, Dazzling and Radiant');
   });
   test('The good bot beats the Starseed', () => {
     for (const seed of [7, 19]) {

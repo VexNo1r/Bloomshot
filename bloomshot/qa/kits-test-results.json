@@ -1,5 +1,5 @@
 {
-  "passed": 96,
+  "passed": 97,
   "failed": 0,
   "results": [
     {
@@ -380,6 +380,10 @@
     },
     {
       "name": "The Starseed: the bot chases lent stars and comets, takes the dome in number order, and never lists a fake",
+      "passed": true
+    },
+    {
+      "name": "The Starseed's art draws every move's tell and action, Animations on and off, with no gradient, blur or new surface per frame; her three moods are three faces",
       "passed": true
     },
     {
