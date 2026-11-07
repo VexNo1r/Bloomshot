@@ -184,7 +184,7 @@
       { f: 'grid', s: 'tri', d: 13.5, hp: 2, hp3: 1, shell: [1, 4], spin: 1.8, cup: [0, 2], puffs: [[150, 220], [270, 220]], geodes: [[150, 158, 3, 3], [270, 158, 3, 3]], rocks: [[210, 312, 60, 0, 100, .3]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, cup: [0, 4] }, { t: 12, f: 'top4', s: 'line', hp3: 1 }], hint: 'Pop the puffcaps before the geodes sink.', foes: [['lodestone', 210, 266]] },
       { f: [[76, 186], [344, 186]], s: 'tri', d: 8.5, hp: 2, cup: [0, 1], geodes: [[120, 260, 2, 3], [300, 260, 2, 3]], rocks: [[210, 330, 60, 0, 100, .3]], boss: { name: 'Geode King', hp: 16, r: 26, type: 'coral', sway: 58, x: 210, y: 100 }, then: [{ t: 8, f: 'topsides', s: 'tri', hp: 2, geodes: [[210, 92, 2, 2]] }, { t: 16, f: 'topsides', s: 'stack', hp: 2, cup: [0, 3] }], hint: 'Big bloom! Sixteen hits.' }
     ]),
-    lv(9, 'briar', 'Briar Vault', 'Briars grow back', 2.8, [
+    lv(9, 'briar', 'Briar Vault', 'Briars grow back', 2.7, [
       { f: 'square', s: 'tri', d: 10.5, briar: [0, 1], regrow: 5, then: [{ t: 6, f: 'top3', s: 'tri' }], hint: 'Briars regrow. Bloom all three fast!' },
       { f: 'wall', s: 'line', d: 11, briar: [0, 2, 4], regrow: 4.5, puffs: [[70, 178], [210, 178], [350, 178]], then: [{ t: 6, f: 'top4', s: 'tri', hp: 1 }], foes: [['fibcap', 210, 232]], hint: 'A puffcap blooms a whole briar patch.' },
       { f: 'vee', s: 'tri', d: 11.5, hp: 1, briar: [1, 3], cup: [0, 4], regrow: 4.5, then: [{ t: 6, f: 'top5', s: 'tri', briar: [1, 3] }], foes: [['sweetheart', 210, 250]], hint: 'Sweethearts bloom together. Hit both fast!' },
@@ -196,7 +196,7 @@
       { f: 'grid', s: 'tri', d: 13.5, hp: 3, briar: [0, 1, 2, 3, 4, 5], regrow: 3.6, puffs: [[150, 158], [270, 158]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, briar: [0, 2, 4] }, { t: 12, f: 'topvee', s: 'line', hp3: 1 }], foes: [['sweetheart', 210, 262], ['fibcap', 90, 272]] },
       { f: [[80, 190], [340, 190]], s: 'tri', d: 8.5, hp: 1, briar: [0], regrow: 4, boss: { name: 'Thornmother', hp: 17, r: 26, type: 'lilac', sway: 58, x: 210, y: 100 }, then: [{ t: 8, f: 'topsides', s: 'tri', hp: 1, briar: [0, 3] }, { t: 16, f: 'topsides', s: 'line', hp: 2 }], hint: 'Big bloom! Seventeen hits.' }
     ]),
-    lv(10, 'core', 'Starseed Core', 'The final test', 2.15, [
+    lv(10, 'core', 'Starseed Core', 'The final test', 2.3, [
       { f: 'grid', s: 'tri', d: 11, hp: 1, shell: [0, 2], spin: 1.3, currents: [[210, 330, 330, 56, 0, 4]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 1 }], hint: 'The last level. Everything you learned.' },
       { f: [[110, 150], [210, 150], [310, 150]], s: 'tri', d: 11.5, hp: 1, cupAll: [0, 2], cup: [1], gates: [[100, 404, 56, 92, 30], [320, 404, 364, 92, 150]], then: [{ t: 6, f: 'top3', s: 'tri', hp: 2, cup: [1] }], foes: [['wishstar', 210, 248]], hint: 'Wishing stars! Bloom them in order, 1 to 4.' },
       { f: 'vee', s: 'tri', d: 12, hp: 1, briar: [1, 3], cup: [0, 4], geodes: [[210, 252, 2, 3]], then: [{ t: 6, f: 'top5', s: 'line', hp: 2 }, { t: 12, f: 'top3', s: 'tri', briar: [1] }], foes: [['chroma', 104, 216, { type: 'sky' }]], vents: [[210, 404, 3, 5, 2]] },
