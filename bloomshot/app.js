@@ -2889,7 +2889,7 @@
         trayKey = '';
         if (event.power === 'lullaby') {
           game.floaters = game.floaters.filter(item => item.kind !== 'bonus');
-          headline({ x: 210, y: 250, text: 'Lullaby', label: 'the flowers doze for 6 seconds', life: 1.3, maxLife: 1.3, kind: 'wave' });
+          headline({ x: 210, y: 250, text: 'Lullaby', label: 'the flowers doze for 6 seconds', life: 1.3, maxLife: 1.3, kind: 'wave', live: 'lullaby' });
           $('game-hint').textContent = def.tip; haptic('surge');
         } else { burst({ x: event.x, y: event.y - 10, type: 'gold', r: 8 }, 14); haptic('tick'); }
         say(isTutorial() ? `${def.name} used.` : `${def.name} used. ${save.powers[event.power]} left.`);
@@ -2939,7 +2939,7 @@
         jolt(.35, .06, .35); haptic('surge');
         // The first Super Bloom of a session explains itself mid-board; after that the gold sky, the turning sun and
         // the banner at the top say it without covering the flowers.
-        if (!superSeen) headline({ x: 210, y: 250, text: 'Super Bloom!', label: 'seeds fly through flowers', life: 1.3, maxLife: 1.3, kind: 'wave' });
+        if (!superSeen) headline({ x: 210, y: 250, text: 'Super Bloom!', label: 'seeds fly through flowers', life: 1.3, maxLife: 1.3, kind: 'wave', live: 'superBloom' });
         $('fever-banner').classList.toggle('soon', superSeen);
         $('game-hint').textContent = superSeen ? 'Super Bloom! Double points.' : 'Super Bloom! Seeds fly through flowers.';
         say(superSeen ? 'Super Bloom. Double points.' : 'Super Bloom. Seeds fly through flowers for double points.');
@@ -3499,9 +3499,10 @@
   function startCount(lead = '') {
     if (route !== 'game' || !inProgress() || isTutorial()) return;
     countLeft = countSpan(); countShown = ''; renderCount(); cancelInteraction();
-    // Callouts frozen behind the pause ("Wave clear!", "Super Bloom!", a trick stamp, praise, score pops) are stale by
-    // now and would sit half hidden round the count, so they go, as at a wave's clear; ribbons and name cards stay.
-    game.floaters = game.floaters.filter(item => !['wave', 'combo', 'bonus', 'pop', 'trick'].includes(item.kind));
+    // Callouts frozen behind the pause ("Wave clear!", a trick stamp, praise, score pops) are stale by now and would sit
+    // half hidden round the count, so they go, as at a wave's clear; ribbons and name cards stay. So does the Super Bloom
+    // or Lullaby explainer while its effect still runs (`live`): the first Super Bloom's is never shown again.
+    game.floaters = game.floaters.filter(item => item.live ? game[item.live] > 0 : !['wave', 'combo', 'bonus', 'pop', 'trick'].includes(item.kind));
     say(`${lead}${save.settings.motion ? 'Get ready. 3, 2, 1.' : 'Get ready.'}`);
   }
   function renderCount() {

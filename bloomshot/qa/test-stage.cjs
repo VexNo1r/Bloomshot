@@ -322,6 +322,26 @@ test('The count after a pause clears the callouts frozen behind it, and keeps th
     assert.deepEqual(plain(game.floaters.map(f => f.text)), ['Wave 2 of 10', 'Old Sunny'], `motion ${motion}: only the ribbon and the name card stay`);
   }
 });
+test('The count after a pause keeps the Super Bloom and Lullaby explainers while their effect still runs', () => {
+  // The first Super Bloom of a session explains itself once; paused as it starts, the count must not take the
+  // explainer away while seeds still fly through flowers, or it is never seen.
+  const app = level(player(), 1); app.run(1.3);
+  const game = app.game(); game.started = true;
+  const words = () => plain(game.floaters.filter(f => f.kind === 'wave').map(f => f.text));
+  game._startSuper(); app.frame();
+  assert.deepEqual(words(), ['Super Bloom!'], 'the first Super Bloom explains itself');
+  app.click('pause-btn'); app.click('pause-resume'); assert.equal(app.$('resume-count').hidden, false, 'the count runs');
+  assert(game.superBloom > 0); assert.deepEqual(words(), ['Super Bloom!'], 'the count keeps it while the Super Bloom runs');
+  assert(app.run(3, () => app.$('resume-count').hidden)); app.frame();
+  assert.deepEqual(words(), ['Super Bloom!'], 'and it reads on after the count');
+  game._endSuper(); app.run(2); assert.deepEqual(words(), []);
+  // The Lullaby explainer, the same way; once its effect is over a pause takes it like any stale callout.
+  assert(game.lull()); app.frame(); assert.deepEqual(words(), ['Lullaby']);
+  app.click('pause-btn'); app.click('pause-resume'); assert.deepEqual(words(), ['Lullaby'], 'kept while the flowers doze');
+  assert(app.run(3, () => app.$('resume-count').hidden));
+  game.lullaby = 0; game.floaters.find(f => f.text === 'Lullaby').life = 1;
+  app.click('pause-btn'); app.click('pause-resume'); assert.deepEqual(words(), [], 'gone once it has worn off');
+});
 test('A cleared wave sends at most 24 orbs, latest first, that all land within 1.4 s and pluck', () => {
   const app = level(player(), 1), game = app.game(); app.run(1.3);
   clearWave(app, 30);
