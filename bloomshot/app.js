@@ -739,12 +739,16 @@
     $('depth-map').innerHTML = list.map(level => {
       const data = save.depths[level.id], open = depthOpen(level.id), paid = depthPaid(level.id), done = data?.stars || 0, next = open && !done && level.id === suggested;
       const taste = !paid && level.id === TASTE.level && tasteOpen(), fresh = (open || taste) && !done && level.id === freshDepth;
+      // Only a card that can be tapped to play says Resume. A paid level whose kept run waits on the store's answer keeps
+      // its lock and no pill (the Resume card above says it is checking); the free taste's card holding an owner's kept
+      // run says Resume, since a tap there picks that run up instead of playing the taste.
+      const resumes = (open || taste) && level.id === going;
       const state = taste ? `First ${TASTE.waves} waves free` : !paid ? level.id === TASTE.level ? `Clear level ${level.id - 1} to try it free` : `Part of levels ${Depths.free + 1} to ${Depths.total}` : !open ? `Clear level ${level.id - 1} to open` : done ? `${done} of 3 stars` : data?.wave ? `Best: wave ${data.wave} of ${Depths.waveCount}` : 'Ready to play';
       const art = sceneSlice(level);
-      return `<li class="depth-stop"><button class="depth-card${open || taste ? '' : ' locked'}${paid ? '' : ' paid'}${taste ? ' taste' : ''}${done ? ' cleared' : ''}${next || taste ? ' next' : ''}${fresh ? ' fresh' : ''}" type="button" data-depth="${level.id}" aria-label="Level ${level.id}, ${escape(level.name)}. ${escape(level.twist)}. ${state}.${level.id === going ? ` Resume wave ${goingWave} of ${Depths.waveCount}.` : ''}">`
+      return `<li class="depth-stop"><button class="depth-card${open || taste ? '' : ' locked'}${paid ? '' : ' paid'}${taste ? ' taste' : ''}${done ? ' cleared' : ''}${next || taste ? ' next' : ''}${fresh ? ' fresh' : ''}" type="button" data-depth="${level.id}" aria-label="Level ${level.id}, ${escape(level.name)}. ${escape(level.twist)}. ${state}.${resumes ? ` Resume wave ${goingWave} of ${Depths.waveCount}.` : ''}">`
         + `<span class="depth-window" aria-hidden="true">${art ? `<img class="depth-scene" src="${art}" alt="">` : ''}<span class="depth-badge">${level.id}</span>${fresh ? '<span class="depth-new">New!</span>' : ''}${open || taste ? '' : '<span class="depth-lock"><i class="level-lock"></i></span>'}</span>`
         + `<span class="depth-foot" aria-hidden="true"><span class="depth-copy"><strong>${escape(level.name)}</strong><span>${escape(taste ? state : open || !paid ? data?.wave && !done ? state : level.twist : state)}</span></span>`
-        + (taste ? '<span class="depth-go">Try it</span>' : level.id === going ? '<span class="depth-go">Resume</span>' : next ? '<span class="depth-go">Play</span>' : open ? `<span class="depth-stars">${starHTML(done)}</span>` : '') + '</span></button></li>'
+        + (resumes ? '<span class="depth-go">Resume</span>' : taste ? '<span class="depth-go">Try it</span>' : next ? '<span class="depth-go">Play</span>' : open ? `<span class="depth-stars">${starHTML(done)}</span>` : '') + '</span></button></li>'
         + (level.id === TASTE.level && !owned ? depthUnlockCard() : '');
     }).join('');
     // The first time the map shows a newly opened level, it brings that card into view.
@@ -3594,12 +3598,17 @@
     const card = event.target.closest('[data-depth]'); if (!card) return;
     const id = Number(card.dataset.depth), level = Depths.level(id); if (!level) return;
     BloomSound.wake();
+    // A level run the phone closed is picked up from its level's card. While a paid level's run waits on the store's
+    // answer, the tap says it is checking (resumeRun), never that the level is for sale, and never starts the taste,
+    // whose first seed would let the owner's run go.
+    const held = inProgress() ? null : keptRun();
+    if (held && held.level === id) { resumeRun(held); return; }
     if (!depthPaid(id) && id === TASTE.level && tasteOpen()) { if (inProgress() && isTaste()) resumeBoard(); else startDepth(id, true); return; }
     // A deeper level scrolls to the unlock card, which says the rest (a toast would sit on top of it).
     if (!depthPaid(id)) { BloomSound.play('tap'); if (id === TASTE.level) toast(`Clear level ${id - 1} to try ${level.name} free.`); else say(`${level.name} is part of levels ${Depths.free + 1} to ${Depths.total}.`); showUnlock(); return; }
     if (!depthOpen(id)) { BloomSound.play('tap'); toast(`Clear level ${id - 1} to open ${level.name}.`); return; }
-    // Tapping the level already being played picks it up where it was, as does a level run the phone closed.
-    if (inProgress() && isDepth() && game.plan.id === id) resumeBoard(); else if (!inProgress() && keptRun()?.level === id) resumeRun(save.run); else startDepth(id);
+    // Tapping the level already being played picks it up where it was.
+    if (inProgress() && isDepth() && game.plan.id === id) resumeBoard(); else startDepth(id);
   });
   $('garden-rush-btn').addEventListener('click', openRush);
   for (const group of Object.keys(TRAY)) $(group).addEventListener('click', event => { const chip = event.target.closest('[data-power]'); if (chip) usePower(chip.dataset.power); });

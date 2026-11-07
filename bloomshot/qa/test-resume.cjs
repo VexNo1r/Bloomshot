@@ -494,6 +494,38 @@ test('A checkpoint for a level that is locked or not owned is not offered and is
   assert.equal(app.$('resume-btn').hidden, true, 'gone once the store says it is not owned'); assert(!Object.hasOwn(app.saved(), 'run'));
 });
 
+test('Before the store answers, a paid level\'s card offers no Resume it cannot keep and a tap says it is checking; the taste\'s card picks an owner\'s run up instead of the taste', () => {
+  const card = (app, id) => app.$('depth-map').innerHTML.split('<li').find(item => item.includes(`data-depth="${id}"`));
+  const checking = 'Checking your levels. Try again in a moment.';
+  // An owner's Level 6 run at first paint: the card is still locked, so it shows no pill, and a tap never says the
+  // level is for sale.
+  let store = fakeStore({ owned: false, ready: false });
+  let app = boot(player({ run: kept({ level: 6, wave: 4 }) }, 5), { store });
+  assert.match(card(app, 6), /depth-lock/, 'the card keeps its lock');
+  assert.doesNotMatch(card(app, 6), /depth-go/, 'with no pill'); assert.doesNotMatch(card(app, 6), /Resume wave/, 'and no Resume in its label');
+  app.click('depth-map', { depth: '6' }); app.frame();
+  assert.equal(app.document.body.dataset.view, 'levels'); assert.equal(app.$('toast').textContent, checking);
+  assert.doesNotMatch(app.$('announcement').textContent, /part of levels/);
+  store.answer(true);
+  assert.match(card(app, 6), /<span class="depth-go">Resume<\/span>/, 'owned, it says Resume');
+  app.click('depth-map', { depth: '6' }); app.frame(); assert.deepEqual([app.game().plan.id, app.game().wave], [6, 4], 'and picks the run up');
+  // An owner's Level 5 run at first paint, with Level 4 cleared: the card is the taste's until the store answers, but a
+  // tap there must not start the taste, whose first seed would let the run go.
+  store = fakeStore({ owned: false, ready: false });
+  app = boot(player({ run: kept({ level: 5, wave: 7 }) }, 4), { store });
+  assert.match(card(app, 5), /<span class="depth-go">Resume<\/span>/, 'the card says Resume'); assert.doesNotMatch(card(app, 5), /Try it/);
+  app.click('depth-map', { depth: '5' }); app.frame();
+  assert.equal(app.document.body.dataset.view, 'levels', 'the taste does not start'); assert.equal(app.$('toast').textContent, checking);
+  assert.deepEqual(app.saved().run, kept({ level: 5, wave: 7 }), 'and the run is kept');
+  store.answer(true);
+  app.click('depth-map', { depth: '5' }); app.frame();
+  assert.deepEqual([app.game().plan.id, app.game().wave, Boolean(app.game().plan.taste)], [5, 7, false], 'owned, the tap picks the run up');
+  // Not owned after all: the run is let go and the card is the taste again.
+  store = fakeStore({ owned: false, ready: false });
+  app = boot(player({ run: kept({ level: 5, wave: 7 }) }, 4), { store });
+  store.answer(false);
+  assert.match(card(app, 5), /<span class="depth-go">Try it<\/span>/); assert(!Object.hasOwn(app.saved(), 'run'));
+});
 test('The free taste, the tutorial and the all-levels preview keep no checkpoint; an ordinary level run does', () => {
   let app = boot(player()); let game = playLevel(app, 3); game.started = true; nextWave(app);
   assert.equal(app.saved().run?.level, 3, 'an ordinary run keeps one');
