@@ -1058,6 +1058,16 @@ test('Skip ends it for good, and How to play can start it again', () => {
   app.$('help-dialog').close(); app.$('toast').textContent = '';
   app.click('tutorial-skip'); assert.equal(app.context.bloomshotState.route, 'levels'); assert.equal(app.$('toast').textContent, '', 'the reminder only shows the first time');
 });
+test('The tip Skip leaves on the map is put away when Level 1 opens, so it never covers the level\'s name and score', () => {
+  const app = boot(undefined); app.frame(); app.click('tutorial-skip');
+  assert(app.$('toast').classList.contains('visible'), 'the tip shows on the map');
+  app.click('depth-map', { depth: '1' }); app.frame();
+  assert.equal(app.context.bloomshotState.route, 'game');
+  assert.equal(app.$('toast').classList.contains('visible'), false, 'and is gone as the level opens');
+  // A pop-up the level itself raises still shows.
+  const game = app.games.at(-1); game.started = true; game.event('giftAppear', { power: 'lullaby', x: 210, y: 150 }); app.frame();
+  assert(app.$('toast').classList.contains('visible')); assert.match(app.$('toast').textContent, /^Gift bubble!/);
+});
 // Pause. A level with a seed in the air: the page hides (a call, the home button) and comes back.
 const moving = () => ({ ...legacySave(), settings: { sound: false, haptics: false, motion: true } });
 function pausedLevel(raw = moving()) {

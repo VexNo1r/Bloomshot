@@ -239,6 +239,9 @@
     if (speak) say(text);
     if (tipQueue.length) pumpTips(); // a tip that was waiting goes after this toast, never instead of it
   }
+  // A pop-up left from the screen before (the map's tutorial tip, a locked card) is put away as a level opens, so it
+  // never sits over the level's name and score.
+  function clearToast() { clearTimeout(toastTimer); $('toast').classList.remove('visible'); toastAt = -Infinity; tipShown = null; }
   // A tip that teaches something (a turned-away seed, a guardian's new rule). In a level or Rush the hint bar is hidden
   // (styles.css keeps the bottom edge for the pod), so there it is a toast. Each `key` waits `again` seconds of play
   // before it shows again (Infinity: once a run), counted from when it showed. A tip that comes while another toast is
@@ -433,7 +436,7 @@
     if (next === 'game') resize();
   }
   function startLevel(level, options = {}) {
-    closeDialogs();
+    closeDialogs(); if (!options.behind) clearToast();
     game = level.tutorial ? new BloomRush.RushGame({ scripted: true }) : level.depth ? new BloomRush.RushGame({ plan: depthPlan(level.depth, level.taste), random: Math.random, startWave: level.from || 1, resume: level.resume || null }) : level.id === 'rush' ? new BloomRush.RushGame({ random: Math.random }) : new Game(level); game.particles = []; game.floaters = []; if ($('checkpoint-btn')) $('checkpoint-btn').hidden = true; $('resume-count').hidden = true;
     tutorial = level.tutorial ? Tutorial.create() : null; tutorialKey = ''; document.body.dataset.tutorial = tutorial ? 'on' : '';
     if (tutorial) tutorial.begin(game);
