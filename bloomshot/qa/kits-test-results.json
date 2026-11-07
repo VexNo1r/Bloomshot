@@ -1,5 +1,5 @@
 {
-  "passed": 89,
+  "passed": 90,
   "failed": 0,
   "results": [
     {
@@ -356,6 +356,10 @@
     },
     {
       "name": "Ammonite Queen: her pearls and her egg never land on her, however low she has sunk",
+      "passed": true
+    },
+    {
+      "name": "Ammonite Queen: her moods, pearls, slabs, egg and lift draw balanced, finite, with no gradient or shadow and no new surface once warm",
       "passed": true
     }
   ]

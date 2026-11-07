@@ -1497,6 +1497,83 @@ test('Ammonite Queen: her pearls and her egg never land on her, however low she 
   assert(pearls >= 25 && eggs >= 15, `she still throws (${pearls} pearls, ${eggs} eggs)`); assert(worst >= 0, `every mark clears her (worst ${worst.toFixed(1)} px)`);
 });
 
+// Her art: art.js, foes.js and foe-art.js in a VM with a recording canvas (as sunnyArt, plus foes.js so the keeper she
+// hatches reads his own forecast). Every number finite, every save restored, and her hooks paint no gradient or shadow
+// and, once warm, make no new surface.
+function queenArt() {
+  const vm = require('node:vm'), totals = { hook: null, gradients: 0, shadows: 0, surfaces: 0, draws: new Map() };
+  function brush() {
+    const stack = [], state = { globalAlpha: 1, fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, shadowBlur: 0, lineDashOffset: 0 };
+    const ctx = new Proxy(state, {
+      get(t, name) {
+        if (name in t) return t[name];
+        if (name === 'canvas') return { width: 420, height: 560 };
+        if (name === 'getTransform') return () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 });
+        return (...args) => {
+          args.forEach(a => { if (typeof a === 'number') assert(Number.isFinite(a), `${String(name)} received ${a}`); });
+          if (name === 'save') stack.push({ ...state });
+          else if (name === 'restore') { assert(stack.length, 'restore without save'); Object.assign(state, stack.pop()); }
+          else if (name === 'measureText') return { width: String(args[0]).length * 7 };
+          else if (/^create(Linear|Radial|Conic)Gradient$|^createPattern$/.test(name)) { if (totals.hook) totals.gradients++; return { addColorStop() {} }; }
+          else if (totals.hook && /^(fill|stroke|drawImage)$/.test(name)) totals.draws.set(totals.hook, (totals.draws.get(totals.hook) || 0) + 1);
+        };
+      },
+      set(t, name, value) {
+        if (['globalAlpha', 'lineWidth', 'shadowBlur'].includes(name)) assert(Number.isFinite(value), `${name} is finite`);
+        if (name === 'shadowBlur' && value > 0 && totals.hook) totals.shadows++;
+        t[name] = value; return true;
+      }
+    });
+    return { ctx, balanced: () => stack.length === 0 };
+  }
+  class Canvas { constructor(w, h) { this.width = w; this.height = h; if (totals.hook) totals.surfaces++; this.rec = brush(); } getContext() { return this.rec.ctx; } }
+  const scope = vm.createContext({ console, Math, Map, Set, WeakMap, Array, Object, Number, String, JSON, Date, OffscreenCanvas: Canvas });
+  for (const file of ['foes.js', 'art.js', 'foe-art.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), scope, { filename: file });
+  const A = scope.BloomFoeArt, wrap = (look, name, hooks) => {
+    for (const hook of hooks) {
+      const own = look[hook]; if (!own) continue;
+      look[hook] = function (...args) {
+        if (name === 'fossil' && hook !== 'warm') totals.kit = args[hook === 'face' || hook === 'part' ? 6 : 5];
+        // Warming is the level intro's one-off bake (art.js's own flowers included), so it is not counted.
+        const was = totals.hook; totals.hook = hook === 'warm' ? null : name + ':' + (hook === 'part' ? 'part:' + args[3].bossPart : hook);
+        try { return own.apply(this, args); } finally { totals.hook = was; }
+      };
+    }
+  };
+  wrap(A.KIT_LOOKS.fossil, 'fossil', ['warm', 'under', 'face', 'part', 'over', 'aim']); wrap(A.LOOKS.amberkeeper, 'amberkeeper', ['bud', 'over']); wrap(A.LOOKS.amber, 'amber', ['bud']);
+  return { Art: scope.BloomArt, kits: A.kits, brush, totals, vmFoes: scope.BloomFoes };
+}
+test('Ammonite Queen: her moods, pearls, slabs, egg and lift draw balanced, finite, with no gradient or shadow and no new surface once warm', () => {
+  const { Art, kits, brush, totals, vmFoes } = queenArt();
+  assert(vmFoes && vmFoes.FOES.amberkeeper, 'foes.js is loaded with the art');
+  const boards = [], add = (label, g) => { boards.push([label, g, g.time]); return g; };
+  const tell = (tier, cycle, action, g = arena(6)) => { const s = g.bossState; Object.assign(s, { tier, cycle, next: s.age }); if (action != null) s.action = action; advance(g, .7); assert(s.warning, label); return g; };
+  const full = () => { const g = new RushGame({ plan: bot.plan(6), startWave: 10 }); g.started = true; g.status = 'flying'; g.drainEvents(); return g; };
+  var label = '';
+  // Each mood at rest (Brooding cradling her ready egg), hurt and shivering, and the lift's bubbles.
+  for (const tier of [0, 1, 2]) { const g = arena(6); Object.assign(g.bossState, { tier, next: 99 }); if (tier === 2) g.bossState.lockSpin = 1.4; add(`mood ${tier}`, g); }
+  let g = arena(6); g.bossState.boss.hp = 4; g.bossState.next = 99; g.bossState.boss.hitAt = g.time; add('hurt, shivering', g);
+  g = arena(6); g.bossState.drift = 30; queenMove(0, 0, g, 1); advance(g, .3); assert(g.bossState.rise, 'rising'); add('rise, pearls in flight', g);
+  // Each warning's tell: pearls (Regal), petrify on a bare bed and on her full board (Stony), hatch (Brooding).
+  label = 'pearls tell'; add(label, tell(0, 0, 1)); label = 'petrify bed tell'; add(label, tell(1, 0)); label = 'petrify tell'; add(label, tell(1, 0, null, full())); label = 'hatch tell'; add(label, tell(2, 0));
+  // Pearls landed; slabs fresh, mid, flashing and fading; the egg in flight and just hatched.
+  ({ g } = queenMove(0, 0, arena(6), 1)); advance(g, 1.2); add('pearls landed', g);
+  ({ g } = queenMove(1, 0, full())); advance(g, .1); add('slabs fresh', g);
+  ({ g } = queenMove(1, 0, full())); advance(g, 2.5); for (const m of g.bumpers) if (m.bossStone) m.flashAt = g.time - .1; add('slabs flashing', g);
+  ({ g } = queenMove(1, 0)); advance(g, 4.8); assert(g.bumpers.some(m => m.bossStone), 'fading slabs still up'); add('slabs fading', g);
+  ({ g } = queenMove(2, 0)); advance(g, .5); assert(g.bossState.lobs.some(l => l.look === 'egg')); add('egg in flight', g);
+  ({ g } = queenMove(2, 0)); advance(g, 1.15); assert(g.buds.some(p => p.foe === 'amberkeeper')); add('hatched', g);
+  const frame = (label, board, time, still, quality) => { const rec = brush(); Art.draw(rec.ctx, board, time, { theme: 'meadow', reducedMotion: still, quality }); assert(rec.balanced(), `${label}: balanced`); };
+  // The level's intro paints her sprites (and the keeper's) ahead, as art.js does through kits.warm.
+  frame('first', boards[0][1], boards[0][2], false, 0); kits.warm('fossil', totals.kit);
+  for (const still of [false, true]) for (const quality of [0, 1, 2]) for (const [label, board, time] of boards) frame(label, board, time, still, quality);
+  for (const hook of ['fossil:face', 'fossil:part:pearl', 'fossil:over', 'fossil:under', 'amberkeeper:bud']) assert(totals.draws.get(hook) > 0, hook + ' drew');
+  assert.deepEqual([totals.gradients, totals.shadows], [0, 0], 'no gradient or shadow from her art');
+  const warm = totals.surfaces;
+  for (const still of [false, true]) for (const quality of [0, 1, 2]) for (const dt of [.05, .4, 1.3, 3.71]) for (const [label, board, time] of boards) frame(label, board, time + dt, still, quality);
+  assert.equal(totals.surfaces, warm, 'no new surface once warm'); assert.deepEqual([totals.gradients, totals.shadows], [0, 0]);
+});
+
 // ── Ember Rose (Level 7, `ember`) ──
 
 // ── Geode King (Level 8, `geode`) ──

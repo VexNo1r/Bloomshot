@@ -1,5 +1,5 @@
 {
-  "passed": 12,
+  "passed": 13,
   "failed": 0,
   "results": [
     {
@@ -48,6 +48,10 @@
     },
     {
       "name": "A rolling rolypoly rolls through the amber: it bowls the sealed bud inside (not the bead), the bud blooms by the roll and the bead melts",
+      "passed": true
+    },
+    {
+      "name": "The keeper and his beads draw cheaply and readably: finite, balanced, no gradient, shadow or surface once warm, threads never faint",
       "passed": true
     }
   ]

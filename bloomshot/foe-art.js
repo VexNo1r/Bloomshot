@@ -1470,6 +1470,339 @@
   });
 
   // ── Amberkeeper (Level 6, `amberkeeper`) ──
+  // A chubby golden trilobite seen from above, his half-moon head toward the launcher: big glossy kidney eyes with two
+  // catch-lights each, rosy cheeks and a small smile, two genal spines curling back beside a back of six ridged segments,
+  // and a fan tail. Little legs paddle under his side lobes as he falls (three cached walk frames) and he bobs a little.
+  // His tell: he rears up (the head 14% larger and nearer, mouth an "o", antennae up, star catch-lights, tail fanned),
+  // lifts 3 px off his shadow and his tail glows honey; dotted golden threads flow out of his tail to each bud he wants
+  // and an amber ring closes round each one like a clock hand, flashing white on the last beat. A sealed bud sits in a
+  // glossy amber bead (two bubbles, a fern curl, a crescent of light) that pops in with an overshoot and breathes like
+  // jelly, and a honey thread stays strung from his tail to it, swaying and wobbling as it settles, motes sliding down
+  // it. A hit mid-tell squeezes his eyes shut with a sweat drop and the threads snap back; at one hp his shell shows a
+  // crack. Hatched from the Ammonite Queen's egg, he pops out between two amber shell halves. Animations off: no paddle,
+  // bob, flow, wobble, shiver or twinkle; a tell shows its full dotted thread and a dotted ring.
+  const AMBER_ART = {
+    shell: '#e2a93b', lobe: '#c4862a', rim: '#ffe29a', ink: '#5a3812', belly: '#fff0c4', eye: '#2b1907', cheek: '#ff9f8a',
+    bead: 'rgba(255,178,30,.42)', beadRim: '#c46f0a', beadLight: 'rgba(255,236,170,.85)', honey: '#ffc23d', honeyDark: 'rgba(104,58,8,.8)'
+  };
+  const KEEPER_BOX = r => [-r * 1.45, -r * 1.6, r * 1.45, r * 1.5];
+  // A stable 0..1 from an id (art keeps no dependency on the rules' hash).
+  function amberHash(id) { let h = 2166136261; for (const ch of String(id)) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return ((h >>> 0) % 1000) / 1000; }
+  // A four-point star catch-light.
+  function amberStar(c, x, y, k) {
+    c.beginPath(); c.moveTo(x, y - k); c.quadraticCurveTo(x + k * .18, y - k * .18, x + k, y); c.quadraticCurveTo(x + k * .18, y + k * .18, x, y + k);
+    c.quadraticCurveTo(x - k * .18, y + k * .18, x - k, y); c.quadraticCurveTo(x - k * .18, y - k * .18, x, y - k); c.fill();
+  }
+  function paintKeeperEye(c, r, side, kind) {
+    const A = AMBER_ART, x = side * r * .43, y = r * .55;
+    c.lineCap = 'round'; c.lineJoin = 'round'; c.strokeStyle = A.ink;
+    if (kind === 'squeeze') {
+      // Squeezed shut: a chevron pointing in, under a worried brow.
+      c.beginPath(); c.moveTo(x + side * r * .14, y - r * .1); c.lineTo(x - side * r * .09, y); c.lineTo(x + side * r * .14, y + r * .1); c.lineWidth = 1.7; c.stroke();
+      return;
+    }
+    // The eye ridge (a pale crescent over each eye), then a glossy kidney of an eye bending round the brow.
+    c.save(); c.translate(x, y); c.rotate(side * -.42);
+    c.beginPath(); c.ellipse(0, -r * .02, r * .27, r * .22, 0, Math.PI * 1.05, Math.PI * 1.95); c.strokeStyle = A.rim; c.lineWidth = 1.6; c.stroke();
+    c.beginPath(); c.moveTo(-r * .21, 0); c.bezierCurveTo(-r * .22, -r * .2, r * .22, -r * .2, r * .21, 0); c.bezierCurveTo(r * .2, r * .17, r * .06, r * .12, 0, r * .08);
+    c.bezierCurveTo(-r * .06, r * .12, -r * .2, r * .17, -r * .21, 0); c.closePath();
+    c.fillStyle = A.eye; c.fill(); c.strokeStyle = A.ink; c.lineWidth = 1; c.stroke();
+    // A warm amber sheen low in the eye: they are compound eyes, glassy like the beads he makes.
+    c.beginPath(); c.ellipse(r * .04, r * .05, r * .11, r * .04, 0, 0, TAU); c.fillStyle = 'rgba(214,138,40,.55)'; c.fill();
+    c.restore();
+    c.fillStyle = '#ffffff';
+    if (kind === 'star') { amberStar(c, x - side * r * .05, y - r * .06, r * .11); c.beginPath(); c.arc(x + side * r * .07, y + r * .03, r * .03, 0, TAU); c.fill(); }
+    else {
+      c.beginPath(); c.arc(x - side * r * .05, y - r * .05, r * .062, 0, TAU); c.fill();
+      c.beginPath(); c.arc(x + side * r * .07, y + r * .03, r * .028, 0, TAU); c.fill();
+    }
+  }
+  const A_INK_DARK = '#3d2509';
+  // pose: walk (frame 0-2), rear (the tell) or flinch.
+  function paintKeeper(c, r, pose, frame) {
+    const A = AMBER_ART, rear = pose === 'rear', flinch = pose === 'flinch', P = (x, y) => [x * r, y * r];
+    c.lineJoin = 'round'; c.lineCap = 'round';
+    // Legs, three a side, peeking out between his spines and his tail; each frame shifts them 1.5 px in a paddling wave.
+    c.strokeStyle = A.ink; c.lineWidth = 1.3;
+    for (let i = 0; i < 3; i++) for (const side of [-1, 1]) {
+      const ly = -r * (.04 + i * .25), kick = flinch ? -1 : (((i + frame + (side > 0 ? 1 : 0)) % 3) - 1) * 1.5, out = r * (flinch ? .98 : rear ? 1.14 : 1.08);
+      c.beginPath(); c.moveTo(side * r * .74, ly); c.quadraticCurveTo(side * r * .95, ly + kick * .3, side * out, ly + kick + 1.3); c.stroke();
+    }
+    // Antennae from under the front of his head: short and forward, raised and curled when he rears, drooped in a flinch.
+    for (const side of [-1, 1]) {
+      const [cx, cy, tx, ty] = rear ? [.42, 1.6, .74, 1.46] : flinch ? [.5, 1.08, .74, .9] : [.22, 1.3, .44, 1.34];
+      const lift = rear ? 2 : 0, bx = side * r * .2, by = r * .96 + lift, x = side * r * tx, y = r * ty + lift;
+      c.beginPath(); c.moveTo(bx, by); c.quadraticCurveTo(side * r * cx, r * cy + lift, x, y); c.strokeStyle = A.ink; c.lineWidth = 1.05; c.stroke();
+      c.beginPath(); c.arc(x, y, r * (rear ? .1 : .085), 0, TAU); c.fillStyle = rear ? A.honey : A.lobe; c.fill(); c.lineWidth = .9; c.stroke();
+    }
+    // The fan tail (pygidium): four ridges either side of a raised middle, spread wide when he rears.
+    const fan = rear ? 1.22 : 1, ty = -r * .58, tail = () => { c.beginPath(); c.ellipse(0, ty, r * .6 * fan, r * .6, 0, 0, Math.PI, true); c.closePath(); };
+    tail(); c.fillStyle = A.shell; c.fill();
+    c.save(); tail(); c.clip();
+    c.lineWidth = 1; c.strokeStyle = 'rgba(90,56,18,.5)';
+    for (const k of [-2, -1, 1, 2]) { c.beginPath(); c.moveTo(k * r * .1, ty - r * .04); c.quadraticCurveTo(k * r * .2 * fan, ty - r * .3, k * r * .27 * fan, ty - r * .62); c.stroke(); }
+    c.beginPath(); c.ellipse(0, ty - r * .1, r * .12, r * .3, 0, 0, TAU); c.fillStyle = A.lobe; c.fill();
+    c.beginPath(); c.ellipse(-r * .3 * fan, ty - r * .3, r * .13, r * .07, -.7, 0, TAU); c.fillStyle = 'rgba(255,248,222,.65)'; c.fill();
+    c.restore();
+    tail(); c.strokeStyle = A.ink; c.lineWidth = 1.4; c.stroke();
+    // The back: six plates, each ending in a little point swept toward the tail, so his sides are scalloped.
+    const plates = [];
+    for (let i = 0; i < 6; i++) { const yt = .32 - i * .155; plates.push({ yt, yb: yt - .155, w: .86 - i * .04 }); }
+    const thorax = () => {
+      c.beginPath(); c.moveTo(...P(-.7, .34)); c.lineTo(...P(.7, .34));
+      for (const p of plates) { c.lineTo(...P(p.w - .02, p.yt - .01)); c.quadraticCurveTo(...P(p.w + .05, p.yt - .07), ...P(p.w + .02, p.yb - .005)); c.lineTo(...P(p.w - .04, p.yb + .025)); }
+      c.lineTo(...P(.45, -.6)); c.lineTo(...P(-.45, -.6));
+      for (const p of plates.slice().reverse()) { c.lineTo(...P(-p.w + .04, p.yb + .025)); c.lineTo(...P(-p.w - .02, p.yb - .005)); c.quadraticCurveTo(...P(-p.w - .05, p.yt - .07), ...P(-p.w + .02, p.yt - .01)); }
+      c.closePath();
+    };
+    thorax(); c.fillStyle = A.shell; c.fill();
+    c.save(); thorax(); c.clip();
+    // Grooves between the plates (bowed toward his head, bending back at the tips) with a pale rim lit from above.
+    for (const p of plates.slice(0, 5)) for (const side of [-1, 1]) {
+      c.beginPath(); c.moveTo(side * r * .2, r * p.yb); c.quadraticCurveTo(side * r * .55, r * (p.yb + .05), side * r * (p.w - .04), r * (p.yb - .02));
+      c.strokeStyle = 'rgba(90,56,18,.42)'; c.lineWidth = .85; c.stroke();
+    }
+    for (const p of plates) for (const side of [-1, 1]) {
+      c.beginPath(); c.moveTo(side * r * .26, r * (p.yb + .045)); c.quadraticCurveTo(side * r * .55, r * (p.yb + .095), side * r * (p.w - .1), r * (p.yb + .03));
+      c.strokeStyle = side < 0 ? 'rgba(255,240,190,.85)' : 'rgba(255,232,170,.5)'; c.lineWidth = .8; c.stroke();
+    }
+    // The raised middle lobe, ringed, lit down its left side.
+    const axis = () => { c.beginPath(); c.moveTo(...P(-.21, .36)); c.lineTo(...P(-.15, -.6)); c.lineTo(...P(.15, -.6)); c.lineTo(...P(.21, .36)); c.closePath(); };
+    axis(); c.fillStyle = A.lobe; c.fill();
+    for (const p of plates.slice(0, 5)) { c.beginPath(); c.moveTo(-r * .19, r * p.yb); c.quadraticCurveTo(0, r * (p.yb + .07), r * .19, r * p.yb); c.strokeStyle = 'rgba(90,56,18,.5)'; c.lineWidth = .9; c.stroke(); }
+    c.beginPath(); c.moveTo(...P(-.11, .3)); c.lineTo(...P(-.08, -.5)); c.strokeStyle = 'rgba(255,236,170,.8)'; c.lineWidth = 1.1; c.stroke();
+    axis(); c.strokeStyle = 'rgba(90,56,18,.75)'; c.lineWidth = .9; c.stroke();
+    c.restore();
+    thorax(); c.strokeStyle = A.ink; c.lineWidth = 1.4; c.stroke();
+    // Genal spines: two horns from the back corners of his head, sweeping back along his sides.
+    const flare = rear ? 1.1 : 1;
+    for (const side of [-1, 1]) {
+      c.beginPath(); c.moveTo(side * r * 1.0, r * .42);
+      c.quadraticCurveTo(side * r * 1.1 * flare, r * .02, side * r * .97 * flare, -r * .44);
+      c.quadraticCurveTo(side * r * .9, -r * .02, side * r * .76, r * .3); c.closePath();
+      c.fillStyle = A.lobe; c.fill(); c.strokeStyle = A.ink; c.lineWidth = 1.15; c.stroke();
+      c.beginPath(); c.moveTo(side * r * 1.0, r * .26); c.quadraticCurveTo(side * r * 1.03 * flare, r * .0, side * r * .98 * flare, -r * .26);
+      c.strokeStyle = 'rgba(255,236,170,.75)'; c.lineWidth = .7; c.stroke();
+    }
+    // The head: a half-moon shield, 14% larger and 2 px nearer when he rears at you.
+    c.save();
+    if (rear) { c.translate(0, r * .3 + 2); c.scale(1.14, 1.14); c.translate(0, -r * .3); }
+    const head = () => { c.beginPath(); c.moveTo(-r * 1.0, r * .34); c.ellipse(0, r * .34, r * 1.0, r * .72, 0, Math.PI, 0, true); c.quadraticCurveTo(0, r * .1, -r * 1.0, r * .34); c.closePath(); };
+    head(); c.fillStyle = A.shell; c.fill();
+    c.save(); head(); c.clip();
+    // The pale lip round the front edge, a shade along the back, the brow lobe (glabella) and a glossy highlight.
+    c.beginPath(); c.ellipse(0, r * .34, r * 1.0, r * .72, 0, Math.PI * .08, Math.PI * .92); c.strokeStyle = A.belly; c.lineWidth = 2.8; c.stroke();
+    c.beginPath(); c.ellipse(0, r * .2, r * .95, r * .15, 0, 0, TAU); c.fillStyle = 'rgba(196,134,42,.5)'; c.fill();
+    c.beginPath(); c.ellipse(0, r * .34, r * .21, r * .2, 0, 0, TAU); c.fillStyle = A.lobe; c.fill();
+    c.beginPath(); c.ellipse(-r * .07, r * .27, r * .09, r * .055, -.4, 0, TAU); c.fillStyle = 'rgba(255,246,214,.75)'; c.fill();
+    c.beginPath(); c.ellipse(-r * .6, r * .4, r * .22, r * .075, -.6, 0, TAU); c.fillStyle = 'rgba(255,252,236,.7)'; c.fill();
+    c.restore();
+    head(); c.strokeStyle = A.ink; c.lineWidth = 1.4; c.stroke();
+    // His face.
+    const eye = flinch ? 'squeeze' : rear ? 'star' : 'open';
+    paintKeeperEye(c, r, -1, eye); paintKeeperEye(c, r, 1, eye);
+    for (const side of [-1, 1]) { c.beginPath(); c.ellipse(side * r * .62, r * .82, r * .13, r * .075, side * .2, 0, TAU); c.fillStyle = A.cheek; c.globalAlpha = .85; c.fill(); c.globalAlpha = 1; }
+    c.strokeStyle = A.ink; c.lineCap = 'round';
+    if (rear) { c.beginPath(); c.ellipse(0, r * .88, r * .08, r * .09, 0, 0, TAU); c.fillStyle = '#8a3b1c'; c.fill(); c.lineWidth = 1; c.stroke(); }
+    else if (flinch) {
+      c.beginPath(); c.moveTo(-r * .13, r * .88); c.quadraticCurveTo(-r * .065, r * .82, 0, r * .88); c.quadraticCurveTo(r * .065, r * .94, r * .13, r * .88); c.lineWidth = 1.2; c.stroke();
+      // A sweat drop beside his head.
+      c.beginPath(); c.moveTo(r * .9, r * .06); c.quadraticCurveTo(r * 1.03, r * .28, r * .95, r * .37); c.arc(r * .9, r * .32, r * .075, .3, Math.PI + .9); c.closePath();
+      c.fillStyle = '#d9f1ff'; c.fill(); c.strokeStyle = '#5c8fb3'; c.lineWidth = .8; c.stroke();
+    } else { c.beginPath(); c.arc(0, r * .77, r * .12, .22 * Math.PI, .78 * Math.PI); c.lineWidth = 1.25; c.stroke(); }
+    c.restore();
+  }
+  // At one hp: a jagged crack across his back (plates three and four), lit along one lip, and two chips flaking off.
+  function paintKeeperCrack(c, r) {
+    const main = [[-.7, -.06], [-.46, -.2], [-.3, -.1], [-.08, -.27], [.12, -.13], [.34, -.3], [.52, -.18], [.68, -.26]], branch = [[-.08, -.27], [-.02, -.42]];
+    c.lineCap = 'round'; c.lineJoin = 'miter';
+    const line = (pts, dx, dy) => { c.beginPath(); pts.forEach(([x, y], i) => i ? c.lineTo(x * r + dx, y * r + dy) : c.moveTo(x * r + dx, y * r + dy)); };
+    line(main, .55, .7); c.strokeStyle = 'rgba(255,255,255,.95)'; c.lineWidth = 1.2; c.stroke();
+    line(branch, .55, .7); c.lineWidth = .9; c.stroke();
+    line(main, 0, 0); c.strokeStyle = A_INK_DARK; c.lineWidth = 1.5; c.stroke();
+    line(branch, 0, 0); c.lineWidth = 1; c.stroke();
+    c.lineJoin = 'round';
+    for (const [x, y, a] of [[-.86, -.3, .4], [.8, -.02, -.6]]) {
+      c.save(); c.translate(x * r, y * r); c.rotate(a);
+      c.beginPath(); c.moveTo(-1.6, -1); c.lineTo(1.7, -.6); c.lineTo(.2, 1.5); c.closePath(); c.fillStyle = AMBER_ART.rim; c.fill(); c.strokeStyle = AMBER_ART.ink; c.lineWidth = .7; c.stroke();
+      c.restore();
+    }
+  }
+  // His tail's honey light: four concentric discs at alpha .1 (no gradient).
+  function paintKeeperGlow(c, r) { for (const k of [2, 1.62, 1.28, .96]) { c.beginPath(); c.arc(0, 0, r * k, 0, TAU); c.fillStyle = 'rgba(255,194,61,.1)'; c.fill(); } }
+  // Half an amber eggshell (the left half; mirrored for the right), its broken edge a zigzag.
+  function paintKeeperShell(c) {
+    const A = AMBER_ART;
+    c.beginPath(); c.moveTo(.5, -7.5); c.bezierCurveTo(-4.6, -7.5, -6, -1.5, -5.6, 2.6); c.bezierCurveTo(-5.2, 6.4, -2.6, 7.6, .5, 7.6);
+    c.lineTo(-1, 5); c.lineTo(1.2, 2.6); c.lineTo(-.8, 0); c.lineTo(1.2, -2.6); c.lineTo(-.6, -5); c.closePath();
+    c.fillStyle = 'rgba(244,170,52,.88)'; c.fill(); c.strokeStyle = A.beadRim; c.lineWidth = 1.2; c.lineJoin = 'round'; c.stroke();
+    c.beginPath(); c.moveTo(-3.6, -3.8); c.quadraticCurveTo(-4.6, -.6, -3.8, 2.2); c.strokeStyle = 'rgba(255,248,220,.85)'; c.lineWidth = 1.1; c.lineCap = 'round'; c.stroke();
+  }
+  // The bead: amber glass round a sealed bud (the flower shows through), a deeper amber low on the right, a crescent of
+  // light at the upper left, two trapped bubbles and a fern curl caught inside.
+  function paintAmberBead(c, R) {
+    const A = AMBER_ART;
+    c.lineCap = 'round';
+    c.beginPath(); c.arc(0, 0, R, 0, TAU); c.fillStyle = A.bead; c.fill();
+    c.beginPath(); c.arc(0, 0, R - 2.3, -.15, 1.95); c.strokeStyle = 'rgba(196,111,10,.3)'; c.lineWidth = 3.2; c.stroke();
+    c.beginPath(); c.moveTo(R * .14, R * .7); c.quadraticCurveTo(R * .48, R * .62, R * .5, R * .36); c.arc(R * .42, R * .36, R * .08, 0, -Math.PI * 1.6, true);
+    c.strokeStyle = 'rgba(122,62,6,.62)'; c.lineWidth = .9; c.stroke();
+    for (const [x, y, a] of [[.26, .66, -1.1], [.38, .58, -.7], [.47, .48, -.3]]) { c.beginPath(); c.ellipse(R * x, R * y, 1.2, .55, a, 0, TAU); c.fillStyle = 'rgba(122,62,6,.5)'; c.fill(); }
+    c.beginPath(); c.arc(0, 0, R, 0, TAU); c.strokeStyle = A.beadRim; c.lineWidth = 1.8; c.stroke();
+    c.beginPath(); c.arc(0, 0, R - 1.7, 0, TAU); c.strokeStyle = A.beadLight; c.lineWidth = 1; c.stroke();
+    c.beginPath(); c.arc(0, 0, R - 3.6, Math.PI * 1.04, Math.PI * 1.46); c.strokeStyle = 'rgba(255,255,255,.62)'; c.lineWidth = 2.8; c.stroke();
+    c.beginPath(); c.arc(-R * .12, -R * .66, 1.1, 0, TAU); c.fillStyle = 'rgba(255,255,255,.85)'; c.fill();
+    for (const [x, y, b] of [[.36, -.42, 1.4], [.52, -.18, 1]]) { c.beginPath(); c.arc(R * x, R * y, b, 0, TAU); c.fillStyle = 'rgba(255,255,255,.7)'; c.fill(); c.strokeStyle = 'rgba(196,111,10,.45)'; c.lineWidth = .5; c.stroke(); }
+  }
+  const KEEPER_SPRITES = {
+    walk: (r, f) => [`foe:amberkeeper:${r}:walk${f}`, KEEPER_BOX(r), c => paintKeeper(c, r, 'walk', f)],
+    rear: r => [`foe:amberkeeper:${r}:rear`, KEEPER_BOX(r), c => paintKeeper(c, r, 'rear', 1)],
+    flinch: r => [`foe:amberkeeper:${r}:flinch`, KEEPER_BOX(r), c => paintKeeper(c, r, 'flinch', 1)],
+    crack: r => [`foe:amberkeeper:${r}:crack`, [-r, -r * .6, r, r * .2], c => paintKeeperCrack(c, r)],
+    glow: r => [`foe:amberkeeper:${r}:glow`, [-2 * r, -2 * r, 2 * r, 2 * r], c => paintKeeperGlow(c, r)],
+    shell: () => ['foe:amberkeeper:shell', [-7, -9, 3, 9], paintKeeperShell],
+    bead: R => [`foe:amber:${R}:bead`, [-R - 2, -R - 2, R + 2, R + 2], c => paintAmberBead(c, R)]
+  };
+  const keeperStamp = (ctx, kit, [key, box, paint], x, y, turn, sx, sy) => stamp(ctx, kit, key, box, paint, x, y, turn, sx, sy);
+  // His announced seal, from the rules' own pure forecast (guarded: art draws without foes.js too).
+  function keeperPlan(state, keeper) {
+    const F = root.BloomFoes && root.BloomFoes.FOES && root.BloomFoes.FOES.amberkeeper;
+    return F && typeof F.amberPlan === 'function' ? F.amberPlan(state, keeper) : null;
+  }
+  // How he is drawn this frame, shared by his bud (the sprite) and `over` (the threads leave his drawn tail):
+  // { v sprite, x, y offset from his bud, s scale, lift, k rear-up, u tell progress, plan, tail {x, y} offset }.
+  function keeperFrame(state, keeper, clock, still, kit) {
+    const r = keeper.r || 13, a = keeper.amber || {}, plan = keeperPlan(state, keeper), h = amberHash(keeper.id);
+    const f = { v: 'walk', frame: 1, x: 0, y: 0, s: 1, lift: 0, k: 0, u: 0, plan, flinch: -1 };
+    if (plan) {
+      f.u = clamp((clock - plan.from) / Math.max(1e-6, plan.at - plan.from), 0, 1); f.k = still ? 1 : kit.smooth(Math.min(1, 4 * f.u));
+      f.v = 'rear'; f.lift = 3 * f.k; f.s = 1 + .08 * f.k; f.y = -f.lift;
+    } else if (clock - (a.flinchAt ?? -100) >= 0 && clock - a.flinchAt < .5) {
+      f.v = 'flinch'; f.flinch = clock - a.flinchAt; if (!still) f.x = Math.sin(clock * 95) * 1;
+    } else if (!still) { f.frame = Math.floor(clock * 7 + h * 3) % 3; f.y = Math.sin(clock * 4.2 + h * TAU) * .7; }
+    // Hatched from the Queen's egg: he pops out with an overshoot over .3 s.
+    const born = clock - (keeper.born || 0);
+    if (!still && keeper.bossSource && born >= 0 && born < .3) f.s *= kit.easeBack(born / .3);
+    // The threads spin out of the tip of his glowing tail.
+    f.tail = { x: f.x, y: f.y - r * 1.16 * f.s };
+    return f;
+  }
+  // A thread from the tip of his tail (tx, ty) to a bead or bud at (bx, by), radius R: it bows out to the side (`bow` px,
+  // away from his middle) and sags `sag` px, and ends on the bead's rim. Returns the quadratic's three points.
+  function amberThread(tx, ty, bx, by, R, bow, sag, k) {
+    const dx = bx - tx, dy = by - ty, d = Math.hypot(dx, dy) || 1, out = Math.abs(dx) > 4 ? Math.sign(dx) : k % 2 ? 1 : -1;
+    let nx = -dy / d, ny = dx / d; if (nx * out < 0) { nx = -nx; ny = -ny; }
+    const cx = (tx + bx) / 2 + nx * bow, cy = (ty + by) / 2 + ny * bow + sag, ex = cx - bx, ey = cy - by, e = Math.hypot(ex, ey) || 1;
+    return [tx, ty, cx, cy, bx + ex / e * R, by + ey / e * R];
+  }
+  const amberQuad = ([x0, y0, cx, cy, x1, y1], t) => { const m = 1 - t; return [m * m * x0 + 2 * m * t * cx + t * t * x1, m * m * y0 + 2 * m * t * cy + t * t * y1]; };
+  const amberPoints = (q, upto, n = 12) => { const pts = []; for (let i = 0; i <= n; i++) pts.push(amberQuad(q, upto * i / n)); return pts; };
+  const KEEPER_LAST = new WeakMap();
+  const NO_SHIFT = { dx: 0, dy: 0, alpha: 1 };
+  BloomFoeLook('amberkeeper', {
+    warm(kit, r = 13) {
+      const jobs = [KEEPER_SPRITES.walk(r, 0), KEEPER_SPRITES.walk(r, 1), KEEPER_SPRITES.walk(r, 2), KEEPER_SPRITES.rear(r), KEEPER_SPRITES.flinch(r),
+        KEEPER_SPRITES.crack(r), KEEPER_SPRITES.glow(r), KEEPER_SPRITES.shell(), KEEPER_SPRITES.bead(15), KEEPER_SPRITES.bead(16)];
+      for (const [key, box, paint] of jobs) kit.atlasSprite(key, box[0], box[1], box[2], box[3], paint);
+    },
+    bud(ctx, bud, time, still, state, kit) {
+      const r = bud.r || 13, clock = Number(state.foeClock) || 0, f = keeperFrame(state, bud, clock, still, kit), x = bud.x + f.x, y = bud.y + f.y, alpha = ctx.globalAlpha;
+      if (f.v === 'rear') {
+        // Rearing up: his shadow stays on the ground, and his tail lights up honey-gold as the tell runs.
+        ctx.globalAlpha = alpha * .22 * f.k; ctx.beginPath(); ctx.ellipse(bud.x, bud.y + 1.5, r * 1.02, r * .9, 0, 0, TAU); ctx.fillStyle = AMBER_ART.ink; ctx.fill();
+        ctx.globalAlpha = alpha * (still ? .6 : .35 + .35 * f.u); keeperStamp(ctx, kit, KEEPER_SPRITES.glow(r), x, y - r * .82 * f.s, 0, f.s);
+        ctx.globalAlpha = alpha;
+      }
+      const sprite = f.v === 'rear' ? KEEPER_SPRITES.rear(r) : f.v === 'flinch' ? KEEPER_SPRITES.flinch(r) : KEEPER_SPRITES.walk(r, f.frame);
+      keeperStamp(ctx, kit, sprite, x, y, 0, f.s);
+      if (bud.hp === 1 && (Number(bud.maxHp) || 2) > 1) keeperStamp(ctx, kit, KEEPER_SPRITES.crack(r), x, y, 0, f.s);
+    },
+    over(ctx, state, time, still, kit, quality) {
+      const A = AMBER_ART, clock = Number(state.foeClock) || 0, buds = state.buds || [], shift = b => kit.budShift ? kit.budShift(b, time, still) : NO_SHIFT;
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      for (const keeper of buds) {
+        if (keeper.foe !== 'amberkeeper' || keeper.bloomed || keeper.hidden || keeper.visible === false) continue;
+        const m = shift(keeper), f = keeperFrame(state, keeper, clock, still, kit), tx = keeper.x + m.dx + f.tail.x, ty = keeper.y + m.dy + f.tail.y;
+        // Hatched: the two halves of the amber egg fly apart and fade.
+        const born = clock - (keeper.born || 0);
+        if (!still && keeper.bossSource && born >= 0 && born < .45) {
+          const q = born / .45;
+          ctx.save(); ctx.globalAlpha *= 1 - q * q;
+          for (const side of [-1, 1]) {
+            const [key, box, paint] = KEEPER_SPRITES.shell();
+            ctx.save(); ctx.translate(keeper.x + m.dx + side * (3 + 20 * q), keeper.y + m.dy - 12 * q + 22 * q * q); ctx.rotate(side * 2.6 * q); ctx.scale(side, 1);
+            const sprite = kit.atlasSprite(key, box[0], box[1], box[2], box[3], paint); if (sprite) kit.blit(ctx, sprite); else paint(ctx);
+            ctx.restore();
+          }
+          ctx.restore();
+        }
+        // 1. Sealed threads: one honey thread from his tail to each of his beads.
+        let k = 0;
+        for (const bead of buds) {
+          if (bead.foe !== 'amber' || bead.bloomed || bead.keeper !== keeper.id || bead.hidden) continue;
+          const bm = shift(bead), R = bead.r || 15, since = clock - (bead.sealedAt ?? -100);
+          // It hangs with a slow sway; just sealed, it wobbles as it settles (the follow-through).
+          let bow = 6 + (still ? 0 : Math.sin(clock * 2 + k) * 1.5);
+          if (!still && since >= 0 && since < .5) bow += 6 * (1 - since / .5) * Math.cos(20 * since);
+          const q = amberThread(tx, ty, bead.x + bm.dx, bead.y + bm.dy, R, bow, 8, k);
+          const path = () => { ctx.beginPath(); ctx.moveTo(q[0], q[1]); ctx.quadraticCurveTo(q[2], q[3], q[4], q[5]); };
+          path(); ctx.strokeStyle = A.honeyDark; ctx.lineWidth = 3.8; ctx.stroke();
+          ctx.save(); ctx.globalAlpha *= .95; path(); ctx.strokeStyle = A.honey; ctx.lineWidth = 2.1; ctx.stroke(); ctx.restore();
+          if (quality <= 1) {
+            ctx.save(); ctx.translate(-.35, -.4); path(); ctx.strokeStyle = 'rgba(255,250,220,.9)'; ctx.lineWidth = .75; ctx.stroke(); ctx.restore();
+          }
+          // Honey motes slide down the thread from him to the bead (one still mote with Animations off).
+          const motes = still ? [.5] : quality === 0 ? [(clock * .7 + k * .5) % 1, (clock * .7 + k * .5 + .5) % 1] : quality === 1 ? [(clock * .7 + k * .5) % 1] : [];
+          for (const t of motes) { const [x, y] = amberQuad(q, t); kit.circle(ctx, x, y, 1.6, '#fff3c4', 'rgba(104,58,8,.55)', .6); }
+          k++;
+        }
+        // 2. A tell: dotted threads flow out of his tail to each bud he wants, and a ring closes round each like a clock hand.
+        const plan = f.plan;
+        if (plan) KEEPER_LAST.set(keeper, plan.ids.slice());
+        const snap = !plan && !still && f.flinch >= 0 && f.flinch < .25 ? KEEPER_LAST.get(keeper) : null;
+        const ids = plan ? plan.ids : snap || [];
+        for (const id of ids) {
+          const bud = buds.find(b => b.id === id);
+          if (!bud || bud.bloomed || bud.hidden) continue;
+          const bm = shift(bud), bx = bud.x + bm.dx, by = bud.y + bm.dy, R = (bud.r || 11) + 6;
+          const q = amberThread(tx, ty, bx, by, R, 6 + (still ? 0 : Math.sin(clock * 2 + k) * 1.5), 8, k);
+          // Snapped back after a flinch, the thread whips home to his tail over .25 s.
+          const grow = snap ? 1 - kit.smooth(f.flinch / .25) : still ? 1 : kit.smooth(Math.min(1, f.u / .3));
+          if (grow > .02) dotted(ctx, amberPoints(q, grow), '#e8a21c', 2.1, 6, still ? 0 : -clock * 30);
+          if (snap) continue;
+          const u = f.u, left = plan.at - clock, flash = !still && left < .2 && Math.floor(left / .1) % 2 === 0;
+          if (still) {
+            const ring = []; for (let i = 0; i <= 24; i++) { const a = -Math.PI / 2 + i / 24 * TAU; ring.push([bx + R * Math.cos(a), by + R * Math.sin(a)]); }
+            dotted(ctx, ring, '#e8a21c', 2.1, TAU * R / 24, 0);
+          } else {
+            // Six honey drops gather in from just outside as the ring closes.
+            if (quality === 0) for (let i = 0; i < 6; i++) {
+              const a = i * TAU / 6 + .5, d = (bud.r || 11) + 14 - 10 * u;
+              ctx.save(); ctx.globalAlpha *= .35 + .65 * u; kit.circle(ctx, bx + d * Math.cos(a), by + d * Math.sin(a), 1.5 + .6 * u, A.honey, A.honeyDark, .7); ctx.restore();
+            }
+            ctx.beginPath(); ctx.arc(bx, by, R, -Math.PI / 2, -Math.PI / 2 + u * TAU); ctx.strokeStyle = A.honeyDark; ctx.lineWidth = 4; ctx.stroke();
+            ctx.strokeStyle = flash ? '#ffffff' : A.honey; ctx.lineWidth = 2.4; ctx.stroke();
+            // The hand: a bright bead at the ring's leading end.
+            const a = -Math.PI / 2 + u * TAU; kit.circle(ctx, bx + R * Math.cos(a), by + R * Math.sin(a), 2.3, flash ? '#ffffff' : '#fff3c4', A.honeyDark, 1);
+          }
+          k++;
+        }
+      }
+    }
+  });
+  BloomFoeLook('amber', {
+    warm(kit) { for (const R of [15, 16]) { const [key, box, paint] = KEEPER_SPRITES.bead(R); kit.atlasSprite(key, box[0], box[1], box[2], box[3], paint); } },
+    // The bud inside is drawn first (it is earlier in the list), so it shows through the amber.
+    bud(ctx, bud, time, still, state, kit, quality) {
+      const R = Math.round(bud.r || 15), clock = Number(state.foeClock) || 0, h = amberHash(bud.id) * TAU;
+      const pop = still ? 1 : kit.easeBack(clamp((clock - (bud.sealedAt ?? -100)) / .22, 0, 1)), sx = still ? 1 : 1 + .025 * Math.sin(clock * 3 + h);
+      keeperStamp(ctx, kit, KEEPER_SPRITES.bead(R), bud.x, bud.y, 0, pop * sx, pop / sx);
+      if (quality <= 1 && pop > .5) {
+        const tw = still ? .8 : .5 + .5 * Math.max(0, Math.sin(clock * 2.3 + h));
+        kit.sparkle(ctx, bud.x - R * .4 * pop, bud.y - R * .45 * pop, R * .2 * tw, '#ffffff', .2);
+      }
+    }
+  });
 
   // ── Whizzbang (Level 7, `whizzbang`) ──
 
@@ -3388,6 +3721,419 @@
 
 
   // ── Ammonite Queen (Level 6, `fossil`) ──
+  // A grand old ammonite, her face peeping from her shell's mouth behind her brass monocle, four little tentacles curling
+  // under it. Her face shows her mood (s.tier): Regal is serene, half-lidded with lashes and a pleased small smile, in a
+  // gold tiara set with her own five pearls (the middle one twinkles); Stony greys over with stern flat brows, stone
+  // freckles and two hairline cracks creep over her shell and grit trickles from her rim; Brooding narrows her eyes, a
+  // warm amber halo pulses behind her, and while her next egg is ready her tentacles cradle a little amber egg (a quiet
+  // early tell that a hatch is coming). She puffs her cheeks to toss pearls, glares with stone-grey eyes to petrify,
+  // coos with her eyes shut and a heart to lay her egg, squeezes her eyes when hit, and blinks now and then.
+  // Pearl Volley: dotted lilac arcs to three marks, each a lilac ring with a little shell; the pearls spin along their
+  // arcs with ghost trails, their landing shadows darkening as they near; a landed pearl twinkles in its turning shell.
+  // Petrify: grey chips close in round each bud and a dotted ghost slab already shows the exact angle each slab will
+  // take (bare-bed slabs add an arc of seabed dots); the slabs grow in with an overshoot, a bud asleep inside each, a
+  // glint sliding along them, flash white when a seed banks off, and fade as they thaw. Hatch: an amber dotted arc and a
+  // pulsing dotted egg at the mark; the egg tumbles along it with its shadow. In Brooding her lock ring spins faster,
+  // with white motion arcs at its gap ends, and as each move lifts her, bubbles rise from under her. Animations off: no
+  // twinkle, blink, sway, spin, trail, grit, bubbles or pulse; every tell stays as a still mark.
+  const FOSSIL_ART = { ink: '#63524e', eye: '#5c8b91', lid: '#ecd2ab', cheek: '#e6a28e', mouth: '#7e4656', brass: '#b2955f', stoneEye: '#8e8a84',
+    gold: '#f2c14e', goldDark: '#a8761f', goldLight: '#fff3b8', stone: '#cbbd9f', strata: '#a89a7c', stoneInk: '#7a6a52', chip: '#bfb197',
+    tentacle: '#e9c9a0', pearl: '#fbf7ff', pearlRim: '#cbb6f2', pearlInk: '#8a6cc0', iris: '#ffe7f3', lilac: '#b58be0', amber: '#e8a21c',
+    bed: '#9a7b58', heart: '#ff8fb1', halo: 'rgba(232,162,28,.12)' };
+  const FOSSIL_FACES = ['regal', 'regal-blink', 'stony', 'stony-blink', 'brooding', 'brooding-blink', 'hurt', 'toss', 'glare', 'coo'];
+  function fossilBrow(c, r, side, shape) {
+    const B = { arch: [[.12, -.25], [.26, -.37], [.41, -.27]], flat: [[.1, -.22], [.26, -.235], [.42, -.215]], set: [[.1, -.19], [.25, -.27], [.42, -.3]],
+      v: [[.08, -.15], [.25, -.25], [.42, -.33]], high: [[.11, -.31], [.26, -.44], [.41, -.33]] }[shape];
+    c.beginPath(); c.moveTo(side * r * B[0][0], r * B[0][1]); c.quadraticCurveTo(side * r * B[1][0], r * B[1][1], side * r * B[2][0], r * B[2][1]);
+    c.strokeStyle = FOSSIL_ART.ink; c.lineWidth = shape === 'flat' || shape === 'v' ? 2.2 : 1.5; c.lineCap = 'round'; c.stroke();
+  }
+  // kind: serene (a level lid, lashes), stern (a lid slanting to the nose), narrow (upper and lower lids), wide (pupils
+  // up, lashes), glare (stone-grey eyes with a white star), shut (a happy closed arc with lashes), blink, squeeze.
+  function fossilEye(c, r, side, kind) {
+    const A = FOSSIL_ART, x = side * r * .26, rx = r * .12, ry = r * .13;
+    c.lineCap = 'round'; c.lineJoin = 'round'; c.strokeStyle = A.ink;
+    if (kind === 'shut' || kind === 'blink') {
+      c.beginPath();
+      if (kind === 'shut') c.arc(x, r * .05, rx * 1.05, Math.PI + .38, -.38); else { c.moveTo(x - rx * 1.1, r * .01); c.quadraticCurveTo(x, r * .055, x + rx * 1.1, r * .01); }
+      c.lineWidth = 1.7; c.stroke();
+      const ex = x + side * rx * (kind === 'shut' ? .98 : 1.1), ey = kind === 'shut' ? r * .005 : r * .01;
+      c.beginPath(); c.moveTo(ex, ey); c.lineTo(ex + side * r * .075, ey - r * .035); c.lineWidth = 1.05; c.stroke();
+      return;
+    }
+    if (kind === 'squeeze') {
+      c.beginPath(); c.moveTo(x + side * rx * 1.1, -r * .085); c.lineTo(x - side * rx * .8, 0); c.lineTo(x + side * rx * 1.1, r * .085); c.lineWidth = 1.9; c.stroke();
+      return;
+    }
+    const up = kind === 'wide' ? -r * .035 : 0;
+    c.beginPath(); c.ellipse(x, 0, rx, ry, 0, 0, TAU); c.fillStyle = '#ffffff'; c.fill();
+    c.beginPath(); c.arc(x - side * r * .012, r * .022 + up, r * .072, 0, TAU); c.fillStyle = kind === 'glare' ? A.stoneEye : A.eye; c.fill();
+    c.fillStyle = '#ffffff';
+    if (kind === 'glare') amberStar(c, x - side * r * .03, -r * .01, r * .055);
+    else { c.beginPath(); c.arc(x - side * r * .038, -r * .02 + up, r * .028, 0, TAU); c.fill(); }
+    if (kind !== 'wide') {
+      // Lids: Regal's level and heavy (serene), Stony's and the glare's slanting to the nose, Brooding's narrowed top and bottom.
+      const inner = kind === 'serene' ? -r * .005 : kind === 'narrow' ? r * .01 : r * .04, outer = kind === 'serene' ? -r * .005 : kind === 'narrow' ? -r * .035 : -r * .075;
+      c.save(); c.beginPath(); c.ellipse(x, 0, rx, ry, 0, 0, TAU); c.clip();
+      c.beginPath(); c.moveTo(x - side * rx * 1.3, inner); c.lineTo(x + side * rx * 1.3, outer); c.lineTo(x + side * rx * 1.3, -ry * 1.3); c.lineTo(x - side * rx * 1.3, -ry * 1.3); c.closePath();
+      c.fillStyle = A.lid; c.fill();
+      if (kind === 'narrow') { c.beginPath(); c.moveTo(x - rx * 1.3, r * .085); c.quadraticCurveTo(x, r * .06, x + rx * 1.3, r * .085); c.lineTo(x + rx * 1.3, ry * 1.3); c.lineTo(x - rx * 1.3, ry * 1.3); c.closePath(); c.fill(); }
+      c.restore();
+      c.beginPath(); c.moveTo(x - side * rx * 1.12, inner); c.lineTo(x + side * rx * 1.12, outer); c.lineWidth = 1.6; c.stroke();
+    }
+    c.beginPath(); c.ellipse(x, 0, rx, ry, 0, 0, TAU); c.lineWidth = 1.15; c.stroke();
+    if (kind === 'serene' || kind === 'wide' || kind === 'narrow') {
+      // Two lashes at the outer corner: she is a queen.
+      for (const k of [0, 1]) {
+        const a = -Math.PI / 2 + side * (.8 + k * .45), px = x + rx * Math.cos(a), py = ry * Math.sin(a) + (kind === 'serene' ? r * .03 : 0);
+        c.beginPath(); c.moveTo(px, py); c.lineTo(px + Math.cos(a) * r * .075, py + Math.sin(a) * r * .075); c.lineWidth = 1.05; c.stroke();
+      }
+    }
+  }
+  function fossilMouth(c, r, kind) {
+    const A = FOSSIL_ART;
+    c.lineCap = 'round'; c.lineJoin = 'round'; c.strokeStyle = A.ink;
+    if (kind === 'smile') { c.beginPath(); c.arc(0, r * .2, r * .12, .38, Math.PI - .38); c.lineWidth = 1.5; c.stroke(); }
+    else if (kind === 'flat') { c.beginPath(); c.moveTo(-r * .1, r * .32); c.quadraticCurveTo(0, r * .29, r * .1, r * .32); c.lineWidth = 1.6; c.stroke(); }
+    else if (kind === 'soft') {
+      c.beginPath(); c.moveTo(-r * .11, r * .28); c.quadraticCurveTo(0, r * .35, r * .11, r * .28); c.lineWidth = 1.6; c.stroke();
+      for (const side of [-1, 1]) { c.beginPath(); c.moveTo(side * r * .11, r * .28); c.lineTo(side * r * .14, r * .25); c.lineWidth = 1.1; c.stroke(); }
+    } else if (kind === 'tight') { c.beginPath(); c.arc(0, r * .41, r * .1, Math.PI + .6, -.6); c.lineWidth = 1.8; c.stroke(); }
+    else if (kind === 'o' || kind === 'ouch') {
+      c.beginPath(); c.ellipse(0, r * .31, r * (kind === 'o' ? .055 : .08), r * (kind === 'o' ? .065 : .07), 0, 0, TAU); c.fillStyle = A.mouth; c.fill(); c.lineWidth = 1.2; c.stroke();
+    } else if (kind === 'coo') {
+      // A little "3": she coos.
+      c.beginPath(); c.moveTo(-r * .03, r * .24); c.quadraticCurveTo(r * .06, r * .25, r * .01, r * .29); c.quadraticCurveTo(r * .07, r * .32, -r * .02, r * .35); c.lineWidth = 1.4; c.stroke();
+    }
+  }
+  function paintFossilFace(c, r, variant) {
+    const A = FOSSIL_ART, blink = variant.endsWith('-blink'), base = blink ? variant.slice(0, -6) : variant, stony = base === 'stony' || base === 'glare';
+    // Stony: a grey wash over her face (the face patch of her shell, as art.js paints it) and a few stone freckles.
+    if (stony) {
+      c.beginPath(); c.ellipse(r * .05, r * .06, r * .6, r * .56, -.15, 0, TAU); c.fillStyle = 'rgba(138,134,128,.32)'; c.fill();
+      for (const [x, y, d] of [[-.38, -.32, .028], [.46, .34, .024], [-.48, .3, .022], [.08, .44, .02]]) { c.beginPath(); c.arc(r * x, r * y, r * d, 0, TAU); c.fillStyle = 'rgba(110,104,96,.55)'; c.fill(); }
+    }
+    const puffed = base === 'toss';
+    for (const side of [-1, 1]) {
+      c.save(); c.globalAlpha = stony ? .32 : puffed ? .85 : base === 'coo' ? .9 : .65;
+      c.beginPath(); c.ellipse(side * r * (puffed ? .43 : .45), r * .2, r * (puffed ? .15 : .11), r * (puffed ? .11 : .055), side * -.25, 0, TAU);
+      c.fillStyle = A.cheek; c.fill(); c.restore();
+    }
+    const brows = { regal: ['arch', 'arch'], stony: ['flat', 'flat'], brooding: ['set', 'set'], hurt: ['v', 'v'], toss: ['high', 'high'], glare: ['v', 'v'], coo: ['high', 'high'] }[base];
+    fossilBrow(c, r, -1, brows[0]); fossilBrow(c, r, 1, brows[1]);
+    const eye = blink ? 'blink' : { regal: 'serene', stony: 'stern', brooding: 'narrow', hurt: 'squeeze', toss: 'wide', glare: 'glare', coo: 'shut' }[base];
+    fossilEye(c, r, -1, eye); fossilEye(c, r, 1, eye);
+    fossilMouth(c, r, { regal: 'smile', stony: 'flat', brooding: 'soft', hurt: 'ouch', toss: 'o', glare: 'tight', coo: 'coo' }[base]);
+    // Her brass monocle over her left eye, on its chain (the face hook replaces art.js's face, which drew it).
+    c.beginPath(); c.arc(r * .26, 0, r * .21, 0, TAU); c.fillStyle = 'rgba(214,233,245,.16)'; c.fill(); c.strokeStyle = A.brass; c.lineWidth = 1.7; c.stroke();
+    c.beginPath(); c.arc(r * .26, 0, r * .16, Math.PI * 1.1, Math.PI * 1.45); c.strokeStyle = 'rgba(255,255,255,.75)'; c.lineWidth = 1.1; c.lineCap = 'round'; c.stroke();
+    c.beginPath(); c.moveTo(r * .43, r * .11); c.bezierCurveTo(r * .74, r * .26, r * .58, r * .6, r * .77, r * .7); c.strokeStyle = A.brass; c.lineWidth = 1; c.stroke();
+    if (base === 'coo') {
+      c.save(); c.translate(r * .6, -r * .44); c.rotate(.2);
+      c.beginPath(); c.moveTo(0, r * .07); c.bezierCurveTo(-r * .12, -r * .01, -r * .06, -r * .11, 0, -r * .045); c.bezierCurveTo(r * .06, -r * .11, r * .12, -r * .01, 0, r * .07); c.closePath();
+      c.fillStyle = A.heart; c.fill(); c.strokeStyle = '#c84f78'; c.lineWidth = .9; c.stroke(); c.restore();
+    }
+  }
+  // Regal's tiara: a gold band set under her five pearls (they are its jewels), four little spires between them and a
+  // lilac gem in the middle.
+  function paintFossilTiara(c, r) {
+    const A = FOSSIL_ART;
+    c.lineJoin = 'round'; c.lineCap = 'round';
+    for (const [x, top] of [[-.375, -1.17], [-.125, -1.27], [.125, -1.27], [.375, -1.17]]) {
+      const mid = r * (top - .96) / 2;
+      c.beginPath(); c.moveTo(r * (x - .065), -r * .96); c.quadraticCurveTo(r * (x - .02), mid, r * x, r * top); c.quadraticCurveTo(r * (x + .02), mid, r * (x + .065), -r * .96); c.closePath();
+      c.fillStyle = A.gold; c.fill(); c.strokeStyle = A.goldDark; c.lineWidth = .9; c.stroke();
+      c.beginPath(); c.arc(r * x, r * top, r * .03, 0, TAU); c.fillStyle = A.goldLight; c.fill();
+    }
+    const band = () => { c.beginPath(); c.moveTo(-r * .64, -r * .9); c.quadraticCurveTo(0, -r * 1.02, r * .64, -r * .9); };
+    band(); c.strokeStyle = A.goldDark; c.lineWidth = 3.6; c.stroke();
+    band(); c.strokeStyle = A.gold; c.lineWidth = 2.2; c.stroke();
+    c.save(); c.translate(0, -.7); band(); c.strokeStyle = A.goldLight; c.lineWidth = .8; c.stroke(); c.restore();
+    c.beginPath(); c.moveTo(0, -r * 1.02); c.lineTo(r * .05, -r * .955); c.lineTo(0, -r * .9); c.lineTo(-r * .05, -r * .955); c.closePath();
+    c.fillStyle = A.lilac; c.fill(); c.strokeStyle = '#6b4a9a'; c.lineWidth = .7; c.stroke();
+  }
+  // Stony: stone freckles over her coil and two hairline cracks from her rim.
+  function paintFossilStony(c, r) {
+    const dots = [[-.9, -.42, .05], [-.74, -.76, .04], [-.48, -.96, .035], [-.22, -.68, .045], [-1.06, .04, .04], [-.86, .42, .05], [-.56, .68, .04],
+      [-.36, -.3, .03], [.24, -.76, .04], [.56, -.56, .035], [-.62, -.14, .03], [-1.02, -.26, .03], [.8, -.24, .03], [-.22, .86, .035], [-.12, -1.04, .03]];
+    for (const [x, y, d] of dots) {
+      c.beginPath(); c.arc(r * x, r * y, r * d, 0, TAU); c.fillStyle = 'rgba(132,126,116,.85)'; c.fill();
+      c.beginPath(); c.arc(r * (x - d * .35), r * (y - d * .35), r * d * .4, 0, TAU); c.fillStyle = 'rgba(232,226,214,.7)'; c.fill();
+    }
+    c.lineCap = 'round'; c.lineJoin = 'miter';
+    for (const pts of [[[-1.32, -.36], [-1.08, -.3], [-.98, -.14], [-.76, -.12], [-.64, .02]], [[.18, -1.16], [.1, -.98], [.22, -.86], [.1, -.7]]]) {
+      for (const [color, width, off] of [['rgba(255,250,240,.8)', 1, .5], ['#5e564c', .95, 0]]) {
+        c.beginPath(); pts.forEach(([x, y], i) => i ? c.lineTo(r * x + off, r * y + off) : c.moveTo(r * x + off, r * y + off)); c.strokeStyle = color; c.lineWidth = width; c.stroke();
+      }
+    }
+  }
+  // Brooding's halo: three concentric amber discs at alpha .12 (no gradient), drawn under her.
+  function paintFossilHalo(c, r) { for (const k of [1.95, 1.68, 1.44]) { c.beginPath(); c.arc(0, 0, r * k, 0, TAU); c.fillStyle = FOSSIL_ART.halo; c.fill(); } }
+  // One of her little tentacles from (x0, y0) down `len` px, curling out at the tip toward `side`.
+  function fossilTentacle(c, x0, y0, len, side, sway) {
+    const A = FOSSIL_ART, x2 = x0 + side * len * .18 + sway, y2 = y0 + len;
+    const path = () => { c.beginPath(); c.moveTo(x0, y0); c.quadraticCurveTo(x0 + sway * .5 - side * len * .08, y0 + len * .6, x2, y2); c.arc(x2 + side * len * .14, y2, len * .14, Math.PI, side > 0 ? Math.PI * .1 : Math.PI * 1.9, side < 0); };
+    path(); c.strokeStyle = A.ink; c.lineWidth = 3.6; c.stroke();
+    path(); c.strokeStyle = A.tentacle; c.lineWidth = 2.1; c.stroke();
+    c.beginPath(); c.moveTo(x0 - .5, y0 + 1); c.quadraticCurveTo(x0 + sway * .5 - side * len * .08 - .6, y0 + len * .6, x2 - .5, y2 - 1); c.strokeStyle = 'rgba(255,248,232,.8)'; c.lineWidth = .7; c.stroke();
+  }
+  // Four short tentacles curling under her face; frame f (0-2) sways them.
+  function paintFossilTentacles(c, r, f) {
+    c.lineCap = 'round'; c.lineJoin = 'round';
+    [[.06, -1, .38], [.22, -1, .46], [.4, 1, .46], [.56, 1, .36]].forEach(([x, side, len], i) => fossilTentacle(c, r * x, r * .8, r * len, side, (((i + f) % 3) - 1) * 1.3));
+  }
+  // Brooding with an egg ready: her tentacles curled round a little amber egg.
+  function paintFossilCradle(c, r) {
+    c.lineCap = 'round'; c.lineJoin = 'round';
+    fossilTentacle(c, r * .14, r * .8, r * .3, -1, 0); fossilTentacle(c, r * .48, r * .8, r * .3, 1, 0);
+    c.save(); c.translate(r * .31, r * 1.08); c.scale(.72, .72); paintFossilEgg(c); c.restore();
+    const A = FOSSIL_ART;
+    for (const side of [-1, 1]) {
+      const arm = () => { c.beginPath(); c.moveTo(r * (.31 + side * .1), r * .82); c.quadraticCurveTo(r * (.31 + side * .3), r * 1.08, r * (.31 + side * .08), r * 1.3); };
+      arm(); c.strokeStyle = A.ink; c.lineWidth = 3.6; c.stroke(); arm(); c.strokeStyle = A.tentacle; c.lineWidth = 2.1; c.stroke();
+    }
+  }
+  // A pearl, r 9 (it turns; its shine is a separate sprite that stays lit from the upper left).
+  function paintFossilPearl(c) {
+    const A = FOSSIL_ART, R = 9;
+    c.beginPath(); c.arc(0, 0, R, 0, TAU); c.fillStyle = A.pearl; c.fill();
+    c.save(); c.clip();
+    c.beginPath(); c.ellipse(1.2, 3.4, R * 1.1, R * .38, -.35, 0, TAU); c.fillStyle = A.iris; c.fill();
+    c.beginPath(); c.ellipse(-1.4, -1, R * 1.05, R * .16, -.35, 0, TAU); c.fillStyle = 'rgba(226,240,255,.8)'; c.fill();
+    c.beginPath(); c.arc(0, 0, R - 1.7, -.25, 2); c.strokeStyle = A.pearlRim; c.lineWidth = 2.6; c.stroke();
+    c.restore();
+    c.beginPath(); c.arc(0, 0, R, 0, TAU); c.strokeStyle = A.pearlInk; c.lineWidth = 1.3; c.stroke();
+  }
+  function paintFossilShine(c) {
+    c.beginPath(); c.ellipse(-3, -3.5, 3.1, 1.9, -.65, 0, TAU); c.fillStyle = '#ffffff'; c.fill();
+    c.beginPath(); c.arc(2.9, -4.8, .9, 0, TAU); c.fill();
+  }
+  // The amber egg, a curled trilobite asleep inside.
+  function paintFossilEgg(c) {
+    const A = AMBER_ART, egg = () => { c.beginPath(); c.ellipse(0, 0, 6.6, 8.3, 0, 0, TAU); };
+    egg(); c.fillStyle = 'rgba(240,164,44,.92)'; c.fill();
+    c.save(); egg(); c.clip();
+    c.beginPath(); c.ellipse(1.4, 2.2, 6.4, 7.6, 0, 0, TAU); c.fillStyle = 'rgba(196,111,10,.35)'; c.fill();
+    c.lineCap = 'round';
+    c.beginPath(); c.arc(.6, .8, 3.4, -.5, Math.PI * 1.55); c.strokeStyle = 'rgba(110,56,6,.6)'; c.lineWidth = 2.7; c.stroke();
+    for (let i = 0; i < 5; i++) { const a = -.2 + i * .9; c.beginPath(); c.moveTo(.6 + Math.cos(a) * 2.1, .8 + Math.sin(a) * 2.1); c.lineTo(.6 + Math.cos(a) * 4.7, .8 + Math.sin(a) * 4.7); c.strokeStyle = 'rgba(255,214,140,.45)'; c.lineWidth = .7; c.stroke(); }
+    c.restore();
+    egg(); c.strokeStyle = A.beadRim; c.lineWidth = 1.4; c.stroke();
+    c.beginPath(); c.ellipse(0, 0, 5.2, 6.9, 0, 0, TAU); c.strokeStyle = A.beadLight; c.lineWidth = .8; c.stroke();
+    c.beginPath(); c.ellipse(0, 0, 4.5, 6.1, 0, Math.PI * 1.08, Math.PI * 1.45); c.strokeStyle = 'rgba(255,255,255,.75)'; c.lineWidth = 1.7; c.lineCap = 'round'; c.stroke();
+  }
+  function fossilRect(c, x, y, w, h, k) { c.beginPath(); c.moveTo(x + k, y); c.arcTo(x + w, y, x + w, y + h, k); c.arcTo(x + w, y + h, x, y + h, k); c.arcTo(x, y + h, x, y, k); c.arcTo(x, y, x + w, y, k); c.closePath(); }
+  // A stone slab 30 x 12 round the 18 px capsule: sandstone, strata, an ammonite imprint, lit along its top; or all white.
+  function paintFossilSlab(c, flash) {
+    const A = FOSSIL_ART;
+    fossilRect(c, -15, -6, 30, 12, 4.5); c.fillStyle = flash ? '#ffffff' : A.stone; c.fill();
+    if (!flash) {
+      c.save(); fossilRect(c, -15, -6, 30, 12, 4.5); c.clip();
+      c.beginPath(); c.rect(-16, 3.2, 32, 4); c.fillStyle = 'rgba(122,106,82,.22)'; c.fill();
+      c.lineCap = 'round';
+      c.beginPath(); c.moveTo(-16, -1.6); c.bezierCurveTo(-8, -2.9, 2, -.5, 16, -2.1); c.strokeStyle = A.strata; c.lineWidth = 1; c.stroke();
+      c.beginPath(); c.moveTo(-16, 2.5); c.bezierCurveTo(-6, 1.5, 4, 3.5, 16, 2.1); c.stroke();
+      c.beginPath(); for (let i = 0; i <= 22; i++) { const a = i * .5, d = 3.4 * (1 - i / 26); const x = 9.4 + Math.cos(a) * d, y = .2 + Math.sin(a) * d; if (i) c.lineTo(x, y); else c.moveTo(x, y); }
+      c.strokeStyle = 'rgba(122,106,82,.8)'; c.lineWidth = .8; c.stroke();
+      c.restore();
+      c.beginPath(); c.moveTo(-11, -4.5); c.lineTo(11, -4.5); c.strokeStyle = 'rgba(255,255,255,.75)'; c.lineWidth = 1.1; c.lineCap = 'round'; c.stroke();
+    }
+    fossilRect(c, -15, -6, 30, 12, 4.5); c.strokeStyle = flash ? '#eadfc8' : A.stoneInk; c.lineWidth = 1.2; c.stroke();
+  }
+  function paintFossilChip(c) {
+    c.lineJoin = 'round';
+    c.beginPath(); c.moveTo(-2.6, -1.3); c.lineTo(1.1, -2.6); c.lineTo(2.8, .8); c.lineTo(-.6, 2.4); c.closePath(); c.fillStyle = FOSSIL_ART.chip; c.fill(); c.strokeStyle = FOSSIL_ART.stoneInk; c.lineWidth = .8; c.stroke();
+    c.beginPath(); c.moveTo(-1.8, -1.1); c.lineTo(.9, -2); c.strokeStyle = 'rgba(255,255,255,.75)'; c.lineWidth = .6; c.stroke();
+  }
+  // A pearl's landing mark: a little lilac spiral shell.
+  function paintFossilMark(c) {
+    c.lineCap = 'round'; c.lineJoin = 'round';
+    const spiral = () => { c.beginPath(); for (let i = 0; i <= 26; i++) { const a = i * .45, d = 4.6 * (1 - i / 32); const x = Math.cos(a) * d, y = Math.sin(a) * d; if (i) c.lineTo(x, y); else c.moveTo(x, y); } };
+    spiral(); c.strokeStyle = '#ffffff'; c.lineWidth = 2.6; c.stroke(); spiral(); c.strokeStyle = FOSSIL_ART.lilac; c.lineWidth = 1.3; c.stroke();
+  }
+  function paintFossilGlint(c) { c.beginPath(); c.ellipse(0, 0, 3.4, 1.1, 0, 0, TAU); c.fillStyle = 'rgba(255,255,255,.9)'; c.fill(); }
+  const fossilFaceSprite = (r, v) => [`kit:fossil:face:${r}:${v}`, [-r * .74, -r * .62, r * .86, r * .8], c => paintFossilFace(c, r, v)];
+  const FOSSIL_SPRITES = {
+    tiara: r => [`kit:fossil:tiara:${r}`, [-r * .76, -r * 1.36, r * .76, -r * .84], c => paintFossilTiara(c, r)],
+    stony: r => [`kit:fossil:stony:${r}`, [-r * 1.38, -r * 1.24, r * .9, r * .96], c => paintFossilStony(c, r)],
+    halo: r => [`kit:fossil:halo:${r}`, [-r * 2, -r * 2, r * 2, r * 2], c => paintFossilHalo(c, r)],
+    tentacles: (r, f) => [`kit:fossil:tentacles${f}:${r}`, [-r * .2, r * .7, r * .86, r * 1.42], c => paintFossilTentacles(c, r, f)],
+    cradle: r => [`kit:fossil:cradle:${r}`, [-r * .2, r * .7, r * .86, r * 1.46], c => paintFossilCradle(c, r)],
+    pearl: () => ['kit:fossil:pearl', [-10.5, -10.5, 10.5, 10.5], paintFossilPearl],
+    shine: () => ['kit:fossil:shine', [-7, -7.5, 5, -.5], paintFossilShine],
+    egg: () => ['kit:fossil:egg', [-8.5, -10.2, 8.5, 10.2], paintFossilEgg],
+    slab: () => ['kit:fossil:slab:18', [-16.5, -7.5, 16.5, 7.5], c => paintFossilSlab(c, false)],
+    slabFlash: () => ['kit:fossil:slabFlash:18', [-16.5, -7.5, 16.5, 7.5], c => paintFossilSlab(c, true)],
+    chip: () => ['kit:fossil:chip', [-4, -4, 4, 4], paintFossilChip],
+    mark: () => ['kit:fossil:mark', [-6.5, -6.5, 6.5, 6.5], paintFossilMark],
+    glint: () => ['kit:fossil:glint', [-4.2, -2, 4.2, 2], paintFossilGlint],
+    // The bud asleep in a slab: art.js's own closed flower, baked once per colour so a slab never paints a fresh flower.
+    sleeper: (kit, type) => [`kit:fossil:sleeper:${type}`, [-17, -17, 17, 17], c => kit.drawFlower(c, 0, 0, 5.5, type, 0, 0, 0)]
+  };
+  const fossilStamp = (ctx, kit, [key, box, paint], x, y, turn, sx, sy) => stamp(ctx, kit, key, box, paint, x, y, turn, sx, sy);
+  // Points along a lob from (x0, y0) to (x1, y1), arc height h, skipping the first `skip` of the way (inside her).
+  function fossilArc(x0, y0, x1, y1, h, skip = .12, n = 12) { const pts = []; for (let i = 0; i <= n; i++) { const at = lobAt(x0, y0, x1, y1, 1, skip + (1 - skip) * i / n, h); pts.push([at.x, at.y]); } return pts; }
+  // Her next egg is ready: Brooding, no egg in the air, and no keeper of hers still alive.
+  const fossilEggReady = (state, s) => s.tier === 2 && !(s.lobs || []).some(l => l.look === 'egg')
+    && !(state.buds || []).some(p => p.foe === 'amberkeeper' && p.bossSource === (s.boss && s.boss.id) && !p.bloomed);
+  kitLook('fossil', {
+    warm(kit) {
+      const r = 26, jobs = [...FOSSIL_FACES.map(v => fossilFaceSprite(r, v)), FOSSIL_SPRITES.tiara(r), FOSSIL_SPRITES.stony(r), FOSSIL_SPRITES.halo(r),
+        FOSSIL_SPRITES.tentacles(r, 0), FOSSIL_SPRITES.tentacles(r, 1), FOSSIL_SPRITES.tentacles(r, 2), FOSSIL_SPRITES.cradle(r), FOSSIL_SPRITES.pearl(), FOSSIL_SPRITES.shine(),
+        FOSSIL_SPRITES.egg(), FOSSIL_SPRITES.slab(), FOSSIL_SPRITES.slabFlash(), FOSSIL_SPRITES.chip(), FOSSIL_SPRITES.mark(), FOSSIL_SPRITES.glint()];
+      if (kit.FLOWERS) for (const type of Object.keys(kit.FLOWERS)) jobs.push(FOSSIL_SPRITES.sleeper(kit, type));
+      for (const [key, box, paint] of jobs) kit.atlasSprite(key, box[0], box[1], box[2], box[3], paint);
+      // She hatches Amberkeepers: paint him (and his beads) now too.
+      if (LOOKS.amberkeeper && LOOKS.amberkeeper.warm) LOOKS.amberkeeper.warm(kit, 13, 'gold');
+    },
+    under(ctx, state, s, time, still, kit) {
+      const b = s.boss;
+      if (!b || b.bloomed) return;
+      // The lob arcs of a pearl or egg tell run behind her, so they rise out from behind her shell.
+      const w = s.warning && time < s.warning.until ? s.warning : null;
+      if (w && (w.move === 'pearls' || w.move === 'hatch')) for (const t of w.targets || []) {
+        if (t.role === 'pearl') dotted(ctx, fossilArc(b.x, b.y, t.x, t.y, 56), FOSSIL_ART.lilac, 2, 7, still ? 0 : -time * 24);
+        else if (t.role === 'egg') dotted(ctx, fossilArc(b.x, b.y, t.x, t.y, 64), FOSSIL_ART.amber, 2, 7, still ? 0 : -time * 24);
+      }
+      if (s.tier !== 2) return;
+      // Brooding: a warm halo pulses behind her at 1.4 Hz.
+      ctx.globalAlpha *= still ? .5 : .5 + .15 * Math.sin(time * TAU * 1.4);
+      fossilStamp(ctx, kit, FOSSIL_SPRITES.halo(Number(b.r) || 26), b.x, b.y);
+    },
+    face(ctx, state, s, bud, time, still, kit, quality) {
+      if (!bud.boss) return false;
+      const r = Number(bud.r) || 26, look = kit.BOSS_LOOKS.fossil || { faceX: .24, faceY: .24 }, health = (Number(bud.hp) || 0) / Math.max(1, Number(bud.maxHp) || 1);
+      const w = s.warning && time < s.warning.until ? s.warning : null, tier = clamp(s.tier | 0, 0, 2);
+      const hurt = Boolean(bud.bloomed) || typeof bud.hitAt === 'number' && time - bud.hitAt >= 0 && time - bud.hitAt < .3;
+      const pearls = (s.parts || []).some(p => p.bossPart === 'pearl' && !p.bloomed), blink = !still && (time + r * .1) % 3.7 < .12;
+      const variant = hurt ? 'hurt' : w && w.move === 'pearls' || pearls ? 'toss' : w && w.move === 'petrify' ? 'glare' : w && w.move === 'hatch' ? 'coo'
+        : ['regal', 'stony', 'brooding'][tier] + (blink ? '-blink' : '');
+      // The face turns with her body: a shiver when nearly beaten (as art.js poses her).
+      ctx.translate(bud.x, bud.y); if (!still && health <= .2) ctx.rotate(Math.sin(time * TAU * 6) * .04);
+      const alpha = ctx.globalAlpha;
+      if (tier === 0) {
+        fossilStamp(ctx, kit, FOSSIL_SPRITES.tiara(r), 0, 0);
+        if (!still && quality === 0) { const k = Math.max(0, Math.sin(time * 2.4)); if (k > .05) kit.sparkle(ctx, -r * .025, -r * 1.17, r * .16 * k, '#ffffff', .3); }
+      } else if (tier === 1) {
+        ctx.globalAlpha = alpha * .85; fossilStamp(ctx, kit, FOSSIL_SPRITES.stony(r), 0, 0); ctx.globalAlpha = alpha;
+        // Grit trickles from her rim.
+        if (!still && quality === 0) for (let i = 0; i < 3; i++) {
+          const ph = (time * .55 + i / 3) % 1;
+          ctx.globalAlpha = alpha * Math.sin(Math.PI * ph) * .85; kit.circle(ctx, r * (-.86 + .5 * i), r * (.78 - .1 * i) + ph * r * .7, 1.3, FOSSIL_ART.chip, FOSSIL_ART.stoneInk, .5);
+        }
+        ctx.globalAlpha = alpha;
+      }
+      // Her tentacles sway at 3 fps; in Brooding, with an egg ready, they cradle it instead.
+      if (fossilEggReady(state, s)) fossilStamp(ctx, kit, FOSSIL_SPRITES.cradle(r), 0, still ? 0 : Math.sin(time * 2.2) * .8);
+      else fossilStamp(ctx, kit, FOSSIL_SPRITES.tentacles(r, still ? 1 : Math.floor(time * 3) % 3), 0, 0);
+      fossilStamp(ctx, kit, fossilFaceSprite(r, variant), r * (look.faceX || 0), r * (look.faceY || 0));
+      return true;
+    },
+    part(ctx, state, s, bud, time, still, kit, quality) {
+      if (bud.bossPart !== 'pearl') return false;
+      const clock = Number(s.kitAge) || 0, t = clock - (Number(bud.t0) || 0), T = Number(bud.T) || 1.05, h = Number(bud.h) || 56, u = clamp(t / T, 0, 1), alpha = ctx.globalAlpha;
+      // Its landing shadow darkens and grows as it nears: the landing is the anticipation.
+      if (Number.isFinite(bud.x1)) {
+        ctx.globalAlpha = alpha * (still ? .4 : .25 + .35 * u); ctx.beginPath(); ctx.ellipse(bud.x1, bud.y1 + 3, 5 + 3 * u, 2 + u, 0, 0, TAU); ctx.fillStyle = '#6b4a9a'; ctx.fill();
+        ctx.globalAlpha = alpha;
+      }
+      // Ghost copies behind it along the arc.
+      if (!still && quality < 2 && Number.isFinite(bud.x0)) {
+        const ghosts = quality === 0 ? [[.3, .85], [.18, .7], [.1, .55]] : [[.3, .85]];
+        ghosts.forEach(([a, k], i) => {
+          const back = t - .035 * (i + 1); if (back <= 0) return;
+          const at = lobAt(bud.x0, bud.y0, bud.x1, bud.y1, T, back, h);
+          ctx.globalAlpha = alpha * a; fossilStamp(ctx, kit, FOSSIL_SPRITES.pearl(), at.x, at.y, 0, k);
+        });
+        ctx.globalAlpha = alpha;
+      }
+      fossilStamp(ctx, kit, FOSSIL_SPRITES.pearl(), bud.x, bud.y, still ? 0 : clock * 5);
+      fossilStamp(ctx, kit, FOSSIL_SPRITES.shine(), bud.x, bud.y);
+      return true;
+    },
+    over(ctx, state, s, time, still, kit, quality) {
+      const A = FOSSIL_ART, b = s.boss, clock = Number(s.kitAge) || 0;
+      if (!b || b.bloomed) return;
+      const r = Number(b.r) || 26, w = s.warning && time < s.warning.until ? s.warning : null, base = ctx.globalAlpha;
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      if (w) {
+        const p = clamp((time - w.at) / Math.max(.1, w.until - w.at), 0, 1);
+        for (const t of w.targets || []) {
+          if (w.move === 'pearls' && t.role === 'pearl') {
+            // A lilac ring with a little shell where each pearl will land (its dotted arc is drawn under her).
+            const pop = still ? 1 : kit.easeBack(clamp(p / .25, 0, 1));
+            ctx.save(); ctx.translate(t.x, t.y); ctx.scale(pop, pop);
+            kit.circle(ctx, 0, 0, 11, null, '#ffffff', 3.6); kit.circle(ctx, 0, 0, 11, null, A.lilac, 1.9);
+            fossilStamp(ctx, kit, FOSSIL_SPRITES.mark(), 0, 0); ctx.restore();
+          } else if (w.move === 'petrify' && t.role === 'stone') {
+            // The ghost slab at the angle the slab will take, and six stone chips closing in on the bud.
+            const R = t.bed ? (t.r || 17) : (t.r || 11) + 6, ca = Math.cos(t.angle || 0), sa = Math.sin(t.angle || 0), pts = [];
+            for (const [x, y] of [[-15, -6], [15, -6], [15, 6], [-15, 6], [-15, -6]]) pts.push([t.x + x * ca - y * sa, t.y + x * sa + y * ca]);
+            ctx.save(); ctx.globalAlpha = base * (still ? .35 : .15 + .25 * p); fossilStamp(ctx, kit, FOSSIL_SPRITES.slab(), t.x, t.y, t.angle || 0);
+            ctx.globalAlpha = base * .8; dotted(ctx, pts, A.stoneInk, 1.5, 4.6, still ? 0 : -time * 10); ctx.restore();
+            const d = still ? R : R + 10 * (1 - kit.smooth(p));
+            for (let i = 0; i < 6; i++) {
+              const a = i * TAU / 6 + (t.x + t.y) * .05 + (still ? 0 : p * 1.2);
+              ctx.save(); ctx.globalAlpha = base * (still ? 1 : .4 + .6 * p); fossilStamp(ctx, kit, FOSSIL_SPRITES.chip(), t.x + d * Math.cos(a), t.y + d * Math.sin(a), a * 2); ctx.restore();
+            }
+            if (t.bed) {
+              // A bare-bed slab rises from the seabed: an arc of brown dots under the mark.
+              const arc = []; for (let i = 0; i <= 10; i++) { const a = Math.PI * (.15 + .7 * i / 10); arc.push([t.x + (R + 3) * Math.cos(a), t.y + 2 + (R * .55) * Math.sin(a)]); }
+              dotted(ctx, arc, A.bed, 1.5, 5, 0);
+            }
+          } else if (w.move === 'hatch' && t.role === 'egg') {
+            // A pulsing dotted egg at the mark (its amber dotted arc is drawn under her).
+            const k = still ? 1 : 1 + .08 * Math.sin(time * 7), egg = [];
+            for (let i = 0; i <= 20; i++) { const a = i / 20 * TAU; egg.push([t.x + 6.6 * k * Math.cos(a), t.y + 8.3 * k * Math.sin(a)]); }
+            dotted(ctx, egg, A.amber, 1.5, 4.2, 0);
+          }
+        }
+      }
+      // The egg in flight, tumbling along its arc, its shadow growing at the mark.
+      for (const l of s.lobs || []) {
+        if (l.look !== 'egg') continue;
+        const t = clock - l.t0; if (t < 0) continue;
+        const at = lobAt(l.x0, l.y0, l.x1, l.y1, l.T, t, l.h || 64), u = at.u;
+        ctx.save(); ctx.globalAlpha = base * (.2 + .3 * u); ctx.beginPath(); ctx.ellipse(l.x1, l.y1 + 8, 4 + 5 * u, 1.8 + 1.4 * u, 0, 0, TAU); ctx.fillStyle = '#6b4a2a'; ctx.fill(); ctx.restore();
+        fossilStamp(ctx, kit, FOSSIL_SPRITES.egg(), at.x, at.y, still ? 0 : t * .8, .85 + .25 * u);
+      }
+      // Slabs: a bud asleep in each; they grow in, glint, flash white on a bank and fade as they thaw.
+      for (const m of state.bumpers || []) {
+        if (!m.bossStone) continue;
+        const age = clock - m.t0, left = m.kitUntil - clock;
+        if (left <= 0) continue;
+        const grow = still ? 1 : age < .3 ? kit.easeBack(clamp(age / .3, 0, 1)) : 1, fade = clamp(left / .45, 0, 1);
+        ctx.save(); ctx.translate(m.x, m.y); ctx.globalAlpha = base * fade; ctx.rotate(m.angle || 0); ctx.scale(grow, grow);
+        fossilStamp(ctx, kit, FOSSIL_SPRITES.slab(), 0, 0);
+        if (m.type && kit.FLOWERS && kit.FLOWERS[m.type]) { const k = (Number(m.r) || 11) / 11; ctx.globalAlpha = base * fade * .42; fossilStamp(ctx, kit, FOSSIL_SPRITES.sleeper(kit, m.type), 0, 0, 0, k); ctx.globalAlpha = base * fade; }
+        if (!still && quality <= 1) {
+          const g = (time * .5 + m.x * .01) % 1;
+          ctx.globalAlpha = base * fade * Math.sin(g * Math.PI) * .9; fossilStamp(ctx, kit, FOSSIL_SPRITES.glint(), (g - .5) * 22, -4.4); ctx.globalAlpha = base * fade;
+        }
+        const flash = time - (Number.isFinite(m.flashAt) ? m.flashAt : -100);
+        if (flash >= 0 && flash < .28) { ctx.globalAlpha = base * fade * (1 - flash / .28); fossilStamp(ctx, kit, FOSSIL_SPRITES.slabFlash(), 0, 0, 0, still ? 1 : 1 + .1 * (1 - flash / .28)); }
+        ctx.restore();
+      }
+      // Landed pearls twinkle in their shells.
+      for (const p of state.buds || []) {
+        if (!p.pearl || p.bloomed || p.hidden || p.bossSource !== b.id) continue;
+        const k = still ? .8 : .45 + .55 * Math.abs(Math.sin(time * 2.2 + p.x * .05));
+        kit.sparkle(ctx, p.x + 3, p.y - 3, 3.4 * k, '#ffffff', .3);
+      }
+      // Brooding spins her lock ring faster: white motion arcs trail each gap end.
+      if (s.tier === 2 && quality < 2 && !still && Number.isFinite(s.lockAngle)) {
+        const R = r + 16, gap = Math.acos(.25), dir = Math.sign(Number(s.lockSpin) || 1);
+        for (const end of [s.lockAngle + gap, s.lockAngle - gap]) for (const [from, to, a] of [[.5, .25, .25], [.25, .02, .6]]) {
+          ctx.beginPath(); ctx.arc(b.x, b.y, R, end - dir * from, end - dir * to, dir < 0); ctx.strokeStyle = `rgba(255,255,255,${a})`; ctx.lineWidth = 2; ctx.stroke();
+        }
+      }
+      // Lifted by a move: bubbles rise from under her as she swims up.
+      if (s.rise && quality <= 1 && !still) for (let i = 0; i < 3; i++) {
+        const ph = (time * .9 + i / 3) % 1, x = b.x + r * (-.5 + .45 * i) + Math.sin(ph * 6 + i) * 2.5, y = b.y + r * 1.75 - ph * r * 1.1;
+        ctx.save(); ctx.globalAlpha = base * Math.sin(Math.PI * Math.min(1, ph * 1.4)) * .9; kit.circle(ctx, x, y, 2.4 + i * .6, 'rgba(255,255,255,.3)', '#ffffff', 1.2);
+        kit.circle(ctx, x - .8, y - .8, .7, '#ffffff'); ctx.restore();
+      }
+    }
+  });
 
   // ── Ember Rose (Level 7, `ember`) ──
 

@@ -3,7 +3,7 @@
 // the way Level 2's are: where the level places it, what a credited seed, a chain, a power and an uncredited strike do,
 // that it plays the same at 30, 60 and 144 FPS, that a Lullaby holds it, that it never costs a life it should not, and
 // what the practice bot thinks of it.
-const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
 const bot = require('./depths-bot.cjs');
 const { advance, strikeOut, foesOf, Foes, Depths, RushGame } = require('./foe-harness.cjs');
 const results = []; let serial = 0;
@@ -142,6 +142,82 @@ test('A rolling rolypoly rolls through the amber: it bowls the sealed bud inside
   assert(bowls.length && bowls[0].target === host && !bowls.some(e => e.target === bead), 'the roll meets the bud, not its bead');
   assert(host.bloomed && bloom && bloom.via === 'roll', 'the roll blooms the sealed bud');
   assert(bead.popped && foeKinds(events).indexOf('amber:melt') > foeKinds(events).indexOf('rolypoly:bowl'), 'then the bead melts');
+});
+
+// ── Art (the keeper and his beads) ──
+// Records real Canvas commands from art.js and foe-art.js without a device (as qa/test-foes-level5.cjs does), with
+// foes.js loaded too so the art reads the keeper's own forecast (amberPlan): every number finite, every save restored,
+// and, once his sprites are warm, a frame of his makes no gradient, no shadow and no new surface.
+const LOOKED = ['amberkeeper', 'amber'];
+function artScope() {
+  const totals = { surfaces: 0, gradients: 0, shadows: 0, hook: null, images: [], strokes: [] };
+  function brush() {
+    const stack = [], state = { globalAlpha: 1, globalCompositeOperation: 'source-over', fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, shadowBlur: 0, shadowColor: '', font: '', textAlign: 'left', textBaseline: 'alphabetic', lineCap: 'butt', lineJoin: 'miter' };
+    const ctx = new Proxy(state, {
+      get(t, name) {
+        if (name in t) return t[name];
+        if (name === 'canvas') return { width: 420, height: 560 };
+        if (name === 'getTransform') return () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 });
+        return (...args) => {
+          args.forEach(a => { if (typeof a === 'number') assert(Number.isFinite(a), `${String(name)} received ${a}`); });
+          if (name === 'save') stack.push({ ...state });
+          else if (name === 'restore') { assert(stack.length, 'restore without save'); Object.assign(state, stack.pop()); }
+          else if (name === 'measureText') return { width: String(args[0]).length * 7 };
+          else if (name === 'drawImage' && totals.hook) totals.images.push([totals.hook, args[0], state.globalAlpha]);
+          else if (name === 'stroke' && totals.hook) totals.strokes.push([totals.hook, state.strokeStyle, state.lineWidth, state.globalAlpha]);
+          else if (/^create(Linear|Radial|Conic)Gradient$|^createPattern$/.test(name)) { if (totals.hook) totals.gradients++; return { addColorStop() {} }; }
+        };
+      },
+      set(t, name, value) {
+        if (['globalAlpha', 'lineWidth', 'shadowBlur'].includes(name)) assert(Number.isFinite(value), `${name} is finite`);
+        if (name === 'shadowBlur' && value > 0 && totals.hook) totals.shadows++;
+        t[name] = value; return true;
+      }
+    });
+    return { ctx, balanced: () => stack.length === 0 };
+  }
+  class Canvas { constructor(w, h) { this.width = w; this.height = h; if (totals.hook) totals.surfaces++; this.rec = brush(); } getContext() { return this.rec.ctx; } }
+  const scope = vm.createContext({ console, Math, Map, Set, WeakMap, Array, Object, Number, String, JSON, Date, OffscreenCanvas: Canvas });
+  for (const file of ['foes.js', 'art.js', 'foe-art.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), scope, { filename: file });
+  const FoeArt = scope.BloomFoeArt;
+  for (const name of LOOKED) for (const hook of ['under', 'bud', 'over', 'aim']) {
+    const look = FoeArt.LOOKS[name], own = look && look[hook];
+    if (!own) continue;
+    look[hook] = function (...args) {
+      totals.kit = args[hook === 'bud' ? 5 : 4];
+      const was = totals.hook; totals.hook = name + ':' + hook;
+      try { return own.apply(this, args); } finally { totals.hook = was; }
+    };
+  }
+  return { Art: scope.BloomArt, FoeArt, Foes: scope.BloomFoes, brush, totals };
+}
+function draw(Art, brush, board, time, still, quality = 0) {
+  const rec = brush(); Art.draw(rec.ctx, board, time, { theme: 'meadow', reducedMotion: still, quality }); assert(rec.balanced(), 'saves balance');
+}
+test('The keeper and his beads draw cheaply and readably: finite, balanced, no gradient, shadow or surface once warm, threads never faint', () => {
+  const { Art, FoeArt, Foes: VmFoes, brush, totals } = artScope();
+  for (const name of LOOKED) assert(FoeArt.LOOKS[name] && FoeArt.LOOKS[name].bud, name + ' has a look');
+  assert(VmFoes && VmFoes.FOES.amberkeeper.amberPlan, 'the art reads the rules\' forecast');
+  // W2 boards: mid-tell (2.0), just sealed (3.0, the bead popping in and the thread wobbling), three beads (12), a
+  // flinch, a cracked keeper, and a keeper hatched from the Queen's egg (his shell halves flying).
+  const boards = [2.0, 3.0, 12].map(t => { const g = level(6, 2); toClock(g, t); return g; });
+  let g = level(6, 2); toClock(g, 2.1); touch(g, foesOf(g, 'amberkeeper')[0]); toClock(g, 2.2); boards.push(g);
+  g = level(6, 2); toClock(g, 4.2); touch(g, foesOf(g, 'amberkeeper')[0]); toClock(g, 4.3); boards.push(g);
+  g = level(6, 2); toClock(g, 1); { const [k] = Foes.make('amberkeeper', ['amberkeeper', 300, 150, {}], 'hatch-test', 0); k.bossSource = 'queen'; Foes.place(g, k); } toClock(g, g.foeClock + .1); boards.push(g);
+  assert(Foes.FOES.amberkeeper.amberPlan(boards[0], foesOf(boards[0], 'amberkeeper')[0]), 'telling at 2.0');
+  assert.equal(beads(boards[1]).length, 2); assert.equal(beads(boards[2]).length, 3);
+  assert(foesOf(boards[3], 'amberkeeper')[0].amber.flinchAt > 2, 'flinching'); assert.equal(foesOf(boards[4], 'amberkeeper')[0].hp, 1, 'cracked');
+  // The level's intro paints his sprites ahead, as app.js warmPlan does.
+  draw(Art, brush, boards[2], boards[2].time, false);
+  totals.hook = 'warm'; FoeArt.warm([['amberkeeper', 13, 'gold']], totals.kit); totals.hook = null;
+  for (const still of [false, true]) for (const quality of [0, 1, 2]) for (const board of boards) draw(Art, brush, board, board.time, still, quality);
+  assert(totals.images.some(([hook]) => hook === 'amberkeeper:bud') && totals.images.some(([hook]) => hook === 'amber:bud'), 'the keeper and his beads drew');
+  assert(totals.images.some(([hook]) => hook === 'amberkeeper:over'), 'the hatch shell halves drew');
+  const threads = totals.strokes.filter(([hook, color, width]) => hook === 'amberkeeper:over' && width >= 2 && (color === '#ffc23d' || color === 'rgba(104,58,8,.8)'));
+  assert(threads.length > 20, 'threads and tell rings drew'); assert(threads.every(([, , , alpha]) => alpha >= .7), `threads never fade below .7 (${Math.min(...threads.map(t => t[3]))})`);
+  const warm = { ...totals };
+  for (const still of [false, true]) for (const quality of [0, 1, 2]) for (const dt of [.07, .41, .77, 1.9]) for (const board of boards) draw(Art, brush, board, board.time + dt, still, quality);
+  assert.deepEqual([totals.gradients, totals.shadows, totals.surfaces], [warm.gradients, warm.shadows, warm.surfaces]);
 });
 
 const report = { passed: results.filter(r => r.passed).length, failed: results.filter(r => !r.passed).length, results };
