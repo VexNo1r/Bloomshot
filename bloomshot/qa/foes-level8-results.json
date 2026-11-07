@@ -1,0 +1,46 @@
+{
+  "passed": 10,
+  "failed": 0,
+  "results": [
+    {
+      "name": "Lodestones debut in Level 8 wave 3 with their hint, and come back in L8 W8 and W9",
+      "passed": true
+    },
+    {
+      "name": "The iron turns a seed away (a guard, no refund); only the moss opens it, one tuft a hit",
+      "passed": true
+    },
+    {
+      "name": "Its field curls a seed passing on the needle side onto the moss; the speed never changes and it never circles",
+      "passed": true
+    },
+    {
+      "name": "A curled seed that blooms it wins a little sun (\"Magnet curl!\"); its last tug blooms up to four loose gems as the seed's chains",
+      "passed": true
+    },
+    {
+      "name": "A credited chain or a power lands from any side (no guard, no curl); an uncredited strike opens it with no tug",
+      "passed": true
+    },
+    {
+      "name": "The needle sways on the foe clock and a Lullaby holds it (and the fall); the field still bends seeds",
+      "passed": true
+    },
+    {
+      "name": "A curling shot plays out the same at 30, 60 and 144 FPS",
+      "passed": true
+    },
+    {
+      "name": "The aim line and the bot bend through the same field as the seed (one pure pull)",
+      "passed": true
+    },
+    {
+      "name": "The bot shoots only the moss, and more for the last tuft when gems are near",
+      "passed": true
+    },
+    {
+      "name": "foes.js keeps the Lodestone free of the seed pod and of Math.random",
+      "passed": true
+    }
+  ]
+}

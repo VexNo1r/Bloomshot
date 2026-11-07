@@ -1366,6 +1366,140 @@ test('Crystal Heart replays identically at 30, 60 and 144 FPS, and a strike loop
 // ── Ember Rose (Level 7, `ember`) ──
 
 // ── Geode King (Level 8, `geode`) ──
+const platesOf = s => s.parts.filter(p => p.bossPart === 'plate');
+const brokenOf = s => platesOf(s).filter(p => p.bloomed);
+const piecesOf = (s, role) => s.parts.filter(p => p.bossPart === role && !p.bloomed);
+// Runs the Geode King's move at a forced tier and turn (s.action for Proud, s.cycle after), through its warning.
+function geodeMove(g, tier, turn) {
+  const s = g.bossState; s.tier = tier; if (tier) s.cycle = turn; else s.action = turn; s.next = 0; s.warning = null; g.drainEvents();
+  for (let n = 0; n < 240 && !s.warning; n++) g.step(1 / 120);
+  const warning = s.warning, events = []; while (s.warning) { g.step(1 / 120); events.push(...g.drainEvents()); }
+  return { warning, events };
+}
+const geodeActs = (events, move) => events.filter(e => e.type === 'bossAbility' && (!move || e.move === move)).map(e => e.act);
+// Breaks a plate with credited seeds (it takes GEODE.plateHp[tier] hits).
+function breakPlate(g, plate) { for (let k = 0; k < 4 && !plate.bloomed; k++) hit(g, plate); assert(plate.bloomed); g.drainEvents(); }
+test('Geode King: 104 health (no more than the finale), Proud, Grumbly and Magnetic, opening on his old toss; words fit', () => {
+  const g = arena(8), s = g.bossState, k = Bosses.kits.geode;
+  assert.equal(Bosses.health.geode, 104); assert.equal(s.boss.maxHp, 104); assert(Bosses.health.geode <= Depths.bosses.at(-1).hp);
+  assert.deepEqual(s.tierAt, [70, 35]); assert.deepEqual(k.moods, ['Proud', 'Grumbly', 'Magnetic']);
+  assert.equal(k.moves[0][0], 'geode', 'tier 0 opens on the legacy move'); assert.equal(k.moves[1][0], 'lob'); assert.equal(k.moves[2][0], 'magnet');
+  for (const text of [...Object.values(k.text), ...k.stageText.filter(Boolean)]) assert(text.length <= 52, text);
+  assert.equal(platesOf(s).length, 4);
+});
+test('Geode King: the Pyrite Toss lobs three pieces to the top on a shown arc; one is fool\'s gold, the rest real gems', () => {
+  const g = arena(8), s = g.bossState, { warning, events } = geodeMove(g, 0, 1);
+  assert.equal(warning.move, 'pyrite'); assert(warning.until - warning.at >= 1.2 - 1e-9, 'a tell of at least 1.2 s');
+  const marks = warning.targets.filter(t => t.role === 'toss'); assert.equal(marks.length, 3); assert.equal(marks.filter(m => m.pyrite).length, 1);
+  assert.equal(warning.text, "Fool's gold! Pop only the sparkly gems.");
+  assert(geodeActs(events, 'pyrite').includes('start')); assert.equal(s.lobs.filter(l => l.look === 'pyrite').length, 1);
+  advance(g, .95); const land = g.drainEvents().find(e => e.type === 'bossAbility' && e.act === 'land');
+  assert.equal(land.n, 3); assert.equal(land.fools, 1);
+  const gems = g.buds.filter(b => b.gem && b.bossSummon && !b.bloomed), fools = piecesOf(s, 'pyrite');
+  assert.equal(gems.length, 2); assert.equal(new Set(gems.map(b => b.group)).size, 1); assert(gems.every(b => b.fall === .85 && b.r === 10));
+  assert.equal(fools.length, 1); assert(fools[0].decoy && fools[0].inert && fools[0].type === 'gold');
+  // From Grumbly he tosses four, still one fool; Magnetic, four with two fools.
+  for (const [tier, n, f] of [[1, 4, 1], [2, 4, 2]]) {
+    const h = arena(8), t = geodeMove(h, tier, tier === 1 ? 1 : 2).warning.targets.filter(m => m.role === 'toss');
+    assert.equal(t.length, n, `tier ${tier}`); assert.equal(t.filter(m => m.pyrite).length, f);
+  }
+});
+test("Geode King: a seed's own touch on fool's gold glues his newest broken plate back on; powers, chains and strikes never do", () => {
+  const ready = () => { const g = arena(8), s = g.bossState; geodeMove(g, 0, 1); advance(g, .95); g.drainEvents(); breakPlate(g, platesOf(s)[1]); return { g, s, fool: piecesOf(s, 'pyrite')[0] }; };
+  let { g, s, fool } = ready(); const hp = s.boss.hp;
+  hit(g, fool); assert(fool.bloomed); assert.equal(brokenOf(s).length, 0, 'glued back'); assert.equal(s.boss.hp, hp, 'no damage either way');
+  assert.deepEqual(geodeActs(g.drainEvents(), 'pyrite'), ['fool']);
+  ({ g, s, fool } = ready()); g.strike(fool); assert(fool.bloomed); assert.equal(brokenOf(s).length, 1); assert.deepEqual(geodeActs(g.drainEvents(), 'pyrite'), ['crumble']);
+  ({ g, s, fool } = ready()); hit(g, fool, { power: 'beeline' }); assert(fool.bloomed); assert.equal(brokenOf(s).length, 1, 'a power crumbles it quietly');
+  ({ g, s, fool } = ready()); g.striker = { id: 'chain', type: g.nextType, bossContact: { nx: 0, ny: 1 } }; g.due = { by: 1 }; g.strike(fool, true); g.striker = null; g.due = null;
+  assert(!fool.bloomed, 'a credited chain passes it by');
+  // It sinks with the board and fades at the line: no life lost.
+  ({ g, s, fool } = ready()); const lives = g.lives; fool.startY = g.dangerY - fool.r; advance(g, .1);
+  assert(fool.bloomed); assert.equal(g.lives, lives); assert(geodeActs(g.drainEvents(), 'pyrite').includes('fade'));
+});
+test('Geode King: the Gem Lob arcs a gem at a shoulder; a seed meeting it is a catch, a landed one is a burr until knocked off', () => {
+  let g = arena(8), s = g.bossState, { warning, events } = geodeMove(g, 1, 0);
+  assert.equal(warning.move, 'lob'); assert.equal(warning.text, 'Gem lob! Catch them before they land.');
+  const marks = warning.targets.filter(t => t.role === 'shoulder'); assert.equal(marks.length, 1); assert.deepEqual([marks[0].x, marks[0].y], [150, 404]);
+  let gem = piecesOf(s, 'lobgem')[0]; assert(gem && geodeActs(events, 'lob').includes('start'));
+  advance(g, 1.1); const at = Foes.lobAt(gem.x0, gem.y0, gem.x1, gem.y1, gem.T, s.kitAge - gem.t0, gem.h);
+  assert(Math.abs(gem.x - at.x) < 1e-6 && Math.abs(gem.y - at.y) < 1e-6, 'it flies the shown arc');
+  const score = g.score; hit(g, gem); assert(gem.bloomed); assert(g.score - score >= Math.round(300 * g.tempo));
+  assert(geodeActs(g.drainEvents(), 'lob').includes('catch')); advance(g, 1.3); assert(!g.bumpers.some(m => m.bossBurr), 'caught: no burr');
+  ({ g, s } = { g: arena(8) }); s = g.bossState; geodeMove(g, 1, 0); gem = piecesOf(s, 'lobgem')[0];
+  advance(g, 2.25); const burr = g.bumpers.find(m => m.bossBurr);
+  assert(burr && burr.kitDrawn && burr.length === 30 && burr.x === 150 && burr.y === 404); assert(geodeActs(g.drainEvents(), 'lob').includes('land'));
+  burr.flashAt = g.time; g.step(1 / 120); g.step(1 / 120); assert(!g.bumpers.includes(burr), 'a bank knocks it off'); assert(geodeActs(g.drainEvents(), 'lob').includes('knock'));
+  ({ g } = { g: arena(8) }); s = g.bossState; geodeMove(g, 1, 0); advance(g, 2.25); advance(g, 6.05); assert(!g.bumpers.some(m => m.bossBurr), 'gone after 6 s');
+  // Magnetic lobs at both shoulders.
+  g = arena(8); assert.equal(geodeMove(g, 2, 1).warning.targets.filter(t => t.role === 'shoulder').length, 2);
+});
+test('Geode King: the Magnet Heart plants him in a field that curls seeds through his gaps for a Magnet shot of 3; his plates turn iron', () => {
+  const g = arena(8), s = g.bossState, b = s.boss; breakPlate(g, platesOf(s)[0]); breakPlate(g, platesOf(s)[2]);
+  g.buds.push({ id: 'loose', group: 'loose', x: b.x + 60, y: b.y + 40, baseX: b.x + 60, startY: b.y + 40, r: 10, type: 'sky', hp: 1, maxHp: 1, gem: true, fall: 1, sway: 0, hitAt: -100, bloomed: false, bloomAt: -100, spawnAt: 0 });
+  const { warning, events } = geodeMove(g, 2, 0);
+  assert.equal(warning.move, 'magnet'); assert.equal(warning.text, 'Magnet heart! Shoot when the needle finds a gap.');
+  assert.deepEqual(warning.targets.filter(t => t.role === 'pull').map(t => t.id), ['loose']);
+  assert(!g.buds.some(p => p.id === 'loose'), 'the loose gem flew in'); assert.equal(brokenOf(s).length, 1, 'and glued a plate back');
+  assert(geodeActs(events, 'magnet').includes('pull'));
+  const field = Foes.fields(g).find(f => f.boss); assert(field && field.id === b.id && field.R === 100);
+  const x = b.x, y = b.y; advance(g, 2); assert.equal(b.x, x); assert.equal(b.y, y, 'he plants his feet');
+  const plate = platesOf(s).find(p => !p.bloomed);
+  assert.equal(Bosses.canHit(g, plate, { nx: 0, ny: 1 }, {}), false, 'a plain seed glances off an iron plate');
+  assert.notEqual(Bosses.canHit(g, plate, { nx: 0, ny: 1 }, { power: 'beeline' }), false, 'powers still land');
+  // Through the gap (the broken plate's quarter, turning .18 rad/s with his age) a curled seed is a Magnet shot.
+  const gap = () => { const a = brokenOf(s)[0].slot * Math.PI / 2 + s.age * .18; return { nx: Math.cos(a), ny: Math.sin(a) }; };
+  let hp = b.hp; hit(g, b, { ...gap(), pullBy: b.id, pullAt: g.time - .2 }); assert.equal(hp - b.hp, 3, 'Magnet shot');
+  const crit = g.drainEvents().find(e => e.type === 'bossCritical' && e.via === 'magnet'); assert(crit && crit.damage === 3);
+  hp = b.hp; hit(g, b, { ...gap(), pullBy: b.id, pullAt: g.time - .8 }); assert.equal(hp - b.hp, 2, 'an old curl is his usual gap hit');
+  hp = b.hp; hit(g, b, { ...gap(), power: 'beeline', pullBy: b.id, pullAt: g.time }); assert.equal(hp - b.hp, 1, 'a power keeps its own damage');
+  hp = b.hp; g.strike(b); assert(hp - b.hp < 3, 'uncredited: never a Magnet shot');
+  advance(g, 4.1); assert.equal(s.magnet, null); assert(geodeActs(g.drainEvents(), 'magnet').includes('end'));
+  assert.notEqual(Bosses.canHit(g, plate, { nx: 0, ny: 1 }, {}), false, 'plates are plain again');
+});
+test("Geode King: with a whole crust there is no gap, so no Magnet Heart; fool's gold is never pulled in", () => {
+  let g = arena(8); assert.notEqual(geodeMove(g, 2, 0).warning.move, 'magnet', 'no gap: he rests and moves on');
+  g = arena(8); const s = g.bossState, b = s.boss; geodeMove(g, 0, 1); advance(g, .95); g.drainEvents(); breakPlate(g, platesOf(s)[0]);
+  const fool = piecesOf(s, 'pyrite')[0]; fool.x = fool.baseX = b.x - 50; fool.y = fool.startY = b.y + 30; fool.sink = 0;
+  const { warning } = geodeMove(g, 2, 0); assert.equal(warning.move, 'magnet');
+  assert(!warning.targets.some(t => t.id === fool.id), 'fool\'s gold stays put'); assert(!fool.bloomed); assert.equal(brokenOf(s).length, 1);
+  assert.equal(Foes.fields(g).find(f => f.boss).until, 6, 'the aim line knows when the field ends');
+});
+test('Geode King: a Lullaby holds the magnet\'s needle and its end, the lobbed gem and the sinking fool\'s gold', () => {
+  let g = arena(8), s = g.bossState; breakPlate(g, platesOf(s)[0]); geodeMove(g, 2, 0); advance(g, 1);
+  const m = s.magnet, t = m.t; g.lullaby = 1.5; advance(g, 1); assert.equal(s.magnet.t, t, 'the needle is held');
+  advance(g, 4.4); assert(s.magnet, 'its end comes late by the Lullaby'); advance(g, 1.2); assert.equal(s.magnet, null);
+  g = arena(8); s = g.bossState; geodeMove(g, 1, 0); advance(g, .5); const gem = piecesOf(s, 'lobgem')[0], at = [gem.x, gem.y];
+  g.lullaby = 1; advance(g, .8); assert.deepEqual([gem.x, gem.y], at, 'the lob hangs');
+  g = arena(8); s = g.bossState; g.descentSpeed = 20; geodeMove(g, 0, 1); advance(g, .95); const fool = piecesOf(s, 'pyrite')[0], y = fool.y;
+  g.lullaby = 1; advance(g, .8); assert.equal(fool.y, y, 'fool\'s gold stops sinking');
+});
+test('Geode King: every move heaves him up (at most 24 px, never above where he started)', () => {
+  const g = arena(8), s = g.bossState; s.drift = 50; g.step(1 / 120); const y0 = s.boss.y; s.stunUntil = s.age + 9; geodeMove(g, 1, 0); advance(g, .9);
+  assert(s.boss.y < y0 - 20 && s.boss.y >= y0 - 24 - 1e-6, `lifted ${y0 - s.boss.y}`); assert.equal(s.drift, 26);
+  const h = arena(8), t = h.bossState; t.drift = 0; t.stunUntil = t.age + 9; h.step(1 / 120); const y1 = t.boss.y; geodeMove(h, 1, 0); advance(h, .9); assert(t.boss.y >= y1 - 1e-6, 'not above his start');
+});
+test('Geode King: Magnetic plays the same at 30, 60 and 144 FPS', () => {
+  const runs = [30, 60, 144].map(fps => {
+    const g = arena(8), s = g.bossState; breakPlate(g, platesOf(s)[0]); s.tier = 2; s.boss.hp = 30; s.next = 0; const log = [];
+    for (let n = 0; n < 30 * fps; n++) { g.step(1 / fps); for (const e of g.drainEvents()) if (e.type === 'bossAbility') log.push(`${e.move}:${e.act}:${(+e.x).toFixed(3)}`); }
+    return { log: log.join(' '), kit: s.kitAge.toFixed(6), poses: g.buds.map(p => `${p.id}@${p.x.toFixed(4)},${p.y.toFixed(4)}`).join(' '), burrs: g.bumpers.filter(m => m.bossBurr).length };
+  });
+  assert(runs[0].log.includes('magnet:start')); assert.deepEqual(runs[1], runs[0]); assert.deepEqual(runs[2], runs[0]);
+});
+test('Geode King: beaten mid-magnet and mid-lob, he leaves no field, lob, fool\'s gold, burr or planted feet behind', () => {
+  const g = arena(8), s = g.bossState; breakPlate(g, platesOf(s)[0]); geodeMove(g, 2, 0); geodeMove(g, 2, 1); advance(g, .5);
+  assert(s.magnet && piecesOf(s, 'lobgem').length);
+  let n = 0; while (!s.boss.bloomed && n++ < 400) g.strike(s.boss); advance(g, .5);
+  assert(!g.bossState || (!g.bossState.magnet && !g.bossState.rise)); assert(!g.buds.some(p => ['lobgem', 'pyrite'].includes(p.bossPart) && !p.bloomed));
+  assert(!g.bumpers.some(m => m.bossBurr)); assert.equal(Foes.fields(g), null);
+});
+test('The good bot beats the Geode King', () => {
+  for (const seed of [7, 19]) {
+    const run = bot.play(8, { seed, startWave: 10, noise: 2.5, think: .3, thinkSpread: .3, bounces: 2 });
+    assert(run.won, `seed ${seed}: ${JSON.stringify(run.bossDiagnostics)}`);
+  }
+});
 
 // ── Thornmother (Level 9, `briar`) ──
 
