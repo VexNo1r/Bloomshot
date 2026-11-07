@@ -53,39 +53,45 @@ function prepareTrace(game) {
     }
   }
   const targets = rich ? Bosses.targets(game) : [], priorities = new Map(targets.map(t => [t.bud.id, t.priority]));
-  return { state: { bumpers: game.bumpers, buds: predicted, gates: game.gates || [] }, moving, targets, priorities, rich, currents: game.currents || [] };
+  // Lodestone fields (foes.js) are closed-form, so one read serves every step of every angle.
+  const fields = game.foeWave || game.bossState ? Foes.fields(game) : null;
+  return { state: { bumpers: game.bumpers, buds: predicted, gates: game.gates || [] }, moving, targets, priorities, rich, currents: game.currents || [], fields };
 }
 function trace(game, angle, bounces = 3, prepared = prepareTrace(game)) {
   const p = { x: game.launcher.x, y: game.launcher.y, gateCooldown: 0, gateHops: 0 }, dt = TRACE_DT;
   let vx = Math.cos(angle) * game.speed, vy = Math.sin(angle) * game.speed;
-  const { state, moving, currents } = prepared;
+  const { state, moving, currents, fields } = prepared, bent = { vx: 0, vy: 0 };
   for (let step = 0; step < TRACE_STEPS; step++) {
     for (const m of moving) {
       const at = step * STRIDE, flags = m.future[at + 3];
       m.bud.x = m.future[at]; m.bud.y = m.future[at + 1]; m.bud.r = m.future[at + 2]; m.bud.hidden = Boolean(flags & 1); m.bud.ghost = Boolean(flags & 2);
     }
-    const lane = currents.length && Engine.laneAt(currents, p.x, p.y);
-    if (lane) { const v = Engine.steer(vx, vy, lane, dt); vx = v.x; vy = v.y; }
-    let remaining = dt;
-    for (let i = 0; i < 5 && remaining > 1e-7; i++) {
-      const duration = p.gateCooldown > 1e-9 ? Math.min(remaining, p.gateCooldown) : remaining;
-      const d = { x: vx * duration, y: vy * duration }, hit = Engine.earliest(state, p, d);
-      if (!hit) { p.x += d.x; p.y += d.y; p.gateCooldown = Math.max(0, p.gateCooldown - duration); remaining -= duration; continue; }
-      p.x += d.x * hit.t; p.y += d.y * hit.t;
-      const time = step * dt + dt - remaining + duration * hit.t;
-      p.gateCooldown = Math.max(0, p.gateCooldown - duration * hit.t);
-      remaining -= duration * hit.t;
-      if (hit.kind === 'bud') return { bud: { ...hit.item }, nx: hit.nx, ny: hit.ny, time, gateHops: p.gateHops, ring: Boolean(p.ring), mirror: p.mirrorAt != null && time - p.mirrorAt <= 1.2 };
-      if (hit.kind === 'gate') {
-        const transfer = Engine.gateTransfer(state.gates, hit.item, vx, vy);
-        if (!transfer) return null;
-        p.x = transfer.x; p.y = transfer.y; vx = transfer.vx; vy = transfer.vy; p.gateCooldown = Engine.GATE_COOLDOWN; p.gateHops++; p.ring = Boolean(hit.item.bossRing); // Ember Rose's fire rings (bosses.js kit)
-        continue;
+    // A Lodestone's tug (foes.js) curls a seed tightly, so near a field each step runs as two game ticks.
+    for (let sub = 0, subs = fields && fields.some(f => Math.hypot(p.x - f.x, p.y - f.y) < f.R + 60) ? 2 : 1, h = dt / subs; sub < subs; sub++) {
+      const lane = currents.length && Engine.laneAt(currents, p.x, p.y);
+      if (lane) { const v = Engine.steer(vx, vy, lane, h); vx = v.x; vy = v.y; }
+      if (fields && Foes.pull(fields, p.x, p.y, vx, vy, h, step * dt + sub * h, bent)) { vx = bent.vx; vy = bent.vy; }
+      let remaining = h;
+      for (let i = 0; i < 5 && remaining > 1e-7; i++) {
+        const duration = p.gateCooldown > 1e-9 ? Math.min(remaining, p.gateCooldown) : remaining;
+        const d = { x: vx * duration, y: vy * duration }, hit = Engine.earliest(state, p, d);
+        if (!hit) { p.x += d.x; p.y += d.y; p.gateCooldown = Math.max(0, p.gateCooldown - duration); remaining -= duration; continue; }
+        p.x += d.x * hit.t; p.y += d.y * hit.t;
+        const time = step * dt + sub * h + h - remaining + duration * hit.t;
+        p.gateCooldown = Math.max(0, p.gateCooldown - duration * hit.t);
+        remaining -= duration * hit.t;
+        if (hit.kind === 'bud') return { bud: { ...hit.item }, nx: hit.nx, ny: hit.ny, time, gateHops: p.gateHops, ring: Boolean(p.ring), mirror: p.mirrorAt != null && time - p.mirrorAt <= 1.2 };
+        if (hit.kind === 'gate') {
+          const transfer = Engine.gateTransfer(state.gates, hit.item, vx, vy);
+          if (!transfer) return null;
+          p.x = transfer.x; p.y = transfer.y; vx = transfer.vx; vy = transfer.vy; p.gateCooldown = Engine.GATE_COOLDOWN; p.gateHops++; p.ring = Boolean(hit.item.bossRing); // Ember Rose's fire rings (bosses.js kit)
+          continue;
+        }
+        if (--bounces < 0) return null;
+        if (hit.item && hit.item.bossMirror) p.mirrorAt = time; // a bank off Crystal Heart's mirror: a Mirror shot if it reaches the heart in 1.2 s
+        const dot = vx * hit.nx + vy * hit.ny; vx -= 2 * dot * hit.nx; vy -= 2 * dot * hit.ny;
+        p.x += hit.nx * .08; p.y += hit.ny * .08;
       }
-      if (--bounces < 0) return null;
-      if (hit.item && hit.item.bossMirror) p.mirrorAt = time; // a bank off Crystal Heart's mirror: a Mirror shot if it reaches the heart in 1.2 s
-      const dot = vx * hit.nx + vy * hit.ny; vx -= 2 * dot * hit.nx; vy -= 2 * dot * hit.ny;
-      p.x += hit.nx * .08; p.y += hit.ny * .08;
     }
     if (p.y > Engine.BOUNDS.bottom) return null;
   }

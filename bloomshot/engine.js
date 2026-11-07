@@ -323,24 +323,27 @@
       let direction = { x: dx / length, y: dy / length };
       let p = { ...this.launcher, gateCooldown: 0, gateHops: 0 };
       const points = [{ x: p.x, y: p.y }];
-      let distance = 350;
-      const flowing = this.currents.length > 0, stepLength = this.speed / 120;
+      let distance = 350, flown = 0;
+      // A game may bend seeds through fields (rush.js: Lodestones); the line then steps like the seed and bends the same way.
+      const fields = this.pullFields ? this.pullFields() : null, bent = { vx: 0, vy: 0 };
+      const flowing = this.currents.length > 0 || Boolean(fields), stepLength = this.speed / 120;
       for (let i = 0; i < (flowing ? 400 : this.gates.length ? 32 : 2) && distance > 1e-7; i++) {
         if (flowing) {
           // Mirror the per-tick steering so the aim line bends exactly like the seed.
           const lane = laneAt(this.currents, p.x, p.y);
           if (lane) { const v = steer(direction.x, direction.y, lane, 1 / 120); direction = v; }
+          if (fields && this.pullSeed(fields, p.x, p.y, direction.x * this.speed, direction.y * this.speed, 1 / 120, flown, bent)) direction = { x: bent.vx / this.speed, y: bent.vy / this.speed };
         }
         let segment = p.gateCooldown > 1e-9 ? Math.min(distance, p.gateCooldown * this.speed) : distance;
         if (flowing) segment = Math.min(segment, stepLength);
         const d = { x: direction.x * segment, y: direction.y * segment };
         const hit = earliest(this, p, d);
         if (!hit) {
-          p.x += d.x; p.y += d.y;
+          p.x += d.x; p.y += d.y; flown += segment / this.speed;
           if (!flowing || i % 3 === 0 || distance - segment <= 1e-7) points.push({ x: p.x, y: p.y });
           distance -= segment; p.gateCooldown = Math.max(0, p.gateCooldown - segment / this.speed); continue;
         }
-        p.x += d.x * hit.t; p.y += d.y * hit.t;
+        p.x += d.x * hit.t; p.y += d.y * hit.t; flown += segment * hit.t / this.speed;
         points.push({ x: p.x, y: p.y });
         // The aim knows which flower it ends on (non-enumerable, so the points still compare as plain arrays).
         if (hit.kind === 'bud') { Object.defineProperty(points, 'target', { value: hit.item, enumerable: false }); Object.defineProperty(points, 'normal', { value: { x: hit.nx, y: hit.ny }, enumerable: false }); break; }

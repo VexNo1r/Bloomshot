@@ -164,6 +164,9 @@
       return item;
     }
     _bossStep(dt) { if (this.bossWave && Bosses) Bosses.step(this, dt); }
+    // The aim line (engine.js trace) bends through the same Lodestone fields as the seed (foes.js fields/pull).
+    pullFields() { return Foes && (this.foeWave || this.bossState) ? Foes.fields(this) : null; }
+    pullSeed(list, x, y, vx, vy, dt, ahead, out) { return Foes.pull(list, x, y, vx, vy, dt, ahead, out); }
     // Reinforcements arrive at the top once their time comes and there is room above the live buds.
     _dropIn(waveTime) {
       const next = this.drops && this.drops[0];
@@ -741,6 +744,7 @@
       }
 
       this._bossLastLifeGift();
+      const fields = Foes && (this.foeWave || this.bossState) ? Foes.fields(this) : null; // Lodestone fields (foes.js), once a tick
       for (const ball of this.balls) {
         ball.age += dt;
         // A current bends a shot toward its flow at a steady rate; the speed never changes.
@@ -750,6 +754,8 @@
           if (lane && lane !== ball.lane) { this.currentRides++; this.event('current', { lane: lane.id, x: ball.x, y: ball.y, angle: lane.angle }); }
           ball.lane = lane;
         }
+        // A Lodestone's field (foes.js) tugs a seed toward its needle; the speed never changes.
+        if (fields) { const by = Foes.pull(fields, ball.x, ball.y, ball.vx, ball.vy, dt, 0, ball); if (by) { if (ball.pullBy !== by.id) this.event('foe', { kind: 'lodestone:pull', x: ball.x, y: ball.y, id: by.id, boss: by.boss }); ball.pullBy = by.id; ball.pullAt = this.time; } }
         ball.trail.push({ x: ball.x, y: ball.y });
         if (ball.trail.length > 22) ball.trail.shift();
         let remaining = dt;

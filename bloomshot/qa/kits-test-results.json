@@ -1,5 +1,5 @@
 {
-  "passed": 88,
+  "passed": 90,
   "failed": 0,
   "results": [
     {
@@ -311,47 +311,55 @@
       "passed": true
     },
     {
-      "name": "Ember Rose: 100 health with moods at 67 and 34, three moods, her familiar dive first, and every word fits",
+      "name": "Geode King: 104 health (no more than the finale), Proud, Grumbly and Magnetic, opening on his old toss; words fit",
       "passed": true
     },
     {
-      "name": "Ember Rose: a seed into her flame spits a cinder you can catch for a sun; a missed one cools to a coal that rolls off tunnel mouths",
+      "name": "Geode King: the Pyrite Toss lobs three pieces to the top on a shown arc; one is fool's gold, the rest real gems",
       "passed": true
     },
     {
-      "name": "Ember Rose: her fire rings hide her and land her at the far ring; a ring shot deals 3, and at Blazing a level tunnel is too hot",
+      "name": "Geode King: a seed's own touch on fool's gold glues his newest broken plate back on; powers, chains and strikes never do",
       "passed": true
     },
     {
-      "name": "Ember Rose: three castanet clicks, then the stomp shoves flowers 16 px (never past line - 70, never up, never into each other) and Olé opens her",
+      "name": "Geode King: the Gem Lob arcs a gem at a shoulder; a seed meeting it is a catch, a landed one is a burr until knocked off",
       "passed": true
     },
     {
-      "name": "Ember Rose: an Olé hit that brings on her next mood keeps her standing still until Olé ends",
+      "name": "Geode King: the Magnet Heart plants him in a field that curls seeds through his gaps for a Magnet shot of 3; his plates turn iron",
       "passed": true
     },
     {
-      "name": "Ember Rose: the wave hint keeps up with her moods (tunnels hit triple only while Flickering)",
+      "name": "Geode King: with a whole crust there is no gap, so no Magnet Heart; fool's gold is never pulled in",
       "passed": true
     },
     {
-      "name": "Ember Rose: a Lullaby holds Olé, a falling cinder and her dive",
+      "name": "Geode King: a Lullaby holds the magnet's needle and its end, the lobbed gem and the sinking fool's gold",
       "passed": true
     },
     {
-      "name": "Ember Rose: her barrage sows three whizzbangs in one swaying group, and one lit under her deals 3",
+      "name": "Geode King: every move heaves him up (at most 24 px, never above where he started)",
       "passed": true
     },
     {
-      "name": "Ember Rose: the same fight at 30, 60 and 144 FPS",
+      "name": "Geode King: a long slow fight never sinks him onto the shoulders or the line (past 150 px a heave lifts him back)",
       "passed": true
     },
     {
-      "name": "Ember Rose: beaten mid-ring, mid-Olé or right after a barrage, she leaves no ring, coal, cinder or rocket behind",
+      "name": "Geode King: Magnetic plays the same at 30, 60 and 144 FPS",
       "passed": true
     },
     {
-      "name": "Ember Rose's art draws every move, Animations on and off, with no gradient or blur per frame; her three moods are three faces",
+      "name": "Geode King: beaten mid-magnet and mid-lob, he leaves no field, lob, fool's gold, burr or planted feet behind",
+      "passed": true
+    },
+    {
+      "name": "Geode King: his moods, flights, fool's gold, lobbed gems, burrs, magnet and tells draw balanced, finite and with no per-frame gradients",
+      "passed": true
+    },
+    {
+      "name": "The good bot beats the Geode King",
       "passed": true
     }
   ]

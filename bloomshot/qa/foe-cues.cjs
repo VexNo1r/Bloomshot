@@ -50,6 +50,9 @@ module.exports = [
   ['foe', { kind: 'whizzbang:tunnel', x: 300 }], ['foe', { kind: 'whizzbang:bang', x: 210, n: 2 }], ['foe', { kind: 'whizzbang:bang', x: 60, n: 9 }],
 
   // ── Lodestone (Level 8, `lodestone`) ──
+  ['foe', { kind: 'lodestone:pull', x: 112 }], ['foe', { kind: 'lodestone:guard', x: 300 }],
+  ...[2, 1, 0].map(hp => ['foe', { kind: 'lodestone:moss', x: 150, hp, curl: hp === 0 }]), ['foe', { kind: 'lodestone:moss', x: 150 }],
+  ['foe', { kind: 'lodestone:open', x: 210, curl: true, gems: [{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }, { id: 'e' }] }], ['foe', { kind: 'lodestone:open', x: 60 }],
 
   // ── Sweetheart Roses (Level 9, `sweetheart`) ──
 
@@ -121,6 +124,16 @@ module.exports = [
   ['bossCritical', { kind: 'ember', via: 'whizz', damage: 3, x: 160 }],
 
   // ── Geode King (Level 8, `geode`) ──
+  ['bossAbility', { kind: 'geode', move: 'pyrite', act: 'start', x: 210 }], ['bossAbility', { kind: 'geode', move: 'pyrite', act: 'land', x: 100, n: 3, fools: 1 }],
+  ['bossAbility', { kind: 'geode', move: 'pyrite', act: 'land', x: 320, n: 4, fools: 2 }], ['bossAbility', { kind: 'geode', move: 'pyrite', act: 'land', x: 320 }],
+  ['bossAbility', { kind: 'geode', move: 'pyrite', act: 'fool', x: 120 }], ['bossAbility', { kind: 'geode', move: 'pyrite', act: 'crumble', x: 300 }],
+  ['bossAbility', { kind: 'geode', move: 'pyrite', act: 'fade', x: 80 }], ['bossAbility', { kind: 'geode', move: 'lob', act: 'start', x: 210 }],
+  ['bossAbility', { kind: 'geode', move: 'lob', act: 'catch', x: 180 }], ['bossAbility', { kind: 'geode', move: 'lob', act: 'land', x: 150 }],
+  ['bossAbility', { kind: 'geode', move: 'lob', act: 'knock', x: 270 }], ['bossAbility', { kind: 'geode', move: 'magnet', act: 'start', x: 210 }],
+  ['bossAbility', { kind: 'geode', move: 'magnet', act: 'pull', x: 210, marks: [{}, {}, {}, {}, {}] }], ['bossAbility', { kind: 'geode', move: 'magnet', act: 'pull', x: 210 }],
+  ['bossAbility', { kind: 'geode', move: 'magnet', act: 'shot', x: 230 }], ['bossAbility', { kind: 'geode', move: 'magnet', act: 'end', x: 210 }],
+  ['bossAbility', { kind: 'geode', move: 'geode', act: 'start', x: 128 }],
+  ['bossStage', { kind: 'geode', stage: 1, mood: 'Grumbly', x: 210 }], ['bossStage', { kind: 'geode', stage: 2, mood: 'Magnetic', x: 210 }],
 
   // ── Thornmother (Level 9, `briar`) ──
 
