@@ -335,11 +335,18 @@
   }
   // A beaten guardian wins the level, but the win (its stars and seeds, and letting the kept run go) only comes once
   // the wave's cascade has bloomed, about a second later with the finale. The phone may close the app in that gap, so
-  // as the page hides the cascade is played out at once, with the sound already asleep, and the win is recorded.
+  // as the page hides the cascade blooms at once, with nothing falling meanwhile, and the win is recorded: leaving can
+  // keep the win but never cost a life or a star. Only on the board: a cascade left waiting behind the map or the
+  // garden keeps its wave-10 checkpoint, and the Resume card plays it out to its result as before.
   function settleWin() {
-    if (!keepsRun() || !game.bossDown) return;
+    if (route !== 'game' || !keepsRun() || !game.bossDown) return;
     if (document.hidden) musicFrame(performance.now(), true);
-    for (let i = 0; i < 1200 && !game.over; i++) game.step(1 / 120);
+    const lullaby = game.lullaby;
+    for (let i = 0; i < 240 && !game.over; i++) {
+      for (const item of game.pending) item.when = Math.min(item.when, game.time);
+      game.lullaby = Math.max(game.lullaby, 1); game.step(1 / 120);
+    }
+    if (!game.over) game.lullaby = lullaby;
     processEvents();
   }
   function dropRun(write = true) { if (!save.run || reviewAll) return; delete save.run; if (write) persist(); }

@@ -187,6 +187,48 @@ test('Hiding just after the guardian blooms keeps the win, and hiding just after
     'wave 2 is kept as it will start, with nothing spent on it');
   assert(game.score > 0);
 });
+test('Hiding during the guardian\'s cascade can only keep the win: a flower just over the line costs no life or star', () => {
+  // The flower farthest from the guardian is the last the cascade reaches; hung just over the line, it would cross
+  // before its link blooms it, so a player who stays has to shoot it. The hide must not play that out unattended.
+  for (const lives of [3, 1]) {
+    const app = boot(player({ run: kept({ level: 1, wave: 10, lives, from: 1, score: 9000 }) }));
+    app.click('resume-btn'); app.frame(); countDone(app); app.run(3);
+    const game = app.game(), boss = game.buds.find(b => b.boss); game.started = true;
+    const low = game.buds.filter(b => !b.boss && !b.bossPart && !b.bloomed && !b.gift && !b.hidden && !b.inert)
+      .sort((a, b) => Math.hypot(b.x - boss.x, b.y - boss.y) - Math.hypot(a.x - boss.x, a.y - boss.y))[0];
+    low.y = game.dangerY - low.r - 6;
+    boss.hp = 1; game.bloom(boss); app.frame();
+    const link = game.pending.find(item => item.id === low.id);
+    assert(link && link.when - game.time > 6 / (game.descentSpeed * (low.fall || 1)), 'its link comes after it would cross');
+    app.hide();
+    assert.equal(game.status, 'won', `${lives} lives: the hide keeps the win`);
+    assert.equal(game.lives, lives, 'with every life');
+    assert.equal(app.saved().depths[1].stars, 3, 'the record keeps its three stars');
+    assert(!Object.hasOwn(app.saved(), 'bossLosses') || !app.saved().bossLosses[1], 'no guardian loss is counted');
+    assert(!Object.hasOwn(app.saved(), 'run'), 'and the kept run is let go');
+    assert.doesNotMatch(app.$('announcement').textContent, /line/, app.$('announcement').textContent);
+    app.show(); assert(app.run(4, () => app.$('result-dialog').open), 'coming back shows the result');
+    assert.equal(game.stars, Math.min(3, lives));
+  }
+});
+test('A guardian\'s cascade left waiting behind the map is not settled by a hide: its wave-10 run is kept and Resume plays it to the result', () => {
+  const app = boot(player({ run: kept({ level: 3, wave: 10, lives: 3, from: 1, score: 9000 }) }, 2));
+  app.click('resume-btn'); app.frame(); countDone(app); app.run(4);
+  const game = app.game(), boss = game.buds.find(b => b.boss); game.started = true;
+  boss.hp = 1; game.bloom(boss); app.run(.3);
+  assert(game.bossDown && !game.over);
+  app.click('back-btn'); app.frame(); assert.equal(app.document.body.dataset.view, 'levels');
+  app.hide();
+  assert.equal(game.over, false, 'the board behind the map is not played out');
+  assert.equal(app.saved().run.wave, 10, 'the run is kept at wave 10');
+  assert.equal(app.saved().depths[3], undefined, 'and nothing is recorded unseen');
+  app.show(); app.run(1);
+  assert.equal(app.$('resume-title').textContent, 'Resume level 3');
+  app.click('resume-btn'); app.frame();
+  assert.equal(app.document.body.dataset.view, 'game', 'Resume goes back to the board');
+  assert(app.run(8, () => app.$('result-dialog').open), 'and the cascade plays out to the result');
+  assert.equal(game.status, 'won'); assert.equal(app.saved().depths[3].stars, 3); assert(!Object.hasOwn(app.saved(), 'run'));
+});
 test('A run picked up past its level\'s best does not celebrate "New best!" again, and one picked up below it still can', () => {
   const cues = [], sound = { wake() {}, setEnabled() {}, play: name => cues.push(name) };
   // Level 3's best is 3000; the run passed it (and heard "New best!") before the phone closed the app.
