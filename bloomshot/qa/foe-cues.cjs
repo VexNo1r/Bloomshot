@@ -45,6 +45,9 @@ module.exports = [
   ['foe', { kind: 'amber:fizzle', x: 60 }],
 
   // ── Whizzbang (Level 7, `whizzbang`) ──
+  ['foe', { kind: 'whizzbang:light', x: 140, fuse: 1 }], ['foe', { kind: 'whizzbang:light', x: 280, fuse: .5 }], ['foe', { kind: 'whizzbang:light', x: 210 }],
+  ['foe', { kind: 'whizzbang:launch', x: 210, n: 4 }], ['foe', { kind: 'whizzbang:pin', x: 210, k: 1 }], ['foe', { kind: 'whizzbang:pin', x: 210, k: 9 }],
+  ['foe', { kind: 'whizzbang:tunnel', x: 300 }], ['foe', { kind: 'whizzbang:bang', x: 210, n: 2 }], ['foe', { kind: 'whizzbang:bang', x: 60, n: 9 }],
 
   // ── Lodestone (Level 8, `lodestone`) ──
 
@@ -108,6 +111,14 @@ module.exports = [
   ['bossStage', { kind: 'fossil', stage: 1, mood: 'Stony', x: 210 }], ['bossStage', { kind: 'fossil', stage: 2, mood: 'Brooding', x: 210 }],
 
   // ── Ember Rose (Level 7, `ember`) ──
+  ['bossAbility', { kind: 'ember', move: 'ember', act: 'start', x: 128 }], ['bossAbility', { kind: 'ember', move: 'rings', act: 'start', x: 200 }],
+  ['bossAbility', { kind: 'ember', move: 'rings', act: 'land', x: 292 }], ...[1, 2, 3].map(n => ['bossAbility', { kind: 'ember', move: 'stomp', act: 'click', n, x: 210 }]),
+  ['bossAbility', { kind: 'ember', move: 'stomp', act: 'click', x: 210 }], ['bossAbility', { kind: 'ember', move: 'stomp', act: 'start', x: 210 }],
+  ['bossAbility', { kind: 'ember', move: 'barrage', act: 'start', x: 160 }], ['bossAbility', { kind: 'ember', move: 'cinder', act: 'catch', x: 90 }],
+  ['bossAbility', { kind: 'ember', move: 'cinder', act: 'coal', x: 330 }], ['bossAbility', { kind: 'ember', move: 'cinder', act: 'coal', x: 50, out: true }],
+  ['bossStage', { kind: 'ember', stage: 1, mood: 'Dancing', x: 210 }], ['bossStage', { kind: 'ember', stage: 2, mood: 'Blazing', x: 210 }],
+  ['bossCritical', { kind: 'ember', via: 'ring', damage: 3, x: 292 }], ['bossCritical', { kind: 'ember', via: 'ole', damage: 2, x: 210 }],
+  ['bossCritical', { kind: 'ember', via: 'whizz', damage: 3, x: 160 }],
 
   // ── Geode King (Level 8, `geode`) ──
 

@@ -1099,6 +1099,183 @@
   });
 
   // ── Whizzbang (Level 7, `whizzbang`) ──
+  // A firework bud on a springy stem: it bobs side to side on the foe clock (WHIZ.period s a sway) while it falls with
+  // the wave. A seed's touch lights its fuse (a glance: the seed bounces off and wins back a little); WHIZ.fuse s later,
+  // wherever its bob has carried it, it whooshes straight up as a rocket for WHIZ.reach px (through at most one tunnel,
+  // stopping at the ceiling, a wall or a guardian; rocks are low and it flies past them) and bangs. Every piece within WHIZ.lane px of its column
+  // blooms as it passes (at most WHIZ.pins), then everything within WHIZ.bang px of the bang (at most WHIZ.bangs), each
+  // an ordinary chain the seed earned; then it blooms itself up there. A credited chain that reaches an unlit one lights
+  // a shorter fuse (a chain reaction); a power, the guardian's cascade or an uncredited strike blooms it plainly. Lit or
+  // flying it is a ghost and never costs a life.
+  const WHIZ = { r: 12, sway: 32, period: 3.6, fuse: 1, chainFuse: .5, speed: 620, reach: 190, lane: 8, pins: 4, bang: 34, bangs: 5,
+    top: 30, floor: 430, step: 2, hop: 1, link: .02, ripple: .035, eps: 1e-7 };
+  const whizzSway = (x, r) => Math.max(0, Math.min(WHIZ.sway, x - r - 23, 397 - r - x));
+  // Its bob: x at foe time T (closed form, so game, aim line and bot agree).
+  function whizzX(bud, T) { return bud.baseX + bud.sway * Math.sin(bud.swayW * (T - bud.born) + bud.swayPhase); }
+  const whizzable = (game, p, skip) => p !== skip && !p.bloomed && !p.hidden && !p.ghost && !p.gift && (p.boss || p.bossPart || !p.inert || chainable(p));
+  // THE shared flight: where a rocket leaving (x, y) now would fly and what it would take. opts.pose(p) -> {x, y} | null
+  // lets a caller forecast the other pieces (the aim line and the bot look ahead; the game passes nothing).
+  function whizzPath(game, x, y, opts = {}) {
+    const pose = opts.pose || (p => p), skip = opts.skip || null, pts = [[x, y - WHIZ.r]];
+    const pieces = whizzPieces(game, skip, pose);
+    let px = x, py = y - WHIZ.r, ux = 0, uy = -1, left = WHIZ.reach, hops = 0, gate = null, boss = null, cool = 0, len = 0, hopAt = null;
+    while (left > 1e-9) {
+      const s = Math.min(WHIZ.step, left), nx = px + ux * s, ny = py + uy * s;
+      if (ny < WHIZ.top || ny > WHIZ.floor || nx < 28 || nx > 392) break;
+      const big = pieces.find(q => q.p.boss && Math.hypot(q.x - nx, q.y - ny) < q.r + 4);
+      if (big) { boss = big.p; px = nx; py = ny; len += s; break; }
+      cool -= s;
+      const mouth = hops < WHIZ.hop && cool <= 0 ? (game.gates || []).find(g => Math.hypot(g.x - nx, g.y - ny) < g.r) : null;
+      if (mouth) {
+        const exit = (game.gates || []).find(g => g.id === mouth.pair && g.pair === mouth.id);
+        if (exit) {
+          const turn = exit.angle - mouth.angle, c = Math.cos(turn), sn = Math.sin(turn), rx = ux * c - uy * sn, ry = ux * sn + uy * c;
+          pts.push([mouth.x, mouth.y]); len += Math.hypot(mouth.x - px, mouth.y - py); hopAt = len;
+          ux = rx; uy = ry; px = exit.x + ux * (exit.r + 6); py = exit.y + uy * (exit.r + 6); pts.push(null, [px, py]);
+          hops++; gate = mouth.id; cool = exit.r + 8; left -= s; continue;
+        }
+      }
+      px = nx; py = ny; left -= s; len += s;
+    }
+    pts.push([px, py]);
+    // The column's pieces: within WHIZ.lane of a run of the path, nearest first along it.
+    const runs = []; let from = null, base = 0;
+    for (let i = 0; i < pts.length; i++) {
+      const q = pts[i];
+      if (!q) { from = null; continue; }
+      if (from) { const l = Math.hypot(q[0] - from[0], q[1] - from[1]); runs.push({ a: from, b: q, base, l }); base += l; }
+      else if (i > 0 && hopAt != null) base = hopAt;
+      from = q;
+    }
+    const pins = [];
+    for (const q of pieces) {
+      if (q.p.boss) continue;
+      let best = null;
+      for (const run of runs) {
+        const dx = run.b[0] - run.a[0], dy = run.b[1] - run.a[1], l = run.l || 1e-9, t = clamp(((q.x - run.a[0]) * dx + (q.y - run.a[1]) * dy) / (l * l), 0, 1);
+        const gap = Math.hypot(q.x - run.a[0] - dx * t, q.y - run.a[1] - dy * t);
+        if (gap <= WHIZ.lane + q.r && (!best || run.base + t * l < best.d)) best = { id: q.p.id, d: run.base + t * l };
+      }
+      if (best) pins.push(best);
+    }
+    pins.sort((a, b) => a.d - b.d || (a.id < b.id ? -1 : 1));
+    const kept = pins.slice(0, WHIZ.pins), end = { x: px, y: py }, near = new Set(kept.map(k => k.id));
+    return { pts, pins: kept, bangs: whizzBangs(pieces, px, py, near), end, boss: boss ? boss.id : null, gate, hop: hopAt, len: Math.max(len, 1) };
+  }
+  function whizzPieces(game, skip, pose = p => p) {
+    const pieces = [];
+    for (const p of game.buds || []) if (whizzable(game, p, skip) && p.id !== (skip && skip.id)) { const at = pose(p) || p; pieces.push({ p, x: at.x, y: at.y, r: p.r }); }
+    return pieces;
+  }
+  // The bang set: the pieces within WHIZ.bang of (x, y) that the column did not pin, nearest first.
+  function whizzBangs(pieces, x, y, pinned) {
+    return pieces.filter(q => !q.p.boss && !pinned.has(q.p.id) && Math.hypot(q.x - x, q.y - y) <= WHIZ.bang + q.r)
+      .sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y) || (a.p.id < b.p.id ? -1 : 1)).slice(0, WHIZ.bangs).map(q => q.p.id);
+  }
+  // Where along the flight (d px from the nose) the rocket is.
+  function whizzAlong(path, d) {
+    let left = d, from = null;
+    for (const q of path.pts) {
+      if (!q) { from = null; continue; }
+      if (from) { const l = Math.hypot(q[0] - from[0], q[1] - from[1]); if (left <= l) { const k = l ? left / l : 0; return { x: from[0] + (q[0] - from[0]) * k, y: from[1] + (q[1] - from[1]) * k }; } left -= l; }
+      from = q;
+    }
+    return { x: path.end.x, y: path.end.y };
+  }
+  function whizzLight(game, bud, by, fuse, chain) {
+    bud.whizz = { mode: 'lit', at: game.foeClock, fuse, by, chain, path: null, flyAt: null, sent: 0, done: false, x0: bud.x, y0: bud.y };
+    bud.ghost = true;
+    game.event('foe', { kind: 'whizzbang:light', bud, x: bud.x, y: bud.y, chain, fuse });
+  }
+  function whizzStep(game, bud) {
+    const w = bud.whizz, T = game.foeClock;
+    if (w.mode === 'lit' && T + WHIZ.eps >= w.at + w.fuse) {
+      w.mode = 'fly'; w.flyAt = w.at + w.fuse; w.x0 = bud.x; w.y0 = bud.y;
+      w.path = whizzPath(game, bud.x, bud.y, { skip: bud });
+      game.event('foe', { kind: 'whizzbang:launch', bud, x: bud.x, y: bud.y, n: w.path.pins.length });
+    }
+    if (w.mode !== 'fly') return;
+    const d = Math.min(w.path.len, (T - w.flyAt) * WHIZ.speed), at = whizzAlong(w.path, d);
+    bud.x = bud.baseX = at.x; bud.y = at.y;
+    while (w.sent < w.path.pins.length && w.path.pins[w.sent].d <= d) {
+      const pin = w.path.pins[w.sent++];
+      const item = game.buds.find(o => o.id === pin.id), whole = Boolean(item && !item.boss && !item.bossPart && !item.geode);
+      game.pending.push(game._linkBy(pin.id, game.time + WHIZ.link, bud, 'whizz', w.by, whole));
+      game.event('foe', { kind: 'whizzbang:pin', bud, x: bud.x, y: bud.y, k: w.sent, target: pin.id });
+    }
+    if (w.path.hop != null && !w.hopped && d >= w.path.hop) { w.hopped = true; game.event('foe', { kind: 'whizzbang:tunnel', bud, x: bud.x, y: bud.y, gate: w.path.gate }); }
+    if (d < w.path.len - 1e-9) return;
+    // The bang: what is near the rocket now (the column's pieces already have their links), then the rocket itself.
+    // Measured round the rocket, not from a fresh flight: a fresh flight would pin the buds it flew past (over the
+    // four-pin cap) and leave a bud right under the bang untouched.
+    w.done = true; w.mode = 'bang';
+    const near = whizzBangs(whizzPieces(game, bud), bud.x, bud.y, new Set(w.path.pins.map(p => p.id)));
+    near.forEach((id, k) => game.pending.push(game._linkBy(id, game.time + .04 + k * WHIZ.ripple, bud, 'whizz', w.by)));
+    if (w.path.boss) game.pending.push(game._linkBy(w.path.boss, game.time + WHIZ.link, bud, 'whizz', w.by));
+    game.pending.push(game._linkBy(bud.id, game.time + WHIZ.link, bud, 'whizz', w.by));
+    game.event('foe', { kind: 'whizzbang:bang', bud, x: bud.x, y: bud.y, n: w.path.pins.length + near.length, boss: w.path.boss });
+  }
+  define('whizzbang', {
+    r: WHIZ.r, hp: 1, fall: 1, type: 'poppy', hint: 'Light a whizzbang under a crowd. Whoosh, bang!',
+    make(spot, tag, i) {
+      const id = `${tag}-foe${i}`, x = spot[1], opts = spot[3] || {}, sway = Math.min(opts.sway ?? WHIZ.sway, whizzSway(x, WHIZ.r));
+      return [piece('whizzbang', id, id, x, spot[2], { sway, swayW: TAU / WHIZ.period, swayPhase: TAU * hash01(id, 7), whizz: null })];
+    },
+    owns: bud => !bud.bloomed,
+    step(game, bud, dt) {
+      if (!(dt > 0)) return;
+      const w = bud.whizz;
+      if (!w || w.mode === 'lit') { bud.y += (game.descentSpeed || 0) * (bud.fall || 1) * dt; bud.x = clamp(whizzX(bud, game.foeClock), 22 + bud.r, 398 - bud.r); }
+      if (w && !w.done) whizzStep(game, bud);
+    },
+    hit(game, bud, chain, isCredited, seed) {
+      const w = bud.whizz, via = chain && game.due ? game.due.via : null, plain = game.bossDown || !isCredited || isPower(game, seed) || via === 'sun' || via === 'boss';
+      if (w) return w.done || plain ? null : { blocked: true };
+      if (plain) return null;
+      whizzLight(game, bud, chain ? game.due.by : seed.id, chain ? WHIZ.chainFuse : WHIZ.fuse, chain);
+      return chain ? { blocked: true } : { blocked: true, feed: true };
+    },
+    bloomed(game, bud) { bud.ghost = false; bud.baseX = bud.x; bud.sway = 0; }, // rush sways a bloomed bud; keep the flower where it burst
+    breach: (game, bud) => bud.whizz ? 'skip' : 'life',
+    moving: () => true,
+    predict(game, bud, seconds, out) {
+      if (bud.whizz) { out.flags |= 2; return; }
+      const run = Math.max(0, seconds - Math.max(0, game.lullaby || 0));
+      out.x = clamp(whizzX(bud, (game.foeClock || 0) + run), 22 + bud.r, 398 - bud.r);
+      out.y = bud.y + (game.descentSpeed || 0) * (bud.fall || 1) * run;
+    },
+    // The bot lights it where its column will meet the most: 4, plus 8 a pin, 4 a bang, 40 for Ember Rose or an open guardian.
+    value(game, bud, hit, prepared) {
+      // The bot's trace passes a copy already posed at the hit, so the forecast starts from the live bud (its fall counted once).
+      bud = (game.buds || []).find(b => b.id === bud.id) || bud;
+      if (bud.whizz) return 0;
+      const plan = whizzForecast(game, bud, (hit.time || 0) + WHIZ.fuse, prepared);
+      const boss = plan.boss && game.bossState && (game.bossState.kind === 'ember' || game.bossState.vulnerable) ? 40 : 0;
+      return 4 + 8 * plan.pins.length + 4 * plan.bangs.length + boss;
+    },
+    // The aim line and the tells pass bossAt (BloomBosses.predictVisible) so the column meets the guardian where she will be.
+    plan: (game, bud, ahead, prepared, bossAt) => whizzForecast(game, bud, ahead, prepared, bossAt),
+    path: whizzPath, at: whizzX, WHIZ
+  });
+  // The flight a whizzbang lit `ahead` s from now would make: its own bob is exact; other pieces are forecast (the bot's
+  // own forecast when it has one, else their fall; a guardian and her parts come from bossAt when the caller has no bot forecast).
+  function whizzForecast(game, bud, ahead, prepared, bossAt) {
+    const key = `${bud.id}:${Math.round(ahead * 30)}`, cache = prepared ? prepared.whizz || (prepared.whizz = new Map()) : null;
+    if (cache && cache.has(key)) return cache.get(key);
+    const run = Math.max(0, ahead - Math.max(0, game.lullaby || 0)), T = (game.foeClock || 0) + run;
+    const x = clamp(whizzX(bud, T), 22 + bud.r, 398 - bud.r), y = bud.y + (game.descentSpeed || 0) * (bud.fall || 1) * run;
+    const step = Math.min(89, Math.round(ahead * 60)), futures = new Map();
+    if (prepared && prepared.moving) for (const m of prepared.moving) futures.set(m.original.id, m.future);
+    const pose = p => {
+      const f = futures.get(p.id);
+      if (f) return { x: f[step * 4], y: f[step * 4 + 1] };
+      if (p.boss || p.bossPart) return (bossAt && bossAt.get(p.id)) || p;
+      return { x: p.x, y: p.y + (game.descentSpeed || 0) * (p.fall || 1) * run };
+    };
+    const plan = whizzPath(game, x, y, { pose, skip: bud });
+    if (cache) cache.set(key, plan);
+    return plan;
+  }
 
   // ── Lodestone (Level 8, `lodestone`) ──
 

@@ -503,7 +503,8 @@
   }
   function shellOpen(angle, hit) { return hit.nx * Math.cos(angle) + hit.ny * Math.sin(angle) >= .25; }
   function burns(game, bud, seed) {
-    const s=active(game);return Boolean(s && s.kind==='ember' && bud===s.boss && s.mode==='flame' && !(seed.gateHops>0) && !['beeline','sunburst'].includes(seed.power));
+    const s=active(game),yes=Boolean(s && s.kind==='ember' && bud===s.boss && s.mode==='flame' && !(seed.gateHops>0) && !['beeline','sunburst'].includes(seed.power));
+    const k=yes?kitOf(s):null; if(k && k.burned) k.burned(game,s,seed); return yes; // Cinder Catch: a kit sees each burned seed (Ember kit)
   }
   function canHit(game, bud, hit = {}, seed = {}) {
     const s = active(game); if (!s || !(bud.boss || bud.bossPart)) return true;
@@ -1816,6 +1817,164 @@
   });
 
   // ── Ember Rose (Level 7, `ember`) ──
+  const EMBER = { alcove: [128, 292], ringR: 18, ringTop: 52, ringLow: 372, ringLife: 6, hide: .45, cinderR: 9, cinderAge: .4, spit: [30, 18],
+    cinderFall: 42, cinderSway: 14, cinderW: 2.4, cinderCap: 4, coalY: 404, coalLen: 26, coalLife: 4, coalCap: 3,
+    shove: 16, room: 70, clicks: [.43, .86], ole: 1.2, oleDamage: 2, trio: [-48, 0, 48], trioDrop: 128, trioSway: 26,
+    rocket: 3, ring: 3, tunnel: 1, lift: 1, petalGap: 58 };
+  const emberSmooth = p => { p = clamp(p, 0, 1); return p * p * (3 - 2 * p); };
+  const emberRings = game => (game.gates || []).filter(g => g.bossRing);
+  // A seed whose last tunnel hop was one of her rings (both mouths are stamped with the hop's time).
+  const emberRingShot = (game, seed) => (seed.gateHops || 0) > 0 && emberRings(game).some(g => g.lastUsed === seed.gateAt);
+  function emberCinderPose(p, clock) {
+    const u = clock - p.born, k = emberSmooth(u / EMBER.cinderAge), sx = p.x0 + p.side * EMBER.spit[0], sy = p.y0 + EMBER.spit[1];
+    if (u < EMBER.cinderAge) return { x: p.x0 + (sx - p.x0) * k, y: p.y0 + (sy - p.y0) * k };
+    const v = u - EMBER.cinderAge;
+    return { x: clamp(sx + EMBER.cinderSway * Math.sin(EMBER.cinderW * v), 22 + p.r, 398 - p.r), y: sy + EMBER.cinderFall * v };
+  }
+  kit('ember', {
+    hp: 100,
+    moods: ['Flickering', 'Dancing', 'Blazing'],
+    stageText: [null, 'Ember Rose wants to dance!', 'Ember Rose is blazing!'],
+    text: { rings: 'Fire rings! Shoot through to reach her.', stomp: 'Clack, clack, clack... STOMP!', barrage: 'Whizzbangs! Light one under her.' },
+    moves: [['ember', 'rings'], ['stomp', 'rings', 'ember'], ['barrage', 'stomp', 'rings']],
+    init(game, s) { s.cinders = 0; },
+    // The boss wave's hint (depths.js: 'Tunnel hits count triple.') is only true while Flickering; each new mood says what reaches her now.
+    stage(game, s) { game.waveHint = ['', 'Fire rings hit triple now. Tunnels hit once.', 'Tunnels too hot! Use fire rings, Olé or rockets.'][s.tier] || game.waveHint; },
+    plan: {
+      rings(game, s, b) {
+        const at = positions(s, TELEGRAPH).get(b.id), to = at.x < 210 ? EMBER.alcove[1] : EMBER.alcove[0];
+        // Ring A keeps clear of the launcher's petal (the leaf at y 350 reaches y 373), so the way in is never blocked by it.
+        let ax = clamp(at.x, 140, 280); const petal = (game.bumpers || []).find(r => r.id === 'petal');
+        if (petal && Math.abs(petal.y - EMBER.ringLow) < 60 && Math.abs(ax - petal.x) < EMBER.petalGap) ax = petal.x + (ax < petal.x ? -1 : 1) * EMBER.petalGap;
+        const a = { x: ax, y: EMBER.ringLow, r: EMBER.ringR, role: 'ringA' };
+        return { targets: [a, { x: to, y: EMBER.ringTop, r: EMBER.ringR, role: 'ringB' }] };
+      },
+      stomp(game, s, b) {
+        // Three castanet clicks on the kit clock (0, .43, .86 s), then the stomp at the tell's end (1.3 s).
+        [0, ...EMBER.clicks].forEach((t, i) => after(s, t, 'click', { n: i + 1 }));
+        const at = positions(s, TELEGRAPH).get(b.id); return { targets: [{ x: at.x, y: at.y, r: b.r + 18, role: 'stomp' }] };
+      },
+      barrage(game, s, b) {
+        const at = positions(s, TELEGRAPH).get(b.id), y = Math.min(at.y + EMBER.trioDrop, 300 - 12);
+        const spots = EMBER.trio.map(dx => ({ x: clamp(at.x + dx, 60, 360), y, r: 14, role: 'whizz' })).filter(t => clearSpot(game, t.x, t.y, 20));
+        return spots.length ? { targets: spots } : null;
+      }
+    },
+    act: {
+      rings(game, s, w) {
+        const b = s.boss, A = w.targets.find(t => t.role === 'ringA'), B = w.targets.find(t => t.role === 'ringB');
+        game.gates = game.gates.filter(g => !g.bossRing);
+        const life = { bossMoon: true, bossRing: true, kitDrawn: true, kitAt: s.kitAge, kitUntil: s.kitAge + EMBER.ringLife, expires: Infinity, lastUsed: -100 };
+        game.gates.push({ id: b.id + '-ring-a', pair: b.id + '-ring-b', x: A.x, y: A.y, r: EMBER.ringR, angle: Math.atan2(A.y - 498, A.x - 210), ...life },
+          { id: b.id + '-ring-b', pair: b.id + '-ring-a', x: B.x, y: B.y, r: EMBER.ringR, angle: Math.PI / 2, ...life });
+        s.ringFrom = { x: b.x, y: b.y }; // the art's teleport dive flies from here into ring A
+        s.mode = 'ring'; s.vulnerable = false; b.hidden = true; b.visible = false;
+        after(s, EMBER.hide, 'land', { x: B.x });
+      },
+      stomp(game, s, w) {
+        const b = s.boss, line = game.dangerY - EMBER.room;
+        let n = 0;
+        // Lowest first, so each flower stops a spacing (a.r + b.r + 1) above whatever already sits below it.
+        const list = game.buds.filter(p => open(p) && !p.hidden && !p.ghost).sort((p, q) => q.y - p.y || (p.id < q.id ? -1 : 1));
+        for (const p of list) {
+          if (p.boss || p.bossPart || p.carried || (p.foe && Foes && Foes.owns(p))) continue;
+          let y = Math.min(p.y + EMBER.shove, line - p.r);
+          for (const q of list) {
+            if (q === p || q.y <= p.y) continue;
+            const dx = Math.abs(q.x - p.x), gap = p.r + q.r + 1;
+            if (dx < gap) y = Math.min(y, q.y - Math.sqrt(gap * gap - dx * dx));
+          }
+          if (y > p.y) { p.y = y; n++; }
+        }
+        s.mode = 'ole'; s.vulnerable = true; s.modeUntil = s.stunUntil = s.age + EMBER.ole; s.diveTo = b.x;
+        game.event('bossAbility', { kind: s.kind, move: 'stomp', act: 'stomp', x: b.x, y: b.y, n });
+      },
+      barrage(game, s, w) {
+        const group = `${s.boss.id}-barrage-${s.serial++}`;
+        w.targets.filter(t => t.role === 'whizz' && clearSpot(game, t.x, t.y, 14)).forEach((t, i) => {
+          const [bud] = Foes.make('whizzbang', ['whizzbang', t.x, t.y, { sway: EMBER.trioSway }], group, i, null, null);
+          if (!bud) return;
+          bud.group = group; bud.swayPhase = TAU * Foes.hash01(group, 7); bud.bossSummon = true; bud.bossSource = s.boss.id;
+          Foes.place(game, bud);
+        });
+        s.summons++;
+      }
+    },
+    timer: {
+      click(game, s, t) { game.event('bossAbility', { kind: s.kind, move: 'stomp', act: 'click', n: t.n, x: s.boss.x, y: s.boss.y }); },
+      land(game, s, t) {
+        const b = s.boss;
+        s.baseX = t.x - offset(s.kind, s.moveAge).x; s.drift = Math.max(0, s.drift - 400 * EMBER.lift); s.baseY = b.startY;
+        b.hidden = false; b.visible = true; s.mode = 'flame'; s.vulnerable = false;
+        const map = positions(s, 0).get(b.id); b.x = map.x; b.y = map.y;
+        game.event('bossAbility', { kind: s.kind, move: 'rings', act: 'land', x: b.x, y: b.y });
+      }
+    },
+    pose(s, p, bx, by, clock) { return p.bossPart === 'cinder' ? emberCinderPose(p, clock) : null; },
+    step(game, s, dt) {
+      // Olé and the legacy dive are timed on s.age; a Lullaby holds them as it holds the kit clock.
+      if (game.lullaby > 0 && (s.mode === 'ole' || s.mode === 'dive')) { s.modeUntil += dt; if (s.mode === 'ole') s.stunUntil += dt; else s.diveAt += dt; }
+      // A mood change announced mid-Olé moves its end (schedule); she stays stunned to the end, so she never drifts and snaps back.
+      if (s.mode === 'ole' && s.stunUntil < s.modeUntil) s.stunUntil = s.modeUntil;
+      for (const p of s.parts) {
+        if (p.bossPart !== 'cinder' || p.bloomed) continue;
+        if (p.ghost && s.kitAge - p.born >= EMBER.cinderAge) p.ghost = false;
+        if (p.y + p.r < EMBER.coalY - 6) continue;
+        close(game, s, p);
+        // A coal never plugs a tunnel mouth: it rolls off to the near side, or goes out if there is no room.
+        const onMouth = x => (game.gates || []).find(g => Math.abs(g.y - EMBER.coalY) < g.r + 8 && Math.abs(g.x - x) < g.r + EMBER.coalLen / 2 + 4);
+        let x = p.x; const g = onMouth(x);
+        if (g) x = g.x + (p.x < g.x ? -1 : 1) * (g.r + EMBER.coalLen / 2 + 4);
+        const out = x < 28 + EMBER.coalLen / 2 || x > 392 - EMBER.coalLen / 2 || Boolean(onMouth(x));
+        if (!out) {
+          const coals = game.bumpers.filter(r => r.bossCoal);
+          if (coals.length >= EMBER.coalCap) game.bumpers = game.bumpers.filter(r => r !== coals[0]);
+          game.bumpers.push({ id: `${s.boss.id}-coal-${s.serial++}`, kind: 'rock', bossWall: true, bossCoal: true, kitDrawn: true, x, y: EMBER.coalY, baseX: x,
+            length: EMBER.coalLen, angle: 0, kitAt: s.kitAge, kitUntil: s.kitAge + EMBER.coalLife, expires: Infinity });
+        }
+        game.event('bossAbility', { kind: s.kind, move: 'cinder', act: 'coal', x: out ? p.x : x, y: EMBER.coalY, out });
+      }
+      if (s.parts.some(p => p.bossPart === 'cinder' && p.bloomed && game.time - p.bloomAt > 1)) {
+        const gone = new Set(s.parts.filter(p => p.bossPart === 'cinder' && p.bloomed && game.time - p.bloomAt > 1));
+        s.parts = s.parts.filter(p => !gone.has(p)); game.buds = game.buds.filter(p => !gone.has(p));
+      }
+    },
+    burned(game, s, seed) {
+      if (s.parts.filter(p => p.bossPart === 'cinder' && !p.bloomed).length >= EMBER.cinderCap) return;
+      const b = s.boss, side = (seed.x || b.x) < b.x ? -1 : 1, x0 = clamp(seed.x || b.x, 40, 380), y0 = seed.y || b.y + b.r;
+      part(game, 'cinder', x0, y0, EMBER.cinderR, 1, { born: s.kitAge, x0, y0, side, ghost: true, sunBonus: 1, type: 'gold' });
+      s.cinders++;
+    },
+    canHit(game, s, bud, hit, seed) {
+      if (bud.id !== s.boss.id) return undefined;
+      if (s.mode === 'ole' || s.mode === 'dive') return true;
+      if (s.tier >= 2 && (seed.gateHops || hit.gateHops || 0) > 0 && !(seed.ring || emberRingShot(game, seed))) return false;
+      return undefined;
+    },
+    resolve(game, s, bud, chain, seed) {
+      if (chain && game.due && game.due.via === 'whizz' && bud === s.boss && !bud.hidden) {
+        s.crits++; game.event('bossCritical', { kind: s.kind, bud, damage: EMBER.rocket, via: 'whizz' }); return { target: bud, damage: EMBER.rocket };
+      }
+      if (!s.tier || bud !== s.boss || chain || !game.striker || seed.power) return null;
+      if (emberRingShot(game, seed)) { s.crits++; s.hits++; game.event('bossCritical', { kind: s.kind, bud, damage: EMBER.ring, via: 'ring' }); return { target: bud, damage: EMBER.ring }; }
+      if (s.mode === 'ole') { s.crits++; s.hits++; game.event('bossCritical', { kind: s.kind, bud, damage: EMBER.oleDamage, via: 'ole' }); return { target: bud, damage: EMBER.oleDamage }; }
+      if (s.mode === 'dive') return null;
+      if ((seed.gateHops || 0) > 0 && s.tier < 2) { s.hits++; return { target: bud, damage: EMBER.tunnel }; }
+      return null;
+    },
+    bloomed(game, s, bud) {
+      if (bud.bossPart !== 'cinder') return false;
+      game.event('bossAbility', { kind: s.kind, move: 'cinder', act: 'catch', x: bud.x, y: bud.y });
+      return true;
+    },
+    targets(game, s, list) {
+      for (const t of list) {
+        if (t.bud.bossPart === 'cinder') { t.priority = 55 + Math.round(40 * clamp((t.bud.y - 200) / 200, 0, 1)); t.reason = 'cinder'; }
+        if (t.bud.id === s.boss.id && s.mode === 'ole') t.priority = 85;
+      }
+    },
+    cleanup(game, s) { game.bumpers = game.bumpers.filter(r => !r.bossCoal); s.boss.hidden = false; s.boss.visible = true; }
+  });
 
   // ── Geode King (Level 8, `geode`) ──
 

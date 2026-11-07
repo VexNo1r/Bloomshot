@@ -1,5 +1,5 @@
 {
-  "passed": 91,
+  "passed": 88,
   "failed": 0,
   "results": [
     {
@@ -311,59 +311,47 @@
       "passed": true
     },
     {
-      "name": "Ammonite Queen: 32 rings, moods at 22 and 11, Regal opens on her two locks, and her own words for each move",
+      "name": "Ember Rose: 100 health with moods at 67 and 34, three moods, her familiar dive first, and every word fits",
       "passed": true
     },
     {
-      "name": "Ammonite Queen: Pearl Volley lobs three pearls to shown marks on her kit clock, forecast exactly; uncaught they land armoured in turning shells",
+      "name": "Ember Rose: a seed into her flame spits a cinder you can catch for a sun; a missed one cools to a coal that rolls off tunnel mouths",
       "passed": true
     },
     {
-      "name": "Ammonite Queen: a seed that meets a pearl in the air is a Pearl catch (bloom, +1 sun, 250 x tempo); a chain or power just blooms it",
+      "name": "Ember Rose: her fire rings hide her and land her at the far ring; a ring shot deals 3, and at Blazing a level tunnel is too hot",
       "passed": true
     },
     {
-      "name": "Ammonite Queen: Stony opens on Petrify: three buds (or bare-bed slabs) turn to stone for 5 s on the kit clock, faced to bank toward her",
+      "name": "Ember Rose: three castanet clicks, then the stomp shoves flowers 16 px (never past line - 70, never up, never into each other) and Olé opens her",
       "passed": true
     },
     {
-      "name": "Ammonite Queen: a Fossil bank (a seed that banked off a slab within 1.2 s and gets through her gaps) lands for three",
+      "name": "Ember Rose: an Olé hit that brings on her next mood keeps her standing still until Olé ends",
       "passed": true
     },
     {
-      "name": "Ammonite Queen: Brooding spins her lock ring at 1.4 rad/s and opens on an amber egg that hatches an Amberkeeper where it was shown",
+      "name": "Ember Rose: the wave hint keeps up with her moods (tunnels hit triple only while Flickering)",
       "passed": true
     },
     {
-      "name": "Ammonite Queen: each move lifts her up to 36 px over .9 s (never above where she started), forecast exactly",
+      "name": "Ember Rose: a Lullaby holds Olé, a falling cinder and her dive",
       "passed": true
     },
     {
-      "name": "Ammonite Queen: a Lullaby holds her pearls in the air, her slabs and her lift; it all carries on after",
+      "name": "Ember Rose: her barrage sows three whizzbangs in one swaying group, and one lit under her deals 3",
       "passed": true
     },
     {
-      "name": "Ammonite Queen: the same fight at 30, 60 and 144 FPS",
+      "name": "Ember Rose: the same fight at 30, 60 and 144 FPS",
       "passed": true
     },
     {
-      "name": "Ammonite Queen: only her jet waits for a clicked mouth; her other moves start, and a click cancels only a jet warning",
+      "name": "Ember Rose: beaten mid-ring, mid-Olé or right after a barrage, she leaves no ring, coal, cinder or rocket behind",
       "passed": true
     },
     {
-      "name": "Ammonite Queen: defeat clears her slabs, wakes their buds and blooms her keeper; the good bot wins her fight",
-      "passed": true
-    },
-    {
-      "name": "Ammonite Queen: her pearls and her egg never land on her, however low she has sunk",
-      "passed": true
-    },
-    {
-      "name": "Ammonite Queen: her moods, pearls, slabs, egg and lift draw balanced, finite, with no gradient or shadow and no new surface once warm",
-      "passed": true
-    },
-    {
-      "name": "Level 6 sounds and buzzes each beat once: no two cues of one tick strike the same note together, one buzz an action",
+      "name": "Ember Rose's art draws every move, Animations on and off, with no gradient or blur per frame; her three moods are three faces",
       "passed": true
     }
   ]

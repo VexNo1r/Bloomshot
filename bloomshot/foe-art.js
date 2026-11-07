@@ -1805,6 +1805,253 @@
   });
 
   // ── Whizzbang (Level 7, `whizzbang`) ──
+  // A round paper firework on a springy green coil, with a plum cone cap and a curly fuse, grinning. Lit, it squeezes its
+  // eyes in delight: the fuse burns down under a riding spark, a countdown ring sweeps round it, it shivers and its coil
+  // winds tight, and a dotted column shows where the rocket will fly (corner brackets on each flower it will pin, a gold
+  // ring where it will bang). It flies stretched along its path on a flickering flame with a sparkle trail, "whee", and
+  // bangs in gold and poppy rays. Aimed at, it shows the same column and a pill with how many flowers it would take.
+  const WZ = { ink: '#732c48', poppy: '#ff7433', cream: '#fff2b1', gold: '#ffd148', plum: '#b63b65', leaf: '#8ab35e', leafInk: '#4f7a3a', fuse: '#9a6a43',
+    deep: '#c94a2c', blush: '#ff9fb0', mouth: '#5b1f37', tongue: '#ff8f8f' };
+  const WZ_FACES = ['calm', 'lit', 'fly'];
+  function paintWhizzBody(c, r, face) {
+    c.lineJoin = 'round'; c.lineCap = 'round';
+    // The cap: a plum cone with a cream stripe and a gold star dot at its tip, seated on the ball.
+    const cone = () => { c.beginPath(); c.moveTo(-r * .66, -r * .72); c.quadraticCurveTo(0, -r * 1, r * .66, -r * .72); c.lineTo(r * .12, -r * 1.5); c.quadraticCurveTo(0, -r * 1.6, -r * .12, -r * 1.5); c.closePath(); };
+    cone(); c.fillStyle = WZ.plum; c.fill();
+    c.save(); c.clip(); c.beginPath(); c.moveTo(-r, -r * 1.12); c.lineTo(r, -r * 1.12); c.lineWidth = r * .17; c.strokeStyle = WZ.cream; c.stroke(); c.restore();
+    cone(); c.strokeStyle = WZ.ink; c.lineWidth = 1.4; c.stroke();
+    // The ball: poppy paper wrapped by two cream bands, a darker belly and a soft shine.
+    c.beginPath(); c.arc(0, 0, r, 0, TAU); c.fillStyle = WZ.poppy; c.fill();
+    c.save(); c.clip();
+    c.beginPath(); c.ellipse(r * .25, r * .7, r * 1.1, r * .55, 0, 0, TAU); c.fillStyle = WZ.deep; c.globalAlpha = .45; c.fill(); c.globalAlpha = 1;
+    for (const [y, ry] of [[-r * .55, r * .3], [r * .38, r * .3]]) { c.beginPath(); c.ellipse(0, y, r * 1.12, ry, 0, .05, Math.PI - .05); c.strokeStyle = WZ.cream; c.lineWidth = r * .2; c.stroke(); }
+    c.beginPath(); c.ellipse(-r * .46, -r * .3, r * .22, r * .13, -.7, 0, TAU); c.fillStyle = 'rgba(255,255,255,.6)'; c.fill();
+    c.restore();
+    c.beginPath(); c.arc(0, 0, r, 0, TAU); c.strokeStyle = WZ.ink; c.lineWidth = 1.6; c.stroke();
+    // The gold star dot on the cap.
+    c.beginPath(); c.moveTo(0, -r * 1.79); for (let i = 1; i <= 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, k = i % 2 ? r * .12 : r * .29; c.lineTo(Math.cos(a) * k, -r * 1.5 + Math.sin(a) * k); }
+    c.closePath(); c.fillStyle = WZ.gold; c.fill(); c.strokeStyle = WZ.ink; c.lineWidth = .9; c.stroke();
+    // The face, between the bands.
+    const ey = -r * .02, ex = r * .34;
+    c.strokeStyle = WZ.ink; c.fillStyle = WZ.ink;
+    if (face === 'calm') {
+      for (const side of [-1, 1]) { c.beginPath(); c.arc(side * ex, ey, r * .12, 0, TAU); c.fill(); c.beginPath(); c.arc(side * ex - r * .04, ey - r * .05, r * .045, 0, TAU); c.fillStyle = '#ffffff'; c.fill(); c.fillStyle = WZ.ink; }
+      c.beginPath(); c.arc(0, r * .1, r * .2, .25 * Math.PI, .75 * Math.PI); c.lineWidth = 1.5; c.stroke();
+    } else if (face === 'lit') {
+      // Squeezed > < with delight, and a wide open grin.
+      c.lineWidth = 1.6;
+      for (const side of [-1, 1]) { c.beginPath(); c.moveTo(side * (ex + r * .12), ey - r * .12); c.lineTo(side * (ex - r * .08), ey); c.lineTo(side * (ex + r * .12), ey + r * .12); c.stroke(); }
+      c.beginPath(); c.moveTo(-r * .3, r * .1); c.quadraticCurveTo(0, r * .62, r * .3, r * .1); c.closePath(); c.fillStyle = WZ.mouth; c.fill(); c.lineWidth = 1.2; c.stroke();
+      c.beginPath(); c.ellipse(0, r * .3, r * .12, r * .06, 0, 0, TAU); c.fillStyle = WZ.tongue; c.fill();
+    } else {
+      // Whee: round eyes looking up and an "O" mouth.
+      for (const side of [-1, 1]) {
+        c.beginPath(); c.arc(side * ex, ey - r * .04, r * .17, 0, TAU); c.fillStyle = '#ffffff'; c.fill(); c.lineWidth = 1.2; c.stroke();
+        c.beginPath(); c.arc(side * ex, ey - r * .1, r * .08, 0, TAU); c.fillStyle = WZ.ink; c.fill();
+      }
+      c.beginPath(); c.ellipse(0, r * .3, r * .1, r * .13, 0, 0, TAU); c.fillStyle = WZ.mouth; c.fill(); c.lineWidth = 1.2; c.stroke();
+    }
+    for (const side of [-1, 1]) { c.beginPath(); c.ellipse(side * r * .62, r * .2, r * .13, r * .08, 0, 0, TAU); c.fillStyle = WZ.blush; c.globalAlpha = .8; c.fill(); c.globalAlpha = 1; }
+  }
+  // The springy coil under the bud: four kinks of green wire, inked.
+  function paintWhizzStem(c, r) {
+    const top = r * .9, pts = [[0, top], [-4, top + 2.5], [4, top + 5.5], [-4, top + 8.5], [4, top + 11.5], [0, top + 14]];
+    c.lineJoin = 'round'; c.lineCap = 'round';
+    for (const [color, width] of [[WZ.leafInk, 3.4], [WZ.leaf, 1.8]]) { c.beginPath(); pts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.strokeStyle = color; c.lineWidth = width; c.stroke(); }
+    c.beginPath(); c.ellipse(2.6, top + 15.2, 3.2, 1.6, .5, 0, TAU); c.fillStyle = WZ.leaf; c.fill(); c.strokeStyle = WZ.leafInk; c.lineWidth = .9; c.stroke();
+  }
+  // A 7 px four-point gold star with a white core; frame 1 is turned and a little smaller, so the spark fizzes.
+  function paintWhizzSpark(c, frame) {
+    const size = frame ? 3 : 3.6, turn = frame ? Math.PI / 4 : 0;
+    c.beginPath(); for (let i = 0; i < 8; i++) { const a = turn + i * Math.PI / 4, k = i % 2 ? size * .32 : size; c.lineTo(Math.cos(a) * k, Math.sin(a) * k); }
+    c.closePath(); c.fillStyle = WZ.gold; c.fill(); c.strokeStyle = WZ.poppy; c.lineWidth = .7; c.stroke();
+    c.beginPath(); c.arc(0, 0, 1.15, 0, TAU); c.fillStyle = '#ffffff'; c.fill();
+  }
+  // A 14 px poppy teardrop with a gold inner flame, pointing down from the origin; three flickers.
+  function paintWhizzFlame(c, frame) {
+    const len = [14, 12, 15.5][frame], lean = [0, 1.2, -1.2][frame];
+    const drop = (w, l, color) => { c.beginPath(); c.moveTo(-w, 0); c.quadraticCurveTo(-w, l * .55, lean, l); c.quadraticCurveTo(w, l * .55, w, 0); c.quadraticCurveTo(0, -w * .7, -w, 0); c.closePath(); c.fillStyle = color; c.fill(); };
+    drop(5.2, len, WZ.poppy); drop(2.8, len * .62, WZ.gold); drop(1.2, len * .3, '#fffbe6');
+  }
+  // The bang: eight tapered rays, gold and poppy by turns, each ending in a dot, round a cream heart.
+  function paintWhizzBurst(c) {
+    c.lineCap = 'round';
+    for (let i = 0; i < 8; i++) {
+      const a = i * TAU / 8, color = i % 2 ? WZ.poppy : WZ.gold, len = i % 2 ? 26 : 32, ux = Math.cos(a), uy = Math.sin(a), px = -uy, py = ux;
+      c.beginPath(); c.moveTo(ux * 6 + px * 3.2, uy * 6 + py * 3.2); c.lineTo(ux * len, uy * len); c.lineTo(ux * 6 - px * 3.2, uy * 6 - py * 3.2); c.closePath(); c.fillStyle = color; c.fill();
+      c.beginPath(); c.arc(ux * (len + 4.5), uy * (len + 4.5), 2.6, 0, TAU); c.fill();
+    }
+    c.beginPath(); c.arc(0, 0, 8, 0, TAU); c.fillStyle = WZ.cream; c.fill();
+    c.beginPath(); for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, k = i % 2 ? 2.2 : 5.6; c.lineTo(Math.cos(a) * k, Math.sin(a) * k); } c.closePath(); c.fillStyle = '#ffffff'; c.fill();
+  }
+  const WZ_SPRITES = {
+    body: (r, face) => [`foe:whizzbang:${r}:${face}`, [-r - 3, -r * 2, r + 3, r + 3], c => paintWhizzBody(c, r, face)],
+    stem: r => [`foe:whizzbang:${r}:stem`, [-7, r * .9 - 3, 8, r * .9 + 18], c => paintWhizzStem(c, r)],
+    spark: f => [`foe:whizzbang:spark${f}`, [-5, -5, 5, 5], c => paintWhizzSpark(c, f)],
+    flame: f => [`foe:whizzbang:flame${f}`, [-7, -5, 7, 18], c => paintWhizzFlame(c, f)],
+    burst: () => ['foe:whizzbang:burst', [-40, -40, 40, 40], paintWhizzBurst],
+    pill: n => [`foe:whizzbang:pill${n}`, [-18, -10, 18, 10], c => {
+      const text = 'x' + n; c.font = '700 13px Fredoka, Nunito, sans-serif'; const w = Math.max(24, Math.min(34, c.measureText(text).width + 12));
+      c.beginPath(); c.moveTo(-w / 2 + 7, -8.5); c.arcTo(w / 2, -8.5, w / 2, 8.5, 7); c.arcTo(w / 2, 8.5, -w / 2, 8.5, 7); c.arcTo(-w / 2, 8.5, -w / 2, -8.5, 7); c.arcTo(-w / 2, -8.5, w / 2, -8.5, 7); c.closePath();
+      c.fillStyle = WZ.cream; c.fill(); c.strokeStyle = WZ.ink; c.lineWidth = 1.5; c.stroke();
+      c.fillStyle = WZ.ink; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(text, 0, .8);
+    }]
+  };
+  const wzStamp = (ctx, kit, [key, box, paint], x, y, turn, sx, sy) => stamp(ctx, kit, key, box, paint, x, y, turn, sx, sy);
+  // Where along a flight path (d px from its nose) the rocket is, and which way it heads (as foes.js whizzAlong walks it).
+  function wzAlong(path, d) {
+    let left = Math.max(0, d), from = null, last = null;
+    for (const q of path.pts || []) {
+      if (!q) { from = null; continue; }
+      if (from) {
+        const l = Math.hypot(q[0] - from[0], q[1] - from[1]);
+        last = [from, q];
+        if (left <= l) { const k = l ? left / l : 0; return { x: from[0] + (q[0] - from[0]) * k, y: from[1] + (q[1] - from[1]) * k, a: Math.atan2(q[1] - from[1], q[0] - from[0]) }; }
+        left -= l;
+      }
+      from = q;
+    }
+    const end = path.end || { x: 0, y: 0 };
+    return { x: end.x, y: end.y, a: last ? Math.atan2(last[1][1] - last[0][1], last[1][0] - last[0][0]) : -Math.PI / 2 };
+  }
+  // The column tell: a dotted poppy line along the forecast flight, cream brackets on each flower it would pin, and a
+  // dashed gold ring where it would bang. The one rules call in the art (see the spec: whizzPath is too big to copy).
+  function wzColumn(ctx, state, plan, time, still) {
+    if (!plan || !Array.isArray(plan.pts)) return;
+    let run = [];
+    const flush = () => { if (run.length > 1) dotted(ctx, run, WZ.poppy, 2.1, 7, still ? 0 : -time * 26); run = []; };
+    for (const q of plan.pts) { if (!q) flush(); else run.push(q); }
+    flush();
+    const end = plan.end;
+    if (end && Number.isFinite(end.x) && Number.isFinite(end.y)) {
+      ctx.save(); ctx.globalAlpha *= .5; ctx.setLineDash([5, 4]); ctx.lineDashOffset = still ? 0 : -time * 12;
+      ctx.beginPath(); ctx.arc(end.x, end.y, 34, 0, TAU); ctx.strokeStyle = WZ.gold; ctx.lineWidth = 2.4; ctx.stroke(); ctx.restore();
+    }
+  }
+  // Over the buds: cream brackets on each flower the column would pin, and a ghost rocket where it will really leave
+  // when that is not where it sits now (it keeps swaying while the striker flies and the fuse burns).
+  function wzMarks(ctx, state, plan, bud, kit) {
+    if (!plan) return;
+    const r = Number(bud.r) || 12, p0 = Array.isArray(plan.pts) && plan.pts[0], lx = p0 ? p0[0] : bud.x, ly = p0 ? p0[1] + r : bud.y;
+    if (Math.hypot(lx - bud.x, ly - bud.y) > 5) { ctx.save(); ctx.globalAlpha *= .42; wzStamp(ctx, kit, WZ_SPRITES.body(r, 'calm'), lx, ly); ctx.restore(); }
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    const byId = new Map((state.buds || []).map(b => [b.id, b]));
+    for (const pin of plan.pins || []) {
+      const b = byId.get(pin.id); if (!b || b.bloomed || b.hidden) continue;
+      const s = (Number(b.r) || 11) + 4, arm = 4.5;
+      for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+        ctx.beginPath(); ctx.moveTo(b.x + sx * s, b.y + sy * (s - arm)); ctx.lineTo(b.x + sx * s, b.y + sy * s); ctx.lineTo(b.x + sx * (s - arm), b.y + sy * s);
+        ctx.strokeStyle = WZ.ink; ctx.lineWidth = 3.4; ctx.stroke(); ctx.strokeStyle = WZ.cream; ctx.lineWidth = 1.8; ctx.stroke();
+      }
+    }
+    return { x: lx, y: ly };
+  }
+  // A lit fuse's forecast, worked out once a frame and shared by the under and over hooks.
+  const wzLitPlans = new WeakMap();
+  function wzLitPlan(state, bud) {
+    const W = wzRules(), w = bud.whizz; if (!W || typeof W.plan !== 'function' || !w) return null;
+    const clock = Number(state.foeClock) || 0, seen = wzLitPlans.get(bud);
+    if (seen && seen.clock === clock && seen.state === state) return seen.plan;
+    const ahead = Math.max(0, (Number(w.fuse) || 1) - (clock - (Number(w.at) || 0)));
+    let plan = null; try { plan = W.plan(state, bud, ahead, null, wzBossAt(state, ahead)); } catch (error) { plan = null; }
+    wzLitPlans.set(bud, { clock, state, plan }); return plan;
+  }
+  // A rocket in flight: stretched along its heading on a flickering flame, a trail of sparkles behind.
+  function wzFlight(ctx, bud, state, time, still, kit, quality) {
+    const r = Number(bud.r) || 12, clock = Number(state.foeClock) || 0, w = bud.whizz, x = bud.x, y = bud.y;
+    const speed = (wzRules() && wzRules().WHIZ && wzRules().WHIZ.speed) || 620, d = Math.min(Number(w.path.len) || 0, Math.max(0, (clock - (Number(w.flyAt) || 0)) * speed));
+    const at = wzAlong(w.path, d), turn = at.a + Math.PI / 2, dots = quality >= 2 ? 0 : quality === 1 ? 4 : 8;
+    for (let k = 0; k < dots; k++) {
+      const back = 16 + k * 9; if (back > d) break;
+      const p = wzAlong(w.path, d - back), tw = still ? 1 : .6 + .4 * Math.sin(time * 30 + k * 1.7), fade = 1 - k / (dots + 1);
+      ctx.save(); ctx.globalAlpha *= fade * tw; kit.sparkle(ctx, p.x, p.y, 3.2 * fade + 1, k % 2 ? WZ.cream : WZ.gold, still ? 0 : time * 6 + k); ctx.restore();
+    }
+    const flame = still ? 0 : Math.floor(clock * 30) % 3;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(turn);
+    wzStamp(ctx, kit, WZ_SPRITES.flame(flame), 0, r * .9, 0, 1, still ? 1 : 1 + .12 * Math.sin(time * 50));
+    wzStamp(ctx, kit, WZ_SPRITES.body(r, 'fly'), 0, 0, 0, .85, 1.2);
+    ctx.restore();
+  }
+  const wzRules = () => root.BloomFoes && root.BloomFoes.FOES && root.BloomFoes.FOES.whizzbang;
+  const wzBossAt = (state, ahead) => root.BloomBosses && state.bossState && typeof root.BloomBosses.predictVisible === 'function' ? root.BloomBosses.predictVisible(state, ahead) : null;
+  BloomFoeLook('whizzbang', {
+    warm(kit, r = 12) {
+      const jobs = [...WZ_FACES.map(f => WZ_SPRITES.body(r, f)), WZ_SPRITES.stem(r), WZ_SPRITES.spark(0), WZ_SPRITES.spark(1), ...[0, 1, 2].map(WZ_SPRITES.flame), WZ_SPRITES.burst()];
+      for (const [key, box, paint] of jobs) kit.atlasSprite(key, box[0], box[1], box[2], box[3], paint);
+    },
+    under(ctx, state, time, still) {
+      // Each lit fuse's column, from where its rocket will really leave.
+      for (const bud of state.buds || []) {
+        const w = bud.foe === 'whizzbang' && !bud.bloomed && bud.whizz;
+        if (w && w.mode === 'lit') wzColumn(ctx, state, wzLitPlan(state, bud), time, still);
+      }
+    },
+    bud(ctx, bud, time, still, state, kit, quality) {
+      const r = Number(bud.r) || 12, clock = Number(state && state.foeClock) || 0, w = bud.whizz, x = bud.x, y = bud.y;
+      // Flying, it is drawn above the buds (the over hook), so the flowers it pins never cover it.
+      if (w && w.mode !== 'lit') return;
+      if (w) {
+        // Lit: the coil winds tight, the body shivers, the fuse burns down under its spark and a countdown ring sweeps.
+        const u = clamp((clock - (Number(w.at) || 0)) / Math.max(.05, Number(w.fuse) || 1), 0, 1), shiver = still ? 0 : .8 * Math.sin(clock * 70);
+        ctx.save(); ctx.translate(x, y + r * .9); ctx.scale(1, 1 - .45 * u * u); ctx.translate(-x, -y - r * .9); wzStamp(ctx, kit, WZ_SPRITES.stem(r), x, y); ctx.restore();
+        ctx.lineCap = 'round';
+        for (const [color, width] of [['#fff2b1', 3.5], [WZ.poppy, 2]]) { ctx.beginPath(); ctx.arc(x, y, r + 4, -Math.PI / 2, -Math.PI / 2 + (1 - u) * TAU); ctx.strokeStyle = color; ctx.lineWidth = width; ctx.stroke(); }
+        wzStamp(ctx, kit, WZ_SPRITES.body(r, 'lit'), x + shiver, y);
+        const tip = wzFuse(ctx, x + shiver, y - r * 1.72, 7 * (1 - u), still ? 0 : time);
+        wzStamp(ctx, kit, WZ_SPRITES.spark(still ? 0 : Math.floor(clock * 24) % 2), tip.x, tip.y, 0, still ? 1 : 1 + .15 * Math.sin(time * 40));
+        return;
+      }
+      // Unlit: it bobs on its coil, leaning into its sway, a little curly fuse on top.
+      const sway = Number(bud.sway) || 0, tilt = still || !sway ? 0 : .22 * Math.min(1, sway / 24) * Math.cos((Number(bud.swayW) || 0) * (clock - (Number(bud.born) || 0)) + (Number(bud.swayPhase) || 0));
+      ctx.save(); ctx.translate(x, y); if (tilt) ctx.rotate(tilt);
+      wzStamp(ctx, kit, WZ_SPRITES.stem(r), 0, 0);
+      wzStamp(ctx, kit, WZ_SPRITES.body(r, 'calm'), 0, 0);
+      wzFuse(ctx, 0, -r * 1.72, 7, still ? 0 : time);
+      ctx.restore();
+    },
+    over(ctx, state, time, still, kit, quality) {
+      for (const bud of state.buds || []) {
+        const w = bud.foe === 'whizzbang' && !bud.bloomed && !bud.hidden && bud.whizz;
+        if (w && w.mode === 'lit') { ctx.save(); wzMarks(ctx, state, wzLitPlan(state, bud), bud, kit); ctx.restore(); }
+        if (w && (w.mode === 'fly' || w.mode === 'bang') && w.path) { ctx.save(); wzFlight(ctx, bud, state, time, still, kit, quality); ctx.restore(); }
+      }
+      // The bang: a burst of rays where a rocket went off, for .4 s after it blooms.
+      for (const bud of state.buds || []) {
+        if (bud.foe !== 'whizzbang' || !bud.bloomed || !bud.whizz || !bud.whizz.done || typeof bud.bloomAt !== 'number') continue;
+        const e = (time - bud.bloomAt) / .4; if (!(e >= 0 && e < 1)) continue;
+        ctx.save(); ctx.globalAlpha *= still ? .8 : 1 - e;
+        const k = still ? 1 : .4 + .8 * kit.easeBack(e); wzStamp(ctx, kit, WZ_SPRITES.burst(), bud.x, bud.y, still ? 0 : e * .5, k);
+        ctx.restore();
+      }
+    },
+    aim(ctx, state, time, still, kit) {
+      // Aimed at an unlit whizzbang: the column it would fly and how many flowers it would take.
+      const aim = state.aim, target = aim && aim.target;
+      if (!target || target.foe !== 'whizzbang' || target.whizz || target.bloomed) return;
+      const W = wzRules(); if (!W || typeof W.plan !== 'function') return;
+      let length = 0; for (let i = 1; i < aim.length; i++) if (aim[i] && aim[i - 1]) length += Math.hypot(aim[i].x - aim[i - 1].x, aim[i].y - aim[i - 1].y);
+      const ahead = length / Math.max(1, Number(state.speed) || 520) + 1;
+      let plan = null; try { plan = W.plan(state, target, ahead, null, wzBossAt(state, ahead)); } catch (error) { plan = null; }
+      if (!plan) return;
+      wzColumn(ctx, state, plan, time, still);
+      // The count rides beside the launch spot: the column's top is under the wave banner while a wave opens.
+      const at = wzMarks(ctx, state, plan, target, kit), r = Number(target.r) || 12, side = at.x > 210 ? -1 : 1;
+      const n = Math.min(12, (plan.pins || []).length + (plan.bangs || []).length);
+      wzStamp(ctx, kit, WZ_SPRITES.pill(n), clamp(at.x + side * (r + 24), 30, 390), at.y + r * .4);
+    }
+  });
+  // The curly fuse: three little arcs rising `len` px from (x, y); returns its tip, where the spark rides.
+  function wzFuse(ctx, x, y, len, time) {
+    if (len <= .3) return { x, y };
+    const wig = 1.7, n = 3, step = len / n, sway = Math.sin(time * 5) * .6;
+    ctx.lineCap = 'round';
+    for (const [color, width] of [[WZ.ink, 3.2], [WZ.fuse, 1.8]]) {
+      ctx.beginPath(); ctx.moveTo(x, y);
+      for (let i = 0; i < n; i++) ctx.quadraticCurveTo(x + (i % 2 ? -wig : wig) + sway * (i + 1) / n, y - step * (i + .5), x + sway * (i + 1) / n, y - step * (i + 1));
+      ctx.strokeStyle = color; ctx.lineWidth = width; ctx.stroke();
+    }
+    return { x: x + sway, y: y - len };
+  }
 
   // ── Lodestone (Level 8, `lodestone`) ──
 
@@ -4136,6 +4383,339 @@
   });
 
   // ── Ember Rose (Level 7, `ember`) ──
+  // A flamenco fire-rose. Her face follows her mood (s.tier): Flickering is sly (half-moon eyes, a dimpled smile, a
+  // flame curl that flicks on her crown), Dancing beams (closed ^ ^ eyes, rosy cheeks, a gold comb; she sings an "O"
+  // through the castanet count and is out of breath in Olé), Blazing glares (round eyes with star glints, set brows, a
+  // toothy grin under a crown of three flames). Her fire rings are wreaths of flame round a dark hole that turn, the "in"
+  // ring marked with an up chevron and the "out" ring a down one, a gold arc counting down their life and a dotted ember
+  // arc linking them; she swoops into one, shrinking and spinning, and bursts out of the other in a gold flash. A cinder is
+  // a plum coal-seed licked by flames with a white catch ring near the bottom; a miss cools to a cracked coal that glows.
+  // The castanets clack the count over three lamps above her head, with a dashed line where the stomp stops; the barrage
+  // shows the whizzbangs to come with dotted columns up to her; Olé rings her with turning gold stars and a countdown.
+  const EMB = { light: '#fff2b1', base: '#ff9652', dark: '#b63b65', ink: '#732c48', face: '#ffd396', eye: '#aa4b5a', poppy: '#ff7433', gold: '#ffd148',
+    coal: '#3f302e', ash: '#5b3b35', hole: '#1b0d10', cheek: '#ff8f8f', lid: '#ee9e6a', petals: ['#e25b69', '#ffb56c', '#ffe5a0'], petalInk: '#c75565', sweat: '#9fdcff' };
+  const EMB_LOOKS = ['calm', 'blink', 'hurt', 'sing', 'ole'];
+  // A teardrop flame pointing up from (x, y): poppy outside, gold inside, inked.
+  function embFlame(c, x, y, w, h, lean = 0, ink = 0) {
+    const drop = (k, color) => {
+      c.beginPath(); c.moveTo(x - w * k, y); c.quadraticCurveTo(x - w * k, y - h * k * .55, x + lean * k, y - h * k);
+      c.quadraticCurveTo(x + w * k, y - h * k * .55, x + w * k, y); c.quadraticCurveTo(x, y + w * k * .8, x - w * k, y); c.closePath(); c.fillStyle = color; c.fill();
+      if (k === 1 && ink) { c.strokeStyle = EMB.ink; c.lineWidth = ink; c.stroke(); }
+    };
+    drop(1, EMB.poppy); drop(.58, EMB.gold); drop(.25, '#fffbe6');
+  }
+  // Her face for a mood and a look, around its own centre (unit = her radius).
+  function paintEmberFace(c, r, tier, look, frame) {
+    c.save(); c.scale(r, r); c.lineCap = 'round'; c.lineJoin = 'round';
+    const px = 1 / r, ink = EMB.ink, ex = .24, ey = -.02;
+    // The crown first: it sits on her petals above the face.
+    if (tier === 0) {
+      // One flame curl that flicks from side to side.
+      const lean = frame ? .09 : -.09;
+      c.save(); c.translate(.05, -.46); embFlame(c, 0, 0, .17, .56, lean, 1.2 * px);
+      c.beginPath(); c.arc(lean - .08, -.48, .09, -Math.PI * .1, Math.PI * 1.2); c.strokeStyle = EMB.poppy; c.lineWidth = 2.2 * px; c.stroke(); c.restore();
+    } else if (tier === 1) {
+      // A three-petal gold comb, worn to one side.
+      c.save(); c.translate(-.24, -.5); c.rotate(-.35); c.scale(1.35, 1.35);
+      c.beginPath(); c.moveTo(-.2, .02); c.lineTo(.2, .02); c.strokeStyle = ink; c.lineWidth = 3.2 * px; c.stroke(); c.strokeStyle = EMB.gold; c.lineWidth = 1.6 * px; c.stroke();
+      for (const [a, k] of [[-.75, .12], [0, .15], [.75, .12]]) { c.beginPath(); c.ellipse(Math.sin(a) * .16, -.06 - Math.cos(a) * .14, k * .7, k, a, 0, TAU); c.fillStyle = EMB.gold; c.fill(); c.strokeStyle = ink; c.lineWidth = 1.1 * px; c.stroke(); }
+      c.beginPath(); c.arc(0, -.04, .05, 0, TAU); c.fillStyle = EMB.poppy; c.fill(); c.restore();
+    } else {
+      // A crown of three flames, the middle one tallest.
+      for (const [x, h, lean] of [[-.25, .42, -.08], [.25, .42, .08], [0, .58, 0]]) embFlame(c, x, -.44, .15, h, lean, 1.1 * px);
+    }
+    // Cheeks.
+    c.globalAlpha = tier === 1 ? .85 : .55;
+    for (const side of [-1, 1]) { c.beginPath(); c.ellipse(side * .38, .17, .1, .06, 0, 0, TAU); c.fillStyle = EMB.cheek; c.fill(); }
+    c.globalAlpha = 1; c.strokeStyle = ink; c.fillStyle = ink;
+    const roundEyes = (size, glint) => {
+      for (const side of [-1, 1]) {
+        c.beginPath(); c.arc(side * ex, ey, size, 0, TAU); c.fillStyle = '#ffffff'; c.fill(); c.lineWidth = 1.2 * px; c.strokeStyle = ink; c.stroke();
+        c.beginPath(); c.arc(side * ex, ey + .01, size * .58, 0, TAU); c.fillStyle = EMB.eye; c.fill();
+        c.beginPath(); c.arc(side * ex, ey + .01, size * .28, 0, TAU); c.fillStyle = ink; c.fill();
+        if (glint) { c.beginPath(); starPathLocal(c, side * ex - size * .3, ey - size * .32, size * .42); c.fillStyle = '#ffffff'; c.fill(); }
+        else { c.beginPath(); c.arc(side * ex - size * .3, ey - size * .3, size * .2, 0, TAU); c.fillStyle = '#ffffff'; c.fill(); }
+      }
+    };
+    // Eyes.
+    if (look === 'hurt') {
+      c.lineWidth = 1.8 * px;
+      for (const side of [-1, 1]) { c.beginPath(); c.moveTo(side * (ex + .09), ey - .08); c.lineTo(side * (ex - .06), ey); c.lineTo(side * (ex + .09), ey + .08); c.stroke(); }
+    } else if (look === 'blink') {
+      c.lineWidth = 1.7 * px; for (const side of [-1, 1]) { c.beginPath(); c.arc(side * ex, ey - .04, .09, .2 * Math.PI, .8 * Math.PI); c.stroke(); }
+    } else if (look === 'ole') roundEyes(.13, false);
+    else if (tier === 0) {
+      // Sly half-moons: the lids come down to 45%, the eyes glance to the side.
+      for (const side of [-1, 1]) {
+        c.save(); c.beginPath(); c.ellipse(side * ex, ey, .115, .12, 0, 0, TAU); c.fillStyle = '#ffffff'; c.fill(); c.clip();
+        c.beginPath(); c.arc(side * ex + .04, ey + .03, .07, 0, TAU); c.fillStyle = EMB.eye; c.fill();
+        c.beginPath(); c.arc(side * ex + .04, ey + .03, .033, 0, TAU); c.fillStyle = ink; c.fill();
+        c.fillStyle = EMB.lid; c.fillRect(side * ex - .2, ey - .2, .4, .188); c.restore();
+        c.beginPath(); c.ellipse(side * ex, ey, .115, .12, 0, 0, TAU); c.lineWidth = 1.1 * px; c.stroke();
+        c.beginPath(); c.moveTo(side * ex - .13, ey - .012); c.lineTo(side * ex + .13, ey - .012); c.lineWidth = 1.8 * px; c.stroke();
+        c.beginPath(); c.moveTo(side * (ex + .1), ey - .03); c.lineTo(side * (ex + .16), ey - .08); c.lineWidth = 1.2 * px; c.stroke();
+      }
+    } else if (tier === 1) {
+      c.lineWidth = 2 * px; for (const side of [-1, 1]) { c.beginPath(); c.arc(side * ex, ey + .05, .1, 1.12 * Math.PI, 1.88 * Math.PI); c.stroke(); }
+    } else roundEyes(.135, true);
+    // Brows (Blazing only): short and set.
+    if (tier === 2 && look !== 'ole') for (const side of [-1, 1]) {
+      c.beginPath(); c.moveTo(side * .37, -.25); c.lineTo(side * .13, -.17); c.strokeStyle = ink; c.lineWidth = 3.4 * px; c.stroke(); c.strokeStyle = EMB.dark; c.lineWidth = 2 * px; c.stroke();
+    }
+    c.strokeStyle = ink; c.fillStyle = ink;
+    // Mouth.
+    if (look === 'sing') { c.beginPath(); c.ellipse(0, .22, .085, .11, 0, 0, TAU); c.fillStyle = '#5b1f37'; c.fill(); c.lineWidth = 1.2 * px; c.stroke(); c.beginPath(); c.ellipse(0, .27, .05, .035, 0, 0, TAU); c.fillStyle = EMB.cheek; c.fill(); }
+    else if (look === 'ole') {
+      c.beginPath(); c.ellipse(0, .23, .055, .07, 0, 0, TAU); c.fillStyle = '#5b1f37'; c.fill(); c.lineWidth = 1.1 * px; c.stroke();
+      // A drop of sweat on her brow.
+      const sx = .42, sy = -.3, s = .07; c.beginPath(); c.moveTo(sx, sy - s * 1.8); c.bezierCurveTo(sx + s * .3, sy - s, sx + s, sy - s * .2, sx + s, sy + s * .2); c.arc(sx, sy + s * .2, s, 0, Math.PI);
+      c.bezierCurveTo(sx - s, sy - s * .2, sx - s * .3, sy - s, sx, sy - s * 1.8); c.closePath(); c.fillStyle = EMB.sweat; c.fill(); c.lineWidth = .9 * px; c.strokeStyle = '#3c78a8'; c.stroke();
+    } else if (look === 'hurt') { c.beginPath(); c.moveTo(-.12, .27); c.quadraticCurveTo(-.06, .2, 0, .26); c.quadraticCurveTo(.06, .32, .12, .25); c.lineWidth = 1.5 * px; c.stroke(); }
+    else if (tier === 0) {
+      c.beginPath(); c.arc(-.02, .14, .12, .22 * Math.PI, .78 * Math.PI); c.lineWidth = 1.6 * px; c.stroke();
+      c.beginPath(); c.arc(.13, .2, .03, -.3 * Math.PI, .5 * Math.PI); c.lineWidth = 1.1 * px; c.stroke();
+    } else if (tier === 1) {
+      c.beginPath(); c.moveTo(-.15, .16); c.quadraticCurveTo(0, .4, .15, .16); c.closePath(); c.fillStyle = '#5b1f37'; c.fill(); c.lineWidth = 1.2 * px; c.stroke();
+      c.beginPath(); c.ellipse(0, .27, .06, .035, 0, 0, TAU); c.fillStyle = EMB.cheek; c.fill();
+    } else {
+      // A toothy grin.
+      c.beginPath(); c.moveTo(-.2, .15); c.quadraticCurveTo(0, .17, .2, .15); c.quadraticCurveTo(.16, .36, 0, .36); c.quadraticCurveTo(-.16, .36, -.2, .15); c.closePath();
+      c.fillStyle = '#ffffff'; c.fill(); c.lineWidth = 1.3 * px; c.stroke();
+      c.beginPath(); for (const x of [-.07, .07]) { c.moveTo(x, .16); c.lineTo(x, .33); } c.moveTo(-.18, .22); c.quadraticCurveTo(0, .25, .18, .22); c.lineWidth = .8 * px; c.stroke();
+    }
+    c.restore();
+  }
+  // A small four-point star in local units (sprites only).
+  function starPathLocal(c, x, y, s) { c.moveTo(x, y - s); c.quadraticCurveTo(x + s * .16, y - s * .13, x + s, y); c.quadraticCurveTo(x + s * .15, y + s * .14, x, y + s); c.quadraticCurveTo(x - s * .16, y + s * .14, x - s, y); c.quadraticCurveTo(x - s * .14, y - s * .15, x, y - s); c.closePath(); }
+  // Her flower for the teleport swoop: three layers of five blades round her face disk, with her singing face.
+  function paintEmberSwoop(c, r) {
+    c.save(); c.lineJoin = 'round';
+    for (let layer = 0; layer < 3; layer++) for (let i = 0; i < 5; i++) {
+      const a = i * TAU / 5 + layer * .43, len = r * (1.2 - layer * .23), wid = r * (.52 - layer * .08);
+      c.save(); c.rotate(a); c.beginPath(); c.moveTo(0, 0); c.quadraticCurveTo(wid, -len * .45, 0, -len); c.quadraticCurveTo(-wid, -len * .45, 0, 0); c.closePath();
+      c.fillStyle = EMB.petals[layer === 1 ? 1 : layer === 2 ? 2 : 0]; c.fill(); c.strokeStyle = EMB.petalInk; c.lineWidth = 1.2; c.stroke(); c.restore();
+    }
+    c.beginPath(); c.arc(0, r * .08, r * .52, 0, TAU); c.fillStyle = EMB.face; c.fill(); c.strokeStyle = '#db8960'; c.lineWidth = 1; c.stroke();
+    c.restore();
+    c.save(); c.translate(0, r * .05); paintEmberFace(c, r, 1, 'sing', 0); c.restore();
+  }
+  // A fire ring: twelve flame tongues round a dark hole with a plum rim.
+  function paintEmberRing(c, r) {
+    c.beginPath(); c.arc(0, 0, r * .98, 0, TAU); c.fillStyle = EMB.poppy; c.fill(); c.strokeStyle = EMB.ink; c.lineWidth = .9; c.stroke();
+    for (let i = 0; i < 12; i++) { c.save(); c.rotate(i * TAU / 12 + (i % 2 ? .1 : 0)); embFlame(c, 0, -r * .74, r * (i % 2 ? .24 : .3), r * (i % 2 ? .5 : .66), (i % 2 ? .07 : -.07) * r, .9); c.restore(); }
+    c.beginPath(); c.arc(0, 0, r * .86, 0, TAU); c.strokeStyle = EMB.gold; c.lineWidth = 2.4; c.stroke();
+    c.beginPath(); c.arc(0, 0, r * .78, 0, TAU); c.fillStyle = EMB.hole; c.fill(); c.strokeStyle = EMB.dark; c.lineWidth = 2.6; c.stroke();
+    c.beginPath(); c.arc(0, 0, r * .62, 0, TAU); c.strokeStyle = 'rgba(255,150,82,.45)'; c.lineWidth = 1.4; c.stroke();
+    c.beginPath(); c.arc(0, 0, r * .8 + 1.6, 0, TAU); c.strokeStyle = EMB.ink; c.lineWidth = .9; c.stroke();
+  }
+  function paintEmberChevron(c, up) {
+    c.lineCap = 'round'; c.lineJoin = 'round'; const k = up ? -1 : 1;
+    for (const [color, width] of [['#fff6ce', 4.4], [EMB.dark, 2.2]]) { c.beginPath(); c.moveTo(-5, -k * 2.5); c.lineTo(0, k * 2.5); c.lineTo(5, -k * 2.5); c.strokeStyle = color; c.lineWidth = width; c.stroke(); }
+  }
+  // A cinder: a plum coal-seed with a poppy rim and a gold glint, three flame licks on top (two frames).
+  function paintEmberCinder(c, r, frame) {
+    c.lineJoin = 'round';
+    for (const [x, h, lean] of frame ? [[-r * .5, r * .85, -1.5], [r * .5, r * 1, 1.6], [0, r * 1.4, .8]] : [[-r * .5, r * 1, -.8], [r * .5, r * .85, 1.4], [0, r * 1.3, -1.2]]) embFlame(c, x, -r * .5, r * .32, h, lean, .8);
+    c.beginPath(); c.ellipse(0, 0, r, r * .92, 0, 0, TAU); c.fillStyle = '#93365c'; c.fill(); c.strokeStyle = EMB.poppy; c.lineWidth = 2.2; c.stroke();
+    c.beginPath(); c.moveTo(-r * .35, r * .1); c.lineTo(-r * .05, -r * .1); c.lineTo(r * .2, r * .2); c.moveTo(-r * .05, -r * .1); c.lineTo(r * .05, -r * .45);
+    c.strokeStyle = EMB.gold; c.lineWidth = 1.6; c.lineCap = 'round'; c.stroke();
+    c.beginPath(); c.ellipse(-r * .4, -r * .38, r * .22, r * .12, -.6, 0, TAU); c.fillStyle = 'rgba(255,241,186,.75)'; c.fill();
+    c.beginPath(); c.ellipse(0, 0, r + 1, r * .92 + 1, 0, 0, TAU); c.strokeStyle = EMB.ink; c.lineWidth = .8; c.stroke();
+  }
+  // A coal on the floor, as long as its collider (26 + two 6 px caps): charcoal with ash, and its glowing cracks apart.
+  function paintEmberCoal(c, cracks) {
+    const pill = () => { c.beginPath(); c.moveTo(-13, -6); c.lineTo(13, -6); c.arc(13, 0, 6, -Math.PI / 2, Math.PI / 2); c.lineTo(-13, 6); c.arc(-13, 0, 6, Math.PI / 2, Math.PI * 1.5); c.closePath(); };
+    c.lineCap = 'round'; c.lineJoin = 'round';
+    if (!cracks) {
+      pill(); c.fillStyle = EMB.coal; c.fill(); c.save(); c.clip();
+      c.beginPath(); c.ellipse(-4, -4, 14, 3, 0, 0, TAU); c.fillStyle = EMB.ash; c.fill();
+      for (const [x, y] of [[-11, 2], [3, 3], [12, -1]]) { c.beginPath(); c.arc(x, y, 2, 0, TAU); c.fillStyle = '#52403c'; c.fill(); }
+      // Still hot underneath: a poppy glow along its belly, so it reads as a live coal on the dark floor.
+      c.beginPath(); c.ellipse(0, 6.5, 17, 3.2, 0, 0, TAU); c.fillStyle = 'rgba(255,116,51,.6)'; c.fill();
+      c.restore(); pill(); c.strokeStyle = '#231817'; c.lineWidth = 1.4; c.stroke(); return;
+    }
+    for (const [color, width] of [['rgba(255,150,82,.6)', 4.2], ['#ffb04a', 2], ['#fff0a0', .9]]) {
+      c.beginPath(); c.moveTo(-15, 1); c.lineTo(-8, -1); c.lineTo(-3, 2); c.lineTo(4, -2); c.lineTo(9, 1); c.lineTo(15, -1); c.moveTo(-3, 2); c.lineTo(-1, 5); c.moveTo(4, -2); c.lineTo(6, -5);
+      c.strokeStyle = color; c.lineWidth = width; c.stroke();
+    }
+  }
+  // A castanet: two plum shells hinged on a gold string, opening to the right.
+  function paintEmberCastanet(c) {
+    c.lineJoin = 'round'; c.lineCap = 'round';
+    for (const [y, a] of [[-2.2, -.22], [2.2, .22]]) { c.save(); c.translate(-1, y); c.rotate(a); c.beginPath(); c.ellipse(1.5, 0, 5.2, 3.3, 0, 0, TAU); c.fillStyle = EMB.dark; c.fill(); c.strokeStyle = EMB.ink; c.lineWidth = 1.2; c.stroke(); c.beginPath(); c.ellipse(.6, -1, 2.4, 1, 0, 0, TAU); c.fillStyle = 'rgba(255,214,190,.6)'; c.fill(); c.restore(); }
+    c.beginPath(); c.moveTo(-4.5, 0); c.quadraticCurveTo(-6.5, -3.5, -4, -5.6); c.strokeStyle = EMB.gold; c.lineWidth = 1.3; c.stroke();
+    c.beginPath(); c.arc(-4.6, 0, 1.4, 0, TAU); c.fillStyle = EMB.gold; c.fill(); c.strokeStyle = EMB.ink; c.lineWidth = .8; c.stroke();
+  }
+  const EMB_SPRITES = {
+    face: (r, tier, look, frame) => [`kit:ember:face:${r}:${tier}:${look}:${frame}`, [-r * .66, -r * 1.12, r * .66, r * .5], c => paintEmberFace(c, r, tier, look, frame)],
+    swoop: r => [`kit:ember:swoop:${r}`, [-r * 1.25, -r * 1.25, r * 1.25, r * 1.25], c => paintEmberSwoop(c, r)],
+    ring: r => [`kit:ember:ring:${r}`, [-r * 1.5, -r * 1.5, r * 1.5, r * 1.5], c => paintEmberRing(c, r)],
+    chevron: up => [`kit:ember:chevron:${up ? 'in' : 'out'}`, [-7.5, -5.5, 7.5, 5.5], c => paintEmberChevron(c, up)],
+    cinder: (r, f) => [`kit:ember:cinder:${r}:${f}`, [-r - 3, -r * 2.1, r + 3, r + 3], c => paintEmberCinder(c, r, f)],
+    coal: cracks => [`kit:ember:coal:${cracks ? 'cracks' : 'body'}`, [-20, -8, 20, 8], c => paintEmberCoal(c, cracks)],
+    castanet: () => ['kit:ember:castanet', [-8, -7, 8, 7], paintEmberCastanet]
+  };
+  const embStamp = (ctx, kit, [key, box, paint], x, y, turn, sx, sy) => stamp(ctx, kit, key, box, paint, x, y, turn, sx, sy);
+  const embRings = state => (state.gates || []).filter(g => g && g.bossRing && g.kitDrawn && Number.isFinite(g.x) && Number.isFinite(g.y));
+  kitLook('ember', {
+    warm(kit) {
+      const r = 26, jobs = [EMB_SPRITES.swoop(r), EMB_SPRITES.ring(18), EMB_SPRITES.chevron(true), EMB_SPRITES.chevron(false), EMB_SPRITES.cinder(9, 0), EMB_SPRITES.cinder(9, 1),
+        EMB_SPRITES.coal(false), EMB_SPRITES.coal(true), EMB_SPRITES.castanet()];
+      for (const tier of [0, 1, 2]) for (const look of EMB_LOOKS) for (const frame of tier === 0 && (look === 'calm' || look === 'blink') ? [0, 1] : [0]) jobs.push(EMB_SPRITES.face(r, tier, look, frame));
+      for (const [key, box, paint] of jobs) kit.atlasSprite(key, box[0], box[1], box[2], box[3], paint);
+      // Her barrage sows whizzbangs, so their sprites are painted with hers.
+      if (LOOKS.whizzbang && LOOKS.whizzbang.warm) LOOKS.whizzbang.warm(kit, 12);
+    },
+    under(ctx, state, s, time, still, kit) {
+      // Coals on the floor: the cracks glow and breathe, and the coal fades out over its last second.
+      const clock = Number(s.kitAge) || 0;
+      for (const coal of state.bumpers || []) {
+        if (!coal || !coal.bossCoal || !Number.isFinite(coal.x) || !Number.isFinite(coal.y)) continue;
+        const left = Number.isFinite(coal.kitUntil) ? coal.kitUntil - clock : 4, fade = clamp(left, 0, 1), land = still ? 1 : clamp((clock - (Number(coal.kitAt) || 0)) / .18, 0, 1);
+        if (fade <= 0) continue;
+        ctx.save(); ctx.globalAlpha *= fade;
+        embStamp(ctx, kit, EMB_SPRITES.coal(false), coal.x, coal.y, coal.angle || 0, 1.15 - .15 * land, .7 + .3 * land);
+        ctx.globalAlpha *= still ? .9 : .75 + .25 * Math.sin(clock * 4 + coal.x * .1);
+        embStamp(ctx, kit, EMB_SPRITES.coal(true), coal.x, coal.y, coal.angle || 0);
+        ctx.restore();
+      }
+    },
+    part(ctx, state, s, bud, time, still, kit, quality) {
+      if (bud.bossPart !== 'cinder') return false;
+      const clock = Number(s.kitAge) || 0, age = clock - (Number(bud.born) || 0), r = Number(bud.r) || 9, ghost = Boolean(bud.ghost) || age < .4;
+      const grow = ghost ? .7 + .3 * clamp(age / .4, 0, 1) : 1;
+      // A short ember trail above it as it falls.
+      if (!ghost && quality === 0) for (let k = 1; k <= 3; k++) {
+        ctx.save(); ctx.globalAlpha *= .55 - k * .14; kit.circle(ctx, bud.x + (still ? 0 : Math.sin(time * 9 + k) * 1.2), bud.y - r - 3 - k * 5.5, 2.4 - k * .45, k % 2 ? EMB.poppy : EMB.gold); ctx.restore();
+      }
+      // Near the bottom, a dashed white ring says: catch me.
+      if (!ghost && bud.y > 300) {
+        ctx.save(); ctx.globalAlpha *= still ? .85 : .55 + .35 * Math.sin(time * 7); ctx.setLineDash([3.5, 3]); ctx.lineDashOffset = still ? 0 : -time * 10;
+        kit.circle(ctx, bud.x, bud.y, r + 5, null, '#ffffff', 1.8); ctx.restore();
+      }
+      ctx.save(); if (ghost) ctx.globalAlpha *= .55;
+      embStamp(ctx, kit, EMB_SPRITES.cinder(r, still ? 0 : Math.floor(clock * 8) % 2), bud.x, bud.y, still ? 0 : Math.sin(time * 5 + r) * .08, grow);
+      ctx.restore();
+      return true;
+    },
+    face(ctx, state, s, bud, time, still, kit) {
+      if (!bud.boss) return false;
+      const r = Number(bud.r) || 26, look = kit.BOSS_LOOKS && kit.BOSS_LOOKS.ember || {}, tier = clamp(Number(s.tier) | 0, 0, 2), mode = s.mode || '';
+      const health = (Number(bud.hp) || 0) / Math.max(1, Number(bud.maxHp) || 1);
+      // Her face turns with her body (art.js's ember sway, faster in a dive) and shivers when she is nearly beaten.
+      let tilt = still ? 0 : Math.sin(time * (mode === 'dive' ? 7 : 3.5)) * (mode === 'dive' ? .18 : .075);
+      if (!still && health <= .2) tilt += Math.sin(time * TAU * 6) * .04;
+      const w = s.warning, singing = w && w.move === 'stomp' && time < w.until, hurt = typeof bud.hitAt === 'number' && time - bud.hitAt >= 0 && time - bud.hitAt < .3;
+      const blink = !still && (time + r * .1) % 3.6 < .12;
+      const variant = hurt ? 'hurt' : mode === 'ole' ? 'ole' : singing ? 'sing' : blink ? 'blink' : 'calm';
+      const frame = tier === 0 && (variant === 'calm' || variant === 'blink') && !still ? Math.floor(time * 6) % 2 : 0;
+      ctx.translate(bud.x, bud.y); if (tilt) ctx.rotate(tilt); ctx.translate(r * (look.faceX || 0), r * (look.faceY != null ? look.faceY : .05));
+      embStamp(ctx, kit, EMB_SPRITES.face(r, tier, variant, frame), 0, 0);
+      return true;
+    },
+    over(ctx, state, s, time, still, kit, quality) {
+      const clock = Number(s.kitAge) || 0, boss = s.boss, live = boss && !boss.bloomed, rings = embRings(state);
+      const ringA = rings.find(g => /-ring-a$/.test(g.id)), ringB = rings.find(g => /-ring-b$/.test(g.id));
+      // The dotted ember arc that links her rings while they are open.
+      if (ringA && ringB) {
+        const mx = (ringA.x + ringB.x) / 2, my = (ringA.y + ringB.y) / 2, bend = (ringB.x < ringA.x ? -1 : 1) * 46, pts = [];
+        for (let i = 0; i <= 18; i++) { const u = i / 18, cx = mx + bend, cy = my; pts.push([(1 - u) * (1 - u) * ringA.x + 2 * u * (1 - u) * cx + u * u * ringB.x, (1 - u) * (1 - u) * ringA.y + 2 * u * (1 - u) * cy + u * u * ringB.y]); }
+        const left = Math.min(...[ringA, ringB].map(g => Number.isFinite(g.kitUntil) ? g.kitUntil - clock : 6));
+        ctx.save(); ctx.globalAlpha *= .55 * clamp(left / 1.5, .3, 1); dotted(ctx, pts.slice(2, -2), EMB.base, 1.7, 10, still ? 0 : time * 34); ctx.restore();
+      }
+      for (const g of rings) {
+        const left = Number.isFinite(g.kitUntil) ? g.kitUntil - clock : 6, k = clamp(left / 1.5, 0, 1), born = clamp((clock - (Number(g.kitAt) || 0)) / .2, 0, 1);
+        if (left <= 0) continue;
+        const scale = (left < 1.5 ? .8 + .2 * k : 1) * (still ? 1 : .4 + .6 * kit.easeBack(born)), r = Number(g.r) || 18;
+        ctx.save(); ctx.globalAlpha *= left < 1.5 ? .5 + .5 * k : 1;
+        embStamp(ctx, kit, EMB_SPRITES.ring(18), g.x, g.y, still ? 0 : clock * 1.4 * (g === ringB ? -1 : 1), scale * r / 18);
+        // Its life, counting down in gold just outside the flames.
+        ctx.lineCap = 'round'; const R = r * 1.4 + 3, frac = clamp(left / 6, 0, 1);
+        for (const [color, width] of [['rgba(255,246,206,.85)', 3.6], [EMB.gold, 2]]) { ctx.beginPath(); ctx.arc(g.x, g.y, R * scale, -Math.PI / 2, -Math.PI / 2 + frac * TAU); ctx.strokeStyle = color; ctx.lineWidth = width; ctx.stroke(); }
+        embStamp(ctx, kit, EMB_SPRITES.chevron(g === ringA), g.x, g.y + (still ? 0 : Math.sin(time * 4) * 1.5) * (g === ringA ? -1 : 1), 0, scale);
+        ctx.restore();
+      }
+      // The teleport dive: into ring A, shrinking and spinning, then out of ring B in a gold flash, down to her spot.
+      if (boss && s.mode === 'ring' && ringA && ringB) {
+        const u = clock - (Number(ringA.kitAt) || 0), from = s.ringFrom || { x: boss.x, y: boss.y }, landY = Number.isFinite(boss.startY) ? boss.startY : 100;
+        if (u >= 0 && u < .45) {
+          const sprite = EMB_SPRITES.swoop(26);
+          if (still) embStamp(ctx, kit, sprite, u < .225 ? ringA.x : ringB.x, u < .225 ? ringA.y : ringB.y, 0, .6);
+          else if (u < .25) {
+            const k = u / .25, e = k * k, cx = (from.x + ringA.x) / 2, cy = (from.y + ringA.y) / 2 - 40;
+            const at = q => ({ x: (1 - q) * (1 - q) * from.x + 2 * q * (1 - q) * cx + q * q * ringA.x, y: (1 - q) * (1 - q) * from.y + 2 * q * (1 - q) * cy + q * q * ringA.y });
+            const puffs = quality >= 2 ? 0 : quality === 1 ? 2 : 4;
+            for (let j = 1; j <= puffs; j++) { const q = Math.max(0, e - j * .07), p = at(q); ctx.save(); ctx.globalAlpha *= .5 * (1 - j / (puffs + 1)); kit.circle(ctx, p.x, p.y, 10 - j * 1.5, EMB.poppy); ctx.restore(); }
+            const p = at(e); embStamp(ctx, kit, sprite, p.x, p.y, e * TAU, 1 - .7 * e);
+          } else {
+            const k = clamp((u - .25) / .2, 0, 1), e = kit.smooth(k), y = ringB.y + (landY - ringB.y) * e;
+            ctx.save(); ctx.globalAlpha *= 1 - k; kit.circle(ctx, ringB.x, ringB.y, 18 + 18 * k, null, EMB.gold, 3.5 * (1 - k) + .5); ctx.restore();
+            embStamp(ctx, kit, sprite, ringB.x, y, 0, .3 + .7 * kit.easeBack(k));
+          }
+        }
+      }
+      if (!live || boss.hidden) return;
+      const r = Number(boss.r) || 26, w = s.warning;
+      // Tells, through each warning.
+      if (w && Number.isFinite(w.until) && time < w.until) {
+        // Counted back from its end: a Lullaby pushes w.until (not w.at), so the count holds with her clock.
+        const span = Math.max(.1, Number(root.BloomBosses && root.BloomBosses.telegraph) || 1.3), since = Math.max(0, span - (w.until - time)), p = clamp(since / span, 0, 1);
+        const targets = Array.isArray(w.targets) ? w.targets : [];
+        if (w.move === 'rings') {
+          // Ghost fire rings swell where they will open, and fill their circles as the count runs.
+          for (const t of targets.filter(t => t.role === 'ringA' || t.role === 'ringB')) {
+            ctx.save(); ctx.globalAlpha *= .25 + .45 * p; embStamp(ctx, kit, EMB_SPRITES.ring(18), t.x, t.y, still ? 0 : time * 1.4, .45 + .45 * p); ctx.restore();
+            ctx.save(); ctx.lineCap = 'round'; ctx.beginPath(); ctx.arc(t.x, t.y, (Number(t.r) || 18) + 3, -Math.PI / 2, -Math.PI / 2 + TAU * p); ctx.strokeStyle = EMB.poppy; ctx.lineWidth = 2.4; ctx.stroke(); ctx.restore();
+            embStamp(ctx, kit, EMB_SPRITES.chevron(t.role === 'ringA'), t.x, t.y, 0, .8);
+          }
+        } else if (w.move === 'stomp') {
+          // The castanet count: they clack at 0, .43 and .86 s, lighting a lamp over her head each time.
+          const clicks = [0, .43, .86], lit = clicks.filter(t => since >= t).length;
+          for (const side of [-1, 1]) {
+            let pulse = 1;
+            if (!still) for (const t of clicks) { const q = (since - t) / .12; if (q >= 0 && q < 1) pulse = 1 + .25 * Math.sin(Math.PI * q); }
+            embStamp(ctx, kit, EMB_SPRITES.castanet(), boss.x + side * (r + 10), boss.y + 4, side < 0 ? Math.PI : 0, 1.2 * pulse, (side < 0 ? -1.2 : 1.2) * pulse);
+          }
+          for (let i = 0; i < 3; i++) {
+            const x = boss.x + (i - 1) * 14, y = boss.y - r - 12;
+            if (i < lit) kit.circle(ctx, x, y, 4.5, EMB.gold, EMB.ink, 1.5); else kit.circle(ctx, x, y, 4.5, 'rgba(115,44,72,.35)', '#fff2b1', 1.5);
+          }
+          // Where the stomp will stop the flowers.
+          const line = (Number(state.dangerY) || 448) - 70;
+          ctx.save(); ctx.globalAlpha *= .7; ctx.setLineDash([8, 6]); ctx.lineDashOffset = still ? 0 : -time * 18;
+          for (const [color, width] of [['rgba(255,255,255,.55)', 4], [EMB.base, 2]]) { ctx.beginPath(); ctx.moveTo(28, line); ctx.lineTo(392, line); ctx.strokeStyle = color; ctx.lineWidth = width; ctx.stroke(); }
+          ctx.restore();
+          if (quality <= 1) {
+            ctx.lineCap = 'round'; ctx.lineJoin = 'round'; let n = 0;
+            for (const b of state.buds || []) {
+              if (n >= 24 || b.bloomed || b.hidden || b.ghost || b.boss || b.bossPart || b.y >= line - (Number(b.r) || 11)) continue;
+              n++; const y = b.y + (Number(b.r) || 11) + 5 + (still ? 0 : 1.5 * Math.sin(time * 8 + b.x * .05));
+              for (const [color, width] of [['#fff6ce', 3.4], [EMB.dark, 1.6]]) { ctx.beginPath(); ctx.moveTo(b.x - 3.5, y - 2); ctx.lineTo(b.x, y + 1.5); ctx.lineTo(b.x + 3.5, y - 2); ctx.strokeStyle = color; ctx.lineWidth = width; ctx.stroke(); }
+            }
+          }
+        } else if (w.move === 'barrage') {
+          // The whizzbangs to come, swelling in place, each with a dotted column up to her.
+          const body = LOOKS.whizzbang ? WZ_SPRITES.body(12, 'calm') : null;
+          for (const t of targets.filter(t => t.role === 'whizz')) {
+            ctx.save(); ctx.globalAlpha *= .6; dotted(ctx, [[t.x, t.y - 22], [t.x, boss.y + r + 4]], EMB.poppy, 1.8, 8, still ? 0 : -time * 24); ctx.restore();
+            if (body) { ctx.save(); ctx.globalAlpha *= .3 + .5 * p; embStamp(ctx, kit, body, t.x, t.y, 0, .55 + .45 * p); ctx.restore(); }
+            const tw = still ? 1 : .7 + .3 * Math.sin(time * 14 + t.x);
+            kit.sparkle(ctx, t.x + 9, t.y - 18, 4.2 * tw, EMB.gold, still ? 0 : time * 3); kit.circle(ctx, t.x + 9, t.y - 18, 1.2, '#ffffff');
+          }
+        }
+      }
+      // Olé: out of breath, ringed by turning gold stars and a countdown of her opening.
+      if (s.mode === 'ole') {
+        const left = clamp(((Number(s.modeUntil) || 0) - (Number(s.age) || 0)) / 1.2, 0, 1), spin = still ? 0 : (Number(s.age) || 0) * 2;
+        for (let i = 0; i < 6; i++) {
+          const a = spin + i * TAU / 6, R = r + 10, tw = still ? 1 : .75 + .25 * Math.sin(time * 9 + i * 2);
+          kit.sparkle(ctx, boss.x + Math.cos(a) * R * 1.12, boss.y + Math.sin(a) * R, 4.6 * tw, i % 2 ? '#fff2b1' : EMB.gold, a);
+        }
+        ctx.lineCap = 'round';
+        for (const [color, width] of [['rgba(255,246,206,.9)', 4.4], [EMB.gold, 2.6]]) { ctx.beginPath(); ctx.arc(boss.x, boss.y, r + 20, -Math.PI / 2, -Math.PI / 2 + left * TAU); ctx.strokeStyle = color; ctx.lineWidth = width; ctx.stroke(); }
+      }
+    }
+  });
 
   // ── Geode King (Level 8, `geode`) ──
 
