@@ -1,5 +1,5 @@
 {
-  "passed": 87,
+  "passed": 88,
   "failed": 0,
   "results": [
     {
@@ -328,6 +328,10 @@
     },
     {
       "name": "Ember Rose: an Olé hit that brings on her next mood keeps her standing still until Olé ends",
+      "passed": true
+    },
+    {
+      "name": "Ember Rose: the wave hint keeps up with her moods (tunnels hit triple only while Flickering)",
       "passed": true
     },
     {

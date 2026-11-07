@@ -1451,6 +1451,19 @@ test('Crystal Heart replays identically at 30, 60 and 144 FPS, and a strike loop
     assert(n > 1.2 * 120, 'Olé was held through the mood change'); assert.equal(s.mode, 'flame');
     assert(far < .5, `she stays where she stomped, then dances on from there (moved ${far.toFixed(2)} px)`);
   });
+  test('Ember Rose: the wave hint keeps up with her moods (tunnels hit triple only while Flickering)', () => {
+    const { g, s, b } = emberArena(); const legacy = g.waveHint; assert.equal(legacy, 'Tunnel hits count triple.', 'Flickering keeps the legacy hint');
+    const hints = [legacy];
+    for (const tier of [1, 2]) {
+      b.hp = s.tierAt[tier - 1] + 1; s.next = s.age + 99; hit(g, b, { gateHops: tier === 1 ? 1 : 0 });
+      if (tier === 2) { s.mode = 'ole'; s.modeUntil = s.stunUntil = s.age + 1; hit(g, b); }
+      for (let n = 0; n < 600 && s.tier < tier; n++) g.step(1 / 120);
+      assert.equal(s.tier, tier); hints.push(g.waveHint);
+      assert(g.waveHint && g.waveHint.length <= 52, `the ${EMBER_KIT.moods[tier]} hint fits: ${g.waveHint}`);
+      assert(!/tunnel hits count triple/i.test(g.waveHint), `no longer says tunnels hit triple: ${g.waveHint}`);
+    }
+    assert.equal(new Set(hints).size, 3, 'each mood has its own hint');
+  });
   test('Ember Rose: a Lullaby holds Olé, a falling cinder and her dive', () => {
     let { g, s, b } = emberArena(); b.hp = 60; s.tier = 1;
     emberMove(g, 1, 'stomp'); advance(g, 1.3); assert.equal(s.mode, 'ole');

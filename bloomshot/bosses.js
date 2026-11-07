@@ -1638,6 +1638,8 @@
     text: { rings: 'Fire rings! Shoot through to reach her.', stomp: 'Clack, clack, clack... STOMP!', barrage: 'Whizzbangs! Light one under her.' },
     moves: [['ember', 'rings'], ['stomp', 'rings', 'ember'], ['barrage', 'stomp', 'rings']],
     init(game, s) { s.cinders = 0; },
+    // The boss wave's hint (depths.js: 'Tunnel hits count triple.') is only true while Flickering; each new mood says what reaches her now.
+    stage(game, s) { game.waveHint = ['', 'Fire rings hit triple now. Tunnels hit once.', 'Tunnels too hot! Use fire rings, Olé or rockets.'][s.tier] || game.waveHint; },
     plan: {
       rings(game, s, b) {
         const at = positions(s, TELEGRAPH).get(b.id), to = at.x < 210 ? EMBER.alcove[1] : EMBER.alcove[0];
