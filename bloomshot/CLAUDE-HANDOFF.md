@@ -187,6 +187,8 @@ Script order: store-config → store → levels → moon → koi → keepsakes �
 
 Every new buzz goes through `haptic(kind)` in `app.js`, never `navigator.vibrate`, or iPhone stays silent.
 
+In levels and Rush the hint bar (`#game-hint`) is hidden, so a tip the player must see goes through `levelTip(text, { again, key, due })` in `app.js`, never only `#game-hint`. It shows the tip as a toast once the toast being read has had its 2.8 s, only while the board is in play, at most every `again` seconds of play per `key` (Infinity: once a run), and asks `due()` again just before it shows. A guardian's turned-away tip is quiet while a move is warned about or it changes mood. Covered in `qa/test-stage.cjs`.
+
 ## Verification
 
 From `bloomshot/`, every suite must exit 0 (CI runs the same list in `.github/workflows/web-tests.yml`): every `node qa/test-*.cjs` (42 suites, including `test-kits`, `test-foes-level2` to `test-foes-level10`, `test-depths`, `test-pod`, `test-powers`, `test-petals`, `test-scenery`, `test-tutorial`, `test-goals` and `test-keepsakes`) and `node qa/check-moon-pointer.cjs`. Then in `native/`: `npm ci && npm run sync && npm run check`. Running the suites rewrites several `qa/*-results.json` files with new timestamps; commit only the ones your change actually affects. None of this is physical-device proof.
