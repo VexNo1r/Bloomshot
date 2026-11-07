@@ -1,0 +1,54 @@
+{
+  "passed": 12,
+  "failed": 0,
+  "results": [
+    {
+      "name": "Amberkeepers debut in Level 6 wave 2 with their hint, and come back in L6 W5, W8 and W9",
+      "passed": true
+    },
+    {
+      "name": "He rears up at foe time 1.6 with threads to the two nearest buds on his row or above, seals them at 2.9, and adds a third at 9.4",
+      "passed": true
+    },
+    {
+      "name": "A seed clinks off a bead (a glance refund, the bud stays sealed); a crown chain still blooms the bud and its bead melts",
+      "passed": true
+    },
+    {
+      "name": "A Bee Line, a Sunburst or a Dandelion seed cracks a bead; an uncredited strike pops it quietly",
+      "passed": true
+    },
+    {
+      "name": "A real seed fired at a bead bounces off it in the ball loop; a real Sunburst cracks the bead and blooms the bud inside",
+      "passed": true
+    },
+    {
+      "name": "Breaking him (two touches) shatters every bead at once and pays one sun charge; an uncredited strike-out frees them too, unpaid",
+      "passed": true
+    },
+    {
+      "name": "A credited crack mid-tell makes him flinch: no seal, and the next tell waits 2.6 s",
+      "passed": true
+    },
+    {
+      "name": "A Lullaby holds his tell; he seals once it is over. He plays the same at 30, 60 and 144 FPS",
+      "passed": true
+    },
+    {
+      "name": "A bead melts when its bud sinks to 410 or its keeper leaves the board; beads never cost a life; he does",
+      "passed": true
+    },
+    {
+      "name": "The bot: a keeper is worth 14 + 16 a bead or thread, a bead is never worth a seed, and a shot landing on a bud after its seal is wasted",
+      "passed": true
+    },
+    {
+      "name": "Level 6 mixes in Rolypoly (W4, W8), Peekaboo Mole (W7) and Echo Bat (W6, W9)",
+      "passed": true
+    },
+    {
+      "name": "A rolling rolypoly rolls through the amber: it bowls the sealed bud inside (not the bead), the bud blooms by the roll and the bead melts",
+      "passed": true
+    }
+  ]
+}

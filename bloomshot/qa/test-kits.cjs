@@ -1362,6 +1362,140 @@ test('Crystal Heart replays identically at 30, 60 and 144 FPS, and a strike loop
 }
 
 // ── Ammonite Queen (Level 6, `fossil`) ──
+function queenMove(tier, cycle, g = arena(6), action) {
+  const s = g.bossState; s.tier = tier; s.cycle = cycle; if (action != null) s.action = action; s.next = s.age; g.step(1 / 120);
+  const w = s.warning; assert(w, 'a warning is up'); const tell = w.targets.map(t => ({ ...t }));
+  const events = []; while (s.warning) { g.step(1 / 120); events.push(...g.drainEvents()); } return { g, s, w, tell, events };
+}
+// The mouth turned to face a seed from straight below (and the inner ring too), so a hit there passes both gaps.
+function openQueen(s) { const b = s.boss; b.shellAngle = Math.PI / 2; b.shellSpin = 0; s.lockAngle = Math.PI / 2; s.lockSpin = 0; }
+test('Ammonite Queen: 32 rings, moods at 22 and 11, Regal opens on her two locks, and her own words for each move', () => {
+  const g = arena(6), s = g.bossState, k = Bosses.kits.fossil;
+  assert.equal(Bosses.health.fossil, 32); assert.equal(s.boss.maxHp, 32); assert.deepEqual(s.tierAt, [22, 11]);
+  assert.deepEqual(k.moods, ['Regal', 'Stony', 'Brooding']);
+  assert.deepEqual(k.stageText, [null, 'The Ammonite Queen grows stony!', 'The Ammonite Queen is brooding!']);
+  assert.deepEqual(k.moves, [['fossil', 'pearls'], ['petrify', 'fossil', 'pearls'], ['hatch', 'pearls', 'petrify', 'fossil']]);
+  for (const text of [...Object.values(k.text), ...k.stageText.slice(1)]) assert(text.length <= 52, text);
+  s.next = 0; g.step(1 / 120); assert.equal(s.warning.move, 'fossil'); assert.equal(s.warning.text, 'Two locks. Wait for both gaps.');
+  assert(s.warning.until - s.warning.at >= 1.3 - 1e-9);
+});
+test('Ammonite Queen: Pearl Volley lobs three pearls to shown marks on her kit clock, forecast exactly; uncaught they land armoured in turning shells', () => {
+  const { g, s, w, tell, events } = queenMove(0, 0, arena(6), 1), b = s.boss;
+  assert.equal(w.move, 'pearls'); assert.equal(w.text, 'Pearl volley! Catch one in the air.');
+  assert.deepEqual(tell.filter(t => t.role === 'pearl').map(t => t.r), [11, 11, 11]);
+  const pearls = s.parts.filter(p => p.bossPart === 'pearl'); assert.equal(pearls.length, 3);
+  assert(pearls.every(p => p.r === 9 && p.hp === 1 && p.sunBonus === 1 && p.T === 1.05 && p.h === 56));
+  const ahead = Bosses.predictVisible(g, .5); advance(g, .5);
+  for (const p of pearls) { const q = ahead.get(p.id); assert(Math.abs(q.x - p.x) < 1e-6 && Math.abs(q.y - p.y) < 1e-6, 'the forecast is the board'); }
+  assert(pearls.every(p => p.y < Math.max(p.y0, p.y1)), 'mid-arc, above the line between her and the mark');
+  const lands = []; for (let n = 0; n < 80; n++) { g.step(1 / 120); lands.push(...g.drainEvents()); }
+  const landed = g.buds.filter(p => p.pearl && !p.bloomed);
+  assert.equal(landed.length, 3); assert.equal(acts(lands, 'land').length, 1);
+  assert(landed.every(p => p.shell && Math.abs(Math.abs(p.shellSpin) - 1.25) < 1e-9 && p.fall === .4 && p.bossSummon && p.r === 11 && p.hp === 1));
+  assert.deepEqual(landed.map(p => Math.sign(p.shellSpin)), [1, -1, 1]); assert(!s.parts.some(p => p.bossPart === 'pearl'));
+  assert(events.some(e => e.type === 'bossAbility' && e.move === 'pearls' && e.act === 'start'));
+});
+test('Ammonite Queen: a seed that meets a pearl in the air is a Pearl catch (bloom, +1 sun, 250 x tempo); a chain or power just blooms it', () => {
+  const { g, s } = queenMove(0, 0, arena(6), 1); advance(g, .3);
+  const [p, q] = s.parts.filter(x => x.bossPart === 'pearl'), score = g.score, sun = g.sunCharge;
+  hit(g, p); const events = g.drainEvents(), catchEvent = acts(events, 'catch')[0];
+  assert(p.bloomed && catchEvent && catchEvent.bonus === Math.round(250 * g.tempo)); assert(g.score > score + catchEvent.bonus); assert(g.sunCharge > sun);
+  hit(g, q, { power: 'beeline' }); assert(q.bloomed && !acts(g.drainEvents(), 'catch').length, 'a power blooms it, no catch');
+  advance(g, 1); assert.equal(g.buds.filter(x => x.pearl).length, 1, 'only the uncaught one landed');
+});
+test('Ammonite Queen: Stony opens on Petrify: three buds (or bare-bed slabs) turn to stone for 5 s on the kit clock, faced to bank toward her', () => {
+  const g = arena(6), s = g.bossState, b = s.boss; s.tier = 1; s.cycle = 0; s.next = s.age; g.step(1 / 120);
+  assert.equal(s.warning.move, 'petrify'); assert.equal(s.warning.text, 'Stone buds! Bank a seed off a slab.');
+  const tell = s.warning.targets.filter(t => t.role === 'stone'); assert.equal(tell.length, 3, 'an empty board is topped up from the bed');
+  const events = []; while (s.warning) { g.step(1 / 120); events.push(...g.drainEvents()); }
+  const stones = g.bumpers.filter(m => m.bossStone), hosts = stones.map(m => g.buds.find(p => p.id === m.host));
+  assert.equal(stones.length, 3); assert(stones.every(m => m.kind === 'rock' && m.bossWall && m.bossMirror && m.kitDrawn && m.length === 18 && m.kitUntil === m.t0 + 5));
+  assert(hosts.every(p => p && p.hidden && p.stoned === b.id && p.hp === 1)); assert.equal(acts(events, 'stone').length, 1);
+  const [stoneAct] = acts(events, 'stone'), slabs = new Map(tell.map(t => [t.id || 'bed', t]));
+  for (const m of stones) { // a straight shot from the launcher at the slab's centre leaves toward where she stands as it turns to stone
+    const ux = Math.cos(m.angle), uy = Math.sin(m.angle), nx = -uy, ny = ux, dx = m.x - g.launcher.x, dy = m.y - g.launcher.y, l = Math.hypot(dx, dy), vx = dx / l, vy = dy / l, d = vx * nx + vy * ny;
+    const rx = vx - 2 * d * nx, ry = vy - 2 * d * ny, to = Math.atan2(stoneAct.y - m.y, stoneAct.x - m.x), err = Math.abs(((Math.atan2(ry, rx) - to) + 3 * Math.PI) % (2 * Math.PI) - Math.PI);
+    assert(err < .03, `faced to bank toward her (${err})`);
+  }
+  assert(tell.every(t => Number.isFinite(t.angle)) && stones.every(m => tell.some(t => t.angle === m.angle)), 'the tell shows the very angle each slab takes');
+  advance(g, 4.9); assert.equal(g.bumpers.filter(m => m.bossStone).length, 3);
+  const thaw = []; for (let n = 0; n < 20; n++) { g.step(1 / 120); thaw.push(...g.drainEvents()); }
+  assert(!g.bumpers.some(m => m.bossStone) && hosts.every(p => !p.hidden && !p.stoned)); assert.equal(acts(thaw, 'thaw').length, 1);
+  assert.deepEqual(acts(thaw, 'thaw')[0].marks.map(m => m.id).sort(), hosts.map(p => p.id).sort(), 'the thaw names the buds it wakes');
+});
+test('Ammonite Queen: a Fossil bank (a seed that banked off a slab within 1.2 s and gets through her gaps) lands for three', () => {
+  let g = arena(6), s = g.bossState, b = s.boss; s.next = 99; openQueen(s); const hp = b.hp;
+  hit(g, b, { mirrorAt: g.time - .5 }); const crit = g.drainEvents().find(e => e.type === 'bossCritical');
+  assert.equal(b.hp, hp - 3); assert(crit && crit.via === 'fossil' && crit.damage === 3); assert.equal(s.lockStage, 0, 'a bank skips the click');
+  hit(g, b, { mirrorAt: g.time - 1.3 }); assert.equal(b.hp, hp - 3, 'later than 1.2 s: the plain click'); assert.equal(s.lockStage, 1);
+  g = arena(6); s = g.bossState; b = s.boss; s.next = 99; openQueen(s); b.shellAngle = -Math.PI / 2;
+  hit(g, b, { mirrorAt: g.time }); assert.equal(b.hp, b.maxHp, 'the mouth still has to be open');
+  g = arena(6); s = g.bossState; b = s.boss; s.next = 99; openQueen(s); b.hp = s.tierAt[0] + 1;
+  hit(g, b, { mirrorAt: g.time }); assert.equal(b.hp, s.tierAt[0], 'the mood clamp still applies');
+});
+test('Ammonite Queen: Brooding spins her lock ring at 1.4 rad/s and opens on an amber egg that hatches an Amberkeeper where it was shown', () => {
+  const g = arena(6), s = g.bossState, b = s.boss; b.hp = s.tierAt[1] + 1; s.tier = 1; s.next = 99; openQueen(s); s.lockSpin = 1.05; b.shellAngle = Math.PI / 2;
+  hit(g, b, { nx: 0, ny: 1 }); hit(g, b); while (!(s.tier === 2)) g.step(1 / 120);
+  assert.equal(s.lockSpin, 1.4);
+  for (let n = 0; n < 600 && !(s.warning && s.warning.move === 'hatch'); n++) g.step(1 / 120);
+  assert.equal(s.warning.move, 'hatch'); const egg = s.warning.targets.find(t => t.role === 'egg');
+  while (s.warning) g.step(1 / 120); assert.equal(s.lobs.length, 1); assert.equal(s.lobs[0].look, 'egg');
+  const events = []; for (let n = 0; n < 140; n++) { g.step(1 / 120); events.push(...g.drainEvents()); }
+  const keeper = g.buds.find(p => p.foe === 'amberkeeper');
+  assert(keeper && keeper.bossSummon && keeper.bossSource === b.id && keeper.x === egg.x && Math.abs(keeper.y - egg.y) < 1e-9);
+  assert(events.some(e => e.type === 'foe' && e.kind === 'amberkeeper:hatch')); assert(g.foeWave, 'the foe step runs this wave');
+});
+test('Ammonite Queen: each move lifts her up to 36 px over .9 s (never above where she started), forecast exactly', () => {
+  const g = arena(6), s = g.bossState, b = s.boss; s.drift = 20; s.next = s.age; s.action = 1; g.step(1 / 120);
+  while (s.warning) g.step(1 / 120); assert(s.rise && Math.abs(s.rise.by - 20) < 1e-9, 'only as far as she has sunk');
+  const y0 = b.y, ahead = Bosses.predictVisible(g, .45).get(b.id); advance(g, .45);
+  assert(Math.abs(ahead.y - b.y) < 1e-6 && b.y < y0); advance(g, .6); assert(!s.rise && Math.abs(s.drift) < 1e-9);
+  const g2 = arena(6), s2 = g2.bossState; s2.drift = 100; s2.next = s2.age; s2.action = 1; g2.step(1 / 120); while (s2.warning) g2.step(1 / 120);
+  assert.equal(s2.rise.by, 36);
+});
+test('Ammonite Queen: a Lullaby holds her pearls in the air, her slabs and her lift; it all carries on after', () => {
+  const { g, s } = queenMove(0, 0, arena(6), 1); advance(g, .3); const p = s.parts.find(x => x.bossPart === 'pearl'), at = [p.x, p.y];
+  g.lullaby = 1; advance(g, .9); assert.deepEqual([p.x, p.y], at); advance(g, 1.2); assert(g.buds.some(x => x.pearl), 'landed after');
+  const r = queenMove(1, 0), g2 = r.g, s2 = r.s; s2.drift = 30; s2.rise = null; s2.next = 99;
+  r.s.rise = { at: s2.kitAge, by: 30 }; s2.timers.push({ at: s2.kitAge + .9, act: 'risen', data: s2.rise });
+  const kit0 = s2.kitAge, stones = () => g2.bumpers.filter(m => m.bossStone).length; assert.equal(stones(), 3);
+  g2.lullaby = 2; advance(g2, 2); assert.equal(s2.kitAge, kit0, 'the kit clock stops'); assert(s2.rise && stones() === 3, 'the lift and the slabs hold');
+  advance(g2, 1); assert(!s2.rise && Math.abs(s2.drift) < 1e-9, 'the lift finishes after'); advance(g2, 3.85); assert.equal(stones(), 3); advance(g2, .2); assert.equal(stones(), 0, 'slabs end 5 s of kit time after they formed');
+});
+test('Ammonite Queen: the same fight at 30, 60 and 144 FPS', () => {
+  const runs = [30, 60, 144].map(fps => {
+    const g = arena(6), s = g.bossState; s.tier = 1; s.cycle = 0; s.next = s.age; const log = [];
+    for (let f = 0; f < 16 * fps; f++) { g.step(1 / fps); for (const e of g.drainEvents()) if (e.type === 'bossAbility') log.push(`${e.move}:${e.act}:${(e.x || 0).toFixed(3)}`); }
+    return { log: log.join(' '), boss: [s.boss.x.toFixed(4), s.boss.y.toFixed(4)], stones: g.bumpers.filter(m => m.bossStone).map(m => m.angle.toFixed(6)), buds: g.buds.filter(p => !p.bloomed).map(p => p.id) };
+  });
+  assert(runs[0].log.includes('petrify:stone')); assert.deepEqual(runs[1], runs[0]); assert.deepEqual(runs[2], runs[0]);
+});
+test('Ammonite Queen: only her jet waits for a clicked mouth; her other moves start, and a click cancels only a jet warning', () => {
+  let g = arena(6), s = g.bossState, b = s.boss; openQueen(s); s.lockSpin = 1.05; hit(g, b); assert.equal(s.lockStage, 1);
+  s.action = 1; s.next = s.age; g.step(1 / 120); assert.equal(s.warning && s.warning.move, 'pearls', 'Pearl Volley does not wait for the click');
+  g = arena(6); s = g.bossState; b = s.boss; openQueen(s); s.lockSpin = 1.05; hit(g, b); s.next = s.age; g.step(1 / 120); assert.equal(s.warning, null, 'the jet waits');
+  g = arena(6); s = g.bossState; b = s.boss; s.action = 1; s.next = s.age; g.step(1 / 120); assert.equal(s.warning.move, 'pearls');
+  openQueen(s); hit(g, b); assert.equal(s.lockStage, 1); assert.equal(s.warning && s.warning.move, 'pearls', 'a click leaves her volley announced');
+});
+test('Ammonite Queen: defeat clears her slabs, wakes their buds and blooms her keeper; the good bot wins her fight', () => {
+  const g = arena(6), s = g.bossState, b = s.boss; s.tier = 1; s.cycle = 0; s.next = s.age; g.step(1 / 120); while (s.warning) g.step(1 / 120);
+  assert(g.bumpers.some(m => m.bossStone)); while (!b.bloomed) g.strike(b, true); g.step(1 / 120);
+  assert(!g.bumpers.some(m => m.bossStone) && !g.buds.some(p => p.stoned || (p.hidden && !p.bloomed && !p.boss)));
+  for (const seed of [7, 19]) { const r = bot.play(6, { seed, startWave: 10, noise: 2.5, think: .3, thinkSpread: .3, bounces: 2 }); assert(r.won, `seed ${seed}`); }
+});
+
+test('Ammonite Queen: her pearls and her egg never land on her, however low she has sunk', () => {
+  let worst = Infinity, pearls = 0, eggs = 0;
+  for (const age of [0, 1.1, 2.3, 3.7, 5.2]) for (const drift of [100, 130, 140, 160, 180]) for (const [tier, cycle, action] of [[0, 0, 1], [2, 0, null]]) {
+    const g = arena(6), s = g.bossState, b = s.boss; s.next = Infinity; advance(g, age); s.drift = drift;
+    s.tier = tier; s.cycle = cycle; if (action != null) s.action = action; s.next = s.age; g.step(1 / 120);
+    if (!s.warning) continue; // no clear mark at all: she rests, which is allowed
+    const move = s.warning.move; while (s.warning) g.step(1 / 120);
+    if (move === 'pearls') for (const p of s.parts.filter(p => p.bossPart === 'pearl')) { pearls++; worst = Math.min(worst, Math.hypot(p.x1 - p.x0, p.y1 - p.y0) - (b.r + 11 + 6)); }
+    if (move === 'hatch') for (const l of s.lobs.filter(l => l.look === 'egg')) { eggs++; worst = Math.min(worst, Math.hypot(l.x1 - l.x0, l.y1 - l.y0) - (b.r + 13 + 6)); }
+  }
+  assert(pearls >= 25 && eggs >= 15, `she still throws (${pearls} pearls, ${eggs} eggs)`); assert(worst >= 0, `every mark clears her (worst ${worst.toFixed(1)} px)`);
+});
 
 // ── Ember Rose (Level 7, `ember`) ──
 

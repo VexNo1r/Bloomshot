@@ -988,6 +988,115 @@
 
 
   // ── Amberkeeper (Level 6, `amberkeeper`) ──
+  // A little trilobite who keeps the fossil beds tidy by sealing flowers in amber. He falls with the wave like any bud
+  // and takes two hits (the first cracks his shell). AMBER.first s after he arrives, and AMBER.every s after each seal
+  // while he keeps fewer than AMBER.max beads, he rears up for AMBER.tell s and spins golden threads to the nearest open
+  // plain buds on his row or above (AMBER.per a time, within AMBER.reach px of him). When the tell ends each of them is
+  // sealed in an amber bead: an inert `amber` piece AMBER.pad px wider than its bud that rides it. A seed that meets a
+  // bead clinks off (a glance's small refund, like a shell); a chain (a crown, a puffcap) still reaches the bud inside, a
+  // rolling rolypoly rolls through the amber and bowls the bud inside, and a Bee Line, a Sunburst or a Dandelion seed
+  // cracks the bead it touches.
+  // Break him and every bead he made shatters at once. A credited hit that cracks him mid-tell makes him flinch: the
+  // threads snap back and he starts over. A bead melts when its bud blooms, when its keeper is gone, or when its bud
+  // sinks to AMBER.melt, so it never blocks an angle below 430.
+  // Everything runs on the foe clock; amberPlan (his announced seal) is the one forecast the step, the bot and the art share.
+  const AMBER = { r: 13, first: 1.6, tell: 1.3, every: 5.2, retry: .5, reach: 96, up: 16, per: 2, max: 3, pad: 4, melt: 410, low: 360, flinch: 2.6, eps: 1e-7 };
+  const sealable = bud => Boolean(bud) && !bud.bloomed && !bud.hidden && !bud.ghost && !bud.gift && !bud.inert && !bud.foe && !bud.boss && !bud.bossPart
+    && !bud.puff && !bud.carried && !bud.amberBy && bud.y + bud.r < AMBER.melt - 40;
+  // The buds a tell would thread right now: nearest first (ties by id), on his row or above, within reach.
+  function amberAims(game, keeper, count) {
+    const list = [];
+    for (const bud of game.buds) {
+      if (!sealable(bud) || bud.y > keeper.y + AMBER.up) continue;
+      const d = Math.hypot(bud.x - keeper.x, bud.y - keeper.y);
+      if (d <= AMBER.reach + bud.r) list.push({ bud, d });
+    }
+    list.sort((a, b) => a.d - b.d || (a.bud.id < b.bud.id ? -1 : a.bud.id > b.bud.id ? 1 : 0));
+    return list.slice(0, count).map(e => e.bud);
+  }
+  const amberBeads = (game, keeper) => game.buds.filter(b => b.foe === 'amber' && !b.bloomed && b.keeper === keeper.id);
+  // His announced seal: { at (foe clock), from, ids }, or null while he is not telling. Pure.
+  function amberPlan(game, keeper) {
+    const a = keeper && keeper.amber;
+    return a && !keeper.bloomed && a.phase === 'tell' ? { at: a.sealAt, from: a.tellAt, ids: a.aims } : null;
+  }
+  function amberSeal(game, keeper) {
+    const a = keeper.amber, room = AMBER.max - amberBeads(game, keeper).length, made = [];
+    for (const id of a.aims) {
+      const host = game.buds.find(b => b.id === id);
+      if (made.length >= room || !sealable(host)) continue;
+      const bead = piece('amber', `${keeper.id}-amber${a.n}-${made.length}`, `${keeper.id}-amber${a.n}-${made.length}`, host.x, host.y,
+        { r: host.r + AMBER.pad, host: host.id, keeper: keeper.id, sealedAt: game.foeClock });
+      host.amberBy = keeper.id; place(game, bead); made.push(bead);
+    }
+    a.phase = 'wait'; a.aims = []; a.n++; a.nextAt = a.sealAt + AMBER.every;
+    if (made.length) game.event('foe', { kind: 'amberkeeper:seal', bud: keeper, x: keeper.x, y: keeper.y, n: made.length, beads: made.map(b => ({ id: b.id, x: b.x, y: b.y, r: b.r })) });
+  }
+  define('amberkeeper', {
+    r: AMBER.r, hp: 2, fall: 1, type: 'gold', hint: 'Amber seals buds! Break the trilobite to free them.',
+    init(game, bud) { bud.amber = { phase: 'wait', nextAt: bud.born + AMBER.first, tellAt: -100, sealAt: -100, flinchAt: -100, aims: [], n: 0 }; },
+    step(game, bud, dt) {
+      const a = bud.amber;
+      if (!a || dt <= 0) return;
+      const now = game.foeClock + AMBER.eps;
+      if (a.phase === 'wait' && now >= a.nextAt) {
+        const room = AMBER.max - amberBeads(game, bud).length;
+        const aims = room > 0 && bud.y + bud.r < AMBER.low ? amberAims(game, bud, Math.min(AMBER.per, room)) : [];
+        if (!aims.length) { a.nextAt += AMBER.retry; return; }
+        a.phase = 'tell'; a.tellAt = a.nextAt; a.sealAt = a.tellAt + AMBER.tell; a.aims = aims.map(b => b.id);
+        game.event('foe', { kind: 'amberkeeper:tell', bud, x: bud.x, y: bud.y, n: a.n, targets: aims.map(b => ({ id: b.id, x: b.x, y: b.y, r: b.r })) });
+      } else if (a.phase === 'tell' && now >= a.sealAt) amberSeal(game, bud);
+    },
+    hit(game, bud, chain, isCredited) {
+      const a = bud.amber;
+      if (a && a.phase === 'tell' && isCredited && bud.hp > 1) {
+        a.phase = 'wait'; a.aims = []; a.flinchAt = game.foeClock || 0; a.nextAt = a.flinchAt + AMBER.flinch;
+        game.event('foe', { kind: 'amberkeeper:flinch', bud, x: bud.x, y: bud.y });
+      }
+      return null;
+    },
+    bloomed(game, bud, chain, credit) {
+      const beads = amberBeads(game, bud);
+      for (const bead of beads) game._pop(bead, 'amber:shatter');
+      if (bud.amber) { bud.amber.phase = 'done'; bud.amber.aims = []; }
+      if (beads.length && credit) game._charge(1, credit);
+      game.event('foe', { kind: 'amberkeeper:break', bud, x: bud.x, y: bud.y, freed: beads.length, credited: Boolean(credit) });
+    },
+    // Worth a seed for every bead he holds or is spinning; a shot at a bud he will have sealed by the time it lands is wasted.
+    value: (game, bud) => 14 + 16 * (amberBeads(game, bud).length + ((amberPlan(game, bud) || { ids: [] }).ids.length)),
+    valueAny(game, hit) {
+      const bud = hit && hit.bud;
+      if (!bud || bud.foe) return 0;
+      const at = (game.foeClock || 0) + Math.max(0, (hit.time || 0) - Math.max(0, game.lullaby || 0));
+      for (const keeper of game.buds) {
+        if (keeper.foe !== 'amberkeeper') continue;
+        const plan = amberPlan(game, keeper);
+        if (plan && plan.ids.includes(bud.id) && at >= plan.at - .02) return -200;
+      }
+      return 0;
+    },
+    amberPlan, AMBER
+  });
+  define('amber', {
+    r: 15, hp: 1, fall: 1, type: 'gold', inert: true, family: 'amberkeeper',
+    owns: () => true,
+    // A Sunburst opens on its first touch but only blooms open buds, so the bead it touched cracks right here (as a fibcap's).
+    contact(game, bud, ball) { if (ball && ball.power === 'sunburst') game._pop(bud, 'amber:crack'); return null; },
+    step(game, bud) {
+      const host = game.buds.find(b => b.id === bud.host), keeper = game.buds.find(b => b.id === bud.keeper);
+      if (!host || host.bloomed || !keeper || keeper.bloomed) { game._pop(bud, 'amber:melt'); return; }
+      bud.x = host.x; bud.y = host.y; bud.r = host.r + AMBER.pad;
+      if (host.y + host.r >= AMBER.melt) game._pop(bud, 'amber:melt');
+    },
+    // A seed's own touch clinks off (it bounces, with a glance's small refund, like a shell); a power cracks the bead;
+    // a chain never reaches it (it is inert); a script's strike pops it quietly.
+    hit(game, bud, chain, isCredited, seed) {
+      if (direct(game, chain, isCredited, seed)) { game.event('foe', { kind: 'amber:clink', bud, x: bud.x, y: bud.y }); return { blocked: true, feed: true }; }
+      return isCredited && isPower(game, seed) ? { pop: true, kind: 'crack' } : { pop: true, quiet: true };
+    },
+    popped(game, bud) { const host = game.buds.find(b => b.id === bud.host); if (host && host.amberBy === bud.keeper) host.amberBy = null; },
+    value: () => -1
+  });
 
   // ── Whizzbang (Level 7, `whizzbang`) ──
 
