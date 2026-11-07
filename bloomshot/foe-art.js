@@ -67,6 +67,17 @@
       carry = (carry + len) % gap;
     }
   }
+  // The move's label (art.js drawBossWarning) is drawn before the looks' under/over hooks: a tell drawn through draw()
+  // is at full strength around the label and faint (.22) across it, so the words stay readable. draw() must only
+  // multiply globalAlpha, never set it.
+  function labelTell(ctx, w, draw) {
+    if (!w || !Number.isFinite(w.x) || !Number.isFinite(w.y)) { draw(); return; }
+    ctx.save(); ctx.font = '600 12px Fredoka';
+    const width = Math.min(310, Math.max(130, ctx.measureText(String(w.text || 'A guardian is stirring')).width + 28)); ctx.restore();
+    const x = clamp(w.x, width / 2 + 10, 410 - width / 2) - width / 2 - 2, y = clamp(w.y + 61, 45, 395) - 15;
+    ctx.save(); ctx.beginPath(); ctx.rect(-120, -120, 660, 900); ctx.rect(x, y, width + 4, 30); ctx.clip('evenodd'); draw(); ctx.restore();
+    ctx.save(); ctx.beginPath(); ctx.rect(x, y, width + 4, 30); ctx.clip(); ctx.globalAlpha *= .22; draw(); ctx.restore();
+  }
 
   // -----------------------------------------------------------------------------------------------------------------
   // The looks. Each lives in its own block so they stay independent.
@@ -5065,10 +5076,10 @@
       if (!b || b.bloomed) return;
       // The lob arcs of a pearl or egg tell run behind her, so they rise out from behind her shell.
       const w = s.warning && time < s.warning.until ? s.warning : null;
-      if (w && (w.move === 'pearls' || w.move === 'hatch')) for (const t of w.targets || []) {
+      if (w && (w.move === 'pearls' || w.move === 'hatch')) labelTell(ctx, w, () => { for (const t of w.targets || []) {
         if (t.role === 'pearl') dotted(ctx, fossilArc(b.x, b.y, t.x, t.y, 56), FOSSIL_ART.lilac, 2, 7, still ? 0 : -time * 24);
         else if (t.role === 'egg') dotted(ctx, fossilArc(b.x, b.y, t.x, t.y, 64), FOSSIL_ART.amber, 2, 7, still ? 0 : -time * 24);
-      }
+      } });
       if (s.tier !== 2) return;
       // Brooding: a warm halo pulses behind her at 1.4 Hz.
       ctx.globalAlpha *= still ? .5 : .5 + .15 * Math.sin(time * TAU * 1.4);
@@ -5136,9 +5147,9 @@
           if (w.move === 'pearls' && t.role === 'pearl') {
             // A lilac ring with a little shell where each pearl will land (its dotted arc is drawn under her).
             const pop = still ? 1 : kit.easeBack(clamp(p / .25, 0, 1));
-            ctx.save(); ctx.translate(t.x, t.y); ctx.scale(pop, pop);
+            labelTell(ctx, w, () => { ctx.save(); ctx.translate(t.x, t.y); ctx.scale(pop, pop);
             kit.circle(ctx, 0, 0, 11, null, '#ffffff', 3.6); kit.circle(ctx, 0, 0, 11, null, A.lilac, 1.9);
-            fossilStamp(ctx, kit, FOSSIL_SPRITES.mark(), 0, 0); ctx.restore();
+            fossilStamp(ctx, kit, FOSSIL_SPRITES.mark(), 0, 0); ctx.restore(); });
           } else if (w.move === 'petrify' && t.role === 'stone') {
             // The ghost slab at the angle the slab will take, and six stone chips closing in on the bud.
             const R = t.bed ? (t.r || 17) : (t.r || 11) + 6, ca = Math.cos(t.angle || 0), sa = Math.sin(t.angle || 0), pts = [];
@@ -5159,7 +5170,7 @@
             // A pulsing dotted egg at the mark (its amber dotted arc is drawn under her).
             const k = still ? 1 : 1 + .08 * Math.sin(time * 7), egg = [];
             for (let i = 0; i <= 20; i++) { const a = i / 20 * TAU; egg.push([t.x + 6.6 * k * Math.cos(a), t.y + 8.3 * k * Math.sin(a)]); }
-            dotted(ctx, egg, A.amber, 1.5, 4.2, 0);
+            labelTell(ctx, w, () => dotted(ctx, egg, A.amber, 1.5, 4.2, 0));
           }
         }
       }
@@ -5524,12 +5535,12 @@
         } else if (w.move === 'barrage') {
           // The whizzbangs to come, swelling in place, each with a dotted column up to her.
           const body = LOOKS.whizzbang ? WZ_SPRITES.body(12, 'calm') : null;
-          for (const t of targets.filter(t => t.role === 'whizz')) {
+          labelTell(ctx, w, () => { for (const t of targets.filter(t => t.role === 'whizz')) {
             ctx.save(); ctx.globalAlpha *= .6; dotted(ctx, [[t.x, t.y - 22], [t.x, boss.y + r + 4]], EMB.poppy, 1.8, 8, still ? 0 : -time * 24); ctx.restore();
             if (body) { ctx.save(); ctx.globalAlpha *= .3 + .5 * p; embStamp(ctx, kit, body, t.x, t.y, 0, .55 + .45 * p); ctx.restore(); }
             const tw = still ? 1 : .7 + .3 * Math.sin(time * 14 + t.x);
             kit.sparkle(ctx, t.x + 9, t.y - 18, 4.2 * tw, EMB.gold, still ? 0 : time * 3); kit.circle(ctx, t.x + 9, t.y - 18, 1.2, '#ffffff');
-          }
+          } });
         }
       }
       // Olé: out of breath, ringed by turning gold stars and a countdown of her opening.
@@ -5921,7 +5932,7 @@
       const w = s.warning;
       if (!w || !Number.isFinite(w.until) || !(time < w.until)) return;
       const span = Math.max(.1, w.until - (Number(w.at) || 0)), prog = clamp(1 - (w.until - time) / span, 0, 1), phase = still ? 0 : time * 24;
-      for (const t of w.targets || []) {
+      labelTell(ctx, w, () => { for (const t of w.targets || []) {
         if (t.role === 'toss') {
           dotted(ctx, geoTellArc(boss, t.x, t.y, GEO.toss, r), t.pyrite ? GEO.brassDark : GEO.lilacDark, 1.5, 8, phase);
           geoStamp(ctx, kit, t.pyrite ? GEO_SPRITES.pyrite(false) : GEO_SPRITES.gem('lilac'), t.x, t.y, 0, .62);
@@ -5940,7 +5951,7 @@
           ctx.beginPath(); ctx.moveTo(-3, -4.5); ctx.lineTo(2.5, 0); ctx.lineTo(-3, 4.5);
           ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.stroke(); ctx.lineWidth = 2; ctx.strokeStyle = GEO.skyDeep; ctx.stroke(); ctx.restore();
         }
-      }
+      } });
     }
   });
 
@@ -6765,7 +6776,7 @@
       } break;
       case 'starfall': for (const t of T) {
         if (t.role !== 'comet') continue;
-        ctx.save(); ctx.globalAlpha *= .7; dotted(ctx, [[t.x0, t.y0], [t.x0 + (t.x1 - t.x0) * p, t.y0 + (t.y1 - t.y0) * p]], L.pale, 1.4, 8); ctx.restore();
+        labelTell(ctx, w, () => { ctx.save(); ctx.globalAlpha *= .7; dotted(ctx, [[t.x0, t.y0], [t.x0 + (t.x1 - t.x0) * p, t.y0 + (t.y1 - t.y0) * p]], L.pale, 1.4, 8); ctx.restore(); });
         ghost(S.ghost, t.x1, t.y1, 11, .5 + .5 * p, .3 + .45 * p);
       } break;
       default: break;

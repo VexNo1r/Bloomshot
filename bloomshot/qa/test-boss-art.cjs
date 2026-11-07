@@ -186,5 +186,73 @@ test('Fullscreen light masking reuses its surfaces and preserves framed art and 
   assert.deepEqual(again.calls, framed.calls, 'the framed renderer keeps its existing commands');
 });
 
+test('Guardian 6-10 tells fade where they cross their own move label, so its words stay readable', () => {
+  // The label (drawBossWarning) is drawn before the kit looks' under/over hooks. A tell mark the hooks draw inside the
+  // label's pill must be clipped away or faint (alpha <= .3): pearl marks and arcs, the egg, barrage columns, lob arcs, comet trails.
+  const { RushGame } = require('../rush.js'), bot = require('./depths-bot.cjs'), Bosses = require('../bosses.js');
+  let inHook = 0; const marks = [];
+  // A canvas that follows the transform, the alpha and rectangular clips (evenodd cut-outs too), and keeps every point a
+  // kit hook fills, strokes or stamps onto the board where no clip hides it.
+  function clipBrush(main = false) {
+    const stack = []; let matrix = [1, 0, 0, 1, 0, 0], clips = [], rects = [], pts = [];
+    const state = { globalAlpha: 1, fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, shadowBlur: 0, lineDashOffset: 0 };
+    const mul = (a, b, c, d, e, f) => { const m = matrix; matrix = [m[0] * a + m[2] * b, m[1] * a + m[3] * b, m[0] * c + m[2] * d, m[1] * c + m[3] * d, m[0] * e + m[2] * f + m[4], m[1] * e + m[3] * f + m[5]]; };
+    const at = (x, y) => [matrix[0] * x + matrix[2] * y + matrix[4], matrix[1] * x + matrix[3] * y + matrix[5]];
+    const shown = ([x, y]) => clips.every(c => { const n = c.rects.filter(([x0, y0, x1, y1]) => x >= x0 && x <= x1 && y >= y0 && y <= y1).length; return c.evenodd ? n % 2 === 1 : n > 0; });
+    const keep = p => { if (inHook && main && shown(p)) marks.push({ p, alpha: state.globalAlpha }); };
+    const ctx = new Proxy(state, {
+      get(t, name) {
+        if (name in t) return t[name];
+        if (name === 'canvas') return { width: 420, height: 560 };
+        if (name === 'getTransform') return () => { const [a, b, c, d, e, f] = matrix; return { a, b, c, d, e, f }; };
+        return (...args) => {
+          if (name === 'save') stack.push({ matrix: matrix.slice(), state: { ...state }, clips: clips.slice() });
+          else if (name === 'restore') { const old = stack.pop(); matrix = old.matrix; Object.assign(state, old.state); clips = old.clips; }
+          else if (name === 'translate') mul(1, 0, 0, 1, ...args);
+          else if (name === 'scale') mul(args[0], 0, 0, args[1], 0, 0);
+          else if (name === 'rotate') mul(Math.cos(args[0]), Math.sin(args[0]), -Math.sin(args[0]), Math.cos(args[0]), 0, 0);
+          else if (name === 'setTransform') matrix = args.slice();
+          else if (name === 'measureText') return { width: String(args[0]).length * 7 };
+          else if (name === 'beginPath') { rects = []; pts = []; }
+          else if (name === 'rect') { const [x0, y0] = at(args[0], args[1]), [x1, y1] = at(args[0] + args[2], args[1] + args[3]); rects.push([Math.min(x0, x1), Math.min(y0, y1), Math.max(x0, x1), Math.max(y0, y1)]); }
+          else if (name === 'clip') clips = clips.concat([{ evenodd: args[0] === 'evenodd', rects: rects.slice() }]);
+          else if (['arc', 'ellipse', 'moveTo', 'lineTo'].includes(name)) pts.push(at(args[0], args[1]));
+          else if (name === 'fill' || name === 'stroke') pts.forEach(keep);
+          else if (name === 'drawImage' && args.length >= 5) keep(at(args[1] + args[3] / 2, args[2] + args[4] / 2));
+          else if (/^create(Linear|Radial|Conic)Gradient$|^createPattern$/.test(name)) return { addColorStop() {} };
+        };
+      },
+      set(t, name, value) { t[name] = value; return true; }
+    });
+    return ctx;
+  }
+  class Canvas { constructor(w, h) { this.width = w; this.height = h; this.ctx = clipBrush(); } getContext() { return this.ctx; } }
+  const scope = vm.createContext({ console, Math, Map, Set, WeakMap, Array, Object, Number, String, JSON, Date, OffscreenCanvas: Canvas });
+  for (const file of ['foes.js', 'art.js', 'foe-art.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), scope, { filename: file });
+  const looks = scope.BloomFoeArt.KIT_LOOKS;
+  for (const kind of ['fossil', 'ember', 'geode', 'core']) for (const hook of ['under', 'over']) {
+    const own = looks[kind][hook]; if (own) looks[kind][hook] = function (...a) { inHook++; try { return own.apply(this, a); } finally { inHook--; } };
+  }
+  // The guardian on her real board, her next move `move` from `tier`'s list, its warning up.
+  function tellOf(id, tier, move) {
+    const g = new RushGame({ plan: bot.plan(id), startWave: 10 }); g.started = true; g.status = 'flying'; g.drainEvents();
+    const s = g.bossState, kit = Bosses.kits[s.kind]; s.tier = tier; s.shiftPending = false; s.warning = null;
+    if (tier) s.cycle = kit.moves[tier].indexOf(move); else s.action = kit.moves[0].indexOf(move);
+    s.next = s.age; for (let n = 0; n < 4 && !(g.bossWarning && g.bossWarning.move === move); n++) g.step(1 / 120);
+    assert.equal(g.bossWarning && g.bossWarning.move, move, `${s.kind} ${move} is announced`); return g;
+  }
+  for (const [id, tier, move] of [[6, 0, 'pearls'], [6, 2, 'pearls'], [6, 2, 'hatch'], [7, 2, 'barrage'], [8, 1, 'lob'], [8, 2, 'lob'], [10, 2, 'starfall']]) {
+    const g = tellOf(id, tier, move), w = g.bossWarning, label = `L${id} mood ${tier + 1} ${move}`;
+    const width = Math.min(310, Math.max(130, String(w.text).length * 7 + 28)), cx = Math.min(Math.max(w.x, width / 2 + 10), 410 - width / 2), cy = Math.min(Math.max(w.y + 61, 45), 395);
+    let inside = 0, loud = 0;
+    for (const dt of [.3, .7, 1.1]) for (const still of [false, true]) {
+      marks.length = 0; scope.BloomArt.draw(clipBrush(true), g, w.at + dt, { theme: 'meadow', reducedMotion: still, quality: 0 });
+      for (const { p: [x, y], alpha } of marks) if (Math.abs(x - cx) <= width / 2 && Math.abs(y - cy) <= 13) { inside++; if (alpha > .3) loud++; }
+    }
+    assert(inside > 0, `${label}: the tell crosses its label on this board`);
+    assert.equal(loud, 0, `${label}: tell marks drawn at full strength across the label`);
+  }
+});
+
 const report = { passed: results.filter(r => r.passed).length, failed: results.filter(r => !r.passed).length, results };
 console.log(JSON.stringify(report, null, 2)); process.exitCode = report.failed ? 1 : 0;

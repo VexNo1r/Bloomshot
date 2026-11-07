@@ -2047,7 +2047,8 @@
   // A short word over the action ("Shut!", "Snap!"), drawn like a trick callout.
   function bossCallout(x, y, text, life = 1) {
     if (!text) return;
-    game.floaters.push({ kind: 'trick', trick: 'boss', text, label: '', x: clamp(x ?? 210, 60, 360), y: clamp((y ?? 200) - 34, 40, 420), life, maxLife: life });
+    // The floor of 70 keeps the word below the guardian's name and health vine, which are drawn over it (as L9's SWEET_TOP).
+    game.floaters.push({ kind: 'trick', trick: 'boss', text, label: '', x: clamp(x ?? 210, 60, 360), y: clamp((y ?? 200) - 34, 70, 420), life, maxLife: life });
   }
   function bossFx(event) {
     const fx = BOSS_FX[event.kind], own = fx && (fx[`${event.move}:${event.act}`] || fx[event.act]);

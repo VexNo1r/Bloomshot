@@ -244,6 +244,15 @@ test('A boss wave drops its big bloom from 140 px, then its name card and health
   assert.equal(banner.text, 'Mother Morel bloomed!'); assert.equal(banner.label, 'everything blooms');
   assert.match(app.$('announcement').textContent, /^Mother Morel bloomed\./);
 });
+test('A guardian crit near the top of the board is called out below her name and health vine (y >= 70), a low one where it landed', () => {
+  // The vine pill (y 5-31) and the name (y 37) are drawn over the floaters, so a word stamped higher lost its top.
+  const app = level(player(), 2), game = app.game(); app.run(1.3);
+  const crits = () => game.floaters.filter(f => f.kind === 'trick' && f.trick === 'boss').map(f => [f.text, Math.round(f.y)]); // one frame of drift up
+  game.event('bossCritical', { kind: 'ember', bud: { x: 210, y: 52 }, damage: 3, via: 'ring' });
+  game.event('bossCritical', { kind: 'core', bud: { x: 100, y: 300 }, damage: 2, via: 'shooting' });
+  app.frame();
+  assert.deepEqual(plain(crits()), [['Ring shot!', 70], ['Shooting star!', 266]]);
+});
 test('An unnamed guardian is called Big bloom and keeps its opening strategy', () => {
   const app = level(player(), 1); app.run(1.3);
   const game = app.game(), boss = bossWave(app, null);
