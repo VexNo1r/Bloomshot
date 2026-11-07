@@ -953,7 +953,7 @@
     // Saying hi counts for the meadow goal, so a meadow with nothing left to grow or build can still finish it.
     if (BloomGarden.summary(save.garden).decor.some(d => d.built && d.friend.id === id)) {
       const goals = trackGoals({ type: 'greet' });
-      if (goals.paid) { persist(); toast(`${goalNews(goals)} +${goals.paid} seeds`); }
+      if (goals.paid) { persist(); toast(`${goalNews(goals)} +${goals.paid} seeds.`); }
     }
   }
   // Meadow friends in the Collection: met ones in color with a line about them, the rest as silhouettes.
@@ -3641,11 +3641,13 @@
     const planted = BloomGarden.plant(save.garden, id); if (!planted.success) return;
     save.garden = planted.state;
     const goals = trackGoals({ type: 'meadow' }); persist(); renderMeadow();
-    if (goals.paid) toast(`${goalNews(goals)} +${goals.paid} seeds`);
     growth = { plotId: id, fromStage, started: performance.now() };
     BloomSound.wake(); BloomSound.play('plant', { x: BloomMeadow.plots.find(p => p.id === id).x });
     haptic('tap');
-    say(`${BloomGarden.plots.find(p => p.id === id).name} ${fromStage ? 'grew' : 'planted'}. ${save.garden.seeds} seeds left.`);
+    // As growing and building do: the planting first, then the goal it finished (the toast is not read out on its own).
+    const news = goals.paid ? `${goalNews(goals)} +${goals.paid} seeds.` : '';
+    if (news) toast(news, false);
+    say(`${BloomGarden.plots.find(p => p.id === id).name} ${fromStage ? 'grew' : 'planted'}. ${news ? `${news} ` : ''}${save.garden.seeds} seeds left.`);
   }));
   $('friend-spots').addEventListener('click', event => {
     const spot = event.target.closest('[data-friend]'); if (spot) greetFriend(spot.dataset.friend);

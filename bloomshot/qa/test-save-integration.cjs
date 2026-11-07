@@ -672,7 +672,7 @@ test('A Rush run that reaches the wave goal pays 4 more seeds once, says so on t
 test('Growing in the meadow and clearing two puzzles finish the day, paying each goal and the 6-seed bonus', () => {
   const save = legacySave(); save.garden = { seeds: 4, levels: {}, selectedId: 'sunbell' };
   const app = boot(save, { today: GOAL_DAY, goals: true }); app.click('garden-btn');
-  app.click('plant-btn'); assert.equal(app.saved().garden.seeds, 4); assert.equal(app.$('toast').textContent, 'Goal done! Grow, build or say hi in your meadow. +4 seeds');
+  app.click('plant-btn'); assert.equal(app.saved().garden.seeds, 4); assert.equal(app.$('toast').textContent, 'Goal done! Grow, build or say hi in your meadow. +4 seeds.');
   app.click('rush-btn'); app.finishRush(24, 4); settle(app); assert.match(app.$('result-goals').innerHTML, /1\/3 today|2\/3 today/); app.click('result-garden-btn');
   app.click('level-grid', { level: '1' }); app.games.at(-1).win(); settle(app);
   assert.equal(app.$('result-goals').hidden, true);
@@ -687,7 +687,7 @@ test('A finished meadow never strands its goal: saying hi to a friend there pays
   const app = boot(save, { today: GOAL_DAY, goals: true }); app.click('garden-btn');
   assert.equal(app.$('meadow-summary').textContent, 'Your meadow is complete!');
   app.click('friend-spots', { friend: 'biscuit' });
-  assert.equal(app.$('toast').textContent, 'Goal done! Grow, build or say hi in your meadow. +4 seeds');
+  assert.equal(app.$('toast').textContent, 'Goal done! Grow, build or say hi in your meadow. +4 seeds.');
   assert.equal(app.saved().garden.seeds, 4); assert.deepEqual(app.saved().goals, { day: '2026-10-04', progress: [0, 0, 1], done: [false, false, true], bonus: false });
   assert.equal(app.$('goals-count').textContent, '1/3 done', 'the goal list ticks the meadow goal right away');
   app.click('friend-spots', { friend: 'pip' }); assert.equal(app.saved().garden.seeds, 4, 'a second hello pays nothing more');
@@ -712,11 +712,12 @@ test('Growing, building, planting or saying hi that finishes the meadow goal is 
   assert.equal(app.$('announcement').textContent, 'Garden bench built. Goal done, +4 seeds. 484 seeds left.');
   let said;
   app = fresh({ seeds: 4, levels: {}, selectedId: 'sunbell' });
-  app.click('plant-btn'); said = app.$('announcement').textContent;
-  assert(said.includes(`${goalLine} +4 seeds`) && said.includes('Sunbell planted.'), said);
+  // The planting is said first, as growing and building are, and every line ends before the next begins.
+  app.click('plant-btn');
+  assert.equal(app.$('announcement').textContent, `Sunbell planted. ${goalLine} +4 seeds. 4 seeds left.`);
   app = fresh({ seeds: 0, levels: Object.fromEntries(Garden.plots.map(p => [p.id, 3])), decor: Garden.decor.map(d => d.id) });
   app.click('friend-spots', { friend: 'biscuit' }); said = app.$('announcement').textContent;
-  assert(said.startsWith('Biscuit says') && said.endsWith(`${goalLine} +4 seeds`), said);
+  assert(said.startsWith('Biscuit says') && said.endsWith(`${goalLine} +4 seeds.`), said);
   // Separate taps are read on their own: the next one starts the announcement afresh.
   app.click('friend-spots', { friend: 'pip' }); assert(app.$('announcement').textContent.startsWith('Pip says'), app.$('announcement').textContent);
   assert(!app.$('announcement').textContent.includes('Biscuit'));

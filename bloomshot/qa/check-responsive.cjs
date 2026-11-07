@@ -88,7 +88,7 @@ async function main() {
     const longToast = async label => {
       const t = await page.evaluate(() => {
         // Measured at rest: the page clock is paused, so a slide from the last toast would still be under way.
-        const el = document.getElementById('toast'), was = el.textContent; el.style.transition = 'none'; el.textContent = 'Goal done! Grow, build or say hi in your meadow. +4 seeds'; el.classList.add('visible');
+        const el = document.getElementById('toast'), was = el.textContent; el.style.transition = 'none'; el.textContent = 'Goal done! Grow, build or say hi in your meadow. +4 seeds.'; el.classList.add('visible');
         const r = el.getBoundingClientRect(), css = getComputedStyle(el), lines = Math.round((el.clientHeight - parseFloat(css.paddingTop) - parseFloat(css.paddingBottom)) / parseFloat(css.lineHeight));
         el.classList.remove('visible'); el.textContent = was; void el.offsetWidth; el.style.transition = '';
         return { x: r.x, right: r.right, width: r.width, height: r.height, lines };
