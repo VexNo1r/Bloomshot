@@ -987,6 +987,16 @@
   });
 
 
+  // ── Amberkeeper (Level 6, `amberkeeper`) ──
+
+  // ── Whizzbang (Level 7, `whizzbang`) ──
+
+  // ── Lodestone (Level 8, `lodestone`) ──
+
+  // ── Sweetheart Roses (Level 9, `sweetheart`) ──
+
+  // ── Wishing Stars (Level 10, `wishstar`) ──
+
   return Object.freeze({ FOES, names, isFoe, entryOf, familyOf, credited, isPower, direct, chainable, owns, make, piece, place, init, initBud,
     step, onTick, sweep, guard, contact, hit, bloomed, popped, breach, holding, moves, predict, value, hint, rollPreview,
     hash01, orbitAt, lobAt, swapAt, clamp, smooth, TAU, ROLL, define });

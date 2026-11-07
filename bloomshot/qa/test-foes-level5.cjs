@@ -244,7 +244,7 @@ test('Glowworms debut in Level 5 wave 3 with their hint, five pieces each, and c
       assert.deepEqual([b.x, b.y, b.r, b.type, b.seg, Boolean(b.head)], [spot[0] - spot[2] * (21 + 20 * (k - 1)), spot[1], 9, 'sky', k, false]);
     });
   }
-  for (let l = 1; l <= 10; l++) if (l !== 5) for (let n = 1; n <= 10; n++) assert(!Depths.wave(l, n).buds.some(b => b.foe === 'glowworm'));
+  for (let l = 1; l <= 4; l++) for (let n = 1; n <= 10; n++) assert(!Depths.wave(l, n).buds.some(b => b.foe === 'glowworm')); // batch 2 mixes glowworms into L7 and L10; none before the L5 debut
 });
 test('L5 W4: the worm keeps 21 / 20 px along its track, and its first turn reaches x 64 and comes back 26 px lower', () => {
   const game = level(5, 4), G = 'd5-4-foe0', worm = foesOf(game, 'glowworm'), head = worm[0], w = game.worms.get(G);

@@ -1913,6 +1913,16 @@
     puff(e) { foeDust(e.x, e.y, 4, '#b9fff0', 35); }
   };
 
+  // ── Amberkeeper (Level 6, `amberkeeper`) ──
+
+  // ── Whizzbang (Level 7, `whizzbang`) ──
+
+  // ── Lodestone (Level 8, `lodestone`) ──
+
+  // ── Sweetheart Roses (Level 9, `sweetheart`) ──
+
+  // ── Wishing Stars (Level 10, `wishstar`) ──
+
   // -----------------------------------------------------------------------------------------------------------------
   // The guardians' moves. A `bossAbility` event (move, act) gets BOSS_FX.<kind>['move:act'] or BOSS_FX.<kind>[act]; a mood
   // change gets the shared Phase Bloom below. Each kit's effects live in its own block.
@@ -2142,6 +2152,16 @@
     'tide:recede'(e) { for (let x = 82; x <= 340; x += 86) foeDust(x, e.y, 2, LILY_FX.water, 25); }
   };
 
+
+  // ── Ammonite Queen (Level 6, `fossil`) ──
+
+  // ── Ember Rose (Level 7, `ember`) ──
+
+  // ── Geode King (Level 8, `geode`) ──
+
+  // ── Thornmother (Level 9, `briar`) ──
+
+  // ── The Starseed (Level 10, `core`) ──
 
   function processEvents() {
     for (const event of game.drainEvents()) {

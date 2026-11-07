@@ -1469,6 +1469,16 @@
     }
   });
 
+  // ── Amberkeeper (Level 6, `amberkeeper`) ──
+
+  // ── Whizzbang (Level 7, `whizzbang`) ──
+
+  // ── Lodestone (Level 8, `lodestone`) ──
+
+  // ── Sweetheart Roses (Level 9, `sweetheart`) ──
+
+  // ── Wishing Stars (Level 10, `wishstar`) ──
+
   // -----------------------------------------------------------------------------------------------------------------
   // The guardians' kits (bosses.js). art.js calls these during a fight with a kit guardian (state.bossState.kind):
   //   under(ctx, state, s, time, still, kit, quality)          below every bud (Rootknot's holes, Lily's tide band)
@@ -3376,6 +3386,16 @@
     }
   });
 
+
+  // ── Ammonite Queen (Level 6, `fossil`) ──
+
+  // ── Ember Rose (Level 7, `ember`) ──
+
+  // ── Geode King (Level 8, `geode`) ──
+
+  // ── Thornmother (Level 9, `briar`) ──
+
+  // ── The Starseed (Level 10, `core`) ──
 
   root.BloomFoeArt = { define, LOOKS, has, bud, under, over, aim, warm, kitLook, KIT_LOOKS, kits };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -37,6 +37,16 @@ module.exports = [
   ['foe', { kind: 'glowworm:ripple', x: 250, n: 4 }], ['foe', { kind: 'glowworm:ripple', x: 60, n: 9 }], ['foe', { kind: 'glowworm:ripple', x: 200 }],
   ['foe', { kind: 'glowworm:ripple', x: 200, n: 0 }], ['foe', { kind: 'glowworm:split', x: 140 }], ['foe', { kind: 'glowworm:spawn', x: 300 }],
 
+  // ── Amberkeeper (Level 6, `amberkeeper`) ──
+
+  // ── Whizzbang (Level 7, `whizzbang`) ──
+
+  // ── Lodestone (Level 8, `lodestone`) ──
+
+  // ── Sweetheart Roses (Level 9, `sweetheart`) ──
+
+  // ── Wishing Stars (Level 10, `wishstar`) ──
+
   // Guardians: every move's start has a voice (its own, or the guardian's instrument answering low), and a mood change
   // (Phase Bloom) has its own.
   ...['sunny', 'root', 'puff', 'crystal', 'lotus', 'fossil', 'ember', 'geode', 'briar', 'core'].map(kind => ['bossAbility', { kind, move: kind, act: 'start', x: 210 }]),
@@ -82,5 +92,15 @@ module.exports = [
   ['bossAbility', { kind: 'lotus', move: 'tide', act: 'rise', x: 210 }], ['bossAbility', { kind: 'lotus', move: 'tide', act: 'recede', x: 210 }],
   ['bossAbility', { kind: 'lotus', move: 'lotus', act: 'start', x: 210 }], ['bossCritical', { kind: 'lotus', damage: 2, via: 'moon', x: 200 }],
   ['bossStage', { kind: 'lotus', stage: 1, mood: 'Glowing', x: 210 }],
+
+  // ── Ammonite Queen (Level 6, `fossil`) ──
+
+  // ── Ember Rose (Level 7, `ember`) ──
+
+  // ── Geode King (Level 8, `geode`) ──
+
+  // ── Thornmother (Level 9, `briar`) ──
+
+  // ── The Starseed (Level 10, `core`) ──
 
 ];

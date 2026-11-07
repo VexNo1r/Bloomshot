@@ -513,6 +513,16 @@
   FOE_CUES['glowworm:split'] = [['wood', step(2), 0, .08, .06], ['wood', step(-1), .07, .08, .05], ['crunch', 'pop', .07, .6]];
   FOE_CUES['glowworm:spawn'] = [['marimba', pent(5), 0, .08, .05], ['marimba', pent(7), .08, .1, .05]];
 
+  // ── Amberkeeper (Level 6, `amberkeeper`) ──
+
+  // ── Whizzbang (Level 7, `whizzbang`) ──
+
+  // ── Lodestone (Level 8, `lodestone`) ──
+
+  // ── Sweetheart Roses (Level 9, `sweetheart`) ──
+
+  // ── Wishing Stars (Level 10, `wishstar`) ──
+
   // -----------------------------------------------------------------------------------------------------------------
   // The guardians' moves. A `bossAbility` event names its move and act (start, spit, shut, toss, snap...); the cue is
   // BOSS_ACTS['kind:move:act'] or BOSS_ACTS['move:act'] (rows or (data, pan) as for the foes). A move's start without its
@@ -605,6 +615,16 @@
   BOSS_ACTS['lotus:tide:rise'] = [['drop', step(0), 0, .2, .05], ['drop', step(2), .15, .2, .05], ['drop', step(4), .3, .3, .045]];
   BOSS_ACTS['lotus:tide:recede'] = [['drop', step(4), 0, .2, .045], ['drop', step(2), .15, .2, .045], ['drop', step(0), .3, .3, .04]];
 
+
+  // ── Ammonite Queen (Level 6, `fossil`) ──
+
+  // ── Ember Rose (Level 7, `ember`) ──
+
+  // ── Geode King (Level 8, `geode`) ──
+
+  // ── Thornmother (Level 9, `briar`) ──
+
+  // ── The Starseed (Level 10, `core`) ──
 
   function play(type, data = {}) {
     if (!enabled || !context || asleep) return;

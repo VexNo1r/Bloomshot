@@ -191,9 +191,10 @@
     let x = clamp(s.baseX + m.x, 100, 320);
     if (s.kind==='fossil' && s.jetAt!=null) { const p=clamp((future-s.jetAt)/.9,0,1),e=p*p*(3-2*p);x=s.jetFrom+(s.jetTo-s.jetFrom)*e; }
     if (s.kind==='ember' && s.mode==='dive') { const p=clamp((future-s.diveAt)/2.4,0,1),e=p*p*(3-2*p);x=s.diveFrom+(s.diveTo-s.diveFrom)*e; }
-    const y = Math.max(90, s.baseY + s.drift + seconds * s.fall + m.y + dive);
-    // A kit's own pieces run on its clock, which a Lullaby stops (s.lull is the Lullaby time left).
-    const map = new Map([[boss.id, { x, y, r: boss.r }]]), k = kitOf(s), clock = s.kitAge + Math.max(0, seconds - s.lull);
+    // A kit's own pieces run on its clock, which a Lullaby stops (s.lull is the Lullaby time left); a kit may lift its guardian (k.rise).
+    const k = kitOf(s), clock = s.kitAge + Math.max(0, seconds - s.lull), rise = k && k.rise ? k.rise(s, clock) : 0;
+    const y = Math.max(90, s.baseY + s.drift + seconds * s.fall + m.y + dive - rise);
+    const map = new Map([[boss.id, { x, y, r: boss.r }]]);
     for (const p of s.parts) {
       let px = x, py = y;
       if (p.bossPart === 'bubble') py += 46;
@@ -1611,6 +1612,16 @@
       const lantern = lilyLantern(s); if (lantern) lantern.visible = true;
     }
   });
+
+  // ── Ammonite Queen (Level 6, `fossil`) ──
+
+  // ── Ember Rose (Level 7, `ember`) ──
+
+  // ── Geode King (Level 8, `geode`) ──
+
+  // ── Thornmother (Level 9, `briar`) ──
+
+  // ── The Starseed (Level 10, `core`) ──
 
   return { init, step, canHit, burns, resolve, bloomed, breach, cleanup, predictVisible, targets, health: HEALTH, telegraph: TELEGRAPH, kits: KITS };
 });

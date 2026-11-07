@@ -32,8 +32,7 @@ function dizzySunny(hp) { const g = arena(1), s = g.bossState; hit(g, s.parts[0]
 
 // ── Shared tier rules ──
 test('Guardians without a kit keep no tiers; a kit guardian turns at two thirds and one third of its health', () => {
-  for (let id = 6; id <= 10; id++) assert.equal(arena(id).bossState.tierAt, null, `L${id}`);
-  for (let id = 1; id <= 5; id++) {
+  for (let id = 1; id <= 10; id++) { // batch 2 gives guardians 6-10 kits: a kit means tiers, no kit none
     const kind = Depths.bosses[id - 1].kind, g = arena(id);
     if (Bosses.kits[kind]) assert.deepEqual(g.bossState.tierAt, tiersOf(g.bossState.boss.maxHp), kind);
     else assert.equal(g.bossState.tierAt, null, kind);
@@ -1361,6 +1360,16 @@ test('Crystal Heart replays identically at 30, 60 and 144 FPS, and a strike loop
     }
   });
 }
+
+// ── Ammonite Queen (Level 6, `fossil`) ──
+
+// ── Ember Rose (Level 7, `ember`) ──
+
+// ── Geode King (Level 8, `geode`) ──
+
+// ── Thornmother (Level 9, `briar`) ──
+
+// ── The Starseed (Level 10, `core`) ──
 
 const report = { passed: results.filter(r => r.passed).length, failed: results.filter(r => !r.passed).length, results };
 fs.writeFileSync(path.join(__dirname, 'kits-test-results.json'), JSON.stringify(report, null, 2) + '\n');
