@@ -1573,6 +1573,63 @@ test('Ammonite Queen: her moods, pearls, slabs, egg and lift draw balanced, fini
   for (const still of [false, true]) for (const quality of [0, 1, 2]) for (const dt of [.05, .4, 1.3, 3.71]) for (const [label, board, time] of boards) frame(label, board, time + dt, still, quality);
   assert.equal(totals.surfaces, warm, 'no new surface once warm'); assert.deepEqual([totals.gradients, totals.shadows], [0, 0]);
 });
+// Level 6's own cues of one tick as the player hears and feels them: sound.js on a recording AudioContext (each pitched
+// note's frequency and start), and the Level 6 effect blocks of app.js with every buzz counted.
+function level6Senses() {
+  const notes = [], param = () => { const p = { value: 0 }; for (const m of ['setValueAtTime', 'linearRampToValueAtTime', 'exponentialRampToValueAtTime', 'setTargetAtTime']) p[m] = x => { p.value = x; return p; };
+    for (const m of ['cancelScheduledValues', 'cancelAndHoldAtTime']) p[m] = () => p; return p; };
+  const node = kind => { const n = { connect: x => x, disconnect() {}, stop() {}, setPeriodicWave() {}, start: t => { if (kind === 'osc') notes.push({ t, f: n.frequency.value }); } };
+    for (const k of ['frequency', 'detune', 'gain', 'Q', 'pan']) n[k] = param(); return n; };
+  let audio = null;
+  class Audio {
+    constructor() { audio = this; this.state = 'running'; this.currentTime = 0; this.sampleRate = 44100; this.destination = node('out'); }
+    createGain() { return node('gain'); } createBiquadFilter() { return node('filter'); } createWaveShaper() { return node('shaper'); }
+    createStereoPanner() { return node('pan'); } createOscillator() { return node('osc'); } createPeriodicWave() { return {}; }
+    resume() { return Promise.resolve(); } suspend() { return Promise.resolve(); } close() { return Promise.resolve(); }
+  }
+  const vm = require('node:vm'), read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
+  const sounds = { console, AudioContext: Audio }; vm.createContext(sounds); vm.runInContext(read('sound.js'), sounds);
+  sounds.BloomSound.setEnabled(true); sounds.BloomSound.wake();
+  const app = read('app.js'), block = (from, to) => app.slice(app.indexOf(from), app.indexOf(to));
+  const buzzes = [], fx = { BOSS_FX: {}, FOE_FX: {}, CRIT_TEXT: {}, game: null, save: { settings: { motion: false } }, Math, haptic: kind => buzzes.push(kind),
+    foeRing() {}, foeDust() {}, burst() {}, bossCallout() {}, jolt() {}, meetFoes() {}, currentKeepsake() {} };
+  vm.createContext(fx); vm.runInContext(block('// ── Amberkeeper (Level 6', '// ── Whizzbang (Level 7') + block('// ── Ammonite Queen (Level 6', '// ── Ember Rose (Level 7'), fx);
+  // Plays one tick's events; returns each event's notes (start relative to the tick) and the buzzes they made.
+  return (game, events) => {
+    audio.currentTime += 5; fx.game = game; buzzes.length = 0; const now = audio.currentTime;
+    const each = events.map(e => {
+      const from = notes.length; sounds.BloomSound.play(e.type, e);
+      const own = e.type === 'foe' ? fx.FOE_FX[e.kind.split(':')[0]] : fx.BOSS_FX[e.kind], act = e.type === 'foe' ? e.kind.split(':')[1] : `${e.move}:${e.act}`;
+      const handler = own && (own[act] || e.type !== 'foe' && own[e.act]); if (handler) handler(e);
+      return { name: e.type === 'foe' ? e.kind : `${e.move}:${e.act}`, notes: notes.slice(from).map(n => ({ t: n.t - now, f: n.f })) };
+    });
+    return { each, buzzes: [...buzzes] };
+  };
+}
+test('Level 6 sounds and buzzes each beat once: no two cues of one tick strike the same note together, one buzz an action', () => {
+  const senses = level6Senses(), mine = e => e.type === 'foe' ? /^amber/.test(e.kind) : e.type === 'bossAbility' && e.kind === 'fossil';
+  // The tick each action lands on, collected from real play.
+  const tickOf = (g, found, limit = 1200) => { for (let n = 0; n < limit; n++) { g.step(1 / 120); const now = g.drainEvents().filter(mine); if (found(now)) return now; } assert.fail('the tick never came'); };
+  const full = () => { const g = new RushGame({ plan: bot.plan(6), startWave: 10 }); g.started = true; g.status = 'flying'; g.drainEvents(); return g; };
+  const ticks = [];
+  for (const [label, g] of [['petrify, full board', full()], ['petrify, bare bed', arena(6)]]) {
+    const s = g.bossState; Object.assign(s, { tier: 1, cycle: 0, next: s.age }); ticks.push([label, g, tickOf(g, now => now.some(e => e.act === 'stone'))]);
+  }
+  { const g = arena(6), s = g.bossState; Object.assign(s, { tier: 2, cycle: 0, next: s.age }); ticks.push(['the egg hatches', g, tickOf(g, now => now.some(e => e.kind === 'amberkeeper:hatch'))]); }
+  { const g = arena(6), s = g.bossState; Object.assign(s, { tier: 0, cycle: 0, action: 1, next: s.age }); ticks.push(['pearls fly', g, tickOf(g, now => now.some(e => e.act === 'start'))]); ticks.push(['pearls land', g, tickOf(g, now => now.some(e => e.act === 'land'))]); }
+  { const g = new RushGame({ plan: { id: 6, name: 'Test', waves: 1, wave: () => Depths.wave(6, 2) }, startWave: 1 }); g.started = true;
+    for (let n = 0; n < 1200 && g.foeClock < 2.91; n++) g.step(1 / 120); g.drainEvents(); const keeper = g.buds.find(b => b.foe === 'amberkeeper');
+    hit(g, keeper); g.drainEvents(); hit(g, keeper); ticks.push(['the keeper breaks', g, g.drainEvents().filter(mine)]); }
+  assert.deepEqual(ticks[0][2].map(e => e.act).sort(), ['start', 'stone'], 'Petrify sets its slabs on the tick the move starts');
+  assert.equal(ticks[5][2].filter(e => e.kind === 'amber:shatter').length, 2, 'both beads shatter as he breaks');
+  for (const [label, g, events] of ticks) {
+    const { each, buzzes } = senses(g, events), all = each.flatMap(e => e.notes);
+    assert(all.length, `${label}: the beat is heard`); assert(all.some(n => n.t < .03), `${label}: on the beat`);
+    for (let i = 0; i < each.length; i++) for (let j = i + 1; j < each.length; j++) for (const a of each[i].notes) for (const b of each[j].notes)
+      assert(!(Math.abs(a.f - b.f) < .5 && Math.abs(a.t - b.t) < .03), `${label}: ${each[i].name} and ${each[j].name} both strike ${a.f.toFixed(1)} Hz at +${a.t.toFixed(2)} s`);
+    assert(buzzes.length <= 1, `${label}: one buzz, not ${buzzes.join(' + ')}`);
+  }
+});
 
 // ── Ember Rose (Level 7, `ember`) ──
 

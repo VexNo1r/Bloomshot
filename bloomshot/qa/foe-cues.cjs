@@ -101,7 +101,7 @@ module.exports = [
   // ── Ammonite Queen (Level 6, `fossil`) ──
   ['bossAbility', { kind: 'fossil', move: 'pearls', act: 'start', x: 210 }], ['bossAbility', { kind: 'fossil', move: 'pearls', act: 'land', x: 160 }],
   ['bossAbility', { kind: 'fossil', move: 'pearls', act: 'catch', x: 260, bonus: 475 }], ['bossAbility', { kind: 'fossil', move: 'petrify', act: 'start', x: 210 }],
-  ['bossAbility', { kind: 'fossil', move: 'petrify', act: 'stone', x: 210 }], ['bossAbility', { kind: 'fossil', move: 'petrify', act: 'clack', x: 96 }],
+  ['bossAbility', { kind: 'fossil', move: 'petrify', act: 'clack', x: 96 }], // petrify:stone is silent: it lands on the start's tick
   ['bossAbility', { kind: 'fossil', move: 'petrify', act: 'bank', x: 210 }], ['bossAbility', { kind: 'fossil', move: 'petrify', act: 'thaw', x: 324, n: 3 }],
   ['bossAbility', { kind: 'fossil', move: 'hatch', act: 'start', x: 210 }],
   ['bossAbility', { kind: 'fossil', move: 'fossil', act: 'start', x: 292 }], ['bossCritical', { kind: 'fossil', damage: 3, via: 'fossil', x: 210 }],

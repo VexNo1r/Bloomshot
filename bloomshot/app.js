@@ -2202,7 +2202,8 @@
       foeRing(e.x, e.y, '#ffffff', 8, 30, .35); foeRing(e.x, e.y, FOSSIL_FX.lilac, 10, 40, .45);
       bossCallout(e.x, e.y, 'Pearl catch!', 1.1); jolt(.12, .05, .18); haptic('surge');
     },
-    'petrify:start'(e) { for (const t of (e.targets || []).filter(t => t.role === 'stone')) foeRing(t.x, t.y, FOSSIL_FX.stone, t.r, 8, .5); haptic('warn'); },
+    // The stone lands on this same tick and carries the move's one buzz.
+    'petrify:start'(e) { for (const t of (e.targets || []).filter(t => t.role === 'stone')) foeRing(t.x, t.y, FOSSIL_FX.stone, t.r, 8, .5); },
     'petrify:stone'() {
       for (const m of game.bumpers.filter(m => m.bossStone)) { foeDust(m.x, m.y, 6, FOSSIL_FX.stone, 60); foeRing(m.x, m.y, FOSSIL_FX.dark, 10, 22, .3); }
       jolt(.1, .04, .1); haptic('warn');

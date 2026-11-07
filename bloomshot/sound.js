@@ -638,14 +638,14 @@
   // ── Ammonite Queen (Level 6, `fossil`) ──
   // Pearls and stone. Her volley strings three glass notes up the C chord as she blows the pearls out; they land as
   // three woody ploks walking back down; a caught pearl rings a bell under a bright pentatonic run and a high chime.
-  // Petrify grinds in low (a thump and a creaking knock), sets with a timpani thunk, clacks softly when a seed banks off
-  // a slab, and a Fossil bank adds a stony clack ringing up into a bell over the critical's own C-E; the slabs thaw on
-  // three notes climbing. Brooding coos two bells as she lays the egg (the hatch itself is the keeper's own cue).
+  // Petrify sets with one timpani thunk under a creaking knock (its start and its stone land on one tick, so one cue
+  // carries both), clacks softly when a seed banks off a slab, and a Fossil bank adds a stony clack ringing up into a
+  // bell over the critical's own C-E; the slabs thaw on three notes climbing. Brooding coos two bells as she lays the
+  // egg (the hatch itself is the keeper's own cue).
   BOSS_ACTS['fossil:pearls:start'] = [['glass', step(7), 0, .08, .045], ['glass', step(9), .1, .08, .045], ['glass', step(11), .2, .1, .045], ['crunch', 'click', 0, .3]];
   BOSS_ACTS['fossil:pearls:land'] = [['wood', step(4), 0, .06, .05], ['wood', step(2), .07, .06, .045], ['wood', step(0), .14, .08, .045], ['crunch', 'thock', 0, .6]];
   BOSS_ACTS['fossil:pearls:catch'] = [['bell', step(9), 0, .2, .07], ['glass', pent(10), .05, .1, .055], ['glass', pent(11), .1, .1, .055], ['glass', pent(12), .15, .1, .055], ['chime', step(16), .22, .35, .035]];
-  BOSS_ACTS['fossil:petrify:start'] = [['thump', step(-7), 0, .12, .05], ['wood', step(-5), .12, .1, .045], ['crunch', 'crack', .12, .5]];
-  BOSS_ACTS['fossil:petrify:stone'] = [['timp', step(-7), 0, .25, .06], ['crunch', 'thock', 0, .9], ['wood', step(-3), .05, .08, .045]];
+  BOSS_ACTS['fossil:petrify:start'] = [['timp', step(-7), 0, .25, .06], ['crunch', 'thock', 0, .9], ['wood', step(-3), .05, .08, .045], ['wood', step(-5), .12, .1, .04], ['crunch', 'crack', .12, .5]];
   BOSS_ACTS['fossil:petrify:clack'] = [['wood', step(5), 0, .05, .04, 0], ['crunch', 'click', 0, .4]];
   BOSS_ACTS['fossil:petrify:bank'] = [['wood', step(7), 0, .06, .05], ['crunch', 'crack', 0, .6], ['bell', step(11), .06, .2, .045], ['chime', step(14), .12, .3, .03]];
   BOSS_ACTS['fossil:petrify:thaw'] = [['wood', step(0), 0, .06, .035], ['marimba', step(4), .06, .08, .04], ['marimba', step(7), .12, .12, .04]];

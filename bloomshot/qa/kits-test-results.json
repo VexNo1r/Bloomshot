@@ -1,5 +1,5 @@
 {
-  "passed": 90,
+  "passed": 91,
   "failed": 0,
   "results": [
     {
@@ -360,6 +360,10 @@
     },
     {
       "name": "Ammonite Queen: her moods, pearls, slabs, egg and lift draw balanced, finite, with no gradient or shadow and no new surface once warm",
+      "passed": true
+    },
+    {
+      "name": "Level 6 sounds and buzzes each beat once: no two cues of one tick strike the same note together, one buzz an action",
       "passed": true
     }
   ]
