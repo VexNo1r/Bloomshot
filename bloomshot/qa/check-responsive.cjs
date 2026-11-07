@@ -122,8 +122,32 @@ async function main() {
     await longToast('Levels map');
     // How to play's Who's who, every entry shown (the review link): all 34 cards and pictures fit the dialog with no
     // sideways scroll and no clipped text, in two columns where the dialog is wide enough and one on phones.
+    // Each guide picture's pixels just before the board drawing, so what it drew can be told from a backing under it.
+    await page.evaluate(() => {
+      const draw = window.BloomArt.draw;
+      window.BloomArt.draw = function (ctx, ...rest) {
+        if (ctx.canvas && ctx.canvas.className === 'guide-canvas') ctx.canvas.qaBefore = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height).data;
+        return draw.call(this, ctx, ...rest);
+      };
+    });
     await page.evaluate(() => { document.getElementById('help-btn').click(); document.getElementById('levels-help').open = false; document.getElementById('guide-help').open = true; });
     await page.clock.runFor(2000);
+    // Every picture's piece fills a fair share of its round frame: a pixel is the piece's when the drawing changed it
+    // (over the card's cream) by 60 or more in all. Today the least is 25% (Fibcap, Moon Jelly; Ember Rose has 48%); before
+    // the framing pass Wishing Stars had 10%, Crystal Heart 13%, Glowworm 15%, The Starseed 16%, Peekaboo Mole 18%.
+    const covers = await page.evaluate(() => [...document.querySelectorAll('#guide-list .guide-entry')].map(item => {
+      const canvas = item.querySelector('.guide-canvas'), w = canvas.width, h = canvas.height, after = canvas.getContext('2d').getImageData(0, 0, w, h).data, before = canvas.qaBefore;
+      const over = (data, i, c) => data[i + c] * data[i + 3] / 255 + [255, 253, 246][c] * (1 - data[i + 3] / 255);
+      let inside = 0, piece = 0;
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+        if (Math.hypot(x + .5 - w / 2, y + .5 - h / 2) > w / 2) continue;
+        const i = (y * w + x) * 4; inside++;
+        if (before && Math.abs(over(after, i, 0) - over(before, i, 0)) + Math.abs(over(after, i, 1) - over(before, i, 1)) + Math.abs(over(after, i, 2) - over(before, i, 2)) >= 60) piece++;
+      }
+      return { id: item.dataset.guide, cover: Math.round(piece / inside * 1000) / 1000 };
+    }));
+    const thin = covers.filter(row => !(row.cover >= .2));
+    assert.deepEqual(thin, [], `${key} Who's who: every picture's piece covers at least 20% of its frame`);
     const guide = await page.evaluate(() => {
       const dialog = document.getElementById('help-dialog'), r = dialog.getBoundingClientRect(), items = [...document.querySelectorAll('#guide-list .guide-entry')];
       return { dialog: { x: r.x, right: r.right, width: r.width }, scrollWidth: dialog.scrollWidth, clientWidth: dialog.clientWidth, page: document.documentElement.scrollWidth,
@@ -142,7 +166,7 @@ async function main() {
     assert.deepEqual(guide.outside, [], `${key} Who's who: cards inside the dialog`); assert.deepEqual(guide.clipped, [], `${key} Who's who: no clipped names or lines`);
     assert.equal(guide.columns, size.width >= 700 ? 2 : 1, `${key} Who's who: two columns where there is room`);
     assert.deepEqual(guide.endsShort, [], `${key} Who's who: no guardian sits alone beside an empty space`);
-    rows.push({ size: key, label: "Who's who", ...guide });
+    rows.push({ size: key, label: "Who's who", ...guide, covers: Object.fromEntries(covers.map(row => [row.id, row.cover])) });
     await page.locator('#help-dialog').screenshot({ path: path.join(output, `${key}-guide.png`) });
     // A phone narrower than any in the matrix (a folding phone's cover screen, 280 px): the open guide still fits.
     if (size.width < 700) {
