@@ -145,8 +145,9 @@
       this.score = Number.isFinite(run.score) ? Math.max(0, Math.floor(run.score)) : 0;
       this.totalBlooms = whole(run.blooms, 0, Number.MAX_SAFE_INTEGER); this.bestCombo = whole(run.chain, 0, Number.MAX_SAFE_INTEGER);
       if (run.gift === true) { if (this.bossWave) this.bossLastLifeGift = true; else this.giftWave = this.wave; }
-      // Already under way, as at any later wave's start: the flowers fall as soon as the count-in ends.
-      this.started = true;
+      // Already under way, as at any later wave's start: the flowers fall as soon as the count-in ends. resumed tells
+      // the stage (app.js intro) to show the board at once, with no opening curtain over the count.
+      this.started = true; this.resumed = true;
     }
     _applyWave(spec) {
       this.speed = spec.speed; this.descentSpeed = spec.descent; this.waveFireDelay = spec.fireDelay;

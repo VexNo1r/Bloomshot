@@ -19,11 +19,10 @@ const Rush = require('../rush.js');
 const Depths = require('../depths.js');
 const Powers = require('../powers.js');
 const source = fs.readFileSync(path.join(__dirname, '../app.js'), 'utf8');
-const results = [];
-function test(name, fn) {
-  try { fn(); results.push({ name, passed: true }); }
-  catch (error) { results.push({ name, passed: false, error: error.stack }); }
-}
+const nativeSource = fs.readFileSync(path.join(__dirname, '../native.js'), 'utf8');
+const results = [], tests = [];
+// Tests run one after another at the end (a test may wait, as the phone's preferences answer asynchronously).
+function test(name, fn) { tests.push({ name, fn }); }
 const MAIN = 'bloomshot.save.v1', QA = 'bloomshot.qa.v1';
 const cleared = n => Object.fromEntries(Array.from({ length: n }, (_, i) => [i + 1, { stars: 3, best: 3000, wave: 10 }]));
 // A player who has cleared the first `n` levels (by default the four free ones).
@@ -37,7 +36,9 @@ function fakeStore({ owned = false, ready = true } = {}) {
   return store;
 }
 // raw: the save to start from (or storage: a whole storage map from an earlier boot). search: the page's query string.
-function boot(raw, { search = '', store = null, storage = new Map() } = {}) {
+// sound: a stand-in for BloomSound. worlds: a different world list. prefs: run the real native.js first (as index.html
+// does), as the native app with this map as the phone's preferences; its timers never fire, like a hidden app's.
+function boot(raw, { search = '', store = null, storage = new Map(), sound = null, worlds = null, prefs = null } = {}) {
   const key = search.includes('alllevels') || search.includes('qa') ? QA : MAIN;
   if (raw !== undefined) storage.set(key, JSON.stringify(raw));
   const nodes = new Map(), games = [];
@@ -76,7 +77,7 @@ function boot(raw, { search = '', store = null, storage = new Map() } = {}) {
   const listeners = { document: new Map(), window: new Map() };
   const listen = map => (name, fn) => { if (!map.has(name)) map.set(name, []); map.get(name).push(fn); };
   const fire = (target, name) => { for (const fn of listeners[target].get(name) || []) fn({ type: name }); };
-  const document = { getElementById: $, createElement: () => element(), body: element('body'), hidden: false, addEventListener: listen(listeners.document) };
+  const document = { getElementById: $, createElement: () => element(), body: element('body'), hidden: false, visibilityState: 'visible', addEventListener: listen(listeners.document) };
   class ObservedGame extends Engine.Game { constructor(level) { super(level); games.push(this); } }
   class ObservedRush extends Rush.RushGame { constructor(options) { super(options); games.push(this); } }
   const context = vm.createContext({ console, structuredClone, URLSearchParams, Date, Math, Map, Set,
@@ -84,10 +85,10 @@ function boot(raw, { search = '', store = null, storage = new Map() } = {}) {
     localStorage: { getItem: name => storage.get(name) || null, setItem: (name, value) => { storage.set(name, value); } },
     performance: { now: () => now }, devicePixelRatio: 1, matchMedia: () => ({ matches: false, addEventListener: noop }),
     requestAnimationFrame: fn => { nextFrame = fn; }, setTimeout: () => 1, clearTimeout: noop,
-    BloomLevels: Levels, BloomMoon: Moon, BloomKoi: Koi, BloomGarden: Garden, BloomGoals: QuietGoals, ...(store ? { BloomStore: store } : {}),
+    BloomLevels: worlds ? { ...Levels, worlds } : Levels, BloomMoon: Moon, BloomKoi: Koi, BloomGarden: Garden, BloomGoals: QuietGoals, ...(store ? { BloomStore: store } : {}),
     BloomEngine: { ...Engine, Game: ObservedGame }, BloomRush: { RushGame: ObservedRush }, BloomDepths: Depths, BloomPowers: Powers,
     BloomTutorial: require('../tutorial.js'), BloomPetals: require('../petals.js'), BloomScenery: { paint: noop, has: () => true },
-    BloomSound: { wake: noop, setEnabled: noop, play: noop }, BloomKeepsakes: Keepsakes,
+    BloomSound: sound || { wake: noop, setEnabled: noop, play: noop }, BloomKeepsakes: Keepsakes,
     BloomArt: { draw: noop, drawFlower: noop, drawMoon: noop, koiFish: noop, drawGarden: noop, drawProjectile: noop, drawParticle: noop, drawSeed: noop, drawPowerIcon: noop, podSlot: () => ({ x: 210, y: 498 }) },
     BloomMeadow: { plots: Garden.plots.map((p, i) => ({ id: p.id, x: 65 + i * 50, y: 150, labelY: 180, accent: p.color })),
       decor: Garden.decor.map((d, i) => ({ id: d.id, x: 40 + i * 60, y: 200, accent: '#ffffff', icon: [40 + i * 60, 190, 40] })),
@@ -95,12 +96,17 @@ function boot(raw, { search = '', store = null, storage = new Map() } = {}) {
       drawDecorIcon: noop, drawFriendIcon: noop, draw: noop }
   });
   context.window = context; context.addEventListener = listen(listeners.window);
+  if (prefs) {
+    context.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'ios',
+      Plugins: { Preferences: { get: async ({ key }) => ({ value: prefs.has(key) ? prefs.get(key) : null }), set: async ({ key, value }) => { prefs.set(key, value); } } } };
+    vm.runInContext(nativeSource, context, { filename: 'native.js' });
+  }
   vm.runInContext(source, context, { filename: 'app.js' });
   function frame(milliseconds = 17) { now += milliseconds; const fn = nextFrame; assert.equal(typeof fn, 'function'); fn(now); }
   function run(seconds, until) { for (let t = 0; t < seconds; t += .017) { frame(); if (until && until()) return true; } return false; }
   function click(id, dataset) { const target = dataset ? Object.assign(element(), { dataset }) : $(id); $(id).emit('click', { target }); }
-  const hide = () => { document.hidden = true; fire('document', 'visibilitychange'); };
-  const show = () => { document.hidden = false; fire('document', 'visibilitychange'); };
+  const hide = () => { document.hidden = true; document.visibilityState = 'hidden'; fire('document', 'visibilitychange'); };
+  const show = () => { document.hidden = false; document.visibilityState = 'visible'; fire('document', 'visibilitychange'); };
   const saved = () => JSON.parse(storage.get(key));
   return { $, click, frame, run, fire, hide, show, saved, storage, store, document, game: () => games.at(-1) };
 }
@@ -119,6 +125,18 @@ function nextWave(app) {
 // Jumps a started run to the start of a later wave, the way test-stage does.
 function jump(app, wave) { const game = app.game(); game.started = true; game.wave = wave - 1; game.drops = []; game._loadWave(); app.frame(); }
 const playLevel = (app, id) => { app.click('depth-map', { depth: String(id) }); app.frame(); return app.game(); };
+// The first seed of the board in play (straight up), as a tap would send it.
+const shoot = app => { assert(app.game().fire(0, -1), 'a seed flies'); app.frame(); };
+// Taps the board: a finger down and up at one point.
+function tap(app, x = 210, y = 200) {
+  const event = { isPrimary: true, pointerId: 1, clientX: x, clientY: y };
+  app.$('game-canvas').emit('pointerdown', event); app.$('game-canvas').emit('pointerup', event);
+}
+// A run lost on a late wave, so the result card offers Try from wave 6 (level 3) or Try the boss (two guardian losses).
+function lostLate(app, id, wave) {
+  const game = playLevel(app, id); game.started = true; jump(app, wave); game._lose();
+  assert(app.run(4, () => app.$('result-dialog').open), 'the result shows'); assert.equal(app.$('checkpoint-btn').hidden, false, 'with its retry');
+}
 const countDone = app => app.run(3, () => app.$('resume-count').hidden);
 const seeds = save => Garden.summary(save.garden).seeds;
 
@@ -160,18 +178,48 @@ test('The checkpoint is let go when the run is won or lost, on Restart and when 
   // A won run.
   app = boot(player()); game = started(app); game._clearLevel(); app.frame();
   assert.equal(game.status, 'won'); assert(!Object.hasOwn(app.saved(), 'run'), 'a won run lets it go');
-  // Another run: Meadow Rush, a garden puzzle, the daily garden.
+  // Another run, once its first seed flies: Meadow Rush, a garden puzzle, the daily garden.
   for (const other of ['levels-rush-btn', 'level-grid', 'daily-btn']) {
     app = boot(player({ progress: { 1: { best: 100, stars: 1, attempts: 1 } } })); started(app);
     if (other === 'level-grid') app.click('level-grid', { level: '1' }); else app.click(other);
     app.frame();
-    assert(!Object.hasOwn(app.saved(), 'run'), `${other} lets it go`);
+    assert.equal(app.saved().run?.wave, 2, `${other}: opening it alone keeps the run`);
+    shoot(app);
+    assert(!Object.hasOwn(app.saved(), 'run'), `${other}: its first seed lets it go`);
   }
   // Meadow Rush picked up from the board waiting behind the map, after a boot that offered the kept run.
   const storage = new Map(boot(player({ run: kept() })).storage);
   app = boot(undefined, { storage }); assert.equal(app.$('resume-btn').hidden, false);
   app.click('levels-rush-btn'); app.frame();
-  assert.equal(app.game().plan, null, 'endless Rush'); assert(!Object.hasOwn(app.saved(), 'run'), 'Meadow Rush lets it go');
+  assert.equal(app.game().plan, null, 'endless Rush'); assert.deepEqual(app.saved().run, kept(), 'kept while nothing is fired');
+  shoot(app); assert(!Object.hasOwn(app.saved(), 'run'), 'Meadow Rush lets it go with its first seed');
+  // Restart on the Paused card lets it go too.
+  app = boot(player()); started(app); app.click('pause-btn'); assert(app.$('pause-dialog').open);
+  app.click('pause-restart'); assert(!Object.hasOwn(app.saved(), 'run'), 'Restart on the Paused card');
+  app.click('back-btn'); app.frame(); assert.equal(app.$('resume-btn').hidden, true, 'and the map offers nothing');
+});
+
+test('Opening another level or Meadow Rush and going back without firing keeps the run; the map still offers it', () => {
+  const storage = new Map(boot(player({ run: kept() })).storage);
+  for (const [name, open] of [['level 2', app => playLevel(app, 2)], ['Meadow Rush', app => { app.click('levels-rush-btn'); app.frame(); }], ['level 5\'s free taste', app => playLevel(app, 5)]]) {
+    const app = boot(undefined, { storage: new Map(storage) });
+    open(app); assert.equal(app.document.body.dataset.view, 'game', `${name} opens`);
+    app.hide(); app.show(); // a call while it waits, before any seed
+    app.click('back-btn'); app.frame();
+    assert.equal(app.document.body.dataset.view, 'levels');
+    assert.deepEqual(app.saved().run, kept(), `${name}: kept`);
+    assert.equal(app.$('resume-btn').hidden, false, `${name}: still offered`); assert.equal(app.$('resume-title').textContent, 'Resume level 3');
+    app.click('resume-btn'); app.frame();
+    assert.deepEqual([app.game().plan?.id, app.game().wave, app.game().lives], [3, 8, 2], `${name}: and picked up`);
+  }
+  // Restarting that other board before its first seed leaves the kept run alone too.
+  let app = boot(undefined, { storage: new Map(storage) }); playLevel(app, 2);
+  app.click('restart-btn'); app.frame(); assert.equal(app.game().plan.id, 2, 'level 2 starts over');
+  assert.deepEqual(app.saved().run, kept(), 'the kept run stays');
+  // Another level's first seed starts that run in its place, and Restart then lets that one go.
+  app = boot(undefined, { storage: new Map(storage) }); playLevel(app, 2); shoot(app);
+  assert.deepEqual([app.saved().run.level, app.saved().run.wave, app.saved().run.lives], [2, 1, 3], 'level 2 is the run now');
+  app.game().score = 0; app.click('restart-btn'); assert(!Object.hasOwn(app.saved(), 'run'), 'Restart lets level 2\'s run go');
 });
 
 test('Booting again shows "Resume level N" with its wave; tapping it starts that wave with the lives, points, blooms and chain it kept, and counts in', () => {
@@ -255,12 +303,17 @@ test('A resumed guardian fight that is lost counts one loss, and a resumed wave 
 test('Only a well-formed checkpoint is kept: each damaged one is dropped and nothing is offered', () => {
   const good = boot(player({ run: kept() }));
   assert.deepEqual(good.saved().run, kept(), 'a good one is kept'); assert.equal(good.$('resume-btn').hidden, false);
+  assert.deepEqual(boot(player({ run: kept({ spent: { lullaby: 2, beeline: 1 } }) })).saved().run, kept({ spent: { lullaby: 2, beeline: 1 } }), 'with what its wave spent');
+  assert.deepEqual(boot(player({ run: kept({ spent: {} }) })).saved().run, kept(), 'an empty spent is left out');
   const damaged = [['not an object', 'run'], ['a list', [3, 8]], ['null', null], ['no level', kept({ level: undefined })], ['level 0', kept({ level: 0 })], ['level 11', kept({ level: 11 })],
     ['level as text', kept({ level: '3' })], ['wave 0', kept({ wave: 0 })], ['wave 11', kept({ wave: 11 })], ['half a wave', kept({ wave: 2.5 })],
     ['no lives', kept({ lives: 0 })], ['four lives', kept({ lives: 4 })], ['lives as text', kept({ lives: '2' })], ['negative score', kept({ score: -1 })],
     ['score not a number', kept({ score: NaN })], ['score as text', kept({ score: '4321' })], ['score infinite', kept({ score: 1e400 })], ['from 0', kept({ from: 0 })], ['from 11', kept({ from: 11 })],
     ['from past the wave', kept({ wave: 4, from: 6 })], ['no from', kept({ from: undefined })], ['negative blooms', kept({ blooms: -3 })], ['half a bloom', kept({ blooms: 1.5 })],
-    ['no chain', kept({ chain: undefined })], ['gift as text', kept({ gift: 'yes' })], ['no gift', kept({ gift: undefined })]];
+    ['no chain', kept({ chain: undefined })], ['gift as text', kept({ gift: 'yes' })], ['no gift', kept({ gift: undefined })],
+    ['spent null', kept({ spent: null })], ['spent as text', kept({ spent: 'lullaby' })], ['spent a list', kept({ spent: ['lullaby'] })],
+    ['spent an unknown power', kept({ spent: { rocket: 1 } })], ['spent none of one', kept({ spent: { lullaby: 0 } })], ['spent half of one', kept({ spent: { lullaby: .5 } })],
+    ['spent as text count', kept({ spent: { lullaby: '1' } })], ['spent too many', kept({ spent: { lullaby: Powers.max + 1 } })]];
   for (const [name, run] of damaged) {
     const app = boot(player({ run }));
     assert(!Object.hasOwn(app.saved(), 'run'), `${name}: dropped`);
@@ -295,13 +348,24 @@ test('A checkpoint for a level that is locked or not owned is not offered and is
   // Owned and open, it is offered.
   app = boot(player({ run: kept({ level: 6 }) }, 5), { store: fakeStore({ owned: true }) });
   assert.equal(app.$('resume-btn').hidden, false); assert.equal(app.$('resume-title').textContent, 'Resume level 6');
-  // While the store is still answering, it is not offered and not lost; the answer brings it back.
-  const store = fakeStore({ owned: false, ready: false });
+  // While the store is still answering (every first paint in the app), the card shows as it was, so the map does not
+  // jump when the answer comes. It is only picked up once the level is known to be owned.
+  let store = fakeStore({ owned: false, ready: false });
   app = boot(player({ run: kept({ level: 6 }) }, 5), { store });
-  assert.equal(app.$('resume-btn').hidden, true, 'not offered yet'); assert.deepEqual(app.saved().run, kept({ level: 6 }), 'but kept');
-  store.answer(true);
-  assert.equal(app.$('resume-btn').hidden, false, 'offered once the store says it is owned');
-  app.click('resume-btn'); app.frame(); assert.deepEqual([app.game().plan.id, app.game().wave], [6, 8]);
+  assert.equal(app.$('resume-btn').hidden, false, 'shown at once'); assert.equal(app.$('resume-title').textContent, 'Resume level 6');
+  assert.deepEqual(app.saved().run, kept({ level: 6 }), 'and kept');
+  app.click('resume-btn'); app.frame();
+  assert.equal(app.document.body.dataset.view, 'levels', 'not played before the level is known to be owned');
+  assert.equal(app.$('toast').textContent, 'Checking your levels. Try again in a moment.');
+  store.owned = true; // the store's own last answer, read as it starts
+  app.click('resume-btn'); app.frame(); assert.deepEqual([app.game().plan.id, app.game().wave], [6, 8], 'picked up once it is');
+  store.answer(true); assert.deepEqual(app.saved().run.level, 6);
+  // The answer says not owned: the card goes and the run is let go.
+  store = fakeStore({ owned: false, ready: false });
+  app = boot(player({ run: kept({ level: 6 }) }, 5), { store });
+  assert.equal(app.$('resume-btn').hidden, false);
+  store.answer(false);
+  assert.equal(app.$('resume-btn').hidden, true, 'gone once the store says it is not owned'); assert(!Object.hasOwn(app.saved(), 'run'));
 });
 
 test('The free taste, the tutorial and the all-levels preview keep no checkpoint; an ordinary level run does', () => {
@@ -347,6 +411,140 @@ test('Meadow Rush is not resumed, but hiding the page keeps a new best and wave 
   assert.deepEqual(plain(app.saved().rush), { best: 9000, bestWave: 9, runs: 2, blooms: 40 });
 });
 
-const report = { passed: results.filter(r => r.passed).length, failed: results.filter(r => !r.passed).length, results };
-console.log(JSON.stringify(report, null, 2));
-process.exitCode = report.failed ? 1 : 0;
+test('A run keeps its checkpoint from its first seed, and Try from wave 6 and Try the boss keep theirs as the board opens', () => {
+  // Wave 1: opening the board keeps nothing (it may be a peek); the first seed keeps it, with no hide or wave to wait for.
+  let app = boot(player()); playLevel(app, 3);
+  assert(!Object.hasOwn(app.saved(), 'run'), 'not as the board opens');
+  shoot(app);
+  assert.deepEqual(app.saved().run, { level: 3, wave: 1, lives: 3, score: 0, from: 1, blooms: 0, chain: 0, gift: false }, 'the first seed keeps wave 1');
+  // Try from wave 6 after losing level 3 on wave 8, and Try the boss on level 6 after two guardian losses.
+  for (const [id, cleared, wave, extra, store, from] of [[3, 4, 8, {}, null, 6], [6, 5, 10, { bossLosses: { 6: 2 } }, fakeStore({ owned: true }), 10]]) {
+    app = boot(player(extra, cleared), { store }); lostLate(app, id, wave);
+    assert(!Object.hasOwn(app.saved(), 'run'), 'the lost run is let go');
+    app.click('checkpoint-btn'); app.frame();
+    assert.deepEqual([app.game().wave, app.game().startWave, app.game().started], [from, from, false]);
+    assert.deepEqual(app.saved().run, { level: id, wave: from, lives: 3, score: 0, from, blooms: 0, chain: 0, gift: false }, `wave ${from}: kept as it opens`);
+    // The battery dies before the first seed (no hide event): the next launch offers that start, with the same star cap.
+    const again = boot(undefined, { storage: new Map(app.storage), store });
+    assert.equal(again.$('resume-btn').hidden, false, `wave ${from}: offered`);
+    assert.equal(again.$('resume-sub').textContent, `${Depths.level(id).name} · wave ${from} of 10`);
+    again.click('resume-btn'); again.frame();
+    assert.deepEqual([again.game().plan.id, again.game().wave, again.game().startWave, again.game().lives], [id, from, from, 3]);
+  }
+});
+
+test('A run picked up after a relaunch shows its board through the count, with no opening curtain, and the first tap after it fires', () => {
+  for (const wave of [8, 10]) {
+    const app = boot(player({ run: kept({ wave }) }));
+    app.click('resume-btn'); app.frame();
+    const game = app.game();
+    assert(game.stage && game.time - game.stage.introAt >= .6, `wave ${wave}: no curtain over the count`);
+    assert(!game.floaters.some(item => item.intro), `wave ${wave}: no level title over the board`);
+    if (wave < 10) assert(game.floaters.some(item => item.kind === 'title' && item.size === 'small' && item.text === `Wave ${wave} of 10`), 'the wave ribbon says where it picks up');
+    else assert(game.buds.some(bud => bud.boss), 'the guardian is there to land');
+    assert(countDone(app), 'the count ends');
+    const shots = game.shotNumber; tap(app); app.frame();
+    assert.equal(game.shotNumber, shots + 1, `wave ${wave}: the first tap after the count fires`);
+  }
+  // A level opened fresh still opens on its curtain, which holds taps for its first moment.
+  const app = boot(player()), game = playLevel(app, 3); app.frame();
+  assert(game.stage && game.time - game.stage.introAt < .6, 'a fresh level has its curtain');
+  assert(game.floaters.some(item => item.intro), 'and its title');
+});
+
+test('The Resume card wakes the sound, so the count and the level are heard after a relaunch', () => {
+  let woke = 0; const heard = [];
+  const sound = { wake: () => { woke++; }, setEnabled: () => {}, play: type => { heard.push(woke ? type : `${type} (asleep)`); } };
+  const app = boot(player({ run: kept() }), { sound });
+  woke = 0; heard.length = 0; // the relaunch: nothing tapped yet
+  app.click('resume-btn'); app.frame(); countDone(app); app.run(1);
+  assert(woke >= 1, 'the tap wakes it');
+  assert(heard.includes('tap'), 'the count ticks'); assert(heard.every(type => !type.endsWith('(asleep)')), `nothing is lost: ${heard.join(', ')}`);
+});
+
+test('In the app, the save made as the page hides reaches the phone\'s preferences at once, not on a timer', async () => {
+  const settle = () => new Promise(resolve => setImmediate(resolve));
+  // Meadow Rush: a new best kept as the home button is pressed.
+  let prefs = new Map(), storage = new Map([['bloomshot.native.synced.v1', '1']]);
+  let app = boot(player({ rush: { best: 1000, bestWave: 3, runs: 2, blooms: 40 } }), { storage, prefs }); await settle();
+  app.click('levels-rush-btn'); app.frame();
+  const game = app.game(); game.started = true; game.score = 5000; game.wave = 6;
+  app.hide(); await settle();
+  assert.equal(app.saved().rush.best, 5000, 'kept on the device');
+  assert.deepEqual([JSON.parse(prefs.get(MAIN)).rush.best, JSON.parse(prefs.get(MAIN)).rush.bestWave], [5000, 6], 'and in the phone\'s preferences');
+  // A level run when only pagehide comes (native.js does not listen for it).
+  prefs = new Map(); storage = new Map([['bloomshot.native.synced.v1', '1']]);
+  app = boot(player(), { storage, prefs }); await settle();
+  playLevel(app, 3); shoot(app);
+  app.fire('window', 'pagehide'); await settle();
+  assert.equal(JSON.parse(prefs.get(MAIN) || '{}').run?.level, 3, 'the checkpoint is in the phone\'s preferences');
+});
+
+test('Powerups spent on a wave come back when the phone closes the app and that wave is played again; a cleared wave keeps them spent', () => {
+  const bag = { sunburst: 1, dandelion: 1, beeline: 1, lullaby: 1 };
+  let app = boot(player({ powers: bag })); const game = playLevel(app, 3); shoot(app); nextWave(app);
+  app.click('power-right', { power: 'lullaby' }); app.frame();
+  app.click('power-left', { power: 'sunburst' }); app.run(.5); shoot(app);
+  assert.deepEqual([app.saved().powers.lullaby, app.saved().powers.sunburst], [0, 0], 'both spent');
+  assert.deepEqual(plain(app.saved().run.spent), { lullaby: 1, sunburst: 1 }, 'and kept with the wave in the same save');
+  assert.equal(app.saved().run.wave, 2);
+  // The phone closes the app. Picking wave 2 up again gives them back, once.
+  app = boot(undefined, { storage: new Map(app.storage) });
+  app.click('resume-btn'); app.frame();
+  assert.deepEqual([app.game().wave, app.saved().powers.lullaby, app.saved().powers.sunburst], [2, 1, 1], 'back for the wave played again');
+  assert(!Object.hasOwn(app.saved().run, 'spent'), 'and no longer owed');
+  app = boot(undefined, { storage: new Map(app.storage) });
+  app.click('resume-btn'); app.frame();
+  assert.deepEqual([app.saved().powers.lullaby, app.saved().powers.sunburst], [1, 1], 'a second relaunch gives nothing more');
+  // A wave played through keeps what it spent: the next wave's checkpoint owes nothing.
+  app = boot(player({ powers: bag })); playLevel(app, 3); shoot(app);
+  app.click('power-right', { power: 'lullaby' }); app.frame();
+  assert.deepEqual(plain(app.saved().run.spent), { lullaby: 1 });
+  app.game().lullaby = 0; nextWave(app);
+  assert.equal(app.saved().run.wave, 2); assert(!Object.hasOwn(app.saved().run, 'spent'), 'wave 2 owes nothing');
+  assert.equal(app.saved().powers.lullaby, 0);
+  // Meadow Rush keeps no checkpoint, so what it spends is simply spent.
+  app = boot(player({ powers: bag })); app.click('levels-rush-btn'); app.frame(); shoot(app);
+  app.click('power-right', { power: 'lullaby' }); app.frame();
+  assert.equal(app.saved().powers.lullaby, 0); assert(!Object.hasOwn(app.saved(), 'run'));
+});
+
+test('A world preview leaves the kept run alone, even when a seed is fired in it', () => {
+  const worlds = [...Levels.worlds, { id: 'fern', name: 'Fern Hollow', tagline: 'Soon.', description: 'Soon.', price: 0, theme: 'meadow', available: false, mechanic: 'Soon.' }];
+  const app = boot(player({ run: kept() }), { worlds });
+  app.click('worlds-btn'); app.click('worlds-grid', { world: 'fern' }); assert(app.$('world-dialog').open, 'the world card opens');
+  app.click('world-preview-btn'); app.frame();
+  assert.equal(app.document.body.dataset.view, 'game', 'the preview board');
+  shoot(app); app.hide(); app.show();
+  assert.deepEqual(app.saved().run, kept(), 'kept through the preview');
+  app.click('back-btn'); app.click('rush-btn'); app.frame();
+  assert.equal(app.document.body.dataset.view, 'levels');
+  assert.equal(app.$('resume-btn').hidden, false); assert.equal(app.$('resume-title').textContent, 'Resume level 3');
+});
+
+test('The kept level\'s own card says Resume, and picking a run up says where it is and the lives left', () => {
+  const card = (app, id) => app.$('depth-map').innerHTML.split('<li').find(item => item.includes(`data-depth="${id}"`));
+  let app = boot(player({ run: kept() }, 2));
+  assert.match(card(app, 3), /<span class="depth-go">Resume<\/span>/, 'the next level\'s pill says Resume');
+  assert.match(card(app, 3), /Resume wave 8 of 10\./, 'and its label says so');
+  app.click('resume-btn'); app.frame();
+  assert.equal(app.$('announcement').textContent, 'Level 3 · wave 8 of 10. 2 lives left. Get ready. 3, 2, 1.');
+  // A level with no run says Play, as before.
+  app = boot(player({}, 2));
+  assert.match(card(app, 3), /<span class="depth-go">Play<\/span>/);
+  // A run left a moment ago through Levels reads the same.
+  const game = playLevel(app, 3); shoot(app); nextWave(app); app.click('back-btn'); app.frame();
+  assert.match(card(app, 3), /<span class="depth-go">Resume<\/span>/);
+  app.click('resume-btn'); app.frame();
+  assert.equal(app.$('announcement').textContent, `Level 3 · wave 2 of 10. ${game.lives} lives left. Get ready. 3, 2, 1.`);
+});
+
+(async () => {
+  for (const { name, fn } of tests) {
+    try { await fn(); results.push({ name, passed: true }); }
+    catch (error) { results.push({ name, passed: false, error: error.stack }); }
+  }
+  const report = { passed: results.filter(r => r.passed).length, failed: results.filter(r => !r.passed).length, results };
+  console.log(JSON.stringify(report, null, 2));
+  process.exitCode = report.failed ? 1 : 0;
+})();
