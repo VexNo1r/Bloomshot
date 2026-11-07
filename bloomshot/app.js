@@ -1918,6 +1918,32 @@
   // ── Whizzbang (Level 7, `whizzbang`) ──
 
   // ── Lodestone (Level 8, `lodestone`) ──
+  // A seed taken by the field gets a faint sky ring where it bends; the moss throws green tufts, the iron a few gold
+  // sparks off a grey clink ring; the open is a burst with a hit-stop beat, each tugged gem streaking in along a line
+  // of sparks, and "Magnet curl!" or "Magnet!" stamped over it.
+  const LODE_FX = { sky: '#45adff', pale: '#c6e9ff', moss: '#8fc46a', tuft: '#c9f0a8', iron: '#7c8696', spark: '#ffd148' };
+  function lodeStreak(from, to, color) {
+    if (!save.settings.motion) return;
+    const n = Math.max(2, Math.round(5 * [1, .6, .35][game.quality || 0]));
+    for (let i = 0; i < n; i++) {
+      const k = i / n, life = .22 + .04 * i;
+      game.particles.push({ x: from.x + (to.x - from.x) * k * .3, y: from.y + (to.y - from.y) * k * .3, vx: (to.x - from.x) / life, vy: (to.y - from.y) / life, life, maxLife: life, kind: 'spark', color, size: 2.2, rotation: 0, spin: 0, gravity: 0, drag: 0 });
+    }
+  }
+  FOE_FX.lodestone = {
+    pull(e) { foeRing(e.x, e.y, LODE_FX.pale, 3, 9, .22); },
+    moss(e) { foeDust(e.x, e.y, 5, LODE_FX.moss, 45); foeRing(e.x, e.y, LODE_FX.tuft, 5, 14, .25); if (e.curl) foeRing(e.x, e.y, LODE_FX.sky, 7, 20, .3); haptic('tick'); },
+    guard(e) { foeRing(e.x, e.y, LODE_FX.iron, 4, 12, .22); foeDust(e.x, e.y, 3, LODE_FX.spark, 40); haptic('tick'); },
+    open(e) {
+      burst({ x: e.x, y: e.y, type: 'sky', r: 14 }, 14, game.particles, currentKeepsake(), false);
+      foeRing(e.x, e.y, LODE_FX.sky, 10, 34, .4); foeRing(e.x, e.y, '#ffffff', 8, 22, .3); jolt(.1, .04, .12); haptic('tick');
+      for (const g of e.gems || []) lodeStreak(g, e, LODE_FX.pale);
+      const n = (e.gems || []).length;
+      if (!(e.curl || n >= 2)) return;
+      // The sky stamp's arch reads as a horseshoe magnet here (drawn like the Chroma stamp, l4Stamp).
+      l4Stamp(e.x, e.y, e.curl ? 'Magnet curl!' : 'Magnet!', 'tunnel', n >= 2 ? `+${n} gems` : '');
+    }
+  };
 
   // ── Sweetheart Roses (Level 9, `sweetheart`) ──
 
@@ -2158,6 +2184,32 @@
   // ── Ember Rose (Level 7, `ember`) ──
 
   // ── Geode King (Level 8, `geode`) ──
+  // Mine dust and amethyst. Fool's gold crumbles into brassy flakes with a "Fool's gold!" and a grey ring where the
+  // plate clunks back on; a caught gem bursts in its own color ("Nice catch!"); a burr lands in a puff of dirt and
+  // springs off ("Knocked off!"); the Magnet Heart rings out in sky and amethyst with a hit-stop, gems streak into him,
+  // and it lets go with a soft inward ring. Crits say "Magnet shot!".
+  CRIT_TEXT.magnet = 'Magnet shot!';
+  const GEODE_FX = { gold: '#d9a93a', brass: '#8d764f', amethyst: '#c799ed', crust: '#cbbecf', dirt: '#8c6a47', sky: '#9fd3ff' };
+  const geodePlateAt = id => game.buds.find(b => b.id === id);
+  BOSS_FX.geode = {
+    'pyrite:start'(e) { for (const t of (e.targets || []).filter(t => t.role === 'toss')) foeRing(t.x, t.y, t.pyrite ? GEODE_FX.gold : GEODE_FX.amethyst, 6, 16, .35); foeDust(e.x, e.y, 5, GEODE_FX.crust, 50); haptic('tick'); },
+    'pyrite:land'(e) { foeDust(e.x, e.y, 5, GEODE_FX.amethyst, 40); },
+    'pyrite:fool'(e) {
+      foeDust(e.x, e.y, 8, GEODE_FX.gold, 60); foeRing(e.x, e.y, GEODE_FX.brass, 6, 18, .3); bossCallout(e.x, e.y, "Fool's gold!", .9); haptic('warn');
+      const plate = e.plate && geodePlateAt(e.plate); if (plate) { foeRing(plate.x, plate.y, GEODE_FX.crust, 8, 20, .35); foeDust(plate.x, plate.y, 4, GEODE_FX.crust, 30); }
+    },
+    'pyrite:crumble'(e) { foeDust(e.x, e.y, 5, GEODE_FX.gold, 40); },
+    'pyrite:fade'(e) { foeDust(e.x, e.y, 4, '#fff2b1', 25); },
+    'lob:start'(e) { for (const t of (e.targets || []).filter(t => t.role === 'shoulder')) foeRing(t.x, t.y, '#ffffff', 10, 22, .4); jolt(.06); haptic('warn'); },
+    'lob:catch'(e) { burst({ x: e.x, y: e.y, type: 'gold', r: 12 }, 14, game.particles, currentKeepsake(), false); foeRing(e.x, e.y, '#ffd148', 8, 26, .35); bossCallout(e.x, e.y, 'Nice catch!', .9); jolt(.1, .05, .12); haptic('tick'); },
+    'lob:land'(e) { foeDust(e.x, e.y, 8, GEODE_FX.dirt, 70); foeRing(e.x, e.y, '#5b4a3a', 10, 28, .35); jolt(.1); haptic('warn'); },
+    'lob:knock'(e) { foeDust(e.x, e.y, 6, '#c9b5a3', 80); foeRing(e.x, e.y, '#ffffff', 8, 24, .3); bossCallout(e.x, e.y, 'Knocked off!', .8); haptic('tick'); },
+    'magnet:start'(e) { foeRing(e.x, e.y, GEODE_FX.sky, 30, 100, .6); foeRing(e.x, e.y, GEODE_FX.amethyst, 20, 70, .45); jolt(.16, .06, .2); haptic('surge'); },
+    'magnet:pull'(e) { for (const m of e.marks || []) lodeStreak(m, e, GEODE_FX.amethyst); },
+    'magnet:shot'(e) { burst({ x: e.x, y: e.y, type: 'lilac', r: 18 }, 14, game.particles, currentKeepsake(), false); foeRing(e.x, e.y, '#ffffff', 10, 30, .35); },
+    'magnet:end'(e) { foeRing(e.x, e.y, GEODE_FX.sky, 24, 12, .35); foeDust(e.x, e.y, 4, GEODE_FX.sky, 30); },
+    tip() { const s = game.bossState; return s && s.kind === 'geode' && s.magnet ? 'Magnet heart! Shoot when the needle finds a gap.' : ''; }
+  };
 
   // ── Thornmother (Level 9, `briar`) ──
 

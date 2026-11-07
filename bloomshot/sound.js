@@ -518,6 +518,23 @@
   // ── Whizzbang (Level 7, `whizzbang`) ──
 
   // ── Lodestone (Level 8, `lodestone`) ──
+  // A magnet in the mine. Its field takes a seed with a soft glassy "whee-oo" that bends up to the needle's note; the
+  // moss answers a mallet that climbs C-D-E as the tufts wear (a curled seed adds a glass ping); the iron is a dull
+  // clink; and the open is a magnet clack and bell with every tugged gem ringing in up the pentatonic, .08 s apart,
+  // in time with the chains themselves.
+  FOE_CUES['lodestone:pull'] = (data, pan) => { note(step(4), 0, .2, .032, pan, 'glass', 0, { from: .8, bend: .14 }); note(step(9), .07, .18, .024, pan, 'glass', 0, { from: .84, bend: .1 }); };
+  FOE_CUES['lodestone:moss'] = (data, pan) => {
+    const left = clamp(num(data.hp, 2), 0, 2);
+    note(step(4 - 2 * left), 0, .1, .055, pan, 'marimba', 1); crunch('thock', 0, pan, .5);
+    if (data.curl) note(step(11 - 2 * left), .05, .14, .035, pan, 'glass', 0);
+  };
+  FOE_CUES['lodestone:guard'] = [['pan', step(5), 0, .06, .05], ['crunch', 'click', 0, .7], ['wood', step(-3), .02, .05, .03, 0]];
+  FOE_CUES['lodestone:open'] = (data, pan) => {
+    crunch('crack', 0, pan, .6); note(step(7), 0, .16, .055, pan, 'bell', 1); note(step(11), .05, .2, .045, pan, 'bell', 1);
+    if (data.curl) note(step(14), .12, .32, .04, pan, 'chime', 1);
+    const n = Math.min(Array.isArray(data.gems) ? data.gems.length : 0, 4);
+    for (let k = 0; k < n; k++) note(pent(10 + k), .08 * (k + 1), .12, .035, pan, 'glass', 0);
+  };
 
   // ── Sweetheart Roses (Level 9, `sweetheart`) ──
 
@@ -621,6 +638,34 @@
   // ── Ember Rose (Level 7, `ember`) ──
 
   // ── Geode King (Level 8, `geode`) ──
+  // The mine's own band: wood and thumps for his heaves, glass for gems in the air, a comic falling marimba for fool's
+  // gold (and the clunk of a plate going back on), a bell "Nice catch!", a spring for a knocked-off burr, and for the
+  // Magnet Heart a low C-G-C hum that swells under a climbing glass run, a zing for a Magnet shot and a sigh as it lets go.
+  BOSS_ACTS['geode:pyrite:start'] = [['wood', step(0), 0, .08, .06], ['crunch', 'thock', 0, .8], ['glass', step(7), .1, .1, .04], ['glass', step(9), .18, .1, .04], ['glass', step(11), .26, .14, .04]];
+  BOSS_ACTS['geode:pyrite:land'] = (data, pan) => {
+    const n = clamp(num(data.n, 3), 1, 4), fools = clamp(num(data.fools, 0), 0, n);
+    for (let k = 0; k < n - fools; k++) note(pent(7 + k), .05 * k, .08, .04, pan, 'glass', 0);
+    for (let k = 0; k < fools; k++) note(step(1), .05 * (n - fools + k), .1, .04, pan, 'wood', 0);
+  };
+  BOSS_ACTS['geode:pyrite:fool'] = [['marimba', step(4), 0, .1, .055], ['crunch', 'crack', 0, .6], ['marimba', step(3), .1, .1, .05], ['marimba', step(1), .2, .2, .045],
+    ['wood', step(-3), .3, .1, .05], ['crunch', 'thock', .3, .7]];
+  BOSS_ACTS['geode:pyrite:crumble'] = [['crunch', 'crack', 0, .4], ['wood', step(2), 0, .05, .03, 0]];
+  BOSS_ACTS['geode:pyrite:fade'] = [['drop', step(1), 0, .16, .03, 0]];
+  BOSS_ACTS['geode:lob:start'] = (data, pan) => { note(step(-3), 0, .14, .06, pan, 'thump', 1); crunch('thock', 0, pan, .8); note(step(4), .1, .5, .03, pan, 'glass', 0, { from: .7, bend: .4 }); };
+  BOSS_ACTS['geode:lob:catch'] = [['bell', step(9), 0, .14, .06], ['bell', step(11), .06, .14, .055], ['chime', step(16), .12, .4, .045], ['crunch', 'pop', 0, .6]];
+  BOSS_ACTS['geode:lob:land'] = [['thump', step(-5), 0, .12, .06], ['crunch', 'thock', 0, .9], ['wood', step(-1), .06, .08, .04]];
+  BOSS_ACTS['geode:lob:knock'] = (data, pan) => { note(step(7), 0, .2, .05, pan, 'drop', 1, { from: .7, bend: .12 }); crunch('click', 0, pan, .7); note(step(11), .1, .2, .04, pan, 'marimba', 1); };
+  BOSS_ACTS['geode:magnet:start'] = (data, pan) => {
+    note(step(-7), 0, .9, .05, pan, 'pad', 1, { swell: .25, chord: [step(-3), step(0)] }); crunch('thock', 0, pan, .7);
+    [7, 9, 11, 14].forEach((n, k) => note(step(n), .1 + .1 * k, .12, .035, pan, 'glass', 0));
+  };
+  BOSS_ACTS['geode:magnet:pull'] = (data, pan) => {
+    const n = clamp(Array.isArray(data.marks) ? data.marks.length : 1, 1, 4);
+    for (let k = 0; k < n; k++) note(pent(12 - k), .07 * k, .1, .04, pan, 'glass', 0);
+    note(step(-3), .07 * n, .1, .05, pan, 'wood', 1); crunch('thock', .07 * n, pan, .7);
+  };
+  BOSS_ACTS['geode:magnet:shot'] = (data, pan) => { note(step(11), 0, .18, .045, pan, 'glass', 1, { from: .7, bend: .1 }); note(step(16), .08, .3, .035, pan, 'chime', 1); };
+  BOSS_ACTS['geode:magnet:end'] = [['drop', step(4), 0, .2, .04], ['drop', step(0), .14, .26, .035]];
 
   // ── Thornmother (Level 9, `briar`) ──
 
