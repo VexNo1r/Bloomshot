@@ -4431,7 +4431,7 @@
       const z = Number(cam.zoom), fx = Number.isFinite(cam.fx) ? cam.fx : 210, fy = Number.isFinite(cam.fy) ? cam.fy : 280;
       ctx.translate(fx, fy); ctx.scale(1 / z, 1 / z); ctx.translate(-fx, -fy);
     }
-    if (stage && stage.vine) drawBossVine(ctx, stage.vine, time, still);
+    if (stage && stage.vine) drawBossVine(ctx, stage.vine, time, still, state.buds, !still && cam && Number(cam.zoom) > 1.001 ? cam : null);
     if (!still && harvest && harvest.length) drawHarvest(ctx, harvest);
     if (!still && stage && stage.glow > 0) {
       // Where the orbs land, the corner flares a little more with each one.
@@ -4511,6 +4511,26 @@
   // the damage and shrinks, and a hit shakes the vine. Stems are cached once and cropped; leaves are cached per
   // hit count.
   const VINE = { x: 90, y: 18, w: 240, left: 56, top: -4, width: 308, height: 44 };
+  const NAME_GHOST = .28; // how much of the guardian's name shows while a piece passes under it
+  const nameFades = new WeakMap(); // vine -> { alpha, at }: the name's fade, kept off the game's own state
+  // How much of the name to draw: NAME_GHOST while any open piece but the guardian overlaps the name's box (its own
+  // ascent and descent, plus the 4 px stroke), eased over about a tenth of a second whatever the frame rate.
+  function nameFade(ctx, vine, boss, buds, lean, time, still) {
+    const m = ctx.measureText(vine.name), cx = VINE.x + VINE.w / 2, cy = VINE.y + 19;
+    const up = Number.isFinite(m.actualBoundingBoxAscent) ? m.actualBoundingBoxAscent : 7, down = Number.isFinite(m.actualBoundingBoxDescent) ? m.actualBoundingBoxDescent : 8;
+    const box = { l: cx - (Number(m.width) || 0) / 2 - 2, r: cx + (Number(m.width) || 0) / 2 + 2, t: cy - up - 2, b: cy + down + 2 };
+    const z = lean ? Number(lean.zoom) : 1, fx = lean && Number.isFinite(lean.fx) ? lean.fx : 210, fy = lean && Number.isFinite(lean.fy) ? lean.fy : 280;
+    const under = Array.isArray(buds) && buds.some(b => {
+      if (!b || b === boss || b.bloomed || b.hidden || b.visible === false) return false;
+      const x = fx + ((Number(b.x) || 0) - fx) * z, y = fy + ((Number(b.y) || 0) - fy) * z, r = (Number(b.r) || 0) * z;
+      return Math.hypot(x - clamp(x, box.l, box.r), y - clamp(y, box.t, box.b)) < r;
+    });
+    const want = under ? NAME_GHOST : 1, fade = nameFades.get(vine);
+    if (still || !fade) { nameFades.set(vine, { alpha: want, at: time }); return want; }
+    const dt = clamp(time - fade.at, 0, .25);
+    fade.alpha += (want - fade.alpha) * (1 - Math.exp(-12 * dt)); fade.at = time;
+    return fade.alpha;
+  }
   const vineY = x => VINE.y + Math.sin((x - VINE.x) / VINE.w * TAU * 1.5) * 1.6;
   function vineStem(c, from, to) {
     c.beginPath();
@@ -4579,7 +4599,8 @@
     }
     ctx.save(); ctx.beginPath(); ctx.rect(from, VINE.top, to - from, VINE.height); ctx.clip(); paint(ctx); ctx.restore();
   }
-  function drawBossVine(ctx, vine, time, still) {
+  // lean: the camera when it leans in, so a piece is tested where it is drawn (the vine itself stays in screen space).
+  function drawBossVine(ctx, vine, time, still, buds, lean) {
     const bud = vine.bud;
     if (!bud || vine.shownAt == null || time < vine.shownAt) return;
     let alpha = 1;
@@ -4630,8 +4651,10 @@
     // The name waits while the boss's own card shows it, then comes in under the vine.
     const card = (Number(vine.cardUntil) || 0) - time, named = clamp((reveal - .6) / .4, 0, 1) * (card > 0 ? clamp(1 - card / .25, 0, 1) : 1);
     if (vine.name && named > 0) {
-      ctx.globalAlpha *= named;
       ctx.font = '700 13px Fredoka, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+      // A piece passing under the name (the Starseed's top dome star, a bud dropping in) shows through it: the name fades
+      // to a ghost while anything is there and eases back after, so a number on a star stays readable.
+      ctx.globalAlpha *= named * nameFade(ctx, vine, bud, buds, lean, time, still);
       ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(255,250,236,.97)'; ctx.strokeText(vine.name, VINE.x + VINE.w / 2, VINE.y + 19);
       ctx.fillStyle = (FLOWERS[type] || FLOWERS.coral).dark; ctx.fillText(vine.name, VINE.x + VINE.w / 2, VINE.y + 19);
     }

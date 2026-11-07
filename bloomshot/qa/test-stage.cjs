@@ -431,6 +431,39 @@ test('Every stage piece draws on the board, and after the first frame adds no gr
   // 24 orb glows, 3 ribbons, 8 stamps, the life band, the vine pieces and the two curtain strips.
   assert(count(staged, 'drawImage') - count(plain, 'drawImage') >= 24 + 3 + 8 + 1 + 2 + 2, 'orbs, ribbons, stamps, the vine and the curtain come from sprites');
 });
+test('A piece passing under the guardian\'s name shows through it: the name fades to a ghost and eases back', () => {
+  // The Starseed's top dome star (y 44 when she is at y 100) sits under her name at y 37; its number must stay readable.
+  const nameAlpha = (time, withStar, reducedMotion, reuse) => {
+    const b = reuse || stageBoard(time); b.floaters = []; b.harvest = [];
+    if (withStar && !b.buds.some(x => x.id === 'sat')) b.buds.push({ id: 'sat', bossPart: 'satellite', x: 214, y: 44, r: 11, type: 'gold', hp: 1, maxHp: 1, bloomed: false, bloomAt: -100, hitAt: -100 });
+    if (!withStar) b.buds = b.buds.filter(x => x.id !== 'sat');
+    let alpha = null; const ctx = recordingContext([]);
+    const spy = new Proxy(ctx, { get: (t, k) => k === 'fillText' ? (text, ...rest) => { if (text === 'Mother Morel') alpha = t.globalAlpha; } : Reflect.get(t, k), set: (t, k, v) => Reflect.set(t, k, v) });
+    Art.draw(spy, b, time, { theme: 'meadow', reducedMotion }); return { alpha, board: b };
+  };
+  const clear = nameAlpha(9, false, true).alpha, under = nameAlpha(9, true, true).alpha;
+  assert(clear > .9, `the name is solid with nothing under it (${clear})`);
+  assert(Math.abs(under / clear - .28) < .02, `it is a ghost with a star under it (${under})`);
+  // With Animations on it eases: a frame later it is on its way, and a quarter second later it is a ghost. A twin board
+  // with nothing under the name runs alongside, since the vine's own alpha moves with time too.
+  let run = nameAlpha(9, false, false), twin = nameAlpha(9, false, false);
+  run = nameAlpha(9.017, true, false, run.board); twin = nameAlpha(9.017, false, false, twin.board);
+  assert(run.alpha < twin.alpha && run.alpha > twin.alpha * .28 + .01, `easing (${run.alpha} of ${twin.alpha})`);
+  for (let t = 9.034; t < 9.5; t += .017) { run = nameAlpha(t, true, false, run.board); twin = nameAlpha(t, false, false, twin.board); }
+  assert(Math.abs(run.alpha / twin.alpha - .28) < .03, `settled (${run.alpha} of ${twin.alpha})`);
+  // And back once the star has moved on.
+  for (let t = 9.5; t < 9.9; t += .017) { run = nameAlpha(t, false, false, run.board); twin = nameAlpha(t, false, false, twin.board); }
+  assert(run.alpha / twin.alpha > .97, `back (${run.alpha} of ${twin.alpha})`);
+  // While the camera leans in, a piece is tested where it is drawn: board y 60 is drawn at y 37.6 at 1.16x about y 200.
+  const leaning = (camera, piece) => {
+    const b = stageBoard(9); b.floaters = []; b.harvest = []; b.buds.push({ id: 'bud', x: 205, y: piece, r: 12, type: 'coral', hp: 1, maxHp: 1, bloomed: false, bloomAt: -100, hitAt: -100 });
+    let alpha = null; const ctx = recordingContext([]);
+    const spy = new Proxy(ctx, { get: (t, k) => k === 'fillText' ? text => { if (text === 'Mother Morel') alpha = t.globalAlpha; } : Reflect.get(t, k), set: (t, k, v) => Reflect.set(t, k, v) });
+    Art.draw(spy, b, 9, { theme: 'meadow', reducedMotion: false, camera }); return alpha;
+  };
+  const flat = leaning(null, 60), leaned = leaning({ zoom: 1.16, fx: 210, fy: 200 }, 60);
+  assert(Math.abs(leaned / flat - .28) < .02, `the lean puts the bud under the name (${flat} / ${leaned})`);
+});
 test('The vine is cached per hit count, the curtain is two strips, and reduced motion keeps only what reads', () => {
   const options = { theme: 'meadow', reducedMotion: false };
   Art.draw(recordingContext([]), stageBoard(8, 6), 8, options);
