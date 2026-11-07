@@ -3912,7 +3912,8 @@
       const r = Number(boss.r) || 26, w = s.warning;
       // Tells, through each warning.
       if (w && Number.isFinite(w.until) && time < w.until) {
-        const span = Math.max(.1, Number(root.BloomBosses && root.BloomBosses.telegraph) || 1.3), since = time - (Number(w.at) || 0), p = clamp(since / span, 0, 1);
+        // Counted back from its end: a Lullaby pushes w.until (not w.at), so the count holds with her clock.
+        const span = Math.max(.1, Number(root.BloomBosses && root.BloomBosses.telegraph) || 1.3), since = Math.max(0, span - (w.until - time)), p = clamp(since / span, 0, 1);
         const targets = Array.isArray(w.targets) ? w.targets : [];
         if (w.move === 'rings') {
           // Ghost fire rings swell where they will open, and fill their circles as the count runs.

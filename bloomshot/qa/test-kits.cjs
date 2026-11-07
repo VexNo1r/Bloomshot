@@ -1518,7 +1518,7 @@ test('Crystal Heart replays identically at 30, 60 and 144 FPS, and a strike loop
   // The art, in a sandbox with a recording canvas (Lily's harness): every move with Animations on and off and quality 0
   // and 2, after her sprites are warmed.
   function emberArt(canvas = true) {
-    const vm = require('node:vm'), tally = { gradients: 0, blur: 0, calls: {}, hook: null, face: [], kit: null };
+    const vm = require('node:vm'), tally = { gradients: 0, blur: 0, calls: {}, hook: null, face: [], kit: null, lamps: [], arcR: 0 };
     const brush = () => {
       const stack = [], state = { globalAlpha: 1, globalCompositeOperation: 'source-over', fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, shadowBlur: 0, lineDashOffset: 0 };
       const ctx = new Proxy(state, {
@@ -1529,6 +1529,9 @@ test('Crystal Heart replays identically at 30, 60 and 144 FPS, and a strike loop
             for (const a of args) if (typeof a === 'number') assert(Number.isFinite(a), `${String(name)} received ${a}`);
             if (tally.hook) tally.calls[tally.hook] = (tally.calls[tally.hook] || 0) + 1;
             if (tally.hook === 'face' && /To$|^arc$|^ellipse$/.test(name)) tally.face.push(name, ...args.map(n => Math.round(n * 100)));
+            // Her stomp lamps (r 4.5 dots over her head): the fill each one gets.
+            if (tally.hook === 'over' && name === 'arc') tally.arcR = args[2];
+            if (tally.hook === 'over' && name === 'fill' && tally.arcR === 4.5) tally.lamps.push(t.fillStyle);
             if (name === 'save') stack.push({ ...state });
             else if (name === 'restore') { assert(stack.length, 'restore without save'); Object.assign(state, stack.pop()); }
             else if (name === 'measureText') return { width: String(args[0]).length * 7 };
@@ -1583,6 +1586,10 @@ test('Crystal Heart replays identically at 30, 60 and 144 FPS, and a strike loop
     for (const piece of ['face', 'cinder']) assert(drawn.has(piece), piece + ' drawn by the kit');
     for (const move of ['rings', 'stomp', 'barrage']) assert(during[move] && during[move].has('over'), `the kit draws ${move}: its tell and action`);
     assert(during.coal && during.coal.has('under'), 'the kit draws the coals');
+    // A Lullaby holds the tells with her clock: the stomp lamps light with the castanet clicks, not ahead of them.
+    { const { g } = emberArena(); emberMove(g, 1, 'stomp'); g.lullaby = 3; const clicks = emberActs(steps(g, 1), 'click').length;
+      tally.lamps = []; frame(g, false); assert.equal(tally.lamps.length, 3, 'three lamps drawn');
+      assert.equal(tally.lamps.filter(c => c === '#ffd148').length, clicks, `lamps lit match the ${clicks} click(s) heard`); }
     const flat = emberArt(false), faces = [0, 1, 2].map(tier => { const h = arena(7); h.bossState.tier = tier; flat.tally.face = []; flat.frame(h, true); return JSON.stringify(flat.tally.face); });
     assert(faces.every(f => f.length > 100)); assert.equal(new Set(faces).size, 3, 'Flickering, Dancing and Blazing');
   });
