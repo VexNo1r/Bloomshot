@@ -1620,6 +1620,229 @@
   // ── Geode King (Level 8, `geode`) ──
 
   // ── Thornmother (Level 9, `briar`) ──
+  // A rose guardian in a thorny skirt. Prickly, she plants her heart-vine patches as she always has (her skirt turns
+  // shots from below until a patch is cut), and every other move she casts a Bramble Reel: dotted thorn vines creep out
+  // to the nearest plain flowers for the 1.3 s tell, then reel them in to dock round her skirt, where each one heals her
+  // +1 every 4 s (two drinks, at most +6 a reel) before she lets them drop. Blooming a docked flower snips its vine.
+  // Smitten, she opens on Sweetheart Vines: a pair of Sweetheart Roses on a vine that heals her +1 every 4 s until they
+  // bloom. Kiss them (both hit within the blush) and she is Lovestruck for 2.5 s: her skirt falls open and every seed on
+  // her lands double. Wild, she opens on the Vine Lasso: five thorny knots slither from her skirt toward the launcher
+  // side with more to aim at (70 px/s, wiggling). Plain knots turn seeds away; the pink bow (second from the head)
+  // unties it (+1 sun). If the head arrives, the lasso wraps that side in a two-piece thorn arch for 4 s (y < 430).
+  // Everything moves in closed form on the kit clock, so a Lullaby holds it all and the bot's forecast is the board.
+  const THORN = {
+    reel: { max: 3, top: 120, low: 330, reach: 230, slots: [[-46, 30], [0, 44], [46, 30]], T: 1.1, every: 4, cap: 6, drinks: 2, budR: 10, budHp: 2, high: 260, floor: 70 },
+    sweet: { r: 36, gap: 48, every: 4, cap: 6, love: 2.5, damage: 2, lift: 160, fall: .7 },
+    lasso: { knots: 5, bow: 1, gap: 22, r: 9, speed: 70, wig: 14, w: 4.2, phase: 1.6, drop: 10, R: 118, arch: [36, 58, 80], life: 4, wither: .3, crawl: 2.6, yank: 60 },
+    pause: { reel: 6.5, sweet: 6.5, lasso: 6 }, float: .5
+  };
+  const thornEase = p => { p = clamp(p, 0, 1); return p * p * (3 - 2 * p); };
+  // The arch's three corners on a side (0 left, 1 right): R px from the launcher at 36, 58 and 80 degrees up.
+  const thornArch = side => THORN.lasso.arch.map(d => { const a = d * Math.PI / 180; return { x: 210 + (side ? 1 : -1) * THORN.lasso.R * Math.cos(a), y: 498 - THORN.lasso.R * Math.sin(a) }; });
+  // A lasso knot at kit time `clock`: the head starts (knots - 1) x gap px down its line and crawls at speed px/s; knot k
+  // trails k x gap behind, swaying wig px across the line (a wave running back down the rope), till the head arrives.
+  function thornKnot(p, clock) {
+    const L = THORN.lasso, t = Math.max(0, clock - p.born), head = Math.min(p.len, (L.knots - 1) * L.gap + L.speed * t), a = Math.max(0, head - p.k * L.gap);
+    const w = L.wig * Math.sin(L.w * t - p.k * L.phase) * clamp(a / 40, 0, 1);
+    return { x: p.sx + p.ux * a - p.uy * w, y: p.sy + p.uy * a + p.ux * w };
+  }
+  const thornReeled = s => s.carried.filter(p => p.carried && p.carried.reel && !p.bloomed);
+  const thornLasso = s => s.parts.filter(p => p.bossPart === 'lasso' && !p.bloomed && !p.closed);
+  // Her float (a kiss lifts her THORN.sweet.lift px, an untie THORN.lasso.yank px): the drift is committed at once and the
+  // kit's rise (read by positions()) eases her pose up over THORN.float s of kit time, so the bot, the art and a Lullaby agree.
+  // A breach (which resets her drift) ends the float: it is keyed to s.lostLives.
+  const thornFloat = (s, clock) => { const f = s.float; return f && f.lives === s.lostLives ? f.by * (1 - thornEase((clock - f.at) / THORN.float)) : 0; };
+  function thornLift(s, px) {
+    const lift = Math.min(px, s.drift);
+    if (!(lift > 0)) return;
+    const left = thornFloat(s, s.kitAge);
+    s.drift -= lift; s.float = { at: s.kitAge, by: left + lift, lives: s.lostLives };
+  }
+  function thornUntie(game, s, by) {
+    for (const p of thornLasso(s)) if (p !== by) close(game, s, p);
+    const l = s.lasso; s.lasso = null;
+    if (l && by) { thornLift(s, THORN.lasso.yank); game.event('bossAbility', { kind: s.kind, move: 'lasso', act: 'untie', x: by.x, y: by.y, side: l.side }); }
+  }
+  kit('briar', {
+    hp: 100,
+    moods: ['Prickly', 'Smitten', 'Wild'],
+    stageText: [null, 'Thornmother is in love!', 'Thornmother is running wild!'],
+    text: { reel: 'Bramble reel! Snip the flowers off her vines.', sweet: 'Sweethearts! Hit both together to win her heart.', lasso: 'Vine lasso! Shoot the pink bow to untie it.' },
+    moves: [['briar', 'reel'], ['sweet', 'briar', 'reel'], ['lasso', 'briar', 'sweet', 'reel']],
+    init(game, s) { s.reel = null; s.vines = []; s.lasso = null; s.float = null; },
+    // Negative while she floats: the drift is already committed, so her pose starts where she was and eases up to it.
+    rise(s, clock) { const up = thornFloat(s, clock); return up ? -up : 0; },
+    plan: {
+      reel(game, s, b) {
+        const R = THORN.reel;
+        const at = positions(s, TELEGRAPH).get(b.id);
+        // One reel at a time, and only while she is high enough that a full drink keeps the docked flowers off the line.
+        if (s.reel || at.y > R.high) return legacyPlan(game, s, 'briar');
+        const skip = new Set(flowerTargets(game, s).map(t => t.id));
+        const near = p => Math.hypot(p.x - at.x, p.y - at.y);
+        const list = game.buds.filter(p => plainFlower(p) && open(p) && !p.bossSummon && !p.briar && !p.healing && !p.regrowAt && !p.bossFlowerEffect && !skip.has(p.id)
+          && p.y >= R.top && p.y <= R.low && near(p) <= R.reach).sort((p, q) => near(p) - near(q) || (p.id < q.id ? -1 : 1)).slice(0, R.max);
+        if (list.length) return { targets: list.map(p => ({ id: p.id, x: p.x, y: p.y, r: p.r, role: 'reel' })) };
+        // Nothing to reel: three rosebuds of her own sprout on her vines, already docked (the tell marks their slots).
+        return { targets: R.slots.map(([ox, oy], k) => ({ x: at.x + ox, y: at.y + oy, r: R.budR, role: 'bud', slot: k })) };
+      },
+      sweet(game, s, b) {
+        if (s.vines.some(v => !v.cut)) return thornReelOrPatch(game, s, b);
+        const place = landing(game, s.action % 2 ? 320 : 100, THORN.sweet.r), g = THORN.sweet.gap / 2;
+        if (!place) return null;
+        return { targets: [{ x: place.x, y: place.y, r: THORN.sweet.r, role: 'sweet' }, { x: place.x - g, y: place.y, r: 11, role: 'rose' }, { x: place.x + g, y: place.y, r: 11, role: 'rose' }] };
+      },
+      lasso(game, s, b) {
+        if (s.lasso || game.bumpers.some(p => p.bossArch)) return null;
+        const side = rootSnarePlan(game).targets[0].side, at = positions(s, TELEGRAPH).get(b.id), corner = thornArch(side)[1];
+        // From her skirt; when she is too low for a 2.6 s crawl, she flings it higher, straight above her, so it always crawls.
+        const L = THORN.lasso, need = (L.knots - 1) * L.gap + L.speed * L.crawl, sx = at.x, dx = sx - corner.x;
+        const sy = Math.min(at.y + b.r + L.drop, corner.y - Math.sqrt(Math.max(0, need * need - dx * dx)));
+        return { targets: [{ x: sx, y: sy, r: 14, role: 'lasso', side, sx, sy, ex: corner.x, ey: corner.y }, { x: corner.x, y: corner.y, r: 30, role: 'arch', side }] };
+      }
+    },
+    act: {
+      // Her old patch move, untouched, except that an earned Lovestruck outlasts it (the legacy act would reset her mode).
+      briar(game, s, w) {
+        const love = s.mode === 'smitten' && s.modeUntil > s.age ? s.modeUntil : 0;
+        legacyAct(game, s, w);
+        if (love) { s.mode = 'smitten'; s.modeUntil = love; }
+      },
+      reel(game, s, w) {
+        if (s.reel) { w.targets = []; w.quiet = true; return 1.5; }
+        const marks = w.targets.filter(t => t.role === 'bud'), group = `${s.boss.id}-rosebud-${s.serial++}`, at = positions(s, 0).get(s.boss.id);
+        const own = marks.map(t => ({ id: `${group}-${t.slot}`, group, x: at.x + THORN.reel.slots[t.slot][0], y: at.y + THORN.reel.slots[t.slot][1], r: THORN.reel.budR, type: 'coral',
+          hp: THORN.reel.budHp, maxHp: THORN.reel.budHp, relay: false, fall: .85, sway: 0, hitAt: -100, bloomed: false, bloomAt: -100, spawnAt: game.time, bossSummon: true, bossSource: s.boss.id, thornBud: true, thornSlot: t.slot }));
+        if (own.length) { for (const p of own) { p.baseX = p.x; p.startY = p.y; } game.buds.push(...own); s.summons++; }
+        const buds = own.length ? own : w.targets.filter(t => t.role === 'reel').map(t => game.buds.find(p => p.id === t.id)).filter(p => p && plainFlower(p) && open(p));
+        if (!buds.length) { w.targets = []; w.quiet = true; return 1.5; }
+        buds.sort((p, q) => p.x - q.x || (p.id < q.id ? -1 : 1));
+        const slots = buds.length === 1 ? [1] : buds.length === 2 ? [0, 2] : [0, 1, 2];
+        buds.forEach((p, k) => { p.carried = { reel: true, x0: p.x, y0: p.y, t0: own.length ? s.kitAge - THORN.reel.T : s.kitAge, slot: own.length ? p.thornSlot : slots[k] }; s.carried.push(p); });
+        if (own.length) game.event('bossAbility', { kind: s.kind, move: 'reel', act: 'sprout', x: at.x, y: at.y + 40, marks: own.map(p => ({ x: p.x, y: p.y })) });
+        s.reel = { next: s.kitAge + THORN.reel.T + THORN.reel.every, healed: 0, drinks: 0 };
+        return THORN.pause.reel;
+      },
+      sweet(game, s, w) {
+        const mid = w.targets.find(t => t.role === 'sweet'), roses = w.targets.filter(t => t.role === 'rose');
+        if (!mid || !roses.every(t => clearSpot(game, t.x, t.y, t.r, s.boss))) { w.targets = []; w.quiet = true; return 1.5; }
+        const group = `${s.boss.id}-sweet-${s.serial++}`, buds = Foes.make('sweetheart', ['sweetheart', mid.x, mid.y, { dx: THORN.sweet.gap }], group, null, null, null);
+        for (const p of buds) { Object.assign(p, { fall: THORN.sweet.fall, bossSummon: true, bossSource: s.boss.id, hitAt: -100, bloomAt: -100, bloomed: false, spawnAt: game.time }); Foes.place(game, p); }
+        s.vines.push({ group, next: s.kitAge + THORN.sweet.every, healed: 0, cut: false });
+        s.summons++;
+        return THORN.pause.sweet;
+      },
+      lasso(game, s, w) {
+        const t = w.targets.find(t => t.role === 'lasso'), L = THORN.lasso;
+        if (!t || s.lasso) { w.targets = []; w.quiet = true; return 1.5; }
+        const len = Math.hypot(t.ex - t.sx, t.ey - t.sy), ux = (t.ex - t.sx) / len, uy = (t.ey - t.sy) / len, id = `${s.boss.id}-lasso-${s.serial++}`;
+        for (let k = 0; k < L.knots; k++) part(game, 'lasso', t.sx, t.sy, L.r, 1, { lasso: id, k, bow: k === L.bow, born: s.kitAge, sx: t.sx, sy: t.sy, ux, uy, len,
+          side: t.side, sunBonus: k === L.bow ? 1 : 0, type: k === L.bow ? 'coral' : s.boss.type });
+        s.lasso = { id, side: t.side, born: s.kitAge, until: s.kitAge + Math.max(0, len - (L.knots - 1) * L.gap) / L.speed };
+        return THORN.pause.lasso;
+      }
+    },
+    timer: {
+      wither(game, s, at) { game.event('bossAbility', { kind: s.kind, move: 'lasso', act: 'wither', x: at.x, y: at.y }); }
+    },
+    pose(s, p, bx, by, clock) {
+      const c = p.carried;
+      if (c && c.reel) { const [ox, oy] = THORN.reel.slots[c.slot], e = thornEase((clock - c.t0) / THORN.reel.T); return { x: c.x0 + (bx + ox - c.x0) * e, y: c.y0 + (by + oy - c.y0) * e }; }
+      return p.bossPart === 'lasso' ? thornKnot(p, clock) : null;
+    },
+    step(game, s, dt) {
+      const b = s.boss, w = s.warning;
+      // Her own rosebuds' marks ride with her through the tell, where they will sprout as it ends.
+      if (w && w.move === 'reel') { const at = positions(s, Math.max(0, w.until - game.time)).get(b.id); for (const t of w.targets) if (t.role === 'bud') { t.x = at.x + THORN.reel.slots[t.slot][0]; t.y = at.y + THORN.reel.slots[t.slot][1]; } }
+      // Lovestruck is timed on s.age like her legacy seal; a Lullaby holds it as it holds the kit clock.
+      if (game.lullaby > 0 && s.mode === 'smitten') s.modeUntil += dt;
+      // A docked flower shot off its vine, or gone over the line, is let go.
+      for (const p of [...s.carried]) if (p.carried && p.carried.reel && (p.bloomed || !game.buds.includes(p))) release(game, p, false);
+      const r = s.reel;
+      if (r) {
+        const docked = thornReeled(s);
+        if (!docked.length) s.reel = null;
+        else if (docked.some(p => p.y + p.r > game.dangerY - THORN.reel.floor)) {
+          for (const p of docked) release(game, p, false);
+          s.reel = null; game.event('bossAbility', { kind: s.kind, move: 'reel', act: 'drop', x: b.x, y: b.y + 40, n: docked.length });
+        } else if (s.kitAge >= r.next) {
+          const n = Math.min(docked.length, THORN.reel.cap - r.healed);
+          if (n > 0) { b.hp = Math.min(b.maxHp, b.hp + n); r.healed += n; s.heals += n; game.event('bossHeal', { kind: s.kind, hp: b.hp, n, move: 'reel' });
+            game.event('bossAbility', { kind: s.kind, move: 'reel', act: 'drink', x: b.x, y: b.y, n }); }
+          r.drinks++; r.next += THORN.reel.every;
+          if (r.drinks >= THORN.reel.drinks || r.healed >= THORN.reel.cap) {
+            for (const p of docked) release(game, p, false);
+            s.reel = null; game.event('bossAbility', { kind: s.kind, move: 'reel', act: 'drop', x: b.x, y: b.y + 40, n: docked.length });
+          }
+        }
+      }
+      // Sweetheart vines heal until their pair blooms (or leaves the board).
+      for (const v of s.vines) {
+        if (v.cut) continue;
+        const roses = game.buds.filter(p => p.group === v.group);
+        if (!roses.length || roses.every(p => p.bloomed)) { v.cut = true; continue; }
+        if (s.kitAge >= v.next) {
+          v.next += THORN.sweet.every;
+          if (v.healed < THORN.sweet.cap) { v.healed++; b.hp = Math.min(b.maxHp, b.hp + 1); s.heals++; game.event('bossHeal', { kind: s.kind, hp: b.hp, group: v.group, move: 'sweet' }); }
+        }
+      }
+      if (s.vines.length > 4) s.vines = s.vines.filter(v => !v.cut);
+      // The lasso: the head arrives and the rope wraps that side in a thorn arch for 4 s.
+      const l = s.lasso;
+      if (l && s.kitAge >= l.until - 1e-9) {
+        const [p0, p1, p2] = thornArch(l.side), L = THORN.lasso;
+        thornUntie(game, s, null);
+        game.bumpers = game.bumpers.filter(p => !p.bossArch);
+        [[p0, p1], [p1, p2]].forEach(([a, c], i) => game.bumpers.push({ id: `${b.id}-arch-${i}`, kind: 'rock', bossWall: true, bossArch: true, kitDrawn: true,
+          x: (a.x + c.x) / 2, y: (a.y + c.y) / 2, baseX: (a.x + c.x) / 2, length: Math.hypot(c.x - a.x, c.y - a.y), angle: Math.atan2(c.y - a.y, c.x - a.x),
+          side: l.side, kitAt: s.kitAge, kitUntil: s.kitAge + L.life, expires: Infinity }));
+        after(s, L.life - L.wither, 'wither', { x: p1.x, y: p1.y });
+        game.event('bossAbility', { kind: s.kind, move: 'lasso', act: 'wrap', x: p1.x, y: p1.y, side: l.side });
+      }
+      // An untied knot stays a moment for its burst, then goes.
+      if (s.parts.some(p => p.bossPart === 'lasso' && p.bloomed && game.time - p.bloomAt > 1)) {
+        const gone = new Set(s.parts.filter(p => p.bossPart === 'lasso' && p.bloomed && game.time - p.bloomAt > 1));
+        s.parts = s.parts.filter(p => !gone.has(p)); game.buds = game.buds.filter(p => !gone.has(p));
+      }
+    },
+    canHit(game, s, bud, hit, seed) {
+      if (bud.bossPart === 'lasso') return Boolean(bud.bow || (seed && seed.power));
+      if (bud.id === s.boss.id && s.mode === 'smitten') return true;
+      return undefined;
+    },
+    resolve(game, s, bud, chain, seed) {
+      if (bud !== s.boss || s.mode !== 'smitten' || chain || !game.striker || seed.power) return null;
+      s.crits++; s.hits++; game.event('bossCritical', { kind: s.kind, bud, damage: THORN.sweet.damage, via: 'heart' });
+      return { target: bud, damage: THORN.sweet.damage };
+    },
+    bloomed(game, s, bud) {
+      if (bud.carried && bud.carried.reel) { release(game, bud, false); game.event('bossAbility', { kind: s.kind, move: 'reel', act: 'snip', x: bud.x, y: bud.y }); return true; }
+      if (bud.bossPart === 'lasso') { thornUntie(game, s, bud); return true; }
+      if (bud.foe === 'sweetheart' && bud.bossSource === s.boss.id) {
+        const v = s.vines.find(v => v.group === bud.group);
+        if (v && !v.cut) {
+          v.cut = true;
+          if (bud.kiss) {
+            // Swept off her feet: she floats up THORN.sweet.lift px on a puff of hearts (thornLift; rise eases her up).
+            s.mode = 'smitten'; s.modeUntil = s.age + THORN.sweet.love; s.vulnerable = true; s.swoonFrom = s.boss.y; s.swoonAt = s.kitAge; thornLift(s, THORN.sweet.lift);
+            game.event('bossAbility', { kind: s.kind, move: 'sweet', act: 'kiss', x: s.boss.x, y: s.boss.y, cupid: Boolean(bud.kiss.cupid) });
+          } else game.event('bossAbility', { kind: s.kind, move: 'sweet', act: 'cut', x: bud.x, y: bud.y });
+        }
+      }
+      return false;
+    },
+    targets(game, s, list) {
+      for (const t of list) {
+        if (t.bud.bossPart === 'lasso') { t.priority = t.bud.bow ? 95 : 0; t.reason = t.bud.bow ? 'bow' : 'knot'; }
+        if (t.bud.id === s.boss.id && s.mode === 'smitten') { t.priority = 85; t.reason = 'smitten'; }
+      }
+      for (const p of s.carried) if (p.carried && p.carried.reel && !p.bloomed) list.push({ bud: p, priority: 70, reason: 'reel' });
+      for (const p of game.buds) if (p.foe === 'sweetheart' && p.bossSource === s.boss.id && !p.bloomed) list.push({ bud: p, priority: 55, reason: 'sweet' });
+    },
+    cleanup(game, s) { game.bumpers = game.bumpers.filter(p => !p.bossArch); s.reel = null; s.lasso = null; s.float = null; }
+  });
+  // Smitten with a pair still on its vine: she reels instead (or plants a patch when there is nothing to reel).
+  function thornReelOrPatch(game, s, b) { const plan = KITS.briar.plan.reel(game, s, b); if (!plan.move) plan.move = 'reel'; return plan; }
 
   // ── The Starseed (Level 10, `core`) ──
 
