@@ -58,7 +58,8 @@ test('Moon jellies debut from two vents in Level 5 wave 2 with their hint, and v
   assert.equal(Foes.hint('jelly'), w.hint); assert.equal(Foes.hint('glowdrop'), w.hint, 'a glowdrop is the jelly family');
   assert(!w.buds.some(b => b.foe), 'the jellies come only from the vents');
   for (let l = 1; l <= 10; l++) for (let n = 1; n <= 10; n++) {
-    const vents = Depths.wave(l, n).vents || [], expected = l === 5 ? { 2: 2, 6: 2, 8: 1, 9: 1 }[n] || 0 : 0;
+    // Batch 2 mixes one vent each into L10 W3, W6 and W9 (the finale's greatest hits).
+    const vents = Depths.wave(l, n).vents || [], expected = l === 5 ? { 2: 2, 6: 2, 8: 1, 9: 1 }[n] || 0 : l === 10 ? { 3: 1, 6: 1, 9: 1 }[n] || 0 : 0;
     assert.equal(vents.length, expected, `vents in L${l} W${n}`);
   }
 });

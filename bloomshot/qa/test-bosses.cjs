@@ -235,14 +235,17 @@ test('The Starseed uses five real stars, a three-star dome, replayed moves and s
   const g=arena(10),s=g.bossState,b=s.boss,hp=b.hp; assert.equal(s.parts.length,5); assert.equal(s.parts.filter(p=>p.lit).length,3);
   hit(g,b); assert.equal(b.hp,hp); const p=s.parts.find(p=>p.lit); hit(g,p);hit(g,p);advance(g,.02); assert.equal(s.mode,'exposed');
   hit(g,b); assert.equal(b.hp,hp-1); advance(g,14); assert(g.drainEvents().some(e=>e.type==='bossAbility'&&e.move==='swirl'));
-  b.hp=16; s.phase=1; s.next=s.age; advance(g,1.4); assert.equal(s.mode,'supernova'); hit(g,b); assert.equal(b.hp,14);
+  b.hp=16; s.tier=2; s.phase=1; s.next=s.age; advance(g,1.4); assert.equal(s.mode,'supernova'); hit(g,b); assert.equal(b.hp,14); // her kit keeps the Supernova for her last mood (s.tier 2)
 });
 test('The Starseed marks every dark or broken satellite before relighting its second phase', () => {
-  const g=arena(10),s=g.bossState;s.boss.hp=Math.ceil(s.boss.maxHp*.59);advance(g,.3);advance(g,.02);
-  assert(g.bossWarning && g.bossWarning.move==='satellites');
+  // Her kit: at 59% she turns Dazzling (the stage tell) and opens on the Constellation Dome, which marks and relights all
+  // five; the filters name satellites because her kit pieces are parts too (never lit).
+  const g=arena(10),s=g.bossState;s.boss.hp=Math.ceil(s.boss.maxHp*.59);
+  for(let n=0;n<1200&&!(g.bossWarning&&g.bossWarning.move==='dome');n++)g.step(1/120);
+  assert(g.bossWarning && g.bossWarning.move==='dome','her second mood opens on the Constellation Dome');
   const ids=new Set(g.bossWarning.targets.filter(t=>t.role==='satellite').map(t=>t.id));
-  for(const p of s.parts.filter(p=>!p.lit))assert(ids.has(p.id));
-  advance(g,1.35);assert.equal(s.parts.filter(p=>p.lit).length,5);
+  for(const p of s.parts.filter(p=>p.bossPart==='satellite'&&(!p.lit||p.bloomed)))assert(ids.has(p.id));
+  advance(g,1.35);assert.equal(s.parts.filter(p=>p.bossPart==='satellite'&&p.lit&&!p.bloomed).length,5);
 });
 test('Moves wait at least 1.3 seconds for the audible warning; Lullaby holds them and defeat cancels future attacks', () => {
   for(let id=1;id<=10;id++) { const g=arena(id),s=g.bossState;s.next=0;advance(g,.02);assert(g.bossWarning);const at=g.bossWarning.until;

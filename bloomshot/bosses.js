@@ -2409,6 +2409,455 @@
   function thornReelOrPatch(game, s, b) { const plan = KITS.briar.plan.reel(game, s, b); if (!plan.move) plan.move = 'reel'; return plan; }
 
   // ── The Starseed (Level 10, `core`) ──
+  // The finale: a star-seed in a dome of five satellite stars (three lit hold the dome). Every mood borrows the other
+  // guardians' tricks, tinted star-gold. Wishful (tier 0) opens on her old star relight and then replays one guardian at
+  // a time, each with a "lent star": a one-hit gold piece in that guardian's costume, lent by one of her dark stars. Shoot
+  // the lent star and the trick stops (+1 sun) and that star stays dark; miss it and the trick runs its course and the
+  // star flies home lit. The replays: Lantern Lily's swirl (a star rides the whirlpool), Old Sunny's portal (shoot it
+  // shut), Mother Morel's waltz (a puffcap partner: pop it beside her for a 2-hit "Waltz pop!" through the dome) and
+  // Crystal Heart's glass (three glass stars shuffle; the gold one is real: 2 hits through the dome). Dazzling (tier 1)
+  // opens on the Constellation Dome: all five stars relight with numbers 1-5 round a pentagram; break them in order (one
+  // hit each, a bell each) to draw the star and the fifth is a Shooting star (3 hits, through the dome); an aimed seed
+  // on a star out of turn glances off, as on a Wishing Star. Then fused pairs, one lent star each: Pearl Portal (Ammonite
+  // x Sunny: shelled pearls), Firework Star (Ember x Morel: a fused partner to hit before it bursts), Gem Lob (Geode x
+  // Crystal: catch the gold gem in the air before it lands as a burr) and Star Lasso (Thornmother x Rootknot: a knot
+  // crawling to the launcher inside a thorn carousel; if it arrives, a thorn arch grows on that side). Radiant (tier 2)
+  // opens on Starfall: three comets streak down dotted lines; catch one and it chains every piece along the rest of its
+  // line, miss it and a two-hit fallen star lands. Her old Supernova is kept as the finisher (once, at 15% health).
+  // Everything she adds runs on the kit clock in closed form, so a Lullaby holds it and the bot's forecast is the board.
+  const STAR = {
+    hp: 200, fall: 4.5, lift: 160, liftT: 1.2, nova: .15, lendR: 12, life: 5, maxLent: 2,
+    pause: { swirl: 6.5, portal: 6.5, waltz: 6.5, glass: 6.5, dome: 7, pearl: 6.5, rocket: 6.5, gem: 6.5, lasso: 6.5, starfall: 6.5, supernova: 5 },
+    swirl: { x: 210, y: 305, R: 42, spin: 1.3 },
+    portal: { y: 84, r: 16, drop: 34, spit: [1.6, 3.2], close: 4.4 },
+    glass: { dy: 80, gap: 56, wait: .3, swap: .8, arc: 22, damage: 2 },
+    dome: { order: [0, 2, 4, 1, 3], damage: 3, delay: .3 },
+    pearl: { spit: [1.2, 2.6], close: 3.6, r: 12, spin: 1.4, T: 7 },
+    rocket: { R: 58, spin: -1.1, fuse: 4, damage: 3 },
+    gem: { T: 1.5, h: 70, xs: [120, 210, 300], y: 392, r: 12, life: 6, len: 40, damage: 2 },
+    lasso: { speed: 70, R: 24, spin: 2.4, arch: [36, 58, 80], ring: 118, life: 4, guardR: 9 },
+    starfall: { lanes: [86, 210, 334], y0: 46, y1: [300, 270, 300], lean: 44, T: 2.4, gap: .5, links: 6, hop: .05, reach: 14, budR: 12, budHp: 2 }
+  };
+  const starSats = s => s.parts.filter(p => p.bossPart === 'satellite');
+  const starLent = s => s.parts.filter(p => p.lent && !p.bloomed && !p.closed);
+  const starOpen = (s, role) => s.parts.filter(p => p.bossPart === role && !p.bloomed && !p.closed);
+  // A star she can lend: a dark one (unlit or broken) not already out. With none dark, she lends her own (no lender).
+  function starLender(s) {
+    const dark = starSats(s).filter(p => (p.bloomed || !p.lit) && !p.lending);
+    return dark.length ? dark[s.action % dark.length] : null;
+  }
+  // A lent star: a one-hit gold piece in a guardian's costume. Shot, it breaks (+1 sun; its star stays dark). Missed, it
+  // flies home after `life` s (timer 'home') and relights its star.
+  function starLend(game, s, role, x, y, life, extra) {
+    const lender = starLender(s);
+    const p = part(game, role, x, y, STAR.lendR, 1, { born: s.kitAge, lent: true, lit: false, lender: lender ? lender.id : null, sunBonus: 1, type: 'gold', ...extra });
+    if (lender) lender.lending = p.id;
+    if (life != null) after(s, life, 'home', p);
+    return p;
+  }
+  // A plain kit piece (fakes, guards, comets): never lit, so it never holds the dome.
+  const starPiece = (game, s, role, x, y, r, hp, extra) => part(game, role, x, y, r, hp, { born: s.kitAge, lit: false, type: 'gold', ...extra });
+  // A hit she takes from one of her own tricks turned against her (a rocket, the real glass star, a shooting star): a
+  // credited link to her body .3 s later that lands `damage` through the dome ("Rocket!", "Found it!", "Shooting star!").
+  function starStrike(game, s, from, damage, why) {
+    const by = game.scripted ? null : game.striker ? game.striker.id : game.due && game.due.by != null ? game.due.by : null;
+    if (by == null) return;
+    const item = game._linkBy(s.boss.id, game.time + STAR.dome.delay, from, 'star', by);
+    item.star = damage; item.why = why; game.pending.push(item);
+  }
+  // Every lent star's lender back home lit (the dome counts it again) or, when it was answered, left dark.
+  function starHome(game, s, p, lit) {
+    const lender = p.lender && starSats(s).find(q => q.id === p.lender);
+    if (!lender) return null;
+    lender.lending = null;
+    // revive clears neither the dome number nor the decoy flag: a star flying home comes back plain.
+    if (lit && (lender.bloomed || !lender.lit)) { revive(lender, game); lender.pip = 0; lender.decoy = false; if (s.dome) lender.hp = 1; }
+    return lender;
+  }
+  // The heave: every mood change lifts her (up to STAR.lift px of her drift) over STAR.liftT s on the kit clock.
+  function starRise(s) {
+    if (s.rise) return;
+    const by = Math.min(STAR.lift, Math.max(0, s.drift));
+    if (by >= 1) { s.rise = { at: s.kitAge, by }; after(s, STAR.liftT, 'risen', s.rise); }
+  }
+  // The finisher: her old Supernova, once, when she is down to STAR.nova of her health in her last mood.
+  function starNova(game, s, b) {
+    if (s.tier < 2 || s.phase === 2 || b.hp > Math.ceil(STAR.nova * b.maxHp)) return null;
+    const place = landing(game, s.action % 2 ? 320 : 100);
+    return { move: 'supernova', text: 'Supernova! Clear the falling stars.', targets: place ? [place] : [] };
+  }
+  const starBusy = s => starLent(s).length >= STAR.maxLent;
+  // A glass star's slot (0..2, eased through a swap) and its pose under her.
+  function starGlass(p, bx, by, clock) {
+    const G = STAR.glass, e = Foes.smooth((clock - p.born - G.wait) / G.swap), slot = p.from + (p.to - p.from) * e;
+    return { x: bx + (slot - 1) * G.gap, y: by + G.dy - Math.sign(p.to - p.from) * G.arc * Math.sin(Math.PI * e) };
+  }
+  // A comet's pose: a straight streak from (x0, y0) to (x1, y1) over STAR.starfall.T s.
+  function starCometAt(p, clock) {
+    const u = clamp((clock - p.born) / STAR.starfall.T, 0, 1);
+    return { x: p.x0 + (p.x1 - p.x0) * u, y: p.y0 + (p.y1 - p.y0) * u, u };
+  }
+  // The lasso knot: from where she was to its arrival point at STAR.lasso.speed px/s; its two thorns orbit it.
+  function starKnot(p, clock) {
+    const t = Math.min(p.len, STAR.lasso.speed * Math.max(0, clock - p.born));
+    return { x: p.x0 + p.ux * t, y: p.y0 + p.uy * t };
+  }
+  // The thorn arch on side 0 (left) or 1 (right): R px from the launcher at 36, 58 and 80 degrees up (all above y 430).
+  const starArch = side => STAR.lasso.arch.map(d => { const a = d * Math.PI / 180; return { x: 210 + (side ? 1 : -1) * STAR.lasso.ring * Math.cos(a), y: 498 - STAR.lasso.ring * Math.sin(a) }; });
+  // The comet lines: three lanes from the top, leaning in toward the middle, ending y1 (at most 120 px above the line).
+  function starLines(game, s) {
+    const F = STAR.starfall, flip = Foes.hash01(s.boss.id, s.action) < .5 ? -1 : 1;
+    return F.lanes.map((x0, k) => { const lean = x0 < 210 ? F.lean : x0 > 210 ? -F.lean : flip * F.lean;
+      return { x: x0, y: F.y0, x0, y0: F.y0, x1: x0 + lean, y1: Math.min(F.y1[k], game.dangerY - 120 - F.budR), r: 11, role: 'comet', k }; });
+  }
+  // A caught comet chains the pieces along the rest of its line (nearest first, STAR.starfall.links at most).
+  function starCometChain(game, s, p) {
+    const F = STAR.starfall, dx = p.x1 - p.x, dy = p.y1 - p.y, len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len;
+    const queued = new Set(game.pending.map(item => item.id));
+    const near = game.buds.filter(o => !o.bloomed && !o.hidden && !o.ghost && !o.gift && !o.boss && !o.bossPart && !queued.has(o.id) && (!o.inert || Foes.chainable(o)))
+      .map(o => ({ o, t: (o.x - p.x) * ux + (o.y - p.y) * uy, d: Math.abs(-(o.x - p.x) * uy + (o.y - p.y) * ux) }))
+      .filter(c => c.t >= -c.o.r && c.t <= len + 40 && c.d <= c.o.r + F.reach)
+      .sort((a, b) => a.t - b.t || (a.o.id < b.o.id ? -1 : 1)).slice(0, F.links);
+    const by = game.striker ? game.striker.id : game.due && game.due.by != null ? game.due.by : null;
+    let from = p;
+    near.forEach((c, k) => { game.pending.push(game._linkBy(c.o.id, game.time + F.hop * (k + 1), from, 'comet', by)); from = c.o; });
+    return near.length;
+  }
+  // Only the dome star whose number is next is worth a seed: the bot leaves the rest (they turn seeds away).
+  function starPips(s) { const dome = s.dome; for (const p of starSats(s)) p.decoy = Boolean(dome && p.pip && !p.bloomed && p.pip !== dome.next); }
+  // A dome star's number (1-5) for the action that raises the dome: round the pentagram from a hashed first star.
+  function starPipOf(s, action, slot) {
+    const first = Math.floor(Foes.hash01(s.boss.id, action * 5) * 5);
+    return STAR.dome.order.findIndex(d => (first + d) % 5 === slot) + 1;
+  }
+  // Ends a dome: the numbers come off her stars.
+  function starDomeEnd(s) { s.dome = null; for (const p of starSats(s)) { p.pip = 0; p.decoy = false; } }
+  kit('core', {
+    hp: STAR.hp,
+    moods: ['Wishful', 'Dazzling', 'Radiant'],
+    stageText: [null, 'The Starseed is dazzling!', 'The Starseed is radiant!'],
+    text: { swirl: 'Lake swirl! Shoot the star that rides it.', portal: 'Sun portal! Shoot it shut.', waltz: 'Star waltz! Pop the dancing cap.',
+      glass: 'Three glass stars. Find the gold one!', dome: 'Star dome! Break the stars in number order.',
+      pearl: 'Pearl portal! Shut it before it spits.', rocket: 'Firework star! Hit it before it bursts.',
+      gem: 'Gem lob! Catch the gold gem in the air.', lasso: 'Star lasso! Shoot the knot between the thorns.',
+      starfall: 'Starfall! Catch a comet as it falls.' },
+    // Wishful replays one guardian at a time after her old relight; Dazzling fuses them in pairs; Radiant adds Starfall.
+    moves: [['satellites', 'swirl', 'portal', 'waltz', 'glass'], ['dome', 'pearl', 'rocket', 'gem', 'lasso'],
+      ['starfall', 'dome', 'rocket', 'lasso', 'starfall', 'gem', 'pearl']],
+    init(game, s) { s.boss.bossFall = STAR.fall; s.rise = null; s.dome = null; },
+    stage(game, s) {
+      // Her old 60% relight belongs to the legacy fight: from Dazzling on, the dome move replaces it.
+      s.phase = Math.max(s.phase, 1); starRise(s);
+    },
+    rise(s, clock) { const r = s.rise; return r ? r.by * Foes.smooth((clock - r.at) / STAR.liftT) : 0; },
+    plan: {
+      // Her old relight (the legacy move, kept first): every broken star is marked; her own pieces are never touched.
+      satellites(game, s) {
+        return { move: 'satellites', text: TEXT.core, targets: starSats(s).filter(p => p.bloomed || (s.phase >= 1 && !p.lit)).map(p => ({ id: p.id, x: p.x, y: p.y, r: p.r, role: 'satellite' })) };
+      },
+      swirl(game, s, b) { return starNova(game, s, b) || (starBusy(s) ? null : { targets: [{ x: STAR.swirl.x, y: STAR.swirl.y, r: 50, role: 'swirl' }] }); },
+      portal(game, s, b) { return starNova(game, s, b) || starPortalPlan(game, s, 'portal'); },
+      pearl(game, s, b) { return starNova(game, s, b) || starPortalPlan(game, s, 'pearl'); },
+      waltz(game, s, b) {
+        const nova = starNova(game, s, b); if (nova) return nova;
+        if (starBusy(s) || starOpen(s, 'waltz').length) return null;
+        return { targets: morelMarks(s, [0]).map(t => ({ ...t, role: 'waltz' })) };
+      },
+      rocket(game, s, b) {
+        const nova = starNova(game, s, b); if (nova) return nova;
+        if (starBusy(s) || starOpen(s, 'rocket').length) return null;
+        const q = positions(s, TELEGRAPH).get(b.id), at = Foes.orbitAt(q.x, q.y, STAR.rocket.R, STAR.rocket.spin, Math.PI, 0);
+        return { targets: [{ x: at.x, y: at.y, r: 14, role: 'rocket' }] };
+      },
+      glass(game, s, b) {
+        const nova = starNova(game, s, b); if (nova) return nova;
+        if (starBusy(s) || starOpen(s, 'glass').length) return null;
+        const q = positions(s, TELEGRAPH).get(b.id), real = Math.floor(Foes.hash01(b.id, s.action * 3 + 1) * 3);
+        return { targets: [0, 1, 2].map(k => ({ x: q.x + (k - 1) * STAR.glass.gap, y: q.y + STAR.glass.dy, r: STAR.lendR, role: 'glass', slot: k, real: k === real })) };
+      },
+      gem(game, s, b) {
+        const nova = starNova(game, s, b); if (nova) return nova;
+        if (starBusy(s) || starOpen(s, 'gem').length) return null;
+        const G = STAR.gem, real = Math.floor(Foes.hash01(b.id, s.action * 3 + 2) * 3);
+        return { targets: G.xs.map((x, k) => ({ x, y: G.y, r: G.r, role: 'gem', slot: k, real: k === real })) };
+      },
+      lasso(game, s, b) {
+        const nova = starNova(game, s, b); if (nova) return nova;
+        if (starBusy(s) || starOpen(s, 'knot').length) return null;
+        const side = s.cycle % 2, [, mid] = starArch(side);
+        return { targets: [...starArch(side).map(c => ({ x: c.x, y: c.y, r: 10, role: 'arch' })), { x: mid.x, y: mid.y, r: 14, role: 'knot', side }] };
+      },
+      dome(game, s, b) {
+        const nova = starNova(game, s, b); if (nova) return nova;
+        // After her Supernova there is no dome to raise: she rains comets instead.
+        if (s.phase === 2) return { move: 'starfall', targets: starLines(game, s) };
+        // Each star's number rides on its target, so the tell can show them (the act counts one more action).
+        return { targets: starSats(s).map(p => ({ id: p.id, x: p.x, y: p.y, r: p.r, role: 'satellite', pip: starPipOf(s, s.action + 1, p.slot) })) };
+      },
+      starfall(game, s, b) { return starNova(game, s, b) || { targets: starLines(game, s) }; }
+    },
+    act: {
+      satellites(game, s) { for (const p of starSats(s)) { if (p.bloomed) revive(p, game); if (s.phase >= 1) p.lit = true; } },
+      // Lantern Lily's whirlpool (her old swirl), and a lent star riding round it.
+      swirl(game, s) {
+        whirlpool(game);
+        const at = Foes.orbitAt(STAR.swirl.x, STAR.swirl.y, STAR.swirl.R, STAR.swirl.spin, -Math.PI / 2, 0);
+        starLend(game, s, 'swirlstar', at.x, at.y, STAR.life, { a0: -Math.PI / 2, move: 'swirl' });
+        return STAR.pause.swirl;
+      },
+      portal(game, s, w) { starPortal(game, s, w, false); return STAR.pause.portal; },
+      pearl(game, s, w) { starPortal(game, s, w, true); return STAR.pause.pearl; },
+      // Mother Morel's waltz: the partner is a puffcap (popped beside her, its puff reaches her: "Waltz pop!", 2 hits), and
+      // she drops a cupped cluster as Morel did.
+      waltz(game, s, w) {
+        const t = w.targets.find(t => t.role === 'waltz'), place = landing(game, s.action % 2 ? 320 : 100);
+        starLend(game, s, 'waltz', t.x, t.y, STAR.life, { a0: 0, puff: true, type: 'lilac', move: 'waltz' });
+        if (place) cluster(game, place, { cup: true });
+        return STAR.pause.waltz;
+      },
+      rocket(game, s, w) {
+        const t = w.targets.find(t => t.role === 'rocket'), p = starLend(game, s, 'rocket', t.x, t.y, null, { a0: Math.PI, move: 'rocket' });
+        after(s, STAR.rocket.fuse, 'fuse', p);
+        return STAR.pause.rocket;
+      },
+      // Crystal Heart's shuffle: the gold star is real (lent); the two glass ones turn seeds away.
+      glass(game, s, w) {
+        const turn = 1 + Math.floor(Foes.hash01(s.boss.id, s.action * 3) * 2);
+        for (const t of w.targets.filter(t => t.role === 'glass')) {
+          const extra = { from: t.slot, to: (t.slot + turn) % 3, move: 'glass' };
+          if (t.real) starLend(game, s, 'glass', t.x, t.y, STAR.life, { ...extra, real: true });
+          else starPiece(game, s, 'glass', t.x, t.y, STAR.lendR, 1, { ...extra, decoy: true, real: false, type: 'sky' });
+        }
+        return STAR.pause.glass;
+      },
+      // The Geode King's lob: three gems arc to the launcher's shoulders; only the gold one is real. Catch it in the air.
+      gem(game, s, w) {
+        const b = s.boss, G = STAR.gem;
+        for (const t of w.targets.filter(t => t.role === 'gem')) {
+          const extra = { x0: b.x, y0: b.y + b.r, x1: t.x, y1: t.y, move: 'gem' };
+          if (t.real) starLend(game, s, 'gem', b.x, b.y + b.r, null, { ...extra, real: true });
+          else starPiece(game, s, 'gem', b.x, b.y + b.r, G.r, 1, { ...extra, decoy: true, real: false, type: 'coral' });
+        }
+        after(s, G.T, 'land');
+        return STAR.pause.gem;
+      },
+      lasso(game, s, w) {
+        const b = s.boss, t = w.targets.find(t => t.role === 'knot'), L = STAR.lasso;
+        const dx = t.x - b.x, dy = t.y - b.y, len = Math.hypot(dx, dy) || 1;
+        const knot = starLend(game, s, 'knot', b.x, b.y, null, { x0: b.x, y0: b.y, ux: dx / len, uy: dy / len, len, side: t.side, move: 'lasso' });
+        for (const k of [0, 1]) starPiece(game, s, 'thorn', b.x, b.y, L.guardR, 1, { knot: knot.id, a0: k * Math.PI, decoy: true, type: 'coral', move: 'lasso' });
+        after(s, len / L.speed, 'arrive', knot);
+        return STAR.pause.lasso;
+      },
+      dome(game, s) {
+        s.dome = { next: 1, rings: 0 };
+        for (const p of starSats(s)) {
+          if (p.bloomed) revive(p, game);
+          p.lit = true; p.hp = 1; p.pip = starPipOf(s, s.action, p.slot);
+        }
+        starPips(s);
+        return STAR.pause.dome;
+      },
+      starfall(game, s, w) {
+        w.targets.filter(t => t.role === 'comet').forEach((t, k) => after(s, k * STAR.starfall.gap, 'comet', t));
+        return STAR.pause.starfall;
+      },
+      // Her old Supernova (legacy act); her own pieces go first, quietly.
+      supernova(game, s, w) {
+        for (const p of [...s.parts]) if (p.bossPart !== 'satellite') { if (p.lent) starHome(game, s, p, false); close(game, s, p); }
+        starDomeEnd(s); legacyAct(game, s, w);
+        return STAR.pause.supernova;
+      }
+    },
+    timer: {
+      risen(game, s, r) { if (s.rise !== r) return; s.drift = Math.max(0, s.drift - r.by); s.rise = null; },
+      // A lent star nobody shot flies home lit (its trick has had its time).
+      home(game, s, p) {
+        if (!p || p.bloomed || p.closed) return;
+        const lender = starHome(game, s, p, true);
+        for (const q of s.parts.filter(q => q.move === p.move && !q.lent && !q.bloomed && q.bossPart === p.bossPart)) close(game, s, q);
+        close(game, s, p);
+        game.event('bossAbility', { kind: s.kind, move: p.move, act: 'home', x: lender ? lender.x : s.boss.x, y: lender ? lender.y : s.boss.y });
+      },
+      spit(game, s, p) {
+        if (!p || p.bloomed || p.closed) return;
+        starSpit(game, s, p);
+      },
+      fuse(game, s, p) {
+        if (!p || p.bloomed || p.closed) return;
+        // The cinders fall from under her, clear of her ring of stars (56 px out).
+        const spot = { x: clamp(p.x, 40, 380), y: Math.min(s.boss.y + 104, game.dangerY - 140), r: 20 };
+        cluster(game, spot, { fast: true });
+        game.event('bossAbility', { kind: s.kind, move: 'rocket', act: 'burst', x: p.x, y: p.y });
+        const lender = starHome(game, s, p, true); close(game, s, p);
+        if (lender) game.event('bossAbility', { kind: s.kind, move: 'rocket', act: 'home', x: lender.x, y: lender.y });
+      },
+      land(game, s) {
+        const G = STAR.gem;
+        for (const p of starOpen(s, 'gem')) {
+          if (p.real) {
+            // A rock wall on the kit clock (kitDrawn: the kit's art draws it as a gem burr), as Rootknot's snare.
+            game.bumpers.push({ id: `${s.boss.id}-burr-${s.serial++}`, kind: 'rock', bossWall: true, burr: true, kitDrawn: true, x: p.x1, y: p.y1, baseX: p.x1, length: G.len, angle: 0, expires: Infinity, kitUntil: s.kitAge + G.life });
+            game.event('bossAbility', { kind: s.kind, move: 'gem', act: 'land', x: p.x1, y: p.y1 });
+            const lender = starHome(game, s, p, true);
+            if (lender) game.event('bossAbility', { kind: s.kind, move: 'gem', act: 'home', x: lender.x, y: lender.y });
+          }
+          close(game, s, p);
+        }
+      },
+      arrive(game, s, knot) {
+        if (!knot || knot.bloomed || knot.closed) return;
+        const L = STAR.lasso, c = starArch(knot.side);
+        // Two rock walls on the kit clock along the arch (kitDrawn: the kit's art draws them as one thorn arch).
+        for (let i = 0; i < 2; i++) {
+          const a = c[i], z = c[i + 1];
+          game.bumpers.push({ id: `${s.boss.id}-arch-${s.serial++}`, kind: 'rock', bossWall: true, thorn: true, kitDrawn: true, x: (a.x + z.x) / 2, y: (a.y + z.y) / 2, baseX: (a.x + z.x) / 2,
+            length: Math.hypot(z.x - a.x, z.y - a.y), angle: Math.atan2(z.y - a.y, z.x - a.x), expires: Infinity, kitUntil: s.kitAge + L.life });
+        }
+        game.event('bossAbility', { kind: s.kind, move: 'lasso', act: 'arch', x: knot.x, y: knot.y, side: knot.side });
+        for (const q of s.parts.filter(q => q.knot === knot.id)) close(game, s, q);
+        const lender = starHome(game, s, knot, true); close(game, s, knot);
+        if (lender) game.event('bossAbility', { kind: s.kind, move: 'lasso', act: 'home', x: lender.x, y: lender.y });
+      },
+      comet(game, s, t) {
+        const p = starPiece(game, s, 'comet', t.x0, t.y0, t.r, 1, { x0: t.x0, y0: t.y0, x1: t.x1, y1: t.y1, k: t.k, type: 'gold' });
+        after(s, STAR.starfall.T, 'fallen', p);
+        game.event('bossAbility', { kind: s.kind, move: 'starfall', act: 'streak', x: t.x0, y: t.y0, n: t.k });
+      },
+      // A comet nobody caught lands at the end of its line as a two-hit fallen star.
+      fallen(game, s, p) {
+        if (!p || p.bloomed || p.closed) return;
+        const F = STAR.starfall; close(game, s, p);
+        if (!clearSpot(game, p.x1, p.y1, F.budR)) return;
+        const id = `${s.boss.id}-fallen-${s.serial++}`;
+        game.buds.push({ id, group: id, x: p.x1, y: p.y1, baseX: p.x1, startY: p.y1, r: F.budR, type: 'gold', hp: F.budHp, maxHp: F.budHp, relay: false,
+          fall: .9, sway: 0, hitAt: -100, bloomAt: -100, bloomed: false, spawnAt: game.time, bossSummon: true, bossSource: s.boss.id, fallenStar: true });
+        s.summons++;
+        game.event('bossAbility', { kind: s.kind, move: 'starfall', act: 'land', x: p.x1, y: p.y1 });
+      }
+    },
+    pose(s, p, bx, by, clock) {
+      switch (p.bossPart) {
+        case 'swirlstar': { const a = Foes.orbitAt(STAR.swirl.x, STAR.swirl.y, STAR.swirl.R, STAR.swirl.spin, p.a0, clock - p.born); return { x: a.x, y: a.y }; }
+        case 'waltz': { if (p.bloomed) return { x: p.x, y: p.y }; const a = morelOrbit(p, bx, by, clock); return { x: a.x, y: a.y }; }
+        case 'rocket': { const a = Foes.orbitAt(bx, by, STAR.rocket.R, STAR.rocket.spin, p.a0, clock - p.born); return { x: a.x, y: a.y }; }
+        case 'glass': return starGlass(p, bx, by, clock);
+        case 'gem': { const l = Foes.lobAt(p.x0, p.y0, p.x1, p.y1, STAR.gem.T, clock - p.born, STAR.gem.h); return { x: l.x, y: l.y }; }
+        case 'knot': return starKnot(p, clock);
+        case 'thorn': {
+          const knot = s.parts.find(q => q.id === p.knot); if (!knot) return null;
+          const c = starKnot(knot, clock), a = Foes.orbitAt(c.x, c.y, STAR.lasso.R, STAR.lasso.spin, p.a0, clock - p.born); return { x: a.x, y: a.y };
+        }
+        case 'comet': return starCometAt(p, clock);
+        default: return null;
+      }
+    },
+    step(game, s) {
+      // Her pieces that were shot leave the board once their burst has played (her stars stay: they relight).
+      if (s.parts.some(p => p.bossPart !== 'satellite' && p.bloomed && game.time - p.bloomAt > 1)) {
+        const gone = new Set(s.parts.filter(p => p.bossPart !== 'satellite' && p.bloomed && game.time - p.bloomAt > 1));
+        s.parts = s.parts.filter(p => !gone.has(p)); game.buds = game.buds.filter(p => !gone.has(p));
+      }
+      starPips(s);
+    },
+    // The glass and gem fakes, the lasso's thorns and a dome star out of turn turn seeds away (powers break them), as a
+    // Wishing Star does.
+    canHit(game, s, bud, hit, seed) {
+      if (Foes.isPower(game, seed)) return undefined; // no power is ever turned away (bosses.js exempts only two)
+      if (bud.decoy && bud.bossPart !== 'satellite') return false;
+      if (bud.bossPart === 'satellite' && s.dome && bud.pip && bud.pip !== s.dome.next) return false;
+      return undefined;
+    },
+    resolve(game, s, bud, chain) {
+      // A fake (a glass star, a coral gem, a thorn) pays nothing, whatever breaks it: it pops.
+      if (bud.decoy && bud.bossPart && bud.bossPart !== 'satellite') { game._pop(bud, 'core:pop'); return { blocked: true }; }
+      const due = chain && game.due;
+      // Her own tricks turned on her: a rocket, the real glass star, a shooting star (through the dome).
+      if (due && due.star && bud === s.boss) {
+        s.crits++; game.event('bossCritical', { kind: s.kind, bud, damage: due.star, via: due.why });
+        return { target: bud, damage: due.star };
+      }
+      // A waltz partner popped beside her: its puff reaches her through the dome ("Waltz pop!").
+      if (due && due.waltz && bud === s.boss) {
+        s.crits++; game.event('bossCritical', { kind: s.kind, bud, damage: 2, via: 'waltz' });
+        return { target: bud, damage: 2 };
+      }
+      return null;
+    },
+    bloomed(game, s, bud) {
+      if (bud.lent) {
+        // Answered: the trick stops and its star stays dark.
+        starHome(game, s, bud, false);
+        const move = bud.move;
+        game.event('bossAbility', { kind: s.kind, move, act: 'answer', x: bud.x, y: bud.y });
+        if (move === 'swirl') game.currents = game.currents.filter(c => !c.bossSwirl);
+        if (move === 'glass') { for (const q of starOpen(s, 'glass')) close(game, s, q); starStrike(game, s, bud, STAR.glass.damage, 'glass'); }
+        if (move === 'rocket') starStrike(game, s, bud, STAR.rocket.damage, 'rocket');
+        if (move === 'gem') starStrike(game, s, bud, STAR.gem.damage, 'gem');
+        if (move === 'lasso') for (const q of s.parts.filter(q => q.knot === bud.id)) close(game, s, q);
+        return false;
+      }
+      if (bud.bossPart === 'comet') {
+        const n = starCometChain(game, s, bud);
+        game.event('bossAbility', { kind: s.kind, move: 'starfall', act: 'catch', x: bud.x, y: bud.y, n });
+        return false;
+      }
+      if (bud.bossPart === 'satellite' && s.dome && bud.pip) {
+        const dome = s.dome, credited = !game.scripted && (game.due ? game.due.by != null : Boolean(game.striker)), power = Foes.isPower(game, game.striker) || Boolean(game.due && ['sun', 'boss'].includes(game.due.via));
+        if (bud.pip === dome.next && credited && !power) {
+          dome.rings++;
+          game.event('bossAbility', { kind: s.kind, move: 'dome', act: 'ring', x: bud.x, y: bud.y, n: bud.pip, rings: dome.rings });
+        }
+        let next = 0; for (const p of starSats(s)) if (p.pip && !p.bloomed && p !== bud && (!next || p.pip < next)) next = p.pip;
+        dome.next = next;
+        if (dome.rings === 5) {
+          game.event('bossAbility', { kind: s.kind, move: 'dome', act: 'shoot', x: bud.x, y: bud.y });
+          starStrike(game, s, bud, STAR.dome.damage, 'shooting');
+        }
+        if (!next) starDomeEnd(s); else starPips(s);
+      }
+      return false;
+    },
+    // The bot: a lent star or a falling comet outranks most escorts; the dome's next star is the way in.
+    targets(game, s, list) {
+      for (const t of list) {
+        if (t.bud.lent) { t.priority = 75; t.reason = 'lent'; }
+        else if (t.bud.bossPart === 'comet') { t.priority = 70; t.reason = 'comet'; }
+        else if (t.bud.bossPart === 'satellite' && s.dome && t.bud.pip === s.dome.next) { t.priority = 90; t.reason = 'pip'; }
+      }
+    },
+    cleanup(game, s) {
+      for (const p of s.parts) if (p.bossPart === 'satellite') { p.lending = null; p.pip = 0; p.decoy = false; }
+      s.dome = null; s.rise = null;
+    }
+  });
+  // Old Sunny's portal, opened by a lent star: a sprout drops at once and another at each spit unless it is shot shut.
+  // The pearl portal (with the Ammonite Queen) spits shelled pearls instead: a turning shell, open toward the launcher.
+  function starPortalPlan(game, s, move) {
+    if (starBusy(s) || starOpen(s, 'portal').length) return null;
+    const P = STAR.portal, place = landing(game, s.action % 2 ? 320 : 100);
+    if (!place) return null;
+    return { targets: [{ x: place.x, y: P.y, r: P.r, role: 'portal' }, { x: place.x, y: P.y + P.drop, r: move === 'pearl' ? STAR.pearl.r : SUNNY.sproutR, role: move === 'pearl' ? 'pearl' : 'sprout' }] };
+  }
+  function starPortal(game, s, w, pearl) {
+    const t = w.targets.find(t => t.role === 'portal');
+    if (!t) return;
+    const p = starLend(game, s, 'portal', t.x, t.y, pearl ? STAR.pearl.close : STAR.portal.close, { pearly: pearl, move: pearl ? 'pearl' : 'portal', spits: 0 });
+    if (!pearl) starSpit(game, s, p);
+    for (const at of pearl ? STAR.pearl.spit : STAR.portal.spit) after(s, at, 'spit', p);
+  }
+  function starSpit(game, s, p) {
+    const x = p.x, y = p.y + STAR.portal.drop, id = `${p.id}-${p.spits++}`;
+    if (!clearSpot(game, x, y, p.pearly ? STAR.pearl.r : SUNNY.sproutR)) return;
+    if (p.pearly) {
+      const P = STAR.pearl;
+      game.buds.push({ id, group: id, x, y, baseX: x, startY: y, r: P.r, type: 'lilac', hp: 1, maxHp: 1, relay: false, shell: true, shellAngle: Math.PI / 2,
+        shellSpin: P.spin * (p.spits % 2 ? -1 : 1), fall: (game.dangerY - y - P.r) / (P.T * Math.max(1, game.descentSpeed)), sway: 0, hitAt: -100, bloomAt: -100,
+        bloomed: false, spawnAt: game.time, bossSummon: true, bossSource: s.boss.id, pearl: true });
+      s.summons++;
+    } else { sunnySprout(game, s, id, id, x, y); s.summons++; }
+    game.event('bossAbility', { kind: s.kind, move: p.move, act: 'spit', x, y });
+  }
 
   return { init, step, canHit, burns, resolve, bloomed, breach, cleanup, predictVisible, targets, health: HEALTH, telegraph: TELEGRAPH, kits: KITS };
 });

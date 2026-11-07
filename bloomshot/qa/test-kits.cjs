@@ -2222,6 +2222,344 @@ test('The good bot beats the Geode King', () => {
 }
 
 // ── The Starseed (Level 10, `core`) ──
+{
+  const flower = (id, x, y, extra) => ({ id, group: id, x, y, baseX: x, startY: y, r: 11, type: 'gold', hp: 1, maxHp: 1, relay: false, fall: 1, sway: 0, hitAt: -100, bloomAt: -100, bloomed: false, ...extra });
+  const K = Bosses.kits.core;
+  // The Starseed on her board with her next move forced (the tier, and the move's place in its list) and played to its
+  // start (the warning has run). Returns the events of the tell and the start.
+  function star(tier, index, { g = arena(10), buds = [] } = {}) {
+    const s = g.bossState; g.buds.push(...buds);
+    s.tier = tier; if (tier) s.cycle = index; else s.action = index; if (tier) s.phase = Math.max(s.phase, 1);
+    s.next = s.age; g.step(1 / 120); const w = s.warning; assert(w, 'a warning is up');
+    const events = []; while (s.warning) { g.step(1 / 120); events.push(...g.drainEvents()); }
+    return { g, s, b: s.boss, w, events };
+  }
+  function until(g, done, seconds = 10) { const events = []; for (let n = 0; n < seconds * 120 && !done(); n++) { g.step(1 / 120); events.push(...g.drainEvents()); } return events; }
+  const sats = s => s.parts.filter(p => p.bossPart === 'satellite');
+  const lit = s => sats(s).filter(p => p.lit && !p.bloomed).length;
+  const coreActs = (events, move, act) => events.filter(e => e.type === 'bossAbility' && e.kind === 'core' && e.move === move && e.act === act);
+  const crits = (events, via) => events.filter(e => e.type === 'bossCritical' && e.kind === 'core' && (!via || e.via === via));
+
+  test('The Starseed: Wishful, Dazzling and Radiant at 200 health (134 and 67), each mood opening on its new move, in her own words', () => {
+    const g = arena(10), s = g.bossState;
+    assert.equal(Bosses.health.core, 200); assert.equal(s.boss.maxHp, 200); assert.deepEqual(s.tierAt, [134, 67]);
+    assert.equal(Math.max(...Object.values(Bosses.health)), 200, 'still the largest health of all ten');
+    assert.deepEqual(K.moods, ['Wishful', 'Dazzling', 'Radiant']);
+    assert.deepEqual(K.stageText, [null, 'The Starseed is dazzling!', 'The Starseed is radiant!']);
+    assert.deepEqual(K.moves, [['satellites', 'swirl', 'portal', 'waltz', 'glass'], ['dome', 'pearl', 'rocket', 'gem', 'lasso'], ['starfall', 'dome', 'rocket', 'lasso', 'starfall', 'gem', 'pearl']]);
+    for (const text of [...Object.values(K.text), ...K.stageText.slice(1)]) assert(text.length <= 52, text);
+    assert.equal(s.boss.bossFall, 0, 'the arena holds her still'); assert.equal(arena(10).bossState.kind, 'core');
+    const real = new RushGame({ plan: bot.plan(10), startWave: 10 }); assert.equal(real.bossState.boss.bossFall, 4.5, 'she drifts down at 4.5 px/s, not 6.65');
+  });
+  test('The Starseed: her old relight first, a swirl by 14 s, and a lent star riding the swirl: shot, the swirl stops and its star stays dark', () => {
+    const g = arena(10), s = g.bossState, events = until(g, () => s.age >= 14, 14);
+    assert.deepEqual(events.filter(e => e.type === 'bossAbility' && e.act === 'start').map(e => e.move), ['satellites', 'swirl']);
+    const rider = s.parts.find(p => p.bossPart === 'swirlstar'); assert(rider && rider.lent && rider.hp === 1 && !rider.lit);
+    assert(g.currents.some(c => c.bossSwirl)); const lender = sats(s).find(p => p.id === rider.lender); assert(lender && !lender.lit, 'lent by a dark star');
+    advance(g, .5); const a = Math.atan2(rider.y - 305, rider.x - 210); assert(Math.abs(Math.hypot(rider.x - 210, rider.y - 305) - 42) < 1e-6, 'it rides the swirl ring');
+    hit(g, rider); const ev = g.drainEvents(); assert(rider.bloomed); assert(!g.currents.some(c => c.bossSwirl), 'the swirl stops');
+    assert.equal(coreActs(ev, 'swirl', 'answer').length, 1); assert(!lender.lit && !lender.lending, 'its star stays dark');
+    assert(Number.isFinite(a));
+  });
+  test('The Starseed: a lent star nobody shoots flies home after 5 s and relights its star; a Lullaby holds it', () => {
+    const { g, s } = star(0, 1), rider = s.parts.find(p => p.bossPart === 'swirlstar'), lender = sats(s).find(p => p.id === rider.lender), before = lit(s);
+    g.lull(); advance(g, 5.5); assert(!rider.closed, 'held by the Lullaby');
+    const events = until(g, () => rider.closed, 6); assert(rider.closed); assert(lender.lit && !lender.bloomed); assert.equal(lit(s), before + 1);
+    assert.equal(coreActs(events, 'swirl', 'home').length, 1);
+  });
+  test("The Starseed: Old Sunny's portal drops a sprout at once and spits at 1.6 and 3.2 s unless it is shot shut (+1 sun)", () => {
+    // The board falls at a real pace (each sprout is clear of the portal's mouth by the next spit).
+    let { g, s, events } = star(0, 2), portal = s.parts.find(p => p.bossPart === 'portal'); g.descentSpeed = 10;
+    assert(portal.lent && portal.sunBonus === 1); assert.equal(coreActs(events, 'portal', 'spit').length, 1);
+    events = until(g, () => s.kitAge >= portal.born + 3.3, 4); assert.equal(coreActs(events, 'portal', 'spit').length, 2);
+    ({ g, s } = star(0, 2)); portal = s.parts.find(p => p.bossPart === 'portal'); hit(g, portal); events = [...g.drainEvents(), ...until(g, () => false, 4)];
+    assert(portal.bloomed); assert.equal(coreActs(events, 'portal', 'answer').length, 1); assert.equal(coreActs(events, 'portal', 'spit').length, 0);
+  });
+  test("The Starseed: Morel's waltz partner popped beside her reaches her through the dome: a two-hit Waltz pop", () => {
+    const { g, s, b } = star(0, 3), partner = s.parts.find(p => p.bossPart === 'waltz');
+    assert.equal(s.mode, 'domed'); assert(partner.puff && partner.lent); const hp = b.hp;
+    hit(g, partner); advance(g, .4); const events = g.drainEvents();
+    assert.equal(b.hp, hp - 2); assert.equal(crits(events, 'waltz').length, 1);
+  });
+  test("The Starseed: Crystal Heart's glass: two glass stars turn seeds away, the gold one lands two through the dome", () => {
+    const { g, s, b, w } = star(0, 4), glass = s.parts.filter(p => p.bossPart === 'glass'), real = glass.find(p => p.real), fakes = glass.filter(p => !p.real);
+    assert.equal(w.targets.filter(t => t.real).length, 1); assert.equal(fakes.length, 2);
+    for (const f of fakes) { assert(f.decoy); assert.equal(Bosses.canHit(g, f, { nx: 0, ny: 1 }, {}), false); assert.equal(Bosses.canHit(g, f, { nx: 0, ny: 1 }, { power: 'dandelion' }), true, 'no power is turned away'); }
+    { const t = star(0, 4), fake = t.s.parts.find(p => p.bossPart === 'glass' && !p.real), score = t.g.score, sun = t.g.sunCharge;
+      hit(t.g, fake, { power: 'dandelion' }); assert(fake.bloomed && fake.popped, 'a power pops a fake'); assert.equal(t.g.score, score); assert.equal(t.g.sunCharge, sun, 'a decoy pays nothing'); }
+    advance(g, 1.2); assert.notEqual(real.from, real.to, 'they shuffle'); assert(Math.abs(real.x - (b.x + (real.to - 1) * 56)) < 1e-6);
+    const hp = b.hp; hit(g, real); advance(g, .4); const events = g.drainEvents();
+    assert.equal(b.hp, hp - 2); assert.equal(crits(events, 'glass').length, 1); assert(fakes.every(f => f.closed));
+  });
+  test('The Starseed: the Constellation Dome relights all five with numbers round a pentagram; out of turn a seed glances', () => {
+    const { g, s, b, w } = star(1, 0); assert.equal(w.move, 'dome');
+    assert.deepEqual(w.targets.map(t => t.role), ['satellite', 'satellite', 'satellite', 'satellite', 'satellite']);
+    assert.equal(lit(s), 5); assert.equal(s.mode, 'domed');
+    const order = sats(s).sort((p, q) => p.pip - q.pip);
+    assert.deepEqual(order.map(p => p.pip), [1, 2, 3, 4, 5]);
+    assert.deepEqual(w.targets.map(t => t.pip), w.targets.map(t => s.parts.find(p => p.id === t.id).pip), 'the tell showed the numbers the dome got');
+    for (let k = 1; k < 5; k++) assert.equal((order[k].slot - order[k - 1].slot + 5) % 5, 2, 'each next star two slots on: a pentagram');
+    assert(order.every(p => p.hp === 1));
+    assert.equal(Bosses.canHit(g, order[2], { nx: 0, ny: 1 }, {}), false); assert(order[2].decoy, 'the bot leaves it');
+    assert.equal(Bosses.canHit(g, order[2], { nx: 0, ny: 1 }, { power: 'beeline' }), true, 'powers still land');
+    assert.equal(Bosses.canHit(g, order[2], { nx: 0, ny: 1 }, { power: 'dandelion' }), true, 'every power');
+    hit(g, order[2]); assert(!order[2].bloomed); assert.equal(Bosses.canHit(g, order[0], { nx: 0, ny: 1 }, {}), true);
+    assert(b.hp === b.maxHp);
+    // A dark dome star lends the next trick; flying home it relights as a plain star, with no number.
+    hit(g, order[0]); advance(g, .05); assert.equal(s.dome.next, 2); const t = star(1, 1, { g }), portal = t.s.parts.find(p => p.bossPart === 'portal');
+    assert.equal(portal.lender, order[0].id); until(g, () => portal.closed, 5);
+    assert(!order[0].bloomed && order[0].lit && !order[0].pip && !order[0].decoy); assert.equal(Bosses.canHit(g, order[0], { nx: 0, ny: 1 }, {}), true); assert.equal(s.dome.next, 2);
+  });
+  test('The Starseed: five in turn ring five bells, three break the dome, and the fifth is a three-hit Shooting star', () => {
+    const { g, s, b } = star(1, 0), order = sats(s).sort((p, q) => p.pip - q.pip), events = [];
+    b.hp = 100;
+    for (const [k, p] of order.entries()) {
+      hit(g, p); advance(g, .02); events.push(...g.drainEvents());
+      if (k === 2) assert.equal(s.mode, 'exposed', 'three broken: the dome is down');
+    }
+    advance(g, .4); events.push(...g.drainEvents());
+    assert.deepEqual(coreActs(events, 'dome', 'ring').map(e => e.n), [1, 2, 3, 4, 5]); assert.equal(coreActs(events, 'dome', 'shoot').length, 1);
+    assert.equal(b.hp, 97); assert.equal(crits(events, 'shooting').length, 1); assert.equal(s.dome, null);
+    assert(sats(s).every(p => !p.pip && !p.decoy));
+  });
+  test('The Starseed: Pearl Portal spits two shelled pearls (turning shells) unless it is shot shut', () => {
+    const { g, s } = star(1, 1), portal = s.parts.find(p => p.bossPart === 'portal'); g.descentSpeed = 10;
+    assert(portal.pearly); const events = until(g, () => s.kitAge >= portal.born + 2.8, 4);
+    const pearls = g.buds.filter(p => p.pearl); assert.equal(pearls.length, 2); assert.equal(coreActs(events, 'pearl', 'spit').length, 2);
+    for (const p of pearls) { assert(p.shell && p.bossSummon && p.hp === 1); assert.equal(Math.abs(p.shellSpin), 1.4); }
+  });
+  test('The Starseed: Firework Star: hit before its fuse, it rockets into her for three; left, it bursts into cinders and flies home', () => {
+    let { g, s, b } = star(1, 2), rocket = s.parts.find(p => p.bossPart === 'rocket');
+    const hp = b.hp; hit(g, rocket); advance(g, .4); let events = g.drainEvents();
+    assert.equal(b.hp, hp - 3); assert.equal(crits(events, 'rocket').length, 1);
+    ({ g, s, b } = star(1, 2)); rocket = s.parts.find(p => p.bossPart === 'rocket'); const summons = s.summons;
+    events = until(g, () => rocket.closed, 5); assert.equal(coreActs(events, 'rocket', 'burst').length, 1); assert.equal(s.summons, summons + 1);
+  });
+  test('The Starseed: Gem Lob: catch the gold gem in the air for two; a landed one is a burr rock above the close band for 6 s', () => {
+    let { g, s, b } = star(1, 3), gems = s.parts.filter(p => p.bossPart === 'gem'), real = gems.find(p => p.real);
+    assert.equal(gems.length, 3); assert(gems.filter(p => !p.real).every(p => p.decoy));
+    advance(g, .7); assert(real.y < Math.max(real.y0, real.y1), 'it arcs'); const hp = b.hp; hit(g, real); advance(g, .4);
+    assert.equal(b.hp, hp - 2); assert.equal(crits(g.drainEvents(), 'gem').length, 1);
+    ({ g, s } = star(1, 3)); real = s.parts.find(p => p.bossPart === 'gem' && p.real);
+    const events = until(g, () => s.parts.every(p => p.bossPart !== 'gem' || p.closed), 3);
+    const burr = g.bumpers.find(r => r.burr); assert(burr && burr.y + 6 < 430 && burr.kitUntil - s.kitAge > 5.8); assert.equal(coreActs(events, 'gem', 'land').length, 1);
+    advance(g, 6.1); assert(!g.bumpers.some(r => r.burr), 'gone after 6 s');
+  });
+  test('The Starseed: Star Lasso: two thorns circle the knot and turn seeds away; untied, nothing grows; arrived, a thorn arch for 4 s', () => {
+    let { g, s } = star(1, 4), knot = s.parts.find(p => p.bossPart === 'knot'), thorns = s.parts.filter(p => p.bossPart === 'thorn');
+    assert.equal(thorns.length, 2); for (const t of thorns) assert.equal(Bosses.canHit(g, t, { nx: 0, ny: 1 }, {}), false);
+    advance(g, 1); for (const t of thorns) assert(Math.abs(Math.hypot(t.x - knot.x, t.y - knot.y) - 24) < 1e-6);
+    hit(g, knot); assert(knot.bloomed && thorns.every(t => t.closed)); advance(g, 6); assert(!g.bumpers.some(r => r.thorn));
+    ({ g, s } = star(1, 4)); knot = s.parts.find(p => p.bossPart === 'knot');
+    const events = until(g, () => knot.closed, 8), arch = g.bumpers.filter(r => r.thorn);
+    assert.equal(arch.length, 2); assert(arch.every(r => r.y < 430 && r.kitUntil > s.kitAge)); assert.equal(coreActs(events, 'lasso', 'arch').length, 1);
+    advance(g, 4.1); assert(!g.bumpers.some(r => r.thorn));
+  });
+  test('The Starseed: Starfall: three comets streak down, .5 s apart; a caught one chains the pieces along its line, a missed one lands as a two-hit star', () => {
+    const buds = [flower('f1', 120, 200), flower('f2', 110, 240), flower('f3', 300, 160)];
+    let { g, s, w } = star(2, 0, { buds }); assert.equal(w.move, 'starfall');
+    const lines = w.targets.filter(t => t.role === 'comet'); assert.equal(lines.length, 3); for (const t of lines) assert(t.y1 + 12 <= g.dangerY - 120);
+    advance(g, .02); let comets = s.parts.filter(p => p.bossPart === 'comet'); assert.equal(comets.length, 1);
+    advance(g, 1.05); comets = s.parts.filter(p => p.bossPart === 'comet'); assert.equal(comets.length, 3);
+    const left = comets.find(p => p.k === 0); hit(g, left); const events = [...g.drainEvents(), ...until(g, () => false, .5)];
+    assert.equal(coreActs(events, 'starfall', 'catch').length, 1);
+    assert(g.buds.find(p => p.id === 'f2').bloomed, 'the piece on its line blooms'); assert(!g.buds.find(p => p.id === 'f3').bloomed);
+    until(g, () => s.parts.every(p => p.bossPart !== 'comet' || p.closed || p.bloomed), 3);
+    const fallen = g.buds.filter(p => p.fallenStar); assert.equal(fallen.length, 2); assert(fallen.every(p => p.hp === 2 && p.bossSummon));
+  });
+  test('The Starseed: her old Supernova is kept once, at 15% health in her last mood, and every seed on her lands double after', () => {
+    const g = arena(10), s = g.bossState, b = s.boss; s.tier = 2; s.phase = 1; b.hp = 27; s.next = s.age;
+    g.step(1 / 120); assert.equal(s.warning.move, 'supernova'); while (s.warning) g.step(1 / 120);
+    assert.equal(s.mode, 'supernova'); assert.equal(s.phase, 2); hit(g, b); assert.equal(b.hp, 25);
+    s.next = s.age; g.step(1 / 120); assert.notEqual(s.warning.move, 'supernova', 'only once');
+  });
+  test('The Starseed: each mood change floats her up (at most 160 px of her drift) over 1.2 s', () => {
+    const g = arena(10), s = g.bossState, b = s.boss; s.drift = 200;
+    b.hp = s.tierAt[0]; until(g, () => s.tier === 1, 3); const rise = s.rise; assert(rise && rise.by === 160);
+    const k = Bosses.kits.core; assert.equal(k.rise(s, rise.at), 0); assert(Math.abs(k.rise(s, rise.at + .6) - 80) < 1e-9, 'eased: half way at half time');
+    advance(g, 1.25); assert(Math.abs(s.drift - 40) < 1e-6, 'committed off her drift'); assert.equal(s.rise, null);
+  });
+  test('The Starseed: the same at 30, 60 and 144 FPS through each mood', () => {
+    for (const tier of [0, 1, 2]) {
+      const runs = [30, 60, 144].map(fps => {
+        const g = arena(10), s = g.bossState; s.tier = tier; if (tier) s.phase = 1; s.next = 1; advance(g, 12, fps);
+        return [s.action, s.cycle, ...s.parts.map(p => [p.id, +p.x.toFixed(4), +p.y.toFixed(4), p.bloomed, Boolean(p.closed)])];
+      });
+      assert.deepEqual(runs[1], runs[0], `tier ${tier} 60`); assert.deepEqual(runs[2], runs[0], `tier ${tier} 144`);
+    }
+  });
+  test('The Starseed: beaten mid-trick she leaves no lent star, burr, arch, dome number, timer or raised guardian behind', () => {
+    const { g, s, b } = star(1, 3); star(1, 4, { g }); s.dome = { next: 2, rings: 1 }; for (const p of sats(s)) p.pip = 1;
+    assert(s.timers.length);
+    for (let n = 0; n < 400 && !b.bloomed; n++) g.strike(b, true);
+    assert(b.bloomed); assert.equal(s.timers.length + s.lobs.length, 0); assert(s.parts.every(p => p.bloomed));
+    assert(!g.bumpers.some(r => r.burr || r.thorn)); assert.equal(s.dome, null); assert(sats(s).every(p => !p.pip && !p.lending));
+    assert.equal(g.dangerY, 448); advance(g, 8); assert(!g.drainEvents().some(e => e.type === 'bossAbility'));
+  });
+  test('The Starseed: the bot chases lent stars and comets, takes the dome in number order, and never lists a fake', () => {
+    let { g, s } = star(0, 4); let list = Bosses.targets(g);
+    assert(!list.some(t => t.bud.decoy)); assert.equal(list.find(t => t.bud.lent).priority, 75);
+    ({ g, s } = star(1, 0)); list = Bosses.targets(g);
+    const pips = list.filter(t => t.bud.bossPart === 'satellite'); assert.equal(pips.length, 1); assert.equal(pips[0].bud.pip, 1); assert.equal(pips[0].priority, 90);
+  });
+  // The art, in a sandbox with a recording canvas: every move's tell and action with Animations on and off and at each
+  // quality, once her sprites are warm (as the level's intro warms them).
+  function starArt(canvas = true) {
+    const vm = require('node:vm'), tally = { gradients: 0, blur: 0, surfaces: 0, calls: {}, hook: null, face: [], kit: null, warm: false };
+    const brush = () => {
+      const stack = [], state = { globalAlpha: 1, globalCompositeOperation: 'source-over', fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, shadowBlur: 0, lineDashOffset: 0 };
+      const ctx = new Proxy(state, {
+        get(t, name) {
+          if (name in t) return t[name];
+          if (name === 'canvas') return { width: 420, height: 560 };
+          return (...args) => {
+            for (const a of args) if (typeof a === 'number') assert(Number.isFinite(a), `${String(name)} received ${a}`);
+            if (tally.hook) tally.calls[tally.hook] = (tally.calls[tally.hook] || 0) + 1;
+            if (tally.hook === 'face' && /To$|^arc$|^ellipse$/.test(name)) tally.face.push(name, ...args.map(n => Math.round(n * 100)));
+            if (name === 'save') stack.push({ ...state });
+            else if (name === 'restore') { assert(stack.length, 'restore without save'); Object.assign(state, stack.pop()); }
+            else if (name === 'measureText') return { width: String(args[0]).length * 7 };
+            else if (name === 'getTransform') return { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+            else if (/Gradient$|^createPattern$/.test(name)) { if (tally.hook) tally.gradients++; return { addColorStop() {} }; }
+          };
+        },
+        set(t, name, value) {
+          if (['globalAlpha', 'lineWidth', 'shadowBlur', 'lineDashOffset'].includes(name)) assert(Number.isFinite(value), `${name} is finite`);
+          if (name === 'shadowBlur' && value > 0 && tally.hook) tally.blur++;
+          t[name] = value; return true;
+        }
+      });
+      return { ctx, balanced: () => stack.length === 0 };
+    };
+    class Canvas { constructor(w, h) { this.width = w; this.height = h; if (tally.hook && tally.warm) tally.surfaces++; this.rec = brush(); } getContext() { return this.rec.ctx; } }
+    const scope = vm.createContext({ console, Math, Map, Set, WeakMap, Array, Object, Number, String, JSON, Date, performance, ...(canvas ? { OffscreenCanvas: Canvas } : {}) });
+    for (const file of ['foe-art.js', 'art.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), scope, { filename: file });
+    const kits = scope.BloomFoeArt.kits, drawn = new Set(), look = scope.BloomFoeArt.KIT_LOOKS.core;
+    for (const hook of ['under', 'part', 'face', 'over']) {
+      const call = kits[hook]; kits[hook] = (...args) => { const outer = tally.hook; tally.hook = hook; try { const done = call(...args); if (done) drawn.add(hook === 'part' ? args[2].bossPart : hook); return done; } finally { tally.hook = outer; } };
+    }
+    // Every sprite she uses is painted by warm: a sprite key first asked for later would be painted mid-fight.
+    // The kit is frozen, so her hooks are handed a copy whose atlasSprite notes each key.
+    const known = new Set(); tally.late = new Set();
+    const spyOf = kit => {
+      if (!tally.kit) {
+        tally.kit = { ...kit, atlasSprite: (key, ...rest) => { if (/^core:/.test(key)) (tally.warm ? known.has(key) || tally.late.add(key) : known.add(key)); return kit.atlasSprite(key, ...rest); } };
+        look.warm(tally.kit); tally.gradients = 0; tally.warm = true;
+      }
+      return tally.kit;
+    };
+    for (const [hook, at] of [['under', 5], ['part', 6], ['face', 6], ['over', 5]]) {
+      const own = look[hook]; look[hook] = (...args) => { args[at] = spyOf(args[at]); return own(...args); };
+    }
+    const frame = (game, still, quality = 0) => {
+      const rec = brush(); scope.BloomArt.draw(rec.ctx, game, game.time, { showAim: false, theme: 'depth-core', reducedMotion: still, quality });
+      assert(rec.balanced(), 'transforms balance');
+    };
+    return { tally, frame, drawn };
+  }
+  test("The Starseed's art draws every move's tell and action, Animations on and off, with no gradient, blur or new surface per frame; her three moods are three faces", () => {
+    const { tally, frame, drawn } = starArt(), seen = new Set();
+    const film = (g, seconds) => { for (let n = 0; n < seconds * 120; n++) { g.step(1 / 120); if (n % 12 === 0) { frame(g, false, (n / 12) % 3); frame(g, true, 1); } } };
+    const buds = () => [flower('f1', 120, 200), flower('f2', 110, 240), flower('f3', 300, 160)];
+    for (const [tier, index, seconds] of [[0, 0, 3], [0, 1, 3], [0, 2, 4], [0, 3, 3], [0, 4, 3], [1, 0, 1], [1, 1, 4], [1, 2, 4.5], [1, 3, 3], [1, 4, 6.5], [2, 0, 4]]) {
+      const g = arena(10), s = g.bossState; g.buds.push(...buds());
+      s.tier = tier; if (tier) { s.cycle = index; s.phase = Math.max(s.phase, 1); } else s.action = index;
+      s.next = s.age; g.step(1 / 120); assert(s.warning, 'a warning is up'); seen.add(s.warning.move);
+      while (s.warning) { g.step(1 / 120); if (Math.round(g.time * 120) % 12 === 0) { frame(g, false); frame(g, true); } }
+      if (s.warning === null && tier === 1 && index === 0) { const order = s.parts.filter(p => p.bossPart === 'satellite').sort((p, q) => p.pip - q.pip); hit(g, order[0]); film(g, .5); hit(g, order[1]); }
+      film(g, seconds);
+    }
+    // Her old Supernova, low on health in her last mood.
+    const g = arena(10), s = g.bossState; s.tier = 2; s.phase = 1; s.boss.hp = 25; s.next = s.age; g.step(1 / 120); while (s.warning) g.step(1 / 120); film(g, 1);
+    assert.deepEqual([...seen].sort(), ['dome', 'gem', 'glass', 'lasso', 'pearl', 'portal', 'rocket', 'satellites', 'starfall', 'swirl', 'waltz']);
+    assert.equal(tally.gradients, 0, 'no gradient inside her hooks once warm'); assert.equal(tally.blur, 0, 'no shadow blur'); assert.equal(tally.surfaces, 0, 'no new surface once warm');
+    assert.deepEqual([...tally.late], [], 'every sprite painted ahead');
+    for (const hook of ['under', 'over']) assert(tally.calls[hook] > 0, hook + ' draws');
+    for (const piece of ['face', 'satellite', 'portal', 'waltz', 'rocket', 'glass', 'gem', 'knot', 'thorn', 'comet', 'swirlstar']) assert(drawn.has(piece), piece + ' drawn by the kit');
+    const flat = starArt(false), faces = [0, 1, 2].map(tier => { const h = arena(10); h.bossState.tier = tier; flat.tally.face = []; flat.frame(h, true); return JSON.stringify(flat.tally.face); });
+    assert(faces.every(f => f.length > 100)); assert.equal(new Set(faces).size, 3, 'Wishful, Dazzling and Radiant');
+  });
+  test("The Starseed's dome rings each bell once: the fifth star's bell is the Shooting star's own run, not struck twice", () => {
+    // sound.js's own cue rows for the events of one tick (its voices captured instead of played).
+    const vm = require('node:vm'), source = fs.readFileSync(path.join(__dirname, '..', 'sound.js'), 'utf8')
+      .replace('  function foeRows(rows, pan) {', '  function foeRows(rows, pan) { if (globalThis.__rows) { globalThis.__rows.push(...rows); return; }')
+      .replace('  function play(type, data = {}) {', '  globalThis.__cues = { FOE_CUES, BOSS_ACTS };\n  function play(type, data = {}) {');
+    const scope = vm.createContext({ console, Math, Date }); vm.runInContext(source, scope, { filename: 'sound.js' });
+    const tones = events => {
+      scope.__rows = [];
+      const notes = [];
+      for (const [cueAt, e] of events.entries()) {
+        scope.__rows = []; const cue = scope.__cues.BOSS_ACTS[`core:${e.move}:${e.act}`]; if (typeof cue === 'function') cue(e, 0); else if (cue) scope.__rows.push(...cue);
+        for (const r of scope.__rows) if (r[0] !== 'crunch') notes.push({ cue: cueAt, pitch: Math.round(r[1] * 100), at: r[2] });
+      }
+      scope.__rows = null; return notes;
+    };
+    const { g, s } = star(1, 0), order = sats(s).sort((p, q) => p.pip - q.pip);
+    for (const p of order) {
+      const n = p.pip; hit(g, p); const events = g.drainEvents().filter(e => e.type === 'bossAbility'), notes = tones(events);
+      assert(notes.some(n => n.at === 0), `star ${n}: a note on the hit`);
+      // Two cues on one tick never strike the same note within .2 s of each other (a flam).
+      for (const [i, a] of notes.entries()) for (const z of notes.slice(i + 1)) assert(!(a.cue !== z.cue && a.pitch === z.pitch && Math.abs(a.at - z.at) < .2), `star ${n}: no note doubled within .2 s`);
+      if (n === 5) assert(events.some(e => e.act === 'shoot'), 'the fifth shoots');
+      advance(g, .3); g.drainEvents();
+    }
+  });
+  test("The Starseed's tells mark where each trick will be: the gold gem's landing, the rocket's 58 px orbit round her, the swirl rider's first spot", () => {
+    // Her `over` hook drawn on a recording canvas: each sprite stamped (its key and where), and each dot of a dotted line.
+    const vm = require('node:vm'), marks = []; let key = null, live = false;
+    const ctx = new Proxy({}, {
+      get(t, name) {
+        if (name in t) return t[name];
+        if (name === 'canvas') return { width: 420, height: 560 };
+        return (...args) => {
+          if (name === 'measureText') return { width: String(args[0]).length * 7 };
+          if (name === 'getTransform') return { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+          if (/Gradient$|^createPattern$/.test(name)) return { addColorStop() {} };
+          if (live && name === 'translate' && key) { marks.push({ key, x: args[0], y: args[1] }); key = null; }
+          if (live && name === 'arc') marks.push({ dot: args[2], x: args[0], y: args[1] });
+        };
+      },
+      set(t, name, value) { t[name] = value; return true; }
+    });
+    const scope = vm.createContext({ console, Math, Map, Set, WeakMap, Array, Object, Number, String, JSON, Date, performance });
+    for (const file of ['foe-art.js', 'art.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), scope, { filename: file });
+    const look = scope.BloomFoeArt.KIT_LOOKS.core, over = look.over;
+    look.over = (c, state, s, time, still, kit, quality) => {
+      live = true;
+      try { return over(c, state, s, time, still, { ...kit, atlasSprite: (k, ...rest) => { key = k; return kit.atlasSprite(k, ...rest); } }, quality); } finally { live = false; }
+    };
+    const tell = (tier, index, still) => {
+      const g = arena(10), s = g.bossState; s.tier = tier; if (tier) { s.cycle = index; s.phase = 1; } else s.action = index;
+      s.next = s.age; g.step(1 / 120); for (let n = 0; n < 100; n++) g.step(1 / 120);
+      marks.length = 0; scope.BloomArt.draw(ctx, g, g.time, { showAim: false, theme: 'depth-core', reducedMotion: still, quality: 0 });
+      return { g, s, w: s.warning, marks: [...marks] };
+    };
+    for (const still of [false, true]) {
+      // Gem Lob: the gold gem's spot shows a gold gem, the others coral ones.
+      let { w, marks: m } = tell(1, 3, still);
+      assert.equal(w.move, 'gem');
+      for (const t of w.targets.filter(t => t.role === 'gem')) {
+        const at = m.find(a => a.key && /^core:(lent:gem|gem:fake)$/.test(a.key) && Math.hypot(a.x - t.x, a.y - t.y) < 1);
+        assert(at, `a ghost gem at ${t.x},${t.y}`); assert.equal(at.key, t.real ? 'core:lent:gem' : 'core:gem:fake', 'the gold one is marked');
+      }
+      // Firework Star: the dotted orbit runs 58 px round her (her rocket circles her at 58), wherever she has drifted.
+      let g, s; ({ g, s, w, marks: m } = tell(1, 2, still));
+      assert.equal(w.move, 'rocket'); const ring = m.filter(a => a.dot === 1.2);
+      assert(ring.length > 20, 'the orbit is drawn'); for (const a of ring) assert(Math.abs(Math.hypot(a.x - s.boss.x, a.y - s.boss.y) - 58) < .5, 'on her 58 px orbit');
+      // Lake swirl: the ghost rider waits where the lent star will appear (the swirl's top), not in its middle.
+      ({ w, marks: m } = tell(0, 1, still));
+      assert.equal(w.move, 'swirl'); const rider = m.find(a => a.key === 'core:lent:swirlstar');
+      assert(rider && Math.abs(rider.x - 210) < .5 && Math.abs(rider.y - (305 - 42)) < .5, 'the rider ghost sits at the top of the swirl');
+      assert(g);
+    }
+  });
+  test('The good bot beats the Starseed', () => {
+    for (const seed of [7, 19]) {
+      const run = bot.play(10, { seed, startWave: 10, noise: 2.5, think: .3, thinkSpread: .3, bounces: 2 });
+      assert(run.won, `seed ${seed}: ${JSON.stringify(run.bossDiagnostics)}`);
+    }
+  });
+}
 
 const report = { passed: results.filter(r => r.passed).length, failed: results.filter(r => !r.passed).length, results };
 fs.writeFileSync(path.join(__dirname, 'kits-test-results.json'), JSON.stringify(report, null, 2) + '\n');

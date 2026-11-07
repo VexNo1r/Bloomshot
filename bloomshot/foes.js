@@ -1467,6 +1467,97 @@
   });
 
   // ── Wishing Stars (Level 10, `wishstar`) ──
+  // Four little gold stars on a turning figure, numbered 1 to 4 on their faces (bud.pip) in a crossing order: 1 and 2
+  // sit opposite each other (top and bottom at the start), then 3 and 4 across the other way, so the route crosses the
+  // middle twice. The figure turns WISH.spin rad/s
+  // about its middle (one way or the other) and sinks at WISH.fall of the wave's pace. Only the next star (the lowest
+  // number still open, the one that twinkles) lets an aimed seed in: any other glances off (a guard, no refund). A star a
+  // seed blooms in its turn (its own touch or that seed's chain) rings the next note of a chord and lights its line.
+  // All four rung is a wish: +1 sun, WISH.pay x tempo, and a shooting star that hops to the WISH.links nearest open
+  // pieces within WISH.reach px, one credited link WISH.hop s apart. A power, an out-of-turn chain or an uncredited
+  // strike blooms a star plainly (no note, so that figure cannot wish), so strike loops end. Everything runs on the foe
+  // clock (wishAt is closed form), so a Lullaby holds it and the bot's forecast is the board. One group: one life.
+  const WISH = { r: 10, R: 30, spin: .8, fall: .8, order: [0, 2, 1, 3], pay: 400, links: 3, reach: 170, hop: .08, worth: 22, step: 12, last: 30 };
+  // Where a star is at foe time `clock` with its figure's middle at (bud.wx, wy): pure, shared by the game, the bot and
+  // the art (which joins the rung stars with it).
+  function wishAt(bud, clock, wy, out) {
+    const a = bud.a0 + bud.dir * WISH.spin * (clock - (bud.born || 0)) + bud.slot * TAU / 4;
+    out.x = bud.wx + WISH.R * Math.cos(a); out.y = wy + WISH.R * Math.sin(a); return out;
+  }
+  // The number that may be shot next in a star's figure: the lowest still open (0 once all four are out).
+  function wishNext(game, bud) {
+    let n = 0;
+    for (const o of game.buds) if (o.foe === 'wishstar' && o.wish === bud.wish && !o.bloomed && (!n || o.pip < n)) n = o.pip;
+    return n;
+  }
+  const wishMates = (game, bud) => game.buds.filter(o => o.foe === 'wishstar' && o.wish === bud.wish);
+  // The shooting star: from the fourth star to the nearest open piece, then on from there, WISH.links hops at most.
+  function wishHops(game, from) {
+    const queued = new Set(game.pending.map(item => item.id)), hops = [];
+    let at = { x: from.x, y: from.y };
+    const free = o => !o.bloomed && !o.hidden && !o.ghost && !o.gift && !o.boss && !o.bossPart && !queued.has(o.id) && !hops.includes(o)
+      && (!o.inert || chainable(o)) && o.wish !== from.wish;
+    while (hops.length < WISH.links) {
+      let best = null, gap = WISH.reach;
+      for (const o of game.buds) if (free(o)) { const d = Math.hypot(o.x - at.x, o.y - at.y); if (d < gap || d === gap && best && o.id < best.id) { best = o; gap = d; } }
+      if (!best) break;
+      hops.push(best); at = best;
+    }
+    return hops;
+  }
+  define('wishstar', {
+    r: WISH.r, hp: 1, fall: WISH.fall, type: 'gold', hint: 'Wishing stars! Bloom them in order, 1 to 4.',
+    WISH, wishAt, wishNext,
+    // [wishstar, x, y, {spin, a0}]: the figure's middle at (x, y); star 1 starts at angle a0 (default straight up) and
+    // the figure turns clockwise on screen (spin -1: the other way).
+    make(spot, tag, i) {
+      const G = i == null ? tag : `${tag}-foe${i}`, o = spot[3] || {}, dir = o.spin < 0 ? -1 : 1, a0 = Number.isFinite(o.a0) ? o.a0 : -Math.PI / 2;
+      return WISH.order.map((slot, k) => {
+        const a = a0 + slot * TAU / 4;
+        return piece('wishstar', `${G}-${k}`, G, spot[1] + WISH.R * Math.cos(a), spot[2] + WISH.R * Math.sin(a), { pip: k + 1, slot, wish: G, wx: spot[1], wy: spot[2], a0, dir, rings: 0 });
+      });
+    },
+    init(game, bud) { fresh(game, bud); },
+    owns: bud => !bud.bloomed,
+    step(game, bud, dt) {
+      bud.wy += (game.descentSpeed || 0) * (bud.fall || 1) * dt;
+      wishAt(bud, game.foeClock || 0, bud.wy, bud); bud.baseX = bud.x;
+    },
+    // Out of turn, an aimed seed glances off (rush emits wishstar:guard). Powers and chains are never turned away.
+    guard: (game, bud, hit, seed) => !game.scripted && !isPower(game, seed) && bud.pip !== wishNext(game, bud),
+    hit(game, bud, chain, isCredited, seed) {
+      return direct(game, chain, isCredited, seed) && bud.pip !== wishNext(game, bud) ? { blocked: true } : null;
+    },
+    bloomed(game, bud, chain, credit) {
+      // The guardian's last cascade blooms every star itself: no notes or wish over the finale. A Sunburst's ripple (forced
+      // 'sun' links that carry the seed's credit) and a guardian's cascade count as the power they are: plain blooms.
+      if (game.bossDown || !credit || isPower(game, game.striker) || (chain && game.due && ['sun', 'boss'].includes(game.due.via))) return;
+      const mates = wishMates(game, bud);
+      if (mates.some(o => o.pip < bud.pip && !o.bloomed)) return; // out of turn (a chain): plain
+      const rings = (bud.rings || 0) + 1, prev = mates.find(o => o.pip === bud.pip - 1);
+      for (const o of mates) o.rings = rings;
+      bud.rang = true;
+      game.event('foe', { kind: 'wishstar:ring', bud, x: bud.x, y: bud.y, pip: bud.pip, rings, fromX: prev ? prev.x : null, fromY: prev ? prev.y : null });
+      if (bud.pip !== 4 || rings !== 4) return;
+      // The wish: four notes in a row.
+      const bonus = Math.round(WISH.pay * game.tempo), hops = wishHops(game, bud);
+      game.score += bonus; game._charge(1, credit);
+      let from = bud;
+      hops.forEach((o, k) => { game.pending.push(game._linkBy(o.id, game.time + WISH.hop * (k + 1), from, 'wish', credit.by)); from = o; });
+      game.event('foe', { kind: 'wishstar:wish', bud, x: bud.x, y: bud.y, bonus, n: hops.length, path: hops.map(o => ({ x: o.x, y: o.y })) });
+    },
+    predict(game, bud, seconds, out) {
+      const run = Math.max(0, seconds - Math.max(0, game.lullaby || 0));
+      wishAt(bud, (game.foeClock || 0) + run, bud.wy + (game.descentSpeed || 0) * (bud.fall || 1) * run, out);
+    },
+    // The bot shoots only the star whose turn it is, and wants it more the further the chord has got (most of all the
+    // fourth star of an unbroken chord: the wish).
+    value(game, bud) {
+      if (bud.pip !== wishNext(game, bud)) return -1;
+      const rung = bud.rings || 0;
+      return WISH.worth + WISH.step * rung + (bud.pip === 4 && rung === 3 ? WISH.last : 0);
+    }
+  });
 
   return Object.freeze({ FOES, names, isFoe, entryOf, familyOf, credited, isPower, direct, chainable, owns, make, piece, place, init, initBud,
     step, onTick, sweep, guard, contact, hit, bloomed, popped, breach, holding, moves, predict, value, hint, rollPreview,
