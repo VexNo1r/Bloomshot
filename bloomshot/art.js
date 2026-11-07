@@ -595,7 +595,9 @@
   // A sprite painted once at 3x inside the box (x0, y0)-(x1, y1) around its own origin. Null where there is no canvas
   // (node), and callers then draw plain paths.
   function atlasSprite(key, x0, y0, x1, y1, paint) {
-    if (atlas.has(key)) return atlas.get(key);
+    // Least recently used: a hit moves to the back, so the cap evicts sprites no longer drawn, never the seed or bloom
+    // sprites every level keeps using (batch 2's levels hold more sprites than the cap).
+    if (atlas.has(key)) { const hit = atlas.get(key); atlas.delete(key); atlas.set(key, hit); return hit; }
     const w = Math.ceil((x1 - x0) * 3), h = Math.ceil((y1 - y0) * 3), surface = makeSurface(w, h);
     let sprite = null;
     const g = surface && surface.getContext('2d');

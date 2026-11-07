@@ -254,5 +254,18 @@ test('Guardian 6-10 tells fade where they cross their own move label, so its wor
   }
 });
 
+test('The sprite atlas keeps the sprites still in use: past its cap it lets go of the least recently drawn one', () => {
+  // Batch-2 levels hold more sprites than the cap, and first-in-first-out evicted the session's first sprites (shot
+  // seeds, bloom flashes, glyphs) and repainted them on the first shots and blooms of the next level.
+  const { Art, scope } = load(true); let kit = null;
+  scope.BloomFoeArt = { warm: (items, k) => { kit = k; } };
+  const warm = Art.prewarm({ foes: [['probe']] }); for (let n = 0; n < 200 && !warm.step(1000); n++);
+  assert(kit && typeof kit.atlasSprite === 'function', 'the kit toolbox reaches the looks');
+  const noop = () => {}, used = kit.atlasSprite('lru:used', 0, 0, 4, 4, noop), before = Art.paints();
+  for (let i = 0; i < 400; i++) { kit.atlasSprite(`lru:fill${i}`, 0, 0, 4, 4, noop); assert.equal(kit.atlasSprite('lru:used', 0, 0, 4, 4, noop), used, `still cached after ${i + 1} new sprites`); }
+  assert.equal(Art.paints() - before, 400, 'only the new sprites were painted');
+  kit.atlasSprite('lru:fill0', 0, 0, 4, 4, noop); assert.equal(Art.paints() - before, 401, 'the cap still holds: the oldest unused sprite was let go');
+});
+
 const report = { passed: results.filter(r => r.passed).length, failed: results.filter(r => !r.passed).length, results };
 console.log(JSON.stringify(report, null, 2)); process.exitCode = report.failed ? 1 : 0;
