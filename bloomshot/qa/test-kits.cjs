@@ -1627,6 +1627,55 @@ test('Crystal Heart replays identically at 30, 60 and 144 FPS, and a strike loop
     const flat = starArt(false), faces = [0, 1, 2].map(tier => { const h = arena(10); h.bossState.tier = tier; flat.tally.face = []; flat.frame(h, true); return JSON.stringify(flat.tally.face); });
     assert(faces.every(f => f.length > 100)); assert.equal(new Set(faces).size, 3, 'Wishful, Dazzling and Radiant');
   });
+  test("The Starseed's tells mark where each trick will be: the gold gem's landing, the rocket's 58 px orbit round her, the swirl rider's first spot", () => {
+    // Her `over` hook drawn on a recording canvas: each sprite stamped (its key and where), and each dot of a dotted line.
+    const vm = require('node:vm'), marks = []; let key = null, live = false;
+    const ctx = new Proxy({}, {
+      get(t, name) {
+        if (name in t) return t[name];
+        if (name === 'canvas') return { width: 420, height: 560 };
+        return (...args) => {
+          if (name === 'measureText') return { width: String(args[0]).length * 7 };
+          if (name === 'getTransform') return { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+          if (/Gradient$|^createPattern$/.test(name)) return { addColorStop() {} };
+          if (live && name === 'translate' && key) { marks.push({ key, x: args[0], y: args[1] }); key = null; }
+          if (live && name === 'arc') marks.push({ dot: args[2], x: args[0], y: args[1] });
+        };
+      },
+      set(t, name, value) { t[name] = value; return true; }
+    });
+    const scope = vm.createContext({ console, Math, Map, Set, WeakMap, Array, Object, Number, String, JSON, Date, performance });
+    for (const file of ['foe-art.js', 'art.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), scope, { filename: file });
+    const look = scope.BloomFoeArt.KIT_LOOKS.core, over = look.over;
+    look.over = (c, state, s, time, still, kit, quality) => {
+      live = true;
+      try { return over(c, state, s, time, still, { ...kit, atlasSprite: (k, ...rest) => { key = k; return kit.atlasSprite(k, ...rest); } }, quality); } finally { live = false; }
+    };
+    const tell = (tier, index, still) => {
+      const g = arena(10), s = g.bossState; s.tier = tier; if (tier) { s.cycle = index; s.phase = 1; } else s.action = index;
+      s.next = s.age; g.step(1 / 120); for (let n = 0; n < 100; n++) g.step(1 / 120);
+      marks.length = 0; scope.BloomArt.draw(ctx, g, g.time, { showAim: false, theme: 'depth-core', reducedMotion: still, quality: 0 });
+      return { g, s, w: s.warning, marks: [...marks] };
+    };
+    for (const still of [false, true]) {
+      // Gem Lob: the gold gem's spot shows a gold gem, the others coral ones.
+      let { w, marks: m } = tell(1, 3, still);
+      assert.equal(w.move, 'gem');
+      for (const t of w.targets.filter(t => t.role === 'gem')) {
+        const at = m.find(a => a.key && /^core:(lent:gem|gem:fake)$/.test(a.key) && Math.hypot(a.x - t.x, a.y - t.y) < 1);
+        assert(at, `a ghost gem at ${t.x},${t.y}`); assert.equal(at.key, t.real ? 'core:lent:gem' : 'core:gem:fake', 'the gold one is marked');
+      }
+      // Firework Star: the dotted orbit runs 58 px round her (her rocket circles her at 58), wherever she has drifted.
+      let g, s; ({ g, s, w, marks: m } = tell(1, 2, still));
+      assert.equal(w.move, 'rocket'); const ring = m.filter(a => a.dot === 1.2);
+      assert(ring.length > 20, 'the orbit is drawn'); for (const a of ring) assert(Math.abs(Math.hypot(a.x - s.boss.x, a.y - s.boss.y) - 58) < .5, 'on her 58 px orbit');
+      // Lake swirl: the ghost rider waits where the lent star will appear (the swirl's top), not in its middle.
+      ({ w, marks: m } = tell(0, 1, still));
+      assert.equal(w.move, 'swirl'); const rider = m.find(a => a.key === 'core:lent:swirlstar');
+      assert(rider && Math.abs(rider.x - 210) < .5 && Math.abs(rider.y - (305 - 42)) < .5, 'the rider ghost sits at the top of the swirl');
+      assert(g);
+    }
+  });
   test('The good bot beats the Starseed', () => {
     for (const seed of [7, 19]) {
       const run = bot.play(10, { seed, startWave: 10, noise: 2.5, think: .3, thinkSpread: .3, bounces: 2 });

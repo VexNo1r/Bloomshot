@@ -3600,7 +3600,7 @@
     lilacInk: '#73559f', thorn: '#9a6a43', night: '#3b3f7a', poppy: '#f2604f', poppyInk: '#9c3530', rope: '#b9824a', ropeInk: '#6e4a25',
     plate: '#e6f7dc', plateEdge: '#e7b866', faceInk: '#5b537b', eye: '#56718d', pupil: '#2f3d5a', mouth: '#8a3f5e', tongue: '#ff9fb8', cheek: '#f2a08f',
     // Copies of bosses.js STAR numbers the art needs (art keeps no dependency on the rules).
-    glassWait: .3, glassSwap: .8, fuse: 4, gemT: 1.5, gemH: 70, life: { burr: 6, arch: 4 }, arch: [36, 58, 80], ring: 118 };
+    glassWait: .3, glassSwap: .8, fuse: 4, gemT: 1.5, gemH: 70, life: { burr: 6, arch: 4 }, arch: [36, 58, 80], ring: 118, orbit: 58, swirlR: 42 };
   // Her face, r px, for a mood (0-2) or 'hurt'; blink closes the eyes. Painted about the face's middle (art.js faceY).
   function paintStarFace(c, r, tier, blink) {
     const L = STAR_LOOK, ink = L.faceInk, hurt = tier === 'hurt', py = -r * .03;
@@ -3885,7 +3885,8 @@
     const ghost = (sprite, x, y, r, scale, alpha = .6) => { if (scale <= .01) return; ctx.save(); ctx.globalAlpha *= alpha * shy(x, y, r); starStamp(ctx, kit, sprite, x, y, 0, scale); ctx.restore(); };
     const S = STAR_SPRITES;
     switch (w.move) {
-      case 'swirl': for (const t of T) if (t.role === 'swirl') ghost(S.swirlstar, t.x, t.y, 16, grow(p * 2.5)); break;
+      // The rider appears at the swirl's top (bosses.js STAR.swirl: radius 42, starting straight up), not in its middle.
+      case 'swirl': for (const t of T) if (t.role === 'swirl') ghost(S.swirlstar, t.x, t.y - L.swirlR, 16, grow(p * 2.5)); break;
       case 'portal': case 'pearl': {
         const t = T.find(t => t.role === 'portal');
         if (!t) break;
@@ -3897,7 +3898,8 @@
       case 'rocket': {
         const t = T.find(t => t.role === 'rocket');
         if (!t || !boss) break;
-        const R = Math.hypot(t.x - w.x, t.y - w.y), ring = [];
+        // Her rocket circles her at STAR.rocket.R (58 px): the ring follows her, whatever she has drifted since the warning.
+        const R = L.orbit, ring = [];
         for (let k = 0; k <= 48; k++) { const a = k / 48 * TAU; ring.push([boss.x + Math.cos(a) * R, boss.y + Math.sin(a) * R]); }
         ctx.save(); ctx.globalAlpha *= .3 + .45 * p; dotted(ctx, ring, L.pale, 1.2, 8, still ? 0 : time * 12); ctx.restore();
         ghost(S.rocket, t.x, t.y, 16, grow(p * 2.5));
@@ -3907,9 +3909,11 @@
       case 'gem': {
         if (!boss) break;
         const x0 = boss.x, y0 = boss.y + (Number(boss.r) || 27);
+        // The gold gem's arc is gold and its landing spot shows a gold gem (the one to catch); the coral ones show coral.
         for (const t of T) if (t.role === 'gem') {
           const arc = []; for (let k = 0; k <= 18; k++) { const q = lobAt(x0, y0, t.x, t.y, 1, k / 18 * p, L.gemH); arc.push([q.x, q.y]); }
-          ctx.save(); ctx.globalAlpha *= .7; dotted(ctx, arc, L.pale, 1.3, 7); ctx.restore();
+          ctx.save(); ctx.globalAlpha *= t.real ? .9 : .6; dotted(ctx, arc, t.real ? L.gold : L.pale, t.real ? 1.6 : 1.3, 7); ctx.restore();
+          ghost(t.real ? S.gem : S.gemFake, t.x, t.y, 13, grow(p * 2.5 - (t.slot || 0) * .3), t.real ? .9 : .55);
         }
         break;
       }

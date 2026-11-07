@@ -1,6 +1,6 @@
 {
   "passed": 97,
-  "failed": 0,
+  "failed": 1,
   "results": [
     {
       "name": "Guardians without a kit keep no tiers; a kit guardian turns at two thirds and one third of its health",
@@ -385,6 +385,11 @@
     {
       "name": "The Starseed's art draws every move's tell and action, Animations on and off, with no gradient, blur or new surface per frame; her three moods are three faces",
       "passed": true
+    },
+    {
+      "name": "The Starseed's tells mark where each trick will be: the gold gem's landing, the rocket's 58 px orbit round her, the swirl rider's first spot",
+      "passed": false,
+      "error": "AssertionError [ERR_ASSERTION]: the rider ghost sits at the top of the swirl\n    at /home/claude/wt-b2-l10/bloomshot/qa/test-kits.cjs:1675:7\n    at test (/home/claude/wt-b2-l10/bloomshot/qa/test-kits.cjs:9:33)\n    at Object.<anonymous> (/home/claude/wt-b2-l10/bloomshot/qa/test-kits.cjs:1630:3)\n    at Module._compile (node:internal/modules/cjs/loader:1781:14)\n    at Object..js (node:internal/modules/cjs/loader:1913:10)\n    at Module.load (node:internal/modules/cjs/loader:1505:32)\n    at Function._load (node:internal/modules/cjs/loader:1309:12)\n    at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)\n    at node:internal/main/run_main_module:36:49"
     },
     {
       "name": "The good bot beats the Starseed",
