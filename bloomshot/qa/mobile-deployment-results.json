@@ -1,0 +1,69 @@
+{
+  "checkedAt": "2026-10-16T07:48:39.341Z",
+  "projectId": "appgprj_6ac04fc69fa881919f50dedb89a70cd6",
+  "deploymentId": "appgdep_6ad1d5c140c48191a809f3a2191235a0",
+  "siteSourceCommit": "e87256f69c5844ba14338dba3211fb43535dbada",
+  "gameSourceCommit": "06d0d8ab9d42ba11b4ac412b3469f652351682d9",
+  "workerVersion": "5c41cdedb547a42a",
+  "status": "passed",
+  "audience": {
+    "role": "owner",
+    "mode": "custom",
+    "allowedNonOwners": 0,
+    "externalVisitors": 0,
+    "verifiedVersion": 8
+  },
+  "assets": {
+    "checked": 38,
+    "byteIdentical": 35,
+    "htmlDocumentsPreservedWithOneHostingAddition": 3,
+    "failed": 0
+  },
+  "runtime": {
+    "app.js": "761a184f4a9571db2014286238e3e17b0d4f5839ba88df18b83d3ecd0a71035b",
+    "art.js": "ebc7d53c4a0f5c6009b7431f2f1ef9c4151816f6a51a72c665ef3454025799a1",
+    "styles.css": "1d95e614837938ead18fbc77d4b3066e5f5310f51e7463adf9773076c87f1b97"
+  },
+  "html": [
+    {
+      "path": "index.html",
+      "servedPath": "/",
+      "httpStatus": 200,
+      "expectedHash": "3998e0d845d8aefefd103f9550955c55c93c8db1add3d5cea9fac30047b74369",
+      "removedExpectedCharacters": 0,
+      "hostingAdditionCharacters": 938,
+      "expectedDocumentPreserved": true
+    },
+    {
+      "path": "privacy.html",
+      "servedPath": "/privacy",
+      "httpStatus": 200,
+      "expectedHash": "306b611236ba2a9d5b31f3b12bcd0155149b28b91afb924b90286a337a26a352",
+      "removedExpectedCharacters": 0,
+      "hostingAdditionCharacters": 938,
+      "expectedDocumentPreserved": true
+    },
+    {
+      "path": "privacy/index.html",
+      "servedPath": "/privacy/",
+      "httpStatus": 200,
+      "expectedHash": "306b611236ba2a9d5b31f3b12bcd0155149b28b91afb924b90286a337a26a352",
+      "removedExpectedCharacters": 0,
+      "hostingAdditionCharacters": 938,
+      "expectedDocumentPreserved": true
+    }
+  ],
+  "privacy": {
+    "includedInBuild": true,
+    "offlineFile": "privacy.html",
+    "hostedPaths": [
+      "/privacy",
+      "/privacy/"
+    ],
+    "originalDocumentPreserved": true
+  },
+  "limitations": [
+    "Authenticated HTTP comparison confirms served source. Hosting inserts additional bytes in HTML; all original document characters remain intact.",
+    "No physical Safari timing, owner approval, installed-app test or sandbox purchase is established."
+  ]
+}

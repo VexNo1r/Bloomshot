@@ -1,18 +1,18 @@
 # Bloomshot: iPhone setup through TestFlight and release
 
-Checked October 15, 2026 against the repository and linked primary documentation. Trevor confirms no developer/store/RevenueCat accounts are started and has chosen **Individual enrollment under his personal legal name**. The game remains **Bloomshot**, bundle ID **dev.bloomshot.game**. Downloads are planned to be free, with purchases inside the app.
+Updated October 16, 2026 against the repository and linked primary documentation. Trevor reports submitting Apple **Individual enrollment under his personal legal name**; membership activation remains unverified. Google Play and RevenueCat setup remain outstanding at last confirmation. The game remains **Bloomshot**, bundle ID **dev.bloomshot.game**. Downloads are planned to be free, with purchases inside the app.
 
 ## 1. Free playtest and merge checkpoints
 
 Open the private web build in Safari with the owner's access. Paid Apple membership is not required for web play. Record **Model Name** and **iOS Version** from Settings → General → About. Test aiming, the tutorial, bosses, bottom power row, sound and background motion.
 
-Trevor may merge green, reviewed **PR #30 first**. Hold **PR #31** until he approves the latest game and its checks pass. Merge both into main before a release archive; the archive needs the new game's offline policy. Confirm main's commit before building. No merge or upload is public-release approval.
+**PR #30 is merged.** Hold **PR #31** until Trevor approves the latest game and its checks pass. Both must be merged into main before a release archive; the archive needs the new game's offline policy. Confirm main's commit before building. No merge or upload is public-release approval.
 
 ## 2. Apple Account and Individual enrollment
 
 1. Use the Apple Account intended to own Bloomshot. Keep its legal name/contact details current.
 2. Check two-factor authentication in iPhone Settings → your name → Sign-In & Security → Two-Factor Authentication.
-3. Open Apple's [enrollment page](https://developer.apple.com/programs/enroll/) or its Developer app and start **Apple Developer Program → Individual**.
+3. Resume the existing enrollment from [Apple Developer Account](https://developer.apple.com/account/) in a regular browser. For a new enrollment, Apple's [enrollment page](https://developer.apple.com/programs/enroll/) and Developer app offer **Apple Developer Program → Individual**. Do not start a duplicate enrollment while an existing one is unresolved.
 4. Trevor personally completes identity verification, reads/accepts the agreement and pays the membership fee shown. Apple's current price is US$99 per year, with regional pricing at checkout. Wait for active membership before signing setup. [Apple membership instructions](https://developer.apple.com/help/account/membership/program-enrollment/), [iPhone enrollment](https://developer.apple.com/help/account/membership/enrolling-in-the-app/).
 
 Individual enrollment displays the personal legal name as the App Store seller; the app name can still be Bloomshot. A Harborline contact email does not make an Organization enrollment. If Trevor later chooses an incorporated legal entity instead, stop and review Apple's Organization requirements, including authority verification and a D-U-N-S Number where required; do not select that route automatically.

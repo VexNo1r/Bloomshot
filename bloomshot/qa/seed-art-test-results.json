@@ -1,0 +1,54 @@
+{
+  "passed": 12,
+  "failed": 0,
+  "results": [
+    {
+      "name": "All five ordinary seeds draw finite paths and leave collision/trail data untouched",
+      "passed": true
+    },
+    {
+      "name": "The cached body retains the exact colored circular boundary and puts the almond inside it",
+      "passed": true
+    },
+    {
+      "name": "The five new body sprites stay below 45 KB and warmed frames make no new surfaces or gradients",
+      "passed": true
+    },
+    {
+      "name": "Reduced motion keeps the projectile pose static and omits its trail",
+      "passed": true
+    },
+    {
+      "name": "Loaded and tray seeds reuse a bounded cache even through a regrowth pop",
+      "passed": true
+    },
+    {
+      "name": "Keepsake and power branches retain distinct illustrations without mutating seeds",
+      "passed": true
+    },
+    {
+      "name": "Grown seed bodies are cached sprites that stay inside the round hit circle; only the maple wing reaches past it",
+      "passed": true
+    },
+    {
+      "name": "Grown styles: Animations off draws the seed still with no trail, and every draw leaves the seed and the canvas as it found them",
+      "passed": true
+    },
+    {
+      "name": "The warm-up paints every grown piece ahead, so the seed, its trail and its bloom make no new surface or gradient in play",
+      "passed": true
+    },
+    {
+      "name": "From Level 4 every full tray slot gets a tinted disc (r 10) then its glyph, and the cup seed its glyph",
+      "passed": true
+    },
+    {
+      "name": "Every glyph shape spans exactly 8.5 px top to bottom, and an empty slot or a Level 1-3 board shows none",
+      "passed": true
+    },
+    {
+      "name": "The glyphs, discs and tray body are cached: a second frame makes no new surface or gradient",
+      "passed": true
+    }
+  ]
+}

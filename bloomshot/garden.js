@@ -56,6 +56,13 @@
     piece('tree', 'Apple tree', 100, 'Shade, apples and a rope swing.',
       { id: 'nutmeg', name: 'Nutmeg', kind: 'squirrel', says: 'Got any acorns?', about: 'Guards the apples. Mostly.' })
   ]);
+  // Seed styles to grow once seeds pile up (keepsakes.js draws them and lists the same costs). Each is grown once,
+  // with earned seeds only, in any order. They are never sold and are not part of the paid Keepsake Collection.
+  var seedStyles = Object.freeze([
+    Object.freeze({ id: 'dewdrop', cost: 150 }),
+    Object.freeze({ id: 'bramble', cost: 250 }),
+    Object.freeze({ id: 'maple', cost: 400 })
+  ]);
   function own(object, key) { return Object.prototype.hasOwnProperty.call(object, key); }
   function record(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
   function integer(value, maximum) {
@@ -63,6 +70,7 @@
   }
   function validPlot(id) { return typeof id === 'string' && plots.some(function (p) { return p.id === id; }); }
   function findDecor(id) { return typeof id === 'string' ? decor.filter(function (d) { return d.id === id; })[0] || null : null; }
+  function findStyle(id) { return typeof id === 'string' ? seedStyles.filter(function (s) { return s.id === id; })[0] || null : null; }
   // 'daily-YYYY-MM-DD' to a UTC day number, or null for anything that is not a real calendar date.
   function dailyDay(id) {
     var match = typeof id === 'string' && /^daily-(\d{4})-(\d{2})-(\d{2})$/.exec(id);
@@ -135,11 +143,15 @@
     bouquets = bouquets.sort().slice(-BOUQUET_LIMIT);
     var savedDecor = own(source, 'decor') && Array.isArray(source.decor) ? source.decor : [];
     var built = decor.filter(function (d) { return savedDecor.indexOf(d.id) >= 0; }).map(function (d) { return d.id; });
+    // Grown seed styles: a list of ids, cleaned and kept in catalog order like the decorations. A save from before
+    // them has none.
+    var savedGrown = own(source, 'grown') && Array.isArray(source.grown) ? source.grown : [];
+    var grown = seedStyles.filter(function (s) { return savedGrown.indexOf(s.id) >= 0; }).map(function (s) { return s.id; });
     return { version: 1,
       seeds: isNew ? 4 : (own(source, 'seeds') ? integer(source.seeds, MAX_SEEDS) : 0),
       selectedId: own(source, 'selectedId') && validPlot(source.selectedId) ? source.selectedId : 'sunbell',
       levels: levels, receipts: receipts, campaignBest: campaignBest, moonBest: moonBest, koiBest: koiBest, depthBest: depthBest,
-      dailyBest: dailyBest, bouquets: bouquets, decor: built,
+      dailyBest: dailyBest, bouquets: bouquets, decor: built, grown: grown,
       starterSeeds: isNew ? 4 : (own(source, 'starterSeeds') ? integer(source.starterSeeds, 4) : 0),
       totalSeedsEarned: own(source, 'totalSeedsEarned') ? integer(source.totalSeedsEarned, MAX_TOTAL) : 0,
       totalSeedsSpent: own(source, 'totalSeedsSpent') ? integer(source.totalSeedsSpent, MAX_TOTAL) : 0 };
@@ -250,6 +262,18 @@
     next.totalSeedsSpent = Math.min(MAX_TOTAL, next.totalSeedsSpent + item.cost);
     return result(true, 'built', item.cost);
   }
+  // Grows one seed style with earned seeds, once. The style is then worn from the Collection like any other.
+  function grow(state, styleId) {
+    var next = normalize(state), item = findStyle(styleId);
+    function result(success, reason, cost) { return { state: next, success: success, reason: reason, cost: cost }; }
+    if (!item) return result(false, 'unknown-style', 0);
+    if (next.grown.indexOf(item.id) >= 0) return result(false, 'grown', item.cost);
+    if (next.seeds < item.cost) return result(false, 'insufficient-seeds', item.cost);
+    next.seeds -= item.cost;
+    next.grown = seedStyles.filter(function (s) { return s.id === item.id || next.grown.indexOf(s.id) >= 0; }).map(function (s) { return s.id; });
+    next.totalSeedsSpent = Math.min(MAX_TOTAL, next.totalSeedsSpent + item.cost);
+    return result(true, 'grown', item.cost);
+  }
   function select(state, plotId) {
     var next = normalize(state);
     if (validPlot(plotId)) next.selectedId = plotId;
@@ -275,7 +299,11 @@
       return { id: d.id, name: d.name, cost: d.cost, description: d.description, friend: d.friend, built: done, canBuild: !done && current.seeds >= d.cost };
     });
     var builtDecor = current.decor.length;
-    return { seeds: current.seeds, selectedId: current.selectedId,
+    var styles = seedStyles.map(function (s) {
+      var done = current.grown.indexOf(s.id) >= 0;
+      return { id: s.id, cost: s.cost, grown: done, canGrow: !done && current.seeds >= s.cost };
+    });
+    return { seeds: current.seeds, selectedId: current.selectedId, styles: styles, grownStyles: current.grown.length,
       totalStages: totalStages, completedPlots: completedPlots, totalPlots: plots.length,
       decor: pieces, builtDecor: builtDecor, totalDecor: decor.length,
       complete: completedPlots === plots.length && builtDecor === decor.length,
@@ -283,7 +311,7 @@
       nextCost: current.levels[current.selectedId] < 3 ? COSTS[current.levels[current.selectedId]] : null,
       plots: beds };
   }
-  return Object.freeze({ plots: plots, decor: decor, normalize: normalize, grant: grant, plant: plant, build: build, select: select, summary: summary, week: week,
+  return Object.freeze({ plots: plots, decor: decor, seedStyles: seedStyles, normalize: normalize, grant: grant, plant: plant, build: build, grow: grow, select: select, summary: summary, week: week,
     daily: Object.freeze({ firstClear: [6, 8, 10], perStar: 2, bouquetGoal: BOUQUET_GOAL, bouquetSeeds: BOUQUET_SEEDS, goalSeeds: GOAL_SEEDS, goalBonus: GOAL_BONUS }),
     depths: Object.freeze({ levels: DEPTH_LEVELS, runCap: DEPTH_RUN_CAP }) });
 });

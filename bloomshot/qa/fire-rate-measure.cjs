@@ -15,8 +15,9 @@ const FAST = { noise: 2.5, think: 0, thinkSpread: 0, bounces: 2 };
 function setup() {
   const { RushGame } = require(dir + '/rush.js'); const Depths = require(dir + '/depths.js');
   const Bot = require(dir + '/qa/depths-bot.cjs');
+  let Foes = null; try { Foes = require(dir + '/foes.js'); } catch (error) { Foes = null; }
   const plan = id => { const level = Depths.level(id); return { id, name: level.name, waves: Depths.waveCount, wave: n => Depths.wave(id, n) }; };
-  return { RushGame, plan, trace: Bot.trace };
+  return { RushGame, plan, trace: Bot.trace, Foes };
 }
 function ready(game) {
   if (typeof game.canFire === 'function') return game.canFire();
@@ -49,12 +50,16 @@ function stats(game, m) {
     p90gap: gaps.length ? +gaps[Math.floor(gaps.length * .9)].toFixed(2) : null, maxgap: gaps.length ? +gaps[gaps.length - 1].toFixed(2) : null,
     taps: m.taps, dropped: m.dropped, supers: game.superCount, tricks: game.trickCount, refunds: game.refunds || 0 };
 }
-function value(game, hit, timing) {
+function value(game, hit, timing, Foes) {
   const bud = hit.bud;
+  // The new pieces: a decoy is never worth a seed, and a foe adds its own worth (foes.js), as in depths-bot.cjs.
+  if (bud.decoy) return -1;
+  const foe = Foes && game.foeWave ? Foes.value(game, hit) : 0;
+  if (foe === -1) return -1;
   if (bud.shield && hit.ny > .28) return -1;
   if (bud.shell) { const a = bud.shellAngle + bud.shellSpin * (hit.time + .03); if (hit.nx * Math.cos(a) + hit.ny * Math.sin(a) < .34 + timing) return -1; }
   const danger = (bud.y + bud.r) / game.dangerY * (bud.fall || 1);
-  return danger * 100 + (bud.relay ? 30 : 0) + (bud.puff ? 45 : 0) + (bud.boss ? 25 : 0) + (bud.regrowAt ? 40 : 0) + (bud.gem ? 15 : 0) - hit.time * 20;
+  return danger * 100 + (bud.relay ? 30 : 0) + (bud.puff ? 45 : 0) + (bud.boss ? 25 : 0) + (bud.regrowAt ? 40 : 0) + (bud.gem ? 15 : 0) + foe - hit.time * 20;
 }
 function spamRun(env, id, seed, mode, opts = {}) {
   const r = rng(seed), game = new env.RushGame(id ? { plan: env.plan(id) } : {}), m = meter(game); let next = 0;
@@ -85,7 +90,7 @@ function aimRun(env, id, seed, o) {
       for (let deg = -170; deg <= -10; deg += 2.5) {
         const angle = deg * Math.PI / 180, hit = env.trace(game, angle, o.bounces ?? 3);
         if (!hit) continue;
-        const score = value(game, hit, o.timing ?? .1);
+        const score = value(game, hit, o.timing ?? .1, env.Foes);
         if (score > 0 && (!best || score > best.score)) best = { angle, score };
       }
       const angle = (best ? best.angle : -Math.PI / 2) + gauss() * o.noise * Math.PI / 180;

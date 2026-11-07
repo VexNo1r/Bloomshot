@@ -1,0 +1,203 @@
+{
+  "schema": 1,
+  "generated_at": "2026-10-15T21:23:31.890Z",
+  "reviewed_at": "2026-10-15T21:24:17.984Z",
+  "command": "node bloomshot/qa/measure-depths.cjs --groups boss --boss 3 --workers 1 --output .work/oct15-boss-smoke.json",
+  "scope": "Thirty seeded engine-only fights: three fresh wave-ten boss encounters per level, three starting lives, no powerups or purchases. Earned Split and Super Bloom are allowed. This is a regression smoke check, not a human difficulty, retention, touch, rendering, real-device or sandbox-purchase validation.",
+  "completed": 30,
+  "expected": 30,
+  "finished": true,
+  "source_stable": true,
+  "current_source_matches": true,
+  "failed": 0,
+  "timed_out": 0,
+  "source_sha256": {
+    "engine.js": "51fbcdcbad7ca83ca5f23d842f019807137fe39e0db99086d18a0a49593cebec",
+    "rush.js": "378e9a8b333ac4c109402978a7f640768b17ac8d9cb9068f0568535e092b351f",
+    "depths.js": "f7dff1a7bdb3e6c353848a9f6aac76b41920153df1823f4e5c173b7e4ffe877d",
+    "bosses.js": "c9673466e16331b6d929b5807ddcace6af332a9775206f6f2b148da50bbc6a8a",
+    "qa/depths-bot.cjs": "a3a002dd08cf5a5243eeb7e8fc02ce6c2c97f7394826b6734da36f462963b471",
+    "qa/measure-depths.cjs": "a8f9d09e28fa39ca409bdb613b1dbea6e12cb86a19d536824c10308c6b5918f2"
+  },
+  "profile": {
+    "noise": 4,
+    "think": 0.5,
+    "thinkSpread": 0.5,
+    "bounces": 1
+  },
+  "max_game_seconds": 900,
+  "seed_formula_version": 1,
+  "lifecycle_review": {
+    "method": "Read-only review of the current boss-effect diff and its Rush integration; existing 35-case boss report inspected.",
+    "new_serious_findings": [],
+    "reviewed": [
+      "Typed warning-target consumers preserve Sunny two-sprout volley and distinct boss actions.",
+      "Actual radius and position effects remain bounded and restore temporary fields on expiry, safety cutoff, boss breach, defeat and wave initialization.",
+      "Lullaby holds active effect phase/deadlines; harmful lift and ignition motion pause.",
+      "Temporary Geode rings do not heal prior seed damage when removed; converted Briar timers clear with their temporary patch.",
+      "Core echoes exclude echo sources and are bounded to two active and four created per encounter; they disappear before the final 100-pixel reaction margin."
+    ]
+  },
+  "levels": [
+    {
+      "level": 1,
+      "boss": "sunny",
+      "cases": 3,
+      "clears": 3,
+      "timed_out": 0,
+      "seeds": [
+        300067554,
+        300133091,
+        300198628
+      ],
+      "mean_boss_kill_seconds": 8.7723,
+      "min_boss_kill_seconds": 7.083,
+      "max_boss_kill_seconds": 11.017,
+      "mean_boss_lives_lost": 0
+    },
+    {
+      "level": 2,
+      "boss": "root",
+      "cases": 3,
+      "clears": 3,
+      "timed_out": 0,
+      "seeds": [
+        300069571,
+        300135108,
+        300200645
+      ],
+      "mean_boss_kill_seconds": 16.489,
+      "min_boss_kill_seconds": 12.8,
+      "max_boss_kill_seconds": 22.5,
+      "mean_boss_lives_lost": 0
+    },
+    {
+      "level": 3,
+      "boss": "puff",
+      "cases": 3,
+      "clears": 3,
+      "timed_out": 0,
+      "seeds": [
+        300071588,
+        300137125,
+        300202662
+      ],
+      "mean_boss_kill_seconds": 14.7553,
+      "min_boss_kill_seconds": 13.033,
+      "max_boss_kill_seconds": 17.683,
+      "mean_boss_lives_lost": 0
+    },
+    {
+      "level": 4,
+      "boss": "crystal",
+      "cases": 3,
+      "clears": 3,
+      "timed_out": 0,
+      "seeds": [
+        300073605,
+        300139142,
+        300204679
+      ],
+      "mean_boss_kill_seconds": 31.6557,
+      "min_boss_kill_seconds": 20.483,
+      "max_boss_kill_seconds": 42.567,
+      "mean_boss_lives_lost": 0
+    },
+    {
+      "level": 5,
+      "boss": "lotus",
+      "cases": 3,
+      "clears": 3,
+      "timed_out": 0,
+      "seeds": [
+        300075622,
+        300141159,
+        300206696
+      ],
+      "mean_boss_kill_seconds": 21.0333,
+      "min_boss_kill_seconds": 19.933,
+      "max_boss_kill_seconds": 21.95,
+      "mean_boss_lives_lost": 0
+    },
+    {
+      "level": 6,
+      "boss": "fossil",
+      "cases": 3,
+      "clears": 3,
+      "timed_out": 0,
+      "seeds": [
+        300077639,
+        300143176,
+        300208713
+      ],
+      "mean_boss_kill_seconds": 30.5113,
+      "min_boss_kill_seconds": 22.25,
+      "max_boss_kill_seconds": 44.717,
+      "mean_boss_lives_lost": 0
+    },
+    {
+      "level": 7,
+      "boss": "ember",
+      "cases": 3,
+      "clears": 3,
+      "timed_out": 0,
+      "seeds": [
+        300079656,
+        300145193,
+        300210730
+      ],
+      "mean_boss_kill_seconds": 30.7277,
+      "min_boss_kill_seconds": 24.85,
+      "max_boss_kill_seconds": 38.75,
+      "mean_boss_lives_lost": 0.3333
+    },
+    {
+      "level": 8,
+      "boss": "geode",
+      "cases": 3,
+      "clears": 3,
+      "timed_out": 0,
+      "seeds": [
+        300081673,
+        300147210,
+        300212747
+      ],
+      "mean_boss_kill_seconds": 36.1777,
+      "min_boss_kill_seconds": 34.283,
+      "max_boss_kill_seconds": 39.017,
+      "mean_boss_lives_lost": 0
+    },
+    {
+      "level": 9,
+      "boss": "briar",
+      "cases": 3,
+      "clears": 3,
+      "timed_out": 0,
+      "seeds": [
+        300083690,
+        300149227,
+        300214764
+      ],
+      "mean_boss_kill_seconds": 51.5167,
+      "min_boss_kill_seconds": 34.833,
+      "max_boss_kill_seconds": 73.4,
+      "mean_boss_lives_lost": 0.6667
+    },
+    {
+      "level": 10,
+      "boss": "core",
+      "cases": 3,
+      "clears": 3,
+      "timed_out": 0,
+      "seeds": [
+        300085707,
+        300151244,
+        300216781
+      ],
+      "mean_boss_kill_seconds": 61.2777,
+      "min_boss_kill_seconds": 58.033,
+      "max_boss_kill_seconds": 67.117,
+      "mean_boss_lives_lost": 1
+    }
+  ]
+}

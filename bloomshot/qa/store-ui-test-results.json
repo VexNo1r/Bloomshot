@@ -1,0 +1,46 @@
+{
+  "passed": 10,
+  "failed": 0,
+  "results": [
+    {
+      "name": "Restore names newly recovered permanent content using the actual Settings handler",
+      "passed": true
+    },
+    {
+      "name": "Already-owned unlocks are acknowledged instead of falsely claiming no earlier purchases",
+      "passed": true
+    },
+    {
+      "name": "A recovered consumable is reported even when there are no permanent entitlements",
+      "passed": true
+    },
+    {
+      "name": "Confirmed grants still owed to the save are not described as delivered",
+      "passed": true
+    },
+    {
+      "name": "An unresolved store payment remains a confirmation state, not a saved powerup or empty restore",
+      "passed": true
+    },
+    {
+      "name": "Mixed ownership, recovered grants and waiting confirmation remain visible together",
+      "passed": true
+    },
+    {
+      "name": "A genuinely empty restore explains the limited restore scope",
+      "passed": true
+    },
+    {
+      "name": "A failed restore can be retried and does not make a purchase-history claim",
+      "passed": true
+    },
+    {
+      "name": "The native restore button stays disabled while the actual handler awaits its response",
+      "passed": true
+    },
+    {
+      "name": "The purchases section remains hidden when billing is unavailable",
+      "passed": true
+    }
+  ]
+}

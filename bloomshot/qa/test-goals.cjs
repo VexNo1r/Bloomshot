@@ -36,9 +36,35 @@ test('Every day has three goals, one in Rush, one puzzle and one to explore, the
 });
 test('Goals read plainly and every one points at a place to play it', () => {
   for (const g of Goals.catalog) {
-    assert(g.text.length <= 30, g.text); assert(Number.isInteger(g.target) && g.target >= 1);
+    // The meadow goal names all three ways to finish it, so it is the one line allowed past 30 letters.
+    assert(g.id === 'meadow' ? g.text === 'Grow, build or say hi in your meadow' : g.text.length <= 30, g.text); assert(Number.isInteger(g.target) && g.target >= 1);
     assert(['rush', 'puzzles', 'daily', 'moon', 'koi', 'meadow'].includes(g.play)); assert(Object.isFrozen(g));
+    assert(typeof g.short === 'string' && g.short.length >= 4 && g.short.length <= 10, `short label for ${g.id}: ${g.short}`);
   }
+});
+test('The day picks stay the same as before for everyone', () => {
+  const picks = { '2026-01-01': 'rush-chain,perfect,moon', '2026-06-15': 'rush-wave,puzzles,moon', '2026-10-04': 'rush-wave,puzzles,meadow',
+    '2026-11-02': 'rush-wave,daily,moon', '2027-03-09': 'rush-blooms,daily,meadow' };
+  for (const [date, ids] of Object.entries(picks)) assert.equal(Goals.forDay(date).map(g => g.id).join(), ids, date);
+  assert.deepEqual(Goals.catalog.map(g => g.id), ['rush-blooms', 'rush-wave', 'rush-chain', 'puzzles', 'perfect', 'daily', 'moon', 'koi', 'meadow']);
+});
+test('Saying hi to a meadow friend finishes the meadow goal and nothing else', () => {
+  const date = dayWith('meadow'), slot = slotOf(date, 'meadow');
+  const r = Goals.record(null, date, { type: 'greet' });
+  assert.deepEqual(r.done, [slot]); assert.equal(r.state.progress[slot], 1);
+  assert.deepEqual(r.state.progress.filter((_, i) => i !== slot), [0, 0], 'a greeting moves no Rush or puzzle goal');
+  const again = Goals.record(r.state, date, { type: 'greet' });
+  assert.deepEqual(again.done, [], 'a second hello pays nothing more');
+  const other = days.find(d => !Goals.forDay(d).some(g => g.id === 'meadow'));
+  assert.deepEqual(Goals.record(null, other, { type: 'greet' }).state.progress, [0, 0, 0]);
+});
+test('A meadow goal saved before the change loads unchanged', () => {
+  const date = dayWith('meadow'), slot = slotOf(date, 'meadow'), progress = [0, 0, 0], done = [false, false, false];
+  progress[slot] = 1; done[slot] = true;
+  const old = { day: date, progress, done, bonus: false };
+  assert.deepEqual(Goals.normalize(old, date), old);
+  const summary = Goals.summary(old, date).goals[slot];
+  assert.equal(summary.id, 'meadow'); assert.equal(summary.done, true); assert.equal(summary.short, 'Meadow');
 });
 test('Rush blooms add up across runs, while the wave and chain goals keep the best run', () => {
   let date = dayWith('rush-blooms'), slot = slotOf(date, 'rush-blooms');
