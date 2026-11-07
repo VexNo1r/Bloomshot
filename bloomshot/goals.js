@@ -8,19 +8,21 @@
 
   // Three small goals a day: one in the levels or Rush, one puzzle, one somewhere else. Each pays seeds once, and all three
   // pay a bonus. A missed day costs nothing, nothing counts down, and tomorrow simply brings three new goals.
-  function goal(id, group, text, target, play) {
-    return Object.freeze({ id: id, group: group, text: text, target: target, play: play });
+  // short is the few words the Today strip on the Levels map shows under each goal's ring.
+  function goal(id, group, text, target, play, short) {
+    return Object.freeze({ id: id, group: group, text: text, target: target, play: play, short: short });
   }
   var catalog = Object.freeze([
-    goal('rush-blooms', 'rush', 'Bloom 50 flowers', 50, 'rush'),
-    goal('rush-wave', 'rush', 'Reach wave 4', 4, 'rush'),
-    goal('rush-chain', 'rush', 'Make an 8 chain', 8, 'rush'),
-    goal('puzzles', 'puzzle', 'Clear 2 puzzles', 2, 'puzzles'),
-    goal('perfect', 'puzzle', 'Get ★★★ on a puzzle', 1, 'puzzles'),
-    goal('daily', 'puzzle', "Clear today's garden", 1, 'daily'),
-    goal('moon', 'explore', 'Clear a Moon trial', 1, 'moon'),
-    goal('koi', 'explore', 'Clear a Koi pool', 1, 'koi'),
-    goal('meadow', 'explore', 'Grow or build in your meadow', 1, 'meadow')
+    goal('rush-blooms', 'rush', 'Bloom 50 flowers', 50, 'rush', '50 blooms'),
+    goal('rush-wave', 'rush', 'Reach wave 4', 4, 'rush', 'Wave 4'),
+    goal('rush-chain', 'rush', 'Make an 8 chain', 8, 'rush', '8 chain'),
+    goal('puzzles', 'puzzle', 'Clear 2 puzzles', 2, 'puzzles', '2 puzzles'),
+    goal('perfect', 'puzzle', 'Get ★★★ on a puzzle', 1, 'puzzles', 'Get ★★★'),
+    goal('daily', 'puzzle', "Clear today's garden", 1, 'daily', 'Daily'),
+    goal('moon', 'explore', 'Clear a Moon trial', 1, 'moon', 'Moon trial'),
+    goal('koi', 'explore', 'Clear a Koi pool', 1, 'koi', 'Koi pool'),
+    // A finished meadow has nothing left to grow or build, so saying hi to a friend there counts too.
+    goal('meadow', 'explore', 'Grow, build or say hi in your meadow', 1, 'meadow', 'Meadow')
   ]);
   var GROUPS = ['rush', 'puzzle', 'explore'];
   var DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -60,7 +62,7 @@
     return state;
   }
   function count(value) { return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0; }
-  // How far one finished run, clear or meadow action moves a goal. Returns [added, highest] where a goal
+  // How far one finished run, clear, meadow action or friend greeting moves a goal. Returns [added, highest] where a goal
   // counts either a running total (added) or a best value (highest).
   function step(g, event) {
     var type = event.type, mode = event.mode;
@@ -72,7 +74,7 @@
       if (g.id === 'perfect') return [event.stars === 3 ? 1 : 0, 0];
       if (g.id === 'daily' || g.id === 'moon' || g.id === 'koi') return [mode === g.id ? 1 : 0, 0];
     }
-    if (g.id === 'meadow') return [type === 'meadow' ? 1 : 0, 0];
+    if (g.id === 'meadow') return [type === 'meadow' || type === 'greet' ? 1 : 0, 0];
     return [0, 0];
   }
   function record(state, date, event) {
@@ -89,7 +91,7 @@
   function summary(state, date) {
     var current = normalize(state, date);
     var list = forDay(date).map(function (g, i) {
-      return { id: g.id, text: g.text, target: g.target, play: g.play, slot: i, progress: current.progress[i], done: current.done[i] };
+      return { id: g.id, text: g.text, short: g.short, target: g.target, play: g.play, slot: i, progress: current.progress[i], done: current.done[i] };
     });
     return { day: date, goals: list, done: current.done.filter(Boolean).length, bonus: current.bonus };
   }

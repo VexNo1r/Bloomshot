@@ -20,19 +20,19 @@
       // The Complete Garden is everything paid in one purchase: $6.99 against $9.97 for the three bought separately.
       { id: 'bloomshot.bundle.complete1', entitlements: ['levels_full', 'world_koi', 'style_collection1'], kind: 'bundle', title: 'Complete Garden', priceHint: '$6.99', available: false },
       // Powerups: consumables, bought again and again. A single grants `count` of `power` into the player's save through
-      // BloomStore.onConsumable and is attached to no entitlement. $0.25 on Google Play; Apple's
-      // lowest price is $0.29, so that is the App Store price. The game always shows the store's own price.
-      { id: 'bloomshot.power.sunburst', consumable: true, power: 'sunburst', count: 1, kind: 'power', title: 'Sunburst', priceHint: '$0.25', available: false },
-      { id: 'bloomshot.power.lullaby', consumable: true, power: 'lullaby', count: 1, kind: 'power', title: 'Lullaby', priceHint: '$0.25', available: false },
-      { id: 'bloomshot.power.dandelion', consumable: true, power: 'dandelion', count: 1, kind: 'power', title: 'Dandelion', priceHint: '$0.25', available: false },
-      { id: 'bloomshot.power.beeline', consumable: true, power: 'beeline', count: 1, kind: 'power', title: 'Bee Line', priceHint: '$0.25', available: false },
-      // Powerup packs: fixed contents, always shown, nothing random. Five of one kind for $0.99, or the bag with three
-      // of each (twelve) for $1.99. Each purchase is one grant: the game adds all of it under one transaction.
-      { id: 'bloomshot.pack.sunburst5', consumable: true, power: 'sunburst', count: 5, kind: 'power', title: '5 Sunbursts', priceHint: '$0.99', available: false },
-      { id: 'bloomshot.pack.lullaby5', consumable: true, power: 'lullaby', count: 5, kind: 'power', title: '5 Lullabies', priceHint: '$0.99', available: false },
-      { id: 'bloomshot.pack.dandelion5', consumable: true, power: 'dandelion', count: 5, kind: 'power', title: '5 Dandelions', priceHint: '$0.99', available: false },
-      { id: 'bloomshot.pack.beeline5', consumable: true, power: 'beeline', count: 5, kind: 'power', title: '5 Bee Lines', priceHint: '$0.99', available: false },
-      { id: 'bloomshot.pack.bag12', consumable: true, powers: { sunburst: 3, lullaby: 3, dandelion: 3, beeline: 3 }, kind: 'power', title: 'Powerup Bag', priceHint: '$1.99', available: false }
+      // BloomStore.onConsumable and is attached to no entitlement. Trevor approved these USD targets on
+      // October 15: one for $0.29, five for $0.49, twenty for $1.00. Verify the actual store offers before enabling.
+      { id: 'bloomshot.power.sunburst', consumable: true, power: 'sunburst', count: 1, kind: 'power', title: 'Sunburst', priceHint: '$0.29', available: false },
+      { id: 'bloomshot.power.lullaby', consumable: true, power: 'lullaby', count: 1, kind: 'power', title: 'Lullaby', priceHint: '$0.29', available: false },
+      { id: 'bloomshot.power.dandelion', consumable: true, power: 'dandelion', count: 1, kind: 'power', title: 'Dandelion', priceHint: '$0.29', available: false },
+      { id: 'bloomshot.power.beeline', consumable: true, power: 'beeline', count: 1, kind: 'power', title: 'Bee Line', priceHint: '$0.29', available: false },
+      // Fixed contents, always shown, nothing random. The twenty bag has a new id so the retired twelve
+      // bag's receipts retain their original contents. Each purchase is one complete, replay-safe grant.
+      { id: 'bloomshot.pack.sunburst5', consumable: true, power: 'sunburst', count: 5, kind: 'power', title: '5 Sunbursts', priceHint: '$0.49', available: false },
+      { id: 'bloomshot.pack.lullaby5', consumable: true, power: 'lullaby', count: 5, kind: 'power', title: '5 Lullabies', priceHint: '$0.49', available: false },
+      { id: 'bloomshot.pack.dandelion5', consumable: true, power: 'dandelion', count: 5, kind: 'power', title: '5 Dandelions', priceHint: '$0.49', available: false },
+      { id: 'bloomshot.pack.beeline5', consumable: true, power: 'beeline', count: 5, kind: 'power', title: '5 Bee Lines', priceHint: '$0.49', available: false },
+      { id: 'bloomshot.pack.bag20', consumable: true, powers: { sunburst: 5, lullaby: 5, dandelion: 5, beeline: 5 }, kind: 'power', title: '20-powerup Bag', priceHint: '$1.00', available: false }
     ]
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

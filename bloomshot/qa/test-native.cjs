@@ -111,11 +111,12 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
   await test('Restore: wiped storage with a backup writes the backup back, marks the install checked, and nothing the page saves afterwards can overwrite it', async () => {
     const storage = memoryStorage(); const plugins = fakePlugins({ backup: GOOD });
     const { api, timer } = make({ storage, plugins });
+    assert.equal(api.saveReady, false);
     // The game starts, writes its own empty save, and asks the bridge to mirror it before restore has answered.
     storage.setItem(SAVE, FRESH); api.mirror(SAVE, FRESH);
     assert.equal(timer.count(), 0); // mirror is closed until the backup has been read
     assert.equal(await api.restore(SAVE), true);
-    assert.equal(storage.data[SAVE], GOOD); assert.equal(storage.data[SYNC], '1'); assert.equal(api.reloading, true);
+    assert.equal(storage.data[SAVE], GOOD); assert.equal(storage.data[SYNC], '1'); assert.equal(api.reloading, true); assert.equal(api.saveReady, false);
     // The old page is still alive until the reload lands. A tap now must not reach either store.
     api.mirror(SAVE, FRESH); timer.run(); api.flush(); await tick();
     assert.deepEqual(plugins.log.set, []); assert.equal(plugins.store[SAVE], GOOD);
@@ -125,7 +126,7 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
     const storage = memoryStorage(); const plugins = fakePlugins();
     const { api, timer } = make({ storage, plugins });
     storage.setItem(SAVE, FRESH); api.mirror(SAVE, FRESH);
-    assert.equal(await api.restore(SAVE), false); assert.equal(api.reloading, false);
+    assert.equal(await api.restore(SAVE), false); assert.equal(api.reloading, false); assert.equal(api.saveReady, true);
     assert.equal(storage.data[SYNC], '1');
     timer.run(); await tick();
     assert.deepEqual(plugins.log.set, [{ key: SAVE, value: FRESH }]); assert.equal(storage.data[SAVE], FRESH);
@@ -136,6 +137,7 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
     const { api, timer } = make({ storage, plugins });
     api.mirror(SAVE, GOOD); assert.equal(await api.restore(SAVE), false);
     assert.equal(plugins.log.get, 0); assert.equal(storage.data[SAVE], GOOD);
+    assert.equal(api.saveReady, true);
     timer.run(); await tick(); assert.deepEqual(plugins.log.set, [{ key: SAVE, value: GOOD }]);
   });
 
@@ -150,12 +152,25 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
       first.api.mirror(SAVE, FRESH); first.timer.run(); first.api.flush(); await tick();
       assert.deepEqual(plugins.log.set, [], JSON.stringify(trouble)); assert.equal(plugins.store[SAVE], GOOD);
       assert.equal(storage.data[SYNC], undefined); // not checked, so the next launch checks again
+      assert.equal(first.api.saveReady, false);
       // Launch 2: same storage (it now holds the empty save), the backup can be read.
       const healthy = fakePlugins({ backup: GOOD });
       const second = make({ storage, plugins: healthy });
       assert.equal(await second.api.restore(SAVE), true, JSON.stringify(trouble));
       assert.equal(storage.data[SAVE], GOOD); second.timer.run(); await tick();
       assert.deepEqual(healthy.log.set, []); assert.equal(healthy.store[SAVE], GOOD);
+    }
+  });
+
+  await test('Restore: a sync marker that is thrown away or refused cannot authorize saving or paid receipt delivery', async () => {
+    for (const backup of [null, GOOD]) for (const throws of [false, true]) {
+      const storage = memoryStorage({ [SAVE]: FRESH }); const put = storage.setItem;
+      storage.setItem = (key, value) => { if (key !== SYNC) put(key, value); else if (throws) throw new Error('marker refused'); };
+      const plugins = fakePlugins({ backup }), { api, timer } = make({ storage, plugins });
+      assert.equal(await api.restore(SAVE), false); assert.equal(api.saveReady, false); assert.equal(api.reloading, false);
+      api.mirror(SAVE, FRESH); timer.run(); api.flush(); await tick();
+      assert.equal(storage.data[SYNC], undefined); assert.deepEqual(plugins.log.set, []);
+      assert.equal(plugins.store[SAVE], backup);
     }
   });
 
@@ -306,7 +321,7 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
   }
   const MESSAGE = { title: 'Bloomshot', text: 'Daily garden 10/10\n⭐⭐⭐ in 4 shots', url: 'https://vexno1r.github.io/Bloomshot/' };
 
-  await test('Share (app): the phone share sheet gets the title, text and link, and the link points at the right store', async () => {
+  await test('Share (app): the phone share sheet gets the title, text and a web link until a public store listing exists', async () => {
     const plugins = fakePlugins(); const { nav, log } = browser({ share: 'ok' });
     const { api } = make({ plugins, navigator: nav });
     assert.equal(api.canShare, true);
@@ -315,8 +330,8 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
     assert.deepEqual(log.share, []); assert.deepEqual(log.copied, []); // never the WebView's own navigator.share in the app
     assert.deepEqual(await api.share({ text: 'Just text' }), { ok: true, via: 'sheet' });
     assert.deepEqual(plugins.log.share[1], { text: 'Just text' });
-    assert.equal(api.link, 'https://vexno1r.github.io/Bloomshot/'); // iPhone: no App Store page yet
-    assert.equal(make({ plugins: fakePlugins({ platform: 'android' }) }).api.link, 'https://play.google.com/store/apps/details?id=dev.bloomshot.game');
+    assert.equal(api.link, ''); // no public page or store listing is configured yet
+    assert.equal(make({ plugins: fakePlugins({ platform: 'android' }) }).api.link, '');
   });
 
   await test('Share (app): closing the sheet is a quiet cancel; a sheet that fails falls back to copying; a build without the plugin copies', async () => {
@@ -338,7 +353,7 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
     const sheet = browser({ share: 'ok' }); const api = make({ plugins: web, navigator: sheet.nav }).api;
     assert.deepEqual(await api.share(MESSAGE), { ok: true, via: 'sheet' });
     assert.deepEqual(sheet.log.share, [{ title: 'Bloomshot', text: MESSAGE.text, url: MESSAGE.url }]);
-    assert.equal(api.link, 'https://vexno1r.github.io/Bloomshot/');
+    assert.equal(api.link, '');
     const aborted = browser({ share: 'AbortError' });
     assert.deepEqual(await make({ plugins: web, navigator: aborted.nav }).api.share(MESSAGE), { ok: false, cancelled: true });
     assert.deepEqual(aborted.log.copied, []);

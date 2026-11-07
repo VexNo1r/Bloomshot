@@ -11,6 +11,8 @@ const root = path.resolve(__dirname, '..');
 // The game lives either at the repo root (native/ inside it) or in a sibling ../bloomshot folder.
 const source = [path.resolve(root, '..'), path.resolve(root, '../bloomshot')].find(dir => fs.existsSync(path.join(dir, 'sw.js')) && fs.existsSync(path.join(dir, 'engine.js')));
 if (!source) throw new Error('Could not find the game (sw.js and engine.js) next to or above this folder');
+const policyBuilder = path.resolve(source, '../.github/scripts/build-privacy.cjs');
+if (fs.existsSync(policyBuilder)) require(policyBuilder).writePolicy();
 const www = path.join(root, 'www');
 const EXCLUDED = ['sw.js', 'pwa.js', 'manifest.webmanifest'];
 const sha = buffer => crypto.createHash('sha256').update(buffer).digest('hex');

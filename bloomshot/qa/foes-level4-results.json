@@ -1,0 +1,82 @@
+{
+  "passed": 19,
+  "failed": 0,
+  "results": [
+    {
+      "name": "Crystals debut in Level 4 wave 3 with their hint, one per color asked for, and come back in W5, W7 and W9",
+      "passed": true
+    },
+    {
+      "name": "The launcher and tray show the seed colors from Level 4 only, and typeAhead(0) is the seed in the launcher",
+      "passed": true
+    },
+    {
+      "name": "A seed of another color glances off with chroma:guard and no refund; the right color opens it",
+      "passed": true
+    },
+    {
+      "name": "A match pays exactly one sun charge above a plain credited bloom, and the same score",
+      "passed": true
+    },
+    {
+      "name": "A chain, a power or an uncredited strike opens it plainly whatever the color; a script never meets a guard",
+      "passed": true
+    },
+    {
+      "name": "A crystal is a real piece: one reaching the line costs a life",
+      "passed": true
+    },
+    {
+      "name": "The bot shoots a crystal only with its own color (+10, more as it nears the line), never with another (-1)",
+      "passed": true
+    },
+    {
+      "name": "A crystal wave plays out the same at 30, 60 and 144 FPS",
+      "passed": true
+    },
+    {
+      "name": "Bats debut in Level 4 wave 4 with their hint, and come back in W8 and W9",
+      "passed": true
+    },
+    {
+      "name": "A bat perches 1.8 s (falling), tells for .8 s (still, arc drawn), swoops from 2.6 to 3.6 s and lands on its arc's end",
+      "passed": true
+    },
+    {
+      "name": "A credited seed on a perched bat cracks it and startles it: a .25 s tell, its arc set on the same tick",
+      "passed": true
+    },
+    {
+      "name": "A credited seed mid-swoop is a catch: it blooms, pays round(300 x tempo) and one sun charge, \"bat:catch\"",
+      "passed": true
+    },
+    {
+      "name": "With every landing spot taken a bat stays perched another 1.8 s, and goes once one frees up",
+      "passed": true
+    },
+    {
+      "name": "The two L4 W4 bats never start a swoop on the same tick, and land at least 30 px apart",
+      "passed": true
+    },
+    {
+      "name": "The bot forecast matches the live bat within 1e-6 over 90 steps, from the tell and from mid-swoop",
+      "passed": true
+    },
+    {
+      "name": "A Lullaby freezes a swoop where it is, and it carries on after",
+      "passed": true
+    },
+    {
+      "name": "Bats play out the same at 30, 60 and 144 FPS, aimed shots and all",
+      "passed": true
+    },
+    {
+      "name": "foes.js never touches the seed pod and never uses Math.random",
+      "passed": true
+    },
+    {
+      "name": "Crystal and bat art: finite, balanced, nothing new once warm, and still under reduced motion",
+      "passed": true
+    }
+  ]
+}

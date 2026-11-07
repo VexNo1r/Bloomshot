@@ -330,9 +330,60 @@ test('Level runs pay for their blooms, won or lost, and new stars on a level pay
   assert.deepEqual(Garden.normalize({ depthBest: { 1: 3, 2: 9, 11: 2, x: 1 } }).depthBest, { 1: 3, 2: 3 });
   assert.deepEqual(Garden.normalize({ seeds: 5 }).depthBest, {});
 });
+test('Three seed styles cost 150, 250 and 400 seeds, grow once each in any order, and refuse too few seeds', () => {
+  assert.deepEqual(Garden.seedStyles.map(s => [s.id, s.cost]), [['dewdrop', 150], ['bramble', 250], ['maple', 400]]);
+  Garden.seedStyles.forEach(s => assert(Object.isFrozen(s))); assert(Object.isFrozen(Garden.seedStyles));
+  const start = freeze(Garden.normalize({ seeds: 399, decor: ['bench'], levels: { coral: 2 } })), before = JSON.stringify(start);
+  assert.deepEqual(start.grown, []);
+  const short = Garden.grow(start, 'maple');
+  assert.equal(short.success, false); assert.equal(short.reason, 'insufficient-seeds'); assert.equal(short.cost, 400);
+  assert.equal(short.state.seeds, 399); assert.deepEqual(short.state.grown, [], 'a refusal spends nothing');
+  let grown = Garden.grow(start, 'bramble');
+  assert.equal(grown.success, true); assert.equal(grown.reason, 'grown'); assert.equal(grown.cost, 250);
+  assert.equal(grown.state.seeds, 149); assert.equal(grown.state.totalSeedsSpent, 250); assert.deepEqual(grown.state.grown, ['bramble']);
+  assert.equal(JSON.stringify(start), before, 'the caller\'s garden is never changed');
+  const one = Garden.grow(grown.state, 'dewdrop');
+  assert.equal(one.success, false); assert.equal(one.reason, 'insufficient-seeds'); assert.equal(one.state.seeds, 149);
+  grown = Garden.grow({ ...grown.state, seeds: 150 }, 'dewdrop');
+  assert.equal(grown.success, true); assert.equal(grown.state.seeds, 0); assert.equal(grown.state.totalSeedsSpent, 400);
+  assert.deepEqual(grown.state.grown, ['dewdrop', 'bramble'], 'catalog order, whatever the buying order');
+  const again = Garden.grow({ ...grown.state, seeds: 900 }, 'dewdrop');
+  assert.equal(again.success, false); assert.equal(again.reason, 'grown'); assert.equal(again.state.seeds, 900, 'a second grow never spends twice');
+  for (const id of ['__proto__', 'toString', 'meadow', 'sakura', 'moonlit', 'DEWDROP', '', null, 7, ['dewdrop']])
+    assert.equal(Garden.grow({ ...grown.state, seeds: 900 }, id).reason, 'unknown-style', String(id));
+  assert.deepEqual(grown.state.decor, ['bench']); assert.equal(grown.state.levels.coral, 2);
+});
+test('Grown styles save as a cleaned list that an old save loads without and every normalize keeps', () => {
+  const old = { seeds: 212, levels: { sunbell: 3, moon: 1 }, decor: ['bench', 'tree'], receipts: ['r-1'], totalSeedsEarned: 400, totalSeedsSpent: 188 };
+  const loaded = Garden.normalize(JSON.parse(JSON.stringify(old)));
+  assert.deepEqual(loaded.grown, [], 'a save from before seed styles has none');
+  for (const key of ['seeds', 'decor', 'receipts', 'totalSeedsEarned', 'totalSeedsSpent']) assert.deepEqual(loaded[key], old[key], key);
+  assert.equal(loaded.levels.sunbell, 3); assert.equal(loaded.levels.moon, 1);
+  assert.deepEqual(Garden.normalize({ grown: ['maple', 'nope', 'dewdrop', 'maple', 7, null, '__proto__', 'sakura'] }).grown, ['dewdrop', 'maple']);
+  for (const raw of [{ grown: 'dewdrop' }, { grown: { dewdrop: true } }, { grown: null }, {}]) assert.deepEqual(Garden.normalize(raw).grown, []);
+  assert.deepEqual(Garden.normalize(Object.create({ grown: ['maple'] })).grown, [], 'inherited fields are ignored');
+  // The list survives a save round trip and every other garden change.
+  const state = Garden.grow(Garden.normalize({ seeds: 600 }), 'maple').state;
+  assert.deepEqual(Garden.normalize(JSON.parse(JSON.stringify(state))), state);
+  const kept = [
+    Garden.plant(state, 'sunbell').state, Garden.build(state, 'bench').state, Garden.select(state, 'moon'),
+    Garden.grant(state, rush('keep-1')).state, Garden.grant(state, { mode: 'goal', completed: true, runId: 'goal-x', day: '2026-11-02', slot: 0 }).state,
+    Garden.grow(state, 'dewdrop').state, Garden.grow(state, 'maple').state, Garden.grow(state, 'nope').state
+  ];
+  for (const next of kept) assert(next.grown.includes('maple'), JSON.stringify(next.grown));
+  assert.deepEqual(Garden.normalize(Garden.normalize(state)).grown, ['maple']);
+});
+test('Summary lists each seed style with its price and whether it is grown or affordable, and the meadow can be complete without them', () => {
+  let summary = Garden.summary(Garden.normalize({ seeds: 260, grown: ['dewdrop'] }));
+  assert.deepEqual(summary.styles.map(s => [s.id, s.cost, s.grown, s.canGrow]), [['dewdrop', 150, true, false], ['bramble', 250, false, true], ['maple', 400, false, false]]);
+  assert.equal(summary.grownStyles, 1);
+  const levels = {}; Garden.plots.forEach(p => { levels[p.id] = 3; });
+  summary = Garden.summary(Garden.normalize({ seeds: 0, levels, decor: Garden.decor.map(d => d.id) }));
+  assert.equal(summary.complete, true); assert.equal(summary.grownStyles, 0);
+});
 const report = {
   passed: results.filter(r => r.passed).length, failed: results.filter(r => !r.passed).length,
-  observations: { starterSeeds: 4, costsPerPlot: [4, 8, 14], completeMeadowCost: 156, decorCosts: [20, 30, 40, 55, 75, 100], completeDecorCost: 320,
+  observations: { starterSeeds: 4, costsPerPlot: [4, 8, 14], completeMeadowCost: 156, decorCosts: [20, 30, 40, 55, 75, 100], completeDecorCost: 320, seedStyleCosts: [150, 250, 400],
     decentRush: { blooms: 24, wave: 3, awarded: 8 }, weakPositiveRushMinimum: 1, rushRewardCap: 40,
     firstCampaignClearByStars: { 1: 8, 2: 10, 3: 12 }, improvedCampaignStar: 2, receiptWindow: 64,
     firstDailyClearByStars: { 1: 6, 2: 8, 3: 10 }, weeklyBouquet: { dailyClears: 4, seeds: 12 }, dailyMemoryDays: 21,

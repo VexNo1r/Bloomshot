@@ -1,5 +1,5 @@
 {
-  "passed": 8,
+  "passed": 13,
   "failed": 0,
   "methodology": "Loads keepsakes.js, art.js and store-config.js in Node. Checks catalog rules, unlock logic, purchase ids against the store catalog, physics independence and that every style draws with finite canvas values.",
   "limitations": [
@@ -7,7 +7,7 @@
   ],
   "results": [
     {
-      "name": "The catalog has one free, one earned and three collection styles, each fully described",
+      "name": "The catalog has one free, one earned, three collection and three grown styles, each fully described",
       "passed": true
     },
     {
@@ -31,11 +31,31 @@
       "passed": true
     },
     {
+      "name": "The three grown styles cost 150, 250 and 400 earned seeds, matching the garden, and the paid collection is untouched",
+      "passed": true
+    },
+    {
+      "name": "Grown styles are new looks, not recolors: each has its own seed shape, trail kind and bloom kind",
+      "passed": true
+    },
+    {
+      "name": "A grown style opens only once its seeds are spent: never with the paid collection, the Moon or a stray list",
+      "passed": true
+    },
+    {
+      "name": "Grown blooms: Dewdrop splashes with one ripple, Bramble Berry hops berries and leaves, Autumn Maple flutters leaves down",
+      "passed": true
+    },
+    {
       "name": "Every style draws its seed, flying seed with trail, and burst particles with finite values",
       "passed": true
     },
     {
       "name": "A full board draws with every style worn, in each theme",
+      "passed": true
+    },
+    {
+      "name": "The grown styles' price pills are easy to read: their text meets 4.5:1 contrast on the pill",
       "passed": true
     }
   ]

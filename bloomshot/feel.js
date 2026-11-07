@@ -181,6 +181,45 @@
     return request;
   }
 
+  // A rolling observation of active frame delivery, not a scheduler or a promise of the target frame rate.
+  // Sampling writes two fixed typed-array rings and allocates nothing. Only snapshot() copies/sorts data.
+  // Inactive or invalid observations break continuity but retain the window for a paused Settings screen.
+  // Count active hitches up to a minute, including intervals over 250/1000 ms; a larger clock jump is discarded.
+  function createFrameMeter(options) {
+    const o = options || {};
+    const capacity = Number.isFinite(o.capacity) && o.capacity >= 1 ? Math.min(36000, Math.floor(o.capacity)) : 600;
+    const targetFps = Number.isFinite(o.target) && o.target >= 1 && o.target <= 240 ? o.target : 60;
+    const targetMs = 1000 / targetFps, intervals = new Float64Array(capacity), cpus = new Float64Array(capacity);
+    let next = 0, count = 0, sumMs = 0, last = NaN;
+    function sample(timestampMs, cpuMs, active = true) {
+      if (!active || !Number.isFinite(timestampMs) || timestampMs < 0 || !Number.isFinite(cpuMs) || cpuMs < 0) { last = NaN; return false; }
+      const previous = last; last = timestampMs;
+      if (!Number.isFinite(previous)) return false;
+      const interval = timestampMs - previous;
+      if (!(interval > 0) || interval > 60000) return false;
+      if (count === capacity) sumMs -= intervals[next]; else count++;
+      intervals[next] = interval; cpus[next] = cpuMs; sumMs += interval;
+      next = (next + 1) % capacity;
+      return true;
+    }
+    function snapshot() {
+      const times = new Float64Array(count), work = new Float64Array(count);
+      let slowFrames = 0, missedRefreshEstimate = 0;
+      for (let i = 0; i < count; i++) {
+        const interval = intervals[i]; times[i] = interval; work[i] = cpus[i];
+        if (interval > targetMs * 1.5) slowFrames++;
+        missedRefreshEstimate += Math.max(0, Math.round(interval / targetMs) - 1);
+      }
+      times.sort(); work.sort();
+      const rank = Math.max(0, Math.ceil(count * .95) - 1);
+      return { targetFps, measuredFps: count && sumMs > 0 ? 1000 * count / sumMs : 0,
+        intervalP95Ms: count ? times[rank] : 0, cpuP95Ms: count ? work[rank] : 0,
+        slowFrames, missedRefreshEstimate, samples: count, sampleSeconds: sumMs / 1000 };
+    }
+    function reset() { next = 0; count = 0; sumMs = 0; last = NaN; }
+    return { sample, snapshot, reset };
+  }
+
   // Quality governor: an average (alpha .1) of what each sample measures. createGovernor() measures frame time: two
   // seconds above 19 ms steps to tier 1, two seconds above 25 ms to tier 2, and it never steps back down within a page
   // session. createGovernor({ slow, slower, recover }) sets the two thresholds in ms, and with recover (seconds) a run
@@ -241,6 +280,6 @@
     return result;
   }
 
-  return { create, toBoard, toScreen, createHitStop, createGovernor, predictHit, ease: EASE,
+  return { create, toBoard, toScreen, createHitStop, createGovernor, createFrameMeter, predictHit, ease: EASE,
     timings: { FINALE, RELEASE, IMPACT, COLD, DIP, PUNCH, ZOOM_MAX, BUSY_TAIL, STOP_MAX } };
 });
