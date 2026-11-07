@@ -2856,7 +2856,7 @@
         bloomed: false, spawnAt: game.time, bossSummon: true, bossSource: s.boss.id, pearl: true });
       s.summons++;
     } else { sunnySprout(game, s, id, id, x, y); s.summons++; }
-    game.event('bossAbility', { kind: s.kind, move: p.move, act: 'spit', x, y });
+    game.event('bossAbility', { kind: s.kind, move: p.move, act: 'spit', x, y, first: p.spits === 1 });
   }
 
   return { init, step, canHit, burns, resolve, bloomed, breach, cleanup, predictVisible, targets, health: HEALTH, telegraph: TELEGRAPH, kits: KITS };

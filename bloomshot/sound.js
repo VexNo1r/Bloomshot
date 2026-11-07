@@ -564,10 +564,10 @@
   };
   FOE_CUES['lodestone:guard'] = [['pan', step(5), 0, .06, .05], ['crunch', 'click', 0, .7], ['wood', step(-3), .02, .05, .03, 0]];
   FOE_CUES['lodestone:open'] = (data, pan) => {
-    crunch('crack', 0, pan, .6); note(step(7), 0, .16, .055, pan, 'bell', 1); note(step(11), .05, .2, .045, pan, 'bell', 1);
+    crunch('crack', 0, pan, .6); note(step(7), 0, .16, .055, pan, 'bell', 2); note(step(11), .05, .2, .045, pan, 'bell', 2);
     if (data.curl) note(step(14), .12, .32, .04, pan, 'chime', 1);
     const n = Math.min(Array.isArray(data.gems) ? data.gems.length : 0, 4);
-    for (let k = 0; k < n; k++) note(pent(10 + k), .08 * (k + 1), .12, .035, pan, 'glass', 0);
+    for (let k = 0; k < n; k++) note(pent(11 + k), .08 * (k + 1), .12, .035, pan, 'glass', 0);
   };
 
   // ── Sweetheart Roses (Level 9, `sweetheart`) ──
@@ -790,7 +790,8 @@
   BOSS_ACTS['core:swirl:start'] = starFifth(BOSS_ACTS['lotus:tide:rise']);
   BOSS_ACTS['core:swirl:answer'] = starFifth(BOSS_ACTS['lotus:tide:recede']);
   BOSS_ACTS['core:portal:start'] = BOSS_ACTS['core:pearl:start'] = starFifth(BOSS_ACTS['sunny:yawn:start']);
-  BOSS_ACTS['core:portal:spit'] = starFifth(BOSS_ACTS['sunny:yawn:spit']);
+  const PORTAL_SPIT = starFifth(BOSS_ACTS['sunny:yawn:spit']);
+  BOSS_ACTS['core:portal:spit'] = (d, pan) => { if (!d.first) foeRows(PORTAL_SPIT, pan); }; // the at-once sprout is silent, as Sunny's is
   BOSS_ACTS['core:portal:answer'] = BOSS_ACTS['core:pearl:answer'] = starFifth(BOSS_ACTS['sunny:yawn:shut']);
   BOSS_ACTS['core:waltz:start'] = starFifth(BOSS_ACTS['puff:waltz:start']);
   BOSS_ACTS['core:glass:start'] = starFifth(BOSS_ACTS['crystal:heart:reform']);
@@ -813,7 +814,7 @@
   BOSS_ACTS['core:gem:land'] = [['wood', step(-2), 0, .1, .06], ['crunch', 'thock', 0, .8], ['glass', step(4), .06, .12, .035]];
   BOSS_ACTS['core:lasso:start'] = [['crunch', 'crack', 0, .7], ['harp', step(4), 0, .1, .05], ['marimba', step(4), .1, .08, .045], ['marimba', step(6), .18, .08, .045], ['marimba', step(8), .26, .1, .045]];
   BOSS_ACTS['core:lasso:arch'] = [['wood', step(1), 0, .1, .06], ['crunch', 'crack', 0, .7], ['harp', step(5), .08, .2, .045]];
-  BOSS_ACTS['core:starfall:start'] = [['glass', step(18), 0, .12, .04], ['glass', step(16), .1, .12, .04], ['glass', step(14), .2, .2, .04], ['chime', step(21), 0, .3, .025]];
+  BOSS_ACTS['core:starfall:start'] = [['glass', step(16), .1, .12, .04], ['glass', step(14), .2, .2, .04], ['chime', step(21), 0, .3, .025]];
   BOSS_ACTS['core:starfall:streak'] = (data, pan) => { foeRows([['glass', step(18 - 2 * clamp(Math.round(num(data.n, 0)), 0, 2)), 0, .25, .035]], pan); };
   BOSS_ACTS['core:starfall:catch'] = [['bell', step(11), 0, .2, .06], ['chime', step(14), .05, .25, .045], ['marimba', pent(10), .1, .08, .05], ['marimba', pent(12), .16, .08, .05],
     ['marimba', pent(14), .22, .1, .05], ['crunch', 'crack', 0, .5]];
@@ -933,7 +934,7 @@
       note(step(-2), 0, 0.10, 0.062, pan, 'wood', 0, { bright: .65, space: 'low' });
       crunch('thock', 0, pan, .55);
     }
-    else if (type === 'bossCritical' && allowed('bossCritical', 0.14)) {
+    else if (type === 'bossCritical' && !(data.via === 'whizz' && context.currentTime - (recent['foe:whizzbang:bang'] ?? -1) < 0.08) && allowed('bossCritical', 0.14)) { // the bang's bell chord is the whizz-bang crit's sound
       note(step(7), 0, 0.18, 0.078, pan * .7, 'bell', 1, { bright: .8 });
       note(step(9), 0.045, 0.25, 0.052, pan * .7, 'chime', 1, { bright: .8 });
     }

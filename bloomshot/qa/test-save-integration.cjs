@@ -1674,6 +1674,19 @@ test('Taps on an empty pod tick the phone at most once a quarter second, and onl
   assert.deepEqual(ticks(true, [0, 300, 0, 300]), { dry: 4, ticks: 3 }, 'a tap a quarter second later ticks again, one with it does not');
   assert.deepEqual(ticks(false, [0, 300]), { dry: 2, ticks: 0 });
 });
+test('A weaker buzz never cuts a stronger one still playing: a warning is felt whole, not cut to the tick that follows it', () => {
+  // A phone vibrator plays one pattern at a time, so Ember Rose's stomp warning followed by its first castanet tick in
+  // the same frame was felt as one 8 ms tick.
+  const native = fakeNative(), app = boot({ ...legacySave(), settings: { sound: false, haptics: true, motion: true } }, { native });
+  app.click('depth-map', { depth: '1' }); const game = depthGame(app); settleLevel(app);
+  const click = n => game.event('bossAbility', { kind: 'ember', move: 'stomp', act: 'click', n, x: 210, y: 100 });
+  native.calls.haptic.length = 0;
+  game.event('bossWarning', { kind: 'ember', move: 'stomp', name: 'Ember Rose', text: 'Stomp!', x: 210, y: 100, at: game.time, until: game.time + 1.3 }); click(1); app.frame(17);
+  assert.deepEqual(native.calls.haptic, ['warn'], 'the tick in the warning\'s frame waits');
+  for (let i = 0; i < 5; i++) app.frame(17);
+  click(2); click(3); app.frame(17);
+  assert.deepEqual(native.calls.haptic, ['warn', 'tick', 'tick'], 'once the warning has played, ticks (even two at once) go through');
+});
 (async () => {
 for (const { name, fn } of later) {
   try { await fn(); results.push({ name, passed: true }); }

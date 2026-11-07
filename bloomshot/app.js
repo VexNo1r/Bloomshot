@@ -83,7 +83,16 @@
     if (native && json) native.mirror(STORAGE, json); // the phone's own preferences may still work when web storage does not
     return storageAvailable;
   }
-  function haptic(kind) { if (save.settings.haptics && native) native.haptic(kind); }
+  // A phone's vibrator plays one pattern at a time and a new call cuts the one still running, so a weaker buzz never
+  // follows a stronger one inside its ~65 ms pattern (a warn or a payoff's surge is felt whole, not cut to a tick).
+  const BUZZ_RANK = { tick: 1, tap: 2, surge: 3, warn: 3 };
+  let buzzAt = -1e9, buzzRank = 0;
+  function haptic(kind) {
+    if (!save.settings.haptics || !native) return;
+    const now = performance.now(), rank = BUZZ_RANK[kind] || 2;
+    if (now - buzzAt < 70 && rank < buzzRank) return;
+    buzzAt = now; buzzRank = rank; native.haptic(kind);
+  }
   // In the native app a second copy of the save lives in the phone's preferences. If the OS wiped the web
   // storage, put that copy back and reload once so the game starts from it.
   if (native) Promise.resolve(native.restore(STORAGE)).then(restored => {

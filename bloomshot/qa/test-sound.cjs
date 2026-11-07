@@ -788,6 +788,32 @@ async function main() {
     const tick = fixture(); tick.sound.wake(); tick.tick(1); tick.sound.play('aimTick', { notch: 3 });
     assert(tick.voices().every(v => peak(v.connections[0]) <= 0.025)); assert.equal(climb('aimTick', [{ notch: 3 }])[0].toFixed(3), climb('aimTick', [{ notch: 10 }])[0].toFixed(3));
   });
+  await test('Batch-2 payoffs strike each note once: whizz-bang crit, Starfall, the Starseed\'s sun portal and the Lodestone open', () => {
+    // Every voice's pitch and start; two strikes of one pitch closer than `gap` s are a flam (or a doubled, wobbly note).
+    const strikes = (h, from = 0) => h.context.nodes.filter(n => n.kind === 'oscillator' && n.onended).slice(from).map(v => ({ f: target(v), t: v.startAt }));
+    const doubled = (list, gap) => list.filter((a, i) => list.some((b, j) => j > i && Math.abs(a.f - b.f) < .5 && Math.abs(a.t - b.t) < gap)).map(a => `${a.f.toFixed(1)} Hz at +${(a.t - 1).toFixed(3)} s`);
+    const fresh = () => { const h = fixture(); h.sound.wake(); h.tick(1); return h; };
+    // The whizz-bang crit lands a frame or two after the bang, whose bell chord is its sound; another crit still rings.
+    for (const frame of [1 / 60, 1 / 30]) {
+      const h = fresh(); h.sound.play('foe', { kind: 'whizzbang:bang', x: 210 }); h.tick(frame); h.sound.play('bossCritical', { kind: 'ember', bud: { x: 210 }, damage: 3, via: 'whizz' });
+      assert.deepEqual(doubled(strikes(h), .06), [], `the whizz-bang crit ${(frame * 1000).toFixed(0)} ms after its bang`);
+    }
+    let h = fresh(); h.sound.play('foe', { kind: 'whizzbang:bang', x: 210 }); h.tick(1 / 60); const n = strikes(h).length;
+    h.sound.play('bossCritical', { kind: 'ember', bud: { x: 210 }, damage: 2, via: 'ring' }); assert(strikes(h).length > n, 'a ring-shot crit next to a bang still rings');
+    // Starfall's start and its first comet streak share a tick.
+    h = fresh(); h.sound.play('bossAbility', { kind: 'core', move: 'starfall', act: 'start', x: 210 }); h.sound.play('bossAbility', { kind: 'core', move: 'starfall', act: 'streak', n: 0, x: 210 });
+    assert.deepEqual(doubled(strikes(h), .03), [], 'Starfall opens on one G6');
+    // The sun portal's at-once sprout spits in the same tick as its yawn: silent, as Old Sunny's; later spits sound.
+    h = fresh(); h.sound.play('bossAbility', { kind: 'core', move: 'portal', act: 'spit', first: true, x: 210 }); h.sound.play('bossAbility', { kind: 'core', move: 'portal', act: 'start', x: 210 });
+    assert.deepEqual(doubled(strikes(h), .06), [], 'the portal\'s yawn is struck once');
+    h = fresh(); h.sound.play('bossAbility', { kind: 'core', move: 'portal', act: 'spit', x: 210 }); assert(strikes(h).length >= 2, 'a later spit sounds');
+    // The Lodestone open: a curl with gems strikes no pitch twice, and its bell rings through a busy pool (payoff priority).
+    h = fresh(); h.sound.play('foe', { kind: 'lodestone:open', curl: true, gems: [{}, {}], x: 210 });
+    assert.deepEqual(doubled(strikes(h), .1), [], 'curl chime and gem run');
+    h = fresh(); for (let i = 0; i < 13; i++) { h.sound.play('bloom', { combo: i + 1 }); h.tick(.024); }
+    assert.equal(h.voices().length, MAX_VOICES - 3, 'the pool is as busy as a big chain leaves it');
+    const busy = strikes(h).length; h.sound.play('foe', { kind: 'lodestone:open', x: 210 }); assert(strikes(h).length > busy, 'the open\'s bell still rings');
+  });
   await test('Without an offline renderer the music is silently off, and the music calls never throw', () => {
     const h = fixture(); h.sound.wake(); h.tick(1);
     const states = [undefined, null, {}, { route: 'game', groove: 'meadow', heat: 1, threat: 1, superBloom: true, boss: true }, { route: 'levels' }, { hidden: true }, { hidden: false }];
