@@ -1839,7 +1839,8 @@
       for (const p of s.carried) if (p.carried && p.carried.reel && !p.bloomed) list.push({ bud: p, priority: 70, reason: 'reel' });
       for (const p of game.buds) if (p.foe === 'sweetheart' && p.bossSource === s.boss.id && !p.bloomed) list.push({ bud: p, priority: 55, reason: 'sweet' });
     },
-    cleanup(game, s) { game.bumpers = game.bumpers.filter(p => !p.bossArch); s.reel = null; s.lasso = null; s.float = null; }
+    // Her vines end with her: the defeat cascade then blooms a live pair plainly, with no "cut" cue over her finale.
+    cleanup(game, s) { game.bumpers = game.bumpers.filter(p => !p.bossArch); s.reel = null; s.lasso = null; s.float = null; for (const v of s.vines) v.cut = true; }
   });
   // Smitten with a pair still on its vine: she reels instead (or plants a patch when there is nothing to reel).
   function thornReelOrPatch(game, s, b) { const plan = KITS.briar.plan.reel(game, s, b); if (!plan.move) plan.move = 'reel'; return plan; }

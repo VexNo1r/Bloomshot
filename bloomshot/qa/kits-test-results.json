@@ -1,5 +1,5 @@
 {
-  "passed": 89,
+  "passed": 90,
   "failed": 0,
   "results": [
     {
@@ -348,6 +348,10 @@
     },
     {
       "name": "The bot goes for the bow, the docked flowers, the sweethearts and her open skirt; it never values a plain knot",
+      "passed": true
+    },
+    {
+      "name": "Her defeat ends her vines: the gold cascade blooms a live pair with no cut or kiss of hers over the finale",
       "passed": true
     },
     {

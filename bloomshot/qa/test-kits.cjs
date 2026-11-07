@@ -1484,6 +1484,13 @@ test('Crystal Heart replays identically at 30, 60 and 144 FPS, and a strike loop
     const g2 = thorn(0, 1), s2 = g2.bossState; play(g2); assert(docked(s2).length >= 2); // the flower encounter may keep one group for itself
     assert.deepEqual(Bosses.targets(g2).filter(t => t.reason === 'reel').map(t => [t.bud.id, t.priority]), docked(s2).map(p => [p.id, 70]));
   });
+  test('Her defeat ends her vines: the gold cascade blooms a live pair with no cut or kiss of hers over the finale', () => {
+    const g = thorn(1, 0, { flowers: false }), s = g.bossState, b = s.boss; play(g);
+    assert.equal(g.buds.filter(p => p.foe === 'sweetheart' && !p.bloomed).length, 2); g.drainEvents();
+    b.hp = 1; g.strike(b); assert(b.bloomed); const events = [...g.drainEvents(), ...until(g, () => false, 2)];
+    assert(g.buds.filter(p => p.foe === 'sweetheart').every(p => p.bloomed), 'the cascade blooms the pair');
+    assert.deepEqual(events.filter(e => e.type === 'bossAbility').map(e => `${e.move}:${e.act}`), []);
+  });
   test('Thornmother plays the same at 30, 60 and 144 FPS', () => {
     const snaps = [30, 60, 144].map(fps => {
       const g = thorn(2, 0); advance(g, 6, fps); const s = g.bossState;
