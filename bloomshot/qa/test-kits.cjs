@@ -1442,6 +1442,15 @@ test('Crystal Heart replays identically at 30, 60 and 144 FPS, and a strike loop
     assert.equal(s.mode, 'ole'); const hp = b.hp; hit(g, b); assert.equal(b.hp, hp - 2, 'Olé! deals 2');
     advance(g, 1.25); assert.equal(s.mode, 'flame');
   });
+  test('Ember Rose: an Olé hit that brings on her next mood keeps her standing still until Olé ends', () => {
+    const { g, s, b } = emberArena(); b.hp = s.tierAt[1] + 2; s.tier = 1;
+    emberMove(g, 1, 'stomp'); advance(g, 1.3); assert.equal(s.mode, 'ole');
+    hit(g, b); assert.equal(b.hp, s.tierAt[1], 'the Olé hit stops at the threshold'); assert(s.shiftPending);
+    const x = b.x; let far = 0, n = 0;
+    for (; n < 600 && s.mode === 'ole'; n++) { g.step(1 / 120); far = Math.max(far, Math.abs(b.x - x)); }
+    assert(n > 1.2 * 120, 'Olé was held through the mood change'); assert.equal(s.mode, 'flame');
+    assert(far < .5, `she stays where she stomped, then dances on from there (moved ${far.toFixed(2)} px)`);
+  });
   test('Ember Rose: a Lullaby holds Olé, a falling cinder and her dive', () => {
     let { g, s, b } = emberArena(); b.hp = 60; s.tier = 1;
     emberMove(g, 1, 'stomp'); advance(g, 1.3); assert.equal(s.mode, 'ole');

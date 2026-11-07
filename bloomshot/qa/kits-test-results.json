@@ -1,5 +1,5 @@
 {
-  "passed": 86,
+  "passed": 87,
   "failed": 0,
   "results": [
     {
@@ -324,6 +324,10 @@
     },
     {
       "name": "Ember Rose: three castanet clicks, then the stomp shoves flowers 16 px (never past line - 70, never up, never into each other) and Olé opens her",
+      "passed": true
+    },
+    {
+      "name": "Ember Rose: an Olé hit that brings on her next mood keeps her standing still until Olé ends",
       "passed": true
     },
     {

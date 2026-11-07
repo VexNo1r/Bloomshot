@@ -1712,6 +1712,8 @@
     step(game, s, dt) {
       // Olé and the legacy dive are timed on s.age; a Lullaby holds them as it holds the kit clock.
       if (game.lullaby > 0 && (s.mode === 'ole' || s.mode === 'dive')) { s.modeUntil += dt; if (s.mode === 'ole') s.stunUntil += dt; else s.diveAt += dt; }
+      // A mood change announced mid-Olé moves its end (schedule); she stays stunned to the end, so she never drifts and snaps back.
+      if (s.mode === 'ole' && s.stunUntil < s.modeUntil) s.stunUntil = s.modeUntil;
       for (const p of s.parts) {
         if (p.bossPart !== 'cinder' || p.bloomed) continue;
         if (p.ghost && s.kitAge - p.born >= EMBER.cinderAge) p.ghost = false;
