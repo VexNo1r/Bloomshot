@@ -234,6 +234,38 @@ test('A tip that waits is never lost: it shows after the toast before it, and no
   assert(log.includes(gems), `it shows once play is back (${log.join(' | ')})`);
   // Each toast had its full time on screen before the next.
 });
+test('Waiting tips are checked again as they show, a tip barely read comes back, and none is ever dropped', () => {
+  const app = level(player(), 8, {}, '?alllevels&bosses', { timers: true }), game = app.game(); const log = toastLog(app);
+  game.started = true; app.run(1.5); quietBoss(game); const boss = game.bossState.boss;
+  const cups = 'Cups block shots from below. Hit them from the side.', shells = 'Shells only open on one side. Wait for the gap.', gems = '3 gems! Bloom them before they fall.';
+  // Three first-time tips (and a guardian tip) arrive while a gift bubble's toast is up: every first-time one shows in turn.
+  game.events.push({ type: 'giftAppear', power: 'lullaby', x: 210, y: 60 }); app.frame();
+  game.events.push({ type: 'shield', bud: { x: 210, y: 200, r: 11, type: 'coral' } }); app.frame();
+  game.events.push({ type: 'shield', shell: true, bud: { x: 210, y: 200, r: 11, type: 'coral' } }); app.frame();
+  game.events.push({ type: 'geode', bud: { x: 210, y: 200, r: 12, type: 'lilac' }, count: 3 }); app.frame();
+  game.events.push({ type: 'shield', bud: boss, x: boss.x, y: boss.y }); app.frame();
+  // The guardian starts warning about a move before its tip's turn comes: that tip is let go.
+  game.bossWarning = { move: 'lob', text: 'Gem lob! Catch them before they land.' };
+  app.run(12);
+  assert.deepEqual(log.filter(t => [cups, shells, gems].includes(t)), [cups, shells, gems], log.join(' | '));
+  assert(!log.includes('Break a plate, aim through'), `no guardian tip over its warning (${log.join(' | ')})`);
+  game.bossWarning = null;
+  // A plain toast landing on a tip barely read puts that tip back: it shows again after the toast.
+  const run = level(player(), 6, {}, '?alllevels', { timers: true }), g = run.game(); const seen = toastLog(run); run.run(4.5);
+  g.events.push({ type: 'shield', bud: { x: 210, y: 200, r: 11, type: 'coral' } }); run.frame();
+  assert.equal(seen.at(-1), cups); run.run(.3);
+  g.events.push({ type: 'giftAppear', power: 'lullaby', x: 210, y: 60 }); run.frame();
+  assert(seen.at(-1).startsWith('Gift bubble!')); run.run(3.2);
+  assert.equal(seen.at(-1), cups, `the cup tip came back (${seen.join(' | ')})`);
+});
+test('Crystal Heart\'s wanted colour is said once, not again for a wrong-colour glance right after', () => {
+  const app = level(player(), 4, {}, '?alllevels&bosses', { timers: true }), game = app.game(); const log = toastLog(app);
+  game.started = true; app.run(1.5); const s = game.bossState; s.boss.hp = s.tierAt[1]; game.lives = 99;
+  assert(app.run(60, () => log.some(t => t.startsWith('Crystal Heart wants'))), `the hues start (${log.join(' | ')})`);
+  const wanted = log.find(t => t.startsWith('Crystal Heart wants')), heart = s.parts.find(p => p.bossPart === 'heart' && p.real);
+  game.events.push({ type: 'shield', bud: heart, x: heart.x, y: heart.y }); app.frame(); app.run(5);
+  assert.equal(log.filter(t => t === wanted).length, 1, log.join(' | '));
+});
 test('Ember Rose\'s new rule for each mood shows as a toast when the mood starts, once', () => {
   const app = level(player(), 7, {}, '?alllevels'), game = app.game(); app.run(1.3);
   const boss = bossWave(app, 'Ember Rose'), s = game.bossState; app.run(1.7);

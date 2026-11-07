@@ -138,9 +138,14 @@
   const escape = text => String(text).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
   function say(text) { $('announcement').textContent = text; }
   // speak: false when the caller has already said it (a guardian's mood line carries its new rule).
-  const TOAST_LIFE = 2800;
-  let toastAt = -Infinity, tipTimer = null, tipQueue = [];
-  function toast(text, speak = true) {
+  const TOAST_LIFE = 2800, TIP_HELD = 1500;
+  let toastAt = -Infinity, tipTimer = null, tipQueue = [], tipShown = null;
+  function toast(text, speak = true, tip = null) {
+    // A plain toast (a gift bubble, a foe's first hint) that lands on a tip barely read puts the tip back to show next.
+    if (!tip && tipShown && tipShown.tip.run === game && performance.now() - tipShown.at < TIP_HELD && !tipQueue.some(t => t.key === tipShown.tip.key)) {
+      game.tipsSeen && game.tipsSeen.delete(tipShown.tip.key); tipQueue.unshift(tipShown.tip);
+    }
+    tipShown = tip ? { tip, at: performance.now() } : null;
     toastAt = performance.now();
     $('toast').textContent = text; $('toast').classList.add('visible');
     clearTimeout(toastTimer); toastTimer = setTimeout(() => $('toast').classList.remove('visible'), TOAST_LIFE);
@@ -150,22 +155,23 @@
   // A tip that teaches something (a turned-away seed, a guardian's new rule). In a level or Rush the hint bar is hidden
   // (styles.css keeps the bottom edge for the pod), so there it is a toast. Each `key` waits `again` seconds of play
   // before it shows again (Infinity: once a run), counted from when it showed. A tip that comes while another toast is
-  // being read waits for it to finish (two wait at most, and a once-a-run tip is never the one let go), and a tip shows
-  // only while the board is in play: not behind the pause card, on the map or over a result.
-  function levelTip(text, { again = 12, key = text, speak = true } = {}) {
+  // being read waits for it to finish: two repeatable tips wait at most, and a once-a-run tip always waits its turn. A
+  // tip shows only while the board is in play (not behind the pause card, on the map or over a result), and `due`, when
+  // given, is asked again just before it shows: it gives the text as things are now, or '' when the tip no longer fits
+  // (the guardian is warning about a move, or the star it named has bloomed).
+  function levelTip(text, { again = 12, key = text, speak = true, due = null } = {}) {
     if (!text) return;
     $('game-hint').textContent = text;
     if (!game || !isRush() || isTutorial() || game.over) return;
     const last = game.tipsSeen && game.tipsSeen.get(key);
     if (last != null && game.time - last < again) return;
+    // The same words on screen right now, or waiting, are not said twice.
+    if (tipShown && tipShown.tip.run === game && $('toast').textContent === text && performance.now() - toastAt < TOAST_LIFE) return;
     tipQueue = tipQueue.filter(t => t.run === game);
-    if (tipQueue.some(t => t.key === key)) return;
-    if (tipQueue.length >= 2) {
-      const drop = tipQueue.findIndex(t => t.again !== Infinity);
-      if (again !== Infinity || drop < 0) return;
-      tipQueue.splice(drop, 1);
-    }
-    tipQueue.push({ text, key, again, speak, run: game });
+    const queued = tipQueue.find(t => t.key === key || t.text === text);
+    if (queued) { if (queued.key === key) Object.assign(queued, { text, due }); return; }
+    if (again !== Infinity && tipQueue.filter(t => t.again !== Infinity).length >= 2) return;
+    tipQueue.push({ text, key, again, speak, due, run: game });
     pumpTips();
   }
   function pumpTips() {
@@ -174,9 +180,11 @@
     if (!tipQueue.length) return;
     const wait = Math.max(0, toastAt + TOAST_LIFE - performance.now());
     if (wait || route !== 'game' || holding() || resultShown) { tipTimer = setTimeout(pumpTips, Math.max(wait, 400)); return; }
-    const tip = tipQueue.shift();
+    const tip = tipQueue.shift(), text = tip.due ? tip.due() : tip.text;
+    if (!text) { pumpTips(); return; }
+    tip.text = text;
     (game.tipsSeen || (game.tipsSeen = new Map())).set(tip.key, game.time);
-    toast(tip.text, tip.speak);
+    toast(text, tip.speak, tip);
   }
   // A guardian is held while it changes mood (bosses.js held()): seeds glance off even its real heart then.
   function bossHeld() {
@@ -2087,8 +2095,9 @@
     guard(e) {
       foeRing(e.x, e.y, '#ffffff', 6, 14, .3); haptic('tick');
       if (e.bud) e.bud.nopeAt = game.time; // art only: the star's "not yet" shake (foe-art.js); the rules never read it
-      const star = game.buds.find(b => b.foe === 'wishstar' && b.wish === e.bud?.wish && !b.bloomed && (!e.bud || b.pip < e.bud.pip));
-      if (star) levelTip(`Star ${star.pip} first!`, { again: 8, key: 'wishstar' });
+      // The star to name is worked out again when the tip shows (it may have bloomed while the tip waited).
+      const next = () => { const star = game.buds.filter(b => b.foe === 'wishstar' && b.wish === e.bud?.wish && !b.bloomed && (!e.bud || b.pip < e.bud.pip)).sort((a, b) => a.pip - b.pip)[0]; return star ? `Star ${star.pip} first!` : ''; };
+      const now = next(); if (now) levelTip(now, { again: 8, key: 'wishstar', due: next });
     }
   };
 
@@ -2265,7 +2274,8 @@
       const type = crystalHue(e), heart = game.bossState && game.bossState.parts.find(p => p.bossPart === 'heart' && p.real);
       if (!type) return;
       if (heart) { foeRing(heart.x, heart.y, FOE_COLORS[type], heart.r + 4, 30, .5); foeRing(heart.x, heart.y, '#ffffff', heart.r, 18, .3); burst({ x: heart.x, y: heart.y, type, r: heart.r }, 14, game.particles, currentKeepsake(), false); }
-      levelTip(BOSS_FX.crystal.tip(), { again: 0 }); haptic('tick');
+      // Shares the turned-away tip's key, so a wrong-colour glance right after says nothing twice.
+      levelTip(BOSS_FX.crystal.tip(), { again: 0, key: 'guard:crystal', due: () => BOSS_FX.crystal.tip() }); haptic('tick');
     },
     // The hint line while the hues are up (also after a seed of the wrong color glances off).
     tip() { const type = crystalHue(null); return type ? `Crystal Heart wants ${type} seeds!` : ''; }
@@ -2595,9 +2605,10 @@
           // A seed turned away while a move is being warned about, or while the guardian changes mood, is no lesson: the
           // board already says what is happening, so the warning keeps the hint bar and nothing pops up. Otherwise the
           // kit's own tip (or the opening one) pops up, once in 20 s for each guardian.
-          const tip = BOSS_FX[event.bud.bossKind]?.tip?.(event) || bossOpeningTip(event.bud);
-          if (game.bossWarning?.text || bossHeld()) $('game-hint').textContent = game.bossWarning?.text || tip;
-          else levelTip(tip, { again: 20, key: `guard:${event.bud.bossKind}` });
+          const kind = event.bud.bossKind, tip = BOSS_FX[kind]?.tip?.(event) || bossOpeningTip(event.bud);
+          const fits = () => !game.bossWarning?.text && !bossHeld() && Boolean(game.bossState?.boss && !game.bossState.boss.bloomed);
+          if (!fits()) $('game-hint').textContent = game.bossWarning?.text || tip;
+          else levelTip(tip, { again: 20, key: `guard:${kind}`, due: () => fits() ? BOSS_FX[kind]?.tip?.(event) || bossOpeningTip(event.bud) : '' });
         } else if (event.shell && !game.shellSeen) {
           game.shellSeen = true; const tip = 'Shells only open on one side. Wait for the gap.';
           if (waveTeaches(/shell/i)) $('game-hint').textContent = tip; else levelTip(tip, { again: Infinity });
