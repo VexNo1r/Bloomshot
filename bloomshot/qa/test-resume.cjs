@@ -333,7 +333,10 @@ test('An old save loads unchanged, and the checkpoint only ever adds run', () =>
   const after = app.saved();
   assert.deepEqual(after.run, { level: 2, wave: 2, lives: 3, score: game.score, from: 1, blooms: game.bloomedCount, chain: game.bestCombo, gift: false });
   delete after.run;
-  assert.deepEqual(after, loaded, 'everything else is as it loaded');
+  // Playing the level also adds the pieces it showed to Who's who (save.met); that list only ever grows.
+  assert((loaded.met || []).every(id => after.met.includes(id)), "Who's who keeps every piece it had");
+  const before = { ...loaded }; delete before.met; delete after.met;
+  assert.deepEqual(after, before, 'everything else is as it loaded');
 });
 
 test('A checkpoint for a level that is locked or not owned is not offered and is let go; one the store has yet to confirm waits for its answer', () => {
