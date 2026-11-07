@@ -22,8 +22,64 @@
     balanced: { board: 2, scene: 1.5, effects: 1, warm: 3 },
     performance: { board: 1.5, scene: 1, effects: 2, warm: 2 }
   });
-  const defaults = { version: 1, garden: BloomGarden.normalize(), goals: Goals.normalize(null, localDate()), progress: {}, moon: {}, koi: {}, daily: {}, rush: { best: 0, bestWave: 1, runs: 0, blooms: 0 }, depths: {}, bossLosses: {}, powers: Powers.normalize(), powerReceipts: [], powersMet: false, podMet: false, tutorial: false, lastLevel: 1, keepsake: 'meadow', settings: { sound: true, haptics: true, motion: !matchMedia('(prefers-reduced-motion: reduce)').matches, graphics: 'maximum', frameRate: false } };
+  const defaults = { version: 1, garden: BloomGarden.normalize(), goals: Goals.normalize(null, localDate()), progress: {}, moon: {}, koi: {}, daily: {}, rush: { best: 0, bestWave: 1, runs: 0, blooms: 0 }, depths: {}, bossLosses: {}, powers: Powers.normalize(), powerReceipts: [], powersMet: false, podMet: false, tutorial: false, lastLevel: 1, keepsake: 'meadow', met: [], settings: { sound: true, haptics: true, motion: !matchMedia('(prefers-reduced-motion: reduce)').matches, graphics: 'maximum', frameRate: false } };
   let storageAvailable = true;
+  // Who's who, the field guide in How to play: every piece with a rule and every guardian, under the level and wave
+  // where it first shows up, in the order a player meets them. id is what save.met keeps: a classic piece's own id, a
+  // foes.js family (kind 'foe'; its picture is that foe built at the middle of a board) or boss-<kind> for a guardian
+  // (its name comes from depths.js). take says which piece of its first wave a classic piece's picture shows. line is
+  // one short piece of advice (70 characters at most) that agrees with the piece's first-time tip in play.
+  // qa/test-guide.cjs checks that every foes.js family and every guardian has an entry here, and that each level and
+  // wave is where the piece really debuts.
+  const GUIDE = [
+    { id: 'crown', level: 1, wave: 1, name: 'Crowned flower', line: 'Hit the crown and its whole bunch blooms with it.', take: 'relay' },
+    { id: 'gift', level: 1, wave: 2, name: 'Gift bubble', line: 'Shoot the bubble to keep the free powerup inside.', take: 'gift' },
+    { id: 'rings', level: 1, wave: 3, name: 'Ringed bud', line: 'Each ring takes one hit. Keep hitting until it opens.', take: 'rings' },
+    { id: 'boss-sunny', level: 1, kind: 'guardian', line: 'Pop his bubble for double hits, and pop the sleepy Z he blows.' },
+    { id: 'rock', level: 2, wave: 1, name: 'Rock', line: 'Rocks bounce your seeds. Bank your shots around them.', take: 'rock' },
+    { id: 'rolypoly', level: 2, wave: 2, kind: 'foe', name: 'Rolypoly', line: 'Bump it and it rolls away, bowling over the flowers in its path.' },
+    { id: 'mole', level: 2, wave: 5, kind: 'foe', name: 'Peekaboo Mole', line: 'Watch which hill rumbles, then bonk him when he pops up.' },
+    { id: 'boss-root', level: 2, kind: 'guardian', line: 'Bank around his roots. Snap the knot when his carousel spins.' },
+    { id: 'puffcap', level: 3, wave: 1, name: 'Puffcap', line: 'Pop it to bloom every flower close by.', take: 'puff' },
+    { id: 'cup', level: 3, wave: 2, name: 'Acorn cup', line: 'Cups block shots from below. Hit from the side or the top.', take: 'cup' },
+    { id: 'fibcap', level: 3, wave: 4, kind: 'foe', name: 'Fibcap', line: "Striped caps are fakes. Don't shoot them, or they sneeze!" },
+    { id: 'inkcap', level: 3, wave: 6, kind: 'foe', name: 'Drippy Inkcap', line: 'Two hits bloom it. Aim around its ink drops: they gulp seeds.' },
+    { id: 'boss-puff', level: 3, kind: 'guardian', line: 'Puffcaps hurt her for two. Only the spotted cap is real.' },
+    { id: 'chroma', level: 4, wave: 3, kind: 'foe', name: 'Chroma Crystal', line: 'It opens only for a seed of its own color. Check your next seed.', opts: { type: 'sky' } },
+    { id: 'bat', level: 4, wave: 4, kind: 'foe', name: 'Echo Bat', line: 'Watch its dashed swoop line, then catch it in mid-air.' },
+    { id: 'boss-crystal', level: 4, kind: 'guardian', line: 'Follow the beating heart. Bank off her glass for a double hit.' },
+    { id: 'current', level: 5, wave: 1, name: 'Current', line: 'Currents bend your shots. Follow the aim line.', take: 'current' },
+    { id: 'jelly', level: 5, wave: 2, kind: 'foe', name: 'Moon Jelly', line: 'Hit it while it glides, not while it pulses up.' },
+    { id: 'glowworm', level: 5, wave: 3, kind: 'foe', name: 'Glowworm', line: 'Hit the glowing head. A hit on its body snaps it in two.' },
+    { id: 'boss-lotus', level: 5, kind: 'guardian', line: 'Aim for the lantern. Shut her lily pads before jellies rise.' },
+    { id: 'shell', level: 6, wave: 1, name: 'Turning shell', line: 'Shells turn. Shoot when the opening faces you.', take: 'shell' },
+    { id: 'amberkeeper', level: 6, wave: 2, kind: 'foe', name: 'Amberkeeper', line: 'Two hits break him and free every bud he sealed in amber.' },
+    { id: 'boss-fossil', level: 6, kind: 'guardian', line: 'Open both turning locks. Catch her pearls in the air.' },
+    { id: 'tunnel', level: 7, wave: 1, name: 'Tunnel', line: 'Shoot into one hole and your seed flies out of the other.', take: 'tunnel' },
+    { id: 'whizzbang', level: 7, wave: 5, kind: 'foe', name: 'Whizzbang', line: 'Light it under a crowd. It rockets up and blooms them all.' },
+    { id: 'boss-ember', level: 7, kind: 'guardian', line: 'Tunnel hits count triple. Light whizzbangs right under her.' },
+    { id: 'geode', level: 8, wave: 1, name: 'Geode', line: 'Crack it open, then bloom the gems before they fall.', take: 'geode' },
+    { id: 'lodestone', level: 8, wave: 3, kind: 'foe', name: 'Lodestone', line: 'It tugs seeds. Curl a shot onto the green moss, not the iron.' },
+    { id: 'boss-geode', level: 8, kind: 'guardian', line: 'Break a plate, then aim through the gap. Catch his big gem.' },
+    { id: 'briar', level: 9, wave: 1, name: 'Briar patch', line: 'Bloom all three fast, or the patch grows back.', take: 'briar' },
+    { id: 'sweetheart', level: 9, wave: 3, kind: 'foe', name: 'Sweetheart Roses', line: 'Hit one rose, then the other, quick! They bloom together.' },
+    { id: 'boss-briar', level: 9, kind: 'guardian', line: 'Clear a patch to cut her vine. Untie the pink bow, fast.' },
+    { id: 'wishstar', level: 10, wave: 2, kind: 'foe', name: 'Wishing Stars', line: 'Shoot the stars in order, 1 to 4. Only the twinkling one opens.' },
+    { id: 'boss-core', level: 10, kind: 'guardian', line: 'Break her stars in order to drop the dome. Catch the comets.' }
+  ].map(entry => {
+    if (entry.kind !== 'guardian') return Object.freeze({ kind: 'piece', ...entry });
+    const boss = Depths.bosses.find(item => `boss-${item.kind}` === entry.id);
+    return Object.freeze({ ...entry, wave: Depths.waveCount, boss: boss ? boss.kind : '', name: boss ? boss.name : 'Guardian' });
+  });
+  const GUIDE_IDS = new Set(GUIDE.map(entry => entry.id));
+  // What a save has met: its own list when that is a clean list of strings (unknown ids are dropped), plus everything its
+  // level progress shows was already on the board (a cleared level, or every wave up to the best one reached), so a
+  // save from before the guide opens with what that player has seen. Kept in catalog order, each id once.
+  function guideMet(raw, depths) {
+    const own = Array.isArray(raw) && raw.length <= 4 * GUIDE.length && raw.every(id => typeof id === 'string') ? new Set(raw) : new Set();
+    const reached = entry => { const record = depths && depths[entry.level]; return Boolean(record && (record.stars > 0 || record.wave >= entry.wave)); };
+    return GUIDE.filter(entry => own.has(entry.id) || reached(entry)).map(entry => entry.id);
+  }
   function readSave() {
     try {
       const raw = JSON.parse(localStorage.getItem(STORAGE) || 'null');
@@ -39,6 +95,7 @@
       // Powerups are counted, never reset; a save from before them starts with one of each.
       valid.powers = Powers.normalize(raw.powers); valid.powerReceipts = Powers.receipts(raw.powerReceipts); valid.powersMet = raw.powersMet === true;
       valid.podMet = raw.podMet === true;
+      valid.met = guideMet(raw.met, valid.depths);
       for (const world of Object.keys(chapters)) for (const level of chapters[world].levels) {
         const record = raw[world]?.[level.id];
         if (record && Number.isFinite(record.best) && Number.isInteger(record.stars) && record.stars >= 0 && record.stars <= 3) valid[world][level.id] = { best: Math.max(0, record.best), stars: record.stars, attempts: Math.max(0, Number(record.attempts) || 0) };
@@ -333,6 +390,7 @@
       canvas.setAttribute('aria-label', `${level.name}. Five single-seed shots. ${isKoi() ? 'Flowing currents turn your seed toward the way the water runs.' : 'Paired moon gates transport your seed.'} Aim with arrows, Space fires, R turns a leaf between shots. No in-flight steering.`);
     }
     setRoute('game'); trayKey = ''; updateHud();
+    if (!options.behind) meetBoard(); // the first wave never sends a wave event
     if (isRush() && !preview && !options.behind && !tutorial && !save.powersMet) { save.powersMet = true; persist(); toast('New: powerups! Tap one above Split, then fire.'); }
   }
   // The HUD is written every frame, so each write only happens when the value changed: an unchanged text, flag,
@@ -1753,7 +1811,44 @@
   // says what it does once (the wave's own hint may already have), so even a checkpoint start teaches it before it
   // costs a seed.
   const FOE_FX = Object.create(null), FOE_COLORS = { coral: '#ff5d94', gold: '#ffd148', lilac: '#a47dff', sky: '#45adff', poppy: '#ff7433' };
+  // Who's who records first contact (save.met) at the same moments: a level or wave starting (a guardian's wave is its
+  // intro), a drop, a foe arriving and a gift bubble floating in. Whatever is on the board then counts as met: hidden
+  // pieces wait until they show (a guardian counts with its fight). Only the levels record it: Meadow Rush, the
+  // tutorial and previews record nothing. A run's end also counts what its progress shows, as the next load would.
+  function meet(ids) {
+    if (!isDepth() || isTutorial() || preview) return;
+    let added = false;
+    for (const id of ids) if (GUIDE_IDS.has(id) && !save.met.includes(id)) { save.met.push(id); added = true; }
+    if (!added) return;
+    save.met = GUIDE.filter(entry => save.met.includes(entry.id)).map(entry => entry.id);
+    persist();
+  }
+  function meetBoard() {
+    if (!isDepth() || isTutorial() || preview) return;
+    const found = new Set(), family = window.BloomFoes ? BloomFoes.familyOf : null;
+    for (const bud of game.buds) {
+      if (bud.bloomed) continue;
+      // A guardian is met with its fight, whatever shape it opens in: Crystal Heart hides her own bud and comes on as
+      // three hearts (boss parts), and Rootknot burrows. Any piece of the fight carries its kind.
+      if (bud.bossKind) { found.add(`boss-${bud.bossKind}`); continue; }
+      if (bud.hidden || bud.visible === false || bud.bossPart || bud.boss) continue;
+      if (bud.gift) { found.add('gift'); continue; }
+      if (bud.foe) { if (family) found.add(family(bud.foe)); continue; }
+      if (bud.puff) found.add('puffcap');
+      if (bud.geode || bud.gem) found.add('geode');
+      if (bud.shell) found.add('shell');
+      if (bud.shield) found.add('cup');
+      if (bud.briar) found.add('briar');
+      if (bud.relay) found.add('crown');
+      if ((Number(bud.maxHp) || 1) > 1 && !bud.geode) found.add('rings');
+    }
+    if (game.bumpers.some(bumper => bumper.kind === 'rock' && !bumper.kitDrawn && !bumper.bossWall && !bumper.bossMirror)) found.add('rock');
+    if (game.currents && game.currents.length) found.add('current');
+    if (game.gates && game.gates.length) found.add('tunnel');
+    meet(found);
+  }
   function meetFoes(shown = '') {
+    meetBoard();
     if (!game.foeWave || !game.foeHint) return;
     const seen = game.foesSeen || (game.foesSeen = new Set());
     if (shown) seen.add(shown);
@@ -2563,6 +2658,7 @@
           $('game-hint').textContent = event.hint || `Wave ${game.wave} of ${game.finalWave}.`;
           say(`Wave ${game.wave} of ${game.finalWave}. ${bossName ? `${bossName}! ` : ''}${event.hint || ''} ${met ? `${met} ` : ''}${game.lives} ${game.lives === 1 ? 'life' : 'lives'} left.`);
         } else {
+          meetBoard();
           $('game-hint').textContent = `Wave ${game.wave}! Faster flowers, ×${game.tempo.toFixed(1)} points.`;
           say(`Wave ${game.wave}. Tempo times ${game.tempo.toFixed(1)}. ${game.lives} lives left.`);
         }
@@ -2663,6 +2759,7 @@
       } else if (event.type === 'bee') {
         burst({ x: event.x, y: event.y, type: 'gold', r: 6 }, 8);
       } else if (event.type === 'giftAppear') {
+        meet(['gift']);
         $('game-hint').textContent = `A gift bubble! Shoot it to keep the ${Powers.byId[event.power].name}.`;
         // The bubble floats in at the top among score pops, so it announces itself: two gold rings and a note up top.
         if (save.settings.motion) for (const slow of [0, .3]) game.particles.push({ x: event.x, y: event.y, vx: 0, vy: 0, life: .7 + slow, maxLife: .7 + slow, kind: 'ring', color: '#ffd148', size: 16, grow: 26 + slow * 50, gravity: 0, drag: 0 });
@@ -2750,6 +2847,7 @@
           }
           const recorded = Depths.record(save.depths, id, { won, lives: game.startWave === 10 ? Math.min(1, game.lives) : game.startWave > 1 ? Math.min(2, game.lives) : game.lives, score: game.score, wave: game.wave });
           save.depths = recorded.progress;
+          save.met = guideMet(save.met, save.depths); // what this run reached counts now, as it will on the next load
           depthNews = { firstClear: recorded.firstClear, newStars: recorded.newStars, opened: recorded.firstClear && Depths.level(id + 1) && depthOpen(id + 1) ? id + 1 : null,
             best: previousBest > 0 && game.score > previousBest, previousBest };
           // A replay that beats the level's best score gets the record chime, like a new best in endless Rush.
@@ -3521,8 +3619,158 @@
     $('campaign-help').open = play ? !isRush() && !isChapter() : route === 'garden';
     $('moon-help').open = play ? isMoon() : route === 'worlds';
     $('koi-help').open = play ? isKoi() : route === 'worlds';
+    // Who's who stays open from the last visit only beside Levels; anywhere else it would push that screen's help far down.
+    $('guide-help').open = $('guide-help').open && $('levels-help').open;
     $('tutorial-replay').hidden = isTutorial(); showDialog('help-dialog');
+    guideCount(); if ($('guide-help').open) guideShown();
   });
+  // ── Who's who ──
+  // The list is built the first time the section opens and again only when what has been met changes. A met entry
+  // (every entry on the review link) shows its picture, name and line; any other is a "?" card that only says which
+  // level to meet it in. Each picture is the board's own drawing (BloomArt.draw) of a sandbox board holding just that
+  // piece, made from its level's real wave: one still frame at most 2x the CSS size, painted a few at a time from
+  // frame() while the section is open, then kept.
+  const GUIDE_ART = 64, guideArt = new Map(), guideSlots = new Map();
+  let guideKey = null, guideJobs = [];
+  const guideMetIds = () => reviewAll ? GUIDE.map(entry => entry.id) : save.met;
+  function guideCount() { $('guide-count').textContent = `${guideMetIds().length} of ${GUIDE.length} met`; }
+  function guideNode(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text != null) node.textContent = text;
+    return node;
+  }
+  function renderGuide() {
+    guideCount();
+    const met = new Set(guideMetIds()), key = GUIDE.map(entry => met.has(entry.id) ? 1 : 0).join('');
+    if (key !== guideKey) {
+      guideKey = key; guideSlots.clear();
+      const list = $('guide-list');
+      list.textContent = '';
+      for (const level of Depths.levels) {
+        const entries = GUIDE.filter(entry => entry.level === level.id);
+        if (!entries.length) continue;
+        const group = guideNode('section', 'guide-level'), heading = guideNode('h3', 'guide-level-name'), items = guideNode('ul', 'guide-grid');
+        group.dataset.level = String(level.id);
+        heading.appendChild(guideNode('span', 'sr-only', 'Level '));
+        heading.appendChild(document.createTextNode(`${level.id} · ${level.name}`));
+        group.appendChild(heading); group.appendChild(items);
+        for (const entry of entries) {
+          const known = met.has(entry.id), item = guideNode('li', `guide-entry${known ? '' : ' unmet'}${entry.kind === 'guardian' ? ' guardian' : ''}`);
+          item.dataset.guide = entry.id;
+          const art = guideNode('span', known ? 'guide-art' : 'guide-art guide-unknown', known ? null : '?'), text = guideNode('span', 'guide-text');
+          art.setAttribute('aria-hidden', 'true');
+          if (entry.kind === 'guardian') text.appendChild(guideNode('span', 'guide-tag', 'Guardian'));
+          if (known) { text.appendChild(guideNode('strong', 'guide-name', entry.name)); text.appendChild(guideNode('span', 'guide-line', entry.line)); }
+          else text.appendChild(guideNode('span', 'guide-line', `Meet it in Level ${entry.level}`));
+          item.appendChild(art); item.appendChild(text); items.appendChild(item);
+          if (!known) continue;
+          guideSlots.set(entry.id, art);
+          if (guideArt.get(entry.id)) art.appendChild(guideArt.get(entry.id));
+        }
+        list.appendChild(group);
+      }
+    }
+    guideJobs = GUIDE.filter(entry => met.has(entry.id) && !guideArt.has(entry.id)).map(entry => entry.id);
+  }
+  // Opened during a level, the guide starts at that level's group (the question is "what is this thing here?").
+  function guideShown() {
+    renderGuide();
+    if (route !== 'game' || !isDepth() || isTutorial()) return;
+    const group = [...$('guide-list').children].find(node => node.dataset.level === String(game.plan.id));
+    if (group && group.scrollIntoView) group.scrollIntoView({ block: 'start' });
+  }
+  $('guide-help').addEventListener('toggle', () => { if ($('guide-help').open) guideShown(); });
+  // At least one picture a frame, and more while the frame has 6 ms to spare; nothing while the section is shut.
+  function guideStep() {
+    if (!$('help-dialog').open || !$('guide-help').open) return;
+    const until = performance.now() + 6;
+    do {
+      const entry = GUIDE.find(item => item.id === guideJobs[0]);
+      guideJobs.shift();
+      if (!entry || guideArt.has(entry.id)) continue;
+      let picture = null;
+      try { picture = guidePicture(entry); } catch (error) { picture = null; } // no picture beats a wrong one
+      guideArt.set(entry.id, picture);
+      const slot = guideSlots.get(entry.id);
+      if (slot && picture) slot.appendChild(picture);
+    } while (guideJobs.length && performance.now() < until);
+  }
+  function guidePicture(entry) {
+    const scene = guideScene(entry);
+    if (!scene) return null;
+    const dpr = Math.min(2, window.devicePixelRatio || 1), px = Math.round(GUIDE_ART * dpr), canvas = document.createElement('canvas');
+    canvas.width = px; canvas.height = px; canvas.className = 'guide-canvas'; canvas.setAttribute('aria-hidden', 'true');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    const [x0, y0, x1, y1] = scene.box, k = Math.min(GUIDE_ART / (x1 - x0), GUIDE_ART / (y1 - y0), scene.zoom), cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, half = GUIDE_ART / 2 / k;
+    ctx.setTransform(dpr * k, 0, 0, dpr * k, px / 2 - dpr * k * cx, px / 2 - dpr * k * cy);
+    // Only the piece: the launcher, the line and the HUD the board also draws lie outside this square.
+    ctx.beginPath(); ctx.rect(cx - half, cy - half, half * 2, half * 2); ctx.clip();
+    if (scene.under) {
+      const water = ctx.createRadialGradient(cx, cy, 0, cx, cy, half * 1.42);
+      water.addColorStop(0, scene.under[0]); water.addColorStop(1, scene.under[1]);
+      ctx.fillStyle = water; ctx.fillRect(cx - half, cy - half, half * 2, half * 2);
+    }
+    BloomArt.draw(ctx, scene.game, scene.game.time, { theme: depthTheme(entry.level), backdrop: false, reducedMotion: true, showAim: false });
+    return canvas;
+  }
+  // A one-wave sandbox board of the entry's level with only its piece on it (a classic piece taken from the wave it
+  // debuts in, a foe built as depths.js builds it, a guardian from its level's last wave), and the square to show.
+  function guideScene(entry) {
+    if (!window.BloomRush || typeof BloomArt.draw !== 'function') return null;
+    const base = Depths.wave(entry.level, entry.wave);
+    const spec = { ...base, buds: [], drops: [], bumpers: [], currents: [], gates: [], vents: [], hint: '' };
+    const group = test => { const first = base.buds.find(test); return first ? base.buds.filter(bud => bud.group === first.group) : []; };
+    const at = (x, y) => ({ x, y, baseX: x, startY: y });
+    let zoom = 1.6, pose = null;
+    if (entry.kind === 'guardian') { spec.buds = base.buds.filter(bud => bud.boss); zoom = 1.1; }
+    else if (entry.kind === 'foe') {
+      if (!window.BloomFoes) return null;
+      spec.buds = BloomFoes.make(entry.id, [entry.id, 210, 220, entry.opts || {}], 'guide', 0, entry.level, entry.wave);
+      // The mole waits under a hill: his picture is the moment he pops up.
+      if (entry.id === 'mole') pose = game => game.buds.some(bud => bud.foe === 'mole' && !bud.hidden);
+    }
+    else if (entry.take === 'relay') spec.buds = group(bud => bud.relay);
+    else if (entry.take === 'rings') spec.buds = base.buds.filter(bud => bud.maxHp > 1 && !bud.foe).slice(0, 1);
+    // A cup's and a shell's bunch without its crowned bud, which has a picture of its own (Crowned flower).
+    else if (entry.take === 'cup') spec.buds = group(bud => bud.shield).filter(bud => !bud.relay);
+    else if (entry.take === 'puff') spec.buds = base.buds.filter(bud => bud.puff).slice(0, 1);
+    else if (entry.take === 'shell') spec.buds = group(bud => bud.shell).filter(bud => !bud.relay);
+    else if (entry.take === 'geode') spec.buds = base.buds.filter(bud => bud.geode).slice(0, 1);
+    else if (entry.take === 'briar') spec.buds = group(bud => bud.briar);
+    else if (entry.take === 'gift') spec.buds = [{ id: 'guide-gift', group: 'guide-gift', ...at(210, 220), r: 14, type: 'gold', gift: 'sunburst', relay: false, hp: 1, maxHp: 1, fall: 0, sway: 0, hitAt: -100, bloomed: false, bloomAt: -100 }];
+    else if (entry.take === 'rock') spec.bumpers = base.bumpers.filter(bumper => bumper.kind === 'rock').slice(0, 1);
+    else if (entry.take === 'current') spec.currents = base.currents.slice(0, 1);
+    // A tunnel pair as the levels draw it: a hole facing the launcher and its exit with the way shots come out.
+    else if (entry.take === 'tunnel') spec.gates = [{ id: 'guide-in', pair: 'guide-out', x: 182, y: 226, r: 17, angle: Math.atan2(226 - 498, 182 - 210) },
+      { id: 'guide-out', pair: 'guide-in', x: 240, y: 206, r: 17, angle: -Math.PI / 3 }];
+    if (!spec.buds.length && !spec.bumpers.length && !spec.currents.length && !spec.gates.length) return null;
+    const game = new BloomRush.RushGame({ plan: { id: entry.level, name: Depths.level(entry.level).name, waves: 1, wave: () => spec } });
+    game.particles = []; game.floaters = [];
+    if (pose) { game.started = true; for (let i = 0; i < 720 && !pose(game); i++) game.step(1 / 60); }
+    // The square around what is on the board, with a little air.
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    const add = (x, y, r) => { x0 = Math.min(x0, x - r); y0 = Math.min(y0, y - r); x1 = Math.max(x1, x + r); y1 = Math.max(y1, y + r); };
+    // Room for what is drawn around a piece: a guardian's leaves, a foe's stem or cap, a ringed bud's rings and pips.
+    for (const bud of game.buds) {
+      if (bud.hidden || bud.visible === false || bud.bloomed) continue;
+      const r = Number(bud.r) || 11;
+      add(bud.x, bud.y, bud.boss ? r * 1.6 + 6 : bud.foe ? r * 1.45 + 8 : bud.maxHp > 1 && !bud.geode ? r + 14 : r + 6);
+    }
+    for (const bumper of game.bumpers) if (bumper.kind === 'rock') { const h = (Number(bumper.length) || 40) / 2 + 6; add(bumper.x - Math.cos(bumper.angle) * h, bumper.y - Math.sin(bumper.angle) * h, 12); add(bumper.x + Math.cos(bumper.angle) * h, bumper.y + Math.sin(bumper.angle) * h, 12); }
+    // A current is wider than any square: its picture is the upstream end, the band's rounded tip and its arrows.
+    for (const lane of game.currents || []) {
+      const L = Number(lane.length) || 120, W = Number(lane.width) || 40, angle = Number(lane.angle) || 0, side = Math.min(L + 16, W * 2.6), along = side / 2 - L / 2 - 8;
+      add(lane.x + Math.cos(angle) * along, lane.y + Math.sin(angle) * along, side / 2);
+    }
+    for (const gate of game.gates || []) add(gate.x, gate.y, (Number(gate.r) || 17) + 9);
+    if (!(x1 > x0 && y1 > y0)) return null;
+    const side = Math.max(x1 - x0, y1 - y0), mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+    // The pale water band only reads on the lake's dark water, as in play (the board's colors under it, Level 5).
+    const under = game.currents && game.currents.length ? ['#0e7d75', '#03464e'] : null;
+    return { game, zoom, under, box: [mx - side / 2, my - side / 2, mx + side / 2, my + side / 2] };
+  }
   $('tutorial-replay').addEventListener('click', () => { closeDialogs(); BloomSound.wake(); startTutorial(); });
   $('tutorial-skip').addEventListener('click', () => { BloomSound.wake(); endTutorial(false); });
   $('tutorial-go').addEventListener('click', () => { BloomSound.wake(); endTutorial(!save.depths[1]?.stars); });
@@ -3610,6 +3858,7 @@
     requestAnimationFrame(frame);
     const workFrom = performance.now();
     if (resizePending) resize();
+    if (guideJobs.length) guideStep();
     if (restartArmed !== null && (performance.now() - restartArmed > 2000 || route !== 'game')) armRestart(false);
     partyFrame(timestamp);
     musicFrame(timestamp);
