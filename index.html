@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <!-- Bloomshot playtest bundle of 1cdf26f475ce46a812196a7ee270fdff5fd69204, built from bloomshot/ -->
+  <!-- Bloomshot playtest bundle of 5eeb0465db98f8c1ffdbfb11a5aa142f5a885211, built from bloomshot/ -->
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#d7f0df">
@@ -637,6 +637,35 @@ dialog[open]{animation:dialog-in .34s var(--press)}
 .help-steps h3{margin-bottom:2px;font:600 16px/1.25 var(--display)}
 .help-steps p{font-size:13.5px;line-height:1.4;color:var(--ink-soft)}
 .help-tip{margin:4px 0 14px;padding:9px 12px;border-radius:14px;background:#fff;font-size:13px;line-height:1.4;color:var(--ink-soft);box-shadow:inset 0 0 0 2px var(--edge)}
+/* Who's who: each level's pieces and guardian, on cream cards with a round picture painted by the board's own art.
+   An unmet one is a dashed "?" card. Two columns once the dialog is wide enough (tablets and desktop). */
+@media(min-width:700px){.help-dialog{width:min(640px,calc(100vw - 48px))}}
+.guide-intro{margin:0 0 4px;font-size:13px;line-height:1.4;color:var(--ink-soft)}
+.guide-list{padding:0 0 12px}
+.guide-level{--tint:#d9f3df;margin-top:12px;scroll-margin-top:10px}
+.guide-level[data-level="2"]{--tint:#ffe4c4}
+.guide-level[data-level="3"]{--tint:#ece0ff}
+.guide-level[data-level="4"]{--tint:#d8eaff}
+.guide-level[data-level="5"]{--tint:#d2f2ec}
+.guide-level[data-level="6"]{--tint:#ffeac8}
+.guide-level[data-level="7"]{--tint:#ffdccb}
+.guide-level[data-level="8"]{--tint:#f1ddff}
+.guide-level[data-level="9"]{--tint:#e2f3cf}
+.guide-level[data-level="10"]{--tint:#fff0c2}
+.guide-level-name{display:inline-block;margin:0 0 8px;padding:3px 12px 4px;border-radius:999px;background:var(--tint);color:var(--ink);font:600 15px/1.25 var(--display);box-shadow:inset 0 0 0 2px #ffffffaa,0 2px 0 var(--edge-dark)}
+.guide-grid{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(250px,100%),1fr));gap:8px}
+/* A guardian that would sit alone in two columns takes the whole row, as its level's finale. */
+.guide-entry.guardian:nth-child(odd){grid-column:1/-1}
+.guide-entry{display:flex;align-items:center;gap:11px;min-width:0;padding:8px 12px 8px 8px;border-radius:18px;background:#fff;box-shadow:inset 0 0 0 2px var(--edge),0 3px 0 var(--edge-dark)}
+.guide-entry.unmet{background:var(--cream-2);box-shadow:inset 0 0 0 2px var(--edge)}
+.guide-art{position:relative;flex:0 0 64px;width:64px;height:64px;border-radius:50%;overflow:hidden;background:radial-gradient(circle at 50% 44%,#fffdf6 0 36%,var(--tint) 78%);box-shadow:0 0 0 2px #fff,0 0 0 4px var(--edge)}
+.guide-canvas{position:absolute;inset:0;width:64px;height:64px;display:block}
+.guide-unknown{display:grid;place-items:center;background:var(--cream);box-shadow:inset 0 0 0 2px var(--edge),0 0 0 2px var(--cream-2);border:2px dashed var(--edge-dark);color:var(--ink-faint);font:700 27px/1 var(--display)}
+.guide-text{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:0}
+.guide-name{font:600 16px/1.2 var(--display);color:var(--ink)}
+.guide-line{font-size:13px;line-height:1.35;color:var(--ink-soft)}
+.guide-entry.unmet .guide-line{font:600 14px/1.25 var(--display);color:#4d675b}
+.guide-tag{padding:1px 8px 2px;border-radius:999px;background:var(--pink-soft);color:#b02f57;font:600 11.5px/1.2 var(--display)}
 
 .world-dialog{padding-top:0}
 .world-close{position:absolute;right:14px;top:14px;z-index:2}
@@ -786,7 +815,7 @@ body[data-world="moon"] .desktop-mode-moon,body[data-world="koi"] .desktop-mode-
   .plant-button{flex-basis:100%}
   dialog{padding:20px 16px}
   .world-preview-art{margin:0 -16px 14px}
-  .help-mode>summary small{display:none}
+  .help-mode:not(.guide-help)>summary small{display:none}
 }
 @media(orientation:landscape) and (max-height:500px){
   #orientation-note{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:24px;text-align:center;background:var(--bg)}
@@ -1225,8 +1254,13 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     <div class="dialog-heading"><h2 id="help-title">How to play</h2><button id="close-help" class="close-button" type="button" aria-label="Close how to play">×</button></div>
     <details id="levels-help" class="help-mode" open>
       <summary><span>Levels</span><small>Ten waves</small></summary>
-      <ol class="help-steps"><li><span class="help-number">1</span><div><h3>Ten waves</h3><p>Keep the flowers above the line. Wave 10 brings a big named flower: bloom it to clear the level and open the next one. Your pod holds 4 seeds. Hits win them back.</p></div></li><li><span class="help-number">2</span><div><h3>New pieces</h3><p>Rings take more hits. Cups block shots from below. Puffcaps bloom everything near them. Rocks bounce your seeds. Deeper down: currents, turning shells, tunnels, geodes and briars.</p></div></li><li><span class="help-number">3</span><div><h3>Super Bloom</h3><p>Good shots fill the sun over your seed. When it is full, you get 6 seconds of golden seeds for double points.</p></div></li><li><span class="help-number">4</span><div><h3>Chains and tricks</h3><p>Quick blooms build a chain, and the &times;2 to &times;5 badge multiplies your points. In Super Bloom the badge turns gold and doubles. Bank shots, rebounds and close calls pay a bonus.</p></div></li><li><span class="help-number">5</span><div><h3>Powerups</h3><p>Tap one above Split, then fire. Sunburst, Dandelion and Bee Line change your next shot. Lullaby stops the flowers falling for a moment. Shoot a gift bubble to keep the powerup inside.</p></div></li><li><span class="help-number">6</span><div><h3>Stars</h3><p>Finish with all three lives for ★★★. Lose at wave 6 or later and you can try again from wave 6, free, for up to ★★.</p></div></li></ol>
+      <ol class="help-steps"><li><span class="help-number">1</span><div><h3>Ten waves</h3><p>Keep the flowers above the line. Wave 10 brings a big named flower: bloom it to clear the level and open the next one. Your pod holds 4 seeds. Hits win them back.</p></div></li><li><span class="help-number">2</span><div><h3>New pieces</h3><p>Each level brings new pieces and a guardian. Who's who, below, says how to beat each one.</p></div></li><li><span class="help-number">3</span><div><h3>Super Bloom</h3><p>Good shots fill the sun over your seed. When it is full, you get 6 seconds of golden seeds for double points.</p></div></li><li><span class="help-number">4</span><div><h3>Chains and tricks</h3><p>Quick blooms build a chain, and the &times;2 to &times;5 badge multiplies your points. In Super Bloom the badge turns gold and doubles. Bank shots, rebounds and close calls pay a bonus.</p></div></li><li><span class="help-number">5</span><div><h3>Powerups</h3><p>Tap one above Split, then fire. Sunburst, Dandelion and Bee Line change your next shot. Lullaby stops the flowers falling for a moment. Shoot a gift bubble to keep the powerup inside.</p></div></li><li><span class="help-number">6</span><div><h3>Stars</h3><p>Finish with all three lives for ★★★. Lose at wave 6 or later and you can try again from wave 6, free, for up to ★★.</p></div></li></ol>
       <p class="help-tip">Tap Turn petal to turn the petal and bend your shots.</p>
+    </details>
+    <details id="guide-help" class="help-mode guide-help">
+      <summary><span>Who's who</span><small id="guide-count"></small></summary>
+      <p class="guide-intro">Meet a piece in the levels and it shows up here, with how to beat it.</p>
+      <div id="guide-list" class="guide-list"></div>
     </details>
     <details id="rush-help" class="help-mode">
       <summary><span>Meadow Rush</span><small>Endless</small></summary>
@@ -1270,7 +1304,7 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
       <button id="tutorial-go" class="button-primary" type="button" hidden>Play level 1</button>
     </div>
   </div>
-  <div id="toast" class="toast" role="status"></div>
+  <div id="toast" class="toast" aria-hidden="true"></div>
   <output id="frame-rate-meter" class="frame-rate-meter" aria-label="Recent animation frame rate" aria-live="off" hidden></output>
   <div id="announcement" class="sr-only" aria-live="polite" aria-atomic="true"></div>
   <div id="orientation-note" role="status"><span aria-hidden="true">↻</span><strong>Turn your phone upright</strong><p>Your game is paused.</p></div>
@@ -8130,7 +8164,24 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
       // The foes' own clock (it stops during a Lullaby), Moon Jelly vents, and a guardian's nap on the aim guide.
       this.foeClock = 0; this.foeWave = false; this.vents = []; this.aimNapUntil = 0; this.colorAhead = false;
       if (first) this._applyWave(first);
+      if (plan && options.resume && typeof options.resume === 'object') this._resume(options.resume);
       this._rollGift();
+      this.waveFrom = { score: this.score, blooms: this.totalBlooms, chain: this.bestCombo };
+    }
+    // A run picked up after the phone closed the app (app.js save.run) starts its board on the wave it was on, with the
+    // lives it had left and the score, blooms and best chain it had when that wave began, so replaying the wave never
+    // counts twice. Its stars still follow the wave the run first began at (from), and a free gift the wave already
+    // showed (or the guardian's last-life Lullaby) does not come again.
+    _resume(run) {
+      const whole = (value, low, high) => Number.isInteger(value) ? Math.max(low, Math.min(high, value)) : low;
+      this.startWave = whole(run.from, 1, this.wave);
+      this.lives = whole(run.lives, 1, 3);
+      this.score = Number.isFinite(run.score) ? Math.max(0, Math.floor(run.score)) : 0;
+      this.totalBlooms = whole(run.blooms, 0, Number.MAX_SAFE_INTEGER); this.bestCombo = whole(run.chain, 0, Number.MAX_SAFE_INTEGER);
+      if (run.gift === true) { if (this.bossWave) this.bossLastLifeGift = true; else this.giftWave = this.wave; }
+      // Already under way, as at any later wave's start: the flowers fall as soon as the count-in ends. resumed tells
+      // the stage (app.js intro) to show the board at once, with no opening curtain over the count.
+      this.started = true; this.resumed = true;
     }
     _applyWave(spec) {
       this.speed = spec.speed; this.descentSpeed = spec.descent; this.waveFireDelay = spec.fireDelay;
@@ -8625,6 +8676,7 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
       this._rollGift();
       this.level.subtitle = 'Wave ' + this.wave + '. Keep the flowers above the line.';
       const boss = this.buds.find(bud => bud.boss);
+      this.waveFrom = { score: this.score, blooms: this.totalBlooms, chain: this.bestCombo };
       this.event('wave', { wave: this.wave, speed: this.speed, descentSpeed: this.descentSpeed, buds: this.buds.length, tempo: this.tempo, hint: this.waveHint, boss: Boolean(this.bossWave), bossName: boss && boss.name || null });
       // A sun that filled while the last wave was clearing opens this one in Super Bloom.
       if (this.superQueued) this._startSuper();
@@ -28342,8 +28394,70 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     balanced: { board: 2, scene: 1.5, effects: 1, warm: 3 },
     performance: { board: 1.5, scene: 1, effects: 2, warm: 2 }
   });
-  const defaults = { version: 1, garden: BloomGarden.normalize(), goals: Goals.normalize(null, localDate()), progress: {}, moon: {}, koi: {}, daily: {}, rush: { best: 0, bestWave: 1, runs: 0, blooms: 0 }, depths: {}, bossLosses: {}, powers: Powers.normalize(), powerReceipts: [], powersMet: false, podMet: false, tutorial: false, lastLevel: 1, keepsake: 'meadow', settings: { sound: true, haptics: true, motion: !matchMedia('(prefers-reduced-motion: reduce)').matches, graphics: 'maximum', frameRate: false } };
+  const defaults = { version: 1, garden: BloomGarden.normalize(), goals: Goals.normalize(null, localDate()), progress: {}, moon: {}, koi: {}, daily: {}, rush: { best: 0, bestWave: 1, runs: 0, blooms: 0 }, depths: {}, bossLosses: {}, powers: Powers.normalize(), powerReceipts: [], powersMet: false, podMet: false, tutorial: false, lastLevel: 1, keepsake: 'meadow', met: [], settings: { sound: true, haptics: true, motion: !matchMedia('(prefers-reduced-motion: reduce)').matches, graphics: 'maximum', frameRate: false } };
   let storageAvailable = true;
+  // Who's who, the field guide in How to play: every piece with a rule and every guardian, under the level and wave
+  // where it first shows up, in the order a player meets them. id is what save.met keeps: a classic piece's own id, a
+  // foes.js family (kind 'foe'; its picture is that foe built at the middle of a board) or boss-<kind> for a guardian
+  // (its name comes from depths.js). take says which piece of its first wave a classic piece's picture shows. line is
+  // one short piece of advice (70 characters at most) that agrees with the piece's first-time tip in play.
+  // The picture's framing, set only where the plain square around the piece left it small or faint in its round frame
+  // (measured in real Chromium; qa/check-responsive.cjs and qa/test-guide.cjs keep a floor under every picture):
+  // gather pulls a spread-out piece's parts in toward their middle (each keeps that share of its distance), crop cuts
+  // the square to that share of its side, and under is a backing in the level's own colors (middle, edge) for a piece
+  // that is pale on the card, as the current's pale band reads only on Level 5's dark water. None of them cuts off a
+  // defining part: a guardian's face and crown, a foe's whole body, both tunnel holes, all three briar buds.
+  // qa/test-guide.cjs checks that every foes.js family and every guardian has an entry here, and that each level and
+  // wave is where the piece really debuts.
+  const GUIDE = [
+    { id: 'crown', level: 1, wave: 1, name: 'Crowned flower', line: 'Hit the crown and its whole bunch blooms with it.', take: 'relay' },
+    { id: 'gift', level: 1, wave: 2, name: 'Gift bubble', line: 'Shoot the bubble to keep the free powerup inside.', take: 'gift' },
+    { id: 'rings', level: 1, wave: 3, name: 'Ringed bud', line: 'Each ring takes one hit. Keep hitting until it opens.', take: 'rings' },
+    { id: 'boss-sunny', level: 1, kind: 'guardian', line: 'Pop his bubble for double hits, and pop the sleepy Z he blows.' },
+    { id: 'rock', level: 2, wave: 1, name: 'Rock', line: 'Rocks bounce your seeds. Bank your shots around them.', take: 'rock', crop: .74, under: ['#8f5a35', '#5a361f'] },
+    { id: 'rolypoly', level: 2, wave: 2, kind: 'foe', name: 'Rolypoly', line: 'Bump it and it rolls away, bowling over the flowers in its path.' },
+    { id: 'mole', level: 2, wave: 5, kind: 'foe', name: 'Peekaboo Mole', line: 'Watch which hill rumbles, then bonk him when he pops up.', gather: .76, crop: .86 },
+    { id: 'boss-root', level: 2, kind: 'guardian', line: 'Bank around his roots. Snap the knot when his carousel spins.' },
+    { id: 'puffcap', level: 3, wave: 1, name: 'Puffcap', line: 'Pop it to bloom every flower close by.', take: 'puff', under: ['#5e4f98', '#2f2560'] },
+    { id: 'cup', level: 3, wave: 2, name: 'Acorn cup', line: 'Cups block shots from below. Hit from the side or the top.', take: 'cup' },
+    { id: 'fibcap', level: 3, wave: 4, kind: 'foe', name: 'Fibcap', line: "Striped caps are fakes. Don't shoot them, or they sneeze!" },
+    { id: 'inkcap', level: 3, wave: 6, kind: 'foe', name: 'Drippy Inkcap', line: 'Two hits bloom it. Aim around its ink drops: they gulp seeds.' },
+    { id: 'boss-puff', level: 3, kind: 'guardian', line: 'Puffcaps hurt her for two. Only the spotted cap is real.' },
+    { id: 'chroma', level: 4, wave: 3, kind: 'foe', name: 'Chroma Crystal', line: 'It opens only for a seed of its own color. Check your next seed.', opts: { type: 'sky' }, crop: .78 },
+    { id: 'bat', level: 4, wave: 4, kind: 'foe', name: 'Echo Bat', line: 'Watch its dashed swoop line, then catch it in mid-air.' },
+    { id: 'boss-crystal', level: 4, kind: 'guardian', line: 'Follow the beating heart. Bank off her glass for a double hit.', gather: .62, crop: .8 },
+    { id: 'current', level: 5, wave: 1, name: 'Current', line: 'Currents bend your shots. Follow the aim line.', take: 'current', under: ['#0e7d75', '#03464e'] },
+    { id: 'jelly', level: 5, wave: 2, kind: 'foe', name: 'Moon Jelly', line: 'Hit it while it glides, not while it pulses up.' },
+    { id: 'glowworm', level: 5, wave: 3, kind: 'foe', name: 'Glowworm', line: 'Hit the glowing head. A hit on its body snaps it in two.' },
+    { id: 'boss-lotus', level: 5, kind: 'guardian', line: 'Aim for the lantern. Shut her lily pads before jellies rise.' },
+    { id: 'shell', level: 6, wave: 1, name: 'Turning shell', line: 'Shells turn. Shoot when the opening faces you.', take: 'shell' },
+    { id: 'amberkeeper', level: 6, wave: 2, kind: 'foe', name: 'Amberkeeper', line: 'Two hits break him and free every bud he sealed in amber.' },
+    { id: 'boss-fossil', level: 6, kind: 'guardian', line: 'Open both turning locks. Catch her pearls in the air.', under: ['#7d5a62', '#46304a'] },
+    { id: 'tunnel', level: 7, wave: 1, name: 'Tunnel', line: 'Shoot into one hole and your seed flies out of the other.', take: 'tunnel' },
+    { id: 'whizzbang', level: 7, wave: 5, kind: 'foe', name: 'Whizzbang', line: 'Light it under a crowd. It rockets up and blooms them all.' },
+    { id: 'boss-ember', level: 7, kind: 'guardian', line: 'Tunnel hits count triple. Light whizzbangs right under her.' },
+    { id: 'geode', level: 8, wave: 1, name: 'Geode', line: 'Crack it open, then bloom the gems before they fall.', take: 'geode' },
+    { id: 'lodestone', level: 8, wave: 3, kind: 'foe', name: 'Lodestone', line: 'It tugs seeds. Curl a shot onto the green moss, not the iron.' },
+    { id: 'boss-geode', level: 8, kind: 'guardian', line: 'Break a plate, then aim through the gap. Catch his big gem.', gather: .92, crop: .76 },
+    { id: 'briar', level: 9, wave: 1, name: 'Briar patch', line: 'Bloom all three fast, or the patch grows back.', take: 'briar' },
+    { id: 'sweetheart', level: 9, wave: 3, kind: 'foe', name: 'Sweetheart Roses', line: 'Hit one rose, then the other, quick! They bloom together.', gather: .7, crop: .85 },
+    { id: 'boss-briar', level: 9, kind: 'guardian', line: 'Clear a patch to cut her vine. Untie the pink bow, fast.' },
+    { id: 'wishstar', level: 10, wave: 2, kind: 'foe', name: 'Wishing Stars', line: 'Shoot the stars in order, 1 to 4. Only the twinkling one opens.', gather: .75, crop: .85, under: ['#4a3274', '#221c46'] },
+    { id: 'boss-core', level: 10, kind: 'guardian', line: 'Break her stars in order to drop the dome. Catch the comets.', gather: .72, crop: .9, under: ['#4a3274', '#221c46'] }
+  ].map(entry => {
+    if (entry.kind !== 'guardian') return Object.freeze({ kind: 'piece', ...entry });
+    const boss = Depths.bosses.find(item => `boss-${item.kind}` === entry.id);
+    return Object.freeze({ ...entry, wave: Depths.waveCount, boss: boss ? boss.kind : '', name: boss ? boss.name : 'Guardian' });
+  });
+  const GUIDE_IDS = new Set(GUIDE.map(entry => entry.id));
+  // What a save has met: its own list when that is a clean list of strings (unknown ids are dropped), plus everything its
+  // level progress shows was already on the board (a cleared level, or every wave up to the best one reached), so a
+  // save from before the guide opens with what that player has seen. Kept in catalog order, each id once.
+  function guideMet(raw, depths) {
+    const own = Array.isArray(raw) && raw.length <= 4 * GUIDE.length && raw.every(id => typeof id === 'string') ? new Set(raw) : new Set();
+    const reached = entry => { const record = depths && depths[entry.level]; return Boolean(record && (record.stars > 0 || record.wave >= entry.wave)); };
+    return GUIDE.filter(entry => own.has(entry.id) || reached(entry)).map(entry => entry.id);
+  }
   function readSave() {
     try {
       const raw = JSON.parse(localStorage.getItem(STORAGE) || 'null');
@@ -28356,9 +28470,22 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
         const losses = raw.bossLosses?.[level.id];
         if (Number.isSafeInteger(losses) && losses >= 0) valid.bossLosses[level.id] = losses;
       }
+      // A level run the phone closed (save.run, kept by keepRun below). Every field is checked, or the whole run is dropped.
+      const run = raw.run;
+      if (run && typeof run === 'object' && !Array.isArray(run) && Number.isInteger(run.level) && Depths.level(run.level)
+        && Number.isInteger(run.wave) && run.wave >= 1 && run.wave <= Depths.waveCount && Number.isInteger(run.lives) && run.lives >= 1 && run.lives <= 3
+        && Number.isFinite(run.score) && run.score >= 0 && Number.isInteger(run.from) && run.from >= 1 && run.from <= run.wave
+        && Number.isSafeInteger(run.blooms) && run.blooms >= 0 && Number.isSafeInteger(run.chain) && run.chain >= 0 && typeof run.gift === 'boolean'
+        // spent (optional): powerups used on this wave, given back when the wave is played again from its start.
+        && (run.spent === undefined || run.spent && typeof run.spent === 'object' && !Array.isArray(run.spent)
+          && Object.entries(run.spent).every(([id, n]) => Object.hasOwn(Powers.byId, id) && Number.isInteger(n) && n >= 1 && n <= Powers.max))) {
+        valid.run = { level: run.level, wave: run.wave, lives: run.lives, score: Math.floor(run.score), from: run.from, blooms: run.blooms, chain: run.chain, gift: run.gift };
+        if (run.spent && Object.keys(run.spent).length) valid.run.spent = { ...run.spent };
+      }
       // Powerups are counted, never reset; a save from before them starts with one of each.
       valid.powers = Powers.normalize(raw.powers); valid.powerReceipts = Powers.receipts(raw.powerReceipts); valid.powersMet = raw.powersMet === true;
       valid.podMet = raw.podMet === true;
+      valid.met = guideMet(raw.met, valid.depths);
       for (const world of Object.keys(chapters)) for (const level of chapters[world].levels) {
         const record = raw[world]?.[level.id];
         if (record && Number.isFinite(record.best) && Number.isInteger(record.stars) && record.stars >= 0 && record.stars <= 3) valid[world][level.id] = { best: Math.max(0, record.best), stars: record.stars, attempts: Math.max(0, Number(record.attempts) || 0) };
@@ -28406,9 +28533,9 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
   // A phone's vibrator plays one pattern at a time and a new call cuts the one still running, so a weaker buzz never
   // follows a stronger one inside its ~65 ms pattern (a warn or a payoff's surge is felt whole, not cut to a tick).
   const BUZZ_RANK = { tick: 1, tap: 2, surge: 3, warn: 3 };
-  let buzzAt = -1e9, buzzRank = 0;
+  let buzzAt = -1e9, buzzRank = 0, hushed = false; // hushed: a beaten guardian's win settled as the page hides (settleWin)
   function haptic(kind) {
-    if (!save.settings.haptics || !native) return;
+    if (!save.settings.haptics || !native || hushed) return;
     const now = performance.now(), rank = BUZZ_RANK[kind] || 2;
     if (now - buzzAt < 70 && rank < buzzRank) return;
     buzzAt = now; buzzRank = rank; native.haptic(kind);
@@ -28456,7 +28583,25 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
   const starHTML = n => '<span>★</span>'.repeat(n) + '<span class="off">★</span>'.repeat(3 - n);
   const fmt = number => Math.round(number).toLocaleString();
   const escape = text => String(text).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
-  function say(text) { $('announcement').textContent = text; }
+  // #announcement is read once the task that wrote it is over, so a line written over another in the same go (one
+  // frame, one tap) would never be heard: lines said together are joined, each once. A line that already holds an
+  // earlier one (a wave announcement carrying a foe's first hint) takes its place.
+  let sayLines = null;
+  function say(text) {
+    if (sayLines) {
+      if (!text || sayLines.some(line => line.includes(text))) return;
+      sayLines = sayLines.filter(line => !text.includes(line)); sayLines.push(text); text = sayLines.join(' ');
+    }
+    $('announcement').textContent = text;
+  }
+  // Runs fn as one go: everything it says is read as one announcement. saidTogether wraps a handler the same way.
+  function sayTogether(fn, ...args) {
+    if (sayLines) return fn(...args);
+    sayLines = [];
+    try { return fn(...args); } finally { sayLines = null; }
+  }
+  const saidTogether = fn => (...args) => sayTogether(fn, ...args);
+  // The toast is aria-hidden, so #announcement is the one live region and a pop-up is read once.
   // speak: false when the caller has already said it (a guardian's mood line carries its new rule).
   const TOAST_LIFE = 2800, TIP_HELD = 1500;
   let toastAt = -Infinity, tipTimer = null, tipQueue = [], tipShown = null;
@@ -28472,6 +28617,9 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     if (speak) say(text);
     if (tipQueue.length) pumpTips(); // a tip that was waiting goes after this toast, never instead of it
   }
+  // A pop-up left from the screen before (the map's tutorial tip, a locked card) is put away as a level opens, so it
+  // never sits over the level's name and score.
+  function clearToast() { clearTimeout(toastTimer); $('toast').classList.remove('visible'); toastAt = -Infinity; tipShown = null; }
   // A tip that teaches something (a turned-away seed, a guardian's new rule). In a level or Rush the hint bar is hidden
   // (styles.css keeps the bottom edge for the pod), so there it is a toast. Each `key` waits `again` seconds of play
   // before it shows again (Infinity: once a run), counted from when it showed. A tip that comes while another toast is
@@ -28544,6 +28692,79 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
   const tasteOpen = () => !depthsOwned() && Boolean(Depths.level(TASTE.level)) && (save.depths[TASTE.level - 1]?.stars || 0) > 0;
   const isTaste = () => isDepth() && Boolean(game.plan.taste);
   function depthPlan(id, taste) { const level = Depths.level(id); return { id, name: level.name, waves: taste ? TASTE.waves : Depths.waveCount, wave: n => Depths.wave(id, n), taste: Boolean(taste) }; }
+  // A phone can close the app while it is hidden, so a level run keeps a checkpoint in the save (save.run): the wave
+  // being played, the lives left, the wave the run began at (from, for its stars), the score, blooms and best chain it
+  // had when this wave began (so replaying the wave never counts twice), and the powerups spent on this wave (given
+  // back when it is played again). It is written when the first seed flies (or as the board opens, for a run that
+  // starts past wave 1: Try from wave 6, Try the boss), at each wave start, on each lost life, when a gift shows, when a
+  // powerup is spent and when the page hides. A finished run, Restart, or the first seed of any other run clears it;
+  // opening another board and leaving it unplayed does not. The free taste, the tutorial and the all-levels preview
+  // never keep one.
+  const keepsRun = () => isDepth() && !isTaste() && !preview && !reviewAll && !game.over && (game.started || (game.startWave || 1) > 1);
+  function keepRun() {
+    if (!keepsRun()) return false;
+    // A wave already cleared (the next one comes 0.7 s later) is kept as the next wave's start, as it will begin.
+    const next = game.nextWaveAt !== null && game.wave < game.finalWave;
+    const from = next ? { score: game.score, blooms: game.totalBlooms, chain: game.bestCombo } : game.waveFrom || { score: 0, blooms: 0, chain: 0 }, spent = next ? {} : game.waveSpent || {};
+    save.run = { level: game.plan.id, wave: game.wave + (next ? 1 : 0), lives: game.lives, score: from.score, from: game.startWave || 1, blooms: from.blooms, chain: from.chain,
+      gift: next ? false : game.bossWave ? Boolean(game.bossLastLifeGift) : game.giftWave === game.wave };
+    if (Object.keys(spent).length) save.run.spent = { ...spent };
+    return persist();
+  }
+  // A beaten guardian wins the level, but the win (its stars and seeds, and letting the kept run go) only comes once
+  // the wave's cascade has bloomed, about a second later with the finale. The phone may close the app in that gap, so
+  // as the page hides the cascade blooms at once, with nothing falling meanwhile, and the win is recorded: leaving can
+  // keep the win but never cost a life or a star. Only on the board: a cascade left waiting behind the map or the
+  // garden keeps its wave-10 checkpoint, and the Resume card plays it out to its result as before.
+  function settleWin() {
+    if (route !== 'game' || !keepsRun() || !game.bossDown) return;
+    // Nothing of it is heard or felt: the sound is put to sleep first, as a navigation or a reload sends pagehide while
+    // the page is still showing, and nothing buzzes.
+    BloomSound.music?.frame?.({ hidden: true });
+    const lullaby = game.lullaby;
+    for (let i = 0; i < 240 && !game.over; i++) {
+      for (const item of game.pending) item.when = Math.min(item.when, game.time);
+      game.lullaby = Math.max(game.lullaby, 1); game.step(1 / 120);
+    }
+    if (!game.over) game.lullaby = lullaby;
+    hushed = true;
+    try { processEvents(); } finally { hushed = false; }
+    // A Paused card or a count left over the beaten board would hold its result back (and Restart there would start the
+    // level again), so both go: coming back shows the result.
+    if (game.over) { countLeft = 0; renderCount(); closeDialog('pause-dialog'); }
+  }
+  function dropRun(write = true) { if (!save.run || reviewAll) return; delete save.run; if (write) persist(); }
+  // A run's first seed: a level run keeps its checkpoint from here, and any other run (Meadow Rush, the taste, the
+  // tutorial, a garden, Moon or Koi board) takes the kept one's place. A world preview changes nothing.
+  function firstShot() {
+    if (game.shotSeen || preview) return;
+    game.shotSeen = true;
+    if (keepsRun()) keepRun(); else dropRun();
+  }
+  // The map offers the kept run only while its level is still open and owned; otherwise it is dropped. At startup the
+  // store has not answered yet (store-ui.js asks it after this file has drawn the map), so a paid level's run is shown
+  // until the answer comes (the map is drawn again then) and is only picked up once its level is known to be owned.
+  const runReady = run => depthOpen(run.level) && depthPaid(run.level);
+  function keptRun() {
+    const run = save.run;
+    if (!run || reviewAll) return null;
+    if (runReady(run)) return run;
+    if (!depthPaid(run.level) && store && store.ready === false) return run;
+    dropRun(); return null;
+  }
+  // Picking the kept run up starts its level at the beginning of that wave and counts in, like any resume. Powerups
+  // spent on that wave come back with it (the wave starts over), in the same save that starts it.
+  function resumeRun(run) {
+    if (!sayLines) return sayTogether(resumeRun, run);
+    if (!runReady(run)) { BloomSound.play('tap'); toast('Checking your levels. Try again in a moment.'); return; }
+    if (run.spent) { for (const [id, n] of Object.entries(run.spent)) save.powers = Powers.add(save.powers, id, n); delete run.spent; }
+    startDepth(run.level, false, run.wave, run);
+    // Its wave began before the phone closed the app, so the wave's own line (the guardian's name, the hint its ribbon
+    // shows once the count ends) is said with where it is, and a foe whose first tip is that hint is not told it again.
+    const boss = game.bossWave ? (game.buds.find(bud => bud.boss) || {}).name : '';
+    if (game.waveHint) game.foesSeen.add(game.waveHint);
+    startCount(`${boardLine()}. ${boss ? `${boss}! ` : ''}${game.waveHint ? `${game.waveHint} ` : ''}${livesLeft()} `);
+  }
   // The level the map points at: the first open one without stars, otherwise the deepest open one.
   function nextDepth() { const open = Depths.levels.filter(level => depthOpen(level.id)); return (open.find(level => !save.depths[level.id]?.stars) || open.at(-1) || Depths.levels[0]).id; }
   // In a level the wave's own tip stays up while playing; waves without one keep the basic reminder.
@@ -28606,8 +28827,8 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     if (next === 'game') resize();
   }
   function startLevel(level, options = {}) {
-    closeDialogs();
-    game = level.tutorial ? new BloomRush.RushGame({ scripted: true }) : level.depth ? new BloomRush.RushGame({ plan: depthPlan(level.depth, level.taste), random: Math.random, startWave: level.from || 1 }) : level.id === 'rush' ? new BloomRush.RushGame({ random: Math.random }) : new Game(level); game.particles = []; game.floaters = []; if ($('checkpoint-btn')) $('checkpoint-btn').hidden = true; $('resume-count').hidden = true;
+    closeDialogs(); if (!options.behind) clearToast();
+    game = level.tutorial ? new BloomRush.RushGame({ scripted: true }) : level.depth ? new BloomRush.RushGame({ plan: depthPlan(level.depth, level.taste), random: Math.random, startWave: level.from || 1, resume: level.resume || null }) : level.id === 'rush' ? new BloomRush.RushGame({ random: Math.random }) : new Game(level); game.particles = []; game.floaters = []; if ($('checkpoint-btn')) $('checkpoint-btn').hidden = true; $('resume-count').hidden = true;
     tutorial = level.tutorial ? Tutorial.create() : null; tutorialKey = ''; document.body.dataset.tutorial = tutorial ? 'on' : '';
     if (tutorial) tutorial.begin(game);
     preview = Boolean(options.preview); theme = options.theme || (isChapter() ? game.level.worldId : 'meadow');
@@ -28618,8 +28839,10 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     $('split-btn').hidden = !isRush();
     angle = -Math.PI / 2; pointer = null; aiming = false; guiding = false; resultAt = Infinity; resultShown = false; remembered = null; pressPoint = null;
     // The best to beat is read once at the start, so the end-of-run save never moves it mid-run.
-    game.bestBar = isRush() && !isTutorial() && !preview && !isTaste() ? record()?.best || 0 : 0; game.bestState = 0;
-    displayScore = 0; hudKey = ''; countLeft = 0; countShown = ''; newFlower = null; newKeepsake = null; accumulator = 0; rushRecordBroken = false; depthNews = null; game.shieldSeen = false; game.shellSeen = false; game.geodeSeen = false; game.foesSeen = new Set();
+    game.bestBar = isRush() && !isTutorial() && !preview && !isTaste() ? record()?.best || 0 : 0;
+    // A run picked up after the phone closed the app has already had its "New best!" if its kept points are past the best.
+    game.bestState = game.resumed && game.bestBar && game.score > game.bestBar ? 2 : 0;
+    displayScore = game.score || 0; hudKey = ''; countLeft = 0; countShown = ''; newFlower = null; newKeepsake = null; accumulator = 0; rushRecordBroken = false; depthNews = null; game.shieldSeen = false; game.shellSeen = false; game.geodeSeen = false; game.foesSeen = new Set();
     runId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`; runAward = 0; runBouquet = null; runGoals = null; shotTrail = []; trailTotal = 0;
     if (!preview && typeof level.id === 'number') { save.lastLevel = level.id; persist(); }
     $('level-name').textContent = level.name;
@@ -28652,7 +28875,11 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
       canvas.setAttribute('aria-label', `${level.name}. Five single-seed shots. ${isKoi() ? 'Flowing currents turn your seed toward the way the water runs.' : 'Paired moon gates transport your seed.'} Aim with arrows, Space fires, R turns a leaf between shots. No in-flight steering.`);
     }
     setRoute('game'); trayKey = ''; updateHud();
+    if (!options.behind) meetBoard(); // the first wave never sends a wave event
     if (isRush() && !preview && !options.behind && !tutorial && !save.powersMet) { save.powersMet = true; persist(); toast('New: powerups! Tap one above Split, then fire.'); }
+    // A run that starts past wave 1 (Try from wave 6, Try the boss) or is picked up again keeps its checkpoint at once;
+    // any other board takes the kept run's place only with its first seed (firstShot).
+    if (keepsRun()) keepRun();
   }
   // The HUD is written every frame, so each write only happens when the value changed: an unchanged text, flag,
   // attribute or style property costs no style, layout or paint work.
@@ -28873,22 +29100,33 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     const list = Depths.levels, suggested = nextDepth();
     const cleared = list.filter(level => save.depths[level.id]?.stars).length, stars = list.reduce((n, level) => n + (save.depths[level.id]?.stars || 0), 0);
     $('levels-summary').textContent = reviewBosses ? 'Boss preview. Your progress here stays separate.' : reviewAll ? 'All levels preview. Your progress here stays separate.' : cleared ? `${cleared} of ${Depths.total} cleared · ${stars} ★` : 'Start at the top and dig down.';
-    const resume = inProgress();
-    $('resume-btn').hidden = !resume;
+    const resume = inProgress(), kept = resume ? null : keptRun();
+    // The level with a run to pick up says so on its own card too (tapping it resumes): Resume in place of 'Play', or of
+    // a cleared level's stars, since a tap there picks the run up instead of starting the level over.
+    const going = resume && isDepth() && !isTaste() ? game.plan.id : kept ? kept.level : 0, goingWave = resume ? game.wave : kept ? kept.wave : 0;
+    $('resume-btn').hidden = !resume && !kept;
     if (resume) {
       $('resume-title').textContent = isDepth() ? `Resume level ${game.plan.id}` : 'Resume Meadow Rush';
       $('resume-sub').textContent = isDepth() ? `${Depths.level(game.plan.id).name} · wave ${game.wave} of ${game.finalWave}` : `Wave ${game.wave} · ${fmt(game.score)} points`;
+    } else if (kept) {
+      // A run the phone closed reads the same as one left a moment ago.
+      $('resume-title').textContent = `Resume level ${kept.level}`;
+      $('resume-sub').textContent = `${Depths.level(kept.level).name} · wave ${kept.wave} of ${Depths.waveCount}`;
     }
     const owned = depthsOwned();
     $('depth-map').innerHTML = list.map(level => {
       const data = save.depths[level.id], open = depthOpen(level.id), paid = depthPaid(level.id), done = data?.stars || 0, next = open && !done && level.id === suggested;
       const taste = !paid && level.id === TASTE.level && tasteOpen(), fresh = (open || taste) && !done && level.id === freshDepth;
+      // Only a card that can be tapped to play says Resume. A paid level whose kept run waits on the store's answer keeps
+      // its lock and no pill (the Resume card above says it is checking); the free taste's card holding an owner's kept
+      // run says Resume, since a tap there picks that run up instead of playing the taste.
+      const resumes = (open || taste) && level.id === going;
       const state = taste ? `First ${TASTE.waves} waves free` : !paid ? level.id === TASTE.level ? `Clear level ${level.id - 1} to try it free` : `Part of levels ${Depths.free + 1} to ${Depths.total}` : !open ? `Clear level ${level.id - 1} to open` : done ? `${done} of 3 stars` : data?.wave ? `Best: wave ${data.wave} of ${Depths.waveCount}` : 'Ready to play';
       const art = sceneSlice(level);
-      return `<li class="depth-stop"><button class="depth-card${open || taste ? '' : ' locked'}${paid ? '' : ' paid'}${taste ? ' taste' : ''}${done ? ' cleared' : ''}${next || taste ? ' next' : ''}${fresh ? ' fresh' : ''}" type="button" data-depth="${level.id}" aria-label="Level ${level.id}, ${escape(level.name)}. ${escape(level.twist)}. ${state}.">`
+      return `<li class="depth-stop"><button class="depth-card${open || taste ? '' : ' locked'}${paid ? '' : ' paid'}${taste ? ' taste' : ''}${done ? ' cleared' : ''}${next || taste ? ' next' : ''}${fresh ? ' fresh' : ''}" type="button" data-depth="${level.id}" aria-label="Level ${level.id}, ${escape(level.name)}. ${escape(level.twist)}. ${state}.${resumes ? ` Resume wave ${goingWave} of ${Depths.waveCount}.` : ''}">`
         + `<span class="depth-window" aria-hidden="true">${art ? `<img class="depth-scene" src="${art}" alt="">` : ''}<span class="depth-badge">${level.id}</span>${fresh ? '<span class="depth-new">New!</span>' : ''}${open || taste ? '' : '<span class="depth-lock"><i class="level-lock"></i></span>'}</span>`
         + `<span class="depth-foot" aria-hidden="true"><span class="depth-copy"><strong>${escape(level.name)}</strong><span>${escape(taste ? state : open || !paid ? data?.wave && !done ? state : level.twist : state)}</span></span>`
-        + (taste ? '<span class="depth-go">Try it</span>' : next ? '<span class="depth-go">Play</span>' : open ? `<span class="depth-stars">${starHTML(done)}</span>` : '') + '</span></button></li>'
+        + (resumes ? '<span class="depth-go">Resume</span>' : taste ? '<span class="depth-go">Try it</span>' : next ? '<span class="depth-go">Play</span>' : open ? `<span class="depth-stars">${starHTML(done)}</span>` : '') + '</span></button></li>'
         + (level.id === TASTE.level && !owned ? depthUnlockCard() : '');
     }).join('');
     // The first time the map shows a newly opened level, it brings that card into view.
@@ -29075,6 +29313,7 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     for (const d of data.decor) spots.querySelector(`[data-friend="${d.friend.id}"]`).hidden = !d.built;
   }
   function greetFriend(id) {
+    if (!sayLines) return sayTogether(greetFriend, id); // the hello and a goal it finishes are read as one line
     const friend = BloomGarden.decor.map(d => d.friend).find(f => f.id === id), spot = BloomMeadow.friends.find(f => f.id === id);
     if (!friend || !spot) return;
     friendPokes[id] = performance.now(); meadowDirty = true;
@@ -29092,7 +29331,7 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     // Saying hi counts for the meadow goal, so a meadow with nothing left to grow or build can still finish it.
     if (BloomGarden.summary(save.garden).decor.some(d => d.built && d.friend.id === id)) {
       const goals = trackGoals({ type: 'greet' });
-      if (goals.paid) { persist(); toast(`${goalNews(goals)} +${goals.paid} seeds`); }
+      if (goals.paid) { persist(); toast(`${goalNews(goals)} +${goals.paid} seeds.`); }
     }
   }
   // Meadow friends in the Collection: met ones in color with a line about them, the rest as silhouettes.
@@ -29273,8 +29512,9 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     const goals = trackGoals({ type: 'meadow' }); persist(); showSeeds();
     showcase.t = 0; showcase.dirty = true; renderKeepsakes();
     BloomSound.play('plant', { x: 210 }); haptic('surge');
-    toast(goals.paid ? `${style.name} grown! Goal done, +${goals.paid} seeds.` : `${style.name} grown! It's on your seed now.`);
-    say(`${style.name} grown and on your seed. ${save.garden.seeds} seeds left.`);
+    // The toast is not read out: the one announcement says it all, with the goal's seeds when it finished one.
+    toast(goals.paid ? `${style.name} grown! Goal done, +${goals.paid} seeds.` : `${style.name} grown! It's on your seed now.`, false);
+    say(`${style.name} grown and on your seed. ${goals.paid ? `Goal done, +${goals.paid} seeds. ` : ''}${save.garden.seeds} seeds left.`);
   }
   function chooseKeepsake(id) {
     const style = Keepsakes.byId[id]; if (!style) return;
@@ -29549,6 +29789,15 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
   }
   function intro() {
     const depth = isDepth() ? Depths.level(game.plan.id) : null;
+    // A run picked up after the phone closed the app (resumeRun) is already under way, so it opens like any resume:
+    // the board shows at once with no curtain, title or tumble, the count plays over it, and the first tap after the
+    // count fires. The wave's own ribbon names where it picks up (a guardian's wave lands with its name card instead).
+    if (game.resumed) {
+      game.stage = { introAt: game.time - 1, glow: 0, tipAt: null };
+      warmUp();
+      if (depth && !game.bossWave) game.floaters.push({ kind: 'title', size: 'small', x: 210, y: 32, life: game.waveHint ? 2.6 : .9, maxLife: game.waveHint ? 2.6 : .9, text: `Wave ${game.wave} of ${game.finalWave}`, label: game.waveHint || '' });
+      return;
+    }
     // The first wave never fires a 'wave' event, so its tip follows the level's title ribbon from here (stageFrame).
     game.stage = { introAt: game.time, glow: 0, tipAt: depth && game.waveHint ? game.time + 1 : null };
     warmUp();
@@ -30072,7 +30321,44 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
   // says what it does once (the wave's own hint may already have), so even a checkpoint start teaches it before it
   // costs a seed.
   const FOE_FX = Object.create(null), FOE_COLORS = { coral: '#ff5d94', gold: '#ffd148', lilac: '#a47dff', sky: '#45adff', poppy: '#ff7433' };
+  // Who's who records first contact (save.met) at the same moments: a level or wave starting (a guardian's wave is its
+  // intro), a drop, a foe arriving and a gift bubble floating in. Whatever is on the board then counts as met: hidden
+  // pieces wait until they show (a guardian counts with its fight). Only the levels record it: Meadow Rush, the
+  // tutorial and previews record nothing. A run's end also counts what its progress shows, as the next load would.
+  function meet(ids) {
+    if (!isDepth() || isTutorial() || preview) return;
+    let added = false;
+    for (const id of ids) if (GUIDE_IDS.has(id) && !save.met.includes(id)) { save.met.push(id); added = true; }
+    if (!added) return;
+    save.met = GUIDE.filter(entry => save.met.includes(entry.id)).map(entry => entry.id);
+    persist();
+  }
+  function meetBoard() {
+    if (!isDepth() || isTutorial() || preview) return;
+    const found = new Set(), family = window.BloomFoes ? BloomFoes.familyOf : null;
+    for (const bud of game.buds) {
+      if (bud.bloomed) continue;
+      // A guardian is met with its fight, whatever shape it opens in: Crystal Heart hides her own bud and comes on as
+      // three hearts (boss parts), and Rootknot burrows. Any piece of the fight carries its kind.
+      if (bud.bossKind) { found.add(`boss-${bud.bossKind}`); continue; }
+      if (bud.hidden || bud.visible === false || bud.bossPart || bud.boss) continue;
+      if (bud.gift) { found.add('gift'); continue; }
+      if (bud.foe) { if (family) found.add(family(bud.foe)); continue; }
+      if (bud.puff) found.add('puffcap');
+      if (bud.geode || bud.gem) found.add('geode');
+      if (bud.shell) found.add('shell');
+      if (bud.shield) found.add('cup');
+      if (bud.briar) found.add('briar');
+      if (bud.relay) found.add('crown');
+      if ((Number(bud.maxHp) || 1) > 1 && !bud.geode) found.add('rings');
+    }
+    if (game.bumpers.some(bumper => bumper.kind === 'rock' && !bumper.kitDrawn && !bumper.bossWall && !bumper.bossMirror)) found.add('rock');
+    if (game.currents && game.currents.length) found.add('current');
+    if (game.gates && game.gates.length) found.add('tunnel');
+    meet(found);
+  }
   function meetFoes(shown = '') {
+    meetBoard();
     if (!game.foeWave || !game.foeHint) return;
     const seen = game.foesSeen || (game.foesSeen = new Set());
     if (shown) seen.add(shown);
@@ -30813,6 +31099,7 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
   };
 
   function processEvents() {
+    if (!sayLines) { sayTogether(processEvents); return; } // a frame's events are read as one announcement
     for (const event of game.drainEvents()) {
       if (isTutorial()) tutorial.observe(event);
       if (feel && !isTutorial()) feelEvent(event);
@@ -30820,6 +31107,7 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
       if (event.type === 'launch') {
         // A kept tap launches a tick later with its own aim, so the recoil follows the shot, not the pointer.
         kick = 1; game.recoilAt = game.time; game.recoilAngle = event.angle ?? angle;
+        firstShot();
         if (event.pod === 0 && isRush() && !(game.superBloom > 0) && !isTutorial() && !preview && !save.podMet) { save.podMet = true; persist(); toast('Your pod holds 4 seeds. Quick hits grow new ones!'); }
       }
       else if (event.type === 'dry') { if (!(game.time - game.dryTickAt < .25)) { game.dryTickAt = game.time; haptic('tick'); } }
@@ -30881,7 +31169,9 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
           game.bossHint = event.boss ? event.hint || '' : ''; // what phaseBloom compares a kit's new rule with
           $('game-hint').textContent = event.hint || `Wave ${game.wave} of ${game.finalWave}.`;
           say(`Wave ${game.wave} of ${game.finalWave}. ${bossName ? `${bossName}! ` : ''}${event.hint || ''} ${met ? `${met} ` : ''}${game.lives} ${game.lives === 1 ? 'life' : 'lives'} left.`);
+          game.waveSpent = {}; keepRun();
         } else {
+          meetBoard();
           $('game-hint').textContent = `Wave ${game.wave}! Faster flowers, ×${game.tempo.toFixed(1)} points.`;
           say(`Wave ${game.wave}. Tempo times ${game.tempo.toFixed(1)}. ${game.lives} lives left.`);
         }
@@ -30966,11 +31256,18 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
       } else if (event.type === 'power') {
         const def = Powers.byId[event.power];
         // The tutorial's powerups are its own; it never spends the player's.
-        if (isTutorial()) tutorial.spend(event.power); else { save.powers = Powers.spend(save.powers, event.power).counts; persist(); }
+        // A level run keeps the powerups spent on this wave in its checkpoint, written in the same save as the spend, so a
+        // wave played again after the phone closed the app gets them back.
+        if (isTutorial()) tutorial.spend(event.power);
+        else {
+          const spent = Powers.spend(save.powers, event.power);
+          save.powers = spent.counts;
+          if (spent.ok && keepsRun()) { game.waveSpent = { ...game.waveSpent, [event.power]: ((game.waveSpent || {})[event.power] || 0) + 1 }; keepRun(); } else persist();
+        }
         trayKey = '';
         if (event.power === 'lullaby') {
           game.floaters = game.floaters.filter(item => item.kind !== 'bonus');
-          headline({ x: 210, y: 250, text: 'Lullaby', label: 'the flowers doze for 6 seconds', life: 1.3, maxLife: 1.3, kind: 'wave' });
+          headline({ x: 210, y: 250, text: 'Lullaby', label: 'the flowers doze for 6 seconds', life: 1.3, maxLife: 1.3, kind: 'wave', live: 'lullaby' });
           $('game-hint').textContent = def.tip; haptic('surge');
         } else { burst({ x: event.x, y: event.y - 10, type: 'gold', r: 8 }, 14); haptic('tick'); }
         say(isTutorial() ? `${def.name} used.` : `${def.name} used. ${save.powers[event.power]} left.`);
@@ -30982,10 +31279,12 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
       } else if (event.type === 'bee') {
         burst({ x: event.x, y: event.y, type: 'gold', r: 6 }, 8);
       } else if (event.type === 'giftAppear') {
+        meet(['gift']);
         $('game-hint').textContent = `A gift bubble! Shoot it to keep the ${Powers.byId[event.power].name}.`;
         // The bubble floats in at the top among score pops, so it announces itself: two gold rings and a note up top.
         if (save.settings.motion) for (const slow of [0, .3]) game.particles.push({ x: event.x, y: event.y, vx: 0, vy: 0, life: .7 + slow, maxLife: .7 + slow, kind: 'ring', color: '#ffd148', size: 16, grow: 26 + slow * 50, gravity: 0, drag: 0 });
         if (!isTutorial()) toast(`Gift bubble! Shoot it for a free ${Powers.byId[event.power].name}.`); else say($('game-hint').textContent);
+        keepRun(); // a level picked up again later does not offer this wave's gift twice
       } else if (event.type === 'gift') {
         const def = Powers.byId[event.power];
         save.powers = Powers.add(save.powers, event.power, 1); persist(); trayKey = '';
@@ -31005,6 +31304,7 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
         $('game-hint').textContent = !game.lives ? 'The flowers reached the line.' : event.boss ? `The big bloom touched the line and climbed back up! ${game.lives} ${game.lives === 1 ? 'life' : 'lives'} left.` : `Flowers crossed the line! ${game.lives} ${game.lives === 1 ? 'life' : 'lives'} left.`;
         haptic('warn');
         say($('game-hint').textContent);
+        keepRun(); // closing the app never gives a lost life back
       } else if (event.type === 'burst') {
         burst(event.bud, 45); game.floaters = game.floaters.filter(item => item.kind !== 'bonus');
         game.floaters.push({ x: 210, y: 418, text: '+2', life: 1.05, maxLife: 1.05, kind: 'bonus' });
@@ -31017,7 +31317,7 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
         jolt(.35, .06, .35); haptic('surge');
         // The first Super Bloom of a session explains itself mid-board; after that the gold sky, the turning sun and
         // the banner at the top say it without covering the flowers.
-        if (!superSeen) headline({ x: 210, y: 250, text: 'Super Bloom!', label: 'seeds fly through flowers', life: 1.3, maxLife: 1.3, kind: 'wave' });
+        if (!superSeen) headline({ x: 210, y: 250, text: 'Super Bloom!', label: 'seeds fly through flowers', life: 1.3, maxLife: 1.3, kind: 'wave', live: 'superBloom' });
         $('fever-banner').classList.toggle('soon', superSeen);
         $('game-hint').textContent = superSeen ? 'Super Bloom! Double points.' : 'Super Bloom! Seeds fly through flowers.';
         say(superSeen ? 'Super Bloom. Double points.' : 'Super Bloom. Seeds fly through flowers for double points.');
@@ -31069,6 +31369,7 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
           }
           const recorded = Depths.record(save.depths, id, { won, lives: game.startWave === 10 ? Math.min(1, game.lives) : game.startWave > 1 ? Math.min(2, game.lives) : game.lives, score: game.score, wave: game.wave });
           save.depths = recorded.progress;
+          save.met = guideMet(save.met, save.depths); // what this run reached counts now, as it will on the next load
           depthNews = { firstClear: recorded.firstClear, newStars: recorded.newStars, opened: recorded.firstClear && Depths.level(id + 1) && depthOpen(id + 1) ? id + 1 : null,
             best: previousBest > 0 && game.score > previousBest, previousBest };
           // A replay that beats the level's best score gets the record chime, like a new best in endless Rush.
@@ -31077,14 +31378,16 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
           else if (recorded.firstClear && id + 1 === TASTE.level && tasteOpen()) { freshDepth = TASTE.level; freshShown = false; }
           awardSeeds({ mode: 'depths', levelId: id, stars: won ? game.stars : 0, previousStars, blooms: game.bloomedCount, wave: game.wave - (game.startWave || 1) + 1 });
           runGoals = trackGoals({ type: 'rush', blooms: game.bloomedCount, wave: game.wave, chain: game.bestCombo }); runAward += runGoals.paid;
-          persist(); hudKey = '';
+          dropRun(false); persist(); hudKey = '';
           $('game-hint').textContent = won ? 'Level clear!' : 'Out of lives. Try a new angle.';
           say(won ? `Level ${id} clear. ${game.stars} stars. ${game.score} points.` : `Out of lives on wave ${game.wave} of ${game.finalWave}. ${game.bloomedCount} blooms.`);
           continue;
         }
         if (isRush()) {
-          rushRecordBroken = game.score > save.rush.best;
-          if (rushRecordBroken && save.rush.best > 0) BloomSound.play('record', {});
+          // The best kept when the page hid mid-run is this run's own, so the record is the one from before the run.
+          const before = game.rushBefore ?? save.rush.best;
+          rushRecordBroken = game.score > before;
+          if (rushRecordBroken && before > 0) BloomSound.play('record', {});
           save.rush.best = Math.max(save.rush.best, game.score);
           save.rush.bestWave = Math.max(save.rush.bestWave, game.wave);
           save.rush.blooms += game.bloomedCount; save.rush.runs++;
@@ -31372,6 +31675,7 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     catch (_) { toast('Sharing is not available here.'); }
   }
   function rotateNearest(point) {
+    if (!sayLines) return sayTogether(rotateNearest, point);
     if (!gate('rotate')) return false;
     const near = game.bumpers.find(b => b.kind !== 'rock' && Math.hypot(b.x - point.x, b.y - point.y) <= b.length / 2 + 14);
     if (!near) return false;
@@ -31518,7 +31822,7 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
   function openRush() { if (preview) exitPreview(); if (isRush() && !isDepth() && !game.over) { closeDialogs(); resumeBoard(); } else startLevel({ id: 'rush', name: 'Meadow Rush' }); }
   function openLevels() { if (preview) exitPreview(); closeDialogs(); setRoute('levels'); }
   function showUnlock() { const card = $('depth-unlock'); if (card) card.scrollIntoView({ behavior: save.settings.motion ? 'smooth' : 'auto', block: 'center' }); }
-  function startDepth(id, taste, from) { if (id === freshDepth) freshDepth = 0; if (preview) exitPreview(); startLevel({ id: 'rush', depth: id, name: Depths.level(id).name, taste: Boolean(taste), from: taste ? 1 : from || (reviewBosses ? 10 : 1) }, { theme: depthTheme(id) }); }
+  function startDepth(id, taste, from, resume) { if (id === freshDepth) freshDepth = 0; if (preview) exitPreview(); startLevel({ id: 'rush', depth: id, name: Depths.level(id).name, taste: Boolean(taste), from: taste ? 1 : from || (reviewBosses ? 10 : 1), resume: taste ? null : resume || null }, { theme: depthTheme(id) }); }
   function replay() { if (isDepth()) startDepth(game.plan.id, isTaste()); else startLevel(game.level, { preview, theme }); }
   // Restart sits next to Split, so a run with progress asks for a second tap within two seconds. Starting an endless
   // run over keeps its best score and wave (it pays nothing: only a finished run earns seeds and counts).
@@ -31539,10 +31843,16 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
   }
   function restartNow() {
     if (restartArmed !== null) armRestart(false);
-    if (runProgress() && !isDepth() && (game.score > save.rush.best || game.wave > save.rush.bestWave)) {
-      save.rush.best = Math.max(save.rush.best, game.score); save.rush.bestWave = Math.max(save.rush.bestWave, game.wave); persist();
-    }
-    replay();
+    // Starting a kept level run over lets it go at once, so the map never offers the run that was given up. Restarting
+    // another board still waiting for its first seed leaves the kept run alone.
+    keepRushBest(); if (keepsRun()) dropRun(); replay();
+  }
+  // An endless run set aside (started over, or the page hidden, since the phone may then close the app) keeps the best
+  // score and wave it has passed. The result at the end of the run still compares with the best from before it.
+  function keepRushBest() {
+    if (!runProgress() || isDepth() || !(game.score > save.rush.best || game.wave > save.rush.bestWave)) return;
+    if (game.rushBefore === undefined) game.rushBefore = save.rush.best;
+    save.rush.best = Math.max(save.rush.best, game.score); save.rush.bestWave = Math.max(save.rush.bestWave, game.wave); persist();
   }
   // Pause: the round button in the header, or on its own when the phone hides the game. Only a run still being played
   // pauses: never the tutorial, a preview, a won or lost board, or over a result card. Resume counts 3, 2, 1 over the
@@ -31551,6 +31861,8 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
   const countSpan = () => save.settings.motion ? COUNT.step * COUNT.numbers : COUNT.still;
   const pausable = () => route === 'game' && isRush() && !isTutorial() && !preview && !game.over && !resultShown && !$('result-dialog').open;
   const boardLine = () => isDepth() ? `Level ${game.plan.id} · wave ${game.wave} of ${game.finalWave}` : `Meadow Rush · wave ${game.wave} · ${fmt(game.score)} points`;
+  // A run picked up from the map says where it is, the way each wave start does, before the count.
+  const livesLeft = () => `${game.lives} ${game.lives === 1 ? 'life' : 'lives'} left.`, whereLine = () => `${boardLine()}. ${livesLeft()}`;
   function pauseGame(auto = false) {
     // Coming back from another app with nothing yet moving (no seed fired) needs no card.
     if (!pausable() || (auto && !game.started)) return false;
@@ -31562,10 +31874,14 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     say(`Paused. ${boardLine()}.`);
     return true;
   }
-  function startCount() {
+  function startCount(lead = '') {
     if (route !== 'game' || !inProgress() || isTutorial()) return;
     countLeft = countSpan(); countShown = ''; renderCount(); cancelInteraction();
-    say(save.settings.motion ? 'Get ready. 3, 2, 1.' : 'Get ready.');
+    // Callouts frozen behind the pause ("Wave clear!", a trick stamp, praise, score pops) are stale by now and would sit
+    // half hidden round the count, so they go, as at a wave's clear; ribbons and name cards stay. So does the Super Bloom
+    // or Lullaby explainer while its effect still runs (`live`): the first Super Bloom's is never shown again.
+    game.floaters = game.floaters.filter(item => item.live ? game[item.live] > 0 : !['wave', 'combo', 'bonus', 'pop', 'trick'].includes(item.kind));
+    say(`${lead}${save.settings.motion ? 'Get ready. 3, 2, 1.' : 'Get ready.'}`);
   }
   function renderCount() {
     const box = $('resume-count'), on = countLeft > 0 && route === 'game';
@@ -31578,7 +31894,7 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     if (save.settings.motion) { putData(box, 'tick', box.dataset.tick === 'a' ? 'b' : 'a'); BloomSound.play('tap'); }
   }
   // Picking a run up from the map counts in too, so a waiting board never starts the instant it shows.
-  function resumeBoard() { setRoute('game'); startCount(); }
+  function resumeBoard() { setRoute('game'); startCount(`${whereLine()} `); }
   $('pause-btn').addEventListener('click', () => pauseGame(false));
   $('pause-resume').addEventListener('click', () => { BloomSound.wake(); closeDialog('pause-dialog'); startCount(); });
   $('pause-restart').addEventListener('click', () => { BloomSound.wake(); closeDialog('pause-dialog'); restartNow(); });
@@ -31654,12 +31970,18 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
   }
   $('rush-btn').addEventListener('click', openLevels);
   $('levels-rush-btn').addEventListener('click', openRush);
-  $('resume-btn').addEventListener('click', () => { if (inProgress()) resumeBoard(); else renderLevels(); });
+  // After a relaunch this card is often the first tap, so it wakes the sound for the count-in and the level.
+  $('resume-btn').addEventListener('click', () => { BloomSound.wake(); if (inProgress()) { resumeBoard(); return; } const kept = keptRun(); if (kept) resumeRun(kept); else renderLevels(); });
   $('depth-map').addEventListener('click', event => {
     const buy = event.target.closest('[data-buy]'); if (buy) { buyProduct(buy); return; }
     const card = event.target.closest('[data-depth]'); if (!card) return;
     const id = Number(card.dataset.depth), level = Depths.level(id); if (!level) return;
     BloomSound.wake();
+    // A level run the phone closed is picked up from its level's card. While a paid level's run waits on the store's
+    // answer, the tap says it is checking (resumeRun), never that the level is for sale, and never starts the taste,
+    // whose first seed would let the owner's run go.
+    const held = inProgress() ? null : keptRun();
+    if (held && held.level === id) { resumeRun(held); return; }
     if (!depthPaid(id) && id === TASTE.level && tasteOpen()) { if (inProgress() && isTaste()) resumeBoard(); else startDepth(id, true); return; }
     // A deeper level scrolls to the unlock card, which says the rest (a toast would sit on top of it).
     if (!depthPaid(id)) { BloomSound.play('tap'); if (id === TASTE.level) toast(`Clear level ${id - 1} to try ${level.name} free.`); else say(`${level.name} is part of levels ${Depths.free + 1} to ${Depths.total}.`); showUnlock(); return; }
@@ -31691,17 +32013,20 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     save.garden = BloomGarden.select(save.garden, button.dataset.plot); persist(); renderMeadow();
     BloomSound.wake(); BloomSound.play('tap');
   });
-  $('plant-btn').addEventListener('click', () => {
+  // A planting that also finishes today's goal says both in one announcement (sayTogether).
+  $('plant-btn').addEventListener('click', saidTogether(() => {
     const id = save.garden.selectedId, fromStage = save.garden.levels[id];
     const planted = BloomGarden.plant(save.garden, id); if (!planted.success) return;
     save.garden = planted.state;
     const goals = trackGoals({ type: 'meadow' }); persist(); renderMeadow();
-    if (goals.paid) toast(`${goalNews(goals)} +${goals.paid} seeds`);
     growth = { plotId: id, fromStage, started: performance.now() };
     BloomSound.wake(); BloomSound.play('plant', { x: BloomMeadow.plots.find(p => p.id === id).x });
     haptic('tap');
-    say(`${BloomGarden.plots.find(p => p.id === id).name} ${fromStage ? 'grew' : 'planted'}. ${save.garden.seeds} seeds left.`);
-  });
+    // As growing and building do: the planting first, then the goal it finished (the toast is not read out on its own).
+    const news = goals.paid ? `${goalNews(goals)} +${goals.paid} seeds.` : '';
+    if (news) toast(news, false);
+    say(`${BloomGarden.plots.find(p => p.id === id).name} ${fromStage ? 'grew' : 'planted'}. ${news ? `${news} ` : ''}${save.garden.seeds} seeds left.`);
+  }));
   $('friend-spots').addEventListener('click', event => {
     const spot = event.target.closest('[data-friend]'); if (spot) greetFriend(spot.dataset.friend);
   });
@@ -31727,8 +32052,8 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     growth = { decorId: id, started: performance.now() };
     const spot = BloomMeadow.decor.find(d => d.id === id);
     BloomSound.play('plant', { x: spot.x }); haptic('surge');
-    toast(goals.paid ? `${piece.name} built! Goal done, +${goals.paid} seeds.` : `${piece.name} built!`);
-    say(`${piece.name} built. ${save.garden.seeds} seeds left.`);
+    toast(goals.paid ? `${piece.name} built! Goal done, +${goals.paid} seeds.` : `${piece.name} built!`, false);
+    say(`${piece.name} built. ${goals.paid ? `Goal done, +${goals.paid} seeds. ` : ''}${save.garden.seeds} seeds left.`);
     const map = meadowCanvas.getBoundingClientRect();
     if (map.top < 0 || map.bottom > window.innerHeight) meadowCanvas.scrollIntoView({ behavior: save.settings.motion ? 'smooth' : 'auto', block: 'center' });
   });
@@ -31840,8 +32165,176 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     $('campaign-help').open = play ? !isRush() && !isChapter() : route === 'garden';
     $('moon-help').open = play ? isMoon() : route === 'worlds';
     $('koi-help').open = play ? isKoi() : route === 'worlds';
+    // Who's who stays open from the last visit only beside Levels; anywhere else it would push that screen's help far down.
+    $('guide-help').open = $('guide-help').open && $('levels-help').open;
     $('tutorial-replay').hidden = isTutorial(); showDialog('help-dialog');
+    guideCount(); if ($('guide-help').open) guideShown();
   });
+  // ── Who's who ──
+  // The list is built the first time the section opens and again only when what has been met changes. A met entry
+  // (every entry on the review link) shows its picture, name and line; any other is a "?" card that only says which
+  // level to meet it in. Each picture is the board's own drawing (BloomArt.draw) of a sandbox board holding just that
+  // piece, made from its level's real wave: one still frame at most 2x the CSS size, painted a few at a time from
+  // frame() while the section is open, then kept.
+  const GUIDE_ART = 64, guideArt = new Map(), guideSlots = new Map();
+  let guideKey = null, guideJobs = [];
+  const guideMetIds = () => reviewAll ? GUIDE.map(entry => entry.id) : save.met;
+  function guideCount() { $('guide-count').textContent = `${guideMetIds().length} of ${GUIDE.length} met`; }
+  function guideNode(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text != null) node.textContent = text;
+    return node;
+  }
+  function renderGuide() {
+    guideCount();
+    const met = new Set(guideMetIds()), key = GUIDE.map(entry => met.has(entry.id) ? 1 : 0).join('');
+    if (key !== guideKey) {
+      guideKey = key; guideSlots.clear();
+      const list = $('guide-list');
+      list.textContent = '';
+      for (const level of Depths.levels) {
+        const entries = GUIDE.filter(entry => entry.level === level.id);
+        if (!entries.length) continue;
+        const group = guideNode('section', 'guide-level'), heading = guideNode('h3', 'guide-level-name'), items = guideNode('ul', 'guide-grid');
+        group.dataset.level = String(level.id);
+        heading.appendChild(guideNode('span', 'sr-only', 'Level '));
+        heading.appendChild(document.createTextNode(`${level.id} · ${level.name}`));
+        group.appendChild(heading); group.appendChild(items);
+        for (const entry of entries) {
+          const known = met.has(entry.id), item = guideNode('li', `guide-entry${known ? '' : ' unmet'}${entry.kind === 'guardian' ? ' guardian' : ''}`);
+          item.dataset.guide = entry.id;
+          const art = guideNode('span', known ? 'guide-art' : 'guide-art guide-unknown', known ? null : '?'), text = guideNode('span', 'guide-text');
+          art.setAttribute('aria-hidden', 'true');
+          if (entry.kind === 'guardian') text.appendChild(guideNode('span', 'guide-tag', 'Guardian'));
+          if (known) { text.appendChild(guideNode('strong', 'guide-name', entry.name)); text.appendChild(guideNode('span', 'guide-line', entry.line)); }
+          else text.appendChild(guideNode('span', 'guide-line', `Meet it in Level ${entry.level}`));
+          item.appendChild(art); item.appendChild(text); items.appendChild(item);
+          if (!known) continue;
+          guideSlots.set(entry.id, art);
+          if (guideArt.get(entry.id)) art.appendChild(guideArt.get(entry.id));
+        }
+        list.appendChild(group);
+      }
+    }
+    guideJobs = GUIDE.filter(entry => met.has(entry.id) && !guideArt.has(entry.id)).map(entry => entry.id);
+  }
+  // Opened during a level, the guide starts at that level's group (the question is "what is this thing here?").
+  function guideShown() {
+    renderGuide();
+    if (route !== 'game' || !isDepth() || isTutorial()) return;
+    const group = [...$('guide-list').children].find(node => node.dataset.level === String(game.plan.id));
+    if (group && group.scrollIntoView) group.scrollIntoView({ block: 'start' });
+  }
+  $('guide-help').addEventListener('toggle', () => { if ($('guide-help').open) guideShown(); });
+  // At least one picture a frame, and more while the frame has 6 ms to spare; nothing while the section is shut.
+  function guideStep() {
+    if (!$('help-dialog').open || !$('guide-help').open) return;
+    const until = performance.now() + 6;
+    do {
+      const entry = GUIDE.find(item => item.id === guideJobs[0]);
+      guideJobs.shift();
+      if (!entry || guideArt.has(entry.id)) continue;
+      let picture = null;
+      try { picture = guidePicture(entry); } catch (error) { picture = null; } // no picture beats a wrong one
+      guideArt.set(entry.id, picture);
+      const slot = guideSlots.get(entry.id);
+      if (slot && picture) slot.appendChild(picture);
+    } while (guideJobs.length && performance.now() < until);
+  }
+  function guidePicture(entry) {
+    const scene = guideScene(entry);
+    if (!scene) return null;
+    const dpr = Math.min(2, window.devicePixelRatio || 1), px = Math.round(GUIDE_ART * dpr), canvas = document.createElement('canvas');
+    canvas.width = px; canvas.height = px; canvas.className = 'guide-canvas'; canvas.setAttribute('aria-hidden', 'true');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    const [x0, y0, x1, y1] = scene.box, k = Math.min(GUIDE_ART / (x1 - x0), GUIDE_ART / (y1 - y0), scene.zoom), cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, half = GUIDE_ART / 2 / k;
+    ctx.setTransform(dpr * k, 0, 0, dpr * k, px / 2 - dpr * k * cx, px / 2 - dpr * k * cy);
+    // Only the piece: the launcher, the line and the HUD the board also draws lie outside this square.
+    ctx.beginPath(); ctx.rect(cx - half, cy - half, half * 2, half * 2); ctx.clip();
+    if (scene.under) {
+      const water = ctx.createRadialGradient(cx, cy, 0, cx, cy, half * 1.42);
+      water.addColorStop(0, scene.under[0]); water.addColorStop(1, scene.under[1]);
+      ctx.fillStyle = water; ctx.fillRect(cx - half, cy - half, half * 2, half * 2);
+    }
+    BloomArt.draw(ctx, scene.game, scene.game.time, { theme: depthTheme(entry.level), backdrop: false, reducedMotion: true, showAim: false });
+    return canvas;
+  }
+  // A one-wave sandbox board of the entry's level with only its piece on it (a classic piece taken from the wave it
+  // debuts in, a foe built as depths.js builds it, a guardian from its level's last wave), and the square to show.
+  function guideScene(entry) {
+    if (!window.BloomRush || typeof BloomArt.draw !== 'function') return null;
+    const base = Depths.wave(entry.level, entry.wave);
+    const spec = { ...base, buds: [], drops: [], bumpers: [], currents: [], gates: [], vents: [], hint: '' };
+    const group = test => { const first = base.buds.find(test); return first ? base.buds.filter(bud => bud.group === first.group) : []; };
+    const at = (x, y) => ({ x, y, baseX: x, startY: y });
+    let zoom = 1.6, pose = null, poseStep = 1 / 60;
+    if (entry.kind === 'guardian') { spec.buds = base.buds.filter(bud => bud.boss); zoom = 1.1; }
+    else if (entry.kind === 'foe') {
+      if (!window.BloomFoes) return null;
+      spec.buds = BloomFoes.make(entry.id, [entry.id, 210, 220, entry.opts || {}], 'guide', 0, entry.level, entry.wave);
+      // The mole waits under a hill: his picture is the moment he pops up.
+      if (entry.id === 'mole') pose = game => game.buds.some(bud => bud.foe === 'mole' && !bud.hidden);
+      // A glowworm laid out straight is a thin line across the frame: its picture is the worm curled round its first
+      // turn, heading back with its beads trailing round the bend. Its track is closed-form, so long steps land it
+      // exactly where short ones would, in a third of the time.
+      if (entry.id === 'glowworm') {
+        poseStep = 1 / 20;
+        pose = game => game.buds.some(head => head.foe === 'glowworm' && head.head && Math.cos(head.heading) < -.99
+          && game.buds.every(bud => bud.foe !== 'glowworm' || bud.head || bud.x > head.x + 6));
+      }
+    }
+    else if (entry.take === 'relay') spec.buds = group(bud => bud.relay);
+    else if (entry.take === 'rings') spec.buds = base.buds.filter(bud => bud.maxHp > 1 && !bud.foe).slice(0, 1);
+    // A cup's and a shell's bunch without its crowned bud, which has a picture of its own (Crowned flower).
+    else if (entry.take === 'cup') spec.buds = group(bud => bud.shield).filter(bud => !bud.relay);
+    else if (entry.take === 'puff') spec.buds = base.buds.filter(bud => bud.puff).slice(0, 1);
+    else if (entry.take === 'shell') spec.buds = group(bud => bud.shell).filter(bud => !bud.relay);
+    else if (entry.take === 'geode') spec.buds = base.buds.filter(bud => bud.geode).slice(0, 1);
+    else if (entry.take === 'briar') spec.buds = group(bud => bud.briar);
+    else if (entry.take === 'gift') spec.buds = [{ id: 'guide-gift', group: 'guide-gift', ...at(210, 220), r: 14, type: 'gold', gift: 'sunburst', relay: false, hp: 1, maxHp: 1, fall: 0, sway: 0, hitAt: -100, bloomed: false, bloomAt: -100 }];
+    else if (entry.take === 'rock') spec.bumpers = base.bumpers.filter(bumper => bumper.kind === 'rock').slice(0, 1);
+    else if (entry.take === 'current') spec.currents = base.currents.slice(0, 1);
+    // A tunnel pair as the levels draw it: a hole facing the launcher and its exit with the way shots come out.
+    else if (entry.take === 'tunnel') spec.gates = [{ id: 'guide-in', pair: 'guide-out', x: 182, y: 226, r: 17, angle: Math.atan2(226 - 498, 182 - 210) },
+      { id: 'guide-out', pair: 'guide-in', x: 240, y: 206, r: 17, angle: -Math.PI / 3 }];
+    if (!spec.buds.length && !spec.bumpers.length && !spec.currents.length && !spec.gates.length) return null;
+    const game = new BloomRush.RushGame({ plan: { id: entry.level, name: Depths.level(entry.level).name, waves: 1, wave: () => spec } });
+    game.particles = []; game.floaters = [];
+    const shown = bud => !bud.hidden && bud.visible !== false && !bud.bloomed, on = game.buds.filter(shown);
+    // Gathered: each piece on show keeps entry.gather of its distance from their middle (a guardian's plates or stars
+    // round her, a group of foes; the hidden mole pops up from his gathered hill).
+    if (entry.gather && on.length) {
+      const mx = on.reduce((sum, bud) => sum + bud.x, 0) / on.length, my = on.reduce((sum, bud) => sum + bud.y, 0) / on.length;
+      for (const bud of on) {
+        const dx = (mx - bud.x) * (1 - entry.gather), dy = (my - bud.y) * (1 - entry.gather);
+        bud.x += dx; bud.y += dy;
+        if (Number.isFinite(bud.baseX)) bud.baseX += dx;
+        if (Number.isFinite(bud.startY)) bud.startY += dy;
+      }
+    }
+    if (pose) { game.started = true; for (let i = 0; i < 720 && !pose(game); i++) game.step(poseStep); }
+    // The square around what is on the board, with a little air.
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    const add = (x, y, r) => { x0 = Math.min(x0, x - r); y0 = Math.min(y0, y - r); x1 = Math.max(x1, x + r); y1 = Math.max(y1, y + r); };
+    // Room for what is drawn around a piece: a guardian's leaves, a foe's stem or cap, a ringed bud's rings and pips.
+    for (const bud of game.buds) {
+      if (!shown(bud)) continue;
+      const r = Number(bud.r) || 11;
+      add(bud.x, bud.y, bud.boss ? r * 1.6 + 6 : bud.foe ? r * 1.45 + 8 : bud.maxHp > 1 && !bud.geode ? r + 14 : r + 6);
+    }
+    for (const bumper of game.bumpers) if (bumper.kind === 'rock') { const h = (Number(bumper.length) || 40) / 2 + 6; add(bumper.x - Math.cos(bumper.angle) * h, bumper.y - Math.sin(bumper.angle) * h, 12); add(bumper.x + Math.cos(bumper.angle) * h, bumper.y + Math.sin(bumper.angle) * h, 12); }
+    // A current is wider than any square: its picture is the upstream end, the band's rounded tip and its arrows.
+    for (const lane of game.currents || []) {
+      const L = Number(lane.length) || 120, W = Number(lane.width) || 40, angle = Number(lane.angle) || 0, side = Math.min(L + 16, W * 2.6), along = side / 2 - L / 2 - 8;
+      add(lane.x + Math.cos(angle) * along, lane.y + Math.sin(angle) * along, side / 2);
+    }
+    for (const gate of game.gates || []) add(gate.x, gate.y, (Number(gate.r) || 17) + 9);
+    if (!(x1 > x0 && y1 > y0)) return null;
+    const side = Math.max(x1 - x0, y1 - y0) * (entry.crop || 1), mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+    return { game, zoom, under: entry.under || null, box: [mx - side / 2, my - side / 2, mx + side / 2, my + side / 2] };
+  }
   $('tutorial-replay').addEventListener('click', () => { closeDialogs(); BloomSound.wake(); startTutorial(); });
   $('tutorial-skip').addEventListener('click', () => { BloomSound.wake(); endTutorial(false); });
   $('tutorial-go').addEventListener('click', () => { BloomSound.wake(); endTutorial(!save.depths[1]?.stars); });
@@ -31920,15 +32413,21 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
   window.addEventListener('resize', () => { resizePending = true; });
   // A call, the home button or a locked phone hides the game: the Paused card is waiting when it comes back, so no
   // flower moves before the player is ready. Losing focus alone (a notification pulled down) never pauses.
+  // The phone may close the app while it is hidden, so a beaten guardian's win, the level run's checkpoint and an endless
+  // run's best are kept first.
+  // native.js flushes its copy for the phone's preferences on hide before this runs, so this save is flushed too.
+  function keepProgress() { settleWin(); keepRun(); keepRushBest(); if (native && typeof native.flush === 'function') native.flush(); }
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) pauseGame(true);
+    if (document.hidden) { keepProgress(); pauseGame(true); }
     lastFrame = 0; accumulator = 0; if (frameMeter) frameMeter.sample(0, 0, false); cancelInteraction(); musicFrame(performance.now(), true);
   });
-  window.addEventListener('pagehide', () => pauseGame(true));
+  window.addEventListener('pagehide', () => { keepProgress(); pauseGame(true); });
   function frame(timestamp) {
+    if (!sayLines) return sayTogether(frame, timestamp); // what one frame says is read as one announcement
     requestAnimationFrame(frame);
     const workFrom = performance.now();
     if (resizePending) resize();
+    if (guideJobs.length) guideStep();
     if (restartArmed !== null && (performance.now() - restartArmed > 2000 || route !== 'game')) armRestart(false);
     partyFrame(timestamp);
     musicFrame(timestamp);
