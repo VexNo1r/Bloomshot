@@ -1364,6 +1364,136 @@ test('Crystal Heart replays identically at 30, 60 and 144 FPS, and a strike loop
 // ── Ammonite Queen (Level 6, `fossil`) ──
 
 // ── Ember Rose (Level 7, `ember`) ──
+{
+  const EMBER_KIT = Bosses.kits.ember, emberActs = (events, act) => events.filter(e => e.type === 'bossAbility' && e.kind === 'ember' && e.act === act);
+  const emberArena = () => { const g = arena(7); g.drainEvents(); return { g, s: g.bossState, b: g.bossState.boss }; };
+  const steps = (g, seconds, fps = 120) => { const events = []; for (let n = 0; n < Math.round(seconds * fps); n++) { g.step(1 / fps); events.push(...g.drainEvents()); } return events; };
+  // Her next move is `move` from `tier`'s list, announced now; returns the warning.
+  function emberMove(g, tier, move) {
+    const s = g.bossState; s.tier = tier; s.shiftPending = false; s.warning = null;
+    if (tier) s.cycle = EMBER_KIT.moves[tier].indexOf(move); else s.action = EMBER_KIT.moves[0].indexOf(move);
+    s.next = s.age; advance(g, .02); assert.equal(g.bossWarning && g.bossWarning.move, move); return g.bossWarning;
+  }
+  const flower = (id, x, y) => ({ id, group: id, x, y, baseX: x, startY: y, r: 11, type: 'gold', relay: false, hp: 1, maxHp: 1, fall: 1, sway: 0, swayW: 0, swayPhase: 0, hitAt: -100, bloomed: false, bloomAt: -100 });
+  // A cinder spat straight down from (x0, y0) with no sideways hop, timed so it closes at the coal line at x0.
+  function cinderAt(g, x0, y0 = 261) {
+    const s = g.bossState; EMBER_KIT.burned(g, s, { x: x0, y: y0 });
+    const c = s.parts.filter(p => p.bossPart === 'cinder').pop(); c.side = 0; c.x0 = x0; c.y0 = y0; return c;
+  }
+  test('Ember Rose: 100 health with moods at 67 and 34, three moods, her familiar dive first, and every word fits', () => {
+    const { s, b } = emberArena();
+    assert.equal(b.maxHp, 100); assert.deepEqual(s.tierAt, [67, 34]); assert.deepEqual(EMBER_KIT.moods, ['Flickering', 'Dancing', 'Blazing']);
+    assert.equal(EMBER_KIT.moves[0][0], 'ember', 'tier 0 opens on the legacy dive the pinned tests expect');
+    for (const text of [...Object.values(EMBER_KIT.text), ...EMBER_KIT.stageText.filter(Boolean)]) assert(text.length <= 52, text);
+    const tip = fs.readFileSync(path.join(__dirname, '../app.js'), 'utf8').match(/'(Too hot for tunnels![^']*)'/);
+    assert(tip && tip[1].length <= 52, 'the tunnel tip fits');
+  });
+  test('Ember Rose: a seed into her flame spits a cinder you can catch for a sun; a missed one cools to a coal that rolls off tunnel mouths', () => {
+    let { g, s, b } = emberArena();
+    g.spawnBall({ x: b.x, y: b.y + 60, angle: -Math.PI / 2 }); advance(g, .15);
+    const c = s.parts.find(p => p.bossPart === 'cinder'); assert(c && c.ghost, 'a ghost while it is spat'); advance(g, .3); assert(!c.ghost, 'catchable at .45 s');
+    const y0 = c.y; advance(g, 1); assert(c.y > y0 + 40, 'it falls');
+    let events = steps(g, 8); assert(c.bloomed && c.closed, 'it landed');
+    const coal = g.bumpers.find(r => r.bossCoal); assert(coal && coal.y === 404 && coal.kitDrawn); assert.equal(emberActs(events, 'coal').length, 1);
+    advance(g, 4.1); assert(!g.bumpers.some(r => r.bossCoal), 'the coal is gone after 4 s');
+    ({ g, s, b } = emberArena()); const caught = cinderAt(g, 300, 200); advance(g, .5); g.drainEvents();
+    let charge = g.sunCharge; hit(g, caught); assert(caught.bloomed); const paid = g.sunCharge - charge;
+    assert.equal(emberActs(g.drainEvents(), 'catch').length, 1, 'a catch chimes');
+    const h = emberArena().g, bare = flower('bare', 300, 200); h.buds.push(bare); charge = h.sunCharge; hit(h, bare);
+    assert.equal(paid - (h.sunCharge - charge), 1, 'a caught cinder pays one more sun');
+    ({ g, s } = emberArena()); assert(g.gates.some(m => m.x === 100 && m.y === 404 && m.r === 17), 'the level tunnel mouth');
+    const left = cinderAt(g, 96), right = cinderAt(g, 104); events = steps(g, 4);
+    assert(left.closed && right.closed); assert.deepEqual(g.bumpers.filter(r => r.bossCoal).map(r => r.x).sort((p, q) => p - q), [66, 134], 'both roll clear of the mouth');
+    ({ g, s } = emberArena()); g.gates.push({ id: 'qa-a', pair: 'qa-b', x: 60, y: 404, r: 17, angle: 0, lastUsed: -100 });
+    const edge = cinderAt(g, 50); events = steps(g, 4);
+    assert(edge.closed); assert(!g.bumpers.some(r => r.bossCoal), 'no room: it goes out'); assert(emberActs(events, 'coal').some(e => e.out === true));
+  });
+  test('Ember Rose: her fire rings hide her and land her at the far ring; a ring shot deals 3, and at Blazing a level tunnel is too hot', () => {
+    const { g, s, b } = emberArena(); b.hp = 60; s.tier = 1;
+    const w = emberMove(g, 1, 'rings'); advance(g, 1.3);
+    const rings = g.gates.filter(m => m.bossRing); assert.equal(rings.length, 2); assert(b.hidden, 'she dives into ring A');
+    advance(g, .5); assert(!b.hidden); assert(Math.abs(b.x - w.targets.find(t => t.role === 'ringB').x) < 1, 'she lands at ring B');
+    for (const r of rings) r.lastUsed = g.time;
+    let hp = b.hp; g.drainEvents(); hit(g, b, { gateHops: 1, gateAt: g.time }); assert.equal(b.hp, hp - 3);
+    assert(g.drainEvents().some(e => e.type === 'bossCritical' && e.via === 'ring'), 'Ring shot!');
+    hp = b.hp; hit(g, b, { gateHops: 1, gateAt: g.time - 1 }); assert.equal(b.hp, hp - 1, 'a level tunnel deals 1');
+    s.tier = 2;
+    assert.equal(Bosses.canHit(g, b, {}, { gateHops: 1, gateAt: g.time - 1 }), false, 'a level tunnel glances at Blazing');
+    assert.equal(Bosses.canHit(g, b, {}, { gateHops: 1, gateAt: g.time }), true, 'a ring seed still lands');
+    g.drainEvents(); hp = b.hp; hit(g, b, { gateHops: 1, gateAt: g.time - 1 }); assert.equal(b.hp, hp); assert(g.drainEvents().some(e => e.type === 'bossGuard'));
+    advance(g, 6); assert(!g.gates.some(m => m.bossRing), 'the rings gutter out at 6 s');
+    // A real seed through a level tunnel into her at Blazing glances off (the app shows the tunnel tip).
+    const r = emberArena(); r.b.hp = 30; r.s.tier = 2; r.s.next = r.s.age + 99; hp = r.b.hp;
+    r.g.spawnBall({ x: 210, y: 470, angle: -2.9 }); const events = steps(r.g, 2);
+    assert(events.some(e => e.type === 'gate'), 'it went through a level tunnel');
+    assert(events.some(e => e.type === 'shield' && e.bud === r.b), 'and glanced off her'); assert.equal(r.b.hp, hp);
+    const tip = fs.readFileSync(path.join(__dirname, '../app.js'), 'utf8').match(/'(Too hot for tunnels![^']*)'/);
+    assert.equal(tip[1], 'Too hot for tunnels! Shoot through her fire rings.'); assert.equal(tip[1].length, 50);
+  });
+  test('Ember Rose: three castanet clicks, then the stomp shoves flowers 16 px (never past line - 70, never up, never into each other) and Olé opens her', () => {
+    const { g, s, b } = emberArena(); b.hp = 60; s.tier = 1;
+    g.buds.push(flower('hi', 100, 200), flower('mid', 200, 360), flower('lo', 300, 372), flower('up', 360, 340), flower('down', 360, 372), flower('snug', 40, 350), flower('floor', 40, 372));
+    emberMove(g, 1, 'stomp'); const events = steps(g, 1.3);
+    assert.deepEqual(emberActs(events, 'click').map(e => e.n), [1, 2, 3], 'three clicks during the tell');
+    const y = id => g.buds.find(p => p.id === id).y;
+    assert.equal(y('hi'), 216); assert.equal(y('mid'), 367, 'capped at line - 70 - r'); assert.equal(y('lo'), 372, 'never pulled up');
+    assert.equal(y('down'), 372); assert(Math.abs(y('up') - 349) < 1e-9, `the upper stops a spacing (23 px) above the lower (${y('up')})`);
+    assert.equal(y('floor'), 372); assert.equal(y('snug'), 350, 'one already snug stays put, not shoved into the one below');
+    assert.equal(s.mode, 'ole'); const hp = b.hp; hit(g, b); assert.equal(b.hp, hp - 2, 'Olé! deals 2');
+    advance(g, 1.25); assert.equal(s.mode, 'flame');
+  });
+  test('Ember Rose: a Lullaby holds Olé, a falling cinder and her dive', () => {
+    let { g, s, b } = emberArena(); b.hp = 60; s.tier = 1;
+    emberMove(g, 1, 'stomp'); advance(g, 1.3); assert.equal(s.mode, 'ole');
+    const c = cinderAt(g, b.x - 20, b.y + b.r); advance(g, .5); const at = [c.x, c.y], left = s.modeUntil - s.age;
+    g.lullaby = 2.5; advance(g, 2.5); assert.equal(s.mode, 'ole', 'Olé waits out the Lullaby'); assert.deepEqual([c.x, c.y], at, 'the cinder hangs');
+    assert(Math.abs(s.modeUntil - s.age - left) < .02, 'Olé ends on time after it');
+    advance(g, left + .05); assert.equal(s.mode, 'flame');
+    ({ g, s, b } = emberArena()); emberMove(g, 0, 'ember');
+    for (let n = 0; n < 400 && s.mode !== 'dive'; n++) g.step(1 / 120);
+    assert.equal(s.mode, 'dive'); advance(g, 1); const x = b.x;
+    assert(g.lull()); for (let n = 0; n < 2000 && g.lullaby > 0; n++) { g.step(1 / 120); assert.equal(s.mode, 'dive'); }
+    assert(Math.abs(b.x - x) < 1, `she hangs mid-dive (${Math.abs(b.x - x).toFixed(2)} px)`);
+    let t = 0; while (s.mode === 'dive' && t < 3) { g.step(1 / 120); t += 1 / 120; }
+    assert(Math.abs(t - 1.4) <= 1 / 120 + 1e-9, `she lands 1.4 s after it lifts (${t.toFixed(3)})`);
+  });
+  test('Ember Rose: her barrage sows three whizzbangs in one swaying group, and one lit under her deals 3', () => {
+    const { g, s, b } = emberArena(); b.hp = 30; s.tier = 2;
+    emberMove(g, 2, 'barrage'); advance(g, 1.3);
+    const wz = g.buds.filter(p => p.foe === 'whizzbang'); assert.equal(wz.length, 3);
+    assert(wz.every(p => p.group === wz[0].group && p.id !== p.group && p.bossSummon)); assert.equal(new Set(wz.map(p => p.swayPhase)).size, 1);
+    let closest = Infinity;
+    for (let n = 0; n < 480; n++) { g.step(1 / 120); for (let i = 1; i < 3; i++) closest = Math.min(closest, Math.hypot(wz[i].x - wz[i - 1].x, wz[i].y - wz[i - 1].y)); }
+    assert(closest >= 25, `they keep apart (${closest.toFixed(1)} px)`);
+    const mid = wz[1]; mid.sway = 0; mid.x = mid.baseX = b.x; s.stunUntil = s.age + 3; const hp = b.hp;
+    hit(g, mid); const events = steps(g, 1.6);
+    assert(b.hp <= hp - 3, `hp ${hp} -> ${b.hp}`); assert(events.some(e => e.type === 'bossCritical' && e.via === 'whizz'));
+  });
+  test('Ember Rose: the same fight at 30, 60 and 144 FPS', () => {
+    const runs = [30, 60, 144].map(fps => {
+      const { g, s } = emberArena(); s.boss.hp = 30; const log = [];
+      for (let n = 0; n < 30 * fps; n++) { g.step(1 / fps); for (const e of g.drainEvents()) if (/^boss/.test(e.type)) log.push(`${e.type}:${e.move || e.mode || ''}:${e.act || ''}:${(+e.time).toFixed(4)}`); }
+      return log.join(' ') + `|${s.boss.x.toFixed(3)},${s.boss.y.toFixed(3)}`;
+    });
+    assert(runs[0].includes('bossAbility')); assert.equal(runs[1], runs[0]); assert.equal(runs[2], runs[0]);
+  });
+  test('Ember Rose: beaten mid-ring, mid-Olé or right after a barrage, she leaves no ring, coal, cinder or rocket behind', () => {
+    const beat = (g, s) => {
+      let n = 0; for (; n < 300 && !s.boss.bloomed; n++) g.strike(s.boss, true);
+      assert(s.boss.bloomed && n < 300, 'the loop ends'); assert(!s.boss.hidden && s.boss.visible !== false, 'she is seen');
+      assert(!g.gates.some(m => m.bossRing)); assert(!g.bumpers.some(r => r.bossCoal));
+      assert(g.buds.filter(p => p.bossPart === 'cinder').every(p => p.bloomed));
+    };
+    let { g, s, b } = emberArena(); b.hp = 60; s.tier = 1; emberMove(g, 1, 'rings'); advance(g, 1.35); assert(b.hidden);
+    cinderAt(g, 150, 300); g.bumpers.push({ id: 'qa-coal', kind: 'rock', bossWall: true, bossCoal: true, kitDrawn: true, x: 300, y: 404, baseX: 300, length: 26, angle: 0, kitAt: s.kitAge, kitUntil: s.kitAge + 4, expires: Infinity });
+    beat(g, s);
+    ({ g, s, b } = emberArena()); b.hp = 60; s.tier = 1; emberMove(g, 1, 'stomp'); advance(g, 1.35); assert.equal(s.mode, 'ole'); beat(g, s);
+    ({ g, s, b } = emberArena()); b.hp = 30; s.tier = 2; emberMove(g, 2, 'barrage'); advance(g, 1.35);
+    const wz = g.buds.filter(p => p.foe === 'whizzbang'); assert.equal(wz.length, 3); beat(g, s);
+    g.drainEvents(); advance(g, 3);
+    assert(wz.every(p => p.bloomed && !p.whizz), 'the rockets bloom plainly'); assert(!foeEvents(g.drainEvents(), 'whizzbang:launch').length);
+  });
+}
 
 // ── Geode King (Level 8, `geode`) ──
 

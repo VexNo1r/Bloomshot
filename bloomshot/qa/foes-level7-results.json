@@ -1,0 +1,58 @@
+{
+  "passed": 13,
+  "failed": 0,
+  "results": [
+    {
+      "name": "The Whizzbang debuts in Level 7 wave 5 with its hint, two opening and one in the t12 drop, and comes back in W6, W8 and W9",
+      "passed": true
+    },
+    {
+      "name": "A credited touch lights it; a second later the rocket pins the four nearest in its column whole and bangs at the top",
+      "passed": true
+    },
+    {
+      "name": "A bud right under the bang blooms even when the column held more than four",
+      "passed": true
+    },
+    {
+      "name": "The rocket plays the same at 30, 60 and 144 FPS (swaying)",
+      "passed": true
+    },
+    {
+      "name": "An uncredited strike, a power and a sun link bloom it plainly, with no rocket",
+      "passed": true
+    },
+    {
+      "name": "A credited chain lights it on a half-second fuse, and a lit one turns every later chain away",
+      "passed": true
+    },
+    {
+      "name": "A rocket that pins an unlit whizzbang lights it on a half-second fuse",
+      "passed": true
+    },
+    {
+      "name": "A Lullaby holds the fuse; lit or flying never costs a life, unlit costs one",
+      "passed": true
+    },
+    {
+      "name": "The bot: the forecast pins what the rocket pins, an unlit one is worth its column, a lit one is a ghost worth nothing",
+      "passed": true
+    },
+    {
+      "name": "A rocket that meets a tunnel mouth comes out of the other and flies on; a downward exit stops at the floor",
+      "passed": true
+    },
+    {
+      "name": "A rocket lit under Ember Rose deals 3, even at tier 0",
+      "passed": true
+    },
+    {
+      "name": "The bloomed flower stays where the rocket burst",
+      "passed": true
+    },
+    {
+      "name": "The aim forecast meets a moving guardian: it says she is hit exactly when the real rocket links her",
+      "passed": true
+    }
+  ]
+}
