@@ -130,7 +130,9 @@ async function main() {
         entries: items.length, pictures: document.querySelectorAll('#guide-list .guide-canvas').length, count: document.getElementById('guide-count').textContent,
         outside: items.filter(el => { const b = el.getBoundingClientRect(); return b.left < r.x - .5 || b.right > r.right + .5; }).map(el => el.dataset.guide),
         clipped: [...document.querySelectorAll('#guide-list .guide-name, #guide-list .guide-line')].filter(el => el.scrollWidth > el.clientWidth + .5).map(el => el.textContent),
-        columns: new Set(items.map(el => Math.round(el.getBoundingClientRect().x))).size };
+        columns: new Set(items.map(el => Math.round(el.getBoundingClientRect().x))).size,
+        // Each level ends on a full row: its last card (the guardian) reaches the grid's right edge.
+        endsShort: [...document.querySelectorAll('#guide-list .guide-grid')].filter(grid => grid.lastElementChild.getBoundingClientRect().right < grid.getBoundingClientRect().right - 1).map(grid => grid.lastElementChild.dataset.guide) };
     });
     assert.equal(guide.scrollWidth, guide.clientWidth, `${key} Who's who: no sideways scroll in the dialog`);
     assert.equal(guide.page, size.width, `${key} Who's who: no horizontal overflow`);
@@ -139,8 +141,25 @@ async function main() {
     assert.equal(guide.count, '34 of 34 met', `${key} Who's who: the count`);
     assert.deepEqual(guide.outside, [], `${key} Who's who: cards inside the dialog`); assert.deepEqual(guide.clipped, [], `${key} Who's who: no clipped names or lines`);
     assert.equal(guide.columns, size.width >= 700 ? 2 : 1, `${key} Who's who: two columns where there is room`);
+    assert.deepEqual(guide.endsShort, [], `${key} Who's who: no guardian sits alone beside an empty space`);
     rows.push({ size: key, label: "Who's who", ...guide });
     await page.locator('#help-dialog').screenshot({ path: path.join(output, `${key}-guide.png`) });
+    // A phone narrower than any in the matrix (a folding phone's cover screen, 280 px): the open guide still fits.
+    if (size.width < 700) {
+      await page.setViewportSize({ width: 280, height: size.height }); await page.clock.runFor(500);
+      const narrow = await page.evaluate(() => {
+        const dialog = document.getElementById('help-dialog'), r = dialog.getBoundingClientRect();
+        return { scrollWidth: dialog.scrollWidth, clientWidth: dialog.clientWidth, right: r.right, page: document.documentElement.scrollWidth,
+          outside: [...document.querySelectorAll('#guide-list .guide-entry')].filter(el => { const b = el.getBoundingClientRect(); return b.left < r.x - .5 || b.right > r.right + .5; }).map(el => el.dataset.guide),
+          clipped: [...document.querySelectorAll('#guide-list .guide-name, #guide-list .guide-line')].filter(el => el.scrollWidth > el.clientWidth + .5).map(el => el.textContent) };
+      });
+      assert.equal(narrow.scrollWidth, narrow.clientWidth, `280x${size.height} Who's who: no sideways scroll in the dialog`);
+      assert.equal(narrow.page, 280, `280x${size.height} Who's who: no horizontal overflow`); assert(narrow.right <= 280.6, `280x${size.height} Who's who: the dialog stays on screen`);
+      assert.deepEqual(narrow.outside, [], `280x${size.height} Who's who: cards inside the dialog`); assert.deepEqual(narrow.clipped, [], `280x${size.height} Who's who: no clipped names or lines`);
+      rows.push({ size: `280x${size.height}`, label: "Who's who, narrow", ...narrow });
+      await page.locator('#help-dialog').screenshot({ path: path.join(output, `${key}-guide-280.png`) });
+      await page.setViewportSize({ width: size.width, height: size.height }); await page.clock.runFor(500);
+    }
     await page.evaluate(() => { document.getElementById('guide-help').open = false; document.getElementById('levels-help').open = true; document.getElementById('help-dialog').close(); });
     for (let level = 1; level <= 10; level++) for (const wave of [1, 10]) {
       await page.evaluate(({ level, wave }) => window.__layoutQA.startDepth(level, false, wave), { level, wave });

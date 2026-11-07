@@ -627,7 +627,7 @@ dialog[open]{animation:dialog-in .34s var(--press)}
 @media(min-width:700px){.help-dialog{width:min(640px,calc(100vw - 48px))}}
 .guide-intro{margin:0 0 4px;font-size:13px;line-height:1.4;color:var(--ink-soft)}
 .guide-list{padding:0 0 12px}
-.guide-level{--tint:#d9f3df;margin-top:12px}
+.guide-level{--tint:#d9f3df;margin-top:12px;scroll-margin-top:10px}
 .guide-level[data-level="2"]{--tint:#ffe4c4}
 .guide-level[data-level="3"]{--tint:#ece0ff}
 .guide-level[data-level="4"]{--tint:#d8eaff}
@@ -638,7 +638,9 @@ dialog[open]{animation:dialog-in .34s var(--press)}
 .guide-level[data-level="9"]{--tint:#e2f3cf}
 .guide-level[data-level="10"]{--tint:#fff0c2}
 .guide-level-name{display:inline-block;margin:0 0 8px;padding:3px 12px 4px;border-radius:999px;background:var(--tint);color:var(--ink);font:600 15px/1.25 var(--display);box-shadow:inset 0 0 0 2px #ffffffaa,0 2px 0 var(--edge-dark)}
-.guide-grid{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px}
+.guide-grid{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(250px,100%),1fr));gap:8px}
+/* A guardian that would sit alone in two columns takes the whole row, as its level's finale. */
+.guide-entry.guardian:nth-child(odd){grid-column:1/-1}
 .guide-entry{display:flex;align-items:center;gap:11px;min-width:0;padding:8px 12px 8px 8px;border-radius:18px;background:#fff;box-shadow:inset 0 0 0 2px var(--edge),0 3px 0 var(--edge-dark)}
 .guide-entry.unmet{background:var(--cream-2);box-shadow:inset 0 0 0 2px var(--edge)}
 .guide-art{position:relative;flex:0 0 64px;width:64px;height:64px;border-radius:50%;overflow:hidden;background:radial-gradient(circle at 50% 44%,#fffdf6 0 36%,var(--tint) 78%);box-shadow:0 0 0 2px #fff,0 0 0 4px var(--edge)}
@@ -647,8 +649,8 @@ dialog[open]{animation:dialog-in .34s var(--press)}
 .guide-text{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:0}
 .guide-name{font:600 16px/1.2 var(--display);color:var(--ink)}
 .guide-line{font-size:13px;line-height:1.35;color:var(--ink-soft)}
-.guide-entry.unmet .guide-line{font:600 14px/1.25 var(--display);color:var(--ink-soft)}
-.guide-tag{padding:1px 8px 2px;border-radius:999px;background:var(--pink-soft);color:var(--pink-edge);font:600 11.5px/1.2 var(--display)}
+.guide-entry.unmet .guide-line{font:600 14px/1.25 var(--display);color:#4d675b}
+.guide-tag{padding:1px 8px 2px;border-radius:999px;background:var(--pink-soft);color:#b02f57;font:600 11.5px/1.2 var(--display)}
 
 .world-dialog{padding-top:0}
 .world-close{position:absolute;right:14px;top:14px;z-index:2}

@@ -59,7 +59,7 @@
     { id: 'whizzbang', level: 7, wave: 5, kind: 'foe', name: 'Whizzbang', line: 'Light it under a crowd. It rockets up and blooms them all.' },
     { id: 'boss-ember', level: 7, kind: 'guardian', line: 'Tunnel hits count triple. Light whizzbangs right under her.' },
     { id: 'geode', level: 8, wave: 1, name: 'Geode', line: 'Crack it open, then bloom the gems before they fall.', take: 'geode' },
-    { id: 'lodestone', level: 8, wave: 3, kind: 'foe', name: 'Lodestone', line: 'Iron turns seeds away. Curl a shot onto the green moss.' },
+    { id: 'lodestone', level: 8, wave: 3, kind: 'foe', name: 'Lodestone', line: 'It tugs seeds. Curl a shot onto the green moss, not the iron.' },
     { id: 'boss-geode', level: 8, kind: 'guardian', line: 'Break a plate, then aim through the gap. Catch his big gem.' },
     { id: 'briar', level: 9, wave: 1, name: 'Briar patch', line: 'Bloom all three fast, or the patch grows back.', take: 'briar' },
     { id: 'sweetheart', level: 9, wave: 3, kind: 'foe', name: 'Sweetheart Roses', line: 'Hit one rose, then the other, quick! They bloom together.' },
@@ -1812,7 +1812,8 @@
   const FOE_FX = Object.create(null), FOE_COLORS = { coral: '#ff5d94', gold: '#ffd148', lilac: '#a47dff', sky: '#45adff', poppy: '#ff7433' };
   // Who's who records first contact (save.met) at the same moments: a level or wave starting (a guardian's wave is its
   // intro), a drop, a foe arriving and a gift bubble floating in. Whatever is on the board then counts as met: hidden
-  // pieces wait until they show. Only the levels record it: Meadow Rush, the tutorial and previews record nothing.
+  // pieces wait until they show (a guardian counts with its fight). Only the levels record it: Meadow Rush, the
+  // tutorial and previews record nothing. A run's end also counts what its progress shows, as the next load would.
   function meet(ids) {
     if (!isDepth() || isTutorial() || preview) return;
     let added = false;
@@ -1825,8 +1826,11 @@
     if (!isDepth() || isTutorial() || preview) return;
     const found = new Set(), family = window.BloomFoes ? BloomFoes.familyOf : null;
     for (const bud of game.buds) {
-      if (bud.bloomed || bud.hidden || bud.visible === false || bud.bossPart) continue;
-      if (bud.boss) { if (bud.bossKind) found.add(`boss-${bud.bossKind}`); continue; }
+      if (bud.bloomed) continue;
+      // A guardian is met with its fight, whatever shape it opens in: Crystal Heart hides her own bud and comes on as
+      // three hearts (boss parts), and Rootknot burrows. Any piece of the fight carries its kind.
+      if (bud.bossKind) { found.add(`boss-${bud.bossKind}`); continue; }
+      if (bud.hidden || bud.visible === false || bud.bossPart || bud.boss) continue;
       if (bud.gift) { found.add('gift'); continue; }
       if (bud.foe) { if (family) found.add(family(bud.foe)); continue; }
       if (bud.puff) found.add('puffcap');
@@ -2842,6 +2846,7 @@
           }
           const recorded = Depths.record(save.depths, id, { won, lives: game.startWave === 10 ? Math.min(1, game.lives) : game.startWave > 1 ? Math.min(2, game.lives) : game.lives, score: game.score, wave: game.wave });
           save.depths = recorded.progress;
+          save.met = guideMet(save.met, save.depths); // what this run reached counts now, as it will on the next load
           depthNews = { firstClear: recorded.firstClear, newStars: recorded.newStars, opened: recorded.firstClear && Depths.level(id + 1) && depthOpen(id + 1) ? id + 1 : null,
             best: previousBest > 0 && game.score > previousBest, previousBest };
           // A replay that beats the level's best score gets the record chime, like a new best in endless Rush.
@@ -3613,8 +3618,10 @@
     $('campaign-help').open = play ? !isRush() && !isChapter() : route === 'garden';
     $('moon-help').open = play ? isMoon() : route === 'worlds';
     $('koi-help').open = play ? isKoi() : route === 'worlds';
+    // Who's who stays open from the last visit only beside Levels; anywhere else it would push that screen's help far down.
+    $('guide-help').open = $('guide-help').open && $('levels-help').open;
     $('tutorial-replay').hidden = isTutorial(); showDialog('help-dialog');
-    guideCount(); if ($('guide-help').open) renderGuide();
+    guideCount(); if ($('guide-help').open) guideShown();
   });
   // ── Who's who ──
   // The list is built the first time the section opens and again only when what has been met changes. A met entry
@@ -3665,7 +3672,14 @@
     }
     guideJobs = GUIDE.filter(entry => met.has(entry.id) && !guideArt.has(entry.id)).map(entry => entry.id);
   }
-  $('guide-help').addEventListener('toggle', () => { if ($('guide-help').open) renderGuide(); });
+  // Opened during a level, the guide starts at that level's group (the question is "what is this thing here?").
+  function guideShown() {
+    renderGuide();
+    if (route !== 'game' || !isDepth() || isTutorial()) return;
+    const group = [...$('guide-list').children].find(node => node.dataset.level === String(game.plan.id));
+    if (group && group.scrollIntoView) group.scrollIntoView({ block: 'start' });
+  }
+  $('guide-help').addEventListener('toggle', () => { if ($('guide-help').open) guideShown(); });
   // At least one picture a frame, and more while the frame has 6 ms to spare; nothing while the section is shut.
   function guideStep() {
     if (!$('help-dialog').open || !$('guide-help').open) return;
@@ -3692,6 +3706,11 @@
     ctx.setTransform(dpr * k, 0, 0, dpr * k, px / 2 - dpr * k * cx, px / 2 - dpr * k * cy);
     // Only the piece: the launcher, the line and the HUD the board also draws lie outside this square.
     ctx.beginPath(); ctx.rect(cx - half, cy - half, half * 2, half * 2); ctx.clip();
+    if (scene.under) {
+      const water = ctx.createRadialGradient(cx, cy, 0, cx, cy, half * 1.42);
+      water.addColorStop(0, scene.under[0]); water.addColorStop(1, scene.under[1]);
+      ctx.fillStyle = water; ctx.fillRect(cx - half, cy - half, half * 2, half * 2);
+    }
     BloomArt.draw(ctx, scene.game, scene.game.time, { theme: depthTheme(entry.level), backdrop: false, reducedMotion: true, showAim: false });
     return canvas;
   }
@@ -3713,9 +3732,10 @@
     }
     else if (entry.take === 'relay') spec.buds = group(bud => bud.relay);
     else if (entry.take === 'rings') spec.buds = base.buds.filter(bud => bud.maxHp > 1 && !bud.foe).slice(0, 1);
-    else if (entry.take === 'cup') spec.buds = group(bud => bud.shield);
+    // A cup's and a shell's bunch without its crowned bud, which has a picture of its own (Crowned flower).
+    else if (entry.take === 'cup') spec.buds = group(bud => bud.shield).filter(bud => !bud.relay);
     else if (entry.take === 'puff') spec.buds = base.buds.filter(bud => bud.puff).slice(0, 1);
-    else if (entry.take === 'shell') spec.buds = group(bud => bud.shell);
+    else if (entry.take === 'shell') spec.buds = group(bud => bud.shell).filter(bud => !bud.relay);
     else if (entry.take === 'geode') spec.buds = base.buds.filter(bud => bud.geode).slice(0, 1);
     else if (entry.take === 'briar') spec.buds = group(bud => bud.briar);
     else if (entry.take === 'gift') spec.buds = [{ id: 'guide-gift', group: 'guide-gift', ...at(210, 220), r: 14, type: 'gold', gift: 'sunburst', relay: false, hp: 1, maxHp: 1, fall: 0, sway: 0, hitAt: -100, bloomed: false, bloomAt: -100 }];
@@ -3738,11 +3758,17 @@
       add(bud.x, bud.y, bud.boss ? r * 1.6 + 6 : bud.foe ? r * 1.45 + 8 : bud.maxHp > 1 && !bud.geode ? r + 14 : r + 6);
     }
     for (const bumper of game.bumpers) if (bumper.kind === 'rock') { const h = (Number(bumper.length) || 40) / 2 + 6; add(bumper.x - Math.cos(bumper.angle) * h, bumper.y - Math.sin(bumper.angle) * h, 12); add(bumper.x + Math.cos(bumper.angle) * h, bumper.y + Math.sin(bumper.angle) * h, 12); }
-    for (const lane of game.currents || []) add(lane.x, lane.y, Math.max(34, (Number(lane.width) || 40) / 2 + 6));
+    // A current is wider than any square: its picture is the upstream end, the band's rounded tip and its arrows.
+    for (const lane of game.currents || []) {
+      const L = Number(lane.length) || 120, W = Number(lane.width) || 40, angle = Number(lane.angle) || 0, side = Math.min(L + 16, W * 2.6), along = side / 2 - L / 2 - 8;
+      add(lane.x + Math.cos(angle) * along, lane.y + Math.sin(angle) * along, side / 2);
+    }
     for (const gate of game.gates || []) add(gate.x, gate.y, (Number(gate.r) || 17) + 9);
     if (!(x1 > x0 && y1 > y0)) return null;
     const side = Math.max(x1 - x0, y1 - y0), mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
-    return { game, zoom, box: [mx - side / 2, my - side / 2, mx + side / 2, my + side / 2] };
+    // The pale water band only reads on the lake's dark water, as in play (the board's colors under it, Level 5).
+    const under = game.currents && game.currents.length ? ['#0e7d75', '#03464e'] : null;
+    return { game, zoom, under, box: [mx - side / 2, my - side / 2, mx + side / 2, my + side / 2] };
   }
   $('tutorial-replay').addEventListener('click', () => { closeDialogs(); BloomSound.wake(); startTutorial(); });
   $('tutorial-skip').addEventListener('click', () => { BloomSound.wake(); endTutorial(false); });

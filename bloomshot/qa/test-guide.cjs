@@ -22,8 +22,9 @@ const Foes = require('../foes.js');
 const Bosses = require('../bosses.js');
 const Powers = require('../powers.js');
 const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
-// A QA-only hook (as check-responsive.cjs adds one) hands the catalog out, so it can be checked against the game.
-const raw = read('app.js'), hook = 'window.__guideQA = { GUIDE };\n})();';
+// A QA-only hook (as check-responsive.cjs adds one) hands the catalog out, so it can be checked against the game, and
+// startDepth, so a level can be started at a checkpoint wave, and guideScene, the board each picture is painted from.
+const raw = read('app.js'), hook = 'window.__guideQA = { GUIDE, startDepth, guideScene };\n})();';
 assert(/\}\)\(\);\s*$/.test(raw), 'the QA hook matches the end of app.js');
 const source = raw.replace(/\}\)\(\);\s*$/, hook);
 const results = [];
@@ -57,11 +58,11 @@ class StubCanvas { constructor(w, h) { this.width = w; this.height = h; this.cal
 
 // The page: a DOM stand-in with a real little tree (createElement, appendChild, textContent) for the guide's list.
 // art: true loads the real art.js, foe-art.js and scenery.js into the page; search is the query string.
-function boot(save, { search = '', art = false, dpr = 1 } = {}) {
+function boot(save, { search = '', art = false, dpr = 1, paintMs = 0 } = {}) {
   const storage = new Map(), key = search.includes('alllevels') ? 'bloomshot.qa.v1' : 'bloomshot.save.v1';
   if (save !== undefined) storage.set(key, JSON.stringify(save));
-  const nodes = new Map(), games = [], canvases = [], owner = new WeakMap();
-  let nextFrame, now = 0;
+  const nodes = new Map(), games = [], canvases = [], owner = new WeakMap(), scrolls = [];
+  let nextFrame, now = 0, frames = 0;
   const noop = () => {};
   const brush = new Proxy({ globalAlpha: 1, createLinearGradient: () => ({ addColorStop: noop }), createRadialGradient: () => ({ addColorStop: noop }), measureText: () => ({ width: 0 }) },
     { get: (target, name) => name in target ? target[name] : noop });
@@ -69,7 +70,7 @@ function boot(save, { search = '', art = false, dpr = 1 } = {}) {
     const handlers = new Map(), childrenBySelector = new Map(), classes = new Set();
     let text = '';
     const node = { id, tagName: tag.toUpperCase(), dataset: {}, children: [], style: { setProperty: noop }, attributes: {}, nextElementSibling: { textContent: '' },
-      hidden: false, disabled: false, open: false, checked: false, width: 0, height: 0, scrollIntoView: noop,
+      hidden: false, disabled: false, open: false, checked: false, width: 0, height: 0, scrollIntoView: (...args) => scrolls.push({ node, args }),
       classList: { add: (...names) => names.forEach(n => classes.add(n)), remove: (...names) => names.forEach(n => classes.delete(n)),
         toggle: (name, force) => { const active = force === undefined ? !classes.has(name) : force; active ? classes.add(name) : classes.delete(name); return active; }, contains: name => classes.has(name) },
       setAttribute: (name, value) => { node.attributes[name] = String(value); }, getAttribute: name => node.attributes[name], removeAttribute: name => { delete node.attributes[name]; },
@@ -129,13 +130,14 @@ function boot(save, { search = '', art = false, dpr = 1 } = {}) {
     context.OffscreenCanvas = StubCanvas;
     for (const file of ['scenery.js', 'art.js', 'foe-art.js']) vm.runInContext(read(file), context, { filename: file });
     const draw = context.BloomArt.draw;
+    // Each guide picture takes paintMs of the stubbed clock, so the per-frame budget is exercised (0: they are free).
     context.BloomArt.draw = function (ctx, state, time, options) {
-      if (owner.has(ctx) && owner.get(ctx).className === 'guide-canvas') draws.push({ ctx, state, options });
+      if (owner.has(ctx) && owner.get(ctx).className === 'guide-canvas') { draws.push({ ctx, state, options, frame: frames }); now += paintMs; }
       return draw.call(this, ctx, state, time, options);
     };
   }
   vm.runInContext(source, context, { filename: 'app.js' });
-  function frame(milliseconds = 17) { now += milliseconds; const fn = nextFrame; assert.equal(typeof fn, 'function'); fn(now); }
+  function frame(milliseconds = 17) { now += milliseconds; frames++; const fn = nextFrame; assert.equal(typeof fn, 'function'); fn(now); }
   function click(id, dataset) { const target = dataset ? Object.assign(element(), { dataset }) : $(id); $(id).emit('click', { target }); }
   // The player's own game (the guide's one-wave sandbox boards are not it).
   const game = () => games.filter(g => !(g.plan && g.plan.waves === 1)).at(-1);
@@ -143,7 +145,7 @@ function boot(save, { search = '', art = false, dpr = 1 } = {}) {
   // Opens How to play, then the Who's who section (the browser fires toggle when a details element opens).
   function openGuide() { click('help-btn'); $('guide-help').open = true; $('guide-help').emit('toggle'); }
   function closeGuide() { $('guide-help').open = false; $('guide-help').emit('toggle'); $('help-dialog').close(); }
-  return { $, click, frame, game, saved, storage, canvases, draws, openGuide, closeGuide, guide: context.__guideQA.GUIDE };
+  return { $, click, frame, game, saved, storage, canvases, draws, scrolls, openGuide, closeGuide, guide: context.__guideQA.GUIDE, startDepth: context.__guideQA.startDepth, scene: context.__guideQA.guideScene };
 }
 // The tree under a node, depth first.
 function walk(node, out = []) { for (const child of node.children || []) { out.push(child); walk(child, out); } return out; }
@@ -276,6 +278,49 @@ test('First contact is saved at a level start, a new wave, a drop, a foe arrivin
   assert.deepEqual(app2.saved().met, ['crown', 'gift'], 'kept in catalog order');
 });
 
+test('Every entry is met live where it debuts, and every guardian however its fight opens', () => {
+  // Each level from its start, then each wave where a piece debuts (as the waves come in play). The review link opens
+  // every level and keeps its own save, which records first contact like the normal one.
+  for (const level of Depths.levels) {
+    const app = boot(player(), { search: '?alllevels' }), debut = plain(app.guide).filter(entry => entry.level === level.id);
+    app.click('depth-map', { depth: String(level.id) }); app.frame();
+    const game = app.game();
+    assert.equal(game.plan.id, level.id);
+    for (const wave of [...new Set(debut.map(entry => entry.wave))]) {
+      if (wave > 1) { game.started = true; game.wave = wave - 1; game.drops = []; game._loadWave(); }
+      const want = debut.filter(entry => entry.wave === wave).map(entry => entry.id), metAll = () => want.every(id => app.saved().met.includes(id));
+      // A gift bubble floats in during its wave and a Moon Jelly rises from its vent, so a wave gets a few seconds.
+      for (let i = 0; i < 360 && !metAll(); i++) { app.frame(); game.lives = Math.max(game.lives, 3); }
+      for (const id of want) assert(app.saved().met.includes(id), `${id} is met in level ${level.id}, wave ${wave}`);
+    }
+  }
+  // A run that starts on the guardian's wave (the guardian preview, a checkpoint) sends no wave event: the guardian is
+  // met as the level starts. Crystal Heart opens as three hearts with her own bud hidden.
+  for (const boss of Depths.bosses) {
+    const app = boot(player(), { search: '?alllevels&bosses' }), level = Depths.levels.find(item => Depths.wave(item.id, Depths.waveCount).buds.some(bud => bud.bossKind === boss.kind));
+    app.click('depth-map', { depth: String(level.id) }); app.frame();
+    assert.equal(app.game().wave, Depths.waveCount);
+    if (boss.kind === 'crystal') assert(app.game().buds.some(bud => bud.boss && bud.hidden) && app.game().buds.some(bud => bud.bossPart === 'heart'), 'Crystal Heart opens split');
+    assert(app.saved().met.includes(`boss-${boss.kind}`), `${boss.name} is met when her wave opens the run`);
+  }
+});
+
+test('The end of a run counts what it reached, as the next load would', () => {
+  // A checkpoint start on wave 4 of level 5 meets its currents and glowworm; the Moon Jelly (wave 2, from the lily vents)
+  // was never on this run's board. When the run ends, its progress (wave 4 reached) counts her, as reopening would.
+  const cleared = { stars: 3, best: 3000, wave: 10 }, app = boot(player({ depths: { 1: cleared, 2: cleared, 3: cleared, 4: cleared } }));
+  const before = plain(app.guide).filter(entry => entry.level <= 4).map(entry => entry.id);
+  assert.deepEqual(app.saved().met, before, 'levels 1 to 4 cleared');
+  app.startDepth(5, false, 4); app.frame();
+  const game = app.game();
+  assert.equal(game.plan.id, 5); assert.equal(game.wave, 4);
+  assert.deepEqual(app.saved().met, [...before, 'current', 'glowworm'], 'what wave 4 has on the board');
+  game.started = true; game._lose(); app.frame();
+  assert.equal(app.saved().depths[5].wave, 4, 'the run is recorded');
+  assert.deepEqual(app.saved().met, [...before, 'current', 'jelly', 'glowworm'], 'met as soon as the run ends');
+  assert.deepEqual(boot(app.saved()).saved().met, app.saved().met, 'the same as the next load');
+});
+
 test('Only the levels record it: Meadow Rush and the tutorial record nothing', () => {
   const app = boot(player());
   app.click('tutorial-replay'); app.frame();
@@ -381,6 +426,87 @@ test('A newly met piece is painted on the next visit; nothing else is redrawn', 
   assert.equal(app.draws.length, 5, 'only the rock is new');
   assert(entries(app).find(item => item.id === 'rock').canvas, 'and it shows');
   assert(entries(app).find(item => item.id === 'crown').canvas, 'the earlier pictures are kept');
+});
+
+test('Who\'s who stays open only beside Levels, and opened during a level it starts at that level', () => {
+  const app = boot(player({ depths: { 1: { stars: 3, best: 3000, wave: 10 } } })), help = app.$('help-dialog'), guide = app.$('guide-help');
+  const scrolled = () => app.scrolls.filter(item => hasClass(item.node, 'guide-level')).map(item => ({ level: item.node.dataset.level, args: plain(item.args) }));
+  // On the levels map, Levels is the help for this screen; the guide opened there does not jump anywhere.
+  app.openGuide();
+  assert(app.$('levels-help').open && guide.open);
+  assert.deepEqual(scrolled(), []);
+  help.close();
+  // Meadow Rush: left open, the guide would push its help far down. It shuts, and Meadow Rush's help opens.
+  app.click('levels-rush-btn'); app.frame();
+  assert.equal(app.game().mode, 'rush'); assert(!app.game().plan);
+  app.click('help-btn');
+  assert.equal(guide.open, false, 'Who\'s who shuts where Levels is not the help for this screen');
+  assert(app.$('rush-help').open && !app.$('levels-help').open);
+  // Opened there, it does not jump either.
+  guide.open = true; guide.emit('toggle');
+  assert.deepEqual(scrolled(), []);
+  guide.open = false; help.close();
+  // During level 2, Levels is this screen's help: the guide opens at Level 2's group, and stays open next time.
+  app.click('depth-map', { depth: '2' }); app.frame();
+  app.openGuide();
+  assert(app.$('levels-help').open && guide.open);
+  assert.deepEqual(scrolled(), [{ level: '2', args: [{ block: 'start' }] }], 'the level being played is brought to the top');
+  const group = walk(app.$('guide-list')).find(node => hasClass(node, 'guide-level') && node.dataset.level === '2');
+  assert.equal(app.scrolls.at(-1).node, group, 'its group on the page');
+  help.close(); app.click('help-btn');
+  assert.equal(guide.open, true, 'beside Levels it stays as the player left it');
+  assert.equal(scrolled().length, 2, 'and starts at the level again');
+});
+
+test('Pictures are painted a few a frame: each frame stops once its 6 ms are spent', () => {
+  // 10 ms a picture: one a frame. 4 ms: two a frame (the second runs over). Every picture is painted, each once.
+  for (const [paintMs, perFrame] of [[10, 1], [4, 2]]) {
+    const app = boot(player(), { search: '?alllevels', art: true, paintMs });
+    app.openGuide();
+    for (let i = 0; i < 40; i++) app.frame();
+    assert.equal(app.draws.length, 34);
+    const frames = new Map();
+    for (const draw of app.draws) frames.set(draw.frame, (frames.get(draw.frame) || 0) + 1);
+    assert.equal(frames.size, Math.ceil(34 / perFrame), `${paintMs} ms a picture takes ${Math.ceil(34 / perFrame)} frames`);
+    assert(Math.max(...frames.values()) <= perFrame, `at most ${perFrame} a frame`);
+  }
+});
+
+test('Each picture shows its own piece: the current on its dark lake water, shells and cups without a crown', () => {
+  const app = boot(player(), { search: '?alllevels' }), guide = plain(app.guide), scene = id => app.scene(app.guide.find(entry => entry.id === id));
+  // The current: its upstream end (the band's rounded tip, inside the square with a little air) on the lake's water.
+  const current = scene('current'), lane = current.game.currents[0], [x0, y0, x1, y1] = current.box;
+  assert(current.under && current.under.every(color => /^#[0-9a-f]{6}$/i.test(color)), 'painted on dark water');
+  const tip = lane.x - Math.cos(lane.angle) * lane.length / 2;
+  assert(tip > x0 && tip < x0 + 20, `the band's tip is in the picture (${tip} in ${x0}..${x1})`);
+  assert(x1 - x0 >= 2.4 * lane.width && y1 - y0 >= lane.width, 'wide enough to show the band and its arrows');
+  const lum = hex => { const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)); return (r + g + b) / 3; };
+  assert(lum(current.under[0]) < 100 && lum(current.under[1]) < 100, 'the water is dark, as in play');
+  // Shells and cups: just the shelled or cupped buds of the bunch, never its crowned bud (that is Crowned flower).
+  for (const [id, test] of [['shell', bud => bud.shell], ['cup', bud => bud.shield]]) {
+    const buds = scene(id).game.buds;
+    assert(buds.length >= 2, `${id}: a bunch`);
+    assert(buds.every(test) && buds.every(bud => !bud.relay), `${id}: every bud is a ${id}, none crowned`);
+  }
+  // Only the current gets water under it.
+  for (const entry of guide) if (entry.id !== 'current') assert.equal(scene(entry.id).under, null, `${entry.id} is on the card's own color`);
+  // The lodestone's line agrees with its hint in play: it tugs seeds.
+  assert.match(guide.find(entry => entry.id === 'lodestone').line, /\btugs?\b/);
+  assert.match(Foes.hint('lodestone'), /\btug/);
+});
+
+test('Card text is readable: every name, line and tag reaches 4.5:1 against its card', () => {
+  const css = read('styles.css'), token = name => css.match(new RegExp(`--${name}:(#[0-9a-f]{6})`, 'i'))[1];
+  const hex = value => /^#[0-9a-f]{3}$/i.test(value) ? '#' + [...value.slice(1)].map(c => c + c).join('') : value;
+  const rule = selector => { const at = css.indexOf(selector + '{'); assert(at >= 0, `${selector} has a rule`); return css.slice(at + selector.length + 1, css.indexOf('}', at)); };
+  const prop = (selector, name) => { const value = rule(selector).match(new RegExp(`(?:^|;)${name}:([^;]+)`))[1].trim(); return hex(value.startsWith('var(--') ? token(value.slice(6, -1)) : value); };
+  const luminance = hex => { const c = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(v => v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4); return .2126 * c[0] + .7152 * c[1] + .0722 * c[2]; };
+  const ratio = (a, b) => { const [x, y] = [luminance(a), luminance(b)].sort((p, q) => q - p); return (x + .05) / (y + .05); };
+  const card = prop('.guide-entry', 'background'), unmet = prop('.guide-entry.unmet', 'background');
+  for (const [label, color, back] of [['name', prop('.guide-name', 'color'), card], ['line', prop('.guide-line', 'color'), card],
+    ['"Meet it in Level N"', prop('.guide-entry.unmet .guide-line', 'color'), unmet], ['Guardian tag', prop('.guide-tag', 'color'), prop('.guide-tag', 'background')]]) {
+    assert(ratio(color, back) >= 4.5, `${label}: ${color} on ${back} is ${ratio(color, back).toFixed(2)}:1`);
+  }
 });
 
 const report = { passed: results.filter(r => r.passed).length, failed: results.filter(r => !r.passed).length, results };
