@@ -1,5 +1,5 @@
 {
-  "passed": 23,
+  "passed": 26,
   "failed": 0,
   "results": [
     {
@@ -83,7 +83,19 @@
       "passed": true
     },
     {
+      "name": "Lily's last cascade blooms a worm piece by piece, with no ripple or split over the finale",
+      "passed": true
+    },
+    {
+      "name": "A jelly's guard reads its phase when a forecast seed arrives (hit.time ahead), and now for a live touch",
+      "passed": true
+    },
+    {
       "name": "The jelly, its vents and glowdrops and the glowworm draw cheaply: finite, balanced, and no gradient, shadow or surface once warm",
+      "passed": true
+    },
+    {
+      "name": "A worm tumbling in with its wave is a ghost until it drops, then solid, like every other piece",
       "passed": true
     },
     {
