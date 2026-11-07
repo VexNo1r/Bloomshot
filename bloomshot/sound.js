@@ -522,6 +522,17 @@
   // ── Sweetheart Roses (Level 9, `sweetheart`) ──
 
   // ── Wishing Stars (Level 10, `wishstar`) ──
+  // Each star a seed blooms in its turn rings the next bell of a C major chord (C5, E5, G5, C6) with a faint chime a
+  // fifth above; all four is a wish: the chord strummed whole and a shooting star sliding down three glass
+  // notes into a high chime. A star out of turn answers with a small glassy "not yet" over a dull knock.
+  const WISH_BELLS = [7, 9, 11, 14];
+  FOE_CUES['wishstar:ring'] = (data, pan) => {
+    const n = WISH_BELLS[clamp(Math.round(num(data.pip, 1)) - 1, 0, 3)];
+    foeRows([['bell', step(n), 0, .3, .06], ['chime', step(n + 4), .03, .25, .025]], pan);
+  };
+  FOE_CUES['wishstar:wish'] = [['bell', step(7), 0, .5, .05], ['bell', step(9), .04, .5, .05], ['bell', step(11), .08, .5, .05], ['bell', step(14), .12, .6, .05],
+    ['glass', step(18), .22, .1, .04], ['glass', step(16), .3, .1, .035], ['glass', step(14), .38, .12, .03], ['chime', step(21), .46, .4, .03], ['crunch', 'burst', .22, .5]];
+  FOE_CUES['wishstar:guard'] = [['glass', step(4), 0, .06, .04], ['wood', step(-2), .02, .06, .04], ['crunch', 'click', 0, .4]];
 
   // -----------------------------------------------------------------------------------------------------------------
   // The guardians' moves. A `bossAbility` event names its move and act (start, spit, shut, toss, snap...); the cue is
@@ -625,6 +636,50 @@
   // ── Thornmother (Level 9, `briar`) ──
 
   // ── The Starseed (Level 10, `core`) ──
+  // Chimes and bells: a sky full of little stars. Her replays are the old guardians' own cues tinted star-gold and a
+  // fifth higher (four scale steps up, so they stay in C major): Sunny's yawn, spit and snap-shut for her portal,
+  // Morel's waltz, Crystal Heart's glass, Lantern Lily's tide for her swirl. A lent star nobody shot flies home on a
+  // rising two-chime twinkle (one of her stars relights); one that is shot pops on a bell and a high chime. The
+  // Constellation Dome wakes five rising bells; each star broken in turn rings the next note of C major's pentatonic
+  // chord, and the fifth strums all five into a falling glass shooting star. Her fused tricks get their own voices:
+  // a pearl's plink, a firework's fizz, whoosh and bang, a gem's catch run, a lasso's crack and creep, and Starfall's
+  // glass whistles; a comet caught bursts into a marimba run, one that lands thuds into a low bell.
+  const STAR_STEP = f => { const n = Math.round(12 * Math.log2(f / 261.6255653)), o = Math.floor(n / 12); return 7 * o + MAJOR.indexOf(n - 12 * o); };
+  const starFifth = rows => rows.map(row => row[0] === 'crunch' ? row : [row[0], step(STAR_STEP(row[1]) + 4), ...row.slice(2)]);
+  const STAR_HOME = [['chime', step(11), 0, .2, .035], ['chime', step(14), .12, .3, .03]];
+  const STAR_CATCH = [['bell', step(14), 0, .2, .055], ['chime', step(18), .06, .3, .04], ['crunch', 'pop', 0, .5]];
+  const DOME_BELLS = [7, 9, 11, 14, 16];
+  BOSS_ACTS['core:satellites:start'] = [['chime', step(9), 0, .15, .04], ['chime', step(11), .1, .15, .04], ['chime', step(14), .2, .25, .035]];
+  BOSS_ACTS['core:swirl:start'] = starFifth(BOSS_ACTS['lotus:tide:rise']);
+  BOSS_ACTS['core:swirl:answer'] = starFifth(BOSS_ACTS['lotus:tide:recede']);
+  BOSS_ACTS['core:portal:start'] = BOSS_ACTS['core:pearl:start'] = starFifth(BOSS_ACTS['sunny:yawn:start']);
+  BOSS_ACTS['core:portal:spit'] = starFifth(BOSS_ACTS['sunny:yawn:spit']);
+  BOSS_ACTS['core:portal:answer'] = BOSS_ACTS['core:pearl:answer'] = starFifth(BOSS_ACTS['sunny:yawn:shut']);
+  BOSS_ACTS['core:waltz:start'] = starFifth(BOSS_ACTS['puff:waltz:start']);
+  BOSS_ACTS['core:glass:start'] = starFifth(BOSS_ACTS['crystal:heart:reform']);
+  BOSS_ACTS['core:glass:answer'] = starFifth(BOSS_ACTS['crystal:mirrors:shot']);
+  for (const move of ['swirl', 'portal', 'waltz', 'glass', 'pearl', 'rocket', 'gem', 'lasso']) BOSS_ACTS[`core:${move}:home`] = STAR_HOME;
+  for (const move of ['waltz', 'rocket', 'gem', 'lasso']) BOSS_ACTS[`core:${move}:answer`] = STAR_CATCH;
+  BOSS_ACTS['core:dome:start'] = DOME_BELLS.map((n, k) => ['bell', step(n), .08 * k, k === 4 ? .3 : .15, .05]);
+  BOSS_ACTS['core:dome:ring'] = (data, pan) => {
+    const n = DOME_BELLS[clamp(Math.round(num(data.n, 1)) - 1, 0, 4)];
+    foeRows([['bell', step(n), 0, .3, .06], ['chime', step(n + 4), .03, .25, .025]], pan);
+  };
+  BOSS_ACTS['core:dome:shoot'] = [...DOME_BELLS.map((n, k) => ['bell', step(n), .04 * k, .5, .05]), ['glass', step(21), .24, .1, .04], ['glass', step(18), .3, .1, .035],
+    ['glass', step(16), .36, .12, .03], ['crunch', 'burst', .3, .6]];
+  BOSS_ACTS['core:pearl:spit'] = [['drop', step(9), 0, .1, .05], ['bell', step(11), .06, .14, .04], ['crunch', 'click', .06, .4]];
+  BOSS_ACTS['core:rocket:start'] = [['marimba', step(7), 0, .06, .045], ['marimba', step(8), .06, .06, .045], ['marimba', step(9), .12, .06, .045], ['crunch', 'click', 0, .4]];
+  BOSS_ACTS['core:rocket:burst'] = [['wood', step(0), 0, .08, .06], ['crunch', 'burst', 0, .7], ['wood', step(-3), .08, .1, .05]];
+  BOSS_ACTS['core:gem:start'] = [['glass', step(9), 0, .08, .045], ['glass', step(11), .1, .08, .045], ['glass', step(13), .2, .1, .045], ['crunch', 'click', 0, .4]];
+  BOSS_ACTS['core:gem:land'] = [['wood', step(-2), 0, .1, .06], ['crunch', 'thock', 0, .8], ['glass', step(4), .06, .12, .035]];
+  BOSS_ACTS['core:lasso:start'] = [['crunch', 'crack', 0, .7], ['harp', step(4), 0, .1, .05], ['marimba', step(4), .1, .08, .045], ['marimba', step(6), .18, .08, .045], ['marimba', step(8), .26, .1, .045]];
+  BOSS_ACTS['core:lasso:arch'] = [['wood', step(1), 0, .1, .06], ['crunch', 'crack', 0, .7], ['harp', step(5), .08, .2, .045]];
+  BOSS_ACTS['core:starfall:start'] = [['glass', step(18), 0, .12, .04], ['glass', step(16), .1, .12, .04], ['glass', step(14), .2, .2, .04], ['chime', step(21), 0, .3, .025]];
+  BOSS_ACTS['core:starfall:streak'] = (data, pan) => { foeRows([['glass', step(18 - 2 * clamp(Math.round(num(data.n, 0)), 0, 2)), 0, .25, .035]], pan); };
+  BOSS_ACTS['core:starfall:catch'] = [['bell', step(11), 0, .2, .06], ['chime', step(14), .05, .25, .045], ['marimba', pent(10), .1, .08, .05], ['marimba', pent(12), .16, .08, .05],
+    ['marimba', pent(14), .22, .1, .05], ['crunch', 'crack', 0, .5]];
+  BOSS_ACTS['core:starfall:land'] = [['wood', step(-1), 0, .1, .06], ['crunch', 'thock', 0, .8], ['bell', step(4), .06, .25, .035]];
+  BOSS_ACTS['core:supernova:start'] = [['bell', step(0), 0, .4, .06], ['bell', step(4), .1, .4, .055], ['bell', step(7), .2, .5, .05], ['crunch', 'burst', 0, .8], ['chime', step(14), .3, .5, .04]];
 
   function play(type, data = {}) {
     if (!enabled || !context || asleep) return;

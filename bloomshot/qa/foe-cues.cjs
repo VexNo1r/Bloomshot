@@ -46,6 +46,8 @@ module.exports = [
   // ── Sweetheart Roses (Level 9, `sweetheart`) ──
 
   // ── Wishing Stars (Level 10, `wishstar`) ──
+  ...[1, 2, 3, 4].map(pip => ['foe', { kind: 'wishstar:ring', x: 150 + 30 * pip, pip }]), ['foe', { kind: 'wishstar:ring', x: 210 }],
+  ['foe', { kind: 'wishstar:wish', x: 230, n: 3 }], ['foe', { kind: 'wishstar:guard', x: 190 }],
 
   // Guardians: every move's start has a voice (its own, or the guardian's instrument answering low), and a mood change
   // (Phase Bloom) has its own.
@@ -102,5 +104,15 @@ module.exports = [
   // ── Thornmother (Level 9, `briar`) ──
 
   // ── The Starseed (Level 10, `core`) ──
+  ...['satellites', 'swirl', 'portal', 'waltz', 'glass', 'dome', 'pearl', 'rocket', 'gem', 'lasso', 'starfall', 'supernova'].map(move => ['bossAbility', { kind: 'core', move, act: 'start', x: 210 }]),
+  ...['swirl', 'portal', 'waltz', 'glass', 'pearl', 'rocket', 'gem', 'lasso'].map(move => ['bossAbility', { kind: 'core', move, act: 'answer', x: 180 }]),
+  ...['swirl', 'portal', 'waltz', 'glass', 'pearl', 'rocket', 'gem', 'lasso'].map(move => ['bossAbility', { kind: 'core', move, act: 'home', x: 260 }]),
+  ...[1, 2, 3, 4, 5].map(n => ['bossAbility', { kind: 'core', move: 'dome', act: 'ring', x: 150 + 20 * n, n }]), ['bossAbility', { kind: 'core', move: 'dome', act: 'ring', x: 210 }],
+  ['bossAbility', { kind: 'core', move: 'dome', act: 'shoot', x: 230 }], ['bossAbility', { kind: 'core', move: 'portal', act: 'spit', x: 100 }],
+  ['bossAbility', { kind: 'core', move: 'pearl', act: 'spit', x: 320 }], ['bossAbility', { kind: 'core', move: 'rocket', act: 'burst', x: 260 }],
+  ['bossAbility', { kind: 'core', move: 'gem', act: 'land', x: 120 }], ['bossAbility', { kind: 'core', move: 'lasso', act: 'arch', x: 150 }],
+  ...[0, 1, 2].map(n => ['bossAbility', { kind: 'core', move: 'starfall', act: 'streak', x: 86 + 124 * n, n }]),
+  ['bossAbility', { kind: 'core', move: 'starfall', act: 'catch', x: 200, n: 4 }], ['bossAbility', { kind: 'core', move: 'starfall', act: 'land', x: 300 }],
+  ['bossStage', { kind: 'core', stage: 1, mood: 'Dazzling', x: 210 }], ['bossStage', { kind: 'core', stage: 2, mood: 'Radiant', x: 210 }],
 
 ];

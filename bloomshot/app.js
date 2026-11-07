@@ -1922,6 +1922,28 @@
   // ── Sweetheart Roses (Level 9, `sweetheart`) ──
 
   // ── Wishing Stars (Level 10, `wishstar`) ──
+  // Each note: a gold ring on the star and a sparkle drawn along the line from the star before it. The wish: a beat of
+  // hit-stop, the "Wish!" stamp, a ring of white and gold, and motes along the shooting star's hops. A star out of turn
+  // gets a small white ring and the hint naming the star that is next.
+  const WISH_GOLD = ['#ffd65a', '#fff4aa', '#ffffff'];
+  FOE_FX.wishstar = {
+    ring(e) {
+      foeRing(e.x, e.y, '#ffd65a', 8, 18 + 3 * (e.pip || 1), .4); haptic('tick');
+      if (e.fromX != null && save.settings.motion) for (let k = 1; k <= 3; k++) foeGlow(e.fromX + (e.x - e.fromX) * k / 4, e.fromY + (e.y - e.fromY) * k / 4, 1, WISH_GOLD, { spread: 8, fall: 4, life: .5 });
+    },
+    wish(e) {
+      jolt(.12, .07, .2); haptic('surge'); foeRing(e.x, e.y, '#ffffff', 10, 34, .5); foeRing(e.x, e.y, '#ffd65a', 8, 24, .4);
+      for (const p of e.path || []) foeGlow(p.x, p.y, 3, WISH_GOLD, { spread: 20, fall: 6, life: .6 });
+      // The star medallion (art.js STAMPS.slam) under the word.
+      if (save.settings.motion) game.floaters.push({ kind: 'trick', trick: 'slam', text: 'Wish!', label: '', x: clamp(e.x, 70, 350), y: Math.max(44, e.y - 54), life: 1.1, maxLife: 1.1 });
+    },
+    guard(e) {
+      foeRing(e.x, e.y, '#ffffff', 6, 14, .3); haptic('tick');
+      if (e.bud) e.bud.nopeAt = game.time; // art only: the star's "not yet" shake (foe-art.js); the rules never read it
+      const star = game.buds.find(b => b.foe === 'wishstar' && b.wish === e.bud?.wish && !b.bloomed && (!e.bud || b.pip < e.bud.pip));
+      if (star) $('game-hint').textContent = `Star ${star.pip} first!`;
+    }
+  };
 
   // -----------------------------------------------------------------------------------------------------------------
   // The guardians' moves. A `bossAbility` event (move, act) gets BOSS_FX.<kind>['move:act'] or BOSS_FX.<kind>[act]; a mood
@@ -2162,6 +2184,49 @@
   // ── Thornmother (Level 9, `briar`) ──
 
   // ── The Starseed (Level 10, `core`) ──
+  // Star-gold everywhere. A lent star arrives in a gold ring where its tell marked; shot, it pops in a gold burst with a
+  // bright callout of the old trick ("Shut!", "Calm!", "Untied!", "Got it!"); flying home it leaves a thin trail of motes
+  // to the star it relights. The dome wakes with five rings round her, each in-turn star breaks in a ring sized by its
+  // number, and the fifth fires the "Shooting star!" callout with a white flash and a beat of hit-stop. Comets streak
+  // with a mote or two; a catch is "Comet!" with a ring along its line; a fallen star lands in a dull thud of dust. Out of
+  // turn, the hint names the dome star that is next.
+  const STAR_FX = { gold: '#ffd65a', pale: '#fff4aa', white: '#ffffff', glass: '#bfe3ff', thorn: '#9a6a43' };
+  Object.assign(CRIT_TEXT, { rocket: 'Rocket!', glass: 'Found it!', gem: 'Nice catch!', shooting: 'Shooting star!' });
+  const STAR_SAY = { swirl: 'Calm!', portal: 'Shut!', pearl: 'Shut!', lasso: 'Untied!' };
+  function starLentStart(e) {
+    for (const t of (e.targets || []).filter(t => ['portal', 'waltz', 'rocket', 'glass', 'gem', 'knot', 'swirl'].includes(t.role) && (t.real !== false)))
+      foeRing(t.x, t.y, STAR_FX.gold, 8, 22, .4);
+    haptic('tick');
+  }
+  BOSS_FX.core = {
+    // A turned-away seed: the dome star that is next, or which piece is the real one.
+    tip(e) {
+      const b = e.bud || {}, s = game.bossState, next = s && s.dome && s.dome.next;
+      if (b.pip && next) return `Star ${next} first!`;
+      return b.bossPart === 'glass' ? 'That one is glass. Find the gold one!' : b.bossPart === 'gem' ? 'Catch the gold gem, not the pink ones!'
+        : b.bossPart === 'thorn' ? 'Thorns! Shoot the knot between them.' : '';
+    },
+    'swirl:start': starLentStart, 'portal:start': starLentStart, 'waltz:start': starLentStart, 'glass:start': starLentStart,
+    'pearl:start': starLentStart, 'rocket:start': starLentStart, 'gem:start': starLentStart, 'lasso:start': starLentStart,
+    answer(e) {
+      burst({ x: e.x, y: e.y, type: 'gold', r: 14 }, 16, game.particles, currentKeepsake(), false); foeRing(e.x, e.y, STAR_FX.pale, 10, 30, .4);
+      if (STAR_SAY[e.move]) bossCallout(e.x, e.y, STAR_SAY[e.move], 1); jolt(.1, .04, .12); haptic('tick');
+    },
+    home(e) { foeGlow(e.x, e.y, 4, [STAR_FX.gold, STAR_FX.pale], { spread: 18, fall: -4, life: .6 }); foeRing(e.x, e.y, STAR_FX.gold, 6, 16, .35); },
+    'portal:spit'(e) { foeRing(e.x, e.y, STAR_FX.pale, 6, 16, .3); foeDust(e.x, e.y + 4, 4, '#ffe9a0', 40); },
+    'pearl:spit'(e) { foeRing(e.x, e.y, '#e9ddff', 6, 16, .3); },
+    'rocket:burst'(e) { burst({ x: e.x, y: e.y, type: 'poppy', r: 12 }, 14, game.particles, currentKeepsake(), false); jolt(.08, .03, .1); haptic('warn'); },
+    'gem:land'(e) { foeDust(e.x, e.y, 6, '#d8c9a8', 50); foeRing(e.x, e.y, '#e8a4b8', 10, 22, .4); jolt(.06); haptic('warn'); },
+    'lasso:arch'(e) { for (const k of [-1, 0, 1]) foeDust(e.x + k * 24, e.y, 3, STAR_FX.thorn, 45); jolt(.1, .04, .1); haptic('warn'); },
+    // Each star wakes where it is now (they circle her: the tell's marks are a second and more old).
+    'dome:start'(e) { for (const t of (e.targets || []).filter(t => t.role === 'satellite')) { const p = game.buds.find(b => b.id === t.id) || t; foeRing(p.x, p.y, STAR_FX.gold, 7, 18, .4); } haptic('tick'); },
+    'dome:ring'(e) { foeRing(e.x, e.y, STAR_FX.gold, 8, 16 + 4 * (e.n || 1), .4); foeGlow(e.x, e.y, 2, [STAR_FX.gold, STAR_FX.white], { spread: 14, fall: 4, life: .5 }); },
+    'dome:shoot'(e) { foeRing(e.x, e.y, STAR_FX.white, 12, 40, .5); jolt(.18, .08, .25); haptic('surge'); },
+    'starfall:streak'(e) { foeGlow(e.x, e.y, 2, [STAR_FX.pale, STAR_FX.white], { spread: 10, fall: 10, life: .5 }); },
+    'starfall:catch'(e) { burst({ x: e.x, y: e.y, type: 'gold', r: 12 }, 14, game.particles, currentKeepsake(), false); bossCallout(e.x, e.y, 'Comet!', 1); jolt(.12, .05, .15); haptic('surge'); },
+    'starfall:land'(e) { foeDust(e.x, e.y, 6, '#d8c9a8', 40); foeRing(e.x, e.y, STAR_FX.gold, 10, 20, .35); haptic('warn'); },
+    'supernova:start'(e) { foeRing(e.x, e.y, STAR_FX.white, 20, 70, .7); foeRing(e.x, e.y, STAR_FX.gold, 16, 50, .6); jolt(.2, .1, .3); haptic('surge'); }
+  };
 
   function processEvents() {
     for (const event of game.drainEvents()) {
