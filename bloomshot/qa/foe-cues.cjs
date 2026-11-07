@@ -44,6 +44,8 @@ module.exports = [
   // ── Lodestone (Level 8, `lodestone`) ──
 
   // ── Sweetheart Roses (Level 9, `sweetheart`) ──
+  ['foe', { kind: 'sweetheart:blush', x: 187 }], ['foe', { kind: 'sweetheart:pout', x: 233 }], ['foe', { kind: 'sweetheart:kiss', x: 210 }],
+  ['foe', { kind: 'sweetheart:kiss', x: 210, cupid: true }],
 
   // ── Wishing Stars (Level 10, `wishstar`) ──
 
@@ -100,6 +102,15 @@ module.exports = [
   // ── Geode King (Level 8, `geode`) ──
 
   // ── Thornmother (Level 9, `briar`) ──
+  ['bossAbility', { kind: 'briar', move: 'reel', act: 'start', x: 210 }], ['bossAbility', { kind: 'briar', move: 'reel', act: 'snip', x: 164 }],
+  ['bossAbility', { kind: 'briar', move: 'reel', act: 'drink', x: 210 }], ['bossAbility', { kind: 'briar', move: 'reel', act: 'drop', x: 256 }],
+  ['bossAbility', { kind: 'briar', move: 'reel', act: 'sprout', x: 210 }], ['bossAbility', { kind: 'briar', move: 'sweet', act: 'start', x: 100 }],
+  ['bossAbility', { kind: 'briar', move: 'sweet', act: 'kiss', x: 210 }], ['bossAbility', { kind: 'briar', move: 'sweet', act: 'cut', x: 320 }],
+  ['bossAbility', { kind: 'briar', move: 'lasso', act: 'start', x: 210 }], ['bossAbility', { kind: 'briar', move: 'lasso', act: 'untie', x: 180 }],
+  ['bossAbility', { kind: 'briar', move: 'lasso', act: 'wrap', x: 147 }], ['bossAbility', { kind: 'briar', move: 'lasso', act: 'wither', x: 273 }],
+  ['bossAbility', { kind: 'briar', move: 'briar', act: 'start', x: 100 }],
+  ['bossStage', { kind: 'briar', stage: 1, mood: 'Smitten', x: 210 }], ['bossStage', { kind: 'briar', stage: 2, mood: 'Wild', x: 230 }],
+  ['bossCritical', { kind: 'briar', via: 'heart', damage: 2, x: 210 }],
 
   // ── The Starseed (Level 10, `core`) ──
 

@@ -520,6 +520,16 @@
   // ── Lodestone (Level 8, `lodestone`) ──
 
   // ── Sweetheart Roses (Level 9, `sweetheart`) ──
+  // A blush is a shy little harp "ooh" climbing a third, with a soft click; a pout lets it fall back down on the
+  // marimba. A kiss is a "mwah": two marimba notes struck together on a third, a bell answering above them and a
+  // sparkle of chime; a Cupid shot adds a harp run climbing the C pentatonic like an arrow in flight.
+  FOE_CUES['sweetheart:blush'] = [['harp', step(9), 0, .1, .05], ['harp', step(11), .07, .14, .045], ['crunch', 'click', 0, .35]];
+  FOE_CUES['sweetheart:pout'] = [['marimba', step(4), 0, .1, .045], ['marimba', step(2), .1, .16, .04, 0]];
+  const SWEET_KISS = [['marimba', step(7), 0, .1, .06], ['marimba', step(9), 0, .1, .055], ['bell', step(11), .08, .22, .055], ['chime', step(14), .16, .3, .04], ['crunch', 'pop', 0, .5]];
+  FOE_CUES['sweetheart:kiss'] = (data, pan) => {
+    foeRows(SWEET_KISS, pan);
+    if (data.cupid) for (let k = 0; k < 4; k++) note(pent(10 + k), .24 + .06 * k, .12 + .04 * k, .045, pan, 'harp', 1);
+  };
 
   // ── Wishing Stars (Level 10, `wishstar`) ──
 
@@ -623,6 +633,25 @@
   // ── Geode King (Level 8, `geode`) ──
 
   // ── Thornmother (Level 9, `briar`) ──
+  // Harp and wood, a thorny love song. The reel winds up like a creaking ratchet climbing to a plucked harp; a snip is
+  // a bright scissor click on two glass notes; she drinks in two soft drops and lets go with a falling knock; her own
+  // rosebuds pop up as three rising plucks. Sweetheart Vines strike up a three-note harp waltz; a kiss makes her
+  // Lovestruck with a low harp sigh under the pair's own kiss chord, then a high bell and chime above it, settling on a
+  // harp (no pitch shared with the pair's cue, so the two never flam); a plain cut is a dry crack. The lasso cracks
+  // like a whip and slithers up a marimba run; untied, a ribbon pulls (two harp notes falling) into a bell; arriving, it
+  // wraps the side like Rootknot's snare, cracking up out of the soil, and sighs away as it withers.
+  BOSS_ACTS['briar:reel:start'] = [['wood', step(1), 0, .07, .05], ['wood', step(3), .1, .07, .05], ['wood', step(5), .2, .07, .05], ['harp', step(8), .3, .2, .045], ['crunch', 'crack', 0, .5]];
+  BOSS_ACTS['briar:reel:snip'] = [['crunch', 'click', 0, .8], ['glass', step(11), 0, .06, .05], ['glass', step(14), .05, .1, .045]];
+  BOSS_ACTS['briar:reel:drink'] = [['drop', step(4), 0, .12, .045], ['drop', step(7), .1, .16, .04]];
+  BOSS_ACTS['briar:reel:drop'] = [['wood', step(2), 0, .08, .045], ['wood', step(0), .08, .1, .04]];
+  BOSS_ACTS['briar:reel:sprout'] = [['crunch', 'thock', 0, .45], ['harp', step(4), 0, .06, .04], ['harp', step(6), .06, .06, .04], ['harp', step(8), .12, .1, .045]];
+  BOSS_ACTS['briar:sweet:start'] = [['harp', step(7), 0, .12, .05], ['harp', step(9), .14, .12, .05], ['harp', step(11), .28, .25, .05], ['chime', step(14), .28, .3, .03]];
+  BOSS_ACTS['briar:sweet:kiss'] = [['crunch', 'burst', 0, .5], ['harp', step(0), 0, .3, .04], ['bell', step(16), .36, .22, .055], ['chime', step(18), .42, .4, .045], ['harp', step(14), .66, .36, .03]];
+  BOSS_ACTS['briar:sweet:cut'] = [['wood', step(5), 0, .06, .05], ['crunch', 'crack', 0, .6]];
+  BOSS_ACTS['briar:lasso:start'] = [['crunch', 'crack', 0, .8], ['wood', step(-3), 0, .1, .06], ['marimba', step(0), .1, .08, .045], ['marimba', step(2), .18, .08, .045], ['marimba', step(4), .26, .1, .045]];
+  BOSS_ACTS['briar:lasso:untie'] = [['harp', step(11), 0, .1, .055], ['harp', step(9), .06, .1, .05], ['bell', step(14), .12, .3, .05], ['crunch', 'pop', 0, .6]];
+  BOSS_ACTS['briar:lasso:wrap'] = [['wood', step(-3), 0, .1, .06], ['crunch', 'crack', 0, .7], ['harp', step(1), .08, .2, .045], ['wood', step(-2), .16, .1, .05]];
+  BOSS_ACTS['briar:lasso:wither'] = [['drop', step(1), 0, .14, .04]];
 
   // ── The Starseed (Level 10, `core`) ──
 
