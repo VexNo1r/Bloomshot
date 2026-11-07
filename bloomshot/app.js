@@ -1914,6 +1914,39 @@
   };
 
   // ── Amberkeeper (Level 6, `amberkeeper`) ──
+  // Honey motes gather at his tail and a gold ring blooms round each bud he threads; the seal pops an amber ring inside
+  // a white one with a tiny settle; a seed clinks off a bead with a pale tick; a flinch shakes loose a puff and "Eep!".
+  // Breaking him throws amber shards and, when he held any bud, "Freed!" with a beat of hit-stop (each bead shatters with
+  // its own shards). A power's crack throws shards with a white ring; a melt drips honey; an egg hatches in eggshell.
+  const AMBER_FX = { gold: '#ffc23d', pale: '#fff3c4', shard: ['#ffb21e', '#ffd36b', '#e08a12'] };
+  function amberShards(x, y, count, speed) {
+    if (!save.settings.motion) return;
+    count = Math.max(1, Math.round(count * [1, .6, .35][game?.quality || 0]));
+    for (let i = 0; i < count; i++) {
+      const a = i / count * Math.PI * 2 + Math.random() * .6, v = speed * (.55 + Math.random() * .45), life = .45 + Math.random() * .2;
+      game.particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 30, life, maxLife: life, kind: 'crumb', color: AMBER_FX.shard[i % 3],
+        size: 1.6 + Math.random() * 1.4, rotation: a, spin: (Math.random() - .5) * 14, gravity: 260, drag: 1.4 });
+    }
+  }
+  FOE_FX.amberkeeper = {
+    tell(e) { for (const t of e.targets || []) foeRing(t.x, t.y, AMBER_FX.gold, t.r + 2, 10, .45); foeDust(e.x, e.y - 8, 4, AMBER_FX.pale, 30); haptic('tick'); },
+    seal(e) { for (const b of e.beads || []) { foeRing(b.x, b.y, AMBER_FX.gold, b.r, 16, .35); foeRing(b.x, b.y, '#ffffff', b.r * .6, 10, .25); } jolt(.05); haptic('tick'); },
+    flinch(e) { foeRing(e.x, e.y, '#ffffff', 8, 16, .25); foeDust(e.x, e.y, 4, AMBER_FX.pale, 40); bossCallout(e.x, e.y, 'Eep!', .7); haptic('tick'); },
+    break(e) {
+      amberShards(e.x, e.y, 8, 90); foeRing(e.x, e.y, AMBER_FX.gold, 10, 30, .4);
+      if (e.freed > 0) { foeRing(e.x, e.y, '#fff7be', 14, 46, .5); bossCallout(e.x, e.y, 'Freed!', 1); jolt(.12, .05, .15); haptic('surge'); } else { jolt(.06); haptic('tick'); }
+    },
+    // meetFoes (app.js:1694) teaches his hint here too, for a run that starts at the W10 checkpoint and never met him.
+    hatch(e) { meetFoes(); amberShards(e.x, e.y, 10, 110); foeRing(e.x, e.y, AMBER_FX.gold, 8, 26, .4); foeDust(e.x, e.y + 6, 4, '#d8c9a8', 40); haptic('warn'); }
+  };
+  // A seed caught inside a bead as it seals can rattle (several clinks in two ticks, 6 Risk 4): one ring and one tick a .1 s.
+  let amberClinkAt = -1;
+  FOE_FX.amber = {
+    clink(e) { if (game.time - amberClinkAt < .1 && game.time >= amberClinkAt) return; amberClinkAt = game.time; foeRing(e.x, e.y, AMBER_FX.pale, 6, 12, .2); haptic('tick'); },
+    crack(e) { amberShards(e.x, e.y, 8, 80); foeRing(e.x, e.y, '#ffffff', 8, 20, .3); jolt(.06, .03, .08); haptic('tick'); },
+    shatter(e) { amberShards(e.x, e.y, 6, 70); foeRing(e.x, e.y, AMBER_FX.gold, 8, 18, .3); },
+    melt(e) { foeDust(e.x, e.y + 6, 4, '#ffcf6b', 24); }
+  };
 
   // ── Whizzbang (Level 7, `whizzbang`) ──
 
@@ -2154,6 +2187,32 @@
 
 
   // ── Ammonite Queen (Level 6, `fossil`) ──
+  // Pearl-white rings where each pearl will land and a puff of pearl dust from her lips as the volley flies; a lilac ring
+  // and a dust kiss where each lands; a catch bursts lilac with "Pearl catch!" and a beat of hit-stop. Petrify rings each
+  // bud in sandstone, then thunks every slab in with a cloud of dust and a little shake; a seed banking off a slab clacks
+  // white; a Fossil bank (called out by CRIT_TEXT) throws gold stone sparks from her shell; slabs crumble as they thaw.
+  // The egg gets an amber ring where it will land (the hatch is the keeper's own effect).
+  CRIT_TEXT.fossil = 'Fossil bank!';
+  const FOSSIL_FX = { pearl: '#f4eeff', lilac: '#cbb6f2', stone: '#cbbd9f', dark: '#8d775f', gold: '#ffd148' };
+  BOSS_FX.fossil = {
+    'pearls:start'(e) { for (const t of (e.targets || []).filter(t => t.role === 'pearl')) foeRing(t.x, t.y, FOSSIL_FX.pearl, 6, 18, .4); foeDust(e.x, e.y + 20, 5, '#ffffff', 40); haptic('tick'); },
+    'pearls:land'(e) { for (const m of e.marks || []) { foeRing(m.x, m.y, FOSSIL_FX.lilac, 8, 20, .3); foeDust(m.x, m.y + 6, 3, '#f4ecff', 36); } haptic('tick'); },
+    'pearls:catch'(e) {
+      burst({ x: e.x, y: e.y, type: 'lilac', r: 12 }, 16, game.particles, currentKeepsake(), false);
+      foeRing(e.x, e.y, '#ffffff', 8, 30, .35); foeRing(e.x, e.y, FOSSIL_FX.lilac, 10, 40, .45);
+      bossCallout(e.x, e.y, 'Pearl catch!', 1.1); jolt(.12, .05, .18); haptic('surge');
+    },
+    // The stone lands on this same tick and carries the move's one buzz.
+    'petrify:start'(e) { for (const t of (e.targets || []).filter(t => t.role === 'stone')) foeRing(t.x, t.y, FOSSIL_FX.stone, t.r, 8, .5); },
+    'petrify:stone'() {
+      for (const m of game.bumpers.filter(m => m.bossStone)) { foeDust(m.x, m.y, 6, FOSSIL_FX.stone, 60); foeRing(m.x, m.y, FOSSIL_FX.dark, 10, 22, .3); }
+      jolt(.1, .04, .1); haptic('warn');
+    },
+    'petrify:clack'(e) { foeRing(e.x, e.y, '#ffffff', 5, 12, .2); foeDust(e.x, e.y, 2, FOSSIL_FX.stone, 40); },
+    'petrify:bank'(e) { foeDust(e.x, e.y, 8, '#fff2cb', 90); foeRing(e.x, e.y, FOSSIL_FX.gold, 12, 40, .45); },
+    'petrify:thaw'(e) { for (const m of e.marks || []) { foeDust(m.x, m.y, 5, FOSSIL_FX.stone, 45); foeRing(m.x, m.y, '#ffffff', m.r, 10, .3); } },
+    'hatch:start'(e) { for (const t of (e.targets || []).filter(t => t.role === 'egg')) foeRing(t.x, t.y, '#ffc23d', 8, 20, .4); haptic('tick'); }
+  };
 
   // ── Ember Rose (Level 7, `ember`) ──
 

@@ -1362,6 +1362,274 @@ test('Crystal Heart replays identically at 30, 60 and 144 FPS, and a strike loop
 }
 
 // ── Ammonite Queen (Level 6, `fossil`) ──
+function queenMove(tier, cycle, g = arena(6), action) {
+  const s = g.bossState; s.tier = tier; s.cycle = cycle; if (action != null) s.action = action; s.next = s.age; g.step(1 / 120);
+  const w = s.warning; assert(w, 'a warning is up'); const tell = w.targets.map(t => ({ ...t }));
+  const events = []; while (s.warning) { g.step(1 / 120); events.push(...g.drainEvents()); } return { g, s, w, tell, events };
+}
+// The mouth turned to face a seed from straight below (and the inner ring too), so a hit there passes both gaps.
+function openQueen(s) { const b = s.boss; b.shellAngle = Math.PI / 2; b.shellSpin = 0; s.lockAngle = Math.PI / 2; s.lockSpin = 0; }
+test('Ammonite Queen: 32 rings, moods at 22 and 11, Regal opens on her two locks, and her own words for each move', () => {
+  const g = arena(6), s = g.bossState, k = Bosses.kits.fossil;
+  assert.equal(Bosses.health.fossil, 32); assert.equal(s.boss.maxHp, 32); assert.deepEqual(s.tierAt, [22, 11]);
+  assert.deepEqual(k.moods, ['Regal', 'Stony', 'Brooding']);
+  assert.deepEqual(k.stageText, [null, 'The Ammonite Queen grows stony!', 'The Ammonite Queen is brooding!']);
+  assert.deepEqual(k.moves, [['fossil', 'pearls'], ['petrify', 'fossil', 'pearls'], ['hatch', 'pearls', 'petrify', 'fossil']]);
+  for (const text of [...Object.values(k.text), ...k.stageText.slice(1)]) assert(text.length <= 52, text);
+  s.next = 0; g.step(1 / 120); assert.equal(s.warning.move, 'fossil'); assert.equal(s.warning.text, 'Two locks. Wait for both gaps.');
+  assert(s.warning.until - s.warning.at >= 1.3 - 1e-9);
+});
+test('Ammonite Queen: Pearl Volley lobs three pearls to shown marks on her kit clock, forecast exactly; uncaught they land armoured in turning shells', () => {
+  const { g, s, w, tell, events } = queenMove(0, 0, arena(6), 1), b = s.boss;
+  assert.equal(w.move, 'pearls'); assert.equal(w.text, 'Pearl volley! Catch one in the air.');
+  assert.deepEqual(tell.filter(t => t.role === 'pearl').map(t => t.r), [11, 11, 11]);
+  const pearls = s.parts.filter(p => p.bossPart === 'pearl'); assert.equal(pearls.length, 3);
+  assert(pearls.every(p => p.r === 9 && p.hp === 1 && p.sunBonus === 1 && p.T === 1.05 && p.h === 56));
+  const ahead = Bosses.predictVisible(g, .5); advance(g, .5);
+  for (const p of pearls) { const q = ahead.get(p.id); assert(Math.abs(q.x - p.x) < 1e-6 && Math.abs(q.y - p.y) < 1e-6, 'the forecast is the board'); }
+  assert(pearls.every(p => p.y < Math.max(p.y0, p.y1)), 'mid-arc, above the line between her and the mark');
+  const lands = []; for (let n = 0; n < 80; n++) { g.step(1 / 120); lands.push(...g.drainEvents()); }
+  const landed = g.buds.filter(p => p.pearl && !p.bloomed);
+  assert.equal(landed.length, 3); assert.equal(acts(lands, 'land').length, 1);
+  assert(landed.every(p => p.shell && Math.abs(Math.abs(p.shellSpin) - 1.25) < 1e-9 && p.fall === .4 && p.bossSummon && p.r === 11 && p.hp === 1));
+  assert.deepEqual(landed.map(p => Math.sign(p.shellSpin)), [1, -1, 1]); assert(!s.parts.some(p => p.bossPart === 'pearl'));
+  assert(events.some(e => e.type === 'bossAbility' && e.move === 'pearls' && e.act === 'start'));
+});
+test('Ammonite Queen: a seed that meets a pearl in the air is a Pearl catch (bloom, +1 sun, 250 x tempo); a chain or power just blooms it', () => {
+  const { g, s } = queenMove(0, 0, arena(6), 1); advance(g, .3);
+  const [p, q] = s.parts.filter(x => x.bossPart === 'pearl'), score = g.score, sun = g.sunCharge;
+  hit(g, p); const events = g.drainEvents(), catchEvent = acts(events, 'catch')[0];
+  assert(p.bloomed && catchEvent && catchEvent.bonus === Math.round(250 * g.tempo)); assert(g.score > score + catchEvent.bonus); assert(g.sunCharge > sun);
+  hit(g, q, { power: 'beeline' }); assert(q.bloomed && !acts(g.drainEvents(), 'catch').length, 'a power blooms it, no catch');
+  advance(g, 1); assert.equal(g.buds.filter(x => x.pearl).length, 1, 'only the uncaught one landed');
+});
+test('Ammonite Queen: Stony opens on Petrify: three buds (or bare-bed slabs) turn to stone for 5 s on the kit clock, faced to bank toward her', () => {
+  const g = arena(6), s = g.bossState, b = s.boss; s.tier = 1; s.cycle = 0; s.next = s.age; g.step(1 / 120);
+  assert.equal(s.warning.move, 'petrify'); assert.equal(s.warning.text, 'Stone buds! Bank a seed off a slab.');
+  const tell = s.warning.targets.filter(t => t.role === 'stone'); assert.equal(tell.length, 3, 'an empty board is topped up from the bed');
+  const events = []; while (s.warning) { g.step(1 / 120); events.push(...g.drainEvents()); }
+  const stones = g.bumpers.filter(m => m.bossStone), hosts = stones.map(m => g.buds.find(p => p.id === m.host));
+  assert.equal(stones.length, 3); assert(stones.every(m => m.kind === 'rock' && m.bossWall && m.bossMirror && m.kitDrawn && m.length === 18 && m.kitUntil === m.t0 + 5));
+  assert(hosts.every(p => p && p.hidden && p.stoned === b.id && p.hp === 1)); assert.equal(acts(events, 'stone').length, 1);
+  const [stoneAct] = acts(events, 'stone'), slabs = new Map(tell.map(t => [t.id || 'bed', t]));
+  for (const m of stones) { // a straight shot from the launcher at the slab's centre leaves toward where she stands as it turns to stone
+    const ux = Math.cos(m.angle), uy = Math.sin(m.angle), nx = -uy, ny = ux, dx = m.x - g.launcher.x, dy = m.y - g.launcher.y, l = Math.hypot(dx, dy), vx = dx / l, vy = dy / l, d = vx * nx + vy * ny;
+    const rx = vx - 2 * d * nx, ry = vy - 2 * d * ny, to = Math.atan2(stoneAct.y - m.y, stoneAct.x - m.x), err = Math.abs(((Math.atan2(ry, rx) - to) + 3 * Math.PI) % (2 * Math.PI) - Math.PI);
+    assert(err < .03, `faced to bank toward her (${err})`);
+  }
+  assert(tell.every(t => Number.isFinite(t.angle)) && stones.every(m => tell.some(t => t.angle === m.angle)), 'the tell shows the very angle each slab takes');
+  advance(g, 4.9); assert.equal(g.bumpers.filter(m => m.bossStone).length, 3);
+  const thaw = []; for (let n = 0; n < 20; n++) { g.step(1 / 120); thaw.push(...g.drainEvents()); }
+  assert(!g.bumpers.some(m => m.bossStone) && hosts.every(p => !p.hidden && !p.stoned)); assert.equal(acts(thaw, 'thaw').length, 1);
+  assert.deepEqual(acts(thaw, 'thaw')[0].marks.map(m => m.id).sort(), hosts.map(p => p.id).sort(), 'the thaw names the buds it wakes');
+});
+test('Ammonite Queen: a Fossil bank (a seed that banked off a slab within 1.2 s and gets through her gaps) lands for three', () => {
+  let g = arena(6), s = g.bossState, b = s.boss; s.next = 99; openQueen(s); const hp = b.hp;
+  hit(g, b, { mirrorAt: g.time - .5 }); const crit = g.drainEvents().find(e => e.type === 'bossCritical');
+  assert.equal(b.hp, hp - 3); assert(crit && crit.via === 'fossil' && crit.damage === 3); assert.equal(s.lockStage, 0, 'a bank skips the click');
+  hit(g, b, { mirrorAt: g.time - 1.3 }); assert.equal(b.hp, hp - 3, 'later than 1.2 s: the plain click'); assert.equal(s.lockStage, 1);
+  g = arena(6); s = g.bossState; b = s.boss; s.next = 99; openQueen(s); b.shellAngle = -Math.PI / 2;
+  hit(g, b, { mirrorAt: g.time }); assert.equal(b.hp, b.maxHp, 'the mouth still has to be open');
+  g = arena(6); s = g.bossState; b = s.boss; s.next = 99; openQueen(s); b.hp = s.tierAt[0] + 1;
+  hit(g, b, { mirrorAt: g.time }); assert.equal(b.hp, s.tierAt[0], 'the mood clamp still applies');
+});
+test('Ammonite Queen: Brooding spins her lock ring at 1.4 rad/s and opens on an amber egg that hatches an Amberkeeper where it was shown', () => {
+  const g = arena(6), s = g.bossState, b = s.boss; b.hp = s.tierAt[1] + 1; s.tier = 1; s.next = 99; openQueen(s); s.lockSpin = 1.05; b.shellAngle = Math.PI / 2;
+  hit(g, b, { nx: 0, ny: 1 }); hit(g, b); while (!(s.tier === 2)) g.step(1 / 120);
+  assert.equal(s.lockSpin, 1.4);
+  for (let n = 0; n < 600 && !(s.warning && s.warning.move === 'hatch'); n++) g.step(1 / 120);
+  assert.equal(s.warning.move, 'hatch'); const egg = s.warning.targets.find(t => t.role === 'egg');
+  while (s.warning) g.step(1 / 120); assert.equal(s.lobs.length, 1); assert.equal(s.lobs[0].look, 'egg');
+  const events = []; for (let n = 0; n < 140; n++) { g.step(1 / 120); events.push(...g.drainEvents()); }
+  const keeper = g.buds.find(p => p.foe === 'amberkeeper');
+  assert(keeper && keeper.bossSummon && keeper.bossSource === b.id && keeper.x === egg.x && Math.abs(keeper.y - egg.y) < 1e-9);
+  assert(events.some(e => e.type === 'foe' && e.kind === 'amberkeeper:hatch')); assert(g.foeWave, 'the foe step runs this wave');
+});
+test('Ammonite Queen: each move lifts her up to 36 px over .9 s (never above where she started), forecast exactly', () => {
+  const g = arena(6), s = g.bossState, b = s.boss; s.drift = 20; s.next = s.age; s.action = 1; g.step(1 / 120);
+  while (s.warning) g.step(1 / 120); assert(s.rise && Math.abs(s.rise.by - 20) < 1e-9, 'only as far as she has sunk');
+  const y0 = b.y, ahead = Bosses.predictVisible(g, .45).get(b.id); advance(g, .45);
+  assert(Math.abs(ahead.y - b.y) < 1e-6 && b.y < y0); advance(g, .6); assert(!s.rise && Math.abs(s.drift) < 1e-9);
+  const g2 = arena(6), s2 = g2.bossState; s2.drift = 100; s2.next = s2.age; s2.action = 1; g2.step(1 / 120); while (s2.warning) g2.step(1 / 120);
+  assert.equal(s2.rise.by, 36);
+});
+test('Ammonite Queen: a Lullaby holds her pearls in the air, her slabs and her lift; it all carries on after', () => {
+  const { g, s } = queenMove(0, 0, arena(6), 1); advance(g, .3); const p = s.parts.find(x => x.bossPart === 'pearl'), at = [p.x, p.y];
+  g.lullaby = 1; advance(g, .9); assert.deepEqual([p.x, p.y], at); advance(g, 1.2); assert(g.buds.some(x => x.pearl), 'landed after');
+  const r = queenMove(1, 0), g2 = r.g, s2 = r.s; s2.drift = 30; s2.rise = null; s2.next = 99;
+  r.s.rise = { at: s2.kitAge, by: 30 }; s2.timers.push({ at: s2.kitAge + .9, act: 'risen', data: s2.rise });
+  const kit0 = s2.kitAge, stones = () => g2.bumpers.filter(m => m.bossStone).length; assert.equal(stones(), 3);
+  g2.lullaby = 2; advance(g2, 2); assert.equal(s2.kitAge, kit0, 'the kit clock stops'); assert(s2.rise && stones() === 3, 'the lift and the slabs hold');
+  advance(g2, 1); assert(!s2.rise && Math.abs(s2.drift) < 1e-9, 'the lift finishes after'); advance(g2, 3.85); assert.equal(stones(), 3); advance(g2, .2); assert.equal(stones(), 0, 'slabs end 5 s of kit time after they formed');
+});
+test('Ammonite Queen: the same fight at 30, 60 and 144 FPS', () => {
+  const runs = [30, 60, 144].map(fps => {
+    const g = arena(6), s = g.bossState; s.tier = 1; s.cycle = 0; s.next = s.age; const log = [];
+    for (let f = 0; f < 16 * fps; f++) { g.step(1 / fps); for (const e of g.drainEvents()) if (e.type === 'bossAbility') log.push(`${e.move}:${e.act}:${(e.x || 0).toFixed(3)}`); }
+    return { log: log.join(' '), boss: [s.boss.x.toFixed(4), s.boss.y.toFixed(4)], stones: g.bumpers.filter(m => m.bossStone).map(m => m.angle.toFixed(6)), buds: g.buds.filter(p => !p.bloomed).map(p => p.id) };
+  });
+  assert(runs[0].log.includes('petrify:stone')); assert.deepEqual(runs[1], runs[0]); assert.deepEqual(runs[2], runs[0]);
+});
+test('Ammonite Queen: only her jet waits for a clicked mouth; her other moves start, and a click cancels only a jet warning', () => {
+  let g = arena(6), s = g.bossState, b = s.boss; openQueen(s); s.lockSpin = 1.05; hit(g, b); assert.equal(s.lockStage, 1);
+  s.action = 1; s.next = s.age; g.step(1 / 120); assert.equal(s.warning && s.warning.move, 'pearls', 'Pearl Volley does not wait for the click');
+  g = arena(6); s = g.bossState; b = s.boss; openQueen(s); s.lockSpin = 1.05; hit(g, b); s.next = s.age; g.step(1 / 120); assert.equal(s.warning, null, 'the jet waits');
+  g = arena(6); s = g.bossState; b = s.boss; s.action = 1; s.next = s.age; g.step(1 / 120); assert.equal(s.warning.move, 'pearls');
+  openQueen(s); hit(g, b); assert.equal(s.lockStage, 1); assert.equal(s.warning && s.warning.move, 'pearls', 'a click leaves her volley announced');
+});
+test('Ammonite Queen: defeat clears her slabs, wakes their buds and blooms her keeper; the good bot wins her fight', () => {
+  const g = arena(6), s = g.bossState, b = s.boss; s.tier = 1; s.cycle = 0; s.next = s.age; g.step(1 / 120); while (s.warning) g.step(1 / 120);
+  assert(g.bumpers.some(m => m.bossStone)); while (!b.bloomed) g.strike(b, true); g.step(1 / 120);
+  assert(!g.bumpers.some(m => m.bossStone) && !g.buds.some(p => p.stoned || (p.hidden && !p.bloomed && !p.boss)));
+  for (const seed of [7, 19]) { const r = bot.play(6, { seed, startWave: 10, noise: 2.5, think: .3, thinkSpread: .3, bounces: 2 }); assert(r.won, `seed ${seed}`); }
+});
+
+test('Ammonite Queen: her pearls and her egg never land on her, however low she has sunk', () => {
+  let worst = Infinity, pearls = 0, eggs = 0;
+  for (const age of [0, 1.1, 2.3, 3.7, 5.2]) for (const drift of [100, 130, 140, 160, 180]) for (const [tier, cycle, action] of [[0, 0, 1], [2, 0, null]]) {
+    const g = arena(6), s = g.bossState, b = s.boss; s.next = Infinity; advance(g, age); s.drift = drift;
+    s.tier = tier; s.cycle = cycle; if (action != null) s.action = action; s.next = s.age; g.step(1 / 120);
+    if (!s.warning) continue; // no clear mark at all: she rests, which is allowed
+    const move = s.warning.move; while (s.warning) g.step(1 / 120);
+    if (move === 'pearls') for (const p of s.parts.filter(p => p.bossPart === 'pearl')) { pearls++; worst = Math.min(worst, Math.hypot(p.x1 - p.x0, p.y1 - p.y0) - (b.r + 11 + 6)); }
+    if (move === 'hatch') for (const l of s.lobs.filter(l => l.look === 'egg')) { eggs++; worst = Math.min(worst, Math.hypot(l.x1 - l.x0, l.y1 - l.y0) - (b.r + 13 + 6)); }
+  }
+  assert(pearls >= 25 && eggs >= 15, `she still throws (${pearls} pearls, ${eggs} eggs)`); assert(worst >= 0, `every mark clears her (worst ${worst.toFixed(1)} px)`);
+});
+
+// Her art: art.js, foes.js and foe-art.js in a VM with a recording canvas (as sunnyArt, plus foes.js so the keeper she
+// hatches reads his own forecast). Every number finite, every save restored, and her hooks paint no gradient or shadow
+// and, once warm, make no new surface.
+function queenArt() {
+  const vm = require('node:vm'), totals = { hook: null, gradients: 0, shadows: 0, surfaces: 0, draws: new Map() };
+  function brush() {
+    const stack = [], state = { globalAlpha: 1, fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, shadowBlur: 0, lineDashOffset: 0 };
+    const ctx = new Proxy(state, {
+      get(t, name) {
+        if (name in t) return t[name];
+        if (name === 'canvas') return { width: 420, height: 560 };
+        if (name === 'getTransform') return () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 });
+        return (...args) => {
+          args.forEach(a => { if (typeof a === 'number') assert(Number.isFinite(a), `${String(name)} received ${a}`); });
+          if (name === 'save') stack.push({ ...state });
+          else if (name === 'restore') { assert(stack.length, 'restore without save'); Object.assign(state, stack.pop()); }
+          else if (name === 'measureText') return { width: String(args[0]).length * 7 };
+          else if (/^create(Linear|Radial|Conic)Gradient$|^createPattern$/.test(name)) { if (totals.hook) totals.gradients++; return { addColorStop() {} }; }
+          else if (totals.hook && /^(fill|stroke|drawImage)$/.test(name)) totals.draws.set(totals.hook, (totals.draws.get(totals.hook) || 0) + 1);
+        };
+      },
+      set(t, name, value) {
+        if (['globalAlpha', 'lineWidth', 'shadowBlur'].includes(name)) assert(Number.isFinite(value), `${name} is finite`);
+        if (name === 'shadowBlur' && value > 0 && totals.hook) totals.shadows++;
+        t[name] = value; return true;
+      }
+    });
+    return { ctx, balanced: () => stack.length === 0 };
+  }
+  class Canvas { constructor(w, h) { this.width = w; this.height = h; if (totals.hook) totals.surfaces++; this.rec = brush(); } getContext() { return this.rec.ctx; } }
+  const scope = vm.createContext({ console, Math, Map, Set, WeakMap, Array, Object, Number, String, JSON, Date, OffscreenCanvas: Canvas });
+  for (const file of ['foes.js', 'art.js', 'foe-art.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), scope, { filename: file });
+  const A = scope.BloomFoeArt, wrap = (look, name, hooks) => {
+    for (const hook of hooks) {
+      const own = look[hook]; if (!own) continue;
+      look[hook] = function (...args) {
+        if (name === 'fossil' && hook !== 'warm') totals.kit = args[hook === 'face' || hook === 'part' ? 6 : 5];
+        // Warming is the level intro's one-off bake (art.js's own flowers included), so it is not counted.
+        const was = totals.hook; totals.hook = hook === 'warm' ? null : name + ':' + (hook === 'part' ? 'part:' + args[3].bossPart : hook);
+        try { return own.apply(this, args); } finally { totals.hook = was; }
+      };
+    }
+  };
+  wrap(A.KIT_LOOKS.fossil, 'fossil', ['warm', 'under', 'face', 'part', 'over', 'aim']); wrap(A.LOOKS.amberkeeper, 'amberkeeper', ['bud', 'over']); wrap(A.LOOKS.amber, 'amber', ['bud']);
+  return { Art: scope.BloomArt, kits: A.kits, brush, totals, vmFoes: scope.BloomFoes };
+}
+test('Ammonite Queen: her moods, pearls, slabs, egg and lift draw balanced, finite, with no gradient or shadow and no new surface once warm', () => {
+  const { Art, kits, brush, totals, vmFoes } = queenArt();
+  assert(vmFoes && vmFoes.FOES.amberkeeper, 'foes.js is loaded with the art');
+  const boards = [], add = (label, g) => { boards.push([label, g, g.time]); return g; };
+  const tell = (tier, cycle, action, g = arena(6)) => { const s = g.bossState; Object.assign(s, { tier, cycle, next: s.age }); if (action != null) s.action = action; advance(g, .7); assert(s.warning, label); return g; };
+  const full = () => { const g = new RushGame({ plan: bot.plan(6), startWave: 10 }); g.started = true; g.status = 'flying'; g.drainEvents(); return g; };
+  var label = '';
+  // Each mood at rest (Brooding cradling her ready egg), hurt and shivering, and the lift's bubbles.
+  for (const tier of [0, 1, 2]) { const g = arena(6); Object.assign(g.bossState, { tier, next: 99 }); if (tier === 2) g.bossState.lockSpin = 1.4; add(`mood ${tier}`, g); }
+  let g = arena(6); g.bossState.boss.hp = 4; g.bossState.next = 99; g.bossState.boss.hitAt = g.time; add('hurt, shivering', g);
+  g = arena(6); g.bossState.drift = 30; queenMove(0, 0, g, 1); advance(g, .3); assert(g.bossState.rise, 'rising'); add('rise, pearls in flight', g);
+  // Each warning's tell: pearls (Regal), petrify on a bare bed and on her full board (Stony), hatch (Brooding).
+  label = 'pearls tell'; add(label, tell(0, 0, 1)); label = 'petrify bed tell'; add(label, tell(1, 0)); label = 'petrify tell'; add(label, tell(1, 0, null, full())); label = 'hatch tell'; add(label, tell(2, 0));
+  // Pearls landed; slabs fresh, mid, flashing and fading; the egg in flight and just hatched.
+  ({ g } = queenMove(0, 0, arena(6), 1)); advance(g, 1.2); add('pearls landed', g);
+  ({ g } = queenMove(1, 0, full())); advance(g, .1); add('slabs fresh', g);
+  ({ g } = queenMove(1, 0, full())); advance(g, 2.5); for (const m of g.bumpers) if (m.bossStone) m.flashAt = g.time - .1; add('slabs flashing', g);
+  ({ g } = queenMove(1, 0)); advance(g, 4.8); assert(g.bumpers.some(m => m.bossStone), 'fading slabs still up'); add('slabs fading', g);
+  ({ g } = queenMove(2, 0)); advance(g, .5); assert(g.bossState.lobs.some(l => l.look === 'egg')); add('egg in flight', g);
+  ({ g } = queenMove(2, 0)); advance(g, 1.15); assert(g.buds.some(p => p.foe === 'amberkeeper')); add('hatched', g);
+  const frame = (label, board, time, still, quality) => { const rec = brush(); Art.draw(rec.ctx, board, time, { theme: 'meadow', reducedMotion: still, quality }); assert(rec.balanced(), `${label}: balanced`); };
+  // The level's intro paints her sprites (and the keeper's) ahead, as art.js does through kits.warm.
+  frame('first', boards[0][1], boards[0][2], false, 0); kits.warm('fossil', totals.kit);
+  for (const still of [false, true]) for (const quality of [0, 1, 2]) for (const [label, board, time] of boards) frame(label, board, time, still, quality);
+  for (const hook of ['fossil:face', 'fossil:part:pearl', 'fossil:over', 'fossil:under', 'amberkeeper:bud']) assert(totals.draws.get(hook) > 0, hook + ' drew');
+  assert.deepEqual([totals.gradients, totals.shadows], [0, 0], 'no gradient or shadow from her art');
+  const warm = totals.surfaces;
+  for (const still of [false, true]) for (const quality of [0, 1, 2]) for (const dt of [.05, .4, 1.3, 3.71]) for (const [label, board, time] of boards) frame(label, board, time + dt, still, quality);
+  assert.equal(totals.surfaces, warm, 'no new surface once warm'); assert.deepEqual([totals.gradients, totals.shadows], [0, 0]);
+});
+// Level 6's own cues of one tick as the player hears and feels them: sound.js on a recording AudioContext (each pitched
+// note's frequency and start), and the Level 6 effect blocks of app.js with every buzz counted.
+function level6Senses() {
+  const notes = [], param = () => { const p = { value: 0 }; for (const m of ['setValueAtTime', 'linearRampToValueAtTime', 'exponentialRampToValueAtTime', 'setTargetAtTime']) p[m] = x => { p.value = x; return p; };
+    for (const m of ['cancelScheduledValues', 'cancelAndHoldAtTime']) p[m] = () => p; return p; };
+  const node = kind => { const n = { connect: x => x, disconnect() {}, stop() {}, setPeriodicWave() {}, start: t => { if (kind === 'osc') notes.push({ t, f: n.frequency.value }); } };
+    for (const k of ['frequency', 'detune', 'gain', 'Q', 'pan']) n[k] = param(); return n; };
+  let audio = null;
+  class Audio {
+    constructor() { audio = this; this.state = 'running'; this.currentTime = 0; this.sampleRate = 44100; this.destination = node('out'); }
+    createGain() { return node('gain'); } createBiquadFilter() { return node('filter'); } createWaveShaper() { return node('shaper'); }
+    createStereoPanner() { return node('pan'); } createOscillator() { return node('osc'); } createPeriodicWave() { return {}; }
+    resume() { return Promise.resolve(); } suspend() { return Promise.resolve(); } close() { return Promise.resolve(); }
+  }
+  const vm = require('node:vm'), read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
+  const sounds = { console, AudioContext: Audio }; vm.createContext(sounds); vm.runInContext(read('sound.js'), sounds);
+  sounds.BloomSound.setEnabled(true); sounds.BloomSound.wake();
+  const app = read('app.js'), block = (from, to) => app.slice(app.indexOf(from), app.indexOf(to));
+  const buzzes = [], fx = { BOSS_FX: {}, FOE_FX: {}, CRIT_TEXT: {}, game: null, save: { settings: { motion: false } }, Math, haptic: kind => buzzes.push(kind),
+    foeRing() {}, foeDust() {}, burst() {}, bossCallout() {}, jolt() {}, meetFoes() {}, currentKeepsake() {} };
+  vm.createContext(fx); vm.runInContext(block('// ── Amberkeeper (Level 6', '// ── Whizzbang (Level 7') + block('// ── Ammonite Queen (Level 6', '// ── Ember Rose (Level 7'), fx);
+  // Plays one tick's events; returns each event's notes (start relative to the tick) and the buzzes they made.
+  return (game, events) => {
+    audio.currentTime += 5; fx.game = game; buzzes.length = 0; const now = audio.currentTime;
+    const each = events.map(e => {
+      const from = notes.length; sounds.BloomSound.play(e.type, e);
+      const own = e.type === 'foe' ? fx.FOE_FX[e.kind.split(':')[0]] : fx.BOSS_FX[e.kind], act = e.type === 'foe' ? e.kind.split(':')[1] : `${e.move}:${e.act}`;
+      const handler = own && (own[act] || e.type !== 'foe' && own[e.act]); if (handler) handler(e);
+      return { name: e.type === 'foe' ? e.kind : `${e.move}:${e.act}`, notes: notes.slice(from).map(n => ({ t: n.t - now, f: n.f })) };
+    });
+    return { each, buzzes: [...buzzes] };
+  };
+}
+test('Level 6 sounds and buzzes each beat once: no two cues of one tick strike the same note together, one buzz an action', () => {
+  const senses = level6Senses(), mine = e => e.type === 'foe' ? /^amber/.test(e.kind) : e.type === 'bossAbility' && e.kind === 'fossil';
+  // The tick each action lands on, collected from real play.
+  const tickOf = (g, found, limit = 1200) => { for (let n = 0; n < limit; n++) { g.step(1 / 120); const now = g.drainEvents().filter(mine); if (found(now)) return now; } assert.fail('the tick never came'); };
+  const full = () => { const g = new RushGame({ plan: bot.plan(6), startWave: 10 }); g.started = true; g.status = 'flying'; g.drainEvents(); return g; };
+  const ticks = [];
+  for (const [label, g] of [['petrify, full board', full()], ['petrify, bare bed', arena(6)]]) {
+    const s = g.bossState; Object.assign(s, { tier: 1, cycle: 0, next: s.age }); ticks.push([label, g, tickOf(g, now => now.some(e => e.act === 'stone'))]);
+  }
+  { const g = arena(6), s = g.bossState; Object.assign(s, { tier: 2, cycle: 0, next: s.age }); ticks.push(['the egg hatches', g, tickOf(g, now => now.some(e => e.kind === 'amberkeeper:hatch'))]); }
+  { const g = arena(6), s = g.bossState; Object.assign(s, { tier: 0, cycle: 0, action: 1, next: s.age }); ticks.push(['pearls fly', g, tickOf(g, now => now.some(e => e.act === 'start'))]); ticks.push(['pearls land', g, tickOf(g, now => now.some(e => e.act === 'land'))]); }
+  { const g = new RushGame({ plan: { id: 6, name: 'Test', waves: 1, wave: () => Depths.wave(6, 2) }, startWave: 1 }); g.started = true;
+    for (let n = 0; n < 1200 && g.foeClock < 2.91; n++) g.step(1 / 120); g.drainEvents(); const keeper = g.buds.find(b => b.foe === 'amberkeeper');
+    hit(g, keeper); g.drainEvents(); hit(g, keeper); ticks.push(['the keeper breaks', g, g.drainEvents().filter(mine)]); }
+  assert.deepEqual(ticks[0][2].map(e => e.act).sort(), ['start', 'stone'], 'Petrify sets its slabs on the tick the move starts');
+  assert.equal(ticks[5][2].filter(e => e.kind === 'amber:shatter').length, 2, 'both beads shatter as he breaks');
+  for (const [label, g, events] of ticks) {
+    const { each, buzzes } = senses(g, events), all = each.flatMap(e => e.notes);
+    assert(all.length, `${label}: the beat is heard`); assert(all.some(n => n.t < .03), `${label}: on the beat`);
+    for (let i = 0; i < each.length; i++) for (let j = i + 1; j < each.length; j++) for (const a of each[i].notes) for (const b of each[j].notes)
+      assert(!(Math.abs(a.f - b.f) < .5 && Math.abs(a.t - b.t) < .03), `${label}: ${each[i].name} and ${each[j].name} both strike ${a.f.toFixed(1)} Hz at +${a.t.toFixed(2)} s`);
+    assert(buzzes.length <= 1, `${label}: one buzz, not ${buzzes.join(' + ')}`);
+  }
+});
 
 // ── Ember Rose (Level 7, `ember`) ──
 

@@ -478,7 +478,8 @@
     for (const p of game.buds) if (p.bossFlameUntil > s.age && !p.bloomed && !(game.lullaby > 0)) p.y += game.descentSpeed * (p.fall || 1) * .25 * dt;
     if (game.lullaby > 0) { s.next += dt; if (s.warning) s.warning.until += dt; if(s.flowerWarning)s.flowerWarning.until+=dt; }
     else if (s.warning && game.time >= s.warning.until) activate(game);
-    else if (!s.warning && s.age >= s.next && !(s.kind==='fossil' && s.lockStage===1)) schedule(game);
+    // A clicked mouth is never erased by her jet: only the jet (the legacy move) waits for the click to run out.
+    else if (!s.warning && s.age >= s.next && !(s.kind==='fossil' && s.lockStage===1 && (!k || !s.shiftPending && kitMove(s, k)==='fossil'))) schedule(game);
   }
   // Shared kit pieces: a timed action, a drawn lob flight, a quiet close, a landing check and a carried flower let go.
   function after(s, seconds, act, data) { const t = { at: s.kitAge + seconds, act, data }; s.timers.push(t); return t; }
@@ -578,7 +579,8 @@
       // The mouth stays clicked for a full outer-ring revolution plus a reaction margin. A station jet
       // cannot erase that earned click while the player is waiting for the second opening.
       s.lockStage = 1;s.lockUntil = s.age + TAU/s.lockSpin + 1.2;s.mode = 'lock-plates';bud.shellAngle=Math.atan2(hit.ny,hit.nx);bud.shellSpin=0;
-      if(s.warning){s.warning=null;s.flowerWarning=null;game.bossWarning=null;bud.bossWarning=null;}
+      // A click cancels only her jet's warning (a kit's pearl, petrify, hatch or stage warning stays up).
+      if(s.warning && s.warning.move==='fossil'){s.warning=null;s.flowerWarning=null;game.bossWarning=null;bud.bossWarning=null;}
       game.event('bossLock', { kind: s.kind, stage: 1 }); return { blocked: true, feed: true };
     }
     let damage = 1;
@@ -1614,6 +1616,204 @@
   });
 
   // ── Ammonite Queen (Level 6, `fossil`) ──
+  // A regal, very old ammonite who rules the fossil beds from inside her coiled shell. Regal (tier 0) plays her
+  // original two locks (click the mouth, then a seed through both gaps lands double) and, new, the Pearl Volley: she
+  // lobs three pearls along shown arcs to three marks below her; each lands as a one-hit bud armoured in a turning shell,
+  // and a seed that meets one in the air is a "Pearl catch!" (it blooms there, +1 sun and a bonus). Stony (tier 1) opens
+  // with Petrify: three plain buds turn to stone slabs for FOSSIL.stoneLife s (out of play, angled so a straight shot at
+  // a slab's face banks toward her), and a seed that banks off a slab and gets through her gaps within FOSSIL.bank s is a
+  // "Fossil bank!" for three. Brooding (tier 2) spins her lock ring at FOSSIL.lockS3 rad/s, petrifies four, and opens by
+  // laying an amber egg that hatches an Amberkeeper (foes.js). Every move she makes also lifts her up to FOSSIL.lift px
+  // (never above where she started), so a long fight sinks her only slowly. Lobs, lifts, stones and the egg all
+  // run on the kit clock (a Lullaby holds them) and every choice is fixed by the board and hash01.
+  const FOSSIL = { lockS3: 1.4, lift: 36, liftT: .9, pearlR: 9, pearlT: 1.05, pearlH: 56, pearlDist: 78, pearlAt: [35, 90, 145], pearlSpin: 1.25,
+    pearlFall: .4, pearlPay: 250, stones: [0, 3, 4], stoneLife: 5, stoneLen: 18, bed: [[96, 248], [324, 248], [156, 284], [264, 284]], bedFall: .5, bank: 1.2, bankDamage: 3,
+    eggT: 1.1, eggH: 64, eggDist: 84, eggAt: [90, 35, 145, 10, 170], keeperR: 13 };
+  // A mark clear of every open piece now and `ahead` s from now (flowers fall; she and her parts follow her forecast).
+  // Unlike Morel's rule, her own body counts: once she has sunk near the marks' floor (dangerY - 190), a mark below her
+  // would land on her.
+  function fossilClear(game, s, m, ahead) {
+    const later = positions(s, ahead);
+    return game.buds.every(p => {
+      if (!open(p) || p.hidden || p.ghost) return true;
+      const pose = p.boss || p.bossPart ? later.get(p.id) : null, gap = p.r + m.r + 6;
+      if (Math.hypot(p.x - m.x, p.y - m.y) < gap) return false;
+      return Math.hypot((pose ? pose.x : p.x) - m.x, (pose ? pose.y : p.y + game.descentSpeed * (p.fall || 1) * ahead) - m.y) >= gap;
+    });
+  }
+  // Marks round where she will be when the tell ends, `dist` px out at each angle (degrees, 90 is straight down).
+  function fossilMarks(game, s, degs, dist, r, role, ahead) {
+    const q = positions(s, TELEGRAPH).get(s.boss.id);
+    return degs.map(deg => {
+      const a = deg * Math.PI / 180;
+      return { x: clamp(q.x + dist * Math.cos(a), 34 + r, 386 - r), y: Math.min(q.y + dist * Math.sin(a), game.dangerY - 190), r, role };
+    }).filter(m => fossilClear(game, s, m, ahead));
+  }
+  // The buds Petrify would take: safe plain flowers outside the shell spell and the amber, lowest first on each side, left
+  // and right in turn.
+  function fossilStoneTargets(game, s, count) {
+    const spell = new Set(flowerTargets(game, s).map(t => t.id));
+    const ok = game.buds.filter(p => safeFlower(game, p, TELEGRAPH + FOSSIL.stoneLife) && !p.amberBy && !p.stoned && !spell.has(p.id));
+    const order = (a, b) => b.y - a.y || (a.id < b.id ? -1 : 1), left = ok.filter(p => p.x < 210).sort(order), right = ok.filter(p => p.x >= 210).sort(order), picks = [];
+    for (let k = 0; picks.length < count && (left.length || right.length); k++) { const side = (k % 2 ? right : left).length ? (k % 2 ? right : left) : (k % 2 ? left : right); picks.push(side.shift()); }
+    return picks;
+  }
+  // A slab's angle: its face turned to send a straight shot from the launcher on to where she is now.
+  function fossilFace(game, x, y, q) {
+    const lx = game.launcher.x - x, ly = game.launcher.y - y, ll = Math.hypot(lx, ly) || 1, qx = q.x - x, qy = q.y - y, ql = Math.hypot(qx, qy) || 1;
+    return Math.atan2(ly / ll + qy / ql, lx / ll + qx / ql) + Math.PI / 2;
+  }
+  function fossilRise(game, s) {
+    const by = Math.min(FOSSIL.lift, Math.max(0, s.drift - (s.rise ? s.rise.by : 0)));
+    if (s.rise) return;
+    if (by < 1) return;
+    s.rise = { at: s.kitAge, by }; after(s, FOSSIL.liftT, 'risen', s.rise);
+  }
+  kit('fossil', {
+    hp: 32,
+    moods: ['Regal', 'Stony', 'Brooding'],
+    stageText: [null, 'The Ammonite Queen grows stony!', 'The Ammonite Queen is brooding!'],
+    text: { pearls: 'Pearl volley! Catch one in the air.', petrify: 'Stone buds! Bank a seed off a slab.', hatch: 'An amber egg! Break the keeper.' },
+    moves: [['fossil', 'pearls'], ['petrify', 'fossil', 'pearls'], ['hatch', 'pearls', 'petrify', 'fossil']],
+    init(game, s) { s.rise = null; s.pearls = 0; },
+    stage(game, s) { if (s.tier === 2) s.lockSpin = FOSSIL.lockS3; },
+    rise(s, clock) { const r = s.rise; return r ? r.by * Foes.smooth((clock - r.at) / FOSSIL.liftT) : 0; },
+    plan: {
+      pearls(game, s) {
+        if (s.parts.some(p => p.bossPart === 'pearl' && !p.bloomed)) return null;
+        const marks = fossilMarks(game, s, FOSSIL.pearlAt, FOSSIL.pearlDist, 11, 'pearl', TELEGRAPH + FOSSIL.pearlT);
+        return marks.length ? { targets: marks } : null;
+      },
+      petrify(game, s) {
+        // Each slab's angle is fixed now from where she will be when the tell ends, so the ghost slab the tell draws is the slab.
+        const want = FOSSIL.stones[s.tier], q = positions(s, TELEGRAPH).get(s.boss.id), sink = game.descentSpeed * TELEGRAPH;
+        const picks = fossilStoneTargets(game, s, want).map(p => ({ id: p.id, x: p.x, y: p.y, r: p.r + 6, role: 'stone', angle: fossilFace(game, p.x, p.y + sink * (p.fall || 1), q) }));
+        // An empty bed is topped up: slabs rise from the seabed with a bud asleep inside each (they thaw into plain buds).
+        for (const [x, y] of FOSSIL.bed) {
+          if (picks.length >= want) break;
+          const m = { x, y, r: 17, role: 'stone', bed: true, angle: fossilFace(game, x, y, q) };
+          if (picks.every(t => Math.hypot(t.x - x, t.y - y) > t.r + m.r + 6) && fossilClear(game, s, m, TELEGRAPH + FOSSIL.stoneLife)) picks.push(m);
+        }
+        return picks.length >= 2 ? { targets: picks } : null;
+      },
+      hatch(game, s) {
+        if (game.buds.some(p => p.foe === 'amberkeeper' && p.bossSource === s.boss.id && !p.bloomed)) return null;
+        // Straight below her if that is clear, else down to one side, else level beside her (the first clear of FOSSIL.eggAt).
+        const [m] = fossilMarks(game, s, FOSSIL.eggAt, FOSSIL.eggDist, FOSSIL.keeperR, 'egg', TELEGRAPH + FOSSIL.eggT);
+        return m ? { targets: [m] } : null;
+      }
+    },
+    act: {
+      fossil(game, s, w) { legacyAct(game, s, w); fossilRise(game, s); },
+      pearls(game, s, w) {
+        fossilRise(game, s);
+        const b = s.boss, marks = w.targets.filter(t => t.role === 'pearl' && fossilClear(game, s, t, FOSSIL.pearlT));
+        w.targets = [...marks, ...w.targets.filter(t => t.role !== 'pearl')]; if (!marks.length) { w.quiet = true; return; }
+        const flying = marks.map((m, i) => part(game, 'pearl', b.x, b.y, FOSSIL.pearlR, 1, { t0: s.kitAge, T: FOSSIL.pearlT, x0: b.x, y0: b.y, x1: m.x, y1: m.y, h: FOSSIL.pearlH, slot: i, sunBonus: 1, type: 'lilac' }));
+        s.pearls++; after(s, FOSSIL.pearlT, 'pearl', flying);
+      },
+      petrify(game, s, w) {
+        fossilRise(game, s);
+        const b = s.boss, made = [];
+        for (const t of w.targets.filter(t => t.role === 'stone')) {
+          if (t.bed) {
+            // A bare-bed slab: a fossil bud asleep in stone; it falls with the board and thaws into a plain one-hit bud.
+            if (!fossilClear(game, s, t, 0)) continue;
+            const id = `${b.id}-bed-${s.serial++}`;
+            game.buds.push({ id, group: id, x: t.x, y: t.y, baseX: t.x, startY: t.y, r: 11, hp: 1, maxHp: 1, type: ['gold', 'coral', 'lilac', 'sky', 'poppy'][Math.floor(Foes.hash01(id, 1) * 5)],
+              relay: false, fall: FOSSIL.bedFall, sway: 0, hitAt: -100, bloomed: false, bloomAt: -100, spawnAt: game.time, bossSummon: true, bossSource: b.id, fossilBed: true });
+            t.id = id;
+          }
+          const p = game.buds.find(q => q.id === t.id);
+          if (!p || p.bloomed || p.hidden || p.amberBy || p.bossFlowerEffect || p.stoned) continue;
+          p.hidden = true; p.stoned = b.id;
+          game.bumpers.push({ id: b.id + '-stone-' + s.serial++, kind: 'rock', bossWall: true, bossMirror: true, bossStone: true, kitDrawn: true, x: p.x, y: p.y, baseX: p.x,
+            length: FOSSIL.stoneLen, angle: t.angle ?? fossilFace(game, p.x, p.y, b), host: p.id, r: p.r, type: p.type, t0: s.kitAge, kitUntil: s.kitAge + FOSSIL.stoneLife, expires: Infinity, flashAt: null, flashSeen: null });
+          made.push(p.id);
+        }
+        if (!made.length) { w.quiet = true; return; }
+        after(s, FOSSIL.stoneLife, 'thaw', made);
+        game.event('bossAbility', { kind: s.kind, move: 'petrify', act: 'stone', x: b.x, y: b.y, ids: made });
+      },
+      hatch(game, s, w) {
+        fossilRise(game, s);
+        const b = s.boss, m = w.targets.find(t => t.role === 'egg');
+        if (!m || !fossilClear(game, s, m, FOSSIL.eggT)) { w.quiet = true; return; }
+        lob(s, 'egg', b.x, b.y, m.x, m.y, FOSSIL.eggT, { h: FOSSIL.eggH }); after(s, FOSSIL.eggT, 'hatch', m);
+      }
+    },
+    timer: {
+      risen(game, s, r) { if (s.rise !== r) return; s.drift = Math.max(0, s.drift - r.by); s.rise = null; },
+      pearl(game, s, flying) {
+        const b = s.boss, landed = [];
+        for (const p of flying) {
+          if (p.bloomed) continue;
+          close(game, s, p);
+          if (!clearSpot(game, p.x1, p.y1, 11, b)) continue;
+          const id = `${b.id}-pearl-${s.serial++}`;
+          game.buds.push({ id, group: id, x: p.x1, y: p.y1, baseX: p.x1, startY: p.y1, r: 11, hp: 1, maxHp: 1, type: 'lilac', relay: false, fall: FOSSIL.pearlFall, sway: 0,
+            shell: true, shellAngle: Foes.hash01(id, 0) * TAU, shellSpin: FOSSIL.pearlSpin * (p.slot % 2 ? -1 : 1), hitAt: -100, bloomed: false, bloomAt: -100, spawnAt: game.time,
+            bossSummon: true, bossSource: b.id, pearl: true });
+          landed.push({ x: p.x1, y: p.y1 });
+        }
+        if (landed.length) { s.summons++; game.event('bossAbility', { kind: s.kind, move: 'pearls', act: 'land', x: landed[0].x, y: landed[0].y, marks: landed }); }
+      },
+      thaw(game, s, ids) {
+        const woke = [];
+        for (const id of ids) { const p = game.buds.find(q => q.id === id); if (p && p.stoned) { p.hidden = false; p.stoned = null; woke.push({ id: p.id, x: p.x, y: p.y, r: p.r }); } }
+        if (woke.length) game.event('bossAbility', { kind: s.kind, move: 'petrify', act: 'thaw', x: s.boss.x, y: s.boss.y, n: woke.length, marks: woke });
+      },
+      hatch(game, s, m) {
+        const b = s.boss;
+        if (!clearSpot(game, m.x, m.y, m.r, b)) return;
+        const [keeper] = Foes.make('amberkeeper', ['amberkeeper', m.x, m.y, {}], `${b.id}-egg-${s.serial++}`, 0);
+        if (!keeper) return;
+        keeper.bossSummon = true; keeper.bossSource = b.id; Foes.place(game, keeper); s.summons++;
+        game.event('foe', { kind: 'amberkeeper:hatch', bud: keeper, x: m.x, y: m.y });
+        game.event('bossAbility', { kind: s.kind, move: 'hatch', act: 'hatch', x: m.x, y: m.y });
+      }
+    },
+    pose(s, p, bx, by, clock) {
+      if (p.bossPart !== 'pearl') return null;
+      if (p.bloomed) return { x: p.x, y: p.y };
+      const at = Foes.lobAt(p.x0, p.y0, p.x1, p.y1, p.T, clock - p.t0, p.h); return { x: at.x, y: at.y };
+    },
+    step(game, s) {
+      for (const m of game.bumpers) {
+        if (!m.bossStone) continue;
+        const host = game.buds.find(p => p.id === m.host);
+        if (!host || host.bloomed) { m.kitUntil = Math.min(m.kitUntil, s.kitAge); if (host) { host.hidden = false; host.stoned = null; } continue; }
+        m.x = m.baseX = host.x; m.y = host.y;
+        if (m.flashAt != null && m.flashAt !== m.flashSeen) { m.flashSeen = m.flashAt; game.event('bossAbility', { kind: s.kind, move: 'petrify', act: 'clack', x: m.x, y: m.y }); }
+      }
+    },
+    resolve(game, s, bud, chain, seed, hit) {
+      if (bud.bossPart === 'pearl') {
+        bud.caught = Foes.direct(game, chain, Foes.credited(game, chain), seed);
+        return { target: bud, damage: 1 };
+      }
+      // Fossil bank: a seed that banked off a slab in the last FOSSIL.bank s and gets through her gaps lands for three.
+      if (bud !== s.boss || chain || !game.striker || seed.power || game.powerPart || seed.mirrorAt == null || game.time - seed.mirrorAt > FOSSIL.bank) return null;
+      if (!canHit(game, bud, hit, seed)) return null;
+      s.hits++; s.crits++;
+      game.event('bossCritical', { kind: s.kind, bud, damage: FOSSIL.bankDamage, via: 'fossil' });
+      game.event('bossAbility', { kind: s.kind, move: 'petrify', act: 'bank', x: bud.x, y: bud.y });
+      return { target: bud, damage: FOSSIL.bankDamage };
+    },
+    bloomed(game, s, bud) {
+      if (bud.bossPart !== 'pearl') return false;
+      if (bud.caught) {
+        const bonus = Math.round(FOSSIL.pearlPay * game.tempo); game.score += bonus;
+        game.event('bossAbility', { kind: s.kind, move: 'pearls', act: 'catch', x: bud.x, y: bud.y, bonus });
+      }
+      return true;
+    },
+    targets(game, s, list) {
+      for (const t of list) if (t.bud.bossPart === 'pearl') t.priority = 70;
+      for (const p of game.buds) if ((p.pearl || p.fossilBed) && !p.bloomed && !p.hidden && p.bossSource === s.boss.id) list.push({ bud: p, priority: 55, reason: p.pearl ? 'pearl' : 'bed' });
+    },
+    cleanup(game, s) { s.rise = null; for (const p of game.buds) if (p.stoned) { p.hidden = false; p.stoned = null; } }
+  });
 
   // ── Ember Rose (Level 7, `ember`) ──
 
