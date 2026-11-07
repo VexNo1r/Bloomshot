@@ -322,11 +322,22 @@
   const keepsRun = () => isDepth() && !isTaste() && !preview && !reviewAll && !game.over && (game.started || (game.startWave || 1) > 1);
   function keepRun() {
     if (!keepsRun()) return false;
-    const from = game.waveFrom || { score: 0, blooms: 0, chain: 0 }, spent = game.waveSpent || {};
-    save.run = { level: game.plan.id, wave: game.wave, lives: game.lives, score: from.score, from: game.startWave || 1, blooms: from.blooms, chain: from.chain,
-      gift: game.bossWave ? Boolean(game.bossLastLifeGift) : game.giftWave === game.wave };
+    // A wave already cleared (the next one comes 0.7 s later) is kept as the next wave's start, as it will begin.
+    const next = game.nextWaveAt !== null && game.wave < game.finalWave;
+    const from = next ? { score: game.score, blooms: game.totalBlooms, chain: game.bestCombo } : game.waveFrom || { score: 0, blooms: 0, chain: 0 }, spent = next ? {} : game.waveSpent || {};
+    save.run = { level: game.plan.id, wave: game.wave + (next ? 1 : 0), lives: game.lives, score: from.score, from: game.startWave || 1, blooms: from.blooms, chain: from.chain,
+      gift: next ? false : game.bossWave ? Boolean(game.bossLastLifeGift) : game.giftWave === game.wave };
     if (Object.keys(spent).length) save.run.spent = { ...spent };
     return persist();
+  }
+  // A beaten guardian wins the level, but the win (its stars and seeds, and letting the kept run go) only comes once
+  // the wave's cascade has bloomed, about a second later with the finale. The phone may close the app in that gap, so
+  // as the page hides the cascade is played out at once, with the sound already asleep, and the win is recorded.
+  function settleWin() {
+    if (!keepsRun() || !game.bossDown) return;
+    if (document.hidden) musicFrame(performance.now(), true);
+    for (let i = 0; i < 1200 && !game.over; i++) game.step(1 / 120);
+    processEvents();
   }
   function dropRun(write = true) { if (!save.run || reviewAll) return; delete save.run; if (write) persist(); }
   // A run's first seed: a level run keeps its checkpoint from here, and any other run (Meadow Rush, the taste, the
@@ -3967,9 +3978,10 @@
   window.addEventListener('resize', () => { resizePending = true; });
   // A call, the home button or a locked phone hides the game: the Paused card is waiting when it comes back, so no
   // flower moves before the player is ready. Losing focus alone (a notification pulled down) never pauses.
-  // The phone may close the app while it is hidden, so the level run's checkpoint and an endless run's best are kept first.
+  // The phone may close the app while it is hidden, so a beaten guardian's win, the level run's checkpoint and an endless
+  // run's best are kept first.
   // native.js flushes its copy for the phone's preferences on hide before this runs, so this save is flushed too.
-  function keepProgress() { keepRun(); keepRushBest(); if (native && typeof native.flush === 'function') native.flush(); }
+  function keepProgress() { settleWin(); keepRun(); keepRushBest(); if (native && typeof native.flush === 'function') native.flush(); }
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) { keepProgress(); pauseGame(true); }
     lastFrame = 0; accumulator = 0; if (frameMeter) frameMeter.sample(0, 0, false); cancelInteraction(); musicFrame(performance.now(), true);

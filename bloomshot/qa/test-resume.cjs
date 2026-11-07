@@ -159,6 +159,34 @@ test('A level run keeps a checkpoint once it is under way: on hide, at each wave
   assert.deepEqual(app.saved().run, { level: 3, wave: 2, lives: 2, score: atStart.score, from: 1, blooms: atStart.blooms, chain: atStart.chain, gift: false }, 'a lost life is kept at once');
 });
 
+test('Hiding just after the guardian blooms keeps the win, and hiding just after a wave clears keeps the next wave', () => {
+  // The win only comes once the guardian's cascade has bloomed (about a second with the finale). The phone may close
+  // the app in that gap, so the hide plays the cascade out and records the win instead of keeping wave 10.
+  let app = boot(player({ run: kept({ level: 3, wave: 10, lives: 3, from: 1, score: 9000 }) }, 2));
+  app.click('resume-btn'); app.frame(); countDone(app); app.run(4);
+  let game = app.game(); const boss = game.buds.find(b => b.boss);
+  assert(boss && !boss.bloomed && game.buds.some(b => !b.boss && !b.bloomed && !b.hidden), 'the guardian is up, with flowers left for the cascade');
+  boss.hp = 1; game.bloom(boss); app.run(.3);
+  assert(game.bossDown && !game.over, 'the guardian is down and the cascade is still blooming');
+  app.hide();
+  assert.equal(game.status, 'won', 'the hide plays the cascade out');
+  assert(!Object.hasOwn(app.saved(), 'run'), 'the kept run is let go');
+  assert.equal(app.saved().depths[3].stars, 3, 'the win and its stars are saved');
+  assert.equal(app.$('pause-dialog').open, false, 'no Paused card over a beaten guardian');
+  app.show(); assert(app.run(4, () => app.$('result-dialog').open), 'coming back shows the result');
+  const again = boot(undefined, { storage: new Map(app.storage) });
+  assert.equal(again.$('resume-btn').hidden, true, 'a relaunch offers no guardian to fight again');
+  // Between a cleared wave and the next (0.7 s), the checkpoint is the next wave's start, points included.
+  app = boot(player({}, 2)); game = playLevel(app, 3); shoot(app);
+  game.drops = [];
+  for (const bud of game.buds.filter(b => !b.bloomed && !b.gift)) { bud.hp = 1; game.bloom(bud); }
+  assert(app.run(3, () => game.nextWaveAt !== null), 'wave 1 clears'); assert.equal(game.wave, 1);
+  game.waveSpent = { sunburst: 1 };
+  app.hide();
+  assert.deepEqual(app.saved().run, { level: 3, wave: 2, lives: 3, score: game.score, from: 1, blooms: game.totalBlooms, chain: game.bestCombo, gift: false },
+    'wave 2 is kept as it will start, with nothing spent on it');
+  assert(game.score > 0);
+});
 test('The checkpoint is let go when the run is won or lost, on Restart and when another run starts, and kept when leaving through Levels', () => {
   const started = app => { const game = playLevel(app, 3); game.started = true; nextWave(app); assert.equal(app.saved().run?.wave, 2); return game; };
   // Levels keeps it, and the map offers this run as before.
