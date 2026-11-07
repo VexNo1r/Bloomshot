@@ -488,11 +488,38 @@ test('Each picture shows its own piece: the current on its dark lake water, shel
     assert(buds.length >= 2, `${id}: a bunch`);
     assert(buds.every(test) && buds.every(bud => !bud.relay), `${id}: every bud is a ${id}, none crowned`);
   }
-  // Only the current gets water under it.
-  for (const entry of guide) if (entry.id !== 'current') assert.equal(scene(entry.id).under, null, `${entry.id} is on the card's own color`);
+  // A backing only where the guide asks for one (a piece pale on the card): two of the level's own colors, darker than
+  // the card and darkest at the rim, so the piece stands off it. Every other piece sits on the card's own color.
+  for (const entry of guide) {
+    const under = scene(entry.id).under;
+    if (!entry.under) { assert.equal(under, null, `${entry.id} is on the card's own color`); continue; }
+    assert.deepEqual(plain(under), entry.under, `${entry.id} is painted on its own backing`);
+    assert(under.length === 2 && under.every(color => /^#[0-9a-f]{6}$/i.test(color)), `${entry.id}: a middle and an edge color`);
+    assert(lum(under[0]) < 150 && lum(under[1]) < lum(under[0]), `${entry.id}: darker than the card, darkest at the rim`);
+  }
+  assert(guide.filter(entry => entry.under).length <= 8, 'a backing stays the exception');
   // The lodestone's line agrees with its hint in play: it tugs seeds.
   assert.match(guide.find(entry => entry.id === 'lodestone').line, /\btugs?\b/);
   assert.match(Foes.hint('lodestone'), /\btug/);
+});
+
+test('Every picture is framed close enough to read: no piece is lost small in its round frame', () => {
+  // The square each picture shows (guidePicture scales it to the 64 px frame, at most its zoom) against what is in it.
+  // A guardian is drawn at least about half its board size, and a piece's own discs (each shown bud's radius at that
+  // scale) cover at least a sixth of the round frame. The floors sit under every picture now and over the ones a
+  // playtester found too small (Geode King .49, The Starseed .41, Crystal Heart .35; Glowworm 11%, Sweetheart Roses
+  // 11%, Wishing Stars 15%, Peekaboo Mole 15%). Rocks and the current, which have no buds, are measured in real
+  // Chromium by qa/check-responsive.cjs, with every other picture.
+  const app = boot(player(), { search: '?alllevels' }), R = 32, found = [];
+  for (const entry of app.guide) {
+    const { game, box, zoom } = app.scene(entry), k = Math.min(64 / (box[2] - box[0]), 64 / (box[3] - box[1]), zoom);
+    const shown = game.buds.filter(bud => !bud.hidden && bud.visible !== false && !bud.bloomed);
+    const discs = [...shown.map(bud => bud.r), ...(game.gates || []).map(gate => gate.r)].reduce((sum, r) => sum + (r * k) ** 2, 0) / R ** 2;
+    found.push({ id: entry.id, k: +k.toFixed(3), discs: +discs.toFixed(3) });
+    if (entry.kind === 'guardian') assert(k >= .52, `${entry.name} is drawn at ${k.toFixed(2)} of its board size`);
+    else if (discs) assert(discs >= .17, `${entry.name}'s pieces cover ${(discs * 100).toFixed(0)}% of the frame`);
+  }
+  assert.equal(found.filter(row => row.discs).length, app.guide.length - 2, 'every piece but the rock and the current has discs to measure');
 });
 
 test('Card text is readable: every name, line and tag reaches 4.5:1 against its card', () => {

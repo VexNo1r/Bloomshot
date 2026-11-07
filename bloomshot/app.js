@@ -29,6 +29,12 @@
   // foes.js family (kind 'foe'; its picture is that foe built at the middle of a board) or boss-<kind> for a guardian
   // (its name comes from depths.js). take says which piece of its first wave a classic piece's picture shows. line is
   // one short piece of advice (70 characters at most) that agrees with the piece's first-time tip in play.
+  // The picture's framing, set only where the plain square around the piece left it small or faint in its round frame
+  // (measured in real Chromium; qa/check-responsive.cjs and qa/test-guide.cjs keep a floor under every picture):
+  // gather pulls a spread-out piece's parts in toward their middle (each keeps that share of its distance), crop cuts
+  // the square to that share of its side, and under is a backing in the level's own colors (middle, edge) for a piece
+  // that is pale on the card, as the current's pale band reads only on Level 5's dark water. None of them cuts off a
+  // defining part: a guardian's face and crown, a foe's whole body, both tunnel holes, all three briar buds.
   // qa/test-guide.cjs checks that every foes.js family and every guardian has an entry here, and that each level and
   // wave is where the piece really debuts.
   const GUIDE = [
@@ -36,36 +42,36 @@
     { id: 'gift', level: 1, wave: 2, name: 'Gift bubble', line: 'Shoot the bubble to keep the free powerup inside.', take: 'gift' },
     { id: 'rings', level: 1, wave: 3, name: 'Ringed bud', line: 'Each ring takes one hit. Keep hitting until it opens.', take: 'rings' },
     { id: 'boss-sunny', level: 1, kind: 'guardian', line: 'Pop his bubble for double hits, and pop the sleepy Z he blows.' },
-    { id: 'rock', level: 2, wave: 1, name: 'Rock', line: 'Rocks bounce your seeds. Bank your shots around them.', take: 'rock' },
+    { id: 'rock', level: 2, wave: 1, name: 'Rock', line: 'Rocks bounce your seeds. Bank your shots around them.', take: 'rock', crop: .74, under: ['#8f5a35', '#5a361f'] },
     { id: 'rolypoly', level: 2, wave: 2, kind: 'foe', name: 'Rolypoly', line: 'Bump it and it rolls away, bowling over the flowers in its path.' },
-    { id: 'mole', level: 2, wave: 5, kind: 'foe', name: 'Peekaboo Mole', line: 'Watch which hill rumbles, then bonk him when he pops up.' },
+    { id: 'mole', level: 2, wave: 5, kind: 'foe', name: 'Peekaboo Mole', line: 'Watch which hill rumbles, then bonk him when he pops up.', gather: .76, crop: .86 },
     { id: 'boss-root', level: 2, kind: 'guardian', line: 'Bank around his roots. Snap the knot when his carousel spins.' },
-    { id: 'puffcap', level: 3, wave: 1, name: 'Puffcap', line: 'Pop it to bloom every flower close by.', take: 'puff' },
+    { id: 'puffcap', level: 3, wave: 1, name: 'Puffcap', line: 'Pop it to bloom every flower close by.', take: 'puff', under: ['#5e4f98', '#2f2560'] },
     { id: 'cup', level: 3, wave: 2, name: 'Acorn cup', line: 'Cups block shots from below. Hit from the side or the top.', take: 'cup' },
     { id: 'fibcap', level: 3, wave: 4, kind: 'foe', name: 'Fibcap', line: "Striped caps are fakes. Don't shoot them, or they sneeze!" },
     { id: 'inkcap', level: 3, wave: 6, kind: 'foe', name: 'Drippy Inkcap', line: 'Two hits bloom it. Aim around its ink drops: they gulp seeds.' },
     { id: 'boss-puff', level: 3, kind: 'guardian', line: 'Puffcaps hurt her for two. Only the spotted cap is real.' },
-    { id: 'chroma', level: 4, wave: 3, kind: 'foe', name: 'Chroma Crystal', line: 'It opens only for a seed of its own color. Check your next seed.', opts: { type: 'sky' } },
+    { id: 'chroma', level: 4, wave: 3, kind: 'foe', name: 'Chroma Crystal', line: 'It opens only for a seed of its own color. Check your next seed.', opts: { type: 'sky' }, crop: .78 },
     { id: 'bat', level: 4, wave: 4, kind: 'foe', name: 'Echo Bat', line: 'Watch its dashed swoop line, then catch it in mid-air.' },
-    { id: 'boss-crystal', level: 4, kind: 'guardian', line: 'Follow the beating heart. Bank off her glass for a double hit.' },
-    { id: 'current', level: 5, wave: 1, name: 'Current', line: 'Currents bend your shots. Follow the aim line.', take: 'current' },
+    { id: 'boss-crystal', level: 4, kind: 'guardian', line: 'Follow the beating heart. Bank off her glass for a double hit.', gather: .62, crop: .8 },
+    { id: 'current', level: 5, wave: 1, name: 'Current', line: 'Currents bend your shots. Follow the aim line.', take: 'current', under: ['#0e7d75', '#03464e'] },
     { id: 'jelly', level: 5, wave: 2, kind: 'foe', name: 'Moon Jelly', line: 'Hit it while it glides, not while it pulses up.' },
     { id: 'glowworm', level: 5, wave: 3, kind: 'foe', name: 'Glowworm', line: 'Hit the glowing head. A hit on its body snaps it in two.' },
     { id: 'boss-lotus', level: 5, kind: 'guardian', line: 'Aim for the lantern. Shut her lily pads before jellies rise.' },
     { id: 'shell', level: 6, wave: 1, name: 'Turning shell', line: 'Shells turn. Shoot when the opening faces you.', take: 'shell' },
     { id: 'amberkeeper', level: 6, wave: 2, kind: 'foe', name: 'Amberkeeper', line: 'Two hits break him and free every bud he sealed in amber.' },
-    { id: 'boss-fossil', level: 6, kind: 'guardian', line: 'Open both turning locks. Catch her pearls in the air.' },
+    { id: 'boss-fossil', level: 6, kind: 'guardian', line: 'Open both turning locks. Catch her pearls in the air.', under: ['#7d5a62', '#46304a'] },
     { id: 'tunnel', level: 7, wave: 1, name: 'Tunnel', line: 'Shoot into one hole and your seed flies out of the other.', take: 'tunnel' },
     { id: 'whizzbang', level: 7, wave: 5, kind: 'foe', name: 'Whizzbang', line: 'Light it under a crowd. It rockets up and blooms them all.' },
     { id: 'boss-ember', level: 7, kind: 'guardian', line: 'Tunnel hits count triple. Light whizzbangs right under her.' },
     { id: 'geode', level: 8, wave: 1, name: 'Geode', line: 'Crack it open, then bloom the gems before they fall.', take: 'geode' },
     { id: 'lodestone', level: 8, wave: 3, kind: 'foe', name: 'Lodestone', line: 'It tugs seeds. Curl a shot onto the green moss, not the iron.' },
-    { id: 'boss-geode', level: 8, kind: 'guardian', line: 'Break a plate, then aim through the gap. Catch his big gem.' },
+    { id: 'boss-geode', level: 8, kind: 'guardian', line: 'Break a plate, then aim through the gap. Catch his big gem.', gather: .92, crop: .76 },
     { id: 'briar', level: 9, wave: 1, name: 'Briar patch', line: 'Bloom all three fast, or the patch grows back.', take: 'briar' },
-    { id: 'sweetheart', level: 9, wave: 3, kind: 'foe', name: 'Sweetheart Roses', line: 'Hit one rose, then the other, quick! They bloom together.' },
+    { id: 'sweetheart', level: 9, wave: 3, kind: 'foe', name: 'Sweetheart Roses', line: 'Hit one rose, then the other, quick! They bloom together.', gather: .7, crop: .85 },
     { id: 'boss-briar', level: 9, kind: 'guardian', line: 'Clear a patch to cut her vine. Untie the pink bow, fast.' },
-    { id: 'wishstar', level: 10, wave: 2, kind: 'foe', name: 'Wishing Stars', line: 'Shoot the stars in order, 1 to 4. Only the twinkling one opens.' },
-    { id: 'boss-core', level: 10, kind: 'guardian', line: 'Break her stars in order to drop the dome. Catch the comets.' }
+    { id: 'wishstar', level: 10, wave: 2, kind: 'foe', name: 'Wishing Stars', line: 'Shoot the stars in order, 1 to 4. Only the twinkling one opens.', gather: .75, crop: .85, under: ['#4a3274', '#221c46'] },
+    { id: 'boss-core', level: 10, kind: 'guardian', line: 'Break her stars in order to drop the dome. Catch the comets.', gather: .72, crop: .9, under: ['#4a3274', '#221c46'] }
   ].map(entry => {
     if (entry.kind !== 'guardian') return Object.freeze({ kind: 'piece', ...entry });
     const boss = Depths.bosses.find(item => `boss-${item.kind}` === entry.id);
@@ -3891,13 +3897,21 @@
     const spec = { ...base, buds: [], drops: [], bumpers: [], currents: [], gates: [], vents: [], hint: '' };
     const group = test => { const first = base.buds.find(test); return first ? base.buds.filter(bud => bud.group === first.group) : []; };
     const at = (x, y) => ({ x, y, baseX: x, startY: y });
-    let zoom = 1.6, pose = null;
+    let zoom = 1.6, pose = null, poseStep = 1 / 60;
     if (entry.kind === 'guardian') { spec.buds = base.buds.filter(bud => bud.boss); zoom = 1.1; }
     else if (entry.kind === 'foe') {
       if (!window.BloomFoes) return null;
       spec.buds = BloomFoes.make(entry.id, [entry.id, 210, 220, entry.opts || {}], 'guide', 0, entry.level, entry.wave);
       // The mole waits under a hill: his picture is the moment he pops up.
       if (entry.id === 'mole') pose = game => game.buds.some(bud => bud.foe === 'mole' && !bud.hidden);
+      // A glowworm laid out straight is a thin line across the frame: its picture is the worm curled round its first
+      // turn, heading back with its beads trailing round the bend. Its track is closed-form, so long steps land it
+      // exactly where short ones would, in a third of the time.
+      if (entry.id === 'glowworm') {
+        poseStep = 1 / 20;
+        pose = game => game.buds.some(head => head.foe === 'glowworm' && head.head && Math.cos(head.heading) < -.99
+          && game.buds.every(bud => bud.foe !== 'glowworm' || bud.head || bud.x > head.x + 6));
+      }
     }
     else if (entry.take === 'relay') spec.buds = group(bud => bud.relay);
     else if (entry.take === 'rings') spec.buds = base.buds.filter(bud => bud.maxHp > 1 && !bud.foe).slice(0, 1);
@@ -3916,13 +3930,25 @@
     if (!spec.buds.length && !spec.bumpers.length && !spec.currents.length && !spec.gates.length) return null;
     const game = new BloomRush.RushGame({ plan: { id: entry.level, name: Depths.level(entry.level).name, waves: 1, wave: () => spec } });
     game.particles = []; game.floaters = [];
-    if (pose) { game.started = true; for (let i = 0; i < 720 && !pose(game); i++) game.step(1 / 60); }
+    const shown = bud => !bud.hidden && bud.visible !== false && !bud.bloomed, on = game.buds.filter(shown);
+    // Gathered: each piece on show keeps entry.gather of its distance from their middle (a guardian's plates or stars
+    // round her, a group of foes; the hidden mole pops up from his gathered hill).
+    if (entry.gather && on.length) {
+      const mx = on.reduce((sum, bud) => sum + bud.x, 0) / on.length, my = on.reduce((sum, bud) => sum + bud.y, 0) / on.length;
+      for (const bud of on) {
+        const dx = (mx - bud.x) * (1 - entry.gather), dy = (my - bud.y) * (1 - entry.gather);
+        bud.x += dx; bud.y += dy;
+        if (Number.isFinite(bud.baseX)) bud.baseX += dx;
+        if (Number.isFinite(bud.startY)) bud.startY += dy;
+      }
+    }
+    if (pose) { game.started = true; for (let i = 0; i < 720 && !pose(game); i++) game.step(poseStep); }
     // The square around what is on the board, with a little air.
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     const add = (x, y, r) => { x0 = Math.min(x0, x - r); y0 = Math.min(y0, y - r); x1 = Math.max(x1, x + r); y1 = Math.max(y1, y + r); };
     // Room for what is drawn around a piece: a guardian's leaves, a foe's stem or cap, a ringed bud's rings and pips.
     for (const bud of game.buds) {
-      if (bud.hidden || bud.visible === false || bud.bloomed) continue;
+      if (!shown(bud)) continue;
       const r = Number(bud.r) || 11;
       add(bud.x, bud.y, bud.boss ? r * 1.6 + 6 : bud.foe ? r * 1.45 + 8 : bud.maxHp > 1 && !bud.geode ? r + 14 : r + 6);
     }
@@ -3934,10 +3960,8 @@
     }
     for (const gate of game.gates || []) add(gate.x, gate.y, (Number(gate.r) || 17) + 9);
     if (!(x1 > x0 && y1 > y0)) return null;
-    const side = Math.max(x1 - x0, y1 - y0), mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
-    // The pale water band only reads on the lake's dark water, as in play (the board's colors under it, Level 5).
-    const under = game.currents && game.currents.length ? ['#0e7d75', '#03464e'] : null;
-    return { game, zoom, under, box: [mx - side / 2, my - side / 2, mx + side / 2, my + side / 2] };
+    const side = Math.max(x1 - x0, y1 - y0) * (entry.crop || 1), mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+    return { game, zoom, under: entry.under || null, box: [mx - side / 2, my - side / 2, mx + side / 2, my + side / 2] };
   }
   $('tutorial-replay').addEventListener('click', () => { closeDialogs(); BloomSound.wake(); startTutorial(); });
   $('tutorial-skip').addEventListener('click', () => { BloomSound.wake(); endTutorial(false); });
