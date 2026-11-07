@@ -2163,7 +2163,9 @@
     },
     'snooze:nap'(e) {
       foeRing(e.x, e.y, '#9fd6ff', 12, 26, .6); foeDust(e.x, e.y, 4, '#eaf7ff', 30); haptic('warn');
-      levelTip("Old Sunny's snooze made your aim guide nap!", { again: 0 });
+      // Only while the guide still naps (a tip put back behind another toast may come after the nap).
+      const nap = "Old Sunny's snooze made your aim guide nap!";
+      levelTip(nap, { again: 0, due: () => (game.aimNapUntil || 0) > game.time ? nap : '' });
     }
   };
 
@@ -2332,7 +2334,8 @@
     'tide:rise'(e) {
       for (let x = 50; x <= 370; x += 64) foeDust(x, e.y, 2, LILY_FX.water, 40);
       jolt(.06); haptic('warn');
-      levelTip('The tide is up! Clear your lowest buds.', { again: 0 });
+      const tide = 'The tide is up! Clear your lowest buds.';
+      levelTip(tide, { again: 0, due: () => game.bossState?.tide && game.dangerY < 448 ? tide : '' });
     },
     'tide:recede'(e) { for (let x = 82; x <= 340; x += 86) foeDust(x, e.y, 2, LILY_FX.water, 25); }
   };
