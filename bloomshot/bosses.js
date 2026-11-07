@@ -1618,6 +1618,208 @@
   // ── Ember Rose (Level 7, `ember`) ──
 
   // ── Geode King (Level 8, `geode`) ──
+  // A stout old king of the mine: a rough grey crust of four plates round a glowing amethyst heart, a crown of crystal
+  // points, and a miner's lantern on his crown. The crust is his own as always (a seed through a broken plate's quarter
+  // lands double). Every move but the Magnet Heart regrows the plates that are due, exactly as his old move did: due
+  // GEODE.regrow[tier] s after they break (8 s while Proud, at once after), and each mood makes them tougher
+  // (GEODE.plateHp). Every move heaves him up to GEODE.lift px (never above where he started) so a long fight never sinks
+  // him to the line, and a grumpier king moves sooner (GEODE.pause).
+  //   Proud (tier 0): his old toss (the crust grows back, three gems land at the top), then, new, the Pyrite Toss: he
+  //     lobs a handful of gems along a drawn arc to the top of the board, and GEODE.pyrites[tier] of them are pyrite,
+  //     fool's gold: square, brassy, sly. A seed's own touch crumbles a pyrite and glues his newest broken plate back on
+  //     ("Fool's gold!"); powers and uncredited strikes crumble it quietly; a credited chain passes it by. It never
+  //     costs a life and it fades at the line.
+  //   Grumbly (tier 1): opens with the Gem Lob: a big gem lobbed on a shown arc (GEODE.lobT s) at one of the launcher's
+  //     shoulders. A seed that meets it in the air is a "Nice catch!" (it blooms there: +1 sun and a bonus). If it lands
+  //     it is a burr: a spiky GEODE.burrLen px bumper on that shoulder for GEODE.burrLife s that turns seeds aimed through
+  //     it back down, until a seed knocks it off ("Knocked off!").
+  //   Magnetic (tier 2): opens with the Magnet Heart: his heart becomes a Lodestone (foes.js fields/pull, the same field):
+  //     he plants his feet for GEODE.magLife s and a ring of GEODE.magR px shows round him with a needle of light spinning
+  //     on his rim. Seeds that fly through the ring on the needle's side curl in toward the needle's tip; one that lands
+  //     where his crust is broken is a "Magnet shot!" for GEODE.magCrit. Loose gems within GEODE.gemPull px when the tell
+  //     ends fly into him and each glues a broken plate back (pop them during the tell). Two gems lob at once from now on.
+  // Lobs, timers, the field, pyrite falls and burrs all run on the kit clock (a Lullaby holds them); every choice comes
+  // from the board, s.cycle and hash01.
+  const GEODE = { hp: 104, lift: 24, liftT: .8, gemR: 10, gemFall: .85, tossT: .9, tossH: 46, toss: [[0, -16], [-20, 14], [20, 14], [0, 40]],
+    pyrites: [1, 1, 2], tossN: [3, 4, 4], lobT: 2.2, lobH: 72, lobR: 10, shoulders: [[150, 404], [270, 404]], burrLen: 30, burrLife: 6,
+    catchPay: 300, knockPay: 150, plateHp: [2, 3, 3], regrow: [8, 0, 0], magR: 100, magW: 34, magJaw: 1.3, magSpin: 1.6, magLife: 6, magCrit: 3, magCurl: .5, gemPull: 140, magRest: .4, pause: [null, 4.75, 4.25] };
+  // A grumpier king moves sooner (seconds between moves, after the tier pace; tier 0 keeps his old 7.25 s).
+  const geodePause = s => GEODE.pause[s.tier] == null ? undefined : GEODE.pause[s.tier] / TIER_PACE[s.tier];
+  const geodePlates = s => s.parts.filter(p => p.bossPart === 'plate');
+  // The plates due back by the end of a tell, as warning targets (the old move's own marks).
+  const geodeDue = (game, s) => geodePlates(s).filter(p => p.bloomed && p.regrowAt <= game.time + TELEGRAPH).map(p => ({ id: p.id, x: p.x, y: p.y, r: p.r, role: 'plate' }));
+  function geodeRegrow(game, s) { for (const p of geodePlates(s)) if (p.bloomed && p.regrowAt <= game.time) revive(p, game); }
+  // Glue the most recently broken plate back on (pyrite, a pulled gem). Returns it, or null when the crust is whole.
+  function geodeGlue(game, s) {
+    const p = geodePlates(s).filter(q => q.bloomed).sort((a, b) => b.bloomAt - a.bloomAt || a.slot - b.slot)[0];
+    if (!p) return null;
+    revive(p, game); return p;
+  }
+  function geodeRise(game, s) {
+    if (s.rise) return;
+    const by = Math.min(GEODE.lift, Math.max(0, s.drift));
+    if (by < 1) return;
+    s.rise = { at: s.kitAge, by }; after(s, GEODE.liftT, 'risen', s.rise);
+  }
+  // Where a toss lands: the old move's landing spot (y 70), on the side away from where he will be when it lands (so
+  // his own crust never takes a spot), one mark per piece.
+  function geodeTossMarks(game, s) {
+    const at = positions(s, TELEGRAPH + GEODE.tossT).get(s.boss.id), place = landing(game, at.x < 210 ? 320 : 100, 32), n = GEODE.tossN[s.tier];
+    if (!place) return [];
+    const pick = Math.floor(Foes.hash01(s.boss.id, s.action * 7 + s.tier) * n);
+    return GEODE.toss.slice(0, n).map(([dx, dy], i) => ({ x: clamp(place.x + dx, 34, 386), y: place.y + dy, r: GEODE.gemR, role: 'toss',
+      pyrite: (i - pick + n) % n < GEODE.pyrites[s.tier] })).filter(m => clearSpot(game, m.x, m.y, m.r + 4));
+  }
+  kit('geode', {
+    hp: GEODE.hp,
+    moods: ['Proud', 'Grumbly', 'Magnetic'],
+    stageText: [null, 'The Geode King grumbles!', 'The Geode King turns magnetic!'],
+    text: { pyrite: "Fool's gold! Pop only the sparkly gems.", lob: 'Gem lob! Catch them before they land.', magnet: 'Magnet heart! Shoot when the needle finds a gap.' },
+    moves: [['geode', 'pyrite'], ['lob', 'pyrite', 'geode'], ['magnet', 'lob', 'pyrite', 'geode']],
+    init(game, s) { s.rise = null; s.magnet = null; },
+    // The crust thickens with each mood: every plate takes GEODE.plateHp[tier] (a whole one gains a ring now).
+    stage(game, s) { for (const p of geodePlates(s)) { p.maxHp = GEODE.plateHp[s.tier]; if (!p.bloomed) p.hp = Math.min(p.maxHp, p.hp + 1); } },
+    rise(s, clock) { const r = s.rise; return r ? r.by * Foes.smooth((clock - r.at) / GEODE.liftT) : 0; },
+    plan: {
+      pyrite(game, s) {
+        const marks = geodeTossMarks(game, s), plates = geodeDue(game, s);
+        if (!marks.length && !plates.length) return null;
+        return { targets: [...plates, ...marks], text: marks.length ? null : TEXT.geode };
+      },
+      lob(game, s) {
+        const busy = side => game.bumpers.some(m => m.bossBurr && m.side === side) || s.parts.some(p => p.bossPart === 'lobgem' && !p.bloomed && p.side === side);
+        const sides = (s.tier >= 2 ? [0, 1] : [s.cycle % 2]).filter(i => !busy(i));
+        if (!sides.length) return null;
+        const marks = sides.map(i => ({ x: GEODE.shoulders[i][0], y: GEODE.shoulders[i][1], r: 16, role: 'shoulder', side: i }));
+        return { targets: [...geodeDue(game, s), ...marks] };
+      },
+      magnet(game, s) {
+        // His crust is not regrown for this move: the gems he pulls in glue the broken plates back instead. With no
+        // gap there is nothing to shoot through (his plates are iron while it pulls), so he rests and moves on.
+        const at = positions(s, TELEGRAPH).get(s.boss.id), broken = geodePlates(s).filter(p => p.bloomed).length;
+        if (s.magnet || !broken) return null;
+        // Only loose sparkly gems fly in (popping them during the tell is the answer); fool's gold left alone stays put.
+        const pulls = game.buds.filter(p => p.gem && !p.bossPart && !p.bloomed && !p.hidden && !p.ghost && !p.inert && Math.hypot(p.x - at.x, p.y - at.y) <= GEODE.gemPull)
+          .sort((a, b) => Math.hypot(a.x - at.x, a.y - at.y) - Math.hypot(b.x - at.x, b.y - at.y) || (a.id < b.id ? -1 : 1)).slice(0, broken);
+        return { targets: [{ x: at.x, y: at.y, r: GEODE.magR, role: 'magnet' }, ...pulls.map(p => ({ id: p.id, x: p.x, y: p.y, r: p.r, role: 'pull' }))] };
+      }
+    },
+    act: {
+      geode(game, s, w) { legacyAct(game, s, w); geodeRise(game, s); return geodePause(s); },
+      pyrite(game, s, w) {
+        geodeRegrow(game, s); geodeRise(game, s);
+        const b = s.boss, marks = w.targets.filter(t => t.role === 'toss' && clearSpot(game, t.x, t.y, t.r + 4));
+        if (!marks.length) return geodePause(s);
+        for (const m of marks) lob(s, m.pyrite ? 'pyrite' : 'gem', b.x, b.y, m.x, m.y, GEODE.tossT, { h: GEODE.tossH });
+        after(s, GEODE.tossT, 'toss', marks);
+        return geodePause(s);
+      },
+      lob(game, s, w) {
+        geodeRegrow(game, s); geodeRise(game, s);
+        const b = s.boss, marks = w.targets.filter(t => t.role === 'shoulder');
+        marks.forEach((m, i) => part(game, 'lobgem', b.x, b.y + b.r, GEODE.lobR, 1, { t0: s.kitAge, T: GEODE.lobT, x0: b.x, y0: b.y + b.r, x1: m.x, y1: m.y, h: GEODE.lobH,
+          side: m.side, sunBonus: 1, type: ['sky', 'coral', 'gold', 'lilac', 'poppy'][(s.serial + i) % 5] }));
+        after(s, GEODE.lobT, 'land', s.parts.filter(p => p.bossPart === 'lobgem' && p.t0 === s.kitAge));
+        return geodePause(s);
+      },
+      magnet(game, s, w) {
+        const b = s.boss, pulled = [];
+        for (const t of w.targets.filter(t => t.role === 'pull')) {
+          const p = game.buds.find(q => q.id === t.id);
+          if (!p || p.bloomed) continue;
+          if (p.bossPart) close(game, s, p); else { p.bloomed = p.popped = true; p.bloomAt = game.time; game.buds = game.buds.filter(q => q !== p); }
+          const plate = geodeGlue(game, s); pulled.push({ x: t.x, y: t.y, plate: plate && plate.id });
+        }
+        // He plants his feet while his heart pulls (s.stunUntil holds his sway and his sinking; the field stays put).
+        s.stunUntil = s.age + 1e9; s.magnet = { id: b.id, x: b.x, y: b.y, vy: 0, r: b.r, R: GEODE.magR, W: GEODE.magW, jaw: GEODE.magJaw,
+          mid: Math.PI / 2, spin: GEODE.magSpin * (s.cycle % 2 ? -1 : 1), amp: 0, w: 0, ph: 0, t: 0, hold: 0, until: GEODE.magLife, t0: s.kitAge, boss: true };
+        after(s, GEODE.magLife, 'unmagnet', s.magnet);
+        if (pulled.length) game.event('bossAbility', { kind: s.kind, move: 'magnet', act: 'pull', x: b.x, y: b.y, marks: pulled });
+        return (GEODE.magLife + GEODE.magRest) / TIER_PACE[s.tier];
+      }
+    },
+    timer: {
+      risen(game, s, r) { if (s.rise !== r) return; s.drift = Math.max(0, s.drift - r.by); s.rise = null; },
+      toss(game, s, marks) {
+        const b = s.boss, made = [], group = `${b.id}-toss-${s.serial++}`;
+        for (const [i, m] of marks.entries()) {
+          if (!clearSpot(game, m.x, m.y, m.r, b)) continue;
+          if (m.pyrite) { made.push(part(game, 'pyrite', m.x, m.y, m.r, 1, { decoy: true, inert: true, pyrite: true, type: 'gold', t0: s.kitAge, sink: game.descentSpeed * GEODE.gemFall }));
+            continue; }
+          const p = { id: `${group}-${i}`, group, x: m.x, y: m.y, baseX: m.x, startY: m.y, r: m.r, type: ['sky', 'coral', 'lilac', 'poppy'][i % 4], hp: 1, maxHp: 1, relay: false,
+            gem: true, shield: false, fall: GEODE.gemFall, sway: 0, hitAt: -100, bloomed: false, bloomAt: -100, spawnAt: game.time, bossSummon: true, bossSource: b.id };
+          game.buds.push(p); made.push(p);
+        }
+        if (made.length) { s.summons++; game.event('bossAbility', { kind: s.kind, move: 'pyrite', act: 'land', x: marks[0].x, y: marks[0].y, n: made.length, fools: made.filter(p => p.pyrite).length }); }
+      },
+      land(game, s, flying) {
+        for (const p of flying) {
+          if (p.bloomed) continue;
+          close(game, s, p);
+          const x = p.x1, y = p.y1, angle = Math.atan2(y - game.launcher.y, x - game.launcher.x) + Math.PI / 2;
+          game.bumpers.push({ id: `${s.boss.id}-burr-${s.serial++}`, kind: 'rock', bossWall: true, bossMirror: true, bossBurr: true, kitDrawn: true, x, y, baseX: x,
+            length: GEODE.burrLen, angle, side: p.side, type: p.type, t0: s.kitAge, kitUntil: s.kitAge + GEODE.burrLife, expires: Infinity, flashAt: null, flashSeen: null });
+          game.event('bossAbility', { kind: s.kind, move: 'lob', act: 'land', x, y, side: p.side });
+        }
+      },
+      unmagnet(game, s, m) { if (s.magnet !== m) return; s.magnet = null; s.stunUntil = s.age; game.event('bossAbility', { kind: s.kind, move: 'magnet', act: 'end', x: s.boss.x, y: s.boss.y }); }
+    },
+    pose(s, p, bx, by, clock) {
+      if (p.bossPart === 'lobgem') { if (p.bloomed) return { x: p.x, y: p.y }; const at = Foes.lobAt(p.x0, p.y0, p.x1, p.y1, p.T, clock - p.t0, p.h); return { x: at.x, y: at.y }; }
+      if (p.bossPart === 'pyrite') return { x: p.baseX, y: p.startY + p.sink * Math.max(0, clock - p.t0) };
+      return null;
+    },
+    step(game, s) {
+      const m = s.magnet;
+      if (m) { m.x = s.boss.x; m.y = s.boss.y; m.t = s.kitAge - m.t0; m.hold = s.lull; }
+      // A seed that banks off a burr knocks it off the shoulder.
+      for (const burr of game.bumpers) {
+        if (!burr.bossBurr || burr.flashAt == null || burr.flashAt === burr.flashSeen) continue;
+        burr.flashSeen = burr.flashAt; burr.kitUntil = s.kitAge;
+        const bonus = Math.round(GEODE.knockPay * game.tempo); game.score += bonus;
+        game.event('bossAbility', { kind: s.kind, move: 'lob', act: 'knock', x: burr.x, y: burr.y, bonus });
+      }
+      // Fool's gold fades at the line; it never costs a life.
+      for (const p of s.parts) if (p.bossPart === 'pyrite' && !p.bloomed && p.y + p.r >= game.dangerY - 2) { close(game, s, p); game.event('bossAbility', { kind: s.kind, move: 'pyrite', act: 'fade', x: p.x, y: p.y }); }
+    },
+    // While his heart pulls, his plates are iron: a seed (a credited chain too) glances off them; powers still land.
+    canHit(game, s, bud, hit, seed) { return bud.bossPart === 'plate' && s.magnet && !Foes.isPower(game, seed) ? false : undefined; },
+    resolve(game, s, bud, chain, seed) {
+      if (bud.bossPart === 'plate' && s.magnet && !game.striker && !(chain && Foes.credited(game, chain))) return { target: bud, damage: 1 }; // uncredited: plain
+      if (bud.bossPart === 'lobgem') { bud.caught = Foes.direct(game, chain, Foes.credited(game, chain), seed); return { target: bud, damage: 1 }; }
+      if (bud.bossPart !== 'pyrite') return null;
+      const credited = Foes.credited(game, chain);
+      if (chain && credited) return { blocked: true };
+      close(game, s, bud);
+      const fooled = Foes.direct(game, chain, credited, seed), plate = fooled ? geodeGlue(game, s) : null;
+      game.event('bossAbility', { kind: s.kind, move: 'pyrite', act: fooled ? 'fool' : 'crumble', x: bud.x, y: bud.y, plate: plate && plate.id });
+      return { blocked: true };
+    },
+    // Magnet shot: a seed his field curled in the last GEODE.magCurl s that lands through his broken crust.
+    damage(game, s, bud, chain, result) {
+      const seed = game.striker;
+      if (chain || !seed || bud !== s.boss || result.target !== s.boss || Foes.isPower(game, seed) || seed.pullBy !== s.boss.id || !(game.time - seed.pullAt <= GEODE.magCurl)) return result;
+      s.crits++;
+      game.event('bossCritical', { kind: s.kind, bud, damage: GEODE.magCrit, via: 'magnet' });
+      game.event('bossAbility', { kind: s.kind, move: 'magnet', act: 'shot', x: bud.x, y: bud.y });
+      return { ...result, damage: GEODE.magCrit };
+    },
+    bloomed(game, s, bud) {
+      // A broken plate is due back GEODE.regrow[tier] s after it breaks (8 s while Proud, at once later); it returns at his next move.
+      if (bud.bossPart === 'plate') { bud.regrowAt = game.time + GEODE.regrow[s.tier]; return true; }
+      if (bud.bossPart !== 'lobgem') return false;
+      if (bud.caught) {
+        const bonus = Math.round(GEODE.catchPay * game.tempo); game.score += bonus;
+        game.event('bossAbility', { kind: s.kind, move: 'lob', act: 'catch', x: bud.x, y: bud.y, bonus });
+      }
+      return true;
+    },
+    targets(game, s, list) { for (const t of list) if (t.bud.bossPart === 'lobgem') t.priority = 70; },
+    cleanup(game, s) {
+      s.rise = null; s.magnet = null; s.stunUntil = 0;
+      for (const p of [...s.parts]) if (p.bossPart === 'pyrite' || p.bossPart === 'lobgem') close(game, s, p);
+    }
+  });
 
   // ── Thornmother (Level 9, `briar`) ──
 

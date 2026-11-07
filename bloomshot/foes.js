@@ -992,6 +992,99 @@
   // ── Whizzbang (Level 7, `whizzbang`) ──
 
   // ── Lodestone (Level 8, `lodestone`) ──
+  // A round magnet rock prised from the mine roof: dark iron below, a cushion of moss on top, and a little compass
+  // needle of light on its rim that sways from shoulder to shoulder across the moss (LODE.swing rad either side of
+  // straight up, once every LODE.period s on the foe clock). The iron turns a seed's own touch away (a guard, no
+  // refund); only the moss opens it, one hit per tuft (LODE.hp). Its field, a ring of LODE.rings[hp] px that shrinks as
+  // the moss wears, tugs every seed flying through it on the needle's side (within LODE.jaw of the needle) along the arc
+  // that would reach the needle's tip, turning at most LODE.turn[hp] * (1 - d / R) rad/s and only while the seed still
+  // closes on the tip, so a seed passing beside it on that side curls round onto the moss and none ever circles. One
+  // pure pair, fields(game) and pull(...), bends the seed (rush.js), the aim line (engine.js) and the bot's trace.
+  // A curled seed that blooms it wins LODE.bonus sun ("Magnet curl!"); any credited bloom tugs up to LODE.tugs loose
+  // gems within LODE.tug px in as chains the seed earned ("Magnet!"). Chains, powers and uncredited strikes are plain.
+  // A Lullaby holds the needle and the fall; the field still bends seeds, like a current.
+  const LODE = { r: 13, hp: 3, fall: .8, rings: [40, 40, 60, 84], turn: [90, 90, 64, 50], jaw: 1.4, swing: 1, period: 5,
+    moss: -.25, tug: 84, tugs: 4, link: .08, bonus: 1, curl: .5, worth: 14, gem: 8 };
+  const wrapAngle = a => Math.atan2(Math.sin(a), Math.cos(a));
+  // A field's needle at its own clock time T (the foe clock since the stone arrived; the kit clock for a guardian).
+  const needleAt = (f, T) => f.mid + f.spin * T + f.amp * Math.sin(f.w * T + f.ph);
+  function lodeField(game, bud) {
+    const hp = clamp(bud.hp | 0, 1, LODE.hp);
+    return { id: bud.id, x: bud.x, y: bud.y, vy: (game.descentSpeed || 0) * (bud.fall ?? 1), r: bud.r, R: LODE.rings[hp], W: LODE.turn[hp],
+      jaw: LODE.jaw, mid: -Math.PI / 2, spin: 0, amp: LODE.swing, w: TAU / LODE.period, ph: hash01(bud.id, 7) * TAU,
+      t: (game.foeClock || 0) - (bud.born || 0), hold: game.lullaby > 0 ? game.lullaby : 0, boss: false };
+  }
+  // Every field on the board now, as closed-form descriptors (null when there are none). A guardian may add its own
+  // (the Geode King's Magnet Heart keeps one on game.bossState.magnet with the same fields).
+  function fields(game) {
+    let list = null;
+    for (const bud of game.buds) {
+      if (bud.foe !== 'lodestone' || bud.bloomed || bud.hidden) continue;
+      (list || (list = [])).push(lodeField(game, bud));
+    }
+    const s = game.bossState, m = s && s.magnet;
+    if (m && s.boss && !s.boss.bloomed) (list || (list = [])).push(m);
+    return list;
+  }
+  // THE pull: turns a seed at (x, y) moving (vx, vy) for dt seconds, `ahead` seconds from now (the aim line and the bot
+  // look ahead; the game passes 0). Writes out.vx, out.vy (speed unchanged) and returns the last field that turned it.
+  function pull(list, x, y, vx, vy, dt, ahead, out) {
+    let by = null;
+    for (let i = 0; list && i < list.length; i++) {
+      const f = list[i], late = Math.max(0, (ahead || 0) - f.hold), cx = f.x, cy = f.y + f.vy * late;
+      const dx = x - cx, dy = y - cy, d = Math.hypot(dx, dy);
+      if (d >= f.R || d < 1e-6) continue;
+      if (f.until != null && f.t + late >= f.until) continue; // a guardian's field that will be gone by then
+      const a = needleAt(f, f.t + late);
+      if (Math.abs(wrapAngle(Math.atan2(dy, dx) - a)) > f.jaw) continue;
+      const tx = cx + f.r * Math.cos(a) - x, ty = cy + f.r * Math.sin(a) - y;
+      if (vx * tx + vy * ty <= 0) continue;
+      const speed = Math.hypot(vx, vy), off = wrapAngle(Math.atan2(ty, tx) - Math.atan2(vy, vx)), cap = f.W * (1 - d / f.R) * dt;
+      const turn = clamp(clamp(2 * speed * Math.sin(off) / Math.max(1, Math.hypot(tx, ty)) * dt, -cap, cap), -Math.abs(off), Math.abs(off));
+      if (Math.abs(turn) < 1e-9) continue;
+      const c = Math.cos(turn), s = Math.sin(turn), nx = vx * c - vy * s;
+      vy = vx * s + vy * c; vx = nx; by = f;
+    }
+    out.vx = vx; out.vy = vy;
+    return by;
+  }
+  // A seed this stone's field turned in the last LODE.curl s.
+  const curled = (game, bud, seed) => Boolean(seed && seed.pullBy === bud.id && game.time - seed.pullAt <= LODE.curl);
+  const onMoss = n => Boolean(n) && n.ny <= LODE.moss;
+  define('lodestone', {
+    r: LODE.r, hp: LODE.hp, fall: LODE.fall, type: 'sky', hint: 'Lodestones tug seeds! Curl one onto the moss.',
+    make(spot, tag, i) { const id = i == null ? tag : `${tag}-foe${i}`; return [piece('lodestone', id, id, spot[1], spot[2])]; },
+    // The iron (everything but the top LODE.moss of the rim) turns a seed's own touch away. Powers always land.
+    guard: (game, bud, hit, seed) => !game.scripted && !isPower(game, seed) && !onMoss(hit),
+    // A turned-away touch stamps the stone so its art can look smug for a beat (bud.guardAt, the game clock).
+    contact(game, bud, ball, hit) { if (!game.scripted && !isPower(game, ball) && !onMoss(hit)) bud.guardAt = game.time; return null; },
+    // A seed struck straight in (no flight) is judged by its contact the same way; a top touch is a plain hit.
+    hit(game, bud, chain, isCredited, seed) {
+      if (!direct(game, chain, isCredited, seed)) return null;
+      if (!onMoss(seed.bossContact || { nx: 0, ny: 1 })) return { blocked: true };
+      game.event('foe', { kind: 'lodestone:moss', bud, x: bud.x, y: bud.y - bud.r, hp: bud.hp - 1, curl: curled(game, bud, seed) });
+      return null;
+    },
+    bloomed(game, bud, chain, credit) {
+      const seed = credit && credit.ball, curl = !chain && curled(game, bud, seed) && !isPower(game, seed);
+      if (curl) { game._charge(LODE.bonus, credit); bud.curled = true; }
+      // The magnet's last tug: loose gems nearby fly in and bloom, nearest first, as chains of whoever opened it.
+      const ids = [];
+      if (credit) {
+        const near = game.buds.filter(p => p.gem && !p.bloomed && !p.hidden && !p.ghost && !p.bossPart && !p.inert && !game.pending.some(q => q.id === p.id)
+          && Math.hypot(p.x - bud.x, p.y - bud.y) <= LODE.tug).sort((a, b) => Math.hypot(a.x - bud.x, a.y - bud.y) - Math.hypot(b.x - bud.x, b.y - bud.y) || (a.id < b.id ? -1 : 1));
+        near.slice(0, LODE.tugs).forEach((p, k) => { ids.push({ id: p.id, x: p.x, y: p.y }); game.pending.push(game._linkBy(p.id, game.time + LODE.link * (k + 1), bud, 'lode', credit.by, true)); });
+      }
+      game.event('foe', { kind: 'lodestone:open', bud, x: bud.x, y: bud.y, curl, gems: ids });
+    },
+    // The bot shoots only the moss, more for the last tuft when gems are near.
+    value(game, bud, hit) {
+      if (!onMoss(hit)) return -1;
+      const gems = bud.hp <= 1 ? game.buds.filter(p => p.gem && !p.bloomed && !p.bossPart && Math.hypot(p.x - bud.x, p.y - bud.y) <= LODE.tug).length : 0;
+      return LODE.worth + LODE.gem * Math.min(LODE.tugs, gems);
+    },
+    LODE, lodeField, needleAt
+  });
 
   // ── Sweetheart Roses (Level 9, `sweetheart`) ──
 
@@ -999,5 +1092,6 @@
 
   return Object.freeze({ FOES, names, isFoe, entryOf, familyOf, credited, isPower, direct, chainable, owns, make, piece, place, init, initBud,
     step, onTick, sweep, guard, contact, hit, bloomed, popped, breach, holding, moves, predict, value, hint, rollPreview,
-    hash01, orbitAt, lobAt, swapAt, clamp, smooth, TAU, ROLL, define });
+    hash01, orbitAt, lobAt, swapAt, clamp, smooth, TAU, ROLL, define,
+    fields, pull }); // fields/pull: the Lodestone's field, shared by rush.js, engine.js's aim line and the practice bot
 });
