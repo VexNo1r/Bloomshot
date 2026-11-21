@@ -237,7 +237,23 @@
   // speak: false when the caller has already said it (a guardian's mood line carries its new rule).
   const TOAST_LIFE = 2800, TIP_HELD = 1500;
   let toastAt = -Infinity, tipTimer = null, tipQueue = [], tipShown = null;
+  // A guardian's entrance is its own: while its name card is up, plain pop-ups (a gift bubble, a foe's first hint) and
+  // headlines other than the card wait, and show once it has gone. Chain praise is dropped instead, since a late
+  // "Lovely!" reads wrong. A guardian's own tip (a 'guard:' level tip) still shows.
+  const bossCardUp = () => Boolean(route === 'game' && game && game.stage && game.stage.vine && game.stage.vine.cardUntil > game.time && !game.stage.vine.bud?.bloomed);
+  let heldPopups = [];
+  function holdPopup(entry) { heldPopups = heldPopups.filter(held => held.run === game).concat({ ...entry, run: game }).slice(-4); }
+  function releasePopups() {
+    if (!heldPopups.length || bossCardUp()) return;
+    heldPopups = heldPopups.filter(held => held.run === game && !game.over);
+    // Headlines go back through headline(), which keeps one at a time; an explainer whose effect has run out is gone.
+    for (const held of heldPopups.filter(held => held.item)) if (!held.item.live || game[held.item.live] > 0) headline(held.item);
+    heldPopups = heldPopups.filter(held => !held.item);
+    // Pop-ups show one after another, each given a moment to be read.
+    if (heldPopups.length && performance.now() - toastAt >= TIP_HELD) { const held = heldPopups.shift(); toast(held.text, held.speak); }
+  }
   function toast(text, speak = true, tip = null) {
+    if (!tip && bossCardUp()) { if (!heldPopups.some(held => held.text === text && held.run === game)) holdPopup({ text, speak }); return; }
     // A plain toast (a gift bubble, a foe's first hint) that lands on a tip barely read puts the tip back to show next.
     if (!tip && tipShown && tipShown.tip.run === game && performance.now() - tipShown.at < TIP_HELD && !tipQueue.some(t => t.key === tipShown.tip.key)) {
       game.tipsSeen && game.tipsSeen.delete(tipShown.tip.key); tipQueue.unshift(tipShown.tip);
@@ -279,7 +295,8 @@
     tipQueue = tipQueue.filter(t => t.run === game && !game.over);
     if (!tipQueue.length) return;
     const wait = Math.max(0, toastAt + TOAST_LIFE - performance.now());
-    if (wait || route !== 'game' || holding() || resultShown) { tipTimer = setTimeout(pumpTips, Math.max(wait, 400)); return; }
+    const heldBack = bossCardUp() && !String(tipQueue[0].key).startsWith('guard:');
+    if (wait || route !== 'game' || holding() || resultShown || heldBack) { tipTimer = setTimeout(pumpTips, Math.max(wait, 400)); return; }
     const tip = tipQueue.shift(), text = tip.due ? tip.due() : tip.text;
     if (!text) { pumpTips(); return; }
     tip.text = text;
@@ -1612,6 +1629,7 @@
   const rankOf = item => item.rank || (item.kind === 'title' && item.size === 'small' ? 0 : item.intro ? 2 : HEADLINE[item.kind] || 0);
   function headline(item) {
     if (item.kind === 'life') { game.floaters = game.floaters.filter(f => f.kind !== 'life' && f.kind !== 'combo'); game.floaters.push(item); return true; }
+    if (!item.boss && bossCardUp()) { if (item.kind !== 'combo') holdPopup({ item }); return false; }
     const rank = rankOf(item);
     if (game.floaters.some(f => rankOf(f) > rank && f.life > .25)) return false;
     game.floaters = game.floaters.filter(f => !(rankOf(f) > 0 && rankOf(f) <= rank));
@@ -4123,7 +4141,7 @@
     else if (!paused) {
       accumulator += gdt;
       while (accumulator >= 1 / 120) { game.step(1 / 120); accumulator -= 1 / 120; }
-      processEvents(); bestWatch();
+      processEvents(); releasePopups(); bestWatch();
       for (const ball of game.balls || []) ball.hot = !isRush() && (game.combo || 0) >= 8;
       game.particles = stepParticles(game.particles, gdt, 24, 396, 530);
       // Words age in real time in the tutorial, so a 'Lovely!' does not hang for 13 s while a card waits at 8% speed.
