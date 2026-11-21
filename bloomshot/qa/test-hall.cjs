@@ -320,6 +320,19 @@ test('The time shown is the time judged: rounded to tenths alike on the result, 
   app.click('next-btn'); assert.match(app.$('hall-list').innerHTML, /best 0:18\.5/);
 });
 
+test('A lesser win offers the next ribbon up from the one held', () => {
+  const app = boot(player({}, 2));
+  rematch(app, 1); win(app, 5);
+  assert.equal(app.saved().hall[1].ribbon, 'gold');
+  app.click('retry-btn'); app.frame(); shoot(app); win(app, 5, 2);
+  assert.match(app.$('reward-flower').innerHTML, /Bronze ribbon.*You hold the gold ribbon/);
+  assert.equal(app.$('result-message').textContent, 'You hold the gold ribbon. Race your best time!');
+  app.click('next-btn'); app.click('hall-back');
+  rematch(app, 2); win(app, Depths.hall.par[2] + 5);
+  app.click('retry-btn'); app.frame(); shoot(app); win(app, 5, 1);
+  assert.equal(app.$('result-message').textContent, 'Gold: no lives lost, in 0:35 or less.', 'a bronze win while holding silver points at gold');
+});
+
 test('A gift caught in a rematch is lent for it only, and is spent before the player\'s own', () => {
   const powers = { sunburst: 1, dandelion: 1, beeline: 1, lullaby: 1 };
   const app = boot(player({ powers }, 2)), game = rematch(app, 2);

@@ -3430,13 +3430,15 @@
   // chime; Animations off shows it still), or, lost, another go. Rematch and Hall are the only ways on.
   function showHallResult(won) {
     const id = game.plan.id, boss = Depths.bosses[id - 1], news = hallNews || { seconds: hallSeconds(), ribbon: '', newRibbon: false, newBest: false, before: null };
-    const record = hallSave()[id], par = Depths.hall.par[id], scoreLabel = $('result-dialog').querySelector('.score-label');
+    const record = hallSave()[id], held = record ? record.ribbon : '', par = Depths.hall.par[id], scoreLabel = $('result-dialog').querySelector('.score-label');
     $('result-dialog').classList.add('hall-result');
     $('result-eyebrow').textContent = won ? 'Guardian bloomed!' : 'Out of lives';
     $('result-title').textContent = won ? boss.name : 'Not this time';
     $('result-stars').hidden = true; $('garden-reward').hidden = true; $('result-goals').hidden = true; $('share-btn').hidden = true;
     $('result-message').textContent = won
-      ? news.ribbon === 'gold' ? `No lives lost, in ${clock(par, false)} or less. Wonderful!` : news.ribbon === 'silver' ? `No lives lost! Win in ${clock(par, false)} or less for gold.` : 'Keep all 3 lives for silver.'
+      // The goal on offer is the next ribbon up from the one now held, not from this win's.
+      ? news.ribbon === 'gold' ? `No lives lost, in ${clock(par, false)} or less. Wonderful!` : held === 'gold' ? 'You hold the gold ribbon. Race your best time!'
+        : held === 'silver' ? news.ribbon === 'silver' ? `No lives lost! Win in ${clock(par, false)} or less for gold.` : `Gold: no lives lost, in ${clock(par, false)} or less.` : 'Keep all 3 lives for silver.'
       : `${boss.name} is still awake. Try a new angle.`;
     scoreLabel.textContent = won ? news.newBest ? 'New best time!' : record && record.bestTime < news.seconds ? `Time · best ${clock(record.bestTime)}` : 'Time' : 'Best time';
     scoreLabel.classList.toggle('best', Boolean(won && news.newBest));
