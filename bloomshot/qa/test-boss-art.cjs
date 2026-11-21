@@ -187,8 +187,8 @@ test('Fullscreen light masking reuses its surfaces and preserves framed art and 
 });
 
 test('Guardian 6-10 tells fade where they cross their own move label, so its words stay readable', () => {
-  // The label (drawBossWarning) is drawn before the kit looks' under/over hooks. A tell mark the hooks draw inside the
-  // label's pill must be clipped away or faint (alpha <= .3): pearl marks and arcs, the egg, barrage columns, lob arcs, comet trails.
+  // The label (drawBossWarningLabel) is drawn over the kit looks' under/over hooks. A tell mark the hooks draw inside the
+  // label's pill must still be clipped away or faint (alpha <= .3): pearl marks and arcs, the egg, barrage columns, lob arcs, comet trails.
   const { RushGame } = require('../rush.js'), bot = require('./depths-bot.cjs'), Bosses = require('../bosses.js');
   let inHook = 0; const marks = [];
   // A canvas that follows the transform, the alpha and rectangular clips (evenodd cut-outs too), and keeps every point a
@@ -265,6 +265,69 @@ test('The sprite atlas keeps the sprites still in use: past its cap it lets go o
   for (let i = 0; i < 400; i++) { kit.atlasSprite(`lru:fill${i}`, 0, 0, 4, 4, noop); assert.equal(kit.atlasSprite('lru:used', 0, 0, 4, 4, noop), used, `still cached after ${i + 1} new sprites`); }
   assert.equal(Art.paints() - before, 400, 'only the new sprites were painted');
   kit.atlasSprite('lru:fill0', 0, 0, 4, 4, noop); assert.equal(Art.paints() - before, 401, 'the cap still holds: the oldest unused sprite was let go');
+});
+
+// A canvas that follows the transform and keeps, for every fill, stroke, text and image, the board box it paints and
+// its colour: enough to say which paint is the last one over a pixel.
+function paintBrush() {
+  const paints = [], stack = []; let matrix = [1, 0, 0, 1, 0, 0], pts = [];
+  const state = { globalAlpha: 1, globalCompositeOperation: 'source-over', fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, shadowBlur: 0, font: '' };
+  const mul = (a, b, c, d, e, f) => { const m = matrix; matrix = [m[0] * a + m[2] * b, m[1] * a + m[3] * b, m[0] * c + m[2] * d, m[1] * c + m[3] * d, m[0] * e + m[2] * f + m[4], m[1] * e + m[3] * f + m[5]]; };
+  const at = (x, y) => [matrix[0] * x + matrix[2] * y + matrix[4], matrix[1] * x + matrix[3] * y + matrix[5]];
+  const box = list => list.length ? [Math.min(...list.map(p => p[0])), Math.min(...list.map(p => p[1])), Math.max(...list.map(p => p[0])), Math.max(...list.map(p => p[1]))] : null;
+  const ctx = new Proxy(state, {
+    get(t, name) {
+      if (name in t) return t[name];
+      if (name === 'canvas') return { width: 420, height: 560 };
+      if (name === 'getTransform') return () => { const [a, b, c, d, e, f] = matrix; return { a, b, c, d, e, f }; };
+      return (...args) => {
+        if (name === 'save') stack.push({ matrix: matrix.slice(), state: { ...state } });
+        else if (name === 'restore') { const old = stack.pop(); matrix = old.matrix; Object.assign(state, old.state); }
+        else if (name === 'translate') mul(1, 0, 0, 1, ...args);
+        else if (name === 'scale') mul(args[0], 0, 0, args[1], 0, 0);
+        else if (name === 'rotate') mul(Math.cos(args[0]), Math.sin(args[0]), -Math.sin(args[0]), Math.cos(args[0]), 0, 0);
+        else if (name === 'setTransform') matrix = args.slice();
+        else if (name === 'measureText') return { width: String(args[0]).length * 7 };
+        else if (name === 'beginPath') pts = [];
+        else if (['moveTo', 'lineTo'].includes(name)) pts.push(at(args[0], args[1]));
+        else if (name === 'arcTo') pts.push(at(args[0], args[1]), at(args[2], args[3]));
+        else if (name === 'quadraticCurveTo') pts.push(at(args[2], args[3]));
+        else if (name === 'bezierCurveTo') pts.push(at(args[4], args[5]));
+        else if (name === 'arc' || name === 'ellipse') { const rx = args[2], ry = name === 'ellipse' ? args[3] : args[2]; pts.push(at(args[0] - rx, args[1] - ry), at(args[0] + rx, args[1] + ry), at(args[0] - rx, args[1] + ry), at(args[0] + rx, args[1] - ry)); }
+        else if (name === 'rect' || name === 'fillRect') { const q = [at(args[0], args[1]), at(args[0] + args[2], args[1] + args[3])]; if (name === 'rect') pts.push(...q); else paints.push({ op: name, box: box(q), color: state.fillStyle, alpha: state.globalAlpha }); }
+        else if (name === 'fill' || name === 'stroke') { const b = box(pts); if (b) paints.push({ op: name, box: b, color: name === 'fill' ? state.fillStyle : state.strokeStyle, alpha: state.globalAlpha }); }
+        else if (name === 'fillText') paints.push({ op: name, text: args[0], box: box([at(args[1] - 20, args[2] - 6), at(args[1] + 20, args[2] + 6)]), color: state.fillStyle, alpha: state.globalAlpha });
+        else if (name === 'drawImage') { const [x, y, w, h] = args.length >= 9 ? args.slice(5) : args.slice(1); paints.push({ op: name, box: box([at(x, y), at(x + (w || 0), y + (h || 0))]), color: 'image', alpha: state.globalAlpha }); }
+        else if (/^create(Linear|Radial|Conic)Gradient$|^createPattern$/.test(name)) return { addColorStop() {} };
+      };
+    },
+    set(t, name, value) { t[name] = value; return true; }
+  });
+  const over = (x, y) => paints.filter(p => p.alpha > .05 && p.box[0] <= x && x <= p.box[2] && p.box[1] <= y && y <= p.box[3]);
+  return { ctx, paints, over };
+}
+test('A guardian warning label is never covered: pieces on its spot draw under the cream pill, the marks stay under the pieces', () => {
+  const { Art } = load(false), text = 'Crystal Heart is shining!';
+  for (const kind of kinds) for (const reducedMotion of [false, true]) {
+    // The label sits 61 px under the warning point: (210, 186). Two pieces sit right on it, and a target ring under one.
+    const boss = guardian(kind), flower = { id: 'f1', x: 196, y: 186, r: 13, type: 'coral', hp: 1, maxHp: 1, bloomed: false };
+    const gem = { id: 'g1', x: 226, y: 186, r: 13, type: 'blue', gem: true, hp: 1, maxHp: 1, bloomed: false };
+    const warning = { kind, x: 210, y: 125, at: 4.5, until: 5.7, text, targets: [{ x: 196, y: 186, r: 13 }] };
+    const state = board(boss, warning); state.buds.push(flower, gem);
+    const rec = paintBrush(); Art.draw(rec.ctx, state, 5, { ...options, reducedMotion });
+    const pill = rec.paints.findIndex(p => p.op === 'fill' && p.color === '#fff6df' && p.box[0] < 210 && p.box[2] > 210 && p.box[1] < 186 && p.box[3] > 186);
+    assert(pill >= 0, `${kind}: the cream pill is drawn`);
+    const words = rec.paints.findIndex(p => p.op === 'fillText' && p.text === text);
+    assert(words > pill, `${kind}: the words are drawn on the pill`);
+    for (const [x, y] of [[210, 186], [196, 186], [226, 186]]) {
+      const last = rec.over(x, y).pop(), index = rec.paints.indexOf(last);
+      assert(index >= pill && index <= words, `${kind}:${reducedMotion} (${x}, ${y}): the last paint over the label is the pill or its words, not a ${last && last.op} in ${last && last.color}`);
+    }
+    // The dashed footprint around the flower under the label is still painted before the flower itself.
+    const ring = rec.paints.findIndex(p => p.op === 'stroke' && p.color === '#b55c67');
+    const petals = rec.paints.findIndex((p, i) => i > ring && p.op === 'fill' && p.box[0] > 180 && p.box[2] < 212 && p.box[1] > 170 && p.box[3] < 202);
+    assert(ring >= 0 && petals > ring && petals < pill, `${kind}: the ground mark is drawn under the flower, the flower under the pill`);
+  }
 });
 
 const report = { passed: results.filter(r => r.passed).length, failed: results.filter(r => !r.passed).length, results };

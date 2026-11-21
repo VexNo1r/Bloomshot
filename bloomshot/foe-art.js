@@ -67,8 +67,8 @@
       carry = (carry + len) % gap;
     }
   }
-  // The move's label (art.js drawBossWarning) is drawn before the looks' under/over hooks: a tell drawn through draw()
-  // is at full strength around the label and faint (.22) across it, so the words stay readable. draw() must only
+  // The move's label (art.js drawBossWarningLabel) is drawn on top of the looks' under/over hooks; a tell drawn through
+  // draw() is still at full strength around the label and faint (.22) across it, so it never crowds the words. draw() must only
   // multiply globalAlpha, never set it.
   function labelTell(ctx, w, draw) {
     if (!w || !Number.isFinite(w.x) || !Number.isFinite(w.y)) { draw(); return; }
@@ -3194,7 +3194,7 @@
       // Tells: through a volley's or a yawn's warning, a small portal swirls open over each sprout spot.
       if (w && (w.move === 'sprouts' || w.move === 'yawn') && w.until > w.at) {
         const p = clamp((time - w.at) / (w.until - w.at), 0, 1), open = .25 + .4 * p, reach = 24 * open;
-        // The move's label (art.js drawBossWarning) is drawn before this hook, so a tell over it fades to keep it readable.
+        // The move's label (art.js drawBossWarningLabel) is drawn over this hook; a tell across it still fades so it never crowds the words.
         ctx.save(); ctx.font = '600 12px Fredoka';
         const lw = Math.min(310, Math.max(130, ctx.measureText(String(w.text || 'A guardian is stirring')).width + 28));
         ctx.restore();
@@ -3528,7 +3528,7 @@
       if (!s.boss || s.boss.bloomed) return;
       const clock = s.kitAge, row = rkRow(s), w = s.warning;
       // Toss tells: a dotted arc from the hole to the landing mark, marching that way. The move's label (art.js
-      // drawBossWarning) is drawn before this hook, so an arc running through it fades to keep the words readable.
+      // drawBossWarningLabel) is drawn over this hook; an arc running through it still fades so it never crowds the words.
       const tells = rkTossTell(s);
       if (tells.length) {
         ctx.save(); ctx.font = '600 12px Fredoka';
@@ -6002,8 +6002,8 @@
     ctx.beginPath(); ctx.moveTo(x - tx * 2 * size, y - ty * 2 * size); ctx.lineTo(x + (nx * 4.6 + tx * 1.6) * size, y + (ny * 4.6 + ty * 1.6) * size); ctx.lineTo(x + tx * 2 * size, y + ty * 2 * size); ctx.closePath();
     ctx.fillStyle = TM.thorn; ctx.fill(); tmStroke(ctx, .8, TM.thornLight);
   }
-  // The move's label (art.js drawBossWarning) is drawn before this look's over hook, so a tell is drawn at full strength
-  // around the label and faint across it, keeping the words readable.
+  // The move's label (art.js drawBossWarningLabel) is drawn over this look's over hook; a tell is still at full strength
+  // around the label and faint across it, so it never crowds the words.
   function tmTell(ctx, w, draw) {
     ctx.save(); ctx.font = '600 12px Fredoka';
     const width = Math.min(310, Math.max(130, ctx.measureText(String(w.text || 'A guardian is stirring')).width + 28)); ctx.restore();
@@ -6699,7 +6699,7 @@
     return [`core:arch:${side}`, box, c => paintStarArch(c, rel)];
   }
   const STAR_LENT = { swirlstar: 'swirlstar', waltz: 'waltz', rocket: 'rocket', knot: 'knot', thorn: 'thorn', comet: 'comet' };
-  // The move's label (art.js drawBossWarning) is drawn before the kit's `over`: a tell on top of it fades to keep it readable.
+  // The move's label (art.js drawBossWarningLabel) is drawn over the kit's `over`; a tell across it still fades so it never crowds the words.
   const STAR_LABELS = new Map();
   function starLabel(ctx, w) {
     const text = String(w.text || 'A guardian is stirring');

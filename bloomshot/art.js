@@ -2317,9 +2317,14 @@
     for (let i = -2; i <= 2; i++) { const x = i * length / 6, side = i % 2 ? 1 : -1; ctx.beginPath(); ctx.moveTo(x, 0); ctx.quadraticCurveTo(x - 1, side * 7, x + 7, side * 10); ctx.strokeStyle = '#947348'; ctx.lineWidth = 3; ctx.stroke(); }
     ctx.restore();
   }
-  function drawBossWarning(ctx, state, time, still) {
+  function activeBossWarning(state, time) {
     const w = state.bossWarning || state.bossState && state.bossState.warning;
-    if (!w || !Number.isFinite(w.until) || !(time < w.until) || !Number.isFinite(w.x) || !Number.isFinite(w.y)) return;
+    return !w || !Number.isFinite(w.until) || !(time < w.until) || !Number.isFinite(w.x) || !Number.isFinite(w.y) ? null : w;
+  }
+  // The move's ground marks: dashed footprints on its targets with a filling timer ring, under the flowers.
+  function drawBossWarning(ctx, state, time, still) {
+    const w = activeBossWarning(state, time);
+    if (!w) return;
     const L = BOSS_LOOKS[w.kind] || BOSS_LOOKS.sunny, span = Math.max(.1, Math.min(Number(root.BloomBosses && root.BloomBosses.telegraph) || 1.3, w.until - (Number(w.at) || 0)));
     const p = clamp(1 - (w.until - time) / span, 0, 1);
     ctx.save(); ctx.lineCap = 'round';
@@ -2332,6 +2337,15 @@
       ctx.setLineDash([4, 4]); circle(ctx, t.x, t.y, radius, null, '#fff6ce', 4); circle(ctx, t.x, t.y, radius, null, '#b55c67', 2); ctx.setLineDash([]);
       if (!still) { ctx.beginPath(); ctx.arc(t.x, t.y, radius + 5, -Math.PI / 2, -Math.PI / 2 + TAU * p); ctx.strokeStyle = L.base; ctx.lineWidth = 2; ctx.stroke(); }
     }
+    ctx.restore();
+  }
+  // The move's words, drawn after the pieces (and the kits' over hooks) and before aiming feedback and floaters, so a
+  // flower sitting on the label spot never covers them. The ground marks above stay under the flowers.
+  function drawBossWarningLabel(ctx, state, time) {
+    const w = activeBossWarning(state, time);
+    if (!w) return;
+    const L = BOSS_LOOKS[w.kind] || BOSS_LOOKS.sunny;
+    ctx.save();
     const text = String(w.text || 'A guardian is stirring'), tf = '600 12px Fredoka';
     ctx.font = tf; const width = Math.min(310, Math.max(130, ctx.measureText(text).width + 28)), x = clamp(w.x, width / 2 + 10, 410 - width / 2), y = clamp(w.y + 61, 45, 395);
     const sprite = stageSprite(`warning-rich:${w.kind}:${text}:${width}`, Math.ceil(width + 6), 32, c => {
@@ -5128,6 +5142,7 @@
       else if (bumper.kind === 'rock' && root.BloomScenery) root.BloomScenery.drawRock(ctx, bumper, options.theme);
       else drawBumper(ctx, bumper, options.selectedBumper === bumper.id, time, colors, options.reducedMotion);
     }
+    if (rush) drawBossWarningLabel(ctx, state, time);
     if (options.showAim !== false && state.aim && (state.status !== 'flying' || options.showAim === true)) {
       const hollow = rush && Number(state.podSize) > 0 && Number.isFinite(state.pod) && state.pod < 1 && !(Number(state.superBloom) > 0);
       // Old Sunny's landed snooze Z naps the aim guide (spec 1.9): only its first 60 px show; his kit art adds the zz.
