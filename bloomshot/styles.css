@@ -625,6 +625,12 @@ dialog[open]{animation:dialog-in .34s var(--press)}
 /* Who's who: each level's pieces and guardian, on cream cards with a round picture painted by the board's own art.
    An unmet one is a dashed "?" card. Two columns once the dialog is wide enough (tablets and desktop). */
 @media(min-width:700px){.help-dialog{width:min(640px,calc(100vw - 48px))}}
+/* The heading (and its close button) stays at the top while How to play scrolls, so a phone with no Escape key can
+   always shut it. Opened from the Paused card, the dialog holds only Who's who (data-only="guide"). */
+.help-dialog{--pad-top:22px;--pad-x:20px}
+.help-dialog>.dialog-heading{position:sticky;top:calc(0px - var(--pad-top));z-index:3;margin:calc(0px - var(--pad-top)) calc(0px - var(--pad-x)) 8px;padding:var(--pad-top) var(--pad-x) 8px;background:var(--cream);border-radius:28px 28px 0 0;box-shadow:inset 0 3px 0 var(--edge),inset 3px 0 0 var(--edge),inset -3px 0 0 var(--edge)}
+.help-dialog[data-only="guide"]>details:not(#guide-help){display:none}
+.help-dialog .guide-level{scroll-margin-top:72px}
 .guide-intro{margin:0 0 4px;font-size:13px;line-height:1.4;color:var(--ink-soft)}
 .guide-list{padding:0 0 12px}
 .guide-level{--tint:#d9f3df;margin-top:12px;scroll-margin-top:10px}
@@ -804,6 +810,7 @@ body[data-world="moon"] .desktop-mode-moon,body[data-world="koi"] .desktop-mode-
   .level-grid{gap:8px;padding:2px 10px 14px}
   .plant-button{flex-basis:100%}
   dialog{padding:20px 16px}
+  .help-dialog{--pad-top:20px;--pad-x:16px}
   .world-preview-art{margin:0 -16px 14px}
   .help-mode:not(.guide-help)>summary small{display:none}
 }

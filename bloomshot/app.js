@@ -3530,11 +3530,13 @@
   $('pause-restart').addEventListener('click', () => { BloomSound.wake(); closeDialog('pause-dialog'); restartNow(); });
   $('pause-levels').addEventListener('click', () => { BloomSound.wake(); closeDialog('pause-dialog'); leaveBoard(); });
   $('pause-settings').addEventListener('click', () => { updateSettings(); showDialog('settings-dialog'); });
-  // Who's who from the Paused card: How to play opens on just the guide, at this level's group. It stacks over the
-  // Paused card, so closing it (the x, Escape or a tap outside) leaves the run paused on the card.
+  // Who's who from the Paused card: How to play opens on just the guide (the other sections are hidden and the
+  // title says Who's who), at this level's group. It stacks over the Paused card, so closing it (the x, which stays
+  // at the top while the guide scrolls, Escape or a tap outside) leaves the run paused on the card.
   $('pause-guide').addEventListener('click', () => {
     BloomSound.wake(); BloomSound.play('tap');
     for (const id of ['levels-help', 'rush-help', 'campaign-help', 'moon-help', 'koi-help']) $(id).open = false;
+    $('help-dialog').dataset.only = 'guide'; $('help-title').textContent = "Who's who";
     $('guide-help').open = true;
     $('tutorial-replay').hidden = true; showDialog('help-dialog');
     guideCount(); guideShown();
@@ -3797,8 +3799,12 @@
   $('privacy-btn').addEventListener('click', () => { closeDialog('settings-dialog'); showDialog('privacy-dialog'); });
   $('close-privacy').addEventListener('click', () => { closeDialog('privacy-dialog'); updateSettings(); showDialog('settings-dialog'); });
   // How to play opens at the section for what is on screen: the board being played, or else the tab the player is on.
+  // The ? button always shows every section, from the top.
+  function helpWhole() { delete $('help-dialog').dataset.only; $('help-title').textContent = 'How to play'; }
+  $('help-dialog').addEventListener('close', helpWhole);
   $('help-btn').addEventListener('click', () => {
     const play = route === 'game';
+    helpWhole(); $('help-dialog').scrollTop = 0;
     $('levels-help').open = play ? isDepth() : route === 'levels' || route === 'collection';
     $('rush-help').open = play && isRush() && !isDepth();
     $('campaign-help').open = play ? !isRush() && !isChapter() : route === 'garden';

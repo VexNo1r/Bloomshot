@@ -184,6 +184,14 @@ async function main() {
       await page.locator('#help-dialog').screenshot({ path: path.join(output, `${key}-guide-280.png`) });
       await page.setViewportSize({ width: size.width, height: size.height }); await page.clock.runFor(500);
     }
+    // Scrolled to the very bottom of the guide, the x is still at the top of the card (phones have no Escape key).
+    const stuck = await page.evaluate(() => {
+      const d = document.getElementById('help-dialog'); d.scrollTop = d.scrollHeight;
+      const r = d.getBoundingClientRect(), c = document.getElementById('close-help').getBoundingClientRect();
+      return { scrolled: d.scrollTop, dialog: { x: r.x, y: r.y, right: r.right }, close: { x: c.x, y: c.y, right: c.right, bottom: c.bottom } };
+    });
+    assert(stuck.scrolled > 0 && stuck.close.y >= stuck.dialog.y - .5 && stuck.close.bottom <= stuck.dialog.y + 80 && stuck.close.right <= stuck.dialog.right + .5,
+      `${key} Who's who: the close button stays in reach at the bottom of the guide ${JSON.stringify(stuck)}`);
     await page.evaluate(() => { document.getElementById('guide-help').open = false; document.getElementById('levels-help').open = true; document.getElementById('help-dialog').close(); });
     for (let level = 1; level <= 10; level++) for (const wave of [1, 10]) {
       await page.evaluate(({ level, wave }) => window.__layoutQA.startDepth(level, false, wave), { level, wave });
@@ -205,7 +213,10 @@ async function main() {
         await page.evaluate(() => document.getElementById('pause-guide').click()); await page.clock.runFor(2000);
         const opened = await page.evaluate(() => {
           const d = document.getElementById('help-dialog'), r = d.getBoundingClientRect(), group = document.querySelector('#guide-list .guide-level[data-level="7"]').getBoundingClientRect();
+          const c = document.getElementById('close-help').getBoundingClientRect();
           return { help: d.open, pause: document.getElementById('pause-dialog').open, guide: document.getElementById('guide-help').open, dialog: { x: r.x, y: r.y, right: r.right, bottom: r.bottom }, group: { y: group.y, bottom: group.bottom },
+            close: { x: c.x, y: c.y, right: c.right, bottom: c.bottom }, scrolled: d.scrollTop, title: document.getElementById('help-title').textContent,
+            shown: [...d.querySelectorAll(':scope > details')].filter(el => el.getClientRects().length).map(el => el.id),
             scrollWidth: d.scrollWidth, clientWidth: d.clientWidth, page: document.documentElement.scrollWidth,
             clipped: [...document.querySelectorAll('#guide-list .guide-name, #guide-list .guide-line, #guide-list .guide-does')].filter(el => el.scrollWidth > el.clientWidth + .5).map(el => el.textContent) };
         });
@@ -214,8 +225,12 @@ async function main() {
         assert.equal(opened.scrollWidth, opened.clientWidth, `${key} Paused: no sideways scroll in the guide`); assert.equal(opened.page, size.width, `${key} Paused: no horizontal overflow`);
         assert(opened.dialog.x >= 0 && opened.dialog.right <= size.width + .6, `${key} Paused: the guide stays on screen`);
         assert.deepEqual(opened.clipped, [], `${key} Paused: no clipped guide text`);
+        assert.deepEqual(opened.shown, ['guide-help'], `${key} Paused: only Who's who is listed`); assert.equal(opened.title, "Who's who", `${key} Paused: titled Who's who`);
+        assert(opened.scrolled > 0 && opened.close.y >= opened.dialog.y - .5 && opened.close.bottom <= opened.dialog.y + 80 && opened.close.x >= opened.dialog.x && opened.close.right <= opened.dialog.right + .5,
+          `${key} Paused: the close button stays at the top of the scrolled guide ${JSON.stringify(opened.close)}`);
         await page.locator('#help-dialog').screenshot({ path: path.join(output, `${key}-paused-guide.png`) });
-        await page.evaluate(() => document.getElementById('close-help').click()); await page.clock.runFor(400);
+        // A real tap on the x where it is drawn (not a script click), so an off-screen button fails here.
+        await page.mouse.click((opened.close.x + opened.close.right) / 2, (opened.close.y + opened.close.bottom) / 2); await page.clock.runFor(400);
         const back = await page.evaluate(() => ({ help: document.getElementById('help-dialog').open, pause: document.getElementById('pause-dialog').open, count: !document.getElementById('resume-count').hidden }));
         assert.deepEqual(back, { help: false, pause: true, count: false }, `${key} Paused: closing the guide goes back to the Paused card, still paused`);
         rows.push({ size: key, label: "Paused card and its Who's who", card, opened });

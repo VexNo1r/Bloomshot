@@ -499,6 +499,8 @@ test('The Paused card opens Who\'s who at the level being played, and closing it
   assert(app.$('guide-help').open, "on Who's who");
   for (const id of ['levels-help', 'rush-help', 'campaign-help', 'moon-help', 'koi-help']) assert.equal(app.$(id).open, false, `${id} is shut, so the guide is first`);
   assert.equal(scrolled().at(-1), '7', 'scrolled to the level being played');
+  assert.equal(help.dataset.only, 'guide', 'only the guide is listed (the stylesheet hides the other sections)');
+  assert.equal(app.$('help-title').textContent, "Who's who", 'and the title says so');
   assert(entries(app).length === 34, 'the guide is built');
   for (let i = 0; i < 20; i++) app.frame();
   assert.deepEqual({ time: game.time, wave: game.wave, lives: game.lives }, before, 'nothing moves while the guide is open');
@@ -507,6 +509,13 @@ test('The Paused card opens Who\'s who at the level being played, and closing it
   for (let i = 0; i < 20; i++) app.frame();
   assert.deepEqual({ time: game.time, wave: game.wave, lives: game.lives }, before, 'and the run stays paused');
   assert(app.$('resume-count').hidden !== false, 'no count starts until Resume');
+  help.emit('close');
+  assert.equal(help.dataset.only, undefined, 'once shut, How to play is whole again');
+  assert.equal(app.$('help-title').textContent, 'How to play');
+  app.click('pause-guide'); assert.equal(help.dataset.only, 'guide'); help.close();
+  app.click('help-btn');
+  assert.equal(help.dataset.only, undefined, 'the ? button always shows every section');
+  assert.equal(app.$('help-title').textContent, 'How to play'); help.close();
   // Meadow Rush is not a level: its Paused card has no guide button.
   pause.close(); app.click('pause-levels');
   app.click('levels-rush-btn'); app.frame(); app.game().started = true; app.frame();
