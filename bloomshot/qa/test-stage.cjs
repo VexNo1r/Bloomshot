@@ -443,6 +443,18 @@ test('A guardian lands on a clean board: pop-ups and headlines wait for its name
   app.run(1.5); game.events.push({ type: 'chainEnd', chain: 10 }); app.run(.1);
   assert(game.floaters.some(f => f.kind === 'combo'), 'praise after the card shows as usual');
 });
+test('A charged Split that cannot go yet says "Split soon" with seeds in the air, and "Fire first" with none', () => {
+  const app = level(player(), 1); app.run(1.3);
+  const game = app.game(), split = app.$('split-btn'); game.started = true; game.status = 'flying';
+  game.splitCharge = 1; app.$('pause-dialog').open = true; // the board holds, the buttons still update
+  const seed = () => ({ x: 210, y: 300, vx: 0, vy: -200, r: 5, trail: [] });
+  game.balls = [1, 2, 3, 4].map(seed); app.frame();
+  assert.equal(split.textContent, 'Split soon'); assert(split.disabled && split.classList.contains('waiting'), 'dimmed, not pressable');
+  game.balls = []; app.frame();
+  assert.equal(split.textContent, 'Fire first');
+  game.balls = [seed()]; app.frame();
+  assert.equal(split.textContent, 'Split! +2'); assert(!split.disabled);
+});
 test('A guardian crit near the top of the board is called out below her name and health vine (y >= 70), a low one where it landed', () => {
   // The vine pill (y 5-31) and the name (y 37) are drawn over the floaters, so a word stamped higher lost its top.
   const app = level(player(), 2), game = app.game(); app.run(1.3);
