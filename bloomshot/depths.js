@@ -340,8 +340,51 @@
     return { progress: next, firstClear: before.stars === 0 && stars > 0, newStars: Math.max(0, stars - before.stars) };
   }
 
+  // The Guardian Hall: rematches of guardians already beaten, for ribbons only. A rematch is the level's own wave 10
+  // (the same start as "Try the boss"); it never touches stars, bests, seeds, goals or the level's checkpoint.
+  // Saved as hall: { [levelId]: { wins, bestTime, ribbon } }, absent until the first rematch is won. bestTime is in
+  // seconds of game time from the first seed to the guardian's bloom (a pause stops it). Ribbons only ever go up:
+  // bronze for a win, silver for a win without losing a life, gold for that under the guardian's par.
+  // PAR is the average practice bot's 25th-percentile clean-win fight (24 boss-only runs a guardian, first seed to
+  // bloom), rounded to 5 s: the average bot beats it in about one clean win in five, the good bot in about two in three.
+  var RIBBONS = ['bronze', 'silver', 'gold'];
+  var PAR = { 1: 20, 2: 35, 3: 40, 4: 60, 5: 45, 6: 60, 7: 70, 8: 65, 9: 75, 10: 110 };
+  function ribbonRank(ribbon) { return RIBBONS.indexOf(ribbon) + 1; }
+  function hallNormalize(raw) {
+    var out = {};
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+    for (var id = 1; id <= TOTAL; id++) {
+      var item = raw[id];
+      if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+      var wins = integer(item.wins, Number.MAX_SAFE_INTEGER), time = Number(item.bestTime);
+      if (!wins || !ribbonRank(item.ribbon) || !(time > 0 && time < 1e6)) continue;
+      out[id] = { wins: wins, bestTime: Math.round(time * 10) / 10, ribbon: item.ribbon };
+    }
+    return out;
+  }
+  // A guardian is beaten once its level is cleared (a full run or a boss-only one) or beaten in a rematch.
+  function beaten(progress, hall, id) {
+    return Boolean(byId(id) && (progress && progress[id] && progress[id].stars > 0 || hall && hall[id] && hall[id].wins > 0));
+  }
+  // Only a beaten guardian can be rematched, and a paid level's only while the levels unlock is owned.
+  function hallOpen(progress, hall, id, ownsFull) { return beaten(progress, hall, id) && (id <= FREE || Boolean(ownsFull)); }
+  function ribbonFor(id, result) {
+    if (!result || !result.won || !byId(id)) return '';
+    if ((Number(result.livesLost) || 0) > 0) return 'bronze';
+    return Number(result.seconds) <= PAR[id] ? 'gold' : 'silver';
+  }
+  function hallRecord(hall, id, result) {
+    var next = hallNormalize(hall), before = next[id] || null, ribbon = ribbonFor(id, result);
+    if (!ribbon) return { hall: next, ribbon: '', newRibbon: false, newBest: false };
+    var seconds = Math.round(Math.max(.1, Number(result.seconds) || 0) * 10) / 10;
+    var best = before ? Math.min(before.bestTime, seconds) : seconds, kept = before && ribbonRank(before.ribbon) > ribbonRank(ribbon) ? before.ribbon : ribbon;
+    next[id] = { wins: Math.min(Number.MAX_SAFE_INTEGER, (before ? before.wins : 0) + 1), bestTime: best, ribbon: kept };
+    return { hall: next, ribbon: ribbon, newRibbon: !before || ribbonRank(ribbon) > ribbonRank(before.ribbon), newBest: Boolean(before) && seconds < before.bestTime };
+  }
+
   return Object.freeze({ levels: LEVELS.map(function (level) { return { id: level.id, key: level.key, name: level.name, twist: level.twist, waves: WAVES }; }),
     total: TOTAL, waveCount: WAVES, free: FREE, checkpoint: CHECKPOINT, puffReach: PUFF_REACH, shells: SHELLS, shellFor: shellFor, product: PRODUCT, entitlement: ENTITLEMENT,
     bosses: BOSSES.map(function (boss) { return Object.assign({}, boss); }),
-    level: byId, wave: wave, starsFor: starsFor, normalize: normalize, unlocked: unlocked, record: record });
+    level: byId, wave: wave, starsFor: starsFor, normalize: normalize, unlocked: unlocked, record: record,
+    hall: Object.freeze({ ribbons: RIBBONS.slice(), par: Object.freeze(Object.assign({}, PAR)), normalize: hallNormalize, beaten: beaten, open: hallOpen, ribbonFor: ribbonFor, record: hallRecord, rank: ribbonRank }) });
 });
