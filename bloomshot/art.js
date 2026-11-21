@@ -3439,7 +3439,17 @@
     ctx.font = `700 ${shown >= 10 ? 13 : 15}px Fredoka, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillStyle = tint.ink; ctx.fillText('×' + shown, 0, .5);
     ctx.restore();
+    // From 15 in a row the chain's length shows in small type under the badge (it holds still, even as the badge pulses).
+    const chain = Math.floor(Number(state.combo) || 0);
+    if (chain >= CHAIN_COUNT_FROM) {
+      const label = `${chain} in a row`;
+      ctx.save(); ctx.font = '700 10px Fredoka, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.lineJoin = 'round'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,252,236,.95)'; ctx.strokeText(label, x, y + r + 12);
+      ctx.fillStyle = tint.ring === BADGE[1].ring ? '#7a5a22' : tint.edge; ctx.fillText(label, x, y + r + 12);
+      ctx.restore();
+    }
   }
+  const CHAIN_COUNT_FROM = 15;
 
   // A score pop. Its size grows with the chain multiplier; the type is set at 15 px and scaled, so the white
   // outline grows with it. Pops from a Super Bloom wear a gold rim.
