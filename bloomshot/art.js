@@ -2489,11 +2489,14 @@
 
   // A fossil shell turns around its bud. Shots only get in through the open side, so the gap is drawn wide and
   // clean; the coiled whorl at one lip makes it read as a shell rather than a ring.
-  // The opening is the same shellGap the hit rule uses (rush.js shellGap), so what you see is what lets a seed in.
-  const SHELL_GAP = Math.acos(.34);
+  // The opening is the same shellGap the hit rule uses (rush.js shellGap), so what you see is what lets a seed in:
+  // the outline's ink stops right at the rule's edge (the body starts half a line width in), and the whorl and cap
+  // sit on the shell just past each lip, never inside the opening.
+  const SHELL_GAP = Math.acos(.34), SHELL_LINE = 1.4, WHORL = 4.3, CAP = 2.8;
   const shellGap = bud => root.BloomRush && root.BloomRush.shellGap ? root.BloomRush.shellGap(bud) : Number.isFinite(bud.shellGap) && bud.shellGap > 0 ? bud.shellGap : SHELL_GAP;
   function shellPath(ctx, r, open) {
-    ctx.beginPath(); ctx.arc(0, 0, r + 2.7, open, TAU - open); ctx.arc(0, 0, r - 2.7, TAU - open, open, true); ctx.closePath();
+    const edge = open + SHELL_LINE / 2 / (r - 2.7);
+    ctx.beginPath(); ctx.arc(0, 0, r + 2.7, edge, TAU - edge); ctx.arc(0, 0, r - 2.7, TAU - edge, edge, true); ctx.closePath();
   }
   function drawShell(ctx, bud) {
     const r = (Number(bud.r) || 11) + 4.6, a = Number(bud.shellAngle) || 0, open = shellGap(bud);
@@ -2511,13 +2514,15 @@
       ctx.quadraticCurveTo(Math.cos(k + .07) * r, Math.sin(k + .07) * r, Math.cos(k) * (r + 2.7), Math.sin(k) * (r + 2.7)); ctx.stroke();
     }
     ctx.restore();
-    shellPath(ctx, r, open); ctx.strokeStyle = '#7a5530'; ctx.lineWidth = 1.4; ctx.lineJoin = 'round'; ctx.stroke();
-    // The whorl at the leading lip and a rounded cap at the other.
-    const wx = Math.cos(open) * r, wy = Math.sin(open) * r;
-    circle(ctx, wx, wy, 4.3, '#f6e8c4', '#7a5530', 1.3);
+    shellPath(ctx, r, open); ctx.strokeStyle = '#7a5530'; ctx.lineWidth = SHELL_LINE; ctx.lineJoin = 'round'; ctx.stroke();
+    // The whorl at the leading lip and a rounded cap at the other, each turned just far enough onto the shell that
+    // its inked edge touches the lip.
+    const past = size => open + Math.asin(Math.min(1, size / r));
+    const wa = past(WHORL + SHELL_LINE / 2), wx = Math.cos(wa) * r, wy = Math.sin(wa) * r;
+    circle(ctx, wx, wy, WHORL, '#f6e8c4', '#7a5530', 1.3);
     ctx.beginPath(); ctx.arc(wx + .4, wy, 2.4, 0, 4.6); ctx.arc(wx + .2, wy - .6, 1, 4.6, 1.2); ctx.strokeStyle = '#8c6338'; ctx.lineWidth = .9; ctx.stroke();
-    const cx = Math.cos(-open) * r, cy = Math.sin(-open) * r;
-    circle(ctx, cx, cy, 2.8, '#e3c995', '#7a5530', 1.2);
+    const ca = -past(CAP + SHELL_LINE / 2), cx = Math.cos(ca) * r, cy = Math.sin(ca) * r;
+    circle(ctx, cx, cy, CAP, '#e3c995', '#7a5530', 1.2);
     ctx.restore();
   }
   // A geode: a lumpy stone with amethyst showing through its cracks. Each hit opens the cracks wider.

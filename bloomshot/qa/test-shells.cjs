@@ -136,7 +136,7 @@ test('A shot lands just inside the opening and glances just outside it, at every
   }
 });
 
-test('The shell is drawn with exactly the opening the hit rule uses', () => {
+test('The shell is drawn with exactly the opening the hit rule uses, ornaments and all', () => {
   const source = fs.readFileSync(path.join(__dirname, '../art.js'), 'utf8');
   const hooked = source.replace('root.BloomArt = { draw,', 'root.BloomArt = { shellReview: { drawShell }, draw,');
   assert.notEqual(hooked, source);
@@ -155,8 +155,23 @@ test('The shell is drawn with exactly the opening the hit rule uses', () => {
     draw(ctx, bud);
     const rot = calls.find(c => c.name === 'rotate'), arc = calls.find(c => c.name === 'arc');
     assert(Math.abs(rot.args[0] - (bud.shellAngle || 0)) < 1e-12, `${bud.id} is turned to its shellAngle`);
-    const gap = Rush.shellGap(bud);
-    assert(Math.abs(arc.args[3] - gap) < 1e-12 && Math.abs(arc.args[4] - (TAU - gap)) < 1e-12, `${bud.id} drawn opening ${arc.args[3]} matches the hit rule ${gap}`);
+    const gap = Rush.shellGap(bud), ring = (Number(bud.r) || 11) + 4.6, pad = .7; // pad: half the widest line drawn (1.4)
+    // The outline's ink (the body plus half its line) starts at the rule's edge, within half a degree.
+    const ink = arc.args[3] - pad / (ring - 2.7);
+    assert(ink >= gap - 1e-9 && ink <= gap + .009 && Math.abs(arc.args[4] - (TAU - arc.args[3])) < 1e-12, `${bud.id} drawn opening ${ink} matches the hit rule ${gap}`);
+    // Everything drawn outside the shell's clip (the outline, the whorl and the cap at the lips) stays out of the
+    // opening: each circle, swelled by half a line, is measured by the angle it covers as seen from the bud.
+    const clip = calls.findIndex(c => c.name === 'clip'), back = calls.findIndex((c, i) => i > clip && c.name === 'restore');
+    const lips = [];
+    calls.forEach((c, i) => {
+      if (c.name !== 'arc' || (i > clip && i < back)) return;
+      const [x, y, rr] = c.args, d = Math.hypot(x, y);
+      if (d < 1e-9) return; // the outline's own arcs, checked above
+      const spread = Math.asin(Math.min(1, (rr + pad) / d)), mid = Math.abs(Math.atan2(y, x));
+      assert(mid - spread >= gap - 1e-9, `${bud.id}: a lip ornament reaches ${((gap - (mid - spread)) * 180 / Math.PI).toFixed(1)} deg into the opening`);
+      lips.push(mid - spread);
+    });
+    assert(lips.length >= 2 && Math.min(...lips) <= gap + .06, `${bud.id}: the whorl and cap still sit right at the lips`);
     // The drawn edge is exactly where shellOpen flips.
     const still = { ...bud, shellSpin: 0 };
     for (const side of [1, -1]) {
