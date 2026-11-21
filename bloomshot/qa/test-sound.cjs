@@ -134,6 +134,7 @@ const tones = (h, voice) => h.context.nodes.filter(n => n.kind === 'oscillator' 
 // Where a note's pitch automation settles (after any glide into it).
 const target = osc => osc.frequency.events[osc.frequency.events.length - 1].value;
 const inKey = frequency => { const semis = 12 * Math.log2(frequency / 261.6255653); const pc = ((Math.round(semis) % 12) + 12) % 12; return Math.abs(semis - Math.round(semis)) < 0.01 && [0, 2, 4, 5, 7, 9, 11].includes(pc); };
+const h2 = osc => Math.max(...osc.frequency.events.map(e => e.value || 0));
 const peak = node => Math.max(...node.gain.events.map(e => e.value || 0));
 async function test(name, run) {
   const started = Date.now();
@@ -297,7 +298,8 @@ async function main() {
       const before = h.context.nodes.length, now = h.context.currentTime;
       h.sound.play('bloom', { combo, bud: { x: 210 } });
       const nodes = h.context.nodes.slice(before), oscillators = nodes.filter(n => n.kind === 'oscillator');
-      assert(oscillators.length >= 2 && oscillators.length <= 4); assert(oscillators.every(n => n.startAt === now));
+      // From 25 in a row a single soft octave sine joins the note (its own test below).
+      assert(oscillators.length >= 2 && oscillators.length <= (combo >= 25 ? 5 : 4)); assert(oscillators.every(n => n.startAt === now));
       const fundamental = oscillators.find(n => n.onended);
       assert(fundamental.frequency.value >= 140 && fundamental.frequency.value <= 1100);
       for (const osc of oscillators) {
@@ -316,6 +318,31 @@ async function main() {
       h.tick(0.1);
     }
     h.sound.play('bloom', { combo: Infinity });
+  });
+  await test('From 25 in a row a soft octave rides on the bloom note, under half its level, inside the bloom rate limit', () => {
+    const bloom = (combo, extra = {}) => {
+      const h = fixture(); h.sound.wake(); h.tick(1);
+      h.sound.play('bloom', { combo, bud: { x: 210, type: 'coral' }, ...extra });
+      return { notes: h.voices() };
+    };
+    for (const combo of [1, 8, 14, 24]) assert.equal(bloom(combo).notes.length, 1, `no octave at ${combo}`);
+    for (const combo of [25, 40, 75, 150]) for (const extra of [{}, { chain: true }, { super: true }, { seedStep: 3 }]) {
+      const { notes } = bloom(combo, extra);
+      assert.equal(notes.length, 2, `an octave at ${combo}`);
+      const [main, octave] = notes;
+      assert(Math.abs(target(octave) / target(main) - 2) < 0.01, 'exactly an octave above the note');
+      assert(target(octave) < 3600, 'under the frequency check');
+      const level = v => peak(v.connections[0]);
+      assert(level(octave) <= level(main) * 0.4 + 1e-9, `at most 0.4x the note (${level(octave)} vs ${level(main)})`);
+      assert.equal(octave.startAt, main.startAt, 'struck with the note');
+      assert(octave.stopAt <= main.stopAt + 1e-9, 'and gone by the time it is');
+    }
+    // A chain can bloom every few milliseconds: the octave is held to the bloom note's own 22 ms limit.
+    const h = fixture(); h.sound.wake(); h.tick(1);
+    for (let i = 0; i < 20; i++) { h.sound.play('bloom', { combo: 30 + i, bud: { x: 210 } }); h.tick(0.005); }
+    const voices = h.voices();
+    assert(voices.length <= 10, `20 blooms in 0.1 s ring at most ${voices.length} voices`);
+    assert.equal(voices.length % 2, 0, 'every bloom that sounds brings its octave, and no octave sounds alone');
   });
   await test('Chains walk the bloom chords, and shimmer and fever arpeggiate the chord the chain is on', () => {
     const notes = combos => combos.map(combo => { const h = fixture(); h.sound.wake(); h.tick(1); h.sound.play('bloom', { combo }); return target(h.voices()[0]); });
@@ -516,6 +543,39 @@ async function main() {
     assert(voices.every(n => n.frequency.value < 1600 && n.stopAt - n.startAt <= 0.62));
     const nodes = h.context.nodes.length; h.sound.play('cleared', { wave: 4 }); assert.equal(h.context.nodes.length, nodes);
     h.tick(3); assert.equal(h.voices().length, 0);
+  });
+  await test('A level\'s wave chords keep climbing through every wave, stay in key and in range, and survive a queued first gesture', () => {
+    const voicesFor = (type, data) => { const h = fixture(); h.sound.wake(); h.tick(1); h.sound.play(type, data); return h.voices(); };
+    const lowest = (type, wave, extra = {}) => Math.min(...voicesFor(type, { wave, finalWave: 10, ...extra }).filter(v => v.frequency.value > 200).map(target));
+    for (const type of ['wave', 'cleared']) {
+      const climb = [1, 2, 3, 4, 5, 6, 7, 8, 9].map(w => lowest(type, w));
+      for (let i = 2; i < climb.length; i++) assert(climb[i] > climb[i - 1] * 1.01, `${type}: wave ${i + 1} sits higher than wave ${i}`);
+      assert(climb[1] >= climb[0] - 1e-6, `${type}: wave 2 is never lower than wave 1`);
+      climb.forEach(f => assert(inKey(f), `${type} stays in C major`));
+      // Waves 5 to 9 used to share one chord; now they are five different ones.
+      assert.equal(new Set(climb.slice(4).map(f => f.toFixed(2))).size, 5, `${type}: waves 5 to 9 all differ`);
+      assert(Math.abs(lowest(type, 10) - lowest(type, 9)) < 1e-6 && Math.abs(lowest(type, 30) - lowest(type, 9)) < 1e-6, `${type}: the lift tops out at seven steps`);
+      for (let w = 1; w <= 12; w++) for (const v of voicesFor(type, { wave: w, finalWave: 10, boss: w === 10 })) {
+        assert(v.frequency.value < 3600, `${type} wave ${w} stays under the frequency check`);
+        assert(h2(v) < 2400, `${type} wave ${w} never gets shrill`);
+      }
+    }
+    // Wave two of a level still starts on middle C, like Rush.
+    assert(Math.abs(lowest('wave', 2) - 261.6255653) < 0.01);
+    // The boss wave keeps its low marimba root an octave under the chord.
+    const boss = voicesFor('wave', { wave: 10, finalWave: 10, boss: true }), plain = voicesFor('wave', { wave: 10, finalWave: 10 });
+    assert.equal(boss.length, plain.length + 1, 'A boss wave adds a low root');
+    const root = Math.min(...boss.map(target)), chordRoot = Math.min(...plain.map(target));
+    assert(Math.abs(root * 2 - chordRoot) < 0.01, 'one octave under the chord');
+    // A shorter level spreads the same climb over its own waves.
+    const short = [2, 3, 4].map(w => Math.min(...voicesFor('wave', { wave: w, finalWave: 5 }).map(target)));
+    assert(short[1] > short[0] && short[2] > short[1]);
+    // The first gesture's cue keeps finalWave through the audio context's resume.
+    return (async () => {
+      const queued = fixture({ suspended: true }); queued.sound.wake(); queued.sound.play('wave', { wave: 9, finalWave: 10 });
+      await queued.resume();
+      assert(Math.abs(Math.min(...queued.voices().map(target)) - lowest('wave', 9)) < 1e-6, 'finalWave survives the resume queue');
+    })();
   });
   await test('Big moments flourish over a soft chord, finish within about a second, and stay soft', () => {
     for (const [type, data] of [['won', { stars: 3 }], ['boss', {}], ['sunburst', { x: 210 }], ['gift', { x: 210 }], ['cleared', { wave: 2 }], ['power', { power: 'lullaby' }]]) {

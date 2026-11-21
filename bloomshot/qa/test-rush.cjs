@@ -505,6 +505,11 @@ test('The sun fan, the multiplier badge and the gold sky draw cleanly through a 
     assert(frame(reducedMotion) > 20); assert(!texts.some(t => /^×/.test(t)), 'no badge before a chain');
     game._charge(14, { by: 1 }); frame(reducedMotion);
     game.combo = 6; game.lastHitAt = game.time; game.multAt = game.time; frame(reducedMotion); assert(texts.includes('×2'), 'the badge shows the multiplier');
+    assert(!texts.some(t => /in a row$/.test(t)), 'a short chain shows no count');
+    game.combo = 14; frame(reducedMotion); assert(!texts.includes('14 in a row'), 'not before 15');
+    game.combo = 15; frame(reducedMotion); assert(texts.includes('15 in a row'), 'from 15 in a row the count shows under the badge');
+    game.combo = 132; frame(reducedMotion); assert(texts.includes('132 in a row'));
+    game.combo = 6;
     game._charge(game._sunNeed() - game.sunCharge, { by: 1 }); assert(game.superBloom > 0);
     for (const t of [0, .2, 1.7, 3.3, 5.6, 5.95]) { advance(game, t - (6 - game.superBloom)); frame(reducedMotion); }
     advance(game, .2); assert.equal(game.superBloom, 0); frame(reducedMotion);

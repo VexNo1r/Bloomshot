@@ -3453,7 +3453,17 @@
     ctx.font = `700 ${shown >= 10 ? 13 : 15}px Fredoka, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillStyle = tint.ink; ctx.fillText('×' + shown, 0, .5);
     ctx.restore();
+    // From 15 in a row the chain's length shows in small type under the badge (it holds still, even as the badge pulses).
+    const chain = Math.floor(Number(state.combo) || 0);
+    if (chain >= CHAIN_COUNT_FROM) {
+      const label = `${chain} in a row`;
+      ctx.save(); ctx.font = '700 10px Fredoka, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.lineJoin = 'round'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,252,236,.95)'; ctx.strokeText(label, x, y + r + 12);
+      ctx.fillStyle = tint.ring === BADGE[1].ring ? '#7a5a22' : tint.edge; ctx.fillText(label, x, y + r + 12);
+      ctx.restore();
+    }
   }
+  const CHAIN_COUNT_FROM = 15;
 
   // A score pop. Its size grows with the chain multiplier; the type is set at 15 px and scaled, so the white
   // outline grows with it. Pops from a Super Bloom wear a gold rim.
@@ -3894,6 +3904,7 @@
     const edge = r + 2;
     return atlasSprite(`shot-seed:${colors.base}:${r}`, -edge, -edge, edge, edge, c => paintShotSeed(c, r, colors));
   }
+  const CHAIN_RIM = '#ffc93a';
   function drawProjectile(ctx, ball, index, time, reducedMotion, fever, style) {
     const offset = projectileOffset(ball), ox = offset.x, oy = offset.y;
     if (ball.power && POWER_TINT[ball.power]) {
@@ -3901,21 +3912,29 @@
       else drawPowerShot(ctx, ball, time, reducedMotion);
       return;
     }
-    if (style && style.seed) { drawStyledProjectile(ctx, ball, time, reducedMotion, fever, style, index); return; }
+    // A long chain (8 in a row) in Rush or a level: the seed wears a gold rim and its comet a wider glow and a longer,
+    // brighter core, all in the flower's own color. The turning rainbow stays Super Bloom's alone.
+    const warm = !(fever || ball.hot) && Boolean(ball.chainHot);
+    if (style && style.seed) {
+      drawStyledProjectile(ctx, ball, time, reducedMotion, fever, style, index);
+      if (warm) chainRim(ctx, ball.x + ox, ball.y + oy, ball.r || 5.5);
+      return;
+    }
     const c = FLOWERS[ball.type] || FLOWERS[['coral', 'gold', 'lilac'][index % 3]];
     const r = ball.r || 5.5, trail = ball.trail || [], x = ball.x + ox, y = ball.y + oy, hot = Boolean(fever || ball.hot);
     ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     // A comet: one tapered ribbon in the flower's color (a turning rainbow when the chain runs hot) and a bright
     // core along its last few samples. On a struggling phone only the first three seeds keep their tails.
     if (!reducedMotion && trail.length > 1 && !(feelQuality >= 1 && index >= 3)) {
-      cometTrail(ctx, trail, x, y, r * .95, hot ? `hsl(${Math.round(time * 240) % 360},95%,66%)` : c.base, .55);
-      const start = Math.max(0, trail.length - 7);
+      if (warm) cometTrail(ctx, trail, x, y, r * 1.45, c.light, .5);
+      cometTrail(ctx, trail, x, y, r * .95, hot ? `hsl(${Math.round(time * 240) % 360},95%,66%)` : c.base, warm ? .75 : .55);
+      const start = Math.max(0, trail.length - (warm ? 11 : 7));
       ctx.beginPath(); ctx.moveTo(trail[start].x, trail[start].y);
       for (let i = start + 1; i < trail.length; i++) {
         if (trail[i].move) ctx.moveTo(trail[i].x, trail[i].y);
         else ctx.lineTo(trail[i].x, trail[i].y);
       }
-      ctx.lineTo(x, y); ctx.strokeStyle = '#fffbe1'; ctx.lineWidth = r * .55; ctx.globalAlpha = .8; ctx.stroke();
+      ctx.lineTo(x, y); ctx.strokeStyle = '#fffbe1'; ctx.lineWidth = r * (warm ? .72 : .55); ctx.globalAlpha = warm ? 1 : .8; ctx.stroke();
     }
     ctx.globalAlpha = 1;
     if (!reducedMotion) {
@@ -3937,6 +3956,13 @@
       ctx.globalAlpha = .85;
       sparkle(ctx, x, y, r * 1.95, '#fffce999', time + index);
     }
+    if (warm) chainRim(ctx, x, y, r);
+    ctx.restore();
+  }
+  // The long-chain seed's gold rim: still, so it shows the same with Animations off.
+  function chainRim(ctx, x, y, r) {
+    ctx.save(); ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    ctx.beginPath(); ctx.arc(x, y, r + 1.7, 0, TAU); ctx.strokeStyle = CHAIN_RIM; ctx.lineWidth = 1.9; ctx.stroke();
     ctx.restore();
   }
 
@@ -4122,6 +4148,7 @@
     if (floater.kind === 'title') { drawTitle(ctx, floater, reducedMotion); return; }
     if (floater.kind === 'trick') { drawStamp(ctx, floater, reducedMotion); return; }
     if (floater.kind === 'life') { drawLifeBand(ctx, floater, reducedMotion); return; }
+    if (floater.kind === 'mood') { drawMoodRibbon(ctx, floater, reducedMotion); return; }
     const life = Math.max(0, floater.life == null ? 1 : floater.life), duration = floater.maxLife || 1;
     const age = Math.max(0, duration - life), text = String(floater.text || '');
     const combo = floater.kind === 'combo' || /CHAIN|in bloom|BLOOM CHAIN/i.test(text);
@@ -4304,6 +4331,65 @@
       sparkle(ctx, -hw + 10 - k * 8, -hh - 6 - k * 10, 4.2, '#fffbe0', k * 2);
       sparkle(ctx, hw - 16 + k * 9, -hh - 2 - k * 12, 3.2, '#fffbe0', -k * 2);
       sparkle(ctx, hw - 4 + k * 6, hh + 4 + k * 6, 2.6, '#fffbe0', k);
+    }
+    ctx.restore();
+  }
+
+  // A guardian's mood change: a wide ribbon in the guardian's own colours with its emblem on a medallion at each
+  // end, reading 'Crystal Heart is Shining!'. It unfurls with a small spring; with Animations off it is simply there.
+  const MOOD = { title: 21, h: 44, pad: 50, min: 220, max: 380 };
+  function moodLayout(ctx, floater) {
+    const text = String(floater.text || ''), kind = BOSS_LOOKS[floater.bossKind] ? floater.bossKind : 'sunny';
+    const tf = `700 ${MOOD.title}px Fredoka, system-ui, sans-serif`;
+    ctx.save(); const wide = measure(ctx, tf, text); ctx.restore();
+    let size = MOOD.title, bw = Math.max(MOOD.min, wide + MOOD.pad * 2);
+    // A long name shrinks its lettering, so the ribbon never runs off a narrow board.
+    if (bw > MOOD.max) { size = Math.max(14, Math.floor(MOOD.title * (MOOD.max - MOOD.pad * 2) / Math.max(1, wide))); bw = MOOD.max; }
+    return { text, kind, look: BOSS_LOOKS[kind], tf: `700 ${size}px Fredoka, system-ui, sans-serif`, size, bw, bh: MOOD.h, w: Math.ceil(bw + 24), h: MOOD.h + 30 };
+  }
+  function paintMood(c, L) {
+    const hw = L.bw / 2, hh = L.bh / 2, sag = L.bh * .07, rr = Math.min(14, L.bh * .3), look = L.look;
+    c.save(); c.lineJoin = 'round'; c.lineCap = 'round';
+    // Forked tails tucked behind the band's ends.
+    for (const side of [-1, 1]) {
+      c.beginPath(); c.moveTo(side * (hw - 18), -hh + 8); c.lineTo(side * (hw + 9), -hh + 4); c.lineTo(side * (hw + 2), 1); c.lineTo(side * (hw + 9), hh + 4); c.lineTo(side * (hw - 18), hh - 2); c.closePath();
+      c.fillStyle = look.dark; c.fill();
+    }
+    c.save(); c.shadowColor = 'rgba(40,20,40,.38)'; c.shadowBlur = 9; c.shadowOffsetY = 3.5;
+    ribbonPath(c, hw - 6, hh, sag, rr);
+    const band = c.createLinearGradient(0, -hh, 0, hh);
+    band.addColorStop(0, look.light); band.addColorStop(.55, look.base); band.addColorStop(1, look.dark);
+    c.fillStyle = band; c.fill(); c.restore();
+    ribbonPath(c, hw - 6, hh, sag, rr); c.strokeStyle = look.dark; c.lineWidth = 2.2; c.stroke();
+    ribbonPath(c, hw - 9.6, hh - 3.6, sag, Math.max(2, rr - 3.6)); c.strokeStyle = 'rgba(255,255,255,.6)'; c.lineWidth = 1.1; c.stroke();
+    // The guardian's emblem on a cream medallion at each end.
+    for (const side of [-1, 1]) {
+      const mx = side * (hw - 24);
+      circle(c, mx, 0, 15.5, '#fffaf0', look.dark, 2);
+      circle(c, mx, 0, 12.5, look.light);
+      c.save(); c.translate(mx, 1); c.scale(1.15, 1.15); drawBossEmblem(c, { bossKind: L.kind }, 0, 0); c.restore();
+    }
+    c.textAlign = 'center'; c.textBaseline = 'middle'; c.font = L.tf;
+    c.lineWidth = 4; c.strokeStyle = 'rgba(255,252,240,.95)'; c.strokeText(L.text, 0, 1);
+    c.fillStyle = look.ink; c.fillText(L.text, 0, 1);
+    c.restore();
+  }
+  function drawMoodRibbon(ctx, floater, reducedMotion) {
+    const life = Math.max(0, floater.life == null ? 1 : floater.life), duration = floater.maxLife || 1.9, age = Math.max(0, duration - life);
+    const L = layoutOf(ctx, floater, 'mood', moodLayout);
+    let scale = 1, alpha = Math.min(1, life / .3);
+    if (!reducedMotion) { scale = age < .22 ? .55 + .45 * backOut(age / .22, 2.2) : 1; alpha *= Math.min(1, age / .06); }
+    ctx.save();
+    ctx.translate(onBoard(floater.x, L.w - 8), Number(floater.y) || 230);
+    if (scale !== 1) ctx.scale(scale, scale);
+    ctx.globalAlpha *= alpha;
+    const sprite = fontReady(L.tf) ? stageSprite(`mood|${L.kind}|${L.text}|${L.size}`, L.w, L.h, c => { c.translate(L.w / 2, L.h / 2); paintMood(c, L); }) : null;
+    if (sprite) ctx.drawImage(sprite.surface, -L.w / 2, -L.h / 2, L.w, L.h); else paintMood(ctx, L);
+    if (!reducedMotion && age < .7) {
+      const k = age / .7, hw = L.bw / 2, hh = L.bh / 2;
+      ctx.globalAlpha *= Math.sin(k * Math.PI);
+      sparkle(ctx, -hw + 30 - k * 10, -hh - 4 - k * 10, 4, L.look.light, k * 2);
+      sparkle(ctx, hw - 30 + k * 10, -hh - 2 - k * 12, 3.4, L.look.light, -k * 2);
     }
     ctx.restore();
   }

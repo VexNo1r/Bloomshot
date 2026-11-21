@@ -225,6 +225,43 @@ test('The glyphs, discs and tray body are cached: a second frame makes no new su
   assert.deepEqual(totals, before, 'no new surfaces or gradients after the first frame');
   assert.equal(Art.GLYPH.size, 8.5); assert.equal(Art.GLYPH.disc, 10); assert.equal(Art.GLYPH.launcher, 9);
 });
+test('A long chain in Rush or a level gives the seed a gold rim and a brighter comet in its own color, never Super Bloom\'s rainbow', () => {
+  const { Art } = rig();
+  // A recorder that also keeps every colour and width set on the context.
+  const paint = () => {
+    const ops = [], stack = [], state = { globalAlpha: 1, shadowBlur: 0, fillStyle: '#000', strokeStyle: '#000', lineWidth: 1 };
+    const ctx = new Proxy(state, {
+      get(target, name) { if (name in target) return target[name]; return (...args) => { ops.push([name, ...args]); if (name === 'save') stack.push({ ...state }); else if (name === 'restore') Object.assign(state, stack.pop()); else if (name === 'createRadialGradient' || name === 'createLinearGradient') return { addColorStop() {} }; }; },
+      set(target, name, value) { ops.push(['set', name, value]); target[name] = value; return true; }
+    });
+    return { ctx, ops, balanced: () => stack.length === 0 };
+  };
+  const long = Array.from({ length: 14 }, (_, i) => ({ x: 180 - i, y: 440 - i * 10 }));
+  const draw = (ball, { reduced = false, fever = false, style = null } = {}) => { const rec = paint(); Art.drawProjectile(rec.ctx, ball, 0, 2.2, reduced, fever, style); assert(rec.balanced()); return rec.ops; };
+  const colours = ops => ops.filter(op => op[0] === 'set' && (op[1] === 'fillStyle' || op[1] === 'strokeStyle')).map(op => String(op[2]));
+  const rainbow = ops => colours(ops).some(c => /^hsl\(/.test(c));
+  const rim = ops => ops.some((op, i) => op[0] === 'set' && op[1] === 'strokeStyle' && op[2] === '#ffc93a' && ops.slice(i - 3, i).some(o => o[0] === 'arc'));
+  for (const type of types) {
+    const base = { ...seed(type), trail: long };
+    const plain = draw(base), warm = draw({ ...base, chainHot: true }), hot = draw({ ...base, hot: true, chainHot: true }), fever = draw({ ...base, chainHot: true }, { fever: true });
+    assert(!rainbow(warm), `${type}: a long chain is not a rainbow`);
+    assert(rim(warm) && !rim(plain), `${type}: it wears the gold rim`);
+    assert(rainbow(hot) && !rim(hot), `${type}: the campaign's hot chain keeps its rainbow`);
+    assert(rainbow(fever) && !rim(fever), `${type}: Super Bloom keeps its rainbow, with no rim`);
+    const fills = ops => ops.filter(op => op[0] === 'fill').length;
+    assert(fills(warm) > fills(plain), `${type}: a wider glow under the comet`);
+    const core = ops => Math.max(...ops.filter(op => op[0] === 'set' && op[1] === 'lineWidth').map(op => op[2]));
+    assert(core(warm) > core(plain), `${type}: a brighter, wider core`);
+    // With Animations off there is no comet, but the still rim still says the chain is long.
+    const still = draw({ ...base, chainHot: true }, { reduced: true });
+    assert(rim(still) && !rainbow(still) && !still.some(op => op[0] === 'lineTo'), `${type}: a still rim with Animations off`);
+  }
+  for (const style of Keepsakes.styles.filter(style => style.seed)) {
+    const ball = { ...seed('gold'), trail: long, chainHot: true }, before = JSON.stringify(ball);
+    assert(rim(draw(ball, { reduced: true, style })), `${style.id}: keepsake seeds wear the rim too`);
+    assert.equal(JSON.stringify(ball), before);
+  }
+});
 const report = { passed: results.filter(item => item.passed).length, failed: results.filter(item => !item.passed).length, results };
 fs.writeFileSync(path.join(__dirname, 'seed-art-test-results.json'), JSON.stringify(report, null, 2) + '\n');
 console.log(JSON.stringify(report, null, 2)); process.exitCode = report.failed ? 1 : 0;

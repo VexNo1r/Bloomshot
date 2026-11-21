@@ -1,5 +1,5 @@
 {
-  "passed": 40,
+  "passed": 42,
   "failed": 0,
   "limits": "Instrumented Web Audio API scheduling/graph tests, not a rendered browser audio capture or a listening assessment. Device speakers, perceptual loudness, and audio-to-screen latency still require on-device listening.",
   "results": [
@@ -55,6 +55,10 @@
       "passed": true
     },
     {
+      "name": "From 25 in a row a soft octave rides on the bloom note, under half its level, inside the bloom rate limit",
+      "passed": true
+    },
+    {
       "name": "Chains walk the bloom chords, and shimmer and fever arpeggiate the chord the chain is on",
       "passed": true
     },
@@ -92,6 +96,10 @@
     },
     {
       "name": "Rush waves climb one C major scale step per wave up to a fifth, and a cleared wave rings a bounded rising chord",
+      "passed": true
+    },
+    {
+      "name": "A level's wave chords keep climbing through every wave, stay in key and in range, and survive a queued first gesture",
       "passed": true
     },
     {

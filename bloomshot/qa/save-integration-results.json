@@ -1,5 +1,5 @@
 {
-  "passed": 101,
+  "passed": 105,
   "failed": 0,
   "methodology": "Executes the complete current app.js in an isolated Node VM using real garden/level/engine modules, fake localStorage, and DOM/canvas adapters. Completion fixtures exercise actual engine completion events and app handlers. No real browser or user saves are read or changed.",
   "limitations": [
@@ -156,6 +156,10 @@
       "passed": true
     },
     {
+      "name": "Growing, building, planting or saying hi that finishes the meadow goal is read as one announcement with the goal in it",
+      "passed": true
+    },
+    {
       "name": "Only a friend who has moved in can be greeted for the goal, and a hello on a day without the meadow goal changes nothing",
       "passed": true
     },
@@ -213,6 +217,10 @@
     },
     {
       "name": "Skip ends it for good, and How to play can start it again",
+      "passed": true
+    },
+    {
+      "name": "The tip Skip leaves on the map is put away when Level 1 opens, so it never covers the level's name and score",
       "passed": true
     },
     {
@@ -341,6 +349,14 @@
     },
     {
       "name": "Super Bloom, trick shots and long chains reach the board, the hint line and the run summary",
+      "passed": true
+    },
+    {
+      "name": "Chain milestones past 50 open wider rings around the flower each time",
+      "passed": true
+    },
+    {
+      "name": "From 8 in a row a level's seeds wear the long-chain rim, while the rainbow stays Super Bloom's",
       "passed": true
     },
     {

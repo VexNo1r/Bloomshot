@@ -1614,12 +1614,44 @@ test('Super Bloom, trick shots and long chains reach the board, the hint line an
   game.floaters = []; game.event('bloom', { bud, gain: 100, combo: 5, mult: 2, chain: false }); app.frame(); assert.deepEqual(praise(), []);
   game.event('bloom', { bud, gain: 100, combo: 8, mult: 2, chain: false }); app.frame(); assert.deepEqual(praise(), ['Lovely!']);
   game.event('bloom', { bud, gain: 100, combo: 16, mult: 4, chain: false }); app.frame(); assert.deepEqual(praise(), ['Blooming!']);
+  // Past 50 the praise keeps coming at 75, 100 and 125 (with Animations off, the words without the rings).
+  for (const [combo, word] of [[75, 'Spectacular!'], [100, 'Unstoppable!'], [125, 'Mythical!']]) {
+    game.floaters = []; game.particles = []; game.event('bloom', { bud, gain: 100, combo, mult: 5, chain: false }); app.frame();
+    assert.deepEqual(praise(), [word]); assert.equal(game.floaters.find(f => f.kind === 'combo').label, `${combo} in a row`);
+    assert.equal(game.particles.filter(p => p.kind === 'ring').length, 0, 'no rings with Animations off');
+  }
+  game.event('bloom', { bud, gain: 100, combo: 16, mult: 4, chain: false }); app.frame();
   game.event('chainEnd', { chain: 6 }); app.frame(); assert.deepEqual(praise(), ['Blooming!'], 'a short chain ends quietly');
   game.event('chainEnd', { chain: 17 }); app.frame(); assert.deepEqual(praise(), ['17 in a row!']);
   // The endless run's summary counts its trick shots.
   app.click('back-btn'); app.click('levels-rush-btn');
   const run = app.games.at(-1); assert.equal(run.plan, null); run.started = true; run.trickCount = 3; run.totalBlooms = 30; run.wave = 4; run._lose(); settleLevel(app);
   assert.match(app.$('result-message').textContent, / · 3\u00a0tricks$/); assert.equal(app.$('checkpoint-btn').hidden, true);
+});
+test('Chain milestones past 50 open wider rings around the flower each time', () => {
+  const app = boot(moving()); app.click('depth-map', { depth: '1' });
+  const game = depthGame(app); settleLevel(app); game.started = true; game.status = 'flying'; app.frame();
+  const bud = game.buds.find(b => !b.bloomed);
+  const praise = () => game.floaters.filter(f => f.kind === 'combo').map(f => f.text);
+  // A milestone's hit-stop holds the next frame or two, so each bloom is given a few frames to land.
+  const ringsAt = combo => { frames(app, .2); game.floaters = []; game.particles = []; game.event('bloom', { bud, gain: 100, combo, mult: 5, chain: false }); frames(app, .12); return game.particles.filter(p => p.kind === 'ring'); };
+  const reach = rings => Math.max(...rings.map(r => r.size + r.grow));
+  assert.equal(ringsAt(50).length, 0, 'the old milestones keep their look');
+  const r75 = ringsAt(75); assert.deepEqual(praise(), ['Spectacular!']);
+  const r100 = ringsAt(100), r125 = ringsAt(125);
+  assert(r75.length >= 2 && r100.length > r75.length && r125.length > r100.length, 'more rings each time');
+  assert(reach(r100) > reach(r75) && reach(r125) > reach(r100), 'and wider');
+  assert(r125.every(r => Math.hypot(r.x - bud.x, r.y - bud.y) < 1), 'around the flower that hit the milestone');
+  assert.equal(ringsAt(76).length, 0); assert.deepEqual(praise(), [], 'only the milestones themselves');
+});
+test('From 8 in a row a level\'s seeds wear the long-chain rim, while the rainbow stays Super Bloom\'s', () => {
+  const app = boot(moving()); app.click('depth-map', { depth: '1' });
+  const game = depthGame(app); settleLevel(app); assert(game.fire(0, -1)); app.frame(); app.frame();
+  const ball = () => game.balls[0];
+  assert(ball(), 'a seed is in the air');
+  game.combo = 7; game.lastHitAt = game.time; app.frame(); assert.equal(ball().chainHot, false, 'not before 8');
+  game.combo = 8; game.lastHitAt = game.time; app.frame(); assert.equal(ball().chainHot, true, 'from 8 in a row');
+  assert.equal(ball().hot, false, 'the rainbow hot trail stays off in levels');
 });
 test('Boss tells name the flower change in the hint and announce both the attack and the change', () => {
   const app = boot(legacySave()); app.click('depth-map', { depth: '1' });
