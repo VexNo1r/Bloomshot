@@ -51,7 +51,9 @@ test('Placements: L9 W3 debuts one pair with its hint; pairs recur in W5, W7, W9
   for (let l = 1; l <= 8; l++) for (let n = 1; n <= 10; n++) assert(!Depths.wave(l, n).buds.some(b => b.foe === 'sweetheart'), `none before the L9 debut (L${l} W${n})`);
   // The earlier foes Level 9 mixes in, and Lodestone's row (it makes nothing until Level 8's block defines it).
   const count = (n, name) => Depths.wave(9, n).buds.filter(b => b.foe === name).length;
-  assert.deepEqual([count(2, 'fibcap'), count(6, 'fibcap'), count(9, 'fibcap'), count(5, 'inkcap'), count(8, 'inkcap'), count(4, 'mole'), count(8, 'mole')], [1, 1, 1, 1, 1, 1, 1]);
+  // W5 and W8 each lost one extra foe in the November 21 difficulty pass (W5's inkcap, W8's mole): starting that low at
+  // Level 9's pace they reached the line about 5 s in beside the wave's own lesson, the one spike in a careful player's runs.
+  assert.deepEqual([count(2, 'fibcap'), count(6, 'fibcap'), count(9, 'fibcap'), count(5, 'inkcap'), count(8, 'inkcap'), count(4, 'mole'), count(8, 'mole')], [1, 1, 1, 0, 1, 1, 0]);
   assert.equal(count(6, 'lodestone'), Foes.FOES.lodestone ? 1 : 0);
 });
 test('A credited touch blushes one rose: no damage, refund, split charge or sun, and a heart ring on its sweetheart', () => {

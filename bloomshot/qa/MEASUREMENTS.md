@@ -40,6 +40,25 @@ Aim noise uses the bot's seeded approximation to a normal distribution. These la
 
 Both runners hash their gameplay and measurement sources. They stop scheduling further cases if sources change or a case throws. Check `finished`, `source_stable`, `completed` and `expected` before using a report. The campaign runner writes checkpoints and accepts `--resume` only for an unchanged corpus and sources; it rejects a checkpoint that observed source changes. A 900-second game-time cap marks unresolved runs as timeouts. Wall-clock timings are local engine/software observations.
 
+## November 21 curve (turning shells and difficulty pass)
+
+Measured with the batch-2 campaign runner (full-level `play` runs of `qa/depths-bot.cjs`, average and good profiles as in the table above; `lazy` and `wild` are `mash` modes), seeds `k * 977 + id * 13 + 9`. "Before" is the build before the per-level shells (offsets 1 to 96); "after" pools two never-used blocks of 96 seeds (offsets 301 to 396 and 501 to 596), 192 runs per level and profile. Mash rates are the 501 block.
+
+| Level | Average before | Average after | Good before | Good after | Mash lazy / wild after |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 100% | 100% | 100% | 100% | 80% / 4% |
+| 2 | 99% | 99% | 100% | 100% | 18% / 0% |
+| 3 | 100% | 98% | 100% | 99% | 9% / 1% |
+| 4 | 74% | 77% | 93% | 91% | 0% / 0% |
+| 5 | 85% | 82% | 95% | 95% | 5% / 0% |
+| 6 | 76% | 79% | 96% | 94% | 0% / 0% |
+| 7 | 72% | 75% | 89% | 91% | 0% / 0% |
+| 8 | 52% | 75% | 89% | 92% | 1% / 0% |
+| 9 | 44% | 68% | 88% | 93% | 0% / 0% |
+| 10 | 42% | 62% | 86% | 93% | 0% / 0% |
+
+The per-level shells alone moved Level 6 to 95% (its shells now turn fastest with the widest gap), Level 8 to 50% and Level 10 to 30% (slowest, narrowest); the pace, hp, cup, regrow and drop changes in `depths.js` then set the curve above. Within one block a level's rate moves by up to 7 points from seed luck alone (Level 5: 85% on seeds 1 to 96, 72% on 301 to 396 with nothing changed), so judge pooled rates, not one block. Levels 7 to 9 sit within that noise of each other.
+
 ## Repeated tapping and ricochets
 
 ```sh

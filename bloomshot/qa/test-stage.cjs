@@ -237,6 +237,9 @@ test('A tip that waits is never lost: it shows after the toast before it, and no
 test('Waiting tips are checked again as they show, a tip barely read comes back, and none is ever dropped', () => {
   const app = level(player(), 8, {}, '?alllevels&bosses', { timers: true }), game = app.game(); const log = toastLog(app);
   game.started = true; app.run(1.5); quietBoss(game); const boss = game.bossState.boss;
+  // The board holds still, so no flower reaches the line and a last-life gift bubble's toast never joins the queue
+  // (at Level 8's pace since November 21 the second life went about 13 s in, inside this test's window).
+  game.descentSpeed = 0;
   const cups = 'Cups block shots from below. Hit them from the side.', shells = 'Shells only open on one side. Wait for the gap.', gems = '3 gems! Bloom them before they fall.';
   // Three first-time tips (and a guardian tip) arrive while a gift bubble's toast is up: every first-time one shows in turn.
   game.events.push({ type: 'giftAppear', power: 'lullaby', x: 210, y: 60 }); app.frame();

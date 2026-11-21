@@ -16,6 +16,10 @@ function level(id, wave) {
   const game = new RushGame({ plan: { id, name: 'Test', waves: 1, wave: () => Depths.wave(id, wave) }, startWave: 1 });
   game.started = true; game.drainEvents(); return game;
 }
+// The keeper's three-tell rhythm is checked at 16.5 px/s, the speed L6 W2 fell at when it was written. At Level 6's own
+// pace since the November 21 difficulty pass (18.9 px/s) he sinks past AMBER.low (360) before his third tell and seals
+// two buds, not three; the rhythm itself is unchanged.
+const rhythm = game => { game.descentSpeed = 16.5; return game; };
 const foeKinds = events => events.filter(e => e.type === 'foe').map(e => e.kind);
 function toClock(game, clock, events = []) { for (let n = 0; n < 12000 && game.foeClock < clock - 1e-9; n++) { game.step(1 / 120); events.push(...game.drainEvents()); } return events; }
 const { AMBER } = Foes.FOES.amberkeeper, beads = game => game.buds.filter(b => b.foe === 'amber' && !b.bloomed);
@@ -32,7 +36,7 @@ test('Amberkeepers debut in Level 6 wave 2 with their hint, and come back in L6 
   assert(Foes.FOES.amber.inert && !Foes.FOES.amber.decoy);
 });
 test('He rears up at foe time 1.6 with threads to the two nearest buds on his row or above, seals them at 2.9, and adds a third at 9.4', () => {
-  const game = level(6, 2), keeper = foesOf(game, 'amberkeeper')[0];
+  const game = rhythm(level(6, 2)), keeper = foesOf(game, 'amberkeeper')[0];
   let events = toClock(game, 1.59); assert.deepEqual(foeKinds(events), [], 'nothing before 1.6 s');
   events = toClock(game, 1.61); const tell = events.find(e => e.kind === 'amberkeeper:tell');
   assert(tell, 'the tell'); assert.deepEqual(tell.targets.map(t => t.id), ['d6-2-2-1', 'd6-2-2-2']);
@@ -200,7 +204,7 @@ test('The keeper and his beads draw cheaply and readably: finite, balanced, no g
   assert(VmFoes && VmFoes.FOES.amberkeeper.amberPlan, 'the art reads the rules\' forecast');
   // W2 boards: mid-tell (2.0), just sealed (3.0, the bead popping in and the thread wobbling), three beads (12), a
   // flinch, a cracked keeper, and a keeper hatched from the Queen's egg (his shell halves flying).
-  const boards = [2.0, 3.0, 12].map(t => { const g = level(6, 2); toClock(g, t); return g; });
+  const boards = [2.0, 3.0, 12].map(t => { const g = rhythm(level(6, 2)); toClock(g, t); return g; });
   let g = level(6, 2); toClock(g, 2.1); touch(g, foesOf(g, 'amberkeeper')[0]); toClock(g, 2.2); boards.push(g);
   g = level(6, 2); toClock(g, 4.2); touch(g, foesOf(g, 'amberkeeper')[0]); toClock(g, 4.3); boards.push(g);
   g = level(6, 2); toClock(g, 1); { const [k] = Foes.make('amberkeeper', ['amberkeeper', 300, 150, {}], 'hatch-test', 0); k.bossSource = 'queen'; Foes.place(g, k); } toClock(g, g.foeClock + .1); boards.push(g);
