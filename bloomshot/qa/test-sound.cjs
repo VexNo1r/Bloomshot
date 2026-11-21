@@ -29,7 +29,7 @@ const CUES = [
   ['roll', { dur: 0.9 }], ['finale', { x: 210, type: 'gold' }], ['finale', { x: 90, type: 'poppy' }], ['sweep', { i: 0, n: 10, type: 'coral' }], ['sweep', { i: 9, n: 10, type: 'sky' }],
   ['aimTick', { notch: -30 }], ['aimTick', { notch: 4 }], ['aimLock', { type: 'gold' }], ['heartbeat', {}],
   ['intro', { level: 4, boss: false }], ['intro', { level: 10, boss: true }], ['intro', { level: 'rush', boss: false }], ['pluck', { i: 0, n: 24 }], ['pluck', { i: 23, n: 24 }],
-  ['plop', { i: 3, x: 120 }], ['bossLand', { x: 210 }], ['tally', { i: 0, n: 14 }], ['tally', { i: 13, n: 14 }], ['record', {}], ['newBest', {}], ['splitReady', {}],
+  ['plop', { i: 3, x: 120 }], ['bossLand', { x: 210 }], ['tally', { i: 0, n: 14 }], ['tally', { i: 13, n: 14 }], ['record', {}], ['newBest', {}], ['ribbon', { tier: 'bronze' }], ['ribbon', { tier: 'gold' }], ['splitReady', {}],
   ['lullabyTick', { left: 3 }], ['lullabyTick', { left: 1 }], ['lullabyWake', {}], ['briarTick', { left: 2, x: 100 }], ['briarTick', { left: 0.5, x: 300 }],
   ['podSeed', { pod: 2 }], ['podSeed', { pod: 4 }], ['dry', { wait: 1.2, grow: .3 }],
   ['bossWarning', { kind: 'sunny', x: 150, at: 4, until: 5.2 }], ['bossGuard', { kind: 'fossil', bud: { x: 300 } }],

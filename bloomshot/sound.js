@@ -1137,6 +1137,14 @@
       note(hz(24), 0.09, 0.42, 0.04, 0.2, 'bell', 1, { space: 'high' });
       note(hz(28), 0.17, 0.36, 0.02, 0, 'chime', 1);
     }
+    // A new Guardian Hall ribbon: a wooden snap as it pins on, then a rising bell trio, one step brighter for silver
+    // and two for gold.
+    else if (type === 'ribbon' && allowed('ribbon', 0.6)) {
+      const lift = data.tier === 'gold' ? 4 : data.tier === 'silver' ? 2 : 0;
+      note(hz(7), 0, 0.09, 0.05, 0, 'wood', 1);
+      phrase([12 + lift, 16 + lift, 19 + lift].map(hz), 0.08, 0.5, 0.06);
+      note(hz(24 + lift), 0.26, 0.6, 0.03, 0, 'chime', 2);
+    }
     // Split is charged: a bright little rise.
     else if (type === 'splitReady' && allowed('splitReady', 0.5)) { note(hz(19), 0, 0.2, 0.05, 0, 'glass', 1); note(hz(26), 0.07, 0.32, 0.045, 0, 'glass', 1); }
     // Lullaby counting down its last seconds on a music box (E, D, C), then the flowers wake.

@@ -116,6 +116,9 @@
       valid.powers = Powers.normalize(raw.powers); valid.powerReceipts = Powers.receipts(raw.powerReceipts); valid.powersMet = raw.powersMet === true;
       valid.podMet = raw.podMet === true;
       valid.met = guideMet(raw.met, valid.depths);
+      // Guardian Hall ribbons (save.hall), absent until a rematch is won, so an older save round-trips unchanged.
+      const hall = Depths.hall.normalize(raw.hall);
+      if (Object.keys(hall).length) valid.hall = hall;
       for (const world of Object.keys(chapters)) for (const level of chapters[world].levels) {
         const record = raw[world]?.[level.id];
         if (record && Number.isFinite(record.best) && Number.isInteger(record.stars) && record.stars >= 0 && record.stars <= 3) valid[world][level.id] = { best: Math.max(0, record.best), stars: record.stars, attempts: Math.max(0, Number(record.attempts) || 0) };
@@ -189,7 +192,7 @@
   const meadowCanvas = $('meadow-canvas'), meadowCtx = meadowCanvas.getContext('2d');
   let meadowDirty = true, meadowFrame = 0, growth = null, bubbleTimer = 0;
   const friendPokes = {};
-  let runId = '', runAward = 0, runBouquet = null, runGoals = null, depthNews = null;
+  let runId = '', runAward = 0, runBouquet = null, runGoals = null, depthNews = null, hallNews = null;
   // How many flowers each shot of a garden bloomed, for the shared daily result.
   let shotTrail = [], trailTotal = 0;
   // A level just opened by a first clear: its card greets the player on the map until they play it.
@@ -336,7 +339,8 @@
   // The first-time tutorial is a scripted Rush board; while it runs, only the control its card points at works.
   const isTutorial = () => Boolean(tutorial) && isRush() && Boolean(game.scripted);
   const gate = action => !isTutorial() || tutorial.allows(action);
-  const powerCount = id => isTutorial() ? tutorial.count(id) : save.powers[id];
+  // A gift caught in a Guardian Hall rematch is only lent for that rematch (game.hallLoan), so the Hall never adds powerups.
+  const powerCount = id => isTutorial() ? tutorial.count(id) : save.powers[id] + (isHall() && game.hallLoan?.[id] || 0);
   const depthsOwned = () => reviewAll || Boolean(store && store.owns(Depths.entitlement));
   const depthPaid = id => id <= Depths.free || depthsOwned();
   const depthOpen = id => reviewAll && Boolean(Depths.level(id)) || Depths.unlocked(save.depths, id, depthsOwned());
@@ -346,7 +350,20 @@
   const TASTE = Object.freeze({ level: Depths.free + 1, waves: Math.min(3, Depths.waveCount) });
   const tasteOpen = () => !depthsOwned() && Boolean(Depths.level(TASTE.level)) && (save.depths[TASTE.level - 1]?.stars || 0) > 0;
   const isTaste = () => isDepth() && Boolean(game.plan.taste);
-  function depthPlan(id, taste) { const level = Depths.level(id); return { id, name: level.name, waves: taste ? TASTE.waves : Depths.waveCount, wave: n => Depths.wave(id, n), taste: Boolean(taste) }; }
+  // The Guardian Hall: a rematch is the level's own guardian wave (the "Try the boss" start) with plan.hall set. It
+  // earns a ribbon (save.hall) and nothing else: no stars, best, seeds, goals, boss-loss count or kept run.
+  const isHall = () => isDepth() && Boolean(game.plan.hall);
+  const hallSave = () => save.hall || {};
+  const hallBeaten = id => Depths.hall.beaten(save.depths, hallSave(), id);
+  const hallOpen = id => Depths.hall.open(save.depths, hallSave(), id, depthsOwned());
+  const hallShown = () => !reviewBosses && Depths.levels.some(level => hallBeaten(level.id));
+  // Hall times read m:ss, with tenths on the cards and results so a time just over par never reads as par.
+  const clock = (seconds, tenths = true) => { const t = Math.max(0, Number(seconds) || 0), whole = tenths ? Math.floor(t * 10) / 10 : Math.floor(t), m = Math.floor(whole / 60), rest = whole - m * 60;
+    return `${m}:${String(Math.floor(rest)).padStart(2, '0')}${tenths ? `.${Math.round((rest % 1) * 10) % 10}` : ''}`; };
+  const hallSeconds = () => game.hallTime ?? (Number.isFinite(game.hallFrom) ? game.time - game.hallFrom : 0);
+  const hallClock = () => `Hall · ${clock(hallSeconds(), false)}`;
+  const clearTitle = () => isTaste() ? 'Nice run!' : isHall() ? 'Rematch won!' : `Level ${game.plan.id} clear!`;
+  function depthPlan(id, taste, hall) { const level = Depths.level(id); return { id, name: level.name, waves: taste ? TASTE.waves : Depths.waveCount, wave: n => Depths.wave(id, n), taste: Boolean(taste), hall: Boolean(hall) }; }
   // A phone can close the app while it is hidden, so a level run keeps a checkpoint in the save (save.run): the wave
   // being played, the lives left, the wave the run began at (from, for its stars), the score, blooms and best chain it
   // had when this wave began (so replaying the wave never counts twice), and the powerups spent on this wave (given
@@ -355,7 +372,7 @@
   // powerup is spent and when the page hides. A finished run, Restart, or the first seed of any other run clears it;
   // opening another board and leaving it unplayed does not. The free taste, the tutorial and the all-levels preview
   // never keep one.
-  const keepsRun = () => isDepth() && !isTaste() && !preview && !reviewAll && !game.over && (game.started || (game.startWave || 1) > 1);
+  const keepsRun = () => isDepth() && !isTaste() && !isHall() && !preview && !reviewAll && !game.over && (game.started || (game.startWave || 1) > 1);
   function keepRun() {
     if (!keepsRun()) return false;
     // A wave already cleared (the next one comes 0.7 s later) is kept as the next wave's start, as it will begin.
@@ -394,6 +411,8 @@
   function firstShot() {
     if (game.shotSeen || preview) return;
     game.shotSeen = true;
+    // A Guardian Hall rematch is timed from its first seed, and leaves a kept level run alone.
+    if (isHall()) { game.hallFrom = game.time; return; }
     if (keepsRun()) keepRun(); else dropRun();
   }
   // The map offers the kept run only while its level is still open and owned; otherwise it is dropped. At startup the
@@ -463,27 +482,28 @@
   const keepsakeOpen = id => Keepsakes.unlocked(id, keepsakeContext());
   const currentKeepsake = () => Keepsakes.resolve(save.keepsake, keepsakeContext());
   const collectionOwned = () => Boolean(store && store.owns(Keepsakes.entitlement));
-  function record() { return isTutorial() ? null : isDepth() ? save.depths[game.plan.id] : isRush() ? save.rush : isChapter() ? save[game.level.worldId][game.level.id] : typeof game.level.id === 'number' ? save.progress[game.level.id] : save.daily[game.level.id]; }
+  function record() { return isTutorial() || isHall() ? null : isDepth() ? save.depths[game.plan.id] : isRush() ? save.rush : isChapter() ? save[game.level.worldId][game.level.id] : typeof game.level.id === 'number' ? save.progress[game.level.id] : save.daily[game.level.id]; }
   function localDate() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
   function setRoute(next) {
     route = next; cancelInteraction(); cardsUp = false;
     if (next !== 'game' && countLeft > 0) { countLeft = 0; renderCount(); }
-    for (const name of ['game', 'levels', 'garden', 'collection', 'worlds']) $(`${name}-view`).hidden = next !== name;
+    for (const name of ['game', 'levels', 'hall', 'garden', 'collection', 'worlds']) $(`${name}-view`).hidden = next !== name;
     for (const name of ['rush', 'garden', 'collection', 'worlds']) {
-      const active = next === name || (name === 'rush' && (next === 'game' || next === 'levels'));
+      const active = next === name || (name === 'rush' && (next === 'game' || next === 'levels' || next === 'hall'));
       $(`${name}-btn`).classList.toggle('active', active); $(`${name}-btn`).setAttribute('aria-current', active ? 'page' : 'false');
     }
     if (next === 'garden') renderGarden();
     if (next === 'collection') { keepsakePreview = null; showcase.dirty = true; renderCollection(); }
     if (next === 'worlds') renderWorlds();
     if (next === 'levels') renderLevels();
+    if (next === 'hall') renderHall();
     document.body.dataset.view = next; orientationNote();
     $('tutorial').hidden = !(tutorial && next === 'game');
     if (next === 'game') resize();
   }
   function startLevel(level, options = {}) {
     closeDialogs(); if (!options.behind) clearToast();
-    game = level.tutorial ? new BloomRush.RushGame({ scripted: true }) : level.depth ? new BloomRush.RushGame({ plan: depthPlan(level.depth, level.taste), random: Math.random, startWave: level.from || 1, resume: level.resume || null }) : level.id === 'rush' ? new BloomRush.RushGame({ random: Math.random }) : new Game(level); game.particles = []; game.floaters = []; if ($('checkpoint-btn')) $('checkpoint-btn').hidden = true; $('resume-count').hidden = true;
+    game = level.tutorial ? new BloomRush.RushGame({ scripted: true }) : level.depth ? new BloomRush.RushGame({ plan: depthPlan(level.depth, level.taste, level.hall), random: Math.random, startWave: level.from || 1, resume: level.resume || null }) : level.id === 'rush' ? new BloomRush.RushGame({ random: Math.random }) : new Game(level); game.particles = []; game.floaters = []; if ($('checkpoint-btn')) $('checkpoint-btn').hidden = true; $('resume-count').hidden = true;
     tutorial = level.tutorial ? Tutorial.create() : null; tutorialKey = ''; document.body.dataset.tutorial = tutorial ? 'on' : '';
     if (tutorial) tutorial.begin(game);
     preview = Boolean(options.preview); theme = options.theme || (isChapter() ? game.level.worldId : 'meadow');
@@ -497,7 +517,7 @@
     game.bestBar = isRush() && !isTutorial() && !preview && !isTaste() ? record()?.best || 0 : 0;
     // A run picked up after the phone closed the app has already had its "New best!" if its kept points are past the best.
     game.bestState = game.resumed && game.bestBar && game.score > game.bestBar ? 2 : 0;
-    displayScore = game.score || 0; hudKey = ''; countLeft = 0; countShown = ''; newFlower = null; newKeepsake = null; accumulator = 0; rushRecordBroken = false; depthNews = null; game.shieldSeen = false; game.shellSeen = false; game.geodeSeen = false; game.foesSeen = new Set();
+    displayScore = game.score || 0; hudKey = ''; countLeft = 0; countShown = ''; newFlower = null; newKeepsake = null; accumulator = 0; rushRecordBroken = false; depthNews = null; hallNews = null; game.shieldSeen = false; game.shellSeen = false; game.geodeSeen = false; game.foesSeen = new Set();
     runId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`; runAward = 0; runBouquet = null; runGoals = null; shotTrail = []; trailTotal = 0;
     if (!preview && typeof level.id === 'number') { save.lastLevel = level.id; persist(); }
     $('level-name').textContent = level.name;
@@ -521,8 +541,15 @@
       game.bossHint = game.waveHint || ''; // a run that starts on the guardian's wave sends no wave event (phaseBloom)
       canvas.setAttribute('aria-label', `Level ${depth.id}, ${depth.name}. ${isTaste() ? `The first ${TASTE.waves} waves, free to try.` : 'Ten waves of flowers.'} Keep them above the line: three clusters over it ends the level. Arrow keys aim, Space fires, S splits after six direct hits, R turns the petal.`);
     }
-    $('back-btn').querySelector('span').textContent = isRush() ? 'Levels' : isChapter() ? 'Worlds' : 'Meadow';
-    $('back-btn').setAttribute('aria-label', isRush() ? 'Back to levels' : isChapter() ? 'Back to worlds' : 'Back to meadow');
+    if (isHall()) {
+      const boss = Depths.bosses[game.plan.id - 1];
+      game.hallLoan = {}; game.hallTime = null;
+      $('level-name').textContent = boss.name;
+      canvas.setAttribute('aria-label', `Guardian Hall rematch with ${boss.name}, from level ${game.plan.id}. Three lives. Bloom the guardian to win a ribbon. Arrow keys aim, Space fires, S splits after six direct hits, R turns the petal.`);
+    }
+    $('back-btn').querySelector('span').textContent = isHall() ? 'Hall' : isRush() ? 'Levels' : isChapter() ? 'Worlds' : 'Meadow';
+    $('back-btn').setAttribute('aria-label', isHall() ? 'Back to the Guardian Hall' : isRush() ? 'Back to levels' : isChapter() ? 'Back to worlds' : 'Back to meadow');
+    $('pause-levels-label').textContent = isHall() ? 'Hall' : 'Levels';
     if (isChapter()) {
       const list = chapters[level.worldId].levels;
       $('level-label').textContent = `${CHAPTER_NAMES[level.worldId]} ${list.findIndex(item => item.id === level.id) + 1}/${list.length}`;
@@ -558,9 +585,9 @@
       $('seed-count').innerHTML = Array.from({ length: isChapter() ? game.rules.shots : 3 }, (_, index) => `<span class="seed-dot ${index < remaining ? 'available' : 'used'}" aria-hidden="true"></span>`).join('') + `<span class="seed-label">${remaining} ${units}</span>`;
       $('seed-count').setAttribute('aria-label', `${remaining} ${units} remaining`);
       $('bloom-count').textContent = rush ? `${game.bloomedCount} ${game.bloomedCount === 1 ? 'bloom' : 'blooms'}` : `${game.bloomedCount} / ${game.buds.length} bloomed`;
-      if (rush) $('level-label').textContent = isTutorial() ? 'Tutorial' : isDepth() ? `Level ${game.plan.id} · Wave ${game.wave}/${game.finalWave}` : `Wave ${game.wave} · ×${game.tempo.toFixed(1)}`;
+      if (rush) $('level-label').textContent = isTutorial() ? 'Tutorial' : isHall() ? hallClock() : isDepth() ? `Level ${game.plan.id} · Wave ${game.wave}/${game.finalWave}` : `Wave ${game.wave} · ×${game.tempo.toFixed(1)}`;
       // Once the run passes the saved best, the caption under the score reads 'Best · beaten!' to the end of the run.
-      $('best-value').textContent = preview ? 'Preview' : game.bestState > 0 ? '· beaten!' : record()?.best ? fmt(record().best) : '—';
+      $('best-value').textContent = preview ? 'Preview' : isHall() ? hallSave()[game.plan.id] ? clock(hallSave()[game.plan.id].bestTime) : '—' : game.bestState > 0 ? '· beaten!' : record()?.best ? fmt(record().best) : '—';
       canvas.dataset.status = game.status; canvas.dataset.blooms = game.bloomedCount; canvas.dataset.level = game.level.id; canvas.dataset.shots = game.shotsLeft;
       $('rotate-btn').disabled = game.status !== 'aiming' || game.rotationUsed || !game.bumpers.length;
       // A board with no petal (most Koi pools) has nothing to turn, so the button stays out of the way.
@@ -568,6 +595,7 @@
       $('rotate-btn').textContent = game.rotationUsed ? 'Petal turned' : 'Turn petal';
     }
     put($('score-value'), 'textContent', fmt(displayScore));
+    if (isHall()) put($('level-label'), 'textContent', hallClock());
     putClass($('score-value'), 'record', game.bestState > 0);
     put($('pause-btn'), 'hidden', !(rush && !isTutorial() && !preview && !game.over));
     putData(canvas, 'balls', game.balls.length);
@@ -755,7 +783,7 @@
     const list = Depths.levels, suggested = nextDepth();
     const cleared = list.filter(level => save.depths[level.id]?.stars).length, stars = list.reduce((n, level) => n + (save.depths[level.id]?.stars || 0), 0);
     $('levels-summary').textContent = reviewBosses ? 'Boss preview. Your progress here stays separate.' : reviewAll ? 'All levels preview. Your progress here stays separate.' : cleared ? `${cleared} of ${Depths.total} cleared · ${stars} ★` : 'Start at the top and dig down.';
-    const resume = inProgress(), kept = resume ? null : keptRun();
+    const resume = inProgress() && !isHall(), kept = resume ? null : keptRun();
     // The level with a run to pick up says so on its own card too (tapping it resumes): Resume in place of 'Play', or of
     // a cleared level's stars, since a tap there picks the run up instead of starting the level over.
     const going = resume && isDepth() && !isTaste() ? game.plan.id : kept ? kept.level : 0, goingWave = resume ? game.wave : kept ? kept.wave : 0;
@@ -788,7 +816,88 @@
     const freshCard = freshDepth && !freshShown && route === 'levels' ? $('depth-map').querySelector?.('.depth-card.fresh') : null;
     if (freshCard) { freshShown = true; freshCard.scrollIntoView({ behavior: 'auto', block: 'center' }); }
     $('levels-rush-best').textContent = save.rush.runs || save.rush.best > 0 ? `Best ${fmt(save.rush.best)} · wave ${save.rush.bestWave}` : 'Endless waves. How far can you go?';
+    // The Guardian Hall's card shows once a guardian is beaten, never before.
+    const hall = hallShown(), counts = hallCounts();
+    $('hall-btn').hidden = !hall;
+    if (hall) {
+      $('hall-entry-sub').textContent = counts.ribbons ? `${counts.ribbons} ${counts.ribbons === 1 ? 'ribbon' : 'ribbons'} won · rematch for more` : `Rematch ${counts.beaten === 1 ? 'your guardian' : `${counts.beaten} guardians`} for ribbons`;
+      $('hall-btn').setAttribute('aria-label', `Guardian Hall. ${counts.beaten} of ${Depths.total} guardians beaten, ${counts.ribbons} ${counts.ribbons === 1 ? 'ribbon' : 'ribbons'}. Rematch them for ribbons.`);
+    }
     renderPowerShelf(); renderGoals();
+  }
+  // ---------- Guardian Hall ----------
+  // Ten cards in level order. A beaten guardian shows its portrait (the board drawing Who's who uses, a little larger),
+  // its ribbon, best time and a Rematch button; one not yet beaten is a dark silhouette that says where to meet it.
+  // A beaten guardian of a level whose unlock is not owned (a refund, or the store still answering) has no button: the
+  // Hall never opens a paid level, and it shows no price or offer.
+  const RIBBON_NAMES = { bronze: 'Bronze ribbon', silver: 'Silver ribbon', gold: 'Gold ribbon' };
+  const ribbonName = tier => RIBBON_NAMES[tier] || 'No ribbon';
+  const RIBBON_INK = { bronze: ['#f2b27a', '#cf7a3c', '#7c4318'], silver: ['#f4f8fb', '#b9c6d0', '#56656f'], gold: ['#ffe680', '#f6bb2e', '#93600a'] };
+  // A rosette: two notched tails, a pleated disc, a center button with a star. Code-drawn, sized by CSS.
+  function ribbonSVG(tier) {
+    const [light, mid, dark] = RIBBON_INK[tier] || RIBBON_INK.bronze;
+    const star = Array.from({ length: 10 }, (_, i) => { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 2.7 : 6.2; return `${(24 + Math.cos(a) * r).toFixed(2)},${(21 + Math.sin(a) * r).toFixed(2)}`; }).join(' ');
+    const pleats = Array.from({ length: 16 }, (_, i) => { const a = i / 16 * Math.PI * 2; return `${(24 + Math.cos(a) * 17.5).toFixed(2)},${(21 + Math.sin(a) * 17.5).toFixed(2)} ${(24 + Math.cos(a + Math.PI / 16) * 14.2).toFixed(2)},${(21 + Math.sin(a + Math.PI / 16) * 14.2).toFixed(2)}`; }).join(' ');
+    return `<svg viewBox="0 0 48 58" aria-hidden="true"><path d="M15 31 9 55l7-4 4 6 6-24Z" fill="${mid}" stroke="${dark}" stroke-width="1.6" stroke-linejoin="round"/><path d="M33 31l6 24-7-4-4 6-6-24Z" fill="${mid}" stroke="${dark}" stroke-width="1.6" stroke-linejoin="round"/>`
+      + `<polygon points="${pleats}" fill="${mid}" stroke="${dark}" stroke-width="1.6" stroke-linejoin="round"/><circle cx="24" cy="21" r="10.5" fill="${light}" stroke="${dark}" stroke-width="1.6"/><polygon points="${star}" fill="${dark}"/></svg>`;
+  }
+  const HALL_ART = 72, hallArt = new Map();
+  let hallJobs = [];
+  const hallEntry = id => GUIDE.find(entry => entry.kind === 'guardian' && entry.level === id) || null;
+  function hallCounts() {
+    const ids = Depths.levels.map(level => level.id);
+    return { beaten: ids.filter(hallBeaten).length, ribbons: ids.filter(id => hallSave()[id]).length };
+  }
+  const hallGoing = () => inProgress() && isHall() ? game.plan.id : 0;
+  function hallGoal(id) {
+    const record = hallSave()[id], par = clock(Depths.hall.par[id], false);
+    return !record ? 'Win it for bronze' : record.ribbon === 'bronze' ? 'Keep all 3 lives for silver' : record.ribbon === 'silver' ? `Gold: no lives lost, under ${par}` : 'Top ribbon won!';
+  }
+  function renderHall() {
+    const counts = hallCounts(), going = hallGoing();
+    $('hall-summary').textContent = `${counts.beaten} of ${Depths.total} beaten · ${counts.ribbons} ${counts.ribbons === 1 ? 'ribbon' : 'ribbons'}`;
+    $('hall-list').innerHTML = Depths.levels.map(level => {
+      const id = level.id, where = `Level ${id} · ${level.name}`;
+      if (!hallBeaten(id)) {
+        return `<li class="hall-stop"><div class="hall-card locked" role="group" aria-label="${escape(`${where}. A guardian not met yet. Beat level ${id} to meet them.`)}">`
+          + `<span class="hall-art" data-hall-art="${id}" data-dark="1" aria-hidden="true"></span>`
+          + `<span class="hall-copy" aria-hidden="true"><span class="hall-level">${escape(where)}</span><strong class="hall-name">Not met yet</strong><span class="hall-note">Beat Level ${id} to meet them</span></span></div></li>`;
+      }
+      const boss = Depths.bosses[id - 1], record = hallSave()[id], open = hallOpen(id), resume = going === id;
+      const ribbon = record ? `<span class="hall-ribbon" data-ribbon="${record.ribbon}">${ribbonSVG(record.ribbon)}</span>${ribbonName(record.ribbon)} · best ${clock(record.bestTime)}` : 'No ribbon yet';
+      const closed = store && store.ready === false ? 'Checking your levels…' : `Opens with levels ${Depths.free + 1} to ${Depths.total}`;
+      const said = `${boss.name}, guardian of level ${id}, ${level.name}. ${record ? `${ribbonName(record.ribbon)}, best time ${clock(record.bestTime)}.` : 'No ribbon yet.'} ${open ? hallGoal(id) + '.' : closed + '.'}`;
+      return `<li class="hall-stop"><div class="hall-card${record ? ` won ${record.ribbon}` : ''}${open ? '' : ' closed'}" role="group" aria-label="${escape(said)}">`
+        + `<span class="hall-art" data-hall-art="${id}" aria-hidden="true"></span>`
+        + `<span class="hall-copy" aria-hidden="true"><span class="hall-level">${escape(where)}</span><strong class="hall-name">${escape(boss.name)}</strong><span class="hall-stats">${ribbon}</span><span class="hall-note">${escape(open ? hallGoal(id) : closed)}</span></span>`
+        + (open ? `<button class="button-primary hall-go" type="button" data-hall="${id}" aria-label="${escape(`${resume ? 'Resume the rematch with' : 'Rematch'} ${boss.name}`)}">${resume ? 'Resume' : 'Rematch'}</button>` : '')
+        + '</div></li>';
+    }).join('');
+    const list = $('hall-list');
+    hallJobs = list.querySelectorAll ? [...list.querySelectorAll('[data-hall-art]')].map(slot => ({ id: Number(slot.dataset.hallArt), dark: slot.dataset.dark === '1', slot })) : [];
+    hallStep();
+  }
+  // Portraits paint a few at a time (each is a small board drawing), and are kept.
+  function hallStep() {
+    const until = performance.now() + 6;
+    while (hallJobs.length) {
+      const job = hallJobs.shift(), key = `${job.id}${job.dark ? ':dark' : ''}`;
+      if (!hallArt.has(key)) {
+        let picture = null;
+        try { picture = hallEntry(job.id) ? guidePicture(hallEntry(job.id), HALL_ART, 'hall-canvas', job.dark) : null; } catch (_) { picture = null; }
+        hallArt.set(key, picture);
+      }
+      const picture = hallArt.get(key);
+      if (picture && job.slot) job.slot.appendChild(picture);
+      if (performance.now() >= until) break;
+    }
+  }
+  function openHall() { if (preview) exitPreview(); closeDialogs(); setRoute('hall'); }
+  function startHall(id) {
+    if (!hallOpen(id)) return false;
+    if (preview) exitPreview();
+    startLevel({ id: 'rush', depth: id, name: Depths.level(id).name, hall: true, from: Depths.waveCount }, { theme: depthTheme(id) });
+    return true;
   }
   // Powerups: four above Split in the levels and Meadow Rush, and a shelf on the Levels page.
   // Each one is drawn once by the board art and reused as a picture.
@@ -1343,6 +1452,7 @@
     if (route === 'worlds') renderWorlds();
     if (route === 'collection') renderKeepsakes();
     if (route === 'levels') renderLevels();
+    if (route === 'hall') renderHall();
     if (currentWorld && chapters[currentWorld.id] && $('world-dialog').open) renderChapter(currentWorld);
     if (game && isTaste() && $('result-dialog').open) renderTasteOffer(game.status === 'won');
   }
@@ -1426,7 +1536,7 @@
       const kitFoes = { root: ['rolypoly'], puff: ['fibcap', 'inkdrop'], lotus: ['jelly', 'glowdrop', 'glowworm'] }[boss && boss.bossKind] || [];
       for (const name of kitFoes) { const e = window.BloomFoes && BloomFoes.FOES[name]; if (e) add({ foe: name, r: e.r, type: e.type || 'lilac' }); }
       const name = boss && boss.name || '';
-      callouts.push({ kind: 'title', text: isTaste() ? 'Nice run!' : `Level ${game.plan.id} clear!`, label: name ? `${name} bloomed!` : game.plan.name });
+      callouts.push({ kind: 'title', text: clearTitle(), label: name ? `${name} bloomed!` : game.plan.name });
       if (boss) callouts.push({ kind: 'title', boss: true, text: name || 'Big bloom', label: bossOpeningTip(boss) });
     } else {
       for (const bud of game.buds) add(bud);
@@ -1887,7 +1997,7 @@
       const free = y => Math.abs(y - origin.y) > half + reach
         && game.bumpers.every(b => Math.abs(y - b.y) > half + Math.abs(Math.sin(b.angle || 0)) * (b.length || 0) / 2 + 4);
       const y = (origin.y < 260 ? [330, 290, 412, 250] : [150, 90, 210]).find(free) ?? far;
-      game.floaters.push({ kind: 'title', text: isTaste() ? 'Nice run!' : `Level ${game.plan.id} clear!`, label: bossName ? `${bossName} bloomed!` : game.plan.name,
+      game.floaters.push({ kind: 'title', text: clearTitle(), label: bossName ? `${bossName} bloomed!` : game.plan.name,
         x: 210, y, life: 3.4, maxLife: 3.4 });
     }
     if (!save.settings.motion || !feel) return;
@@ -2923,6 +3033,7 @@
         { const tip = 'The briars grew back! Bloom the whole patch fast.'; if (waveTeaches(/briar|grow/i)) $('game-hint').textContent = tip; else levelTip(tip, { again: Infinity }); }
       } else if (event.type === 'boss') {
         const name = event.name || (event.bud && event.bud.name) || '';
+        if (isHall() && game.hallTime === null) game.hallTime = hallSeconds();
         game.floaters = game.floaters.filter(item => !['wave', 'mood', 'combo', 'bonus', 'pop', 'trick'].includes(item.kind));
         // On the level's last beat the finale owns the moment and the title ribbon names the boss; otherwise a banner.
         if (!event.finale) {
@@ -2942,6 +3053,7 @@
         // A level run keeps the powerups spent on this wave in its checkpoint, written in the same save as the spend, so a
         // wave played again after the phone closed the app gets them back.
         if (isTutorial()) tutorial.spend(event.power);
+        else if (isHall() && game.hallLoan[event.power] > 0) game.hallLoan[event.power]--;
         else {
           const spent = Powers.spend(save.powers, event.power);
           save.powers = spent.counts;
@@ -2953,7 +3065,7 @@
           headline({ x: 210, y: 250, text: 'Lullaby', label: 'the flowers doze for 6 seconds', life: 1.3, maxLife: 1.3, kind: 'wave', live: 'lullaby' });
           $('game-hint').textContent = def.tip; haptic('surge');
         } else { burst({ x: event.x, y: event.y - 10, type: 'gold', r: 8 }, 14); haptic('tick'); }
-        say(isTutorial() ? `${def.name} used.` : `${def.name} used. ${save.powers[event.power]} left.`);
+        say(isTutorial() ? `${def.name} used.` : `${def.name} used. ${powerCount(event.power)} left.`);
       } else if (event.type === 'sunburst') {
         burst({ x: event.x, y: event.y, type: 'gold', r: 22 }, 70); burst({ x: event.x, y: event.y, type: 'coral', r: 14 }, 24);
         if (save.settings.motion) game.particles.push({ x: event.x, y: event.y, vx: 0, vy: 0, life: .6, maxLife: .6, kind: 'ring', color: '#ffc94a', size: 10, grow: 90, gravity: 0, drag: 0 });
@@ -2970,12 +3082,14 @@
         keepRun(); // a level picked up again later does not offer this wave's gift twice
       } else if (event.type === 'gift') {
         const def = Powers.byId[event.power];
-        save.powers = Powers.add(save.powers, event.power, 1); persist(); trayKey = '';
+        if (isHall()) game.hallLoan[event.power] = (game.hallLoan[event.power] || 0) + 1;
+        else { save.powers = Powers.add(save.powers, event.power, 1); persist(); }
+        trayKey = '';
         if (save.settings.motion) chipGot = { id: event.power, until: performance.now() + 450 };
         burst({ x: event.x, y: event.y, type: 'gold', r: 12 }, 30); burst({ x: event.x, y: event.y, type: 'lilac', r: 8 }, 14); jolt(.18, .04, .4); haptic('surge');
         game.floaters = game.floaters.filter(item => item.kind !== 'bonus');
         headline({ x: 210, y: 250, text: `+1 ${def.name}`, label: 'a free gift!', life: 1.2, maxLife: 1.2, kind: 'wave' });
-        $('game-hint').textContent = `You caught a ${def.name}! You have ${save.powers[event.power]}.`;
+        $('game-hint').textContent = isHall() ? `You caught a ${def.name} for this rematch!` : `You caught a ${def.name}! You have ${save.powers[event.power]}.`;
         say($('game-hint').textContent);
       } else if (event.type === 'giftGone') {
         $('game-hint').textContent = 'The gift bubble floated away.';
@@ -3031,9 +3145,22 @@
           if (isRush()) for (const bud of game.buds) if (bud.bloomed && !bud.gift && typeof bud.backAt !== 'number') bud.backAt = game.time;
           // A finale win already had its impact; a plain one gets the confetti. Either way the hint says so.
           if (!event.finale) { burst({ x: 110, y: 210, type: 'coral' }, 70); burst({ x: 310, y: 210, type: 'gold' }, 70); burst({ x: 210, y: 150, type: 'lilac' }, 60); jolt(.45, .14, .6); }
-          $('game-hint').textContent = isTaste() ? 'Nice run!' : isDepth() ? 'Level clear!' : 'Cleared!';
+          $('game-hint').textContent = isTaste() ? 'Nice run!' : isHall() ? 'Rematch won!' : isDepth() ? 'Level clear!' : 'Cleared!';
         }
         resultAt = event.finale && save.settings.motion && feel ? Infinity : game.time + (save.settings.motion ? 1.45 : .4); resultShown = false;
+        if (isHall()) {
+          // A Guardian Hall rematch records its ribbon and best time, and nothing else: no seeds, goals, stars or best.
+          const id = game.plan.id, won = event.type === 'won', before = hallSave()[id] || null;
+          const seconds = game.hallTime ?? hallSeconds();
+          const recorded = Depths.hall.record(hallSave(), id, { won, livesLost: 3 - game.lives, seconds });
+          if (won) { save.hall = recorded.hall; persist(); }
+          hallNews = { won, seconds, ribbon: recorded.ribbon, newRibbon: recorded.newRibbon, newBest: recorded.newBest, before };
+          hudKey = '';
+          const name = Depths.bosses[id - 1].name;
+          $('game-hint').textContent = won ? `${name} bloomed!` : 'Out of lives. Try a new angle.';
+          say(won ? `${name} bloomed in ${clock(seconds)}. ${ribbonName(recorded.ribbon)}.` : `Out of lives. ${name} stays awake.`);
+          continue;
+        }
         if (isTaste()) {
           // A taste records no progress and earns no stars; its blooms pay seeds like any finished level run.
           const id = game.plan.id, won = event.type === 'won';
@@ -3110,8 +3237,8 @@
   let superSeen = false;
   // A level run lost at wave 6 or later can start again from wave 6, free and as often as the player likes.
   // Stars from those runs stop at two, and the card says so.
-  const checkpointOffered = won => isDepth() && !isTaste() && !won && game.wave >= Depths.checkpoint;
-  const bossRetryOffered = won => isDepth() && !isTaste() && !won && game.plan.id >= 5 && (save.bossLosses[game.plan.id] || 0) >= 2;
+  const checkpointOffered = won => isDepth() && !isTaste() && !isHall() && !won && game.wave >= Depths.checkpoint;
+  const bossRetryOffered = won => isDepth() && !isTaste() && !isHall() && !won && game.plan.id >= 5 && (save.bossLosses[game.plan.id] || 0) >= 2;
   const fromCheckpoint = () => isDepth() && (game.startWave || 1) > 1;
   if ($('checkpoint-btn')) $('checkpoint-btn').addEventListener('click', () => { if (isDepth() && !isTaste()) startDepth(game.plan.id, false, bossRetryOffered(false) ? 10 : Depths.checkpoint); });
   // A chain of one is not worth a mention.
@@ -3128,6 +3255,8 @@
     endParty();
     if (!save.settings.motion) return;
     party = { at: null, last: null, score: game.score, stars: $('result-stars').hidden ? 0 : game.stars, chimed: 0, ticks: 0, shower: null, dpr: 1 };
+    // A Guardian Hall result counts its time up instead of a score; a lost rematch shows its best time as it is.
+    if (isHall()) { party.hall = true; party.score = won && hallNews ? hallNews.seconds : 0; }
     if (!won || !Petals || !petalLayer || typeof petalLayer.showPopover !== 'function') return;
     try {
       const dpr = Math.min(2, window.devicePixelRatio || 1), width = innerWidth, height = innerHeight, banner = $('result-eyebrow').getBoundingClientRect();
@@ -3202,7 +3331,8 @@
     if (!$('result-dialog').open) { endParty(); return; }
     if (party.at === null) party.at = party.last = timestamp;
     const t = (timestamp - party.at) / 1000, k = clamp((t - .2) / .9, 0, 1);
-    $('result-score').textContent = fmt(party.score * (1 - Math.pow(1 - k, 3)));
+    if (!party.hall) $('result-score').textContent = fmt(party.score * (1 - Math.pow(1 - k, 3)));
+    else if (party.score > 0) $('result-score').textContent = clock(party.score * (1 - Math.pow(1 - k, 3)));
     // The count-up ticks along: thirteen small rising notes, one every 70 ms, and never a backlog after a stall.
     if (party.score > 0 && party.ticks < 13 && t >= .2 + party.ticks * .07) { const due = Math.min(12, Math.floor((t - .2) / .07)); party.ticks = due + 1; BloomSound.play('tally', { i: due, n: 13 }); }
     while (party.chimed < party.stars && t >= .4 + party.chimed * .17) BloomSound.play('star', { index: party.chimed++ });
@@ -3232,6 +3362,8 @@
     $('result-stars').hidden = isRush() && !(isDepth() && won);
     $('result-dialog').classList.toggle('lost', isDepth() ? !won : isRush() ? !rushRecordBroken : !won);
     $('result-garden-btn').textContent = isRush() ? 'All levels' : isChapter() ? isKoi() ? 'All pools' : 'All trials' : 'Back to the meadow';
+    $('result-garden-btn').hidden = false; $('result-dialog').classList.remove('hall-result');
+    if (isHall()) { showHallResult(won); return; }
     if (isTaste()) { showTasteResult(won); return; }
     if (isDepth()) {
       const id = game.plan.id, next = Depths.level(id + 1), nextOpen = Boolean(next && depthOpen(id + 1)), nextPaid = Boolean(next && depthPaid(id + 1));
@@ -3291,6 +3423,37 @@
     $('retry-btn').classList.toggle('primary', !won);
     showDialog('result-dialog'); celebrate(won);
   }
+  // The end of a Guardian Hall rematch: the time and the ribbon it earned (a new or better one pops in with its own
+  // chime; Animations off shows it still), or, lost, another go. Rematch and Hall are the only ways on.
+  function showHallResult(won) {
+    const id = game.plan.id, boss = Depths.bosses[id - 1], news = hallNews || { seconds: hallSeconds(), ribbon: '', newRibbon: false, newBest: false, before: null };
+    const record = hallSave()[id], par = Depths.hall.par[id], scoreLabel = $('result-dialog').querySelector('.score-label');
+    $('result-dialog').classList.add('hall-result');
+    $('result-eyebrow').textContent = won ? 'Guardian bloomed!' : 'Out of lives';
+    $('result-title').textContent = won ? boss.name : 'Not this time';
+    $('result-stars').hidden = true; $('garden-reward').hidden = true; $('result-goals').hidden = true; $('share-btn').hidden = true;
+    $('result-message').textContent = won
+      ? news.ribbon === 'gold' ? `No lives lost, under ${clock(par, false)}. Wonderful!` : news.ribbon === 'silver' ? `No lives lost! Under ${clock(par, false)} wins gold.` : 'Keep all 3 lives for silver.'
+      : `${boss.name} is still awake. Try a new angle.`;
+    scoreLabel.textContent = won ? news.newBest ? 'New best time!' : record && record.bestTime < news.seconds ? `Time · best ${clock(record.bestTime)}` : 'Time' : 'Best time';
+    scoreLabel.classList.toggle('best', Boolean(won && news.newBest));
+    $('result-score').textContent = won ? clock(news.seconds) : record ? clock(record.bestTime) : '—';
+    const reward = $('reward-flower');
+    reward.hidden = !won;
+    if (won) {
+      const tier = news.ribbon, fresh = news.newRibbon;
+      reward.innerHTML = `<span class="hall-rosette${fresh ? ' fresh' : ''}" data-ribbon="${tier}">${ribbonSVG(tier)}</span><div><span class="card-tag ${fresh ? 'green' : 'sky'}">${fresh ? 'New ribbon!' : 'Ribbon earned'}</span><strong>${ribbonName(tier)}</strong>${record && !fresh && Depths.hall.rank(record.ribbon) > Depths.hall.rank(tier) ? `<span class="reward-note">You hold the ${ribbonName(record.ribbon).toLowerCase()}</span>` : ''}</div>`;
+      reward.setAttribute('aria-hidden', 'false');
+      if (fresh) BloomSound.play('ribbon', { tier });
+    }
+    $('next-btn').hidden = !won; $('next-btn').textContent = 'Hall';
+    $('next-btn').classList.toggle('button-primary', true); $('next-btn').classList.toggle('button-secondary', false);
+    $('checkpoint-btn').hidden = true;
+    $('retry-btn').textContent = 'Rematch'; $('retry-btn').classList.toggle('primary', !won);
+    $('result-garden-btn').hidden = won; $('result-garden-btn').textContent = 'Hall';
+    showDialog('result-dialog'); celebrate(won);
+    if (!won && $('retry-btn').focus) $('retry-btn').focus({ focusVisible: false });
+  }
   // The end of a free taste. Played through, the card says what the unlock adds and offers it; a run that ends
   // early only gets another try, never an offer.
   function showTasteResult(won) {
@@ -3325,6 +3488,7 @@
     if (!(native?.link || SHARE_URL)) return false;
     if (preview) return false;
     if (isTaste()) return false;
+    if (isHall()) return false;
     if (isDepth() || isDaily()) return won;
     return isRush() && rushRecordBroken;
   }
@@ -3506,7 +3670,7 @@
   function openLevels() { if (preview) exitPreview(); closeDialogs(); setRoute('levels'); }
   function showUnlock() { const card = $('depth-unlock'); if (card) card.scrollIntoView({ behavior: save.settings.motion ? 'smooth' : 'auto', block: 'center' }); }
   function startDepth(id, taste, from, resume) { if (id === freshDepth) freshDepth = 0; if (preview) exitPreview(); startLevel({ id: 'rush', depth: id, name: Depths.level(id).name, taste: Boolean(taste), from: taste ? 1 : from || (reviewBosses ? 10 : 1), resume: taste ? null : resume || null }, { theme: depthTheme(id) }); }
-  function replay() { if (isDepth()) startDepth(game.plan.id, isTaste()); else startLevel(game.level, { preview, theme }); }
+  function replay() { if (isHall()) startHall(game.plan.id); else if (isDepth()) startDepth(game.plan.id, isTaste()); else startLevel(game.level, { preview, theme }); }
   // Restart sits next to Split, so a run with progress asks for a second tap within two seconds. Starting an endless
   // run over keeps its best score and wave (it pays nothing: only a finished run earns seeds and counts).
   let restartArmed = null;
@@ -3543,7 +3707,7 @@
   const COUNT = { step: .6, numbers: 3, still: 1.2 };
   const countSpan = () => save.settings.motion ? COUNT.step * COUNT.numbers : COUNT.still;
   const pausable = () => route === 'game' && isRush() && !isTutorial() && !preview && !game.over && !resultShown && !$('result-dialog').open;
-  const boardLine = () => isDepth() ? `Level ${game.plan.id} · wave ${game.wave} of ${game.finalWave}` : `Meadow Rush · wave ${game.wave} · ${fmt(game.score)} points`;
+  const boardLine = () => isHall() ? `Guardian Hall · ${Depths.bosses[game.plan.id - 1].name}` : isDepth() ? `Level ${game.plan.id} · wave ${game.wave} of ${game.finalWave}` : `Meadow Rush · wave ${game.wave} · ${fmt(game.score)} points`;
   // A run picked up from the map says where it is, the way each wave start does, before the count.
   const livesLeft = () => `${game.lives} ${game.lives === 1 ? 'life' : 'lives'} left.`, whereLine = () => `${boardLine()}. ${livesLeft()}`;
   function pauseGame(auto = false) {
@@ -3671,8 +3835,16 @@
   }
   $('rush-btn').addEventListener('click', openLevels);
   $('levels-rush-btn').addEventListener('click', openRush);
+  $('hall-btn').addEventListener('click', () => { BloomSound.wake(); BloomSound.play('tap'); openHall(); });
+  $('hall-back').addEventListener('click', () => { BloomSound.wake(); BloomSound.play('tap'); setRoute('levels'); });
+  $('hall-list').addEventListener('click', event => {
+    const button = event.target.closest('[data-hall]'); if (!button) return;
+    const id = Number(button.dataset.hall); BloomSound.wake();
+    if (!hallOpen(id)) { BloomSound.play('tap'); renderHall(); return; }
+    if (hallGoing() === id) resumeBoard(); else startHall(id);
+  });
   // After a relaunch this card is often the first tap, so it wakes the sound for the count-in and the level.
-  $('resume-btn').addEventListener('click', () => { BloomSound.wake(); if (inProgress()) { resumeBoard(); return; } const kept = keptRun(); if (kept) resumeRun(kept); else renderLevels(); });
+  $('resume-btn').addEventListener('click', () => { BloomSound.wake(); if (inProgress() && !isHall()) { resumeBoard(); return; } const kept = keptRun(); if (kept) resumeRun(kept); else renderLevels(); });
   $('depth-map').addEventListener('click', event => {
     const buy = event.target.closest('[data-buy]'); if (buy) { buyProduct(buy); return; }
     const card = event.target.closest('[data-depth]'); if (!card) return;
@@ -3681,14 +3853,14 @@
     // A level run the phone closed is picked up from its level's card. While a paid level's run waits on the store's
     // answer, the tap says it is checking (resumeRun), never that the level is for sale, and never starts the taste,
     // whose first seed would let the owner's run go.
-    const held = inProgress() ? null : keptRun();
+    const held = inProgress() && !isHall() ? null : keptRun();
     if (held && held.level === id) { resumeRun(held); return; }
     if (!depthPaid(id) && id === TASTE.level && tasteOpen()) { if (inProgress() && isTaste()) resumeBoard(); else startDepth(id, true); return; }
     // A deeper level scrolls to the unlock card, which says the rest (a toast would sit on top of it).
     if (!depthPaid(id)) { BloomSound.play('tap'); if (id === TASTE.level) toast(`Clear level ${id - 1} to try ${level.name} free.`); else say(`${level.name} is part of levels ${Depths.free + 1} to ${Depths.total}.`); showUnlock(); return; }
     if (!depthOpen(id)) { BloomSound.play('tap'); toast(`Clear level ${id - 1} to open ${level.name}.`); return; }
     // Tapping the level already being played picks it up where it was.
-    if (inProgress() && isDepth() && game.plan.id === id) resumeBoard(); else startDepth(id);
+    if (inProgress() && isDepth() && !isHall() && game.plan.id === id) resumeBoard(); else startDepth(id);
   });
   $('garden-rush-btn').addEventListener('click', openRush);
   for (const group of Object.keys(TRAY)) $(group).addEventListener('click', event => { const chip = event.target.closest('[data-power]'); if (chip) usePower(chip.dataset.power); });
@@ -3696,7 +3868,7 @@
   $('split-btn').addEventListener('click', () => { if (countLeft > 0) return; BloomSound.wake(); if (!gate('split')) nudgeTutorial(); else if (game.split()) processEvents(); });
   $('restart-btn').addEventListener('click', restartTap);
   // A Moon trial or Koi pool goes back to its own list of trials; everything else to the levels or the meadow.
-  function leaveBoard() { if (isChapter()) { const world = game.level.worldId; setRoute('worlds'); openWorld(world); } else setRoute(isRush() ? 'levels' : 'garden'); }
+  function leaveBoard() { if (isHall()) setRoute('hall'); else if (isChapter()) { const world = game.level.worldId; setRoute('worlds'); openWorld(world); } else setRoute(isRush() ? 'levels' : 'garden'); }
   $('back-btn').addEventListener('click', () => { if (preview) exitPreview(); else leaveBoard(); });
   $('garden-btn').addEventListener('click', () => { if (preview) exitPreview(); setRoute('garden'); });
   // From a finished meadow or a seed reward, the Collection opens on the seed style the copy just named, flying in the
@@ -3807,6 +3979,7 @@
   $('result-garden-btn').addEventListener('click', () => { closeDialogs(); if (preview) exitPreview(); else leaveBoard(); });
   $('next-btn').addEventListener('click', () => {
     closeDialogs(); if (preview) { exitPreview(); return; }
+    if (isHall()) { setRoute('hall'); return; }
     if (isDepth()) {
       const id = isTaste() ? game.plan.id : game.plan.id + 1;
       if (Depths.level(id) && depthOpen(id)) startDepth(id);
@@ -3957,23 +4130,25 @@
       if (slot && picture) slot.appendChild(picture);
     } while (guideJobs.length && performance.now() < until);
   }
-  function guidePicture(entry) {
+  function guidePicture(entry, size = GUIDE_ART, className = 'guide-canvas', silhouette = false) {
     const scene = guideScene(entry);
     if (!scene) return null;
-    const dpr = Math.min(2, window.devicePixelRatio || 1), px = Math.round(GUIDE_ART * dpr), canvas = document.createElement('canvas');
-    canvas.width = px; canvas.height = px; canvas.className = 'guide-canvas'; canvas.setAttribute('aria-hidden', 'true');
+    const dpr = Math.min(2, window.devicePixelRatio || 1), px = Math.round(size * dpr), canvas = document.createElement('canvas');
+    canvas.width = px; canvas.height = px; canvas.className = className; canvas.setAttribute('aria-hidden', 'true');
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
-    const [x0, y0, x1, y1] = scene.box, k = Math.min(GUIDE_ART / (x1 - x0), GUIDE_ART / (y1 - y0), scene.zoom), cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, half = GUIDE_ART / 2 / k;
+    const [x0, y0, x1, y1] = scene.box, k = Math.min(size / (x1 - x0), size / (y1 - y0), scene.zoom * size / GUIDE_ART), cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, half = size / 2 / k;
     ctx.setTransform(dpr * k, 0, 0, dpr * k, px / 2 - dpr * k * cx, px / 2 - dpr * k * cy);
     // Only the piece: the launcher, the line and the HUD the board also draws lie outside this square.
     ctx.beginPath(); ctx.rect(cx - half, cy - half, half * 2, half * 2); ctx.clip();
-    if (scene.under) {
+    if (scene.under && !silhouette) {
       const water = ctx.createRadialGradient(cx, cy, 0, cx, cy, half * 1.42);
       water.addColorStop(0, scene.under[0]); water.addColorStop(1, scene.under[1]);
       ctx.fillStyle = water; ctx.fillRect(cx - half, cy - half, half * 2, half * 2);
     }
     BloomArt.draw(ctx, scene.game, scene.game.time, { theme: depthTheme(entry.level), backdrop: false, reducedMotion: true, showAim: false });
+    // A guardian not yet met in the Guardian Hall is its own shape in one dark ink, with nothing of its colors.
+    if (silhouette) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'source-in'; ctx.fillStyle = '#5b4a3e'; ctx.fillRect(0, 0, px, px); ctx.globalCompositeOperation = 'source-over'; }
     return canvas;
   }
   // A one-wave sandbox board of the entry's level with only its piece on it (a classic piece taken from the wave it
@@ -4150,6 +4325,7 @@
     const workFrom = performance.now();
     if (resizePending) resize();
     if (guideJobs.length) guideStep();
+    if (hallJobs.length && route === 'hall') hallStep();
     if (restartArmed !== null && (performance.now() - restartArmed > 2000 || route !== 'game')) armRestart(false);
     partyFrame(timestamp);
     musicFrame(timestamp);
@@ -4240,7 +4416,7 @@
   // A brand-new player starts with the tutorial; it leads into level 1.
   if (!save.tutorial) startTutorial();
   // A read-only snapshot aids local QA without adding a way to grant progress.
-  Object.defineProperty(window, 'bloomshotState', { get: () => ({ ...game.snapshot(), route, theme, preview, reviewAll, reviewBosses, earnedFlowers: flowers.filter(earned).map(f => f.id), storageAvailable }), configurable: false });
+  Object.defineProperty(window, 'bloomshotState', { get: () => ({ ...game.snapshot(), route, theme, preview, reviewAll, reviewBosses, hallRun: isHall(), hallTime: isHall() ? hallSeconds() : null, hall: save.hall || null, earnedFlowers: flowers.filter(earned).map(f => f.id), storageAvailable }), configurable: false });
   // Local frame diagnostics contain timings only, and never send or save a performance report.
   Object.defineProperty(window, 'bloomshotPerformance', { get: () => ({ ...(frameMeter ? frameMeter.snapshot() : {}), graphics: save.settings.graphics, effectTier: game.quality || 0, boardPixelRatio: canvas.width / 420 }), configurable: false });
 })();
