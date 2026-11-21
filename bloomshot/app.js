@@ -1842,7 +1842,8 @@
       if (type === 'boss') { if (!event.finale && feel) feel.request('punch', bud); }
       else if (event.finale && (type === 'won' || !isDepth())) startSweep();
     } else if (type === 'puff') jolt(0, .04);
-    else if (type === 'crack' && bud && bud.boss) jolt(0, .05);
+    // A guardian hit: a small shake (.12 trauma) on top of the same .05 s hit-stop it always had, no longer freeze.
+    else if (type === 'crack' && bud && bud.boss) jolt(.12, .05);
     else if (type === 'superBloom') { if (feel) feel.request('punch'); }
     else if (type === 'trick') {
       if (event.kind === 'hat' || event.kind === 'slam') jolt(0, .04);

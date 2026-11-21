@@ -2460,25 +2460,29 @@
     ctx.restore();
   }
   // The fire salamander, basking on a column top above the right-hand pool, its belly lit from below.
+  // The basking salamander is scenery, so it wears dusky, smoky colours at .8 strength: the bright red and yellow
+  // spots belong to the pieces in play, and it never reads as one of them.
+  const SALAMANDER = { line: '#4a2622', top: '#7a4436', mid: '#8e5640', low: '#a87458', tail: '#80483a', rim: 'rgba(214,160,120,.4)', spot: '#b89464', leg: '#74402f', foot: '#8e5640', mouth: '#3e1c18', cheek: 'rgba(200,160,140,.4)', belly: 'rgba(214,180,140,.55)' };
   function emberSalamander(ctx, x, y, s, flip) {
-    ctx.save(); ctx.translate(x, y); ctx.scale(flip ? -s : s, s);
-    const line = '#7a2618', skin = lin(ctx, 0, -12, 0, 2, [[0, '#c8462a'], [.6, '#e86438'], [1, '#ffa45e']]), spot = '#ffd36a';
+    const C = SALAMANDER;
+    ctx.save(); ctx.translate(x, y); ctx.scale(flip ? -s : s, s); ctx.globalAlpha *= .8;
+    const line = C.line, skin = lin(ctx, 0, -12, 0, 2, [[0, C.top], [.6, C.mid], [1, C.low]]), spot = C.spot;
     soft(ctx, () => ctx.ellipse(2, 1.5, 22, 2.4, 0, 0, TAU), 'rgba(12,4,10,.55)', 2);
     const tail = [[14, -3], [22, -2], [26, 4], [24, 12], [19, 15]];
-    stroke(ctx, tail, line, 6); stroke(ctx, tail, '#d4502e', 4); stroke(ctx, tail.map(([px, py]) => [px + .8, py + .4]), 'rgba(255,170,100,.55)', 1.2);
-    for (const [lx, ly, a] of [[-8, 0, -.5], [8, 0, .5]]) { ctx.save(); ctx.translate(lx, ly); ctx.rotate(a); ctx.beginPath(); ctx.ellipse(0, 1.6, 2, 3.4, 0, 0, TAU); ctx.fillStyle = '#b8402a'; ctx.fill(); ctx.restore(); }
+    stroke(ctx, tail, line, 6); stroke(ctx, tail, C.tail, 4); stroke(ctx, tail.map(([px, py]) => [px + .8, py + .4]), C.rim, 1.2);
+    for (const [lx, ly, a] of [[-8, 0, -.5], [8, 0, .5]]) { ctx.save(); ctx.translate(lx, ly); ctx.rotate(a); ctx.beginPath(); ctx.ellipse(0, 1.6, 2, 3.4, 0, 0, TAU); ctx.fillStyle = C.leg; ctx.fill(); ctx.restore(); }
     const body = [[-14, -2], [-8, -7.6], [4, -8], [15, -5], [16, -1], [4, .6], [-8, .6]];
     shape(ctx, body, skin, line, 1.1);
-    stroke(ctx, [[-8, -.2], [4, 0], [13, -1.2]], 'rgba(255,214,150,.8)', 1.1);
+    stroke(ctx, [[-8, -.2], [4, 0], [13, -1.2]], C.belly, 1.1);
     for (const [sx, sy, sr] of [[-4, -5, 1.6], [3, -6, 1.3], [9, -4.4, 1.2], [21, 0, 1], [24.4, 7, 1]]) dot(ctx, sx, sy, sr, spot);
     const head = [[-24, -3], [-22.4, -9.6], [-15, -12], [-9, -8.6], [-8, -2], [-15, .8], [-21.6, .6]];
     shape(ctx, head, skin, line, 1.1);
-    stroke(ctx, [[-22, -.6], [-15, .2], [-9.5, -1.6]], 'rgba(255,214,150,.75)', 1);
+    stroke(ctx, [[-22, -.6], [-15, .2], [-9.5, -1.6]], C.belly, 1);
     dot(ctx, -13, -10.4, 1.3, spot);
     dot(ctx, -18.4, -6.4, 2.2, '#2a0d0a'); dot(ctx, -19.1, -7.2, .8, '#ffffff');
-    ctx.beginPath(); ctx.moveTo(-23, -2.2); ctx.quadraticCurveTo(-19, .2, -15.4, -2.6); ctx.strokeStyle = '#5a160e'; ctx.lineWidth = .9; ctx.stroke();
-    dot(ctx, -14.6, -4.4, 1.5, 'rgba(255,200,170,.6)');
-    for (const [lx, a] of [[-11, -.3], [6, .4]]) { ctx.save(); ctx.translate(lx, 0); ctx.rotate(a); ctx.beginPath(); ctx.ellipse(0, 1.8, 2.2, 3.6, 0, 0, TAU); ctx.fillStyle = '#e86438'; ctx.fill(); ctx.strokeStyle = line; ctx.lineWidth = .9; ctx.stroke(); for (const t of [-1.4, 0, 1.4]) dot(ctx, t, 5.2, .7, line); ctx.restore(); }
+    ctx.beginPath(); ctx.moveTo(-23, -2.2); ctx.quadraticCurveTo(-19, .2, -15.4, -2.6); ctx.strokeStyle = C.mouth; ctx.lineWidth = .9; ctx.stroke();
+    dot(ctx, -14.6, -4.4, 1.5, C.cheek);
+    for (const [lx, a] of [[-11, -.3], [6, .4]]) { ctx.save(); ctx.translate(lx, 0); ctx.rotate(a); ctx.beginPath(); ctx.ellipse(0, 1.8, 2.2, 3.6, 0, 0, TAU); ctx.fillStyle = C.foot; ctx.fill(); ctx.strokeStyle = line; ctx.lineWidth = .9; ctx.stroke(); for (const t of [-1.4, 0, 1.4]) dot(ctx, t, 5.2, .7, line); ctx.restore(); }
     ctx.restore();
   }
   // The floor: the worn tops of short columns, a causeway in perspective, dark except where a pool lights it; the
@@ -2552,9 +2556,8 @@
     bloom(ctx, 30, 460, 54, '255,120,50', .32);
     for (const [w, c] of [[9, 'rgba(255,110,50,.16)'], [4.4, '#c8481c'], [2.8, '#ff9338'], [1.1, '#ffe8a8']]) stroke(ctx, fall, c, w);
     magma(ctx, [[17, 416], [24, 411], [30, 412], [36, 409]], .75);
-    // Bracket fungi on the left wall, the salamander basking on the right.
+    // Bracket fungi on the left wall.
     for (const [x, y, w] of [[34, 352, 13], [34, 338, 9], [62, 404, 11]]) emberBracket(ctx, x, y, w, false);
-    emberSalamander(ctx, 350, 318, 1.05, false);
     // The floor, the launch stone and the lava pools.
     emberFloor(ctx);
     soft(ctx, () => ctx.ellipse(210, 520, 80, 22, 0, 0, TAU), 'rgba(14,4,12,.6)', 10);
@@ -2579,6 +2582,9 @@
     emberDrift(ctx, [104, 520], [136, 476], [116, 440], 6, 13, 26);
     // Foreground: a broken stump in the lower right corner, almost in silhouette.
     emberColumn(ctx, 408, 478, 58, 600, { pal: EMBER_FORE, toward: -1, seed: 9, tilt: .1, heat: .8 });
+    // The salamander basks on that stump, under the danger line and half past the board's edge on a narrow phone, well
+    // away from where pieces fall.
+    emberSalamander(ctx, 398, 474, .95, false);
     grade(ctx, 'rgba(110,104,200,.5)', 'rgba(255,140,80,.45)', 'rgba(24,8,26,.6)');
     grain(ctx, .08);
     if (framed) frame(ctx, '#a5503a', '#ffb27a');

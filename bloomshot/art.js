@@ -543,7 +543,7 @@
   // by petal from the far side, alternating left and right, before handing off to the resting sprite. Everything is
   // stateless (a function of the bud and its age) and composited from 3x sprites painted once with the same petal()
   // geometry, so a frame full of blooms costs drawImage calls, not gradients or shadows.
-  const UNFURL = .55, FLASH = .035, UNFURL_MAX = 16, UNFURL_LOW = 6;
+  const UNFURL = .55, FLASH = .035, UNFURL_MAX = 16, UNFURL_LOW = 6, BOSS_SQUASH = .2;
   // Every sprite painted (or sheet frame baked) bumps this count, so the app can tell a frame that paid for a first
   // paint from one that is really slow (the quality governor skips the former).
   let painted = 0;
@@ -2317,9 +2317,14 @@
     for (let i = -2; i <= 2; i++) { const x = i * length / 6, side = i % 2 ? 1 : -1; ctx.beginPath(); ctx.moveTo(x, 0); ctx.quadraticCurveTo(x - 1, side * 7, x + 7, side * 10); ctx.strokeStyle = '#947348'; ctx.lineWidth = 3; ctx.stroke(); }
     ctx.restore();
   }
-  function drawBossWarning(ctx, state, time, still) {
+  function activeBossWarning(state, time) {
     const w = state.bossWarning || state.bossState && state.bossState.warning;
-    if (!w || !Number.isFinite(w.until) || !(time < w.until) || !Number.isFinite(w.x) || !Number.isFinite(w.y)) return;
+    return !w || !Number.isFinite(w.until) || !(time < w.until) || !Number.isFinite(w.x) || !Number.isFinite(w.y) ? null : w;
+  }
+  // The move's ground marks: dashed footprints on its targets with a filling timer ring, under the flowers.
+  function drawBossWarning(ctx, state, time, still) {
+    const w = activeBossWarning(state, time);
+    if (!w) return;
     const L = BOSS_LOOKS[w.kind] || BOSS_LOOKS.sunny, span = Math.max(.1, Math.min(Number(root.BloomBosses && root.BloomBosses.telegraph) || 1.3, w.until - (Number(w.at) || 0)));
     const p = clamp(1 - (w.until - time) / span, 0, 1);
     ctx.save(); ctx.lineCap = 'round';
@@ -2332,6 +2337,15 @@
       ctx.setLineDash([4, 4]); circle(ctx, t.x, t.y, radius, null, '#fff6ce', 4); circle(ctx, t.x, t.y, radius, null, '#b55c67', 2); ctx.setLineDash([]);
       if (!still) { ctx.beginPath(); ctx.arc(t.x, t.y, radius + 5, -Math.PI / 2, -Math.PI / 2 + TAU * p); ctx.strokeStyle = L.base; ctx.lineWidth = 2; ctx.stroke(); }
     }
+    ctx.restore();
+  }
+  // The move's words, drawn after the pieces (and the kits' over hooks) and before aiming feedback and floaters, so a
+  // flower sitting on the label spot never covers them. The ground marks above stay under the flowers.
+  function drawBossWarningLabel(ctx, state, time) {
+    const w = activeBossWarning(state, time);
+    if (!w) return;
+    const L = BOSS_LOOKS[w.kind] || BOSS_LOOKS.sunny;
+    ctx.save();
     const text = String(w.text || 'A guardian is stirring'), tf = '600 12px Fredoka';
     ctx.font = tf; const width = Math.min(310, Math.max(130, ctx.measureText(text).width + 28)), x = clamp(w.x, width / 2 + 10, 410 - width / 2), y = clamp(w.y + 61, 45, 395);
     const sprite = stageSprite(`warning-rich:${w.kind}:${text}:${width}`, Math.ceil(width + 6), 32, c => {
@@ -5040,6 +5054,13 @@
           ctx.translate(bud.x, bud.y); ctx.scale(1 + squash * .18, 1 - squash * .20); ctx.translate(-bud.x, -bud.y);
         }
       }
+      // A guardian takes a hit with a small squash of its own (3%, over BOSS_SQUASH s), leaves, body, face and ring
+      // together. Crystal Heart already squashes in her kit, so she is left out rather than squashed twice.
+      const bossHit = !options.reducedMotion && bud.boss && !bud.bloomed && bossLook(bud) && typeof bud.hitAt === 'number' ? time - bud.hitAt : -1;
+      if (bossHit >= 0 && bossHit < BOSS_SQUASH && bud.bossKind !== 'crystal') {
+        const squash = Math.sin(bossHit / BOSS_SQUASH * Math.PI) * .03;
+        ctx.translate(bud.x, bud.y); ctx.scale(1 + squash, 1 - squash); ctx.translate(-bud.x, -bud.y);
+      }
       if (!bud.bloomed && hp > 1 && !bud.boss && !bud.geode) {
         for (let layer = 1; layer < hp; layer++) {
           const rr = radius + 2.5 + layer * 3;
@@ -5081,7 +5102,11 @@
       if (bud.boss && !bud.bloomed) drawBossLeaves(ctx, bud, time, options.reducedMotion);
       else if (crack > 0) { const a = ctx.globalAlpha; ctx.globalAlpha = a * crack; drawBossLeaves(ctx, bud, time, false); ctx.globalAlpha = a; }
       if (bud.briar && !bud.bloomed) drawThorns(ctx, bud);
-      if (bud.boss && !bud.bloomed && bossLook(bud)) drawBossBody(ctx, bud, time, Boolean(options.reducedMotion));
+      if (bud.boss && !bud.bloomed && bossLook(bud)) {
+        drawBossBody(ctx, bud, time, Boolean(options.reducedMotion));
+        // And a FLASH-long white flare of its own body, under its face, fading out: the same cached sprite added once more.
+        if (bossHit >= 0 && bossHit < FLASH) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha *= .6 * (1 - bossHit / FLASH); drawBossBody(ctx, bud, time, false); ctx.restore(); }
+      }
       else if (bud.puff) { if (!bud.bloomed) drawPuffcap(ctx, bud, time, options.reducedMotion); }
       else if (foeArt && !bud.bloomed && foeArt.has(bud)) foeArt.bud(ctx, bud, time, still, state, FOE_KIT, foeQuality);
       else if (bud.geode && !bud.bloomed) drawGeode(ctx, bud, time);
@@ -5128,6 +5153,7 @@
       else if (bumper.kind === 'rock' && root.BloomScenery) root.BloomScenery.drawRock(ctx, bumper, options.theme);
       else drawBumper(ctx, bumper, options.selectedBumper === bumper.id, time, colors, options.reducedMotion);
     }
+    if (rush) drawBossWarningLabel(ctx, state, time);
     if (options.showAim !== false && state.aim && (state.status !== 'flying' || options.showAim === true)) {
       const hollow = rush && Number(state.podSize) > 0 && Number.isFinite(state.pod) && state.pod < 1 && !(Number(state.superBloom) > 0);
       // Old Sunny's landed snooze Z naps the aim guide (spec 1.9): only its first 60 px show; his kit art adds the zz.

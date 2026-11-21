@@ -294,7 +294,7 @@ function boot({ motion = true, render = null, settings = {}, art = {} } = {}) {
     BloomFeel: Feel,
     BloomSound: { wake: noop, setEnabled: noop, play: (type, detail) => cues.push({ type, detail, at: now }), muffle: (amount, seconds) => cues.push({ type: 'muffle', detail: { amount, seconds }, at: now }) },
     BloomKeepsakes: Keepsakes,
-    BloomArt: { draw: (ctx, state, time, options) => { draws.push({ time, camera: options.camera ? { ...options.camera } : null, vignette: options.vignette, danger: { ...options.danger }, quality: options.quality, flash: options.flash, interpolation: options.interpolation }); work += render?.drawCost || 0; paints++; },
+    BloomArt: { draw: (ctx, state, time, options) => { draws.push({ time, camera: options.camera ? { ...options.camera } : null, vignette: options.vignette, danger: { ...options.danger }, quality: options.quality, flash: options.flash, shake: options.shake ? { ...options.shake } : null, interpolation: options.interpolation }); work += render?.drawCost || 0; paints++; },
       ...(render ? { paints: () => paints, prewarm: () => ({ step(ms) { render.warms.push(ms); work += render.warmCost || 0; return false; } }) } : {}),
       drawFlower: noop, drawMoon: noop, koiFish: noop, drawGarden: (ctx, w, h, theme, options) => { if (render && options?.frame === false) render.scenes.push({ theme, mode: options.mode }); }, drawProjectile: noop, drawParticle: noop, drawSeed: noop, drawPowerIcon: noop, podSlot: () => ({ x: 210, y: 498 }), ...art },
     BloomMeadow: { plots: Garden.plots.map((p, i) => ({ id: p.id, x: 65 + i * 50, y: 150, labelY: 180, accent: p.color })),
@@ -833,6 +833,24 @@ test('On the last life the heartbeat sounds while a flower hangs near the line, 
     assert(beats.length >= 2 && beats.length <= 3, `${beats.length} heartbeats in 2 s (motion ${motion})`);
     for (let i = 1; i < beats.length; i++) assert(beats[i].at - beats[i - 1].at >= 830 - 1e-6);
   }
+});
+
+test('A guardian hit gives the board a small shake (.12 trauma); ordinary cracks do not, and Animations off never shakes', () => {
+  const shook = motion => {
+    const app = boot({ motion }); app.click('depth-map', { depth: '1' }); pastCurtain(app);
+    const game = app.games.at(-1), sizes = {};
+    for (const [key, bud] of [['flower', { x: 210, y: 200, hp: 1, maxHp: 2 }], ['guardian', { boss: true, bossKind: 'sunny', x: 210, y: 120, hp: 20, maxHp: 26 }]]) {
+      for (let i = 0; i < 90; i++) app.frame(); // any earlier shake has settled
+      game.event('crack', { bud, chain: 0 }); app.frame(); app.frame();
+      const shake = app.draws.at(-1).shake;
+      sizes[key] = shake ? Math.hypot(shake.x, shake.y) + Math.abs(shake.r) * 100 : 0;
+    }
+    return sizes;
+  };
+  const on = shook(true), off = shook(false);
+  assert.equal(on.flower, 0, 'an ordinary two-hit flower cracking does not shake the board');
+  assert(on.guardian > 0, 'a guardian hit shakes the board');
+  assert.deepEqual(off, { flower: 0, guardian: 0 }, 'Animations off: no shake');
 });
 
 for (const result of results) console.log(`${result.passed ? 'ok  ' : 'FAIL'} ${result.name}${result.passed ? '' : '\n' + result.error}`);
