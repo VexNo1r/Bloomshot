@@ -146,6 +146,27 @@ async function main() {
     assert.equal(map.goals.length, 3, `${key}: three goals on the Today strip`);
     for (const r of map.goals) assert(r.height >= 44 && r.width >= 44, `${key}: 44px Today goal target ${JSON.stringify(r)}`);
     assert.deepEqual(map.clipped, [], `${key}: Today goal names fit`);
+    // Every goal's short label (the longest is "★★★ puzzle") fits whole in any slot, at this size and on the common
+    // phone widths the matrix skips (320, 375, 393, 412).
+    for (const width of size.width < 700 ? [size.width, 320, 375, 393, 412] : [size.width]) {
+      if (width !== size.width) { await page.setViewportSize({ width, height: size.height }); await page.clock.runFor(200); }
+      const cut = await page.evaluate(() => {
+        const out = [], stars = text => text.replace(/★+/g, s => `<span class="goal-stars">${s}</span>`);
+        for (const el of document.querySelectorAll('.today-name')) {
+          const was = el.innerHTML, slot = el.parentElement, cs = getComputedStyle(slot);
+          const room = slot.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+          for (const goal of BloomGoals.catalog) {
+            el.innerHTML = stars(goal.short); const range = document.createRange(); range.selectNodeContents(el);
+            const need = range.getBoundingClientRect().width;
+            if (el.scrollWidth > el.clientWidth + .5 || need > room + .5) out.push(`${goal.short} ${need.toFixed(1)}/${room.toFixed(1)}`);
+          }
+          el.innerHTML = was;
+        }
+        return out;
+      });
+      assert.deepEqual(cut, [], `${width}x${size.height}: every Today goal label fits whole`);
+    }
+    if (size.width < 700) { await page.setViewportSize({ width: size.width, height: size.height }); await page.clock.runFor(200); }
     assert(map.first.y + map.first.height <= map.nav.y + .6, `${key}: first level sits above the bottom bar ${JSON.stringify(map)}`);
     // One ladder going down, each level under the last; a touch screen fills the screen, a desktop mouse keeps the 440 px shell.
     assert(map.cards.length >= 10 && map.cards.every((r, i) => Math.abs(r.x - map.cards[0].x) < .6 && (!i || r.y > map.cards[i - 1].y + map.cards[i - 1].height)), `${key}: single descending ladder`);
