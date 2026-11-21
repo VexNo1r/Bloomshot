@@ -798,6 +798,13 @@ body[data-world="moon"] .desktop-mode-moon,body[data-world="koi"] .desktop-mode-
 }
 @media(max-width:350px){
   .app-header{padding:0 8px}
+  /* The Today strip gives its three goals a little more room, so every short label fits whole. */
+  .today-strip{gap:4px;padding:4px 6px 4px 10px}
+  .today-label{font-size:14px}
+  .today-goals{gap:0}
+  .today-goal{padding:4px 0}
+  .today-name{font-size:11px}
+  .today-name .goal-stars{font-size:.84em;letter-spacing:-.08em}
   .wordmark{font-size:21px}
   .brand-mark{width:22px;height:22px}
   .header-actions .quiet-button{display:none}

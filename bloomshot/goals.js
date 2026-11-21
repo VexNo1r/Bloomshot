@@ -17,7 +17,7 @@
     goal('rush-wave', 'rush', 'Reach wave 4', 4, 'rush', 'Wave 4'),
     goal('rush-chain', 'rush', 'Make an 8 chain', 8, 'rush', '8 chain'),
     goal('puzzles', 'puzzle', 'Clear 2 puzzles', 2, 'puzzles', '2 puzzles'),
-    goal('perfect', 'puzzle', 'Get ★★★ on a puzzle', 1, 'puzzles', 'Get ★★★'),
+    goal('perfect', 'puzzle', 'Get ★★★ on a puzzle', 1, 'puzzles', '★★★ puzzle'),
     goal('daily', 'puzzle', "Clear today's garden", 1, 'daily', 'Daily'),
     goal('moon', 'explore', 'Clear a Moon trial', 1, 'moon', 'Moon trial'),
     goal('koi', 'explore', 'Clear a Koi pool', 1, 'koi', 'Koi pool'),

@@ -41,6 +41,8 @@ test('Goals read plainly and every one points at a place to play it', () => {
     assert(['rush', 'puzzles', 'daily', 'moon', 'koi', 'meadow'].includes(g.play)); assert(Object.isFrozen(g));
     assert(typeof g.short === 'string' && g.short.length >= 4 && g.short.length <= 10, `short label for ${g.id}: ${g.short}`);
   }
+  // The ★★★ goal is a puzzle goal (it counts puzzles only), so its short label on the map says so.
+  assert.equal(Goals.catalog.find(g => g.id === 'perfect').short, '★★★ puzzle');
 });
 test('The day picks stay the same as before for everyone', () => {
   const picks = { '2026-01-01': 'rush-chain,perfect,moon', '2026-06-15': 'rush-wave,puzzles,moon', '2026-10-04': 'rush-wave,puzzles,meadow',
