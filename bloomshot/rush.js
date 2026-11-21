@@ -20,7 +20,8 @@
   const POD = 4, POD_GAP = .15, POD_REGROW = 6, REFUND = .5, GLANCE = .25, KEEP = .15, HELD = .2, AIM_KEEP = .6;
   // A turning shell lets a shot through only near its opening: within shellGap radians either side of shellAngle
   // (each level sets its own, depths.js SHELLS; a shell without one opens about 140 degrees). art.js draws the
-  // opening from the same shellGap and the aim line asks shellOpen. Briars grow back unless their whole patch
+  // opening from the same shellGap, and the finale/dip slow-motion predictor (app.js guardedHit) and the practice bot
+  // ask shellOpen; the aim line players see does not know about shells. Briars grow back unless their whole patch
   // blooms within a few seconds of the first one.
   const SHELL_GAP = Math.acos(.34), REGROW = 4;
   const shellGap = bud => Number.isFinite(bud.shellGap) && bud.shellGap > 0 ? bud.shellGap : SHELL_GAP;

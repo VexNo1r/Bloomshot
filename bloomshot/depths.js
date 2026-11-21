@@ -70,7 +70,7 @@
   // radians a second. The easiest shell level turns fastest with the widest opening, the hardest turns slowest
   // with the narrowest, and every wave of a level uses the same pair. For a shot from one direction the opening
   // stays over it for 2 * gap / spin seconds and comes back after (2 * PI - 2 * gap) / spin: at least 1.3 s open
-  // and at most 3.6 s closed here (qa/test-depths.cjs keeps the floor of 1 s and 4 s).
+  // and at most 3.6 s closed here (qa/test-shells.cjs keeps the floor of 1 s and 4 s).
   var SHELLS = { 6: { gap: 1.40, spin: 2.0 }, 8: { gap: 1.19, spin: 1.5 }, 10: { gap: 1.01, spin: 1.2 } };
   var SHELL_DEFAULT = { gap: Math.acos(.34), spin: 1.2 };
   function shellFor(levelId) { return SHELLS[levelId] || SHELL_DEFAULT; }

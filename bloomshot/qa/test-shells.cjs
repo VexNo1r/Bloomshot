@@ -3,8 +3,9 @@
 // (depths.js SHELLS): the easiest shell level turns fastest with the widest opening, the hardest slowest with the
 // narrowest, and no later wave of a level turns faster than an earlier one. Every shell (the level's own, the
 // Ammonite Queen, her pearls and stone flowers, The Starseed's pearls) stays open at least 1 s a turn and is
-// never shut longer than 4 s, the hit rule lets a seed in exactly where the opening is drawn, and the aim line
-// and the practice bot use the same rule. Run: node qa/test-shells.cjs
+// never shut longer than 4 s, the hit rule lets a seed in exactly where the opening is drawn (the whorl and cap at
+// the lips included), and the finale/dip slow-motion predictor (app.js guardedHit) and the practice bot behave by
+// the same rule, checked by running them. Run: node qa/test-shells.cjs
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -181,10 +182,60 @@ test('The shell is drawn with exactly the opening the hit rule uses, ornaments a
   }
 });
 
-test('The aim line and the practice player use the same opening', () => {
+// A spread of shells: each level's own opening, the default one and the Queen's, turning both ways and standing still.
+const sample = () => {
+  const out = [];
+  for (const gap of [...Object.values(Depths.shells).map(x => x.gap), undefined, Math.acos(.25)]) for (const spin of [0, 1.2, -2]) {
+    out.push({ id: `g${gap}s${spin}`, x: 200, y: 120, r: 11, hp: 1, fall: 1, shell: true, shellAngle: .7, shellSpin: spin, ...(gap ? { shellGap: gap } : {}) });
+  }
+  return out;
+};
+// Directions round the bud, every 3 degrees, and a few flight times.
+const contacts = () => { const out = []; for (let k = 0; k < 120; k++) for (const t of [0, .18, .41]) out.push({ nx: Math.cos(k * TAU / 120), ny: Math.sin(k * TAU / 120), t }); return out; };
+
+test('The slow-motion finale predictor agrees with the hit rule, shell by shell and on arrival', () => {
+  // app.js guardedHit decides whether a seed about to reach the last flower really lands (the finale drumroll and
+  // the slow-motion dip wait for it). Run the function itself, cut from app.js, against rush.js shellOpen.
+  const app = fs.readFileSync(path.join(__dirname, '../app.js'), 'utf8'), start = app.indexOf('function guardedHit(');
+  assert(start > 0, 'app.js has guardedHit');
+  let depth = 0, end = app.indexOf('{', start);
+  for (; end < app.length; end++) { if (app[end] === '{') depth++; else if (app[end] === '}' && --depth === 0) break; }
+  const game = { time: 3, bossState: null };
+  const scope = vm.createContext({ game, window: { BloomRush: Rush } });
+  const guardedHit = vm.runInContext(`(${app.slice(start, end + 1)})`, scope);
+  let lands = 0, glances = 0;
+  for (const bud of sample()) for (const c of contacts()) {
+    const blocked = guardedHit(bud, { ...c, x: bud.x, y: bud.y }, {});
+    // Where the opening will be when the seed arrives, worked out here without rush.js.
+    const a = bud.shellAngle + bud.shellSpin * c.t, open = c.nx * Math.cos(a) + c.ny * Math.sin(a) >= Math.cos(bud.shellGap || Math.acos(.34));
+    assert.equal(blocked, !open, `${bud.id} at (${c.nx.toFixed(2)}, ${c.ny.toFixed(2)}) after ${c.t} s: ${open ? 'lands' : 'glances'}`);
+    assert.equal(blocked, !Rush.shellOpen(bud, c.nx, c.ny, c.t));
+    open ? lands++ : glances++;
+  }
+  assert(lands > 500 && glances > 500, `both outcomes are tried (${lands} land, ${glances} glance)`);
+  assert.equal(guardedHit({ x: 0, y: 0, r: 11 }, { nx: 0, ny: 1, t: 0 }, {}), false, 'a flower with no shell is never guarded');
+});
+
+test('The practice player only shoots through the opening each shell really has', () => {
+  // depths-bot value() is -1 for a shot the shell would turn away (it leads the turn by .03 s of reaction).
+  const game = { dangerY: 445, buds: [], foeWave: null };
+  let tried = 0;
+  for (const bud of sample()) for (const c of contacts()) {
+    game.buds = [bud];
+    const took = bot.value(game, { bud, nx: c.nx, ny: c.ny, time: c.t, x: bud.x, y: bud.y }, 0, null) !== -1;
+    assert.equal(took, Rush.shellOpen(bud, c.nx, c.ny, c.t + .03), `${bud.id} at (${c.nx.toFixed(2)}, ${c.ny.toFixed(2)}) after ${c.t} s`);
+    tried++;
+  }
+  // The level's own opening matters: just inside Level 6's (wider than the default) is a shot, just outside
+  // Level 10's (narrower) is not.
+  const at = (gap, off) => { const bud = { id: 'b', x: 200, y: 120, r: 11, hp: 1, fall: 1, shell: true, shellAngle: 0, shellSpin: 0, shellGap: gap }; game.buds = [bud]; return bot.value(game, { bud, nx: Math.cos(off), ny: Math.sin(off), time: 0 }, 0, null) !== -1; };
+  const wide = Depths.shells[6].gap, narrow = Depths.shells[10].gap, plain = Rush.SHELL_GAP;
+  assert(wide > plain && narrow < plain, 'Level 6 opens wider than the default shell and Level 10 narrower');
+  assert(at(wide, wide - .03) && !at(narrow, narrow + .03), `the bot uses each level's opening (${tried} shots checked)`);
+});
+
+test('No fixed opening is left behind in the aim, the predictor or the bot', () => {
   const app = fs.readFileSync(path.join(__dirname, '../app.js'), 'utf8'), botSrc = fs.readFileSync(path.join(__dirname, 'depths-bot.cjs'), 'utf8');
-  assert(/BloomRush\.shellOpen\(bud, hit\.nx, hit\.ny, hit\.t\)/.test(app), 'the aim line asks rush.js where the opening will be on arrival');
-  assert(/Math\.cos\(shellGap\(bud\)\)/.test(botSrc), 'the practice player aims through the same opening');
   assert(!/< \.34/.test(app + botSrc), 'no fixed opening left behind');
 });
 
