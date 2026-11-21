@@ -2416,9 +2416,12 @@
   function moodY(bossY, r) {
     const top = (Number(bossY) || 120) + (Number(r) || 26) + 46;
     const open = game.buds.filter(bud => !bud.bloomed && !bud.gift && !bud.hidden && !bud.boss);
-    // The petal you turn counts double, so the ribbon does not sit on it either.
-    const covers = y => open.filter(bud => Math.abs(bud.y - y) < 40).length + 2 * (game.bumpers || []).filter(b => !b.bossMirror && Math.abs(b.y - y) < 46).length;
-    const spots = [200, 250, 300, 350].filter(y => y >= top);
+    // A rock counts double. The petal you turn is never covered: the ribbon (44 tall) is opaque and stays up in live
+    // play, so a height within 50 of a petal is used only when every height is.
+    const solid = (game.bumpers || []).filter(b => !b.bossMirror), petals = solid.filter(b => b.kind !== 'rock');
+    const covers = y => open.filter(bud => Math.abs(bud.y - y) < 40).length + 2 * solid.filter(b => b.kind === 'rock' && Math.abs(b.y - y) < 46).length;
+    const below = [200, 250, 300, 350].filter(y => y >= top), clear = below.filter(y => !petals.some(b => Math.abs(b.y - y) < 50));
+    const spots = clear.length ? clear : below;
     return (spots.length ? spots : [Math.min(380, top)]).reduce((best, y) => covers(y) < covers(best) ? y : best);
   }
   // A special hit on a guardian says what made it special.

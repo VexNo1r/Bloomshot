@@ -280,6 +280,17 @@ test('Ember Rose\'s new rule for each mood shows as a toast when the mood starts
   app.$('toast').textContent = ''; app.run(1.7); game.events.push({ type: 'bossStage', kind: 'ember', stage: 1, mood: 'Dancing', name: 'Ember Rose', x: boss.x, y: boss.y }); app.frame();
   assert.equal(app.$('toast').textContent, '', 'the same rule is not said twice');
 });
+test('On every level the mood ribbon keeps off the petal you turn', () => {
+  for (let id = 1; id <= 10; id++) {
+    const app = level(player(), id, {}, '?alllevels'), game = app.game(); app.run(1.3);
+    const boss = bossWave(app), s = game.bossState; app.run(1.7);
+    boss.hp = s.tierAt[0];
+    const ribbon = () => game.floaters.find(f => f.kind === 'mood');
+    assert(app.run(12, () => ribbon()), `L${id}: the mood ribbon shows`);
+    const petals = game.bumpers.filter(b => b.kind !== 'rock' && !b.bossMirror);
+    for (const b of petals) assert(Math.abs(ribbon().y - b.y) >= 50, `L${id}: the ribbon at y ${ribbon().y} keeps off the petal at y ${b.y}`);
+  }
+});
 test('A guardian\'s mood change raises a ribbon in its colours, named for it and its new mood, on L1, L4 and L10', () => {
   const want = { 1: ['sunny', 'Old Sunny is Cranky!'], 4: ['crystal', 'Crystal Heart is Shining!'], 10: ['core', 'The Starseed is Dazzling!'] };
   for (const motion of [true, false]) for (const id of [1, 4, 10]) {
