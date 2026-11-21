@@ -215,13 +215,14 @@ async function main() {
           const d = document.getElementById('help-dialog'), r = d.getBoundingClientRect(), group = document.querySelector('#guide-list .guide-level[data-level="7"]').getBoundingClientRect();
           const c = document.getElementById('close-help').getBoundingClientRect();
           return { help: d.open, pause: document.getElementById('pause-dialog').open, guide: document.getElementById('guide-help').open, dialog: { x: r.x, y: r.y, right: r.right, bottom: r.bottom }, group: { y: group.y, bottom: group.bottom },
-            close: { x: c.x, y: c.y, right: c.right, bottom: c.bottom }, scrolled: d.scrollTop, title: document.getElementById('help-title').textContent,
+            close: { x: c.x, y: c.y, right: c.right, bottom: c.bottom }, scrolled: d.scrollTop, end: d.scrollTop >= d.scrollHeight - d.clientHeight - 1, title: document.getElementById('help-title').textContent,
             shown: [...d.querySelectorAll(':scope > details')].filter(el => el.getClientRects().length).map(el => el.id),
             scrollWidth: d.scrollWidth, clientWidth: d.clientWidth, page: document.documentElement.scrollWidth,
             clipped: [...document.querySelectorAll('#guide-list .guide-name, #guide-list .guide-line, #guide-list .guide-does')].filter(el => el.scrollWidth > el.clientWidth + .5).map(el => el.textContent) };
         });
         assert(opened.help && opened.pause && opened.guide, `${key} Paused: Who's who opens over the Paused card`);
-        assert(opened.group.y >= opened.dialog.y - .5 && opened.group.y <= opened.dialog.y + 160, `${key} Paused: the guide starts at Level 7 ${JSON.stringify(opened)}`);
+        // On a tall screen the guide ends before Level 7 can reach the top: then it is scrolled to the end with Level 7 in full view.
+        assert(opened.group.y >= opened.dialog.y - .5 && (opened.group.y <= opened.dialog.y + 160 || (opened.end && opened.group.bottom <= opened.dialog.bottom)), `${key} Paused: the guide starts at Level 7 ${JSON.stringify(opened)}`);
         assert.equal(opened.scrollWidth, opened.clientWidth, `${key} Paused: no sideways scroll in the guide`); assert.equal(opened.page, size.width, `${key} Paused: no horizontal overflow`);
         assert(opened.dialog.x >= 0 && opened.dialog.right <= size.width + .6, `${key} Paused: the guide stays on screen`);
         assert.deepEqual(opened.clipped, [], `${key} Paused: no clipped guide text`);
