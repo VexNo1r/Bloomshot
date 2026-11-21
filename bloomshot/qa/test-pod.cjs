@@ -256,6 +256,11 @@ test('A fast, careful aimer clears every level, firing briskly (two runs a level
   observations.fastRateBeforeGuardian = +Math.min(...before).toFixed(2); observations.fastRateInGuardian = +Math.min(...fights).toFixed(2);
   assert(Math.min(...before)>=1.2,`even timing/armor encounters sustain brisk play (${Math.min(...before).toFixed(2)} before the guardian)`);
   assert(Math.min(...fights)>=.8,`and no guardian stalls it (${Math.min(...fights).toFixed(2)} in the slowest fight)`);
+  // The whole-run floor still holds for every run but that one long fight, and even that run stays near it.
+  const slow = runs.filter(r => r.rate < 1.2).map(r => `L${r.id} ${r.rate}`);
+  observations.fastRunsUnder12 = slow;
+  assert(slow.length <= 1, `at most one run in 20 dips under 1.2 shots/s over the whole level (${slow.join(', ')})`);
+  assert(Math.min(...rates) >= 1.1, `and none under 1.1 (${Math.min(...rates)})`);
 });
 test('The suite runs in 40 seconds or less (the mashers play all ten levels)', () => {
   const seconds = (Date.now() - startedAt) / 1000; observations.runtimeSeconds = +seconds.toFixed(1);

@@ -59,6 +59,8 @@ Measured with the batch-2 campaign runner (full-level `play` runs of `qa/depths-
 
 The per-level shells alone moved Level 6 to 95% (its shells now turn fastest with the widest gap), Level 8 to 50% and Level 10 to 30% (slowest, narrowest); the pace, hp, cup, regrow and drop changes in `depths.js` then set the curve above. Within one block a level's rate moves by up to 7 points from seed luck alone (Level 5: 85% on seeds 1 to 96, 72% on 301 to 396 with nothing changed), so judge pooled rates, not one block. Levels 7 to 9 sit within that noise of each other.
 
+An independent rerun on seed offset 701 (never used above, 96 runs each) reproduced the table within noise, a few points lower for the average bot: Level 10 58.3%, Level 8 71.9%, Level 6 76.0%; good bot Level 10 92.7%. Level 10 stays inside the 55-65% target. The pace changes in this pass did change fall speeds (pace multiplies every wave's fall time): Level 6 1.5 to 1.72 and Level 7 2.05 to 2.1 fall slower, Level 8 2.2 to 2.0, Level 9 2.7 to 2.65 and Level 10 2.3 to 2.2 fall faster, and Level 8 wave 5 lost one fast cluster. No wave's `d` changed.
+
 ## Repeated tapping and ricochets
 
 ```sh
