@@ -1,0 +1,54 @@
+{
+  "suite": "foes-level10",
+  "passed": true,
+  "results": [
+    {
+      "name": "Registry: four gold r 10 one-hit stars in one group, pips 1-4 in crossing order, with a hint of 52 characters or fewer",
+      "passed": true
+    },
+    {
+      "name": "Placements: L10 W2 debuts one figure with its hint; figures return in W7 and W9; the greatest-hits rows are in place",
+      "passed": true
+    },
+    {
+      "name": "The figure turns on the foe clock (wishAt, closed form) and sinks at .8 of the wave pace; a Lullaby holds it",
+      "passed": true
+    },
+    {
+      "name": "Out of turn an aimed seed glances off: no bloom, refund, sun or score; the twinkling next star lets it in",
+      "passed": true
+    },
+    {
+      "name": "Four in turn is a wish: four notes, +1 sun, 400 x tempo, and a shooting star that hops to the three nearest pieces",
+      "passed": true
+    },
+    {
+      "name": "Plain blooms: a power, an out-of-turn chain or an uncredited strike opens a star with no note, and that figure cannot wish",
+      "passed": true
+    },
+    {
+      "name": "The bot: only the star whose turn it is, more as the chord grows, most for the wish; predict matches the board",
+      "passed": true
+    },
+    {
+      "name": "The same at 30, 60 and 144 FPS: positions, blooms and events",
+      "passed": true
+    },
+    {
+      "name": "A figure that reaches the line costs one life (one group), and the guardian finale blooms stars with no note",
+      "passed": true
+    },
+    {
+      "name": "A real seed: the debut wave plays, and the next star is the one an aimed shot opens",
+      "passed": true
+    },
+    {
+      "name": "The Wishing Stars draw cheaply in every state: finite, balanced, and no gradient, shadow or surface once warm",
+      "passed": true
+    },
+    {
+      "name": "The wish strums its chord once: the fourth bell is not struck twice on the tick that rings it and makes the wish",
+      "passed": true
+    }
+  ]
+}

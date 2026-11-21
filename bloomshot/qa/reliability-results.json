@@ -1,0 +1,182 @@
+{
+  "checkedAt": "2026-10-17T03:07:05.712Z",
+  "sourceHashes": {
+    "app.js": "286b45ec11419d91d98151661dc045d1856f823387fb97f4f5594f373e4e7407",
+    "bosses.js": "d05e0830b20b9cdd08df5db1193102c8ee4aeed6fb86a7a3df2cc63ae7f03c58",
+    "sound.js": "591def15ad7ba007097c425c64fb8d2117367a3cfa931acd5302d8cdff7a421c",
+    "index.html": "7b6f80d79f474e285a1122b09fa17c8d4735e6261077fcec3dbd525709a014e3",
+    "sw.js": "ddfcd0b65b4149b8d65d9f623edddfc4658b1e5ee3433a41b0fbddbb5290351e"
+  },
+  "regressions": {
+    "music": 20,
+    "sound": 38,
+    "bosses": 36,
+    "saveIntegration": 87
+  },
+  "suitesPassed": 32,
+  "moonPointerPassed": true,
+  "results": [
+    {
+      "name": "test-bloomfx.cjs",
+      "passed": true
+    },
+    {
+      "name": "test-boss-art.cjs",
+      "passed": true
+    },
+    {
+      "name": "test-boss-flower-art.cjs",
+      "passed": true
+    },
+    {
+      "name": "test-bosses.cjs",
+      "passed": true
+    },
+    {
+      "name": "test-depths-bot.cjs",
+      "passed": true
+    },
+    {
+      "name": "test-depths.cjs",
+      "passed": true
+    },
+    {
+      "name": "test-engine.cjs",
+      "passed": true
+    },
+    {
+      "name": "test-feel.cjs",
+      "passed": true
+    },
+    {
+      "name": "test-frame-timing.cjs",
+      "passed": true
+    },
+    {
+      "name": "test-garden.cjs",
+      "passed": true
+    },
+    {
+      "name": "test-goals.cjs",
+      "passed": true
+    },
+    {
+      "name": "test-keepsakes.cjs",
+      "passed": true
+    },
+    {
+      "name": "test-koi-levels.cjs",
+      "passed": true
+    },
+    {
+      "name": "test-moon-engine.cjs",
+      "passed": true
+    },
+    {
+      "name": "test-moon-levels.cjs",
+      "passed": true
+    },
+    {
+      "name": "test-music.cjs",
+      "passed": true
+    },
+    {
+      "name": "test-native.cjs",
+      "passed": true
+    },
+    {
+      "name": "test-petals.cjs",
+      "passed": true
+    },
+    {
+      "name": "test-pod.cjs",
+      "passed": true
+    },
+    {
+      "name": "test-powers.cjs",
+      "passed": true
+    },
+    {
+      "name": "test-precache-streams.cjs",
+      "passed": true,
+      "rerun": true
+    },
+    {
+      "name": "test-pwa.cjs",
+      "passed": true
+    },
+    {
+      "name": "test-rush.cjs",
+      "passed": true
+    },
+    {
+      "name": "test-save-integration.cjs",
+      "passed": true,
+      "rerun": true
+    },
+    {
+      "name": "test-scene-life.cjs",
+      "passed": true
+    },
+    {
+      "name": "test-scenery.cjs",
+      "passed": true
+    },
+    {
+      "name": "test-seed-art.cjs",
+      "passed": true
+    },
+    {
+      "name": "test-sound.cjs",
+      "passed": true
+    },
+    {
+      "name": "test-stage.cjs",
+      "passed": true
+    },
+    {
+      "name": "test-store-ui.cjs",
+      "passed": true
+    },
+    {
+      "name": "test-store.cjs",
+      "passed": true
+    },
+    {
+      "name": "test-tutorial.cjs",
+      "passed": true
+    },
+    {
+      "name": "check-moon-pointer.cjs",
+      "passed": true
+    }
+  ],
+  "rechecks": [
+    {
+      "name": "test-save-integration.cjs",
+      "reason": "Existing exact-copy assertions updated to match the corrected directions above Split.",
+      "passed": 87,
+      "failed": 0
+    },
+    {
+      "name": "test-precache-streams.cjs",
+      "reason": "Sandbox blocked local HTTP connection; rerun with scoped loopback access.",
+      "passed": true,
+      "assets": 37,
+      "bodyHashesMatch": true
+    }
+  ],
+  "nativePackaging": {
+    "freshLockedDependenciesInstalled": true,
+    "reportedVulnerabilities": 0,
+    "assetsMatchAcrossWwwAndroidIos": 34
+  },
+  "webBuild": {
+    "assets": 38,
+    "workerVersion": "570443dc5aa3284b"
+  },
+  "limitations": [
+    "VM audio operation ordering and desktop automation are not physical iPhone/Android audio or performance acceptance.",
+    "No installed phone, signing, upload or sandbox purchase is established by these checks."
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "checkedAt": "2026-10-17T03:16:40.020Z",
+  "gameSourceCommit": "d647d922aaba7d13578953218b4462d34eddec4b",
+  "ios": {
+    "workflowRun": 38997583590,
+    "jobId": 117293417314,
+    "workflowUrl": "https://github.com/VexNo1r/Bloomshot/actions/runs/38997583590",
+    "artifactId": 12087703388,
+    "artifactSha256": "327198001fd729058ae17706cddc78c7ba202e9d5fb3bdf9ce9bdff296adf8b9",
+    "compiled": true,
+    "simulator": {
+      "device_name": "iPhone 17",
+      "runtime": "iOS 26.5"
+    },
+    "installed": true,
+    "launched": true,
+    "startupScreenshot": {
+      "file": "startup.png",
+      "width": 1206,
+      "height": 2622,
+      "sha256": "c5950694a4f1944e92d5bdc2cad7e249f4b8a5af7a5b76b5702b604daedf8dbe",
+      "visualReview": {
+        "passed": true,
+        "observed": "Bloomshot first-run Aim and fire tutorial is rendered, with flower targets, launcher pod, scenery and lower controls. Tutorial card sits below Dynamic Island. No blank WebView, splash-only or error screen."
+      }
+    },
+    "cleanupPassed": true,
+    "scope": "Actual unsigned native iOS Simulator startup screenshot; no interaction, real-device, frame-rate, signing or purchase acceptance."
+  },
+  "android": {
+    "workflowRun": 38997586106,
+    "workflowUrl": "https://github.com/VexNo1r/Bloomshot/actions/runs/38997586106",
+    "artifactId": 12087951001,
+    "artifactSha256": "dba164cd3eded5e6a160953fc8389e5d71cc7385f31ccdc4e66eea507e1c8d6c",
+    "debugApkSha256": "8420e6a011d3a61359f62bfe99eb01ab8bc0d183e23e80253891803df2891056",
+    "debugApkBytes": 11386213,
+    "compiled": true,
+    "assetsChecked": 34,
+    "appId": "dev.bloomshot.game",
+    "remoteServerUrl": false,
+    "browserInstallAssetsAbsent": true,
+    "installedOnDevice": false,
+    "scope": "Downloaded debug APK compilation/packaging only; not Play release signing, installation, gameplay, phone performance or billing acceptance."
+  },
+  "phonePerformanceVerified": false,
+  "realSandboxPurchaseVerified": false,
+  "limitations": [
+    "An unsigned iOS simulator app cannot be installed on a physical iPhone.",
+    "The startup screenshot establishes rendering of the opening tutorial, not touch interaction, sound, Preferences or Haptics behavior, sustained frame delivery, thermal behavior or any store transaction.",
+    "Current native compilation does not authorize merging, public hosting, store submission or release."
+  ]
+}

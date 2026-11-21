@@ -1,5 +1,5 @@
 {
-  "passed": 8,
+  "passed": 11,
   "failed": 0,
   "observations": {
     "goalsPerDay": 3,
@@ -33,6 +33,18 @@
     },
     {
       "name": "Goals read plainly and every one points at a place to play it",
+      "passed": true
+    },
+    {
+      "name": "The day picks stay the same as before for everyone",
+      "passed": true
+    },
+    {
+      "name": "Saying hi to a meadow friend finishes the meadow goal and nothing else",
+      "passed": true
+    },
+    {
+      "name": "A meadow goal saved before the change loads unchanged",
       "passed": true
     },
     {

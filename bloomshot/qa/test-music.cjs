@@ -57,7 +57,8 @@ function fixture(options = {}) {
   }
   class Audio extends Base {
     constructor() {
-      super(48000); this.state = 'running'; this.currentTime = 0; this.suspendCalls = 0; this.resumeCalls = 0; contexts.push(this);
+      super(48000); this.state = 'running'; this.currentTime = 0; this.suspendCalls = 0; this.resumeCalls = 0;
+      this.pendingSuspends = []; this.pendingResumes = []; contexts.push(this);
       // options.brokenSources: the live context refuses to start loops, the way an odd browser might.
       if (options.brokenSources) this.createBufferSource = () => { throw new Error('InvalidStateError'); };
     }
@@ -65,8 +66,20 @@ function fixture(options = {}) {
     createWaveShaper() { return new Node(this, 'ceiling'); }
     createConvolver() { const n = new Node(this, 'convolver'); n.buffer = null; n.normalize = true; return n; }
     createDynamicsCompressor() { const n = new Node(this, 'compressor'); for (const key of ['threshold', 'knee', 'ratio', 'attack', 'release']) n[key] = new Parameter(0); return n; }
-    suspend() { this.suspendCalls++; this.state = 'suspended'; return Promise.resolve(); }
-    resume() { this.resumeCalls++; this.state = 'running'; return Promise.resolve(); }
+    suspend() {
+      this.suspendCalls++;
+      if (options.deferredSuspend) return new Promise((resolve, reject) => this.pendingSuspends.push({
+        finish: () => { this.state = 'suspended'; resolve(); }, reject
+      }));
+      this.state = 'suspended'; return Promise.resolve();
+    }
+    resume() {
+      this.resumeCalls++;
+      if (options.deferredResume) return new Promise((resolve, reject) => this.pendingResumes.push({
+        finish: () => { this.state = 'running'; resolve(); }, reject
+      }));
+      this.state = 'running'; return Promise.resolve();
+    }
     advance(seconds) {
       if (this.state !== 'running') return;
       this.currentTime += seconds;
@@ -389,6 +402,96 @@ async function main() {
     assert.equal(v.context.resumeCalls, 1); assert.equal(v.context.state, 'running');
   });
 
+  await test('A quick return waits for the audio thread to finish suspending, then resumes once', async () => {
+    const h = fixture({ deferredSuspend: true }); h.sound.wake();
+    h.frame({ hidden: true }); h.frame({ hidden: false }); h.sound.wake();
+    h.sound.play('launch');
+    assert.equal(h.context.state, 'running', 'the audio thread has not processed its suspension yet');
+    assert.equal(h.context.suspendCalls, 1); assert.equal(h.context.resumeCalls, 0);
+    h.context.pendingSuspends.shift().finish(); await settle();
+    assert.equal(h.context.state, 'running'); assert.equal(h.context.resumeCalls, 1);
+    assert(h.context.nodes.some(n => n.kind === 'oscillator'), 'the returning gesture cue survives the pending suspension');
+    h.frame({ hidden: false }); await settle();
+    assert.equal(h.context.resumeCalls, 1, 'visible frames do not repeatedly resume the context');
+  });
+
+  await test('Pending audio suspension follows the latest visibility and Sound choice', async () => {
+    for (const muted of [false, true]) {
+      const h = fixture({ deferredSuspend: true }); h.sound.wake();
+      h.frame({ hidden: true }); h.frame({ hidden: false });
+      if (muted) h.sound.setEnabled(false); else h.frame({ hidden: true });
+      h.context.pendingSuspends.shift().finish(); await settle();
+      assert.equal(h.context.state, 'suspended'); assert.equal(h.context.resumeCalls, 0,
+        muted ? 'a muted foreground must not be resumed by the old suspension' : 'a second departure wins');
+      if (muted) h.sound.setEnabled(true); else h.frame({ hidden: false });
+      await settle(); assert.equal(h.context.state, 'running'); assert.equal(h.context.resumeCalls, 1);
+    }
+  });
+
+  await test('Leaving again while audio resumes suspends it once that resume finishes', async () => {
+    const h = fixture({ deferredSuspend: true, deferredResume: true }); h.sound.wake();
+    h.frame({ hidden: true }); h.frame({ hidden: false });
+    h.context.pendingSuspends.shift().finish(); await settle();
+    assert.equal(h.context.resumeCalls, 1); assert.equal(h.context.state, 'suspended');
+    h.frame({ hidden: true }); h.sound.wake();
+    assert.equal(h.context.suspendCalls, 1, 'wait for the outstanding resume before suspending again');
+    h.context.pendingResumes.shift().finish(); await settle();
+    assert.equal(h.context.suspendCalls, 2); assert.equal(h.context.resumeCalls, 1);
+    h.context.pendingSuspends.shift().finish(); await settle();
+    assert.equal(h.context.state, 'suspended', 'hidden audio stays stopped after both operations settle');
+    h.frame({ hidden: false }); h.context.pendingResumes.shift().finish(); await settle();
+    assert.equal(h.context.state, 'running'); assert.equal(h.context.resumeCalls, 2);
+  });
+
+  await test('A rejected suspension leaves foreground audio usable and does not affect a replacement context', async () => {
+    const h = fixture({ deferredSuspend: true }); h.sound.wake();
+    h.frame({ hidden: true }); h.frame({ hidden: false });
+    h.context.pendingSuspends.shift().reject(new Error('Interrupted')); await settle();
+    assert.equal(h.context.state, 'running'); assert.equal(h.context.resumeCalls, 0);
+    h.frame({ hidden: true }); h.frame({ hidden: false });
+    const old = h.context; old.state = 'closed'; h.sound.wake();
+    assert.notEqual(h.context, old); const current = h.context;
+    old.pendingSuspends.shift().finish(); await settle();
+    assert.equal(current.state, 'running'); assert.equal(current.suspendCalls, 0); assert.equal(current.resumeCalls, 0);
+    const r = fixture({ deferredResume: true }); r.sound.wake();
+    r.frame({ hidden: true }); await settle(); r.frame({ hidden: false });
+    const resuming = r.context; resuming.state = 'closed'; r.sound.wake();
+    const replacement = r.context; resuming.pendingResumes.shift().finish(); await settle();
+    assert.notEqual(replacement, resuming); assert.equal(replacement.state, 'running');
+    assert.equal(replacement.suspendCalls, 0); assert.equal(replacement.resumeCalls, 0);
+    r.frame({ hidden: true }); replacement.state = 'closed'; r.frame({ hidden: false }); r.sound.wake();
+    assert.notEqual(r.context, replacement, 'closing in the background must not leave the next gesture asleep');
+  });
+
+  await test('A rejected foreground resume followed by another departure stays quiet without retrying', async () => {
+    const h = fixture({ deferredSuspend: true, deferredResume: true }); h.sound.wake();
+    h.frame({ hidden: true }); h.context.pendingSuspends.shift().finish(); await settle();
+    h.frame({ hidden: false }); h.sound.play('launch'); h.frame({ hidden: true });
+    h.context.pendingResumes.shift().reject(new Error('NotAllowedError')); await settle();
+    assert.equal(h.context.resumeCalls, 1); assert.equal(h.context.suspendCalls, 2);
+    h.context.pendingSuspends.shift().finish(); await settle();
+    for (let i = 0; i < 10; i++) h.frame({ hidden: true });
+    assert.equal(h.context.state, 'suspended'); assert.equal(h.context.resumeCalls, 1);
+    h.frame({ hidden: false }); h.context.pendingResumes.shift().finish(); await settle();
+    assert.equal(h.context.state, 'running');
+    assert(!h.context.nodes.some(n => n.kind === 'oscillator'), 'a rejected resume does not replay its queued gesture');
+  });
+
+  await test('Another departure or muting discards queued cues while suspension is still pending', async () => {
+    for (const muted of [false, true]) {
+      const h = fixture({ deferredSuspend: true, deferredResume: true }); h.sound.wake();
+      h.frame({ hidden: true }); h.sound.play('bloom');
+      assert(!h.context.nodes.some(n => n.kind === 'oscillator'), 'hidden calls cannot start cues before suspension finishes');
+      h.frame({ hidden: false }); h.sound.play('launch');
+      if (muted) h.sound.setEnabled(false); else h.frame({ hidden: true });
+      h.context.pendingSuspends.shift().finish(); await settle();
+      if (muted) h.sound.setEnabled(true); else h.frame({ hidden: false });
+      h.context.pendingResumes.shift().finish(); await settle();
+      assert.equal(h.context.state, 'running');
+      assert(!h.context.nodes.some(n => n.kind === 'oscillator'), 'an old queued cue does not leak out after returning or unmuting');
+    }
+  });
+
   await test('Big moments duck the music 4 dB for .25 s, and muffle sweeps its lowpass down and back', async () => {
     for (const [type, data] of [['finale', { x: 210, type: 'gold' }], ['superBloom', { time: 6 }], ['boss', { bud: { x: 210 } }]]) {
       const { h } = await playing('briar', { heat: 0.5 });
@@ -456,6 +559,7 @@ async function main() {
     for (let i = 0; i < 5; i++) assert.doesNotThrow(() => { snap = h.frame({ ...state, heat: i / 4 }); h.tick(0.1); });
     assert.equal(snap.playing, false); assert.equal(snap.groove, null); assert.equal(snap.queued, 0);
     assert.doesNotThrow(() => { h.sound.muffle(0.75, 0.5); h.sound.music.stop(); h.frame({ hidden: true }); h.frame({ hidden: false }); });
+    await settle(); // the audio thread acknowledges suspension before the returning page can resume it
     const before = h.context.nodes.length; h.sound.play('bloom', { combo: 1, seedStep: 2 });
     assert(h.context.nodes.slice(before).some(n => n.kind === 'oscillator'), 'cues still play');
     // The same failure inside frame() itself (cached loops attach there when a groove comes back) is caught too.

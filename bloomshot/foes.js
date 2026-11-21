@@ -1,0 +1,1566 @@
+(function (root, factory) {
+  'use strict';
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.BloomFoes = factory();
+})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+  'use strict';
+  // The level campaign's new pieces ("foes"): each is an ordinary bud with a `foe` name, so the engine, the art and
+  // the bot keep treating it as a bud, and everything special about it lives in one registry entry below.
+  //
+  // Rules every foe keeps:
+  // - All state moves inside the fixed 1/120 s tick and depends only on game.foeClock (which stops during a Lullaby)
+  //   and hash01, never Math.random, so a run is identical at 30, 60 or 144 FPS.
+  // - An uncredited strike (a test script, the tutorial, a scripted loop) is plain: it damages and blooms the foe
+  //   with no special rule, so `while (!bud.bloomed) game.strike(bud, true)` always ends.
+  // - A pop (a decoy, a burst) goes through game._pop: bloomed and popped, gone from the board, and it pays nothing.
+  // - An inert piece never holds a wave open, never costs a life and is swept away when the wave ends.
+  // - No foe reads or writes the seed pod (pod, podGrow, shotGap).
+  const TAU = Math.PI * 2;
+  const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+  const smooth = p => { p = clamp(p, 0, 1); return p * p * (3 - 2 * p); };
+  // A stable 0..1 number from an id and an integer (FNV-1a over "id:n"): the same on every run and every frame rate.
+  function hash01(id, n = 0) {
+    const s = `${id}:${n}`;
+    let h = 2166136261;
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return (h >>> 0) / 4294967296;
+  }
+  // Shared closed-form motion, so the game, the aim line and the practice bot agree on where a piece will be.
+  function orbitAt(cx, cy, R, omega, a0, t) { const a = a0 + omega * t; return { x: cx + R * Math.cos(a), y: cy + R * Math.sin(a), a }; }
+  // A lob from (x0,y0) to (x1,y1) over T seconds, rising h px above the straight line at its middle.
+  function lobAt(x0, y0, x1, y1, T, t, h = 40) {
+    const u = clamp(t / Math.max(1e-6, T), 0, 1);
+    return { x: x0 + (x1 - x0) * u, y: y0 + (y1 - y0) * u - 4 * h * u * (1 - u), u };
+  }
+  // Two pieces trading places over dur seconds from t0.
+  function swapAt(a, b, t0, dur, t) {
+    const e = smooth((t - t0) / Math.max(1e-6, dur));
+    return { ax: a.x + (b.x - a.x) * e, ay: a.y + (b.y - a.y) * e, bx: b.x + (a.x - b.x) * e, by: b.y + (a.y - b.y) * e, e };
+  }
+
+  // name -> entry. Only `make` (or the static fields) is needed; a missing hook means "behave like a plain bud".
+  //   r, hp, fall, type    defaults for piece()
+  //   inert, decoy         inert: never holds a wave, never costs a life, swept at the end. decoy: the bot never shoots it
+  //   family, hint         the first-contact hint (<= 52 characters) and the family it belongs to (molehill -> mole)
+  //   make(spot, tag, i, levelId, number) -> [buds]; spot = [name, x, y, opts]
+  //   init(game, bud)      once, the first time it is on the board (bud.born is already set)
+  //   step(game, bud, dt)  every tick while it is unbloomed; dt is 0 during a Lullaby
+  //   owns(bud)            true: the rush tick leaves its fall and sway alone right now
+  //   guard(game, bud, hit, seed) -> true: the seed is turned away (a glance, no refund)
+  //   contact(game, bud, ball, hit) -> 'absorb' (the seed is gone) | null; runs before every other bud rule
+  //   hit(game, bud, chain, credited, seed) -> null (plain) | { pop, quiet, kind } | { blocked, feed } | { damage }
+  //   bloomed(game, bud, chain, credit), popped(game, bud, kind)
+  //   breach(game, bud)    -> 'life' (default) | 'fizzle' (default for inert) | 'skip' (never breaches)
+  //   chainable(bud)       true when a puffcap or roll chain may take it although it is inert
+  //   moving(game, bud)    true while the bot must forecast it (default: it has predict)
+  //   resurfaces(game, bud) true while a hidden piece will publicly come back up (the bot keeps tracking it)
+  //   predict(game, bud, seconds, out) writes out.x, out.y, out.r, out.flags (1 hidden, 2 ghost); pure
+  //   value(game, bud, hit, prepared) -> the bot's added shot value, or -1 when the shot is wrong
+  //   valueAny(game, hit, prepared) -> a bonus this foe lends a shot at any piece (a puffcap beside a fibcap)
+  const FOES = Object.create(null), BEFORE = [], AFTER = [], ANY = [];
+  function define(name, entry) {
+    FOES[name] = Object.freeze({ name, ...entry });
+    if (entry.valueAny) ANY.push(entry.valueAny);
+    return FOES[name];
+  }
+  // World steps that are not one bud's (Moon Jelly vents before the buds, fibcap sneezes after them).
+  function onTick(when, fn) { (when === 'before' ? BEFORE : AFTER).push(fn); }
+  const entryOf = bud => bud && bud.foe ? FOES[bud.foe] || null : null;
+  const isFoe = bud => Boolean(entryOf(bud));
+  const names = () => Object.keys(FOES);
+  const familyOf = name => FOES[name] ? FOES[name].family || name : name;
+  // A strike is credited when a seed the player fired touches the piece, or a chain that seed started reaches it.
+  function credited(game, chain) { return !game.scripted && (chain ? game.due != null && game.due.by != null : Boolean(game.striker)); }
+  const isPower = (game, seed) => Boolean(seed && seed.power || game.powerPart || game.powerBoss);
+  // A credited, unpowered seed's own touch: the only strike a foe's special rule answers.
+  const direct = (game, chain, isCredited, seed) => !chain && isCredited && !isPower(game, seed);
+
+  // A plain foe bud with the registry defaults; extra fields win.
+  function piece(name, id, group, x, y, extra) {
+    const e = FOES[name] || {}, hp = extra && extra.hp || e.hp || 1;
+    const bud = { id, group, x, y, baseX: x, startY: y, r: e.r || 11, type: e.type || 'lilac', relay: false, hp, maxHp: hp,
+      shield: false, fall: e.fall ?? 1, sway: 0, swayW: 0, swayPhase: 0, foe: name };
+    if (e.inert) bud.inert = true;
+    if (e.decoy) bud.decoy = true;
+    return Object.assign(bud, extra || {});
+  }
+  // Builds the buds for one `foes` entry of a wave spec. A one-bud foe has id = group = `<tag>-foe<i>`; a foe of several
+  // buds shares that group and numbers its ids `<group>-<k>`.
+  function make(name, spot, tag, i, levelId, number) {
+    const e = FOES[name];
+    if (!e || !Number.isFinite(spot[1]) || !Number.isFinite(spot[2])) return [];
+    if (e.make) return e.make(spot, tag, i, levelId, number);
+    const id = `${tag}-foe${i}`, opts = spot[3] || {};
+    return [piece(name, id, id, spot[1], spot[2], opts.type ? { type: opts.type } : null)];
+  }
+  function initBud(game, bud) { bud.born = game.foeClock || 0; const e = entryOf(bud); if (e && e.init) e.init(game, bud); }
+  // A wave starts: the foe clock, vents and shared lists reset, and every foe on the board starts. Returns whether this
+  // wave has (or will get) foes, which the rush tick uses to skip all foe work on every other wave.
+  function init(game, spec) {
+    game.foeClock = 0;
+    // Vents send Moon Jellies, so they only run once the jelly is defined.
+    game.vents = FOES.jelly ? (spec && spec.vents || []).map(v => ({ ...v, made: 0, nextAt: v.first })) : [];
+    game.foeLooks = game.vents.length ? ['jelly'] : []; // B4: the jelly's look draws the vents before the first jelly is up
+    game.sneezes = []; game.worms = new Map();
+    let any = game.vents.length > 0;
+    for (const bud of game.buds) if (bud.foe) { any = true; initBud(game, bud); }
+    if (!any && game.drops) any = game.drops.some(drop => drop.buds.some(bud => bud.foe));
+    return any;
+  }
+  // A foe arriving mid-wave (a drop, a guardian's spawn, a dripped ink drop) joins the board and starts.
+  function place(game, bud) {
+    if (!game.buds.includes(bud)) game.buds.push(bud);
+    game.foeWave = true;
+    initBud(game, bud);
+    return bud;
+  }
+  function step(game, dt) {
+    const frozen = game.lullaby > 0, fdt = frozen ? 0 : dt;
+    if (!frozen) game.foeClock = (game.foeClock || 0) + dt;
+    for (let i = 0; i < BEFORE.length; i++) BEFORE[i](game, fdt);
+    // A foe step may add buds (drops, splits); those start stepping next tick. The common case allocates nothing.
+    const buds = game.buds;
+    let any = false;
+    for (let i = 0; i < buds.length; i++) if (buds[i].foe && !buds[i].bloomed) { any = true; break; }
+    if (any) {
+      for (const bud of buds.filter(other => other.foe && !other.bloomed)) {
+        if (bud.born === undefined) initBud(game, bud);
+        const e = entryOf(bud);
+        if (e && e.step && !bud.bloomed) e.step(game, bud, fdt);
+      }
+    }
+    for (let i = 0; i < AFTER.length; i++) AFTER[i](game, fdt);
+  }
+  function contact(game, bud, ball, hit) { const e = entryOf(bud); return e && e.contact ? e.contact(game, bud, ball, hit) || null : null; }
+  function guard(game, bud, hit, seed) { const e = entryOf(bud); return Boolean(e && e.guard && e.guard(game, bud, hit, seed || {})); }
+  function hit(game, bud, chain, isCredited, seed) {
+    const e = entryOf(bud);
+    return e && e.hit ? e.hit(game, bud, chain, isCredited, seed || null) || null : null;
+  }
+  function bloomed(game, bud, chain, credit) { const e = entryOf(bud); if (e && e.bloomed) e.bloomed(game, bud, chain, credit); }
+  function popped(game, bud, kind) { const e = entryOf(bud); if (e && e.popped) e.popped(game, bud, kind); }
+  // A puffcap or roll chain takes an inert piece only where its foe says so (a fibcap); an unbloomed real foe always.
+  function chainable(bud) {
+    const e = entryOf(bud);
+    if (!e || bud.bloomed || bud.bossPart) return false;
+    return e.chainable ? Boolean(e.chainable(bud)) : !bud.inert;
+  }
+  function breach(game, bud) {
+    const e = entryOf(bud);
+    if (!e) return 'life';
+    return (e.breach && e.breach(game, bud)) || (bud.inert ? 'fizzle' : 'life');
+  }
+  function owns(bud) { const e = entryOf(bud); return Boolean(e && e.owns && e.owns(bud)); }
+  // The bot's movers: unbloomed foes it must forecast (a rolling rolypoly, a swooping bat, a mole about to pop up).
+  function moves(game) {
+    const list = [];
+    for (const bud of game.buds) {
+      const e = entryOf(bud);
+      if (!e || bud.bloomed || !e.predict || (e.moving && !e.moving(game, bud))) continue;
+      if (bud.hidden && !(e.resurfaces && e.resurfaces(game, bud))) continue;
+      list.push(bud);
+    }
+    return list;
+  }
+  // Writes where the piece will be `seconds` from now into out (x, y, r, flags: 1 hidden, 2 ghost).
+  function predict(game, bud, seconds, out) {
+    out.x = bud.x; out.y = bud.y; out.r = bud.r; out.flags = (bud.hidden ? 1 : 0) | (bud.ghost ? 2 : 0);
+    const e = entryOf(bud);
+    if (e && e.predict) e.predict(game, bud, seconds, out);
+    return out;
+  }
+  // The bot's view of a shot at hit.bud: -1 when it is wrong (a decoy), else a bonus added to its score.
+  function value(game, hit, prepared) {
+    const bud = hit.bud, e = entryOf(bud);
+    if (bud.decoy) return -1;
+    let v = 0;
+    if (e && e.value) { const own = e.value(game, bud, hit, prepared); if (own === -1) return -1; v += own || 0; }
+    for (let i = 0; i < ANY.length; i++) v += ANY[i](game, hit, prepared) || 0;
+    return v;
+  }
+  // When a wave ends (cleared, its guardian bloomed, the level lost), leftover inert pieces go with a soft puff.
+  function sweep(game, why) {
+    const left = game.buds.filter(bud => bud.foe && bud.inert && !bud.bloomed);
+    for (const bud of left) game._pop(bud, bud.foe + ':fizzle');
+    if (why === 'boss' || why === 'lost') game.vents = [];
+  }
+  // A vent with jellies still to send holds the wave open.
+  const holding = game => Boolean(game.vents && game.vents.some(v => v.made < v.count));
+  // The first-contact hint of a family, or of the family a kind belongs to (hint('molehill') is the mole's).
+  function hint(family) {
+    if (FOES[family]) family = familyOf(family);
+    for (const name in FOES) if (familyOf(name) === family && FOES[name].hint) return FOES[name].hint;
+    return '';
+  }
+
+  // The straight line a rolypoly would bowl along from (bud) away from a touch with normal (nx, ny): which pieces it
+  // would cross (at most 4) and whether it would reach an open guardian. Pure; the bot and the aim preview use it.
+  const ROLL_REACH = 363;
+  function rollPreview(game, bud, nx, ny) {
+    const len = Math.hypot(nx, ny) || 1, dx = -nx / len, dy = -ny / len;
+    let touches = 0, boss = false;
+    for (const other of game.buds) {
+      if (other === bud || other.bloomed || other.hidden || other.ghost || other.gift) continue;
+      if (!(other.boss || other.bossPart || !other.inert || chainable(other))) continue;
+      const px = other.x - bud.x, py = other.y - bud.y, along = clamp(px * dx + py * dy, 0, ROLL_REACH);
+      if (Math.hypot(px - dx * along, py - dy * along) > 12 + other.r) continue;
+      if (other.boss) { if (game.bossState && game.bossState.vulnerable) boss = true; continue; }
+      if (touches < 4) touches++;
+    }
+    return { touches, boss };
+  }
+
+  // ---------------------------------------------------------------------------------------------------------------
+  // The foes. Each lives in its own block so they stay independent.
+  // ---------------------------------------------------------------------------------------------------------------
+
+  // ── Rolypoly (Level 2, `rolypoly`) ──
+  // A shy pill bug, the first piece you use as a weapon. A seed's touch curls it into a ball that bowls away from the
+  // touch, like a cue ball: where the seed lands decides the line. It rolls ROLL.speed px/s for ROLL.time s or until it
+  // has bowled into ROLL.touches buds, bouncing off walls and rocks, and each bud it meets blooms outright as a chain
+  // the seed earned. Then it uncurls and blooms itself. While it rolls it is a ghost (seeds pass through it), and a soft floor
+  // above the line turns it back, so a roll never costs a life. A chain, a power or an uncredited strike just blooms it.
+  const ROLL = { curl: .08, time: 1.1, speed: 330, touches: 4, r: 12, floor: 20 };
+  function rollStep(game, bud, dt) {
+    const roll = bud.roll, t = game.foeClock - bud.born, since = t - roll.t0;
+    if (roll.done || dt <= 0 || since < ROLL.curl) return;
+    if (!roll.rolling) { roll.rolling = true; game.event('foe', { kind: 'rolypoly:roll', bud, x: bud.x, y: bud.y, dx: roll.dx, dy: roll.dy }); }
+    if (since >= ROLL.curl + ROLL.time || roll.touches >= ROLL.touches) {
+      // Done: it uncurls and blooms itself, credited to the seed that bowled it.
+      roll.done = true; bud.ghost = false;
+      game.event('foe', { kind: 'rolypoly:end', bud, x: bud.x, y: bud.y, touches: roll.touches });
+      game.pending.push(game._linkBy(bud.id, game.time, bud, 'roll', roll.by));
+      return;
+    }
+    let remaining = dt;
+    for (let i = 0; i < 4 && remaining > 1e-7; i++) {
+      // The soft floor: a ball heading for the line turns back up before it gets there.
+      if (bud.y + ROLL.r > game.dangerY - ROLL.floor) roll.dy = -Math.abs(roll.dy);
+      const d = { x: roll.dx * ROLL.speed * remaining, y: roll.dy * ROLL.speed * remaining };
+      const h = game.foeSweep(bud, d, ROLL.r, bud);
+      if (!h) { bud.x += d.x; bud.y += d.y; roll.dist += Math.hypot(d.x, d.y); break; }
+      bud.x += d.x * h.t; bud.y += d.y * h.t; roll.dist += Math.hypot(d.x, d.y) * h.t; remaining *= 1 - h.t;
+      const dot = roll.dx * h.nx + roll.dy * h.ny;
+      roll.dx -= 2 * dot * h.nx; roll.dy -= 2 * dot * h.ny;
+      bud.x += h.nx * .08; bud.y += h.ny * .08;
+      roll.bumpAt = game.foeClock; roll.nx = h.nx; roll.ny = h.ny;
+      if (h.kind === 'bud' && h.item.rolledBy !== bud.id) {
+        // Each bud it bowls into blooms outright as a chain the seed earned, one rising note per pin. A guardian or a
+        // geode takes one ordinary chain hit instead.
+        h.item.rolledBy = bud.id; roll.touches++;
+        const whole = !h.item.boss && !h.item.bossPart && !h.item.geode;
+        game.pending.push(game._linkBy(h.item.id, game.time + .02, bud, 'roll', roll.by, whole));
+        game.event('foe', { kind: 'rolypoly:bowl', bud, x: bud.x, y: bud.y, k: roll.touches, nx: h.nx, ny: h.ny, target: h.item });
+        if (roll.touches >= ROLL.touches) break;
+      } else if (h.kind !== 'bud') game.event('foe', { kind: 'rolypoly:bump', bud, x: bud.x, y: bud.y, nx: h.nx, ny: h.ny });
+    }
+    bud.baseX = bud.x;
+  }
+  define('rolypoly', {
+    r: ROLL.r, hp: 1, fall: 1, type: 'lilac', hint: 'Bump a rolypoly and it bowls into the rest!',
+    make(spot, tag, i) { const id = `${tag}-foe${i}`; return [piece('rolypoly', id, id, spot[1], spot[2], { roll: null })]; },
+    owns: bud => Boolean(bud.roll),
+    hit(game, bud, chain, isCredited, seed) {
+      if (bud.roll || !direct(game, chain, isCredited, seed)) return null;
+      const n = seed.bossContact || { nx: 0, ny: 1 };
+      bud.roll = { t0: game.foeClock - bud.born, by: seed.id, dx: -n.nx, dy: -n.ny, dist: 0, touches: 0, rolling: false, done: false, bumpAt: -100, nx: 0, ny: 0 };
+      bud.ghost = true;
+      game.event('foe', { kind: 'rolypoly:curl', bud, x: bud.x, y: bud.y, dx: -n.nx, dy: -n.ny });
+      return { blocked: true, feed: true };
+    },
+    step(game, bud, dt) { if (bud.roll) rollStep(game, bud, dt); },
+    bloomed(game, bud) { bud.ghost = false; },
+    // Idle it is a plain sitter; rolling it is a ghost the bot's seeds would pass through.
+    moving: (game, bud) => Boolean(bud.roll),
+    predict(game, bud, seconds, out) { if (bud.roll) out.flags |= 2; },
+    value(game, bud, hit) {
+      if (bud.roll) return 0;
+      const p = rollPreview(game, bud, hit.nx, hit.ny);
+      return 12 * p.touches + (p.boss ? 40 : 0);
+    }
+  });
+
+  // ── Peekaboo Mole (Level 2, `mole`) ──
+  // A mole in sunglasses living under a row of three molehills, 34 px apart. The hills are solid dirt: a seed's own
+  // touch bounces off them with no refund. Every so often one hill rumbles for MOLE.rumble s (the tell: crumbs hop, the
+  // mound wobbles, a low thump twice), then the mole pops up out of it for `up` s while that hill lets seeds through to
+  // him (a ghost), and ducks back down over MOLE.duck s, still hittable. Bonk him and he blooms, and each of his hills
+  // blooms after him, MOLE.link s apart, as a chain the seed earned. Then the next hill rumbles. He stops ducking once
+  // he is low on the board (his hill's y + 6 past MOLE.deep) or has no other hill to go to, and if a chain blooms every hill while
+  // he hides, he rumbles up where the last one was and stays up. Chains, powers and uncredited strikes are plain: they
+  // bloom a hill where it stands and reach the mole even underground. Every time here is on the foe clock, so a
+  // Lullaby holds the whole dance still, and the next hill to pop is public from its rumble on (the bot leads it then).
+  // Hill k of group G has id `${G}-${k}` and slot k; the mole is `${G}-3`, perched MOLE.lift px above its hill.
+  const MOLE = { wait: .5, rumble: .7, duck: .2, thump: .35, lift: 13, spread: 34, deep: 360, link: .1, up: 1.5 };
+  function moleHills(game, mole) {
+    const hills = [null, null, null];
+    for (const bud of game.buds) if (bud.group === mole.group && bud.foe === 'molehill' && bud.slot >= 0 && bud.slot < 3) hills[bud.slot] = bud;
+    return hills;
+  }
+  const openHill = hill => Boolean(hill && !hill.bloomed);
+  function moleOf(game, hill) {
+    for (const bud of game.buds) if (bud.group === hill.group && bud.foe === 'mole') return bud;
+    return null;
+  }
+  // The next hill to pop: the first from hash01(G, 0) * 3, then one or two hills on from the one he left (never the
+  // same one twice while another is open), stepping past bloomed hills. -1 when every hill has bloomed.
+  function molePick(mole, hills) {
+    const cur = mole.left, h = hash01(mole.group, mole.n);
+    const base = cur < 0 ? Math.floor(h * 3) : (cur + 1 + Math.floor(h * 2)) % 3;
+    for (let j = 0; j < 3; j++) { const k = (base + j) % 3; if (k !== cur && openHill(hills[k])) return k; }
+    return openHill(hills[cur]) ? cur : -1;
+  }
+  // He rides his hill (the hills fall as usual); with no open hill under him he is loose and falls on his own.
+  function molePerch(mole, hills) {
+    const hill = mole.hill >= 0 ? hills[mole.hill] : null;
+    if (openHill(hill) && !mole.anchor) { mole.loose = false; mole.x = mole.baseX = hill.x; mole.y = hill.y - MOLE.lift; }
+    else mole.loose = true;
+    return hill;
+  }
+  // A rumble starts at foe-clock time `at`: the chosen hill learns when he will pop out of it (rumbleUntil) and when he
+  // will be gone again (downAt); the bot reads both. With no hill left, he rumbles where the last one bloomed (the lost
+  // anchor) and will stay up.
+  function moleRumble(game, mole, hills, at) {
+    const k = molePick(mole, hills);
+    if (k < 0) {
+      const last = hills[mole.last];
+      if (last) { mole.x = mole.baseX = last.x; mole.y = last.y - MOLE.lift; }
+      mole.anchor = true;
+    }
+    mole.hill = k; mole.phase = 'rumble'; mole.hidden = true;
+    mole.rumbleUntil = mole.until = at + MOLE.rumble; mole.thumpAt = at;
+    mole.downAt = mole.anchor ? Infinity : mole.rumbleUntil + mole.up + MOLE.duck;
+    if (k >= 0) { hills[k].rumbleUntil = mole.rumbleUntil; hills[k].downAt = mole.downAt; }
+    molePerch(mole, hills);
+  }
+  // He stops ducking for good: low on the board, or nowhere else to go.
+  function moleStay(mole, hill) {
+    mole.phase = 'stay'; mole.until = Infinity; mole.downAt = Infinity;
+    if (hill && mole.hill >= 0) hill.downAt = Infinity;
+  }
+  // Low on the board: his hill's y + 6 is past MOLE.deep, so the no-dive rule keeps him up.
+  const moleLow = y => y + MOLE.lift + 6 > MOLE.deep;
+  // When the bot should expect him under again: never, once the no-dive rule will keep him up.
+  function moleDownAt(game, mole) {
+    if (mole.phase !== 'rumble' && mole.phase !== 'up') return mole.downAt;
+    const hills = moleHills(game, mole), hill = mole.hill >= 0 ? hills[mole.hill] : null;
+    if (!hills.some(other => other !== hill && openHill(other))) return Infinity;
+    const v = (game.descentSpeed || 0) * (mole.fall ?? 1);
+    if (moleLow(mole.y)) return Infinity;
+    return v > 0 && game.foeClock + (MOLE.deep - MOLE.lift - 6 - mole.y) / v < mole.downAt - MOLE.duck ? Infinity : mole.downAt;
+  }
+  function moleStep(game, mole, dt) {
+    const hills = moleHills(game, mole);
+    molePerch(mole, hills);
+    if (dt <= 0) return;
+    const now = game.foeClock + 1e-9, open = hills.filter(openHill);
+    for (let guard = 0; guard < 6; guard++) {
+      const hill = mole.hill >= 0 ? hills[mole.hill] : null;
+      // Every hill bloomed while he hid: he comes up where the last one was.
+      if (mole.hidden && !mole.anchor && !open.length) { moleRumble(game, mole, hills, game.foeClock); continue; }
+      if (mole.phase === 'wait') { if (now < mole.until) break; moleRumble(game, mole, hills, mole.until); continue; }
+      if (mole.phase === 'rumble') {
+        // The rumbling hill bloomed under him (a chain): the next open hill takes up the rumble, from the start.
+        if (!mole.anchor && !openHill(hill)) { moleRumble(game, mole, hills, game.foeClock); continue; }
+        while (mole.thumpAt <= now && mole.thumpAt < mole.until - 1e-9) {
+          game.event('foe', { kind: 'mole:rumble', bud: mole, x: mole.x, y: mole.y + MOLE.lift, n: Math.round((mole.thumpAt - mole.until + MOLE.rumble) / MOLE.thump) + 1, until: mole.until });
+          mole.thumpAt += MOLE.thump;
+        }
+        if (now < mole.until) break;
+        // Peekaboo: up he pops, and the hill lets seeds through to him.
+        mole.hidden = false; mole.n++; mole.left = mole.hill;
+        if (hill) hill.ghost = true;
+        if (mole.anchor) moleStay(mole, null); else { mole.phase = 'up'; mole.until = mole.rumbleUntil + mole.up; }
+        game.event('foe', { kind: 'mole:pop', bud: mole, x: mole.x, y: mole.y, n: mole.n });
+        continue;
+      }
+      if (mole.phase === 'up') {
+        // The no-dive rule: once he is low, or has no other open hill, he stays up.
+        if (moleLow(mole.y) || !open.some(other => other !== hill)) { moleStay(mole, hill); break; }
+        if (now < mole.until) break;
+        mole.phase = 'duck'; mole.until += MOLE.duck;
+        game.event('foe', { kind: 'mole:duck', bud: mole, x: mole.x, y: mole.y });
+        continue;
+      }
+      if (mole.phase === 'duck') {
+        if (now < mole.until) break;
+        mole.hidden = true;
+        if (hill) hill.ghost = false;
+        moleRumble(game, mole, hills, mole.until);
+        continue;
+      }
+      break;
+    }
+  }
+  define('molehill', {
+    r: 12, hp: 1, fall: 1, type: 'gold', family: 'mole',
+    // Solid dirt: a seed's own touch bounces off with no refund. A chain, a power or an uncredited strike blooms it.
+    guard: (game, hill, hit, seed) => direct(game, false, credited(game, false), seed),
+    // The bot forecasts the hill the mole is heading for, since it lets seeds through while he is up.
+    moving: (game, hill) => hill.downAt > game.foeClock,
+    predict(game, hill, seconds, out) {
+      const ahead = Math.max(0, seconds - (game.lullaby || 0)), at = game.foeClock + ahead;
+      out.y = hill.y + (game.descentSpeed || 0) * (hill.fall ?? 1) * ahead;
+      const mole = moleOf(game, hill), end = mole && !mole.bloomed && mole.hill === hill.slot ? moleDownAt(game, mole) : hill.downAt;
+      out.flags = at >= hill.rumbleUntil - 1e-9 && at < end - 1e-9 ? 2 : 0;
+    },
+    value: () => -1,
+    bloomed(game, hill) {
+      hill.ghost = false;
+      const mole = moleOf(game, hill);
+      if (mole) mole.last = hill.slot;
+    }
+  });
+  define('mole', {
+    r: 10, hp: 1, fall: 1, type: 'coral', family: 'mole', hint: 'Moles pop up! Watch which hill rumbles.',
+    // [name, x, y, {up}]: three hills in a row centered on (x, y), and the mole above them (its authored spot only
+    // keeps the layout check honest; init puts him under his first hill).
+    make(spot, tag, i) {
+      const G = i == null ? tag : `${tag}-foe${i}`, x = spot[1], y = spot[2], opts = spot[3] || {};
+      const hills = [-1, 0, 1].map((side, k) => piece('molehill', `${G}-${k}`, G, x + side * MOLE.spread, y, { slot: k, rumbleUntil: -1, downAt: -1 }));
+      const mole = piece('mole', `${G}-3`, G, x, y - 26, { hidden: true, up: opts.up || MOLE.up, phase: 'wait', until: 0, hill: -1, left: -1, last: -1,
+        n: 0, rumbleUntil: -1, downAt: -1, thumpAt: 0, loose: false, anchor: false, bonked: false });
+      return [...hills, mole];
+    },
+    init(game, mole) {
+      Object.assign(mole, { hidden: true, phase: 'wait', until: mole.born + MOLE.wait, n: 0, left: -1, last: -1, rumbleUntil: -1, downAt: -1, anchor: false, bonked: false });
+      const hills = moleHills(game, mole);
+      mole.hill = molePick(mole, hills);
+      molePerch(mole, hills);
+    },
+    owns: mole => !mole.bloomed && !mole.loose,
+    step: moleStep,
+    // Bonk: his hills bloom one after another, nearest first, as chains of whoever bloomed him.
+    bloomed(game, mole, chain, credit) {
+      const hills = moleHills(game, mole), by = credit ? credit.by : null;
+      mole.hidden = false; mole.phase = 'done';
+      for (const hill of hills) if (hill) { hill.ghost = false; hill.rumbleUntil = hill.downAt = -1; }
+      hills.filter(openHill).sort((a, b) => Math.hypot(a.x - mole.x, a.y - mole.y) - Math.hypot(b.x - mole.x, b.y - mole.y) || a.slot - b.slot)
+        .forEach((hill, k) => game.pending.push(game._linkBy(hill.id, game.time + MOLE.link * (k + 1), mole, 'mole', by)));
+      if (!chain && credit && credit.ball && !isPower(game, credit.ball)) {
+        mole.bonked = true;
+        game.event('foe', { kind: 'mole:bonk', bud: mole, x: mole.x, y: mole.y });
+      }
+    },
+    // The bot: he moves while a pop is coming or under way; underground he is hidden (flag 1) until his rumble ends.
+    moving: (game, mole) => mole.phase === 'rumble' || mole.phase === 'up' || mole.phase === 'duck',
+    resurfaces: (game, mole) => mole.phase === 'rumble',
+    predict(game, mole, seconds, out) {
+      const ahead = Math.max(0, seconds - (game.lullaby || 0)), at = game.foeClock + ahead;
+      out.y = mole.y + (game.descentSpeed || 0) * (mole.fall ?? 1) * ahead;
+      out.flags = mole.phase !== 'wait' && at >= mole.rumbleUntil - 1e-9 && at < moleDownAt(game, mole) - 1e-9 ? 0 : 1;
+    },
+    value: () => 30
+  });
+
+  // ── Fibcap (Level 3, `fibcap`) ──
+  // A fibbing mushroom: lilac like a real bud, but it wears white zig-zag stripes and a sly wink, because it is a decoy.
+  // A seed the player aims at it makes it sneeze: it pops (it pays nothing) and, a beat later (SNEEZE.delay), a gust
+  // shoves every plain bud within SNEEZE.reach px SNEEZE.dist px straight away from it, scattering a cluster the player
+  // had lined up. A chain (a puffcap's, a roll's), a power or an uncredited strike pops it quietly: that is how to clear
+  // one. It never holds a wave or costs a life: at the line it fizzles, and when the wave ends it is swept away.
+  // bonus / skim*: the practice bot's view (a puffcap beside a fibcap is worth more; a shot skimming one is risky).
+  const SNEEZE = { delay: .18, dur: .25, dist: 26, reach: 74, floor: 44, edge: 22, keep: .7, bonus: 20, skim: 40, skimAlong: 160, skimSide: 14 };
+  // Queues a sneeze at (x, y) on the foe clock. Mother Morel's painted caps sneeze through it too
+  // (Foes.FOES.fibcap.sneeze(game, x, y)); a record is { at, from, x, y, dur, dist } and the art plays its gust from it.
+  function sneeze(game, x, y) {
+    const now = game.foeClock || 0;
+    if (!game.sneezes) game.sneezes = [];
+    game.sneezes.push({ at: now + SNEEZE.delay, from: now, x, y, dur: SNEEZE.dur, dist: SNEEZE.dist });
+    game.foeWave = true;
+  }
+  // Who a sneeze blows away: plain unbloomed buds only. Guardians and their parts, gifts, carried buds and every foe keep
+  // their own closed-form tracks, so the gust never touches them.
+  const blowable = bud => !bud.bloomed && !bud.gift && !bud.inert && !bud.boss && !bud.bossPart && !bud.foe && !bud.carried;
+  // The world step after the buds: each sneeze, once due, pushes its targets radially with a smoothstep over `dur`.
+  // Every tick adds only the eased step since the last one, so the push is the same at any frame rate and simply waits
+  // through a Lullaby (the foe clock stops). A push never shoves a bud down past dangerY - SNEEZE.floor - r (a bud
+  // already lower is left there, never pulled up), nor out past the side walls.
+  onTick('after', game => {
+    const list = game.sneezes;
+    if (!list || !list.length) return;
+    const clock = game.foeClock;
+    for (const s of list) {
+      if (clock < s.at - 1e-9 || s.e >= 1) continue;
+      if (!s.targets) {
+        s.e = 0; s.targets = [];
+        for (const bud of game.buds) {
+          if (!blowable(bud)) continue;
+          const dx = bud.x - s.x, dy = bud.y - s.y, d = Math.hypot(dx, dy);
+          if (d > SNEEZE.reach) continue;
+          // A bud right on the spot is blown a stable way (never Math.random).
+          const a = d > 1e-6 ? null : hash01(bud.id, 7) * TAU;
+          s.targets.push({ bud, ux: a === null ? dx / d : Math.cos(a), uy: a === null ? dy / d : Math.sin(a) });
+        }
+        s.n = s.targets.length;
+        game.event('foe', { kind: 'fibcap:gust', x: s.x, y: s.y, n: s.n });
+      }
+      const e = smooth((clock - s.at) / Math.max(1e-6, s.dur)), push = (e - s.e) * s.dist;
+      s.e = e;
+      for (const { bud, ux, uy } of s.targets) {
+        if (bud.bloomed) continue;
+        const r = bud.r || 11, x = clamp(bud.x + ux * push, SNEEZE.edge + r, 420 - SNEEZE.edge - r);
+        bud.baseX += x - bud.x; bud.x = x;
+        bud.y = Math.min(bud.y + uy * push, Math.max(bud.y, game.dangerY - SNEEZE.floor - r));
+      }
+    }
+    // A finished sneeze stays a moment for its gust art, then goes.
+    if (list.some(s => clock >= s.at + SNEEZE.keep)) game.sneezes = list.filter(s => clock < s.at + SNEEZE.keep);
+  });
+  define('fibcap', {
+    r: 12, hp: 1, fall: 1, type: 'lilac', inert: true, decoy: true, hint: "Striped caps are fibcaps. Don't shoot them!",
+    // A guardian's spawn passes i = null and gets id = group = tag.
+    make(spot, tag, i) { const id = i == null ? tag : `${tag}-foe${i}`; return [piece('fibcap', id, id, spot[1], spot[2])]; },
+    // A puffcap or a roll may take it (and pops it quietly), so a chain is the clean way to clear one.
+    chainable: () => true,
+    // A Sunburst opens at its first touch but only blooms open buds, so the fibcap it touched pops quietly right here.
+    contact(game, bud, ball) { if (ball && ball.power === 'sunburst') game._pop(bud, 'fibcap:pop'); return null; },
+    hit(game, bud, chain, isCredited, seed) {
+      if (!direct(game, chain, isCredited, seed)) return { pop: true, quiet: true };
+      sneeze(game, bud.x, bud.y);
+      return { pop: true, kind: 'sneeze' };
+    },
+    breach: () => 'fizzle',
+    // The bot never shoots a fibcap (it is a decoy, so Foes.value is -1), but a real puffcap beside one is worth more:
+    // its bloom pops the fibcap for free. Like a careful player it also shies away from a shot whose last stretch skims
+    // past a fibcap just before its target, where a little aim error would make it sneeze.
+    valueAny(game, hit) {
+      const bud = hit && hit.bud;
+      if (!bud || bud.foe === 'fibcap') return 0;
+      const nx = hit.nx || 0, ny = hit.ny || 0, reach = (bud.r || 11) + SNEEZE.skimSide;
+      let bonus = 0, skim = false;
+      for (const other of game.buds) {
+        if (other.foe !== 'fibcap' || other.bloomed) continue;
+        const vx = other.x - bud.x, vy = other.y - bud.y, along = vx * nx + vy * ny;
+        if (bud.puff && Math.hypot(vx, vy) <= SNEEZE.reach) bonus = SNEEZE.bonus;
+        if (along > 0 && along < SNEEZE.skimAlong && Math.abs(vx * ny - vy * nx) < other.r + reach) skim = true;
+      }
+      return bonus - (skim ? SNEEZE.skim : 0);
+    },
+    sneeze, SNEEZE
+  });
+
+  // ── Drippy Inkcap (Level 3, `inkcap`) ──
+  // A shaggy ink cap that weeps. It is a real 2-hit bud (it costs a life at the line and blooms like any other), but
+  // every INK.every s (from INK.first s after it arrives) it wobbles, swells a bead of ink under its fringe for
+  // INK.swell s and lets a drop fall. A drop falls INK.speed px/s and gulps any plain seed that touches it: the seed is
+  // gone and nothing blooms. A power seed (Bee Line, Sunburst, Dandelion) pops a drop instead. Drops are inert, each its
+  // own group (so one reaching the line fizzles alone and never costs a life or takes its cap with it), at most INK.max
+  // alive per cap (a drip is skipped while the cap has that many), and each dries up INK.life s after it falls.
+  const INK = { first: 1.5, every: 2.2, swell: .5, max: 3, speed: 110, life: 3.2, r: 6, gap: 4 };
+  function inkAlive(game, cap) {
+    let n = 0;
+    for (const bud of game.buds) if (bud.foe === 'inkdrop' && bud.cap === cap.id && !bud.bloomed) n++;
+    return n;
+  }
+  // The drip clock: dripAt and swellAt are on the foe clock, so the art's wobble and bead match the rule exactly.
+  function inkInit(game, cap) { cap.drips = 0; cap.dripAt = cap.born + INK.first; cap.swellAt = cap.dripAt - INK.swell; }
+  function inkDrip(game, cap, n) {
+    const y = cap.y + cap.r + INK.gap, id = `${cap.id}-ink-${n}`;
+    // No spawnAt: the drop is the bead that was already hanging there, so it must not pop in from nothing.
+    const drop = piece('inkdrop', id, id, cap.x, y, { y0: y, cap: cap.id, hitAt: -100, bloomed: false, bloomAt: -100 });
+    place(game, drop);
+    cap.drippedAt = game.foeClock;
+    game.event('foe', { kind: 'inkcap:drip', bud: cap, x: cap.x, y, n });
+  }
+  define('inkcap', {
+    r: 12, hp: 2, fall: .9, type: 'lilac', hint: 'Inkcaps drip! Drops gobble your seeds.', INK,
+    make(spot, tag, i) { const id = i == null ? tag : `${tag}-foe${i}`; return [piece('inkcap', id, id, spot[1], spot[2])]; },
+    init: inkInit,
+    step(game, bud) {
+      if (bud.dripAt == null) inkInit(game, bud);
+      while (game.foeClock >= bud.dripAt - 1e-9) {
+        const n = bud.drips++;
+        if (inkAlive(game, bud) < INK.max) inkDrip(game, bud, n);
+        bud.dripAt = bud.born + INK.first + INK.every * bud.drips; bud.swellAt = bud.dripAt - INK.swell;
+      }
+      // The art skips the swell while the next drip would be skipped.
+      bud.inkFull = inkAlive(game, bud) >= INK.max;
+    },
+    value: () => 10
+  });
+  define('inkdrop', {
+    r: INK.r, hp: 1, fall: 0, type: 'lilac', inert: true, family: 'inkcap',
+    // Mother Morel's ink rain makes drops with no cap: Foes.make('inkdrop', ['inkdrop', x, y], tag, null), then place().
+    make(spot, tag, i) {
+      const id = i == null ? tag : `${tag}-foe${i}`;
+      return [piece('inkdrop', id, id, spot[1], spot[2], { y0: spot[2], cap: null, hitAt: -100, bloomed: false, bloomAt: -100 })];
+    },
+    init(game, bud) { if (!Number.isFinite(bud.y0)) bud.y0 = bud.y; },
+    owns: () => true,
+    step(game, bud) {
+      const t = game.foeClock - bud.born;
+      if (t >= INK.life - 1e-9) { game._pop(bud, 'inkdrop:fizzle'); return; }
+      bud.y = bud.y0 + INK.speed * t;
+    },
+    // It meets a seed before every other rule: a plain seed is gulped (gone, a touch, nothing blooms); a power seed goes
+    // on to pop it (a Bee Line through its strike, a Sunburst right here, since a Sunburst only blooms open buds).
+    contact(game, bud, ball) {
+      if (isPower(game, ball)) { if (ball && ball.power === 'sunburst') game._pop(bud, 'inkdrop:pop'); return null; }
+      game._pop(bud, 'inkcap:gulp');
+      return 'absorb';
+    },
+    // Any strike that reaches it (a power, a scripted loop) pops it quietly.
+    hit: () => ({ pop: true, quiet: true }),
+    breach: () => 'fizzle',
+    moving: () => true,
+    // Closed form: where it will be `seconds` from now (it waits out a Lullaby), hidden once it has dried up or reached the line.
+    predict(game, bud, seconds, out) {
+      const t = game.foeClock - bud.born + Math.max(0, seconds - Math.max(0, game.lullaby || 0));
+      out.y = bud.y0 + INK.speed * t;
+      if (t >= INK.life - 1e-9 || out.y + bud.r >= game.dangerY) out.flags |= 1;
+    },
+    value: () => -1
+  });
+
+  // ── Chroma Crystal (Level 4, `chroma`) ──
+  // A flower bud locked in a crystal prism of one color, the color's glyph on its face (sun-dot gold, heart coral,
+  // crescent lilac, drop sky, star poppy, so it reads without seeing color). It opens only for a seed of its own color:
+  // any other seed glances off it (a guard: no refund). A matching seed cracks it open: it blooms as usual and pays
+  // CHROMA.bonus extra sun charge on top ("Perfect match!"). A chain, a power or an uncredited strike blooms it plainly,
+  // so strike loops end. From Level 4 the launcher and the seed tray show the next seeds' colors and glyphs.
+  const CHROMA = { r: 12, bonus: 1, worth: 10, urgent: 60, soon: 12, colors: ['gold', 'coral', 'lilac', 'sky', 'poppy'] };
+  // The color a seed would bring: its own, or (for the app's look ahead, which has no seed yet) the launcher's.
+  const seedColor = (game, seed) => seed && seed.type || game.nextType;
+  define('chroma', {
+    r: CHROMA.r, hp: 1, fall: 1, hint: 'Crystals open only for a seed of their color.',
+    // The color is required ([chroma, x, y, {type}]); a crystal of no known color is not made at all.
+    make(spot, tag, i) {
+      const id = `${tag}-foe${i}`, type = (spot[3] || {}).type;
+      return CHROMA.colors.includes(type) ? [piece('chroma', id, id, spot[1], spot[2], { type })] : [];
+    },
+    // A seed of another color glances off. Powers always open it; the tutorial's script never meets one.
+    guard: (game, bud, hit, seed) => !game.scripted && !isPower(game, seed) && seedColor(game, seed) !== bud.type,
+    // The ball loop asks guard() first, so a seed reaching here matches; a mismatched seed struck straight in (no flight)
+    // is turned away the same way.
+    hit(game, bud, chain, isCredited, seed) {
+      return direct(game, chain, isCredited, seed) && seedColor(game, seed) !== bud.type ? { blocked: true } : null;
+    },
+    bloomed(game, bud, chain, credit) {
+      const seed = credit && credit.ball;
+      if (chain || !seed || seed.type !== bud.type || isPower(game, seed)) return;
+      // The match: one more sun charge than the bloom's own (1/48 of a full sun), and the crack-open payoff.
+      bud.matched = true;
+      game._charge(CHROMA.bonus, credit);
+      game.event('foe', { kind: 'chroma:match', bud, x: bud.x, y: bud.y, color: bud.type });
+    },
+    // The bot shoots a crystal only with the seed that opens it, and wants to more the nearer it is to the line: its
+    // color comes round only one seed in five, so a low crystal may not get another chance.
+    value(game, bud) {
+      if (game.nextType !== bud.type) return -1;
+      const left = (game.dangerY - bud.r - bud.y) / Math.max(1, (game.descentSpeed || 0) * (bud.fall || 1));
+      return CHROMA.worth + CHROMA.urgent * clamp((CHROMA.soon - left) / 8, 0, 1);
+    }
+  });
+
+  // ── Echo Bat (Level 4, `bat`) ──
+  // A sleepy bat hugging a crystal. It perches (falls with the wave) for BAT.perch s, then wakes: for BAT.tell s it
+  // hangs still, flapping, its swoop drawn as a dashed arc to a ringed landing spot. Then it swoops along that arc
+  // (a dip of BAT.dip toward the launcher) for BAT.swoop s and perches again where it landed. A credited seed on a
+  // perched two-hit bat startles it: it cracks and swoops at once after a BAT.startle s tell. Any hit while it swoops
+  // blooms it outright, and an aimed seed's catch pays BAT.pay (times the tempo) plus one sun charge ("Catch!").
+  // Bats reserve their landings: two never land within BAT.reserve px of each other or swoop on the same tick.
+  // Everything is closed-form on the foe clock, so the bot forecasts the arc exactly.
+  const BAT = { r: 11, perch: 1.8, tell: .8, startle: .25, swoop: 1, dip: 100, drop: 34, gap: .05, reserve: 30, clear: 8, pay: 300, lookahead: 1.5, eps: 1e-7 };
+  // Where a quadratic arc from P0 through control C to P2 is at u (0..1, eased by smoothstep).
+  function batPose(b, t) {
+    const u = smooth((t - b.t0) / BAT.swoop), v = 1 - u;
+    return { x: v * v * b.x0 + 2 * v * u * b.cx + u * u * b.x2, y: v * v * b.y0 + 2 * v * u * b.cy + u * u * b.y2, u };
+  }
+  // How close (x, y) comes to a rock (a capsule), wherever a sliding rock may be.
+  function rockGap(rock, x, y) {
+    const half = (rock.length || 0) / 2, ux = Math.cos(rock.angle || 0), uy = Math.sin(rock.angle || 0);
+    let best = Infinity;
+    for (const k of rock.slide ? [-1, -.5, 0, .5, 1] : [0]) {
+      const cx = (rock.slide ? rock.baseX : rock.x) + k * (rock.slide || 0), along = clamp((x - cx) * ux + (y - rock.y) * uy, -half, half);
+      best = Math.min(best, Math.hypot(x - cx - ux * along, y - rock.y - uy * along));
+    }
+    return best;
+  }
+  // A landing spot is free when no open piece is within its radius plus the bat's plus BAT.clear, no rock is close,
+  // and no other bat is already heading within BAT.reserve px of it.
+  function batRoom(game, bud, x, y) {
+    for (const other of game.buds) {
+      if (other === bud || other.bloomed || other.gift || other.inert || other.ghost) continue;
+      if (Math.hypot(other.x - x, other.y - y) < other.r + BAT.r + BAT.clear) return false;
+      const b = other.bat;
+      if (b && b.mode !== 'perch' && Math.hypot(b.x2 - x, b.y2 - y) < BAT.reserve) return false;
+    }
+    for (const rock of game.bumpers || []) if (rockGap(rock, x, y) < BAT.r + 11.5) return false;
+    return true;
+  }
+  // Across the board first (or a long hop sideways from the middle), then a shorter hop each way; 34 px lower, and
+  // never lower than 120 px above the line.
+  function batLanding(game, bud) {
+    const s = Math.sign(210 - bud.x) || 1, y = Math.min(bud.y + BAT.drop, game.dangerY - 120);
+    for (const tx of [Math.abs(bud.x - 210) < 60 ? bud.x + 120 * s : 420 - bud.x, bud.x + 90 * s, bud.x - 90 * s]) {
+      const x = clamp(tx, 60, 360);
+      if (batRoom(game, bud, x, y)) return { x, y };
+    }
+    return null;
+  }
+  // Wakes the bat: picks its landing and draws its arc on this tick, then swoops after `length` s. Its swoop never
+  // starts within BAT.gap s of another bat's. Returns false (and changes nothing) when there is nowhere to land.
+  function batTell(game, bud, length, kind) {
+    const spot = batLanding(game, bud), now = game.foeClock;
+    if (!spot) return false;
+    let t0 = now + length;
+    for (let k = 0; k < 8; k++) {
+      const clash = game.buds.some(o => o !== bud && o.bat && !o.bloomed && o.bat.mode === 'tell' && Math.abs(o.bat.t0 - t0) < BAT.gap);
+      if (!clash) break;
+      t0 += BAT.gap;
+    }
+    // The arc dips BAT.dip below the middle of the hop, but never so low that the swoop itself would reach the line.
+    const mx = (bud.x + spot.x) / 2, my = (bud.y + spot.y) / 2, cy = Math.min(my + BAT.dip, 2 * (game.dangerY - BAT.r - 24) - my);
+    Object.assign(bud.bat, { mode: 'tell', tellAt: now, t0, until: t0, x0: bud.x, y0: bud.y, cx: mx, cy, x2: spot.x, y2: spot.y, startled: kind === 'bat:startle' });
+    game.event('foe', { kind, bud, x: bud.x, y: bud.y, x2: spot.x, y2: spot.y });
+    return true;
+  }
+  // The first tick at or after foe time `at` (the rush tick runs at 1/120 s), seen from foe time `now`. The foe clock is
+  // a running sum, so a time is reached once the clock is within BAT.eps of it, live and in the forecast alike.
+  const tickAfter = (now, at) => now + Math.max(0, Math.ceil((at - BAT.eps - now) * 120)) / 120;
+  define('bat', {
+    r: BAT.r, hp: 2, fall: 1, type: 'sky', hint: 'Bats swoop! Catch one mid-air for a bonus.',
+    make(spot, tag, i) { const id = `${tag}-foe${i}`; return [piece('bat', id, id, spot[1], spot[2], { bat: null, caught: false })]; },
+    // Bats of one wave start out of step: each has already perched up to 1.2 s when it arrives.
+    init(game, bud) {
+      bud.born = (game.foeClock || 0) - hash01(bud.id, 0) * 1.2;
+      bud.bat = { mode: 'perch', until: bud.born + BAT.perch, t0: -100, tellAt: -100, landAt: -100, x0: bud.x, y0: bud.y, cx: bud.x, cy: bud.y, x2: bud.x, y2: bud.y, startled: false };
+    },
+    owns: bud => Boolean(!bud.bloomed && bud.bat && bud.bat.mode !== 'perch'),
+    step(game, bud, dt) {
+      const b = bud.bat, clock = game.foeClock, now = clock + BAT.eps;
+      if (!b || dt <= 0) return;
+      if (b.mode === 'perch' && now >= b.until) { if (!batTell(game, bud, BAT.tell, 'bat:ping')) b.until += BAT.perch; return; }
+      if (b.mode === 'tell' && now >= b.t0) { b.mode = 'swoop'; b.until = b.t0 + BAT.swoop; game.event('foe', { kind: 'bat:swoop', bud, x: bud.x, y: bud.y, x2: b.x2, y2: b.y2 }); }
+      if (b.mode !== 'swoop') return;
+      const p = batPose(b, Math.min(clock, b.until));
+      bud.x = bud.baseX = p.x; bud.y = p.y;
+      if (now >= b.until) { b.mode = 'perch'; b.landAt = b.until; b.until += BAT.perch; b.startled = false; bud.x = bud.baseX = b.x2; bud.y = b.y2; }
+    },
+    hit(game, bud, chain, isCredited, seed) {
+      const b = bud.bat;
+      if (!b) return null;
+      // Mid-swoop any hit blooms it; only an aimed seed's own touch is a catch.
+      if (b.mode === 'swoop') { bud.hp = 1; bud.caught = direct(game, chain, isCredited, seed); return null; }
+      // A credited seed on a perched two-hit bat cracks it and startles it into the air.
+      if (b.mode === 'perch' && bud.hp >= 2 && direct(game, chain, isCredited, seed)) batTell(game, bud, BAT.startle, 'bat:startle');
+      return null;
+    },
+    bloomed(game, bud, chain, credit) {
+      if (!bud.caught) return;
+      const bonus = Math.round(BAT.pay * game.tempo);
+      game.score += bonus;
+      game._charge(1, credit);
+      game.event('foe', { kind: 'bat:catch', bud, x: bud.x, y: bud.y, bonus });
+    },
+    // The bot follows it while it is awake, and from a little before it wakes.
+    moving: (game, bud) => Boolean(bud.bat && (bud.bat.mode !== 'perch' || bud.bat.until - (game.foeClock || 0) < BAT.lookahead)),
+    predict(game, bud, seconds, out) {
+      const b = bud.bat;
+      if (!b) return;
+      const now = game.foeClock || 0, T = now + Math.max(0, seconds - Math.max(0, game.lullaby || 0)), fall = (game.descentSpeed || 0) * (bud.fall || 1);
+      if (b.mode === 'perch') {
+        // Falling with the wave until its tell starts, then hanging still; where it will swoop is not chosen yet.
+        const tell = tickAfter(now, b.until);
+        out.y = bud.y + fall * (Math.min(T, tell) - now);
+        if (T >= tell + BAT.tell) out.flags |= 1;
+        return;
+      }
+      if (T < b.t0) return;
+      if (T < b.t0 + BAT.swoop) { const p = batPose(b, T); out.x = p.x; out.y = p.y; return; }
+      out.x = b.x2; out.y = b.y2 + fall * Math.max(0, T - tickAfter(now, b.t0 + BAT.swoop));
+    },
+    // A swooping bat is the prize (a catch); a perched one is an ordinary target.
+    value(game, bud, hit) {
+      const b = bud.bat, T = (game.foeClock || 0) + Math.max(0, (hit.time || 0) - Math.max(0, game.lullaby || 0));
+      return b && b.mode !== 'perch' && T >= b.t0 && T < b.t0 + BAT.swoop ? 35 : 10;
+    }
+  });
+
+  // ── Moon Jelly (Level 5, `jelly`) ──
+  // Moon jellies drift up out of vents in the lake bed, one pulse every JELLY.pulse s: a .3 s thrust (it squeezes and
+  // shoots up 34 px, slick as soap: an aimed seed slides off it) and a .6 s glide (it opens wide and glows, drifting
+  // 6 px more: any seed blooms it). So the verb is timing: shoot for the glide. It sways 8 px side to side as it climbs,
+  // and a jelly nobody catches bursts at the top of the lake into three glowdrops, plain gold buds that fall like any
+  // other (one group, so letting them reach the line costs one life). The jelly itself never costs a life: it rises
+  // away from the line. A chain, a power or an uncredited strike always blooms it.
+  const JELLY = { pulse: .9, thrust: .3, climb: 40, kick: 34, sway: 8, swayTime: 1.8, top: 70, r: 11,
+    drops: { r: 8, y: 78, gap: 22, room: 6, shifts: [0, 22, -22, 44, -44] }, vent: { r: 11, room: 6, wait: .3, hurry: 1 } };
+  const live = bud => !bud.bloomed && !bud.gift && !bud.inert;
+  // How far a jelly has risen t s after it left its vent: whole pulses of 40 px, the thrust easing out over its 34 px,
+  // then the glide's last 6 px at an even pace (continuous at every joint, so y(.9k) is exactly 40k up).
+  function jellyRise(t) {
+    const k = Math.floor(t / JELLY.pulse), f = t - JELLY.pulse * k;
+    if (f < JELLY.thrust) { const u = 1 - f / JELLY.thrust; return JELLY.climb * k + JELLY.kick * (1 - u * u); }
+    return JELLY.climb * k + JELLY.kick + (JELLY.climb - JELLY.kick) * (f - JELLY.thrust) / (JELLY.pulse - JELLY.thrust);
+  }
+  // Where in its pulse a jelly is at local time t: 0 <= f < .9, the thrust being f < .3.
+  const jellyPhase = t => t - JELLY.pulse * Math.floor(t / JELLY.pulse);
+  const jellyAt = (bud, t, out) => { out.x = bud.x0 + JELLY.sway * Math.sin(TAU * t / JELLY.swayTime); out.y = bud.y0 - jellyRise(t); return out; };
+  const jellyTime = (game, bud) => (game.foeClock || 0) - (bud.born || 0);
+  const jellyThrust = (game, bud, ahead = 0) => jellyPhase(jellyTime(game, bud) + ahead) < JELLY.thrust;
+  // A runtime piece joins the board the way rush's own spawns do (fresh hit and bloom clocks, so it pops in), and starts.
+  // Jellies and worm pieces also do this in their own init, so a guardian's kit can simply place(game, make(...)[k]).
+  function fresh(game, bud) {
+    if (bud.hitAt === undefined) bud.hitAt = -100;
+    if (bud.bloomAt === undefined) bud.bloomAt = -100;
+    if (bud.spawnAt === undefined) bud.spawnAt = game.time || 0;
+    bud.bloomed = Boolean(bud.bloomed);
+    return bud;
+  }
+  const arrive = (game, bud) => place(game, fresh(game, bud));
+  // The burst: three glowdrops 22 px apart where the jelly was. A spot needs room (r + 8 + 6 px) from every open piece
+  // still in play; if the trio does not fit, it shifts 22 px right, left, then 44 px right, left, and any member still
+  // blocked is skipped (a burst with no room at all just sparkles away).
+  function jellyBurst(game, bud) {
+    const x = bud.x, y = bud.y, D = JELLY.drops, group = `${bud.id}-drops`;
+    game._pop(bud, 'jelly:burst');
+    const others = game.buds.filter(other => live(other) && !other.ghost);
+    const free = (px, chosen) => others.every(o => Math.hypot(o.x - px, o.y - D.y) >= o.r + D.r + D.room)
+      && chosen.every(cx => Math.abs(cx - px) >= D.r * 2 + D.room);
+    let best = [];
+    for (const shift of D.shifts) {
+      const chosen = [];
+      for (const dx of [-D.gap, 0, D.gap]) { const px = clamp(x + shift + dx, 31, 389); if (free(px, chosen)) chosen.push(px); }
+      if (chosen.length > best.length) best = chosen;
+      if (chosen.length === 3) break;
+    }
+    best.forEach((px, k) => arrive(game, piece('glowdrop', `${group}-${k}`, group, px, D.y)));
+    return { x, y, drops: best.length };
+  }
+  define('jelly', {
+    r: JELLY.r, hp: 1, fall: 0, type: 'sky', hint: 'Moon jellies rise. Hit them when they glide!',
+    // A vent (or a guardian's pad) spawns one with i = null: its id and group are the tag it is given.
+    make(spot, tag, i) {
+      const id = i == null ? tag : `${tag}-foe${i}`;
+      return [piece('jelly', id, id, spot[1], spot[2], { x0: spot[1], y0: spot[2] })];
+    },
+    init(game, bud) { fresh(game, bud); if (!Number.isFinite(bud.x0)) bud.x0 = bud.x; if (!Number.isFinite(bud.y0)) bud.y0 = bud.y; },
+    owns: bud => !bud.bloomed,
+    step(game, bud) {
+      jellyAt(bud, jellyTime(game, bud), bud); bud.baseX = bud.x;
+      if (bud.y <= JELLY.top) jellyBurst(game, bud);
+    },
+    // Slippery in the thrust: an aimed seed glances off (rush emits jelly:guard). Powers and chains never slip. A
+    // forecast contact (the app's finale check) carries its time ahead; a live touch has none and reads the phase now.
+    guard: (game, bud, hit, seed) => !game.scripted && !isPower(game, seed)
+      && jellyThrust(game, bud, Math.max(0, ((hit && hit.time) || 0) - Math.max(0, game.lullaby || 0))),
+    // It rises away from the line, so it never costs a life (its glowdrops do).
+    breach: () => 'skip',
+    predict(game, bud, seconds, out) {
+      const t = jellyTime(game, bud) + Math.max(0, seconds - Math.max(0, game.lullaby || 0));
+      jellyAt(bud, t, out);
+      if (out.y <= JELLY.top) out.flags |= 1; // burst by then
+    },
+    // The bot shoots only for a glide (with a hair of margin for its own timing), and jellies near the top come first.
+    value(game, bud, hit) {
+      const f = jellyPhase(jellyTime(game, bud) + Math.max(0, (hit.time || 0) - Math.max(0, game.lullaby || 0)));
+      if (f < JELLY.thrust + .03 || f > JELLY.pulse - .03) return -1;
+      return clamp(10 + 60 * (1 - (bud.y - JELLY.top) / 320), 10, 70);
+    }
+  });
+  // A glowdrop is a plain gold bud that falls a little faster than the rest; it only needs its own look.
+  define('glowdrop', {
+    r: JELLY.drops.r, hp: 1, fall: 1.25, type: 'gold', family: 'jelly',
+    make(spot, tag, i) { const id = i == null ? tag : `${tag}-foe${i}`; return [piece('glowdrop', id, id, spot[1], spot[2])]; }
+  });
+  // Vents send the jellies: each tick a vent whose time has come spawns one (unless a piece sits on its mouth: then it
+  // waits .3 s and tries again). On an empty board the next jelly hurries to come within a second, so a player who
+  // cleared everything never waits on the lake. A vent with jellies still to send holds the wave open (Foes.holding).
+  onTick('before', (game, dt) => {
+    const vents = game.vents;
+    if (!vents || !vents.length || !(dt > 0)) return;
+    const clock = game.foeClock, V = JELLY.vent;
+    let anyLive = null;
+    for (const vent of vents) {
+      if (vent.made >= vent.count) continue;
+      if (anyLive === null) anyLive = game.buds.some(live);
+      if (!anyLive && vent.nextAt > clock + V.hurry) vent.nextAt = clock + V.hurry;
+      if (clock + 1e-9 < vent.nextAt) continue;
+      if (game.buds.some(b => live(b) && !b.ghost && Math.hypot(b.x - vent.x, b.y - vent.y) < b.r + V.r + V.room)) { vent.nextAt = clock + V.wait; continue; }
+      const jelly = arrive(game, make('jelly', ['jelly', vent.x, vent.y], `${vent.id}-j${vent.made}`, null)[0]);
+      vent.made++; vent.nextAt += vent.every; anyLive = true;
+      game.event('foe', { kind: 'jelly:spawn', bud: jelly, x: vent.x, y: vent.y, n: vent.made });
+    }
+  });
+
+  // ── Glowworm (Level 5, `glowworm`) ──
+  // A glowworm is five pieces crawling one track: a glowing gold head and four teal beads 21 / 20 px behind it. The
+  // track is a lake-bed serpentine: a straight run to x 64 (or 356), a downward half-turn of radius 13 (26 px lower),
+  // and back the other way, at WORM.speed px/s, while the whole worm sinks at a third of the wave's pace. Hit the head
+  // and the light ripples down the body: every bead blooms in turn, a credited chain .07 s apart. Hit a bead instead
+  // and the worm snaps there: that bead blooms, and the beads behind it become a worm of their own (the first one
+  // lights up as its new head), which waits .3 s and then crawls on along the same track (an earned chain snaps it the
+  // same way). Uncredited strikes, powers on a bead and the ripple's own links are plain. Each worm (and each piece split off) is one group: reaching the line costs one life.
+  const WORM = { speed: 54, left: 64, right: 356, turn: 13, gaps: [0, -21, -41, -61, -81], pause: .3, sink: .35, ripple: .07 };
+  // The point `s` px along a worm's track (x0, y0, heading dir), with its heading angle; negative s runs back along
+  // the first straight. Pure and closed-form, so the game, the bot and the art agree.
+  function trackAt(w, s, out) {
+    const T = WORM.turn, arc = Math.PI * T, lap = arc + (WORM.right - WORM.left);
+    let dir = w.dir < 0 ? -1 : 1;
+    const first = Math.max(0, dir < 0 ? w.x0 - WORM.left : WORM.right - w.x0);
+    if (s <= first) { out.x = w.x0 + dir * s; out.y = w.y0; out.a = dir < 0 ? Math.PI : 0; return out; }
+    s -= first;
+    const n = Math.floor(s / lap);
+    s -= n * lap;
+    if (n % 2) dir = -dir;
+    const tx = dir < 0 ? WORM.left : WORM.right, y = w.y0 + 2 * T * n;
+    if (s < arc) {
+      const th = -Math.PI / 2 + dir * s / T;
+      out.x = tx + T * Math.cos(th); out.y = y + T + T * Math.sin(th); out.a = Math.atan2(dir * Math.cos(th), -dir * Math.sin(th));
+      return out;
+    }
+    out.x = tx - dir * (s - arc); out.y = y + 2 * T; out.a = dir < 0 ? 0 : Math.PI;
+    return out;
+  }
+  // How far along its track a worm's head is at foe time `clock` (a split piece starts where it broke off, after its pause).
+  const wormS = (w, clock) => w.s0 + WORM.speed * Math.max(0, clock - w.moveAt);
+  const wormOf = (game, bud) => game.worms && game.worms.get(bud.worm) || null;
+  const wormPieces = (game, key) => game.buds.filter(o => o.foe === 'glowworm' && o.worm === key && !o.bloomed);
+  const TRACK = { x: 0, y: 0, a: 0 };
+  function wormPose(game, bud, w, clock, sink, out) {
+    trackAt(w, wormS(w, clock) + bud.off, out);
+    out.y += w.drift + sink;
+    return out;
+  }
+  // The beads behind a struck one break off as their own worm, its first bead the new head.
+  function wormSplit(game, bud) {
+    const w = wormOf(game, bud);
+    if (!w) return;
+    const behind = wormPieces(game, bud.worm).filter(o => o.off < bud.off).sort((a, b) => b.off - a.off);
+    if (!behind.length) return;
+    const now = game.foeClock, key = `${bud.worm}-s${++w.splits}`;
+    game.worms.set(key, { G: key, dir: w.dir, x0: w.x0, y0: w.y0, s0: wormS(w, now), moveAt: now + WORM.pause, drift: w.drift, splits: 0, born: now });
+    behind.forEach((o, k) => { o.group = key; o.worm = key; if (!k) { o.head = true; o.type = 'gold'; o.headAt = now; } });
+    game.event('foe', { kind: 'glowworm:split', bud, x: bud.x, y: bud.y, n: behind.length, head: behind[0] });
+  }
+  define('glowworm', {
+    r: 11, hp: 1, fall: 0, type: 'gold', hint: 'Glowworms! Hit the glowing head.',
+    // [name, x, y, {dir}]: the head at (x, y) heading dir (-1 left, 1 right), the beads trailing behind it.
+    make(spot, tag, i) {
+      const G = i == null ? tag : `${tag}-foe${i}`, dir = (spot[3] || {}).dir < 0 ? -1 : 1, x = spot[1], y = spot[2];
+      return WORM.gaps.map((off, k) => piece('glowworm', `${G}-${k}`, G, x + dir * off, y,
+        k ? { r: 9, type: 'sky', seg: k, worm: G, off, dir, heading: dir < 0 ? Math.PI : 0 } : { head: true, worm: G, off, dir, heading: dir < 0 ? Math.PI : 0 }));
+    },
+    // The head lays the track down where it starts; every piece of the worm then follows it.
+    init(game, bud) {
+      fresh(game, bud);
+      if (!game.worms) game.worms = new Map();
+      if (bud.head && !game.worms.has(bud.worm)) game.worms.set(bud.worm, { G: bud.worm, dir: bud.dir, x0: bud.x, y0: bud.y, s0: 0, moveAt: bud.born, drift: 0, splits: 0, born: bud.born });
+    },
+    owns: bud => !bud.bloomed,
+    step(game, bud) {
+      const w = wormOf(game, bud);
+      if (!w) return;
+      wormPose(game, bud, w, game.foeClock, 0, TRACK);
+      bud.x = bud.baseX = TRACK.x; bud.y = TRACK.y; bud.heading = TRACK.a;
+    },
+    bloomed(game, bud, chain, credit) {
+      // The guardian's last cascade blooms every piece itself: no ripple or split over the finale.
+      if (game.bossDown) return;
+      if (bud.head) {
+        // A head the player earned (or a power) sends the light down its body: each bead blooms .07 s after the last.
+        if (!credit && !isPower(game, game.striker)) return;
+        const body = wormPieces(game, bud.worm).filter(o => o !== bud).sort((a, b) => b.off - a.off);
+        body.forEach((o, k) => game.pending.push(game._linkBy(o.id, game.time + WORM.ripple * (k + 1), bud, 'worm', credit ? credit.by : null)));
+        game.event('foe', { kind: 'glowworm:ripple', bud, x: bud.x, y: bud.y, n: body.length });
+      } else if (credit && (chain ? !(game.due && game.due.via === 'worm') : !isPower(game, game.striker))) wormSplit(game, bud);
+    },
+    predict(game, bud, seconds, out) {
+      const w = wormOf(game, bud);
+      if (!w) return;
+      const run = Math.max(0, seconds - Math.max(0, game.lullaby || 0));
+      wormPose(game, bud, w, (game.foeClock || 0) + run, (game.descentSpeed || 0) * WORM.sink * run, out);
+    },
+    // The bot goes for heads (more for a longer body) and leaves beads alone unless one is nearly at the line.
+    value(game, bud) {
+      if (bud.head) return 40 + 10 * wormPieces(game, bud.worm).filter(o => !o.head).length;
+      return (bud.y + bud.r) / (game.dangerY || 448) > .85 ? 0 : -5;
+    }
+  });
+  // The whole worm sinks slowly with the wave (frozen in a Lullaby, like every foe clock).
+  onTick('before', (game, dt) => {
+    if (!game.worms || !game.worms.size || !(dt > 0)) return;
+    const sink = (game.descentSpeed || 0) * WORM.sink * dt;
+    for (const w of game.worms.values()) w.drift += sink;
+  });
+
+
+  // ── Amberkeeper (Level 6, `amberkeeper`) ──
+  // A little trilobite who keeps the fossil beds tidy by sealing flowers in amber. He falls with the wave like any bud
+  // and takes two hits (the first cracks his shell). AMBER.first s after he arrives, and AMBER.every s after each seal
+  // while he keeps fewer than AMBER.max beads, he rears up for AMBER.tell s and spins golden threads to the nearest open
+  // plain buds on his row or above (AMBER.per a time, within AMBER.reach px of him). When the tell ends each of them is
+  // sealed in an amber bead: an inert `amber` piece AMBER.pad px wider than its bud that rides it. A seed that meets a
+  // bead clinks off (a glance's small refund, like a shell); a chain (a crown, a puffcap) still reaches the bud inside, a
+  // rolling rolypoly rolls through the amber and bowls the bud inside, and a Bee Line, a Sunburst or a Dandelion seed
+  // cracks the bead it touches.
+  // Break him and every bead he made shatters at once. A credited hit that cracks him mid-tell makes him flinch: the
+  // threads snap back and he starts over. A bead melts when its bud blooms, when its keeper is gone, or when its bud
+  // sinks to AMBER.melt, so it never blocks an angle below 430.
+  // Everything runs on the foe clock; amberPlan (his announced seal) is the one forecast the step, the bot and the art share.
+  const AMBER = { r: 13, first: 1.6, tell: 1.3, every: 5.2, retry: .5, reach: 96, up: 16, per: 2, max: 3, pad: 4, melt: 410, low: 360, flinch: 2.6, eps: 1e-7 };
+  const sealable = bud => Boolean(bud) && !bud.bloomed && !bud.hidden && !bud.ghost && !bud.gift && !bud.inert && !bud.foe && !bud.boss && !bud.bossPart
+    && !bud.puff && !bud.carried && !bud.amberBy && bud.y + bud.r < AMBER.melt - 40;
+  // The buds a tell would thread right now: nearest first (ties by id), on his row or above, within reach.
+  function amberAims(game, keeper, count) {
+    const list = [];
+    for (const bud of game.buds) {
+      if (!sealable(bud) || bud.y > keeper.y + AMBER.up) continue;
+      const d = Math.hypot(bud.x - keeper.x, bud.y - keeper.y);
+      if (d <= AMBER.reach + bud.r) list.push({ bud, d });
+    }
+    list.sort((a, b) => a.d - b.d || (a.bud.id < b.bud.id ? -1 : a.bud.id > b.bud.id ? 1 : 0));
+    return list.slice(0, count).map(e => e.bud);
+  }
+  const amberBeads = (game, keeper) => game.buds.filter(b => b.foe === 'amber' && !b.bloomed && b.keeper === keeper.id);
+  // His announced seal: { at (foe clock), from, ids }, or null while he is not telling. Pure.
+  function amberPlan(game, keeper) {
+    const a = keeper && keeper.amber;
+    return a && !keeper.bloomed && a.phase === 'tell' ? { at: a.sealAt, from: a.tellAt, ids: a.aims } : null;
+  }
+  function amberSeal(game, keeper) {
+    const a = keeper.amber, room = AMBER.max - amberBeads(game, keeper).length, made = [];
+    for (const id of a.aims) {
+      const host = game.buds.find(b => b.id === id);
+      if (made.length >= room || !sealable(host)) continue;
+      const bead = piece('amber', `${keeper.id}-amber${a.n}-${made.length}`, `${keeper.id}-amber${a.n}-${made.length}`, host.x, host.y,
+        { r: host.r + AMBER.pad, host: host.id, keeper: keeper.id, sealedAt: game.foeClock });
+      host.amberBy = keeper.id; place(game, bead); made.push(bead);
+    }
+    a.phase = 'wait'; a.aims = []; a.n++; a.nextAt = a.sealAt + AMBER.every;
+    if (made.length) game.event('foe', { kind: 'amberkeeper:seal', bud: keeper, x: keeper.x, y: keeper.y, n: made.length, beads: made.map(b => ({ id: b.id, x: b.x, y: b.y, r: b.r })) });
+  }
+  define('amberkeeper', {
+    r: AMBER.r, hp: 2, fall: 1, type: 'gold', hint: 'Amber seals buds! Break the trilobite to free them.',
+    init(game, bud) { bud.amber = { phase: 'wait', nextAt: bud.born + AMBER.first, tellAt: -100, sealAt: -100, flinchAt: -100, aims: [], n: 0 }; },
+    step(game, bud, dt) {
+      const a = bud.amber;
+      if (!a || dt <= 0) return;
+      const now = game.foeClock + AMBER.eps;
+      if (a.phase === 'wait' && now >= a.nextAt) {
+        const room = AMBER.max - amberBeads(game, bud).length;
+        const aims = room > 0 && bud.y + bud.r < AMBER.low ? amberAims(game, bud, Math.min(AMBER.per, room)) : [];
+        if (!aims.length) { a.nextAt += AMBER.retry; return; }
+        a.phase = 'tell'; a.tellAt = a.nextAt; a.sealAt = a.tellAt + AMBER.tell; a.aims = aims.map(b => b.id);
+        game.event('foe', { kind: 'amberkeeper:tell', bud, x: bud.x, y: bud.y, n: a.n, targets: aims.map(b => ({ id: b.id, x: b.x, y: b.y, r: b.r })) });
+      } else if (a.phase === 'tell' && now >= a.sealAt) amberSeal(game, bud);
+    },
+    hit(game, bud, chain, isCredited) {
+      const a = bud.amber;
+      if (a && a.phase === 'tell' && isCredited && bud.hp > 1) {
+        a.phase = 'wait'; a.aims = []; a.flinchAt = game.foeClock || 0; a.nextAt = a.flinchAt + AMBER.flinch;
+        game.event('foe', { kind: 'amberkeeper:flinch', bud, x: bud.x, y: bud.y });
+      }
+      return null;
+    },
+    bloomed(game, bud, chain, credit) {
+      const beads = amberBeads(game, bud);
+      for (const bead of beads) game._pop(bead, 'amber:shatter');
+      if (bud.amber) { bud.amber.phase = 'done'; bud.amber.aims = []; }
+      if (beads.length && credit) game._charge(1, credit);
+      game.event('foe', { kind: 'amberkeeper:break', bud, x: bud.x, y: bud.y, freed: beads.length, credited: Boolean(credit) });
+    },
+    // Worth a seed for every bead he holds or is spinning; a shot at a bud he will have sealed by the time it lands is wasted.
+    value: (game, bud) => 14 + 16 * (amberBeads(game, bud).length + ((amberPlan(game, bud) || { ids: [] }).ids.length)),
+    valueAny(game, hit) {
+      const bud = hit && hit.bud;
+      if (!bud || bud.foe) return 0;
+      const at = (game.foeClock || 0) + Math.max(0, (hit.time || 0) - Math.max(0, game.lullaby || 0));
+      for (const keeper of game.buds) {
+        if (keeper.foe !== 'amberkeeper') continue;
+        const plan = amberPlan(game, keeper);
+        if (plan && plan.ids.includes(bud.id) && at >= plan.at - .02) return -200;
+      }
+      return 0;
+    },
+    amberPlan, AMBER
+  });
+  define('amber', {
+    r: 15, hp: 1, fall: 1, type: 'gold', inert: true, family: 'amberkeeper',
+    owns: () => true,
+    // A Sunburst opens on its first touch but only blooms open buds, so the bead it touched cracks right here (as a fibcap's).
+    contact(game, bud, ball) { if (ball && ball.power === 'sunburst') game._pop(bud, 'amber:crack'); return null; },
+    step(game, bud) {
+      const host = game.buds.find(b => b.id === bud.host), keeper = game.buds.find(b => b.id === bud.keeper);
+      if (!host || host.bloomed || !keeper || keeper.bloomed) { game._pop(bud, 'amber:melt'); return; }
+      bud.x = host.x; bud.y = host.y; bud.r = host.r + AMBER.pad;
+      if (host.y + host.r >= AMBER.melt) game._pop(bud, 'amber:melt');
+    },
+    // A seed's own touch clinks off (it bounces, with a glance's small refund, like a shell); a power cracks the bead;
+    // a chain never reaches it (it is inert); a script's strike pops it quietly.
+    hit(game, bud, chain, isCredited, seed) {
+      if (direct(game, chain, isCredited, seed)) { game.event('foe', { kind: 'amber:clink', bud, x: bud.x, y: bud.y }); return { blocked: true, feed: true }; }
+      return isCredited && isPower(game, seed) ? { pop: true, kind: 'crack' } : { pop: true, quiet: true };
+    },
+    popped(game, bud) { const host = game.buds.find(b => b.id === bud.host); if (host && host.amberBy === bud.keeper) host.amberBy = null; },
+    value: () => -1
+  });
+
+  // ── Whizzbang (Level 7, `whizzbang`) ──
+  // A firework bud on a springy stem: it bobs side to side on the foe clock (WHIZ.period s a sway) while it falls with
+  // the wave. A seed's touch lights its fuse (a glance: the seed bounces off and wins back a little); WHIZ.fuse s later,
+  // wherever its bob has carried it, it whooshes straight up as a rocket for WHIZ.reach px (through at most one tunnel,
+  // stopping at the ceiling, a wall or a guardian; rocks are low and it flies past them) and bangs. Every piece within WHIZ.lane px of its column
+  // blooms as it passes (at most WHIZ.pins), then everything within WHIZ.bang px of the bang (at most WHIZ.bangs), each
+  // an ordinary chain the seed earned; then it blooms itself up there. A credited chain that reaches an unlit one lights
+  // a shorter fuse (a chain reaction); a power, the guardian's cascade or an uncredited strike blooms it plainly. Lit or
+  // flying it is a ghost and never costs a life.
+  const WHIZ = { r: 12, sway: 32, period: 3.6, fuse: 1, chainFuse: .5, speed: 620, reach: 190, lane: 8, pins: 4, bang: 34, bangs: 5,
+    top: 30, floor: 430, step: 2, hop: 1, link: .02, ripple: .035, eps: 1e-7 };
+  const whizzSway = (x, r) => Math.max(0, Math.min(WHIZ.sway, x - r - 23, 397 - r - x));
+  // Its bob: x at foe time T (closed form, so game, aim line and bot agree).
+  function whizzX(bud, T) { return bud.baseX + bud.sway * Math.sin(bud.swayW * (T - bud.born) + bud.swayPhase); }
+  const whizzable = (game, p, skip) => p !== skip && !p.bloomed && !p.hidden && !p.ghost && !p.gift && (p.boss || p.bossPart || !p.inert || chainable(p));
+  // THE shared flight: where a rocket leaving (x, y) now would fly and what it would take. opts.pose(p) -> {x, y} | null
+  // lets a caller forecast the other pieces (the aim line and the bot look ahead; the game passes nothing).
+  function whizzPath(game, x, y, opts = {}) {
+    const pose = opts.pose || (p => p), skip = opts.skip || null, pts = [[x, y - WHIZ.r]];
+    const pieces = whizzPieces(game, skip, pose);
+    let px = x, py = y - WHIZ.r, ux = 0, uy = -1, left = WHIZ.reach, hops = 0, gate = null, boss = null, cool = 0, len = 0, hopAt = null;
+    while (left > 1e-9) {
+      const s = Math.min(WHIZ.step, left), nx = px + ux * s, ny = py + uy * s;
+      if (ny < WHIZ.top || ny > WHIZ.floor || nx < 28 || nx > 392) break;
+      const big = pieces.find(q => q.p.boss && Math.hypot(q.x - nx, q.y - ny) < q.r + 4);
+      if (big) { boss = big.p; px = nx; py = ny; len += s; break; }
+      cool -= s;
+      const mouth = hops < WHIZ.hop && cool <= 0 ? (game.gates || []).find(g => Math.hypot(g.x - nx, g.y - ny) < g.r) : null;
+      if (mouth) {
+        const exit = (game.gates || []).find(g => g.id === mouth.pair && g.pair === mouth.id);
+        if (exit) {
+          const turn = exit.angle - mouth.angle, c = Math.cos(turn), sn = Math.sin(turn), rx = ux * c - uy * sn, ry = ux * sn + uy * c;
+          pts.push([mouth.x, mouth.y]); len += Math.hypot(mouth.x - px, mouth.y - py); hopAt = len;
+          ux = rx; uy = ry; px = exit.x + ux * (exit.r + 6); py = exit.y + uy * (exit.r + 6); pts.push(null, [px, py]);
+          hops++; gate = mouth.id; cool = exit.r + 8; left -= s; continue;
+        }
+      }
+      px = nx; py = ny; left -= s; len += s;
+    }
+    pts.push([px, py]);
+    // The column's pieces: within WHIZ.lane of a run of the path, nearest first along it.
+    const runs = []; let from = null, base = 0;
+    for (let i = 0; i < pts.length; i++) {
+      const q = pts[i];
+      if (!q) { from = null; continue; }
+      if (from) { const l = Math.hypot(q[0] - from[0], q[1] - from[1]); runs.push({ a: from, b: q, base, l }); base += l; }
+      else if (i > 0 && hopAt != null) base = hopAt;
+      from = q;
+    }
+    const pins = [];
+    for (const q of pieces) {
+      if (q.p.boss) continue;
+      let best = null;
+      for (const run of runs) {
+        const dx = run.b[0] - run.a[0], dy = run.b[1] - run.a[1], l = run.l || 1e-9, t = clamp(((q.x - run.a[0]) * dx + (q.y - run.a[1]) * dy) / (l * l), 0, 1);
+        const gap = Math.hypot(q.x - run.a[0] - dx * t, q.y - run.a[1] - dy * t);
+        if (gap <= WHIZ.lane + q.r && (!best || run.base + t * l < best.d)) best = { id: q.p.id, d: run.base + t * l };
+      }
+      if (best) pins.push(best);
+    }
+    pins.sort((a, b) => a.d - b.d || (a.id < b.id ? -1 : 1));
+    const kept = pins.slice(0, WHIZ.pins), end = { x: px, y: py }, near = new Set(kept.map(k => k.id));
+    return { pts, pins: kept, bangs: whizzBangs(pieces, px, py, near), end, boss: boss ? boss.id : null, gate, hop: hopAt, len: Math.max(len, 1) };
+  }
+  function whizzPieces(game, skip, pose = p => p) {
+    const pieces = [];
+    for (const p of game.buds || []) if (whizzable(game, p, skip) && p.id !== (skip && skip.id)) { const at = pose(p) || p; pieces.push({ p, x: at.x, y: at.y, r: p.r }); }
+    return pieces;
+  }
+  // The bang set: the pieces within WHIZ.bang of (x, y) that the column did not pin, nearest first.
+  function whizzBangs(pieces, x, y, pinned) {
+    return pieces.filter(q => !q.p.boss && !pinned.has(q.p.id) && Math.hypot(q.x - x, q.y - y) <= WHIZ.bang + q.r)
+      .sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y) || (a.p.id < b.p.id ? -1 : 1)).slice(0, WHIZ.bangs).map(q => q.p.id);
+  }
+  // Where along the flight (d px from the nose) the rocket is.
+  function whizzAlong(path, d) {
+    let left = d, from = null;
+    for (const q of path.pts) {
+      if (!q) { from = null; continue; }
+      if (from) { const l = Math.hypot(q[0] - from[0], q[1] - from[1]); if (left <= l) { const k = l ? left / l : 0; return { x: from[0] + (q[0] - from[0]) * k, y: from[1] + (q[1] - from[1]) * k }; } left -= l; }
+      from = q;
+    }
+    return { x: path.end.x, y: path.end.y };
+  }
+  function whizzLight(game, bud, by, fuse, chain) {
+    bud.whizz = { mode: 'lit', at: game.foeClock, fuse, by, chain, path: null, flyAt: null, sent: 0, done: false, x0: bud.x, y0: bud.y };
+    bud.ghost = true;
+    game.event('foe', { kind: 'whizzbang:light', bud, x: bud.x, y: bud.y, chain, fuse });
+  }
+  function whizzStep(game, bud) {
+    const w = bud.whizz, T = game.foeClock;
+    if (w.mode === 'lit' && T + WHIZ.eps >= w.at + w.fuse) {
+      w.mode = 'fly'; w.flyAt = w.at + w.fuse; w.x0 = bud.x; w.y0 = bud.y;
+      w.path = whizzPath(game, bud.x, bud.y, { skip: bud });
+      game.event('foe', { kind: 'whizzbang:launch', bud, x: bud.x, y: bud.y, n: w.path.pins.length });
+    }
+    if (w.mode !== 'fly') return;
+    const d = Math.min(w.path.len, (T - w.flyAt) * WHIZ.speed), at = whizzAlong(w.path, d);
+    bud.x = bud.baseX = at.x; bud.y = at.y;
+    while (w.sent < w.path.pins.length && w.path.pins[w.sent].d <= d) {
+      const pin = w.path.pins[w.sent++];
+      const item = game.buds.find(o => o.id === pin.id), whole = Boolean(item && !item.boss && !item.bossPart && !item.geode);
+      game.pending.push(game._linkBy(pin.id, game.time + WHIZ.link, bud, 'whizz', w.by, whole));
+      game.event('foe', { kind: 'whizzbang:pin', bud, x: bud.x, y: bud.y, k: w.sent, target: pin.id });
+    }
+    if (w.path.hop != null && !w.hopped && d >= w.path.hop) { w.hopped = true; game.event('foe', { kind: 'whizzbang:tunnel', bud, x: bud.x, y: bud.y, gate: w.path.gate }); }
+    if (d < w.path.len - 1e-9) return;
+    // The bang: what is near the rocket now (the column's pieces already have their links), then the rocket itself.
+    // Measured round the rocket, not from a fresh flight: a fresh flight would pin the buds it flew past (over the
+    // four-pin cap) and leave a bud right under the bang untouched.
+    w.done = true; w.mode = 'bang';
+    const near = whizzBangs(whizzPieces(game, bud), bud.x, bud.y, new Set(w.path.pins.map(p => p.id)));
+    near.forEach((id, k) => game.pending.push(game._linkBy(id, game.time + .04 + k * WHIZ.ripple, bud, 'whizz', w.by)));
+    if (w.path.boss) game.pending.push(game._linkBy(w.path.boss, game.time + WHIZ.link, bud, 'whizz', w.by));
+    game.pending.push(game._linkBy(bud.id, game.time + WHIZ.link, bud, 'whizz', w.by));
+    game.event('foe', { kind: 'whizzbang:bang', bud, x: bud.x, y: bud.y, n: w.path.pins.length + near.length, boss: w.path.boss });
+  }
+  define('whizzbang', {
+    r: WHIZ.r, hp: 1, fall: 1, type: 'poppy', hint: 'Light a whizzbang under a crowd. Whoosh, bang!',
+    make(spot, tag, i) {
+      const id = `${tag}-foe${i}`, x = spot[1], opts = spot[3] || {}, sway = Math.min(opts.sway ?? WHIZ.sway, whizzSway(x, WHIZ.r));
+      return [piece('whizzbang', id, id, x, spot[2], { sway, swayW: TAU / WHIZ.period, swayPhase: TAU * hash01(id, 7), whizz: null })];
+    },
+    owns: bud => !bud.bloomed,
+    step(game, bud, dt) {
+      if (!(dt > 0)) return;
+      const w = bud.whizz;
+      if (!w || w.mode === 'lit') { bud.y += (game.descentSpeed || 0) * (bud.fall || 1) * dt; bud.x = clamp(whizzX(bud, game.foeClock), 22 + bud.r, 398 - bud.r); }
+      if (w && !w.done) whizzStep(game, bud);
+    },
+    hit(game, bud, chain, isCredited, seed) {
+      const w = bud.whizz, via = chain && game.due ? game.due.via : null, plain = game.bossDown || !isCredited || isPower(game, seed) || via === 'sun' || via === 'boss';
+      if (w) return w.done || plain ? null : { blocked: true };
+      if (plain) return null;
+      whizzLight(game, bud, chain ? game.due.by : seed.id, chain ? WHIZ.chainFuse : WHIZ.fuse, chain);
+      return chain ? { blocked: true } : { blocked: true, feed: true };
+    },
+    bloomed(game, bud) { bud.ghost = false; bud.baseX = bud.x; bud.sway = 0; }, // rush sways a bloomed bud; keep the flower where it burst
+    breach: (game, bud) => bud.whizz ? 'skip' : 'life',
+    moving: () => true,
+    predict(game, bud, seconds, out) {
+      if (bud.whizz) { out.flags |= 2; return; }
+      const run = Math.max(0, seconds - Math.max(0, game.lullaby || 0));
+      out.x = clamp(whizzX(bud, (game.foeClock || 0) + run), 22 + bud.r, 398 - bud.r);
+      out.y = bud.y + (game.descentSpeed || 0) * (bud.fall || 1) * run;
+    },
+    // The bot lights it where its column will meet the most: 4, plus 8 a pin, 4 a bang, 40 for Ember Rose or an open guardian.
+    value(game, bud, hit, prepared) {
+      // The bot's trace passes a copy already posed at the hit, so the forecast starts from the live bud (its fall counted once).
+      bud = (game.buds || []).find(b => b.id === bud.id) || bud;
+      if (bud.whizz) return 0;
+      const plan = whizzForecast(game, bud, (hit.time || 0) + WHIZ.fuse, prepared);
+      const boss = plan.boss && game.bossState && (game.bossState.kind === 'ember' || game.bossState.vulnerable) ? 40 : 0;
+      return 4 + 8 * plan.pins.length + 4 * plan.bangs.length + boss;
+    },
+    // The aim line and the tells pass bossAt (BloomBosses.predictVisible) so the column meets the guardian where she will be.
+    plan: (game, bud, ahead, prepared, bossAt) => whizzForecast(game, bud, ahead, prepared, bossAt),
+    path: whizzPath, at: whizzX, WHIZ
+  });
+  // The flight a whizzbang lit `ahead` s from now would make: its own bob is exact; other pieces are forecast (the bot's
+  // own forecast when it has one, else their fall; a guardian and her parts come from bossAt when the caller has no bot forecast).
+  function whizzForecast(game, bud, ahead, prepared, bossAt) {
+    const key = `${bud.id}:${Math.round(ahead * 30)}`, cache = prepared ? prepared.whizz || (prepared.whizz = new Map()) : null;
+    if (cache && cache.has(key)) return cache.get(key);
+    const run = Math.max(0, ahead - Math.max(0, game.lullaby || 0)), T = (game.foeClock || 0) + run;
+    const x = clamp(whizzX(bud, T), 22 + bud.r, 398 - bud.r), y = bud.y + (game.descentSpeed || 0) * (bud.fall || 1) * run;
+    const step = Math.min(89, Math.round(ahead * 60)), futures = new Map();
+    if (prepared && prepared.moving) for (const m of prepared.moving) futures.set(m.original.id, m.future);
+    const pose = p => {
+      const f = futures.get(p.id);
+      if (f) return { x: f[step * 4], y: f[step * 4 + 1] };
+      if (p.boss || p.bossPart) return (bossAt && bossAt.get(p.id)) || p;
+      return { x: p.x, y: p.y + (game.descentSpeed || 0) * (p.fall || 1) * run };
+    };
+    const plan = whizzPath(game, x, y, { pose, skip: bud });
+    if (cache) cache.set(key, plan);
+    return plan;
+  }
+
+  // ── Lodestone (Level 8, `lodestone`) ──
+  // A round magnet rock prised from the mine roof: dark iron below, a cushion of moss on top, and a little compass
+  // needle of light on its rim that sways from shoulder to shoulder across the moss (LODE.swing rad either side of
+  // straight up, once every LODE.period s on the foe clock). The iron turns a seed's own touch away (a guard, no
+  // refund); only the moss opens it, one hit per tuft (LODE.hp). Its field, a ring of LODE.rings[hp] px that shrinks as
+  // the moss wears, tugs every seed flying through it on the needle's side (within LODE.jaw of the needle) along the arc
+  // that would reach the needle's tip, turning at most LODE.turn[hp] * (1 - d / R) rad/s and only while the seed still
+  // closes on the tip, so a seed passing beside it on that side curls round onto the moss and none ever circles. One
+  // pure pair, fields(game) and pull(...), bends the seed (rush.js), the aim line (engine.js) and the bot's trace.
+  // A curled seed that blooms it wins LODE.bonus sun ("Magnet curl!"); any credited bloom tugs up to LODE.tugs loose
+  // gems within LODE.tug px in as chains the seed earned ("Magnet!"). Chains, powers and uncredited strikes are plain.
+  // A Lullaby holds the needle and the fall; the field still bends seeds, like a current.
+  const LODE = { r: 13, hp: 3, fall: .8, rings: [40, 40, 60, 84], turn: [90, 90, 64, 50], jaw: 1.4, swing: 1, period: 5,
+    moss: -.25, tug: 84, tugs: 4, link: .08, bonus: 1, curl: .5, worth: 14, gem: 8 };
+  const wrapAngle = a => Math.atan2(Math.sin(a), Math.cos(a));
+  // A field's needle at its own clock time T (the foe clock since the stone arrived; the kit clock for a guardian).
+  const needleAt = (f, T) => f.mid + f.spin * T + f.amp * Math.sin(f.w * T + f.ph);
+  function lodeField(game, bud) {
+    const hp = clamp(bud.hp | 0, 1, LODE.hp);
+    return { id: bud.id, x: bud.x, y: bud.y, vy: (game.descentSpeed || 0) * (bud.fall ?? 1), r: bud.r, R: LODE.rings[hp], W: LODE.turn[hp],
+      jaw: LODE.jaw, mid: -Math.PI / 2, spin: 0, amp: LODE.swing, w: TAU / LODE.period, ph: hash01(bud.id, 7) * TAU,
+      t: (game.foeClock || 0) - (bud.born || 0), hold: game.lullaby > 0 ? game.lullaby : 0, boss: false };
+  }
+  // Every field on the board now, as closed-form descriptors (null when there are none). A guardian may add its own
+  // (the Geode King's Magnet Heart keeps one on game.bossState.magnet with the same fields).
+  function fields(game) {
+    let list = null;
+    for (const bud of game.buds) {
+      if (bud.foe !== 'lodestone' || bud.bloomed || bud.hidden) continue;
+      (list || (list = [])).push(lodeField(game, bud));
+    }
+    const s = game.bossState, m = s && s.magnet;
+    if (m && s.boss && !s.boss.bloomed) (list || (list = [])).push(m);
+    return list;
+  }
+  // THE pull: turns a seed at (x, y) moving (vx, vy) for dt seconds, `ahead` seconds from now (the aim line and the bot
+  // look ahead; the game passes 0). Writes out.vx, out.vy (speed unchanged) and returns the last field that turned it.
+  function pull(list, x, y, vx, vy, dt, ahead, out) {
+    let by = null;
+    for (let i = 0; list && i < list.length; i++) {
+      const f = list[i], late = Math.max(0, (ahead || 0) - f.hold), cx = f.x, cy = f.y + f.vy * late;
+      const dx = x - cx, dy = y - cy, d = Math.hypot(dx, dy);
+      if (d >= f.R || d < 1e-6) continue;
+      if (f.until != null && f.t + late >= f.until) continue; // a guardian's field that will be gone by then
+      const a = needleAt(f, f.t + late);
+      if (Math.abs(wrapAngle(Math.atan2(dy, dx) - a)) > f.jaw) continue;
+      const tx = cx + f.r * Math.cos(a) - x, ty = cy + f.r * Math.sin(a) - y;
+      if (vx * tx + vy * ty <= 0) continue;
+      const speed = Math.hypot(vx, vy), off = wrapAngle(Math.atan2(ty, tx) - Math.atan2(vy, vx)), cap = f.W * (1 - d / f.R) * dt;
+      const turn = clamp(clamp(2 * speed * Math.sin(off) / Math.max(1, Math.hypot(tx, ty)) * dt, -cap, cap), -Math.abs(off), Math.abs(off));
+      if (Math.abs(turn) < 1e-9) continue;
+      const c = Math.cos(turn), s = Math.sin(turn), nx = vx * c - vy * s;
+      vy = vx * s + vy * c; vx = nx; by = f;
+    }
+    out.vx = vx; out.vy = vy;
+    return by;
+  }
+  // A seed this stone's field turned in the last LODE.curl s.
+  const curled = (game, bud, seed) => Boolean(seed && seed.pullBy === bud.id && game.time - seed.pullAt <= LODE.curl);
+  const onMoss = n => Boolean(n) && n.ny <= LODE.moss;
+  define('lodestone', {
+    r: LODE.r, hp: LODE.hp, fall: LODE.fall, type: 'sky', hint: 'Lodestones tug seeds! Curl one onto the moss.',
+    make(spot, tag, i) { const id = i == null ? tag : `${tag}-foe${i}`; return [piece('lodestone', id, id, spot[1], spot[2])]; },
+    // The iron (everything but the top LODE.moss of the rim) turns a seed's own touch away. Powers always land.
+    guard: (game, bud, hit, seed) => !game.scripted && !isPower(game, seed) && !onMoss(hit),
+    // A turned-away touch stamps the stone so its art can look smug for a beat (bud.guardAt, the game clock).
+    contact(game, bud, ball, hit) { if (!game.scripted && !isPower(game, ball) && !onMoss(hit)) bud.guardAt = game.time; return null; },
+    // A seed struck straight in (no flight) is judged by its contact the same way; a top touch is a plain hit.
+    hit(game, bud, chain, isCredited, seed) {
+      if (!direct(game, chain, isCredited, seed)) return null;
+      if (!onMoss(seed.bossContact || { nx: 0, ny: 1 })) return { blocked: true };
+      // The opening touch is heard as the open alone (bloomed), never as a moss tuft on the same tick as well.
+      if (bud.hp > 1) game.event('foe', { kind: 'lodestone:moss', bud, x: bud.x, y: bud.y - bud.r, hp: bud.hp - 1, curl: curled(game, bud, seed) });
+      return null;
+    },
+    bloomed(game, bud, chain, credit) {
+      const seed = credit && credit.ball, curl = !chain && curled(game, bud, seed) && !isPower(game, seed);
+      if (curl) { game._charge(LODE.bonus, credit); bud.curled = true; }
+      // The magnet's last tug: loose gems nearby fly in and bloom, nearest first, as chains of whoever opened it.
+      const ids = [];
+      if (credit) {
+        const near = game.buds.filter(p => p.gem && !p.bloomed && !p.hidden && !p.ghost && !p.bossPart && !p.inert && !game.pending.some(q => q.id === p.id)
+          && Math.hypot(p.x - bud.x, p.y - bud.y) <= LODE.tug).sort((a, b) => Math.hypot(a.x - bud.x, a.y - bud.y) - Math.hypot(b.x - bud.x, b.y - bud.y) || (a.id < b.id ? -1 : 1));
+        near.slice(0, LODE.tugs).forEach((p, k) => { ids.push({ id: p.id, x: p.x, y: p.y }); game.pending.push(game._linkBy(p.id, game.time + LODE.link * (k + 1), bud, 'lode', credit.by, true)); });
+      }
+      game.event('foe', { kind: 'lodestone:open', bud, x: bud.x, y: bud.y, curl, gems: ids });
+    },
+    // The bot shoots only the moss, more for the last tuft when gems are near.
+    value(game, bud, hit) {
+      if (!onMoss(hit)) return -1;
+      const gems = bud.hp <= 1 ? game.buds.filter(p => p.gem && !p.bloomed && !p.bossPart && Math.hypot(p.x - bud.x, p.y - bud.y) <= LODE.tug).length : 0;
+      return LODE.worth + LODE.gem * Math.min(LODE.tugs, gems);
+    },
+    LODE, lodeField, needleAt
+  });
+
+  // ── Sweetheart Roses (Level 9, `sweetheart`) ──
+  // Two shy coral rose buds on one pink ribbon with a heart-shaped leaf where it ties. A seed's own touch on one makes it
+  // blush (it hides its face behind a leaf and opens nothing: no refund, no split charge) for SWEET.window s on the foe
+  // clock, and a heart ring rises over its sweetheart. Touch the other rose while the first still blushes and they kiss:
+  // both bloom (the second through a forced link credited to that seed, so it refunds and scores like a chain) and pay
+  // SWEET.kiss sun and SWEET.pay x tempo ("Sweethearts!"). One seed that blushes the first and ricochets into the second
+  // is a Cupid shot (SWEET.cupid sun, SWEET.cupidPay x tempo). A blush that runs out is a pout: the pair resets. A chain,
+  // a power or an uncredited strike blooms a rose plainly, and its sweetheart always blooms with it (a plain forced link),
+  // so strike loops end and the two always bloom together. One pure function, blushLeft(game, rose, ahead), is the rule
+  // the game (ahead 0), the art and aim line (the flight time) and the bot (hit.time) all read.
+  const SWEET = { r: 11, gap: 46, window: 1.2, link: .06, kiss: 1, cupid: 2, pay: 300, cupidPay: 600, worth: 12, urgent: 70, margin: .12, lead: 1.4, seed: 5.5 };
+  function sweetMate(game, bud) {
+    for (let i = 0; i < game.buds.length; i++) if (game.buds[i].id === bud.mate) return game.buds[i];
+    return null;
+  }
+  // THE rule: seconds rose `bud` will still be blushing `ahead` seconds from now (0: not blushing then). A Lullaby holds it.
+  function blushLeft(game, bud, ahead = 0) {
+    if (!bud || bud.bloomed || !(bud.blushUntil >= 0)) return 0;
+    const late = Math.max(0, (ahead || 0) - Math.max(0, game.lullaby || 0));
+    return Math.max(0, bud.blushUntil - (game.foeClock || 0) - late);
+  }
+  // When a seed already flying would first reach `bud` along its straight path (walls and other pieces ignored, the
+  // rose falling as it does), within SWEET.lead s; Infinity when none will. Pure; the bot's pair rule reads it.
+  function sweetIncoming(game, bud) {
+    const fall = game.lullaby > 0 ? 0 : (game.descentSpeed || 0) * (bud.fall ?? 1), reach = bud.r + SWEET.seed;
+    let best = Infinity;
+    for (const ball of game.balls || []) {
+      if (ball.dead || ball.power) continue;
+      const px = ball.x - bud.x, py = ball.y - bud.y, vx = ball.vx, vy = ball.vy - fall;
+      const a = vx * vx + vy * vy, b = 2 * (px * vx + py * vy), c = px * px + py * py - reach * reach, disc = b * b - 4 * a * c;
+      if (a < 1e-9 || disc < 0) continue;
+      const t = (-b - Math.sqrt(disc)) / (2 * a);
+      if (t >= 0 && t <= SWEET.lead && t < best) best = t;
+    }
+    return best;
+  }
+  define('sweetheart', {
+    r: SWEET.r, hp: 1, fall: .9, type: 'coral', hint: 'Sweethearts bloom together. Hit both fast!',
+    // [name, x, y, {dx, dy}]: the pair's centre; the roses sit dx (46) apart, the right one dy lower. A guardian's
+    // spawn passes i = null and gets group = tag.
+    make(spot, tag, i) {
+      const G = i == null ? tag : `${tag}-foe${i}`, o = spot[3] || {}, dx = (o.dx ?? SWEET.gap) / 2, dy = (o.dy || 0) / 2;
+      return [0, 1].map(k => piece('sweetheart', `${G}-${k}`, G, spot[1] + (k ? dx : -dx), spot[2] + (k ? dy : -dy),
+        { side: k, mate: `${G}-${1 - k}`, blushUntil: -1, blushAt: -100, blushBy: null, poutAt: -100, kiss: null, kissAt: -100 }));
+    },
+    init(game, bud) { bud.blushUntil = -1; bud.blushBy = null; bud.kiss = null; },
+    step(game, bud) {
+      if (bud.blushUntil >= 0 && game.foeClock >= bud.blushUntil - 1e-9) {
+        bud.blushUntil = -1; bud.blushBy = null; bud.poutAt = game.foeClock;
+        game.event('foe', { kind: 'sweetheart:pout', bud, x: bud.x, y: bud.y });
+      }
+    },
+    hit(game, bud, chain, isCredited, seed) {
+      if (!direct(game, chain, isCredited, seed)) return null;
+      const mate = sweetMate(game, bud);
+      if (!mate || mate.bloomed) return null;
+      if (blushLeft(game, mate) > 0) { bud.kiss = { by: seed.id, cupid: mate.blushBy === seed.id }; return null; }
+      if (blushLeft(game, bud) > 0) return { blocked: true };
+      bud.blushUntil = game.foeClock + SWEET.window; bud.blushAt = game.foeClock; bud.blushBy = seed.id;
+      game.event('foe', { kind: 'sweetheart:blush', bud, x: bud.x, y: bud.y - bud.r, mx: mate.x, my: mate.y });
+      return { blocked: true };
+    },
+    bloomed(game, bud, chain, credit) {
+      bud.blushUntil = -1;
+      const mate = sweetMate(game, bud);
+      if (!mate || mate.bloomed) return;
+      // Its sweetheart opens with it a moment later, so a blush it still wears ends here, quietly: a kiss (or a chain)
+      // in a blush's last SWEET.link s must not let it pout in the gap before it blooms.
+      mate.blushUntil = -1; mate.blushBy = null;
+      if (game.pending.some(item => item.id === mate.id)) return;
+      const kiss = bud.kiss;
+      game.pending.push(game._linkBy(mate.id, game.time + SWEET.link, bud, kiss ? 'kiss' : 'sweet', kiss ? kiss.by : credit ? credit.by : null, true));
+      if (!kiss) return;
+      bud.kissAt = mate.kissAt = game.foeClock;
+      const gain = Math.round((kiss.cupid ? SWEET.cupidPay : SWEET.pay) * game.tempo); game.score += gain;
+      game._charge(kiss.cupid ? SWEET.cupid : SWEET.kiss, credit);
+      game.event('foe', { kind: 'sweetheart:kiss', bud, x: (bud.x + mate.x) / 2, y: (bud.y + mate.y) / 2 - 6, cupid: kiss.cupid, gain, ax: bud.x, ay: bud.y, bx: mate.x, by: mate.y });
+    },
+    // The bot's pair rule: the sweetheart of a rose that will be blushing when this seed lands (or that a seed already
+    // flying will make blush in time) is worth a lot; a rose already blushing, or already being aimed at, is worth nothing.
+    value(game, bud, hit) {
+      const t = hit && hit.time || 0, mate = sweetMate(game, bud);
+      if (!mate || mate.bloomed) return 0;
+      if (blushLeft(game, mate, t) > SWEET.margin) return SWEET.urgent;
+      if (blushLeft(game, bud, t) > 0) return -1;
+      const at = sweetIncoming(game, mate);
+      if (at < Infinity && Math.abs(at - t) < SWEET.window - SWEET.margin) return SWEET.urgent;
+      if (sweetIncoming(game, bud) < Infinity) return -1;
+      return SWEET.worth;
+    },
+    SWEET, blushLeft, sweetMate, sweetIncoming
+  });
+
+  // ── Wishing Stars (Level 10, `wishstar`) ──
+  // Four little gold stars on a turning figure, numbered 1 to 4 on their faces (bud.pip) in a crossing order: 1 and 2
+  // sit opposite each other (top and bottom at the start), then 3 and 4 across the other way, so the route crosses the
+  // middle twice. The figure turns WISH.spin rad/s
+  // about its middle (one way or the other) and sinks at WISH.fall of the wave's pace. Only the next star (the lowest
+  // number still open, the one that twinkles) lets an aimed seed in: any other glances off (a guard, no refund). A star a
+  // seed blooms in its turn (its own touch or that seed's chain) rings the next note of a chord and lights its line.
+  // All four rung is a wish: +1 sun, WISH.pay x tempo, and a shooting star that hops to the WISH.links nearest open
+  // pieces within WISH.reach px, one credited link WISH.hop s apart. A power, an out-of-turn chain or an uncredited
+  // strike blooms a star plainly (no note, so that figure cannot wish), so strike loops end. Everything runs on the foe
+  // clock (wishAt is closed form), so a Lullaby holds it and the bot's forecast is the board. One group: one life.
+  const WISH = { r: 10, R: 30, spin: .8, fall: .8, order: [0, 2, 1, 3], pay: 400, links: 3, reach: 170, hop: .08, worth: 22, step: 12, last: 30 };
+  // Where a star is at foe time `clock` with its figure's middle at (bud.wx, wy): pure, shared by the game, the bot and
+  // the art (which joins the rung stars with it).
+  function wishAt(bud, clock, wy, out) {
+    const a = bud.a0 + bud.dir * WISH.spin * (clock - (bud.born || 0)) + bud.slot * TAU / 4;
+    out.x = bud.wx + WISH.R * Math.cos(a); out.y = wy + WISH.R * Math.sin(a); return out;
+  }
+  // The number that may be shot next in a star's figure: the lowest still open (0 once all four are out).
+  function wishNext(game, bud) {
+    let n = 0;
+    for (const o of game.buds) if (o.foe === 'wishstar' && o.wish === bud.wish && !o.bloomed && (!n || o.pip < n)) n = o.pip;
+    return n;
+  }
+  const wishMates = (game, bud) => game.buds.filter(o => o.foe === 'wishstar' && o.wish === bud.wish);
+  // The shooting star: from the fourth star to the nearest open piece, then on from there, WISH.links hops at most.
+  function wishHops(game, from) {
+    const queued = new Set(game.pending.map(item => item.id)), hops = [];
+    let at = { x: from.x, y: from.y };
+    const free = o => !o.bloomed && !o.hidden && !o.ghost && !o.gift && !o.boss && !o.bossPart && !queued.has(o.id) && !hops.includes(o)
+      && (!o.inert || chainable(o)) && o.wish !== from.wish;
+    while (hops.length < WISH.links) {
+      let best = null, gap = WISH.reach;
+      for (const o of game.buds) if (free(o)) { const d = Math.hypot(o.x - at.x, o.y - at.y); if (d < gap || d === gap && best && o.id < best.id) { best = o; gap = d; } }
+      if (!best) break;
+      hops.push(best); at = best;
+    }
+    return hops;
+  }
+  define('wishstar', {
+    r: WISH.r, hp: 1, fall: WISH.fall, type: 'gold', hint: 'Wishing stars! Bloom them in order, 1 to 4.',
+    WISH, wishAt, wishNext,
+    // [wishstar, x, y, {spin, a0}]: the figure's middle at (x, y); star 1 starts at angle a0 (default straight up) and
+    // the figure turns clockwise on screen (spin -1: the other way).
+    make(spot, tag, i) {
+      const G = i == null ? tag : `${tag}-foe${i}`, o = spot[3] || {}, dir = o.spin < 0 ? -1 : 1, a0 = Number.isFinite(o.a0) ? o.a0 : -Math.PI / 2;
+      return WISH.order.map((slot, k) => {
+        const a = a0 + slot * TAU / 4;
+        return piece('wishstar', `${G}-${k}`, G, spot[1] + WISH.R * Math.cos(a), spot[2] + WISH.R * Math.sin(a), { pip: k + 1, slot, wish: G, wx: spot[1], wy: spot[2], a0, dir, rings: 0 });
+      });
+    },
+    init(game, bud) { fresh(game, bud); },
+    owns: bud => !bud.bloomed,
+    step(game, bud, dt) {
+      bud.wy += (game.descentSpeed || 0) * (bud.fall || 1) * dt;
+      wishAt(bud, game.foeClock || 0, bud.wy, bud); bud.baseX = bud.x;
+    },
+    // Out of turn, an aimed seed glances off (rush emits wishstar:guard). Powers and chains are never turned away.
+    guard: (game, bud, hit, seed) => !game.scripted && !isPower(game, seed) && bud.pip !== wishNext(game, bud),
+    hit(game, bud, chain, isCredited, seed) {
+      return direct(game, chain, isCredited, seed) && bud.pip !== wishNext(game, bud) ? { blocked: true } : null;
+    },
+    bloomed(game, bud, chain, credit) {
+      // The guardian's last cascade blooms every star itself: no notes or wish over the finale. A Sunburst's ripple (forced
+      // 'sun' links that carry the seed's credit) and a guardian's cascade count as the power they are: plain blooms.
+      if (game.bossDown || !credit || isPower(game, game.striker) || (chain && game.due && ['sun', 'boss'].includes(game.due.via))) return;
+      const mates = wishMates(game, bud);
+      if (mates.some(o => o.pip < bud.pip && !o.bloomed)) return; // out of turn (a chain): plain
+      const rings = (bud.rings || 0) + 1, prev = mates.find(o => o.pip === bud.pip - 1);
+      for (const o of mates) o.rings = rings;
+      bud.rang = true;
+      game.event('foe', { kind: 'wishstar:ring', bud, x: bud.x, y: bud.y, pip: bud.pip, rings, fromX: prev ? prev.x : null, fromY: prev ? prev.y : null });
+      if (bud.pip !== 4 || rings !== 4) return;
+      // The wish: four notes in a row.
+      const bonus = Math.round(WISH.pay * game.tempo), hops = wishHops(game, bud);
+      game.score += bonus; game._charge(1, credit);
+      let from = bud;
+      hops.forEach((o, k) => { game.pending.push(game._linkBy(o.id, game.time + WISH.hop * (k + 1), from, 'wish', credit.by)); from = o; });
+      game.event('foe', { kind: 'wishstar:wish', bud, x: bud.x, y: bud.y, bonus, n: hops.length, path: hops.map(o => ({ x: o.x, y: o.y })) });
+    },
+    predict(game, bud, seconds, out) {
+      const run = Math.max(0, seconds - Math.max(0, game.lullaby || 0));
+      wishAt(bud, (game.foeClock || 0) + run, bud.wy + (game.descentSpeed || 0) * (bud.fall || 1) * run, out);
+    },
+    // The bot shoots only the star whose turn it is, and wants it more the further the chord has got (most of all the
+    // fourth star of an unbroken chord: the wish).
+    value(game, bud) {
+      if (bud.pip !== wishNext(game, bud)) return -1;
+      const rung = bud.rings || 0;
+      return WISH.worth + WISH.step * rung + (bud.pip === 4 && rung === 3 ? WISH.last : 0);
+    }
+  });
+
+  return Object.freeze({ FOES, names, isFoe, entryOf, familyOf, credited, isPower, direct, chainable, owns, make, piece, place, init, initBud,
+    step, onTick, sweep, guard, contact, hit, bloomed, popped, breach, holding, moves, predict, value, hint, rollPreview,
+    hash01, orbitAt, lobAt, swapAt, clamp, smooth, TAU, ROLL, define,
+    fields, pull }); // fields/pull: the Lodestone's field, shared by rush.js, engine.js's aim line and the practice bot
+});

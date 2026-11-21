@@ -1,0 +1,644 @@
+{
+  "generatedAt": "2026-10-16T21:12:19.266Z",
+  "gameSourceCommit": "98850b69d789fb6e6e2a1ccee6ce21e2d3bf94d5",
+  "finalSourceHashes": {
+    "app.js": "8d8e2c50e17487c40fe37d053e36ace38c6fa9ec2f9bdfefb5f015593bcef173",
+    "art.js": "66d4ddf24618e3b31913a6d91e73b8431ae81152c17a76386d4300f5687a72e4",
+    "feel.js": "d19952c1b1fa073d33db4e4757adde7397fc016c8667289d9fc5be08d56ae33b",
+    "styles.css": "3c3649ac0996ca5414d289ed159da22f34f5e27ef4b271c1c35811d5f6df0e1e",
+    "index.html": "2f0c4c38c54297f1f46a50aea7ade3844a49af9a61ee9bf5a31204693695e15a"
+  },
+  "target": {
+    "fps": 60,
+    "defaultGraphics": "maximum",
+    "physicalInstalledDeviceAcceptance": "unverified",
+    "targetAchievementClaimed": false
+  },
+  "scope": "Desktop Chromium callback timing with actual CDP touch shots, running audio, iPhone/Android viewport and DPR profiles. Browser profiles do not run iOS or Android WebView.",
+  "changes": [
+    "Maximum(default), Balanced and Performance graphics choices saved additively through the existing save/native backup path.",
+    "Interpolation between resolved 120 Hz positions removes quantized seed motion without predicting beyond collision or portal handling.",
+    "High-rate Rush aim moves trace once per displayed frame; immediate release retains the latest direction.",
+    "Loaded/tray seed shading is cached; warming is limited to remaining 8 ms CPU budget and caps of 4/3/2 ms per preset.",
+    "Optional local frame-rate display; no timing report is sent or saved."
+  ],
+  "validation": {
+    "ciSourceCommit": "98850b69d789fb6e6e2a1ccee6ce21e2d3bf94d5",
+    "suites": 32,
+    "ciRuns": [
+      38964349326,
+      38964353527
+    ],
+    "moonPointerPassed": true,
+    "ciNativePackagingPassed": true,
+    "pagesBuildRun": 38964353565,
+    "publicDeploy": "skipped",
+    "frameTimingCases": 14,
+    "appFeelCases": 32,
+    "seedArtCases": 6,
+    "bloomFxCases": 26,
+    "saveIntegrationCases": 87,
+    "precacheAssets": 37,
+    "precacheBodyHashesMatch": true,
+    "nativeAssets": 34,
+    "nativeGeneratedCopyCheck": "www + Android + iOS match; no native app install or physical timing proof"
+  },
+  "stageNotes": {
+    "baseline": "d15730e source, original warm budget and no graphics choices.",
+    "candidate": "Initial settings/interpolation/cache work with earlier 12/8 ms warming; hashes retained without relabeling.",
+    "finalBudget": "Final runtime: 8 ms overall warming deadline, 4/3/2 ms job slices. Narrow final-source normal/busy boss and all-preset stress checks.",
+    "nativePackage": "The generated native game assets are loaded in desktop Chromium. Preset selection, reload persistence and normal-save isolation passed for both screen profiles."
+  },
+  "stages": {
+    "baseline": {
+      "sourceHashes": {
+        "app.js": "761a184f4a9571db2014286238e3e17b0d4f5839ba88df18b83d3ecd0a71035b",
+        "art.js": "ebc7d53c4a0f5c6009b7431f2f1ef9c4151816f6a51a72c665ef3454025799a1",
+        "feel.js": "3a58ec154ecc9ba718e19df36db1dcb22289a902a05661ded7c56ac62de75d45",
+        "styles.css": "1d95e614837938ead18fbc77d4b3066e5f5310f51e7463adf9773076c87f1b97",
+        "index.html": "3998e0d845d8aefefd103f9550955c55c93c8db1add3d5cea9fac30047b74369"
+      },
+      "functionalCases": 4,
+      "ui": [],
+      "cases": [
+        {
+          "key": "iPhone13-l1-maximum-cpu1",
+          "profile": "iPhone13",
+          "level": 1,
+          "preset": "maximum",
+          "cpu": 1,
+          "summary": {
+            "frames": 453,
+            "fps": 56.63986796534092,
+            "intervalP95Ms": 18.299999999999272,
+            "cpuP95Ms": 6.5,
+            "over25Ms": 1,
+            "over50Ms": 0,
+            "meanRadialGradients": 1.5298013245033113
+          }
+        },
+        {
+          "key": "iPhone13-l5-maximum-cpu4",
+          "profile": "iPhone13",
+          "level": 5,
+          "preset": "maximum",
+          "cpu": 4,
+          "summary": {
+            "frames": 433,
+            "fps": 54.14869005189771,
+            "intervalP95Ms": 18.5,
+            "cpuP95Ms": 17.099999994039536,
+            "over25Ms": 15,
+            "over50Ms": 2,
+            "meanRadialGradients": 1.1824480369515011
+          }
+        },
+        {
+          "key": "Android-l1-maximum-cpu1",
+          "profile": "Android",
+          "level": 1,
+          "preset": "maximum",
+          "cpu": 1,
+          "summary": {
+            "frames": 453,
+            "fps": 56.691612644857706,
+            "intervalP95Ms": 18.30000000000109,
+            "cpuP95Ms": 4.300000011920929,
+            "over25Ms": 0,
+            "over50Ms": 0,
+            "meanRadialGradients": 1.7748344370860927
+          }
+        },
+        {
+          "key": "Android-l5-maximum-cpu4",
+          "profile": "Android",
+          "level": 5,
+          "preset": "maximum",
+          "cpu": 4,
+          "summary": {
+            "frames": 248,
+            "fps": 31.18869158408371,
+            "intervalP95Ms": 88.89999999999964,
+            "cpuP95Ms": 44.5,
+            "over25Ms": 93,
+            "over50Ms": 49,
+            "meanRadialGradients": 1.9919354838709677
+          }
+        }
+      ]
+    },
+    "candidate": {
+      "sourceHashes": {
+        "app.js": "be41a06fc19a51f038b4fea753a14d6d0a5701dd73ebbf0a40aa6267dd3bd427",
+        "art.js": "66d4ddf24618e3b31913a6d91e73b8431ae81152c17a76386d4300f5687a72e4",
+        "feel.js": "d19952c1b1fa073d33db4e4757adde7397fc016c8667289d9fc5be08d56ae33b",
+        "styles.css": "3c3649ac0996ca5414d289ed159da22f34f5e27ef4b271c1c35811d5f6df0e1e",
+        "index.html": "2f0c4c38c54297f1f46a50aea7ade3844a49af9a61ee9bf5a31204693695e15a"
+      },
+      "functionalCases": 12,
+      "ui": [
+        {
+          "profile": "iPhone13",
+          "graphicsChoicesAndReload": true,
+          "maximumDefault": true,
+          "normalSaveUntouched": true
+        },
+        {
+          "profile": "Android",
+          "graphicsChoicesAndReload": true,
+          "maximumDefault": true,
+          "normalSaveUntouched": true
+        }
+      ],
+      "cases": [
+        {
+          "key": "iPhone13-l1-maximum-cpu1",
+          "profile": "iPhone13",
+          "level": 1,
+          "preset": "maximum",
+          "cpu": 1,
+          "summary": {
+            "frames": 451,
+            "fps": 56.47100070119203,
+            "intervalP95Ms": 18.299999999999272,
+            "cpuP95Ms": 5,
+            "over25Ms": 1,
+            "over50Ms": 0,
+            "meanRadialGradients": 1
+          },
+          "graphics": "maximum",
+          "effectTier": 0,
+          "boardPixelRatio": 2.5
+        },
+        {
+          "key": "iPhone13-l3-maximum-cpu1",
+          "profile": "iPhone13",
+          "level": 3,
+          "preset": "maximum",
+          "cpu": 1,
+          "summary": {
+            "frames": 450,
+            "fps": 56.2429696287964,
+            "intervalP95Ms": 18.30000000000109,
+            "cpuP95Ms": 5.0999999940395355,
+            "over25Ms": 4,
+            "over50Ms": 0,
+            "meanRadialGradients": 1
+          },
+          "graphics": "maximum",
+          "effectTier": 0,
+          "boardPixelRatio": 2.5
+        },
+        {
+          "key": "iPhone13-l5-maximum-cpu1",
+          "profile": "iPhone13",
+          "level": 5,
+          "preset": "maximum",
+          "cpu": 1,
+          "summary": {
+            "frames": 454,
+            "fps": 56.745744069194814,
+            "intervalP95Ms": 18.299999999999272,
+            "cpuP95Ms": 4.0999999940395355,
+            "over25Ms": 0,
+            "over50Ms": 0,
+            "meanRadialGradients": 1
+          },
+          "graphics": "maximum",
+          "effectTier": 0,
+          "boardPixelRatio": 2.5
+        },
+        {
+          "key": "iPhone13-l10-maximum-cpu1",
+          "profile": "iPhone13",
+          "level": 10,
+          "preset": "maximum",
+          "cpu": 1,
+          "summary": {
+            "frames": 430,
+            "fps": 53.851644979899554,
+            "intervalP95Ms": 34.600000000000364,
+            "cpuP95Ms": 11.400000005960464,
+            "over25Ms": 22,
+            "over50Ms": 0,
+            "meanRadialGradients": 1
+          },
+          "graphics": "maximum",
+          "effectTier": 1,
+          "boardPixelRatio": 2.5
+        },
+        {
+          "key": "iPhone13-l5-balanced-cpu4",
+          "profile": "iPhone13",
+          "level": 5,
+          "preset": "balanced",
+          "cpu": 4,
+          "summary": {
+            "frames": 393,
+            "fps": 48.80593122461905,
+            "intervalP95Ms": 35.70000000000073,
+            "cpuP95Ms": 18.299999982118607,
+            "over25Ms": 52,
+            "over50Ms": 8,
+            "meanRadialGradients": 1
+          },
+          "graphics": "balanced",
+          "effectTier": 2,
+          "boardPixelRatio": 2
+        },
+        {
+          "key": "iPhone13-l5-performance-cpu4",
+          "profile": "iPhone13",
+          "level": 5,
+          "preset": "performance",
+          "cpu": 4,
+          "summary": {
+            "frames": 380,
+            "fps": 47.58625007826686,
+            "intervalP95Ms": 35.80000000000109,
+            "cpuP95Ms": 19.80000001192093,
+            "over25Ms": 61,
+            "over50Ms": 9,
+            "meanRadialGradients": 1
+          },
+          "graphics": "performance",
+          "effectTier": 2,
+          "boardPixelRatio": 1.5
+        },
+        {
+          "key": "Android-l1-maximum-cpu1",
+          "profile": "Android",
+          "level": 1,
+          "preset": "maximum",
+          "cpu": 1,
+          "summary": {
+            "frames": 455,
+            "fps": 56.95117219280789,
+            "intervalP95Ms": 18.300000000000182,
+            "cpuP95Ms": 2.5,
+            "over25Ms": 0,
+            "over50Ms": 0,
+            "meanRadialGradients": 1
+          },
+          "graphics": "maximum",
+          "effectTier": 0,
+          "boardPixelRatio": 2.5
+        },
+        {
+          "key": "Android-l3-maximum-cpu1",
+          "profile": "Android",
+          "level": 3,
+          "preset": "maximum",
+          "cpu": 1,
+          "summary": {
+            "frames": 447,
+            "fps": 55.86801649793775,
+            "intervalP95Ms": 18.399999999999636,
+            "cpuP95Ms": 5.199999988079071,
+            "over25Ms": 6,
+            "over50Ms": 0,
+            "meanRadialGradients": 1
+          },
+          "graphics": "maximum",
+          "effectTier": 0,
+          "boardPixelRatio": 2.5
+        },
+        {
+          "key": "Android-l5-maximum-cpu1",
+          "profile": "Android",
+          "level": 5,
+          "preset": "maximum",
+          "cpu": 1,
+          "summary": {
+            "frames": 452,
+            "fps": 56.54240680510384,
+            "intervalP95Ms": 18.399999999999636,
+            "cpuP95Ms": 3.800000011920929,
+            "over25Ms": 1,
+            "over50Ms": 0,
+            "meanRadialGradients": 1
+          },
+          "graphics": "maximum",
+          "effectTier": 0,
+          "boardPixelRatio": 2.5
+        },
+        {
+          "key": "Android-l10-maximum-cpu1",
+          "profile": "Android",
+          "level": 10,
+          "preset": "maximum",
+          "cpu": 1,
+          "summary": {
+            "frames": 448,
+            "fps": 56.04062945635585,
+            "intervalP95Ms": 18.399999999999636,
+            "cpuP95Ms": 4.4000000059604645,
+            "over25Ms": 6,
+            "over50Ms": 0,
+            "meanRadialGradients": 1
+          },
+          "graphics": "maximum",
+          "effectTier": 1,
+          "boardPixelRatio": 2.5
+        },
+        {
+          "key": "Android-l5-balanced-cpu4",
+          "profile": "Android",
+          "level": 5,
+          "preset": "balanced",
+          "cpu": 4,
+          "summary": {
+            "frames": 308,
+            "fps": 38.73288144971642,
+            "intervalP95Ms": 54.100000000000364,
+            "cpuP95Ms": 29.599999994039536,
+            "over25Ms": 82,
+            "over50Ms": 27,
+            "meanRadialGradients": 1
+          },
+          "graphics": "balanced",
+          "effectTier": 2,
+          "boardPixelRatio": 2
+        },
+        {
+          "key": "Android-l5-performance-cpu4",
+          "profile": "Android",
+          "level": 5,
+          "preset": "performance",
+          "cpu": 4,
+          "summary": {
+            "frames": 385,
+            "fps": 48.04392587508579,
+            "intervalP95Ms": 35.899999999999636,
+            "cpuP95Ms": 18.600000023841858,
+            "over25Ms": 48,
+            "over50Ms": 12,
+            "meanRadialGradients": 1
+          },
+          "graphics": "performance",
+          "effectTier": 2,
+          "boardPixelRatio": 1.5
+        }
+      ]
+    },
+    "final-budget": {
+      "sourceHashes": {
+        "app.js": "8d8e2c50e17487c40fe37d053e36ace38c6fa9ec2f9bdfefb5f015593bcef173",
+        "art.js": "66d4ddf24618e3b31913a6d91e73b8431ae81152c17a76386d4300f5687a72e4",
+        "feel.js": "d19952c1b1fa073d33db4e4757adde7397fc016c8667289d9fc5be08d56ae33b",
+        "styles.css": "3c3649ac0996ca5414d289ed159da22f34f5e27ef4b271c1c35811d5f6df0e1e",
+        "index.html": "2f0c4c38c54297f1f46a50aea7ade3844a49af9a61ee9bf5a31204693695e15a"
+      },
+      "functionalCases": 8,
+      "ui": [],
+      "cases": [
+        {
+          "key": "iPhone13-l10-maximum-cpu1",
+          "profile": "iPhone13",
+          "level": 10,
+          "preset": "maximum",
+          "cpu": 1,
+          "summary": {
+            "frames": 442,
+            "fps": 55.238261869352755,
+            "intervalP95Ms": 18.399999999999636,
+            "cpuP95Ms": 10.900000005960464,
+            "over25Ms": 11,
+            "over50Ms": 0,
+            "meanRadialGradients": 1
+          },
+          "graphics": "maximum",
+          "effectTier": 0,
+          "boardPixelRatio": 2.5
+        },
+        {
+          "key": "iPhone13-l5-maximum-cpu4",
+          "profile": "iPhone13",
+          "level": 5,
+          "preset": "maximum",
+          "cpu": 4,
+          "summary": {
+            "frames": 411,
+            "fps": 51.12576191068541,
+            "intervalP95Ms": 35.5,
+            "cpuP95Ms": 15.900000005960464,
+            "over25Ms": 30,
+            "over50Ms": 12,
+            "meanRadialGradients": 1
+          },
+          "graphics": "maximum",
+          "effectTier": 1,
+          "boardPixelRatio": 2.5
+        },
+        {
+          "key": "iPhone13-l5-balanced-cpu4",
+          "profile": "iPhone13",
+          "level": 5,
+          "preset": "balanced",
+          "cpu": 4,
+          "summary": {
+            "frames": 435,
+            "fps": 54.32814197754436,
+            "intervalP95Ms": 18.400000000000546,
+            "cpuP95Ms": 15.699999988079071,
+            "over25Ms": 16,
+            "over50Ms": 1,
+            "meanRadialGradients": 1
+          },
+          "graphics": "balanced",
+          "effectTier": 1,
+          "boardPixelRatio": 2
+        },
+        {
+          "key": "iPhone13-l5-performance-cpu4",
+          "profile": "iPhone13",
+          "level": 5,
+          "preset": "performance",
+          "cpu": 4,
+          "summary": {
+            "frames": 423,
+            "fps": 52.874339070761614,
+            "intervalP95Ms": 33.399999999999636,
+            "cpuP95Ms": 17.099999994039536,
+            "over25Ms": 43,
+            "over50Ms": 5,
+            "meanRadialGradients": 1
+          },
+          "graphics": "performance",
+          "effectTier": 2,
+          "boardPixelRatio": 1.5
+        },
+        {
+          "key": "Android-l10-maximum-cpu1",
+          "profile": "Android",
+          "level": 10,
+          "preset": "maximum",
+          "cpu": 1,
+          "summary": {
+            "frames": 468,
+            "fps": 58.498537536561585,
+            "intervalP95Ms": 17.100000000000364,
+            "cpuP95Ms": 16.099999994039536,
+            "over25Ms": 12,
+            "over50Ms": 0,
+            "meanRadialGradients": 1
+          },
+          "graphics": "maximum",
+          "effectTier": 0,
+          "boardPixelRatio": 2.5
+        },
+        {
+          "key": "Android-l5-maximum-cpu4",
+          "profile": "Android",
+          "level": 5,
+          "preset": "maximum",
+          "cpu": 4,
+          "summary": {
+            "frames": 350,
+            "fps": 43.65668383829564,
+            "intervalP95Ms": 36.399999999999636,
+            "cpuP95Ms": 20.599999994039536,
+            "over25Ms": 78,
+            "over50Ms": 15,
+            "meanRadialGradients": 1
+          },
+          "graphics": "maximum",
+          "effectTier": 1,
+          "boardPixelRatio": 2.5
+        },
+        {
+          "key": "Android-l5-balanced-cpu4",
+          "profile": "Android",
+          "level": 5,
+          "preset": "balanced",
+          "cpu": 4,
+          "summary": {
+            "frames": 434,
+            "fps": 54.19715777117311,
+            "intervalP95Ms": 18.5,
+            "cpuP95Ms": 14.699999988079071,
+            "over25Ms": 19,
+            "over50Ms": 0,
+            "meanRadialGradients": 1
+          },
+          "graphics": "balanced",
+          "effectTier": 1,
+          "boardPixelRatio": 2
+        },
+        {
+          "key": "Android-l5-performance-cpu4",
+          "profile": "Android",
+          "level": 5,
+          "preset": "performance",
+          "cpu": 4,
+          "summary": {
+            "frames": 426,
+            "fps": 53.34201497583331,
+            "intervalP95Ms": 35,
+            "cpuP95Ms": 16.599999994039536,
+            "over25Ms": 24,
+            "over50Ms": 1,
+            "meanRadialGradients": 1
+          },
+          "graphics": "performance",
+          "effectTier": 2,
+          "boardPixelRatio": 1.5
+        }
+      ]
+    },
+    "native-package": {
+      "sourceHashes": {
+        "app.js": "8d8e2c50e17487c40fe37d053e36ace38c6fa9ec2f9bdfefb5f015593bcef173",
+        "art.js": "66d4ddf24618e3b31913a6d91e73b8431ae81152c17a76386d4300f5687a72e4",
+        "feel.js": "d19952c1b1fa073d33db4e4757adde7397fc016c8667289d9fc5be08d56ae33b",
+        "styles.css": "3c3649ac0996ca5414d289ed159da22f34f5e27ef4b271c1c35811d5f6df0e1e",
+        "index.html": "9c7369c6039e9230a5d28cd20ac297eff4944c6b750c2bd8db106690748e8dd1"
+      },
+      "functionalCases": 2,
+      "ui": [
+        {
+          "profile": "iPhone13",
+          "graphicsChoicesAndReload": true,
+          "maximumDefault": true,
+          "normalSaveUntouched": true
+        },
+        {
+          "profile": "Android",
+          "graphicsChoicesAndReload": true,
+          "maximumDefault": true,
+          "normalSaveUntouched": true
+        }
+      ],
+      "cases": [
+        {
+          "key": "iPhone13-l1-maximum-cpu1",
+          "profile": "iPhone13",
+          "level": 1,
+          "preset": "maximum",
+          "cpu": 1,
+          "summary": {
+            "frames": 448,
+            "fps": 56.02451072344151,
+            "intervalP95Ms": 18.299999999999272,
+            "cpuP95Ms": 3.199999988079071,
+            "over25Ms": 2,
+            "over50Ms": 0,
+            "meanRadialGradients": 1
+          },
+          "graphics": "maximum",
+          "effectTier": 0,
+          "boardPixelRatio": 2.5
+        },
+        {
+          "key": "Android-l1-maximum-cpu1",
+          "profile": "Android",
+          "level": 1,
+          "preset": "maximum",
+          "cpu": 1,
+          "summary": {
+            "frames": 450,
+            "fps": 56.363431405703984,
+            "intervalP95Ms": 18.299999999999272,
+            "cpuP95Ms": 11.900000005960464,
+            "over25Ms": 1,
+            "over50Ms": 0,
+            "meanRadialGradients": 1.031111111111111
+          },
+          "graphics": "maximum",
+          "effectTier": 0,
+          "boardPixelRatio": 2.5
+        }
+      ]
+    }
+  },
+  "idleControl": {
+    "generatedAt": "2026-10-16T21:11:00.417Z",
+    "scope": "Blank about:blank desktop Chrome RAF control. No game, audio or instrumentation wrapper. This observes the host clock, not a phone.",
+    "results": [
+      {
+        "device": "iPhone 13",
+        "frames": 445,
+        "fps": 55.59511762427695,
+        "intervalP95Ms": 18.399999999999864,
+        "over25Ms": 4
+      },
+      {
+        "device": "Pixel 7",
+        "frames": 480,
+        "fps": 59.997000149992495,
+        "intervalP95Ms": 16.899999999999977,
+        "over25Ms": 0
+      }
+    ]
+  },
+  "interpretation": "The desktop host itself delivered approximately 55.6 FPS in one blank iPhone-profile control and 60 FPS in the Android-profile control. Game callback timing and stress CPU results vary; they do not establish native 60 FPS. Lower presets reduce pixel allocations and decorative work but do not guarantee a rate.",
+  "installedDeviceGates": {
+    "iPhone": "TestFlight installation and sustained 60-second/ten-minute warm-device measurements still required.",
+    "android": "Play testing installation on a real representative Android and the same measurements still required."
+  },
+  "limitations": [
+    "Synthetic CPU4 throttling is a desktop stress condition, not a model of either phone.",
+    "Wrappers add measurement overhead; callback FPS is not GPU-presented FPS. Startup warming and isolated long jobs can exceed the nominal job slice.",
+    "Every stage retains its measured source fingerprint. No physical-device performance acceptance, store upload or purchase is inferred."
+  ]
+}

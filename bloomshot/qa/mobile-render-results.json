@@ -1,0 +1,600 @@
+{
+  "generatedAt": "2026-10-16T07:34:43.905Z",
+  "purpose": "Phone readability and bounded rendering follow-up. Sanitized desktop evidence; no physical-iPhone performance acceptance.",
+  "finalSourceHashes": {
+    "app.js": "761a184f4a9571db2014286238e3e17b0d4f5839ba88df18b83d3ecd0a71035b",
+    "art.js": "ebc7d53c4a0f5c6009b7431f2f1ef9c4151816f6a51a72c665ef3454025799a1",
+    "styles.css": "1d95e614837938ead18fbc77d4b3066e5f5310f51e7463adf9773076c87f1b97",
+    "sw.js": "ffb85edb92cea41835ef9878961120be66d2f6bb824bab794238a6a477a6b3fa"
+  },
+  "ownerReport": {
+    "device": "iPhone 13",
+    "os": "iOS 26.6.2",
+    "lowPowerMode": "off",
+    "symptoms": "Constant low frame rate; play area, falling flowers and launcher appeared too small.",
+    "verification": "Reported by owner; no remote physical-device measurement."
+  },
+  "changes": [
+    "Coalesce window resize events and reuse unchanged canvas backing stores; retain immediate route/theme sizing and viewport invalidation on Garden/Levels.",
+    "Skip idle visitor-layer drawing, clear once on exit, hide the empty layer with visibility while preserving its dimensions.",
+    "Warm only from the remaining frame budget and include warming in the sustained CPU quality governor.",
+    "Enlarge the launcher assembly 12% around its original launch point; tray/hearts and all physics stay at their authored positions.",
+    "Compact the Rush HUD and remove its backdrop blur; the short 390×664 board is 10.36% wider, while the 390×844 board already used the available width."
+  ],
+  "focusedChecks": {
+    "feel": {
+      "passed": 28,
+      "failed": 0,
+      "runner": "bloomshot/qa/test-feel.cjs",
+      "coverage": "Warm zero/deadline budget, full CPU sampling/recovery, resize burst/no-op held pointer, real resize cancellation, same-size theme paint, Garden zero-board-rect resize, existing finale/input behavior."
+    },
+    "bloomFx": {
+      "passed": 26,
+      "failed": 0,
+      "runner": "bloomshot/qa/test-bloomfx.cjs",
+      "artHash": "ebc7d53c4a0f5c6009b7431f2f1ef9c4151816f6a51a72c665ef3454025799a1"
+    },
+    "sceneLife": {
+      "passed": 8,
+      "failed": 0,
+      "runner": "bloomshot/qa/test-scene-life.cjs",
+      "artHash": "ebc7d53c4a0f5c6009b7431f2f1ef9c4151816f6a51a72c665ef3454025799a1"
+    },
+    "actualDomLife": {
+      "passed": 14,
+      "failed": 0,
+      "sourceStable": true,
+      "sourceHashes": {
+        "app.js": "761a184f4a9571db2014286238e3e17b0d4f5839ba88df18b83d3ecd0a71035b",
+        "art.js": "ebc7d53c4a0f5c6009b7431f2f1ef9c4151816f6a51a72c665ef3454025799a1",
+        "styles.css": "1d95e614837938ead18fbc77d4b3066e5f5310f51e7463adf9773076c87f1b97",
+        "sw.js": "ffb85edb92cea41835ef9878961120be66d2f6bb824bab794238a6a477a6b3fa"
+      },
+      "coverage": [
+        "Level entry hides its blank visitor layer synchronously",
+        "Hidden life layer retains full scene geometry",
+        "A real visit paints before its layer is shown",
+        "Motion off clears and hides an existing visit without changing geometry",
+        "Re-enabling motion restores a painted visit",
+        "A completed visit erases once and hides its now-blank layer",
+        "Same-size new theme starts with no stale previous visitor",
+        "A new theme retains identical layer dimensions and scene alignment",
+        "The new theme still shows its visitors",
+        "Viewport resize preserves full overlay geometry and matches visible state to its pixels",
+        "Resized motion-off overlay remains full-sized, empty and hidden",
+        "Normal save stays isolated",
+        "No runtime errors or external calls",
+        "Frozen runtime source remains unchanged"
+      ],
+      "evidence": "outputs/bloomshot-performance/life-visibility/RESULTS.json"
+    }
+  },
+  "mutedSixCasePair": {
+    "baseline": {
+      "generatedAt": "2026-10-16T02:36:17.676Z",
+      "sourceCommit": "2bc2ccf32bb064d18dbba7fd0f535d7fb6c57ebd",
+      "hashes": {
+        "app.js": "6617d8a3e2077c28fdf130c155b79e399b2e52ae7a1f86b5c5d39c34fc6727ab",
+        "art.js": "3263d939b180ea0bb2e2cf93e2ed76fef942a849b4640bf7e61a063dc6033ef4",
+        "styles.css": "f973fab9f064e4e1a774b3d4977b6a0821c06228550ada3ff9ef719bb204c1a3",
+        "sw.js": "ea95ab8c240b0933235bd1612d6caa99d3147d34f6d99de1ab71909c21b0e104"
+      }
+    },
+    "candidate": {
+      "generatedAt": "2026-10-16T07:22:38.000Z",
+      "hashes": {
+        "app.js": "f22b70a111ef1c46f9e2ec7dfb949970fd54aca4b9db828eab7293a2c3fc153d",
+        "art.js": "ebc7d53c4a0f5c6009b7431f2f1ef9c4151816f6a51a72c665ef3454025799a1",
+        "styles.css": "1d95e614837938ead18fbc77d4b3066e5f5310f51e7463adf9773076c87f1b97",
+        "sw.js": "ffb85edb92cea41835ef9878961120be66d2f6bb824bab794238a6a477a6b3fa"
+      }
+    },
+    "viewport": "390×664 and 390×844, DPR3",
+    "cases": "L1 idle, L1 real shot then held aim, L5 current held aim before launch",
+    "warmSeconds": 5,
+    "steadySeconds": 15,
+    "passed": {
+      "baseline": 6,
+      "candidate": 6
+    },
+    "rows": [
+      {
+        "case": "664-l1-idle",
+        "baseline": {
+          "frames": 853,
+          "rafMs": {
+            "p50": 17.4,
+            "p95": 18.2
+          },
+          "callbackCpuMs": {
+            "p50": 1,
+            "p95": 2
+          },
+          "intervalsOver25ms": 0,
+          "intervalsOver50ms": 0,
+          "lifeFullClears": 852,
+          "boardFullClears": 853,
+          "largeBoardSourceBlits": 853
+        },
+        "candidate": {
+          "frames": 897,
+          "rafMs": {
+            "p50": 16.7,
+            "p95": 17.1
+          },
+          "callbackCpuMs": {
+            "p50": 1.8,
+            "p95": 4.2
+          },
+          "intervalsOver25ms": 3,
+          "intervalsOver50ms": 0,
+          "lifeFullClears": 83,
+          "boardFullClears": 897,
+          "largeBoardSourceBlits": 897
+        },
+        "lifeClearReductionPerFramePercent": 90.736,
+        "warmCpuP95Ms": {
+          "baseline": 13.5,
+          "candidate": 13
+        }
+      },
+      {
+        "case": "664-l1-held",
+        "baseline": {
+          "frames": 852,
+          "rafMs": {
+            "p50": 17.4,
+            "p95": 18.2
+          },
+          "callbackCpuMs": {
+            "p50": 1.3,
+            "p95": 2
+          },
+          "intervalsOver25ms": 1,
+          "intervalsOver50ms": 1,
+          "lifeFullClears": 854,
+          "boardFullClears": 852,
+          "largeBoardSourceBlits": 1113
+        },
+        "candidate": {
+          "frames": 899,
+          "rafMs": {
+            "p50": 16.7,
+            "p95": 17.1
+          },
+          "callbackCpuMs": {
+            "p50": 2.1,
+            "p95": 5.5
+          },
+          "intervalsOver25ms": 0,
+          "intervalsOver50ms": 0,
+          "lifeFullClears": 73,
+          "boardFullClears": 899,
+          "largeBoardSourceBlits": 1159
+        },
+        "lifeClearReductionPerFramePercent": 91.899,
+        "warmCpuP95Ms": {
+          "baseline": 12,
+          "candidate": 13.7
+        }
+      },
+      {
+        "case": "664-l5-current-held",
+        "baseline": {
+          "frames": 856,
+          "rafMs": {
+            "p50": 17.4,
+            "p95": 18.2
+          },
+          "callbackCpuMs": {
+            "p50": 1.2,
+            "p95": 1.5
+          },
+          "intervalsOver25ms": 0,
+          "intervalsOver50ms": 0,
+          "lifeFullClears": 856,
+          "boardFullClears": 856,
+          "largeBoardSourceBlits": 856
+        },
+        "candidate": {
+          "frames": 900,
+          "rafMs": {
+            "p50": 16.7,
+            "p95": 17.2
+          },
+          "callbackCpuMs": {
+            "p50": 2,
+            "p95": 4.5
+          },
+          "intervalsOver25ms": 0,
+          "intervalsOver50ms": 0,
+          "lifeFullClears": 201,
+          "boardFullClears": 900,
+          "largeBoardSourceBlits": 900
+        },
+        "lifeClearReductionPerFramePercent": 77.667,
+        "warmCpuP95Ms": {
+          "baseline": 12.6,
+          "candidate": 14
+        }
+      },
+      {
+        "case": "844-l1-idle",
+        "baseline": {
+          "frames": 853,
+          "rafMs": {
+            "p50": 17.5,
+            "p95": 18.2
+          },
+          "callbackCpuMs": {
+            "p50": 1,
+            "p95": 1.4
+          },
+          "intervalsOver25ms": 0,
+          "intervalsOver50ms": 0,
+          "lifeFullClears": 852,
+          "boardFullClears": 853,
+          "largeBoardSourceBlits": 853
+        },
+        "candidate": {
+          "frames": 900,
+          "rafMs": {
+            "p50": 16.7,
+            "p95": 17.1
+          },
+          "callbackCpuMs": {
+            "p50": 2,
+            "p95": 4.2
+          },
+          "intervalsOver25ms": 0,
+          "intervalsOver50ms": 0,
+          "lifeFullClears": 72,
+          "boardFullClears": 900,
+          "largeBoardSourceBlits": 900
+        },
+        "lifeClearReductionPerFramePercent": 91.991,
+        "warmCpuP95Ms": {
+          "baseline": 13.5,
+          "candidate": 13.1
+        }
+      },
+      {
+        "case": "844-l1-held",
+        "baseline": {
+          "frames": 856,
+          "rafMs": {
+            "p50": 17.4,
+            "p95": 18.2
+          },
+          "callbackCpuMs": {
+            "p50": 1.3,
+            "p95": 1.6
+          },
+          "intervalsOver25ms": 0,
+          "intervalsOver50ms": 0,
+          "lifeFullClears": 856,
+          "boardFullClears": 856,
+          "largeBoardSourceBlits": 876
+        },
+        "candidate": {
+          "frames": 900,
+          "rafMs": {
+            "p50": 16.7,
+            "p95": 17.3
+          },
+          "callbackCpuMs": {
+            "p50": 2.2,
+            "p95": 5
+          },
+          "intervalsOver25ms": 0,
+          "intervalsOver50ms": 0,
+          "lifeFullClears": 73,
+          "boardFullClears": 900,
+          "largeBoardSourceBlits": 1153
+        },
+        "lifeClearReductionPerFramePercent": 91.889,
+        "warmCpuP95Ms": {
+          "baseline": 13.4,
+          "candidate": 15.7
+        }
+      },
+      {
+        "case": "844-l5-current-held",
+        "baseline": {
+          "frames": 853,
+          "rafMs": {
+            "p50": 17.5,
+            "p95": 18.2
+          },
+          "callbackCpuMs": {
+            "p50": 1,
+            "p95": 1.7
+          },
+          "intervalsOver25ms": 0,
+          "intervalsOver50ms": 0,
+          "lifeFullClears": 852,
+          "boardFullClears": 853,
+          "largeBoardSourceBlits": 853
+        },
+        "candidate": {
+          "frames": 901,
+          "rafMs": {
+            "p50": 16.7,
+            "p95": 17.2
+          },
+          "callbackCpuMs": {
+            "p50": 1.6,
+            "p95": 4
+          },
+          "intervalsOver25ms": 0,
+          "intervalsOver50ms": 0,
+          "lifeFullClears": 197,
+          "boardFullClears": 901,
+          "largeBoardSourceBlits": 901
+        },
+        "lifeClearReductionPerFramePercent": 78.11,
+        "warmCpuP95Ms": {
+          "baseline": 12.7,
+          "candidate": 12.9
+        }
+      }
+    ],
+    "backingAssignmentsAfterOpening": [
+      {
+        "case": "664-l1-idle",
+        "baseline": {
+          "game-canvas.widthAssignments": 1,
+          "game-canvas.heightAssignments": 1,
+          "scene-canvas.widthAssignments": 1,
+          "scene-canvas.heightAssignments": 1,
+          "life-canvas.widthAssignments": 1,
+          "life-canvas.heightAssignments": 1,
+          "meadow-canvas.widthAssignments": 1,
+          "meadow-canvas.heightAssignments": 1
+        },
+        "candidate": {
+          "game-canvas.widthAssignments": 1,
+          "game-canvas.heightAssignments": 1,
+          "meadow-canvas.widthAssignments": 1,
+          "meadow-canvas.heightAssignments": 1
+        }
+      },
+      {
+        "case": "664-l1-held",
+        "baseline": {
+          "game-canvas.widthAssignments": 1,
+          "game-canvas.heightAssignments": 1,
+          "scene-canvas.widthAssignments": 1,
+          "scene-canvas.heightAssignments": 1,
+          "life-canvas.widthAssignments": 1,
+          "life-canvas.heightAssignments": 1,
+          "meadow-canvas.widthAssignments": 1,
+          "meadow-canvas.heightAssignments": 1
+        },
+        "candidate": {
+          "game-canvas.widthAssignments": 1,
+          "game-canvas.heightAssignments": 1,
+          "meadow-canvas.widthAssignments": 1,
+          "meadow-canvas.heightAssignments": 1
+        }
+      },
+      {
+        "case": "664-l5-current-held",
+        "baseline": {
+          "game-canvas.widthAssignments": 1,
+          "game-canvas.heightAssignments": 1,
+          "scene-canvas.widthAssignments": 1,
+          "scene-canvas.heightAssignments": 1,
+          "life-canvas.widthAssignments": 1,
+          "life-canvas.heightAssignments": 1,
+          "meadow-canvas.widthAssignments": 1,
+          "meadow-canvas.heightAssignments": 1
+        },
+        "candidate": {
+          "game-canvas.widthAssignments": 1,
+          "game-canvas.heightAssignments": 1,
+          "meadow-canvas.widthAssignments": 1,
+          "meadow-canvas.heightAssignments": 1
+        }
+      },
+      {
+        "case": "844-l1-idle",
+        "baseline": {
+          "scene-canvas.widthAssignments": 1,
+          "scene-canvas.heightAssignments": 1,
+          "life-canvas.widthAssignments": 1,
+          "life-canvas.heightAssignments": 1
+        },
+        "candidate": {}
+      },
+      {
+        "case": "844-l1-held",
+        "baseline": {
+          "scene-canvas.widthAssignments": 1,
+          "scene-canvas.heightAssignments": 1,
+          "life-canvas.widthAssignments": 1,
+          "life-canvas.heightAssignments": 1
+        },
+        "candidate": {}
+      },
+      {
+        "case": "844-l5-current-held",
+        "baseline": {
+          "scene-canvas.widthAssignments": 1,
+          "scene-canvas.heightAssignments": 1,
+          "life-canvas.widthAssignments": 1,
+          "life-canvas.heightAssignments": 1
+        },
+        "candidate": {}
+      }
+    ],
+    "qualification": "Muted runs occurred hours apart and have mixed CPU timing. The first candidate predates only the final app visibility/viewport-key extension; its immutable fingerprint is retained, not relabeled as final."
+  },
+  "audioOnControlledPair": {
+    "order": "Preserved original runtime, then final current runtime immediately in the same serial command; one fresh Chrome/context per run.",
+    "case": "390×664 L1 real shot then held aim, DPR3, first 5s and next 15s",
+    "baseline": {
+      "generatedAt": "2026-10-16T07:32:49.042Z",
+      "hashes": {
+        "app.js": "6617d8a3e2077c28fdf130c155b79e399b2e52ae7a1f86b5c5d39c34fc6727ab",
+        "art.js": "3263d939b180ea0bb2e2cf93e2ed76fef942a849b4640bf7e61a063dc6033ef4",
+        "styles.css": "f973fab9f064e4e1a774b3d4977b6a0821c06228550ada3ff9ef719bb204c1a3",
+        "sw.js": "ea95ab8c240b0933235bd1612d6caa99d3147d34f6d99de1ab71909c21b0e104"
+      },
+      "audio": {
+        "contexts": [
+          {
+            "state": "running",
+            "currentTime": 20.952,
+            "sampleRate": 48000
+          }
+        ],
+        "music": {
+          "observedCalls": 195,
+          "playingSnapshots": 192,
+          "lastPlaying": true,
+          "groove": "meadow",
+          "cached": 6,
+          "cacheBytes": 5316912
+        }
+      }
+    },
+    "candidate": {
+      "generatedAt": "2026-10-16T07:33:18.864Z",
+      "hashes": {
+        "app.js": "761a184f4a9571db2014286238e3e17b0d4f5839ba88df18b83d3ecd0a71035b",
+        "art.js": "ebc7d53c4a0f5c6009b7431f2f1ef9c4151816f6a51a72c665ef3454025799a1",
+        "styles.css": "1d95e614837938ead18fbc77d4b3066e5f5310f51e7463adf9773076c87f1b97",
+        "sw.js": "ffb85edb92cea41835ef9878961120be66d2f6bb824bab794238a6a477a6b3fa"
+      },
+      "audio": {
+        "contexts": [
+          {
+            "state": "running",
+            "currentTime": 21.21066666666667,
+            "sampleRate": 48000
+          }
+        ],
+        "music": {
+          "observedCalls": 195,
+          "playingSnapshots": 192,
+          "lastPlaying": true,
+          "groove": "meadow",
+          "cached": 6,
+          "cacheBytes": 5316912
+        }
+      }
+    },
+    "rows": [
+      {
+        "case": "664-l1-held",
+        "baseline": {
+          "frames": 900,
+          "rafMs": {
+            "p50": 16.7,
+            "p95": 17
+          },
+          "callbackCpuMs": {
+            "p50": 1.9,
+            "p95": 4.8
+          },
+          "intervalsOver25ms": 1,
+          "intervalsOver50ms": 0,
+          "lifeFullClears": 694,
+          "boardFullClears": 900,
+          "largeBoardSourceBlits": 1152
+        },
+        "candidate": {
+          "frames": 900,
+          "rafMs": {
+            "p50": 16.7,
+            "p95": 17.2
+          },
+          "callbackCpuMs": {
+            "p50": 2.3,
+            "p95": 5.5
+          },
+          "intervalsOver25ms": 0,
+          "intervalsOver50ms": 0,
+          "lifeFullClears": 82,
+          "boardFullClears": 900,
+          "largeBoardSourceBlits": 1130
+        },
+        "lifeClearReductionPerFramePercent": 88.184,
+        "warmCpuP95Ms": {
+          "baseline": 19.3,
+          "candidate": 16.9
+        }
+      }
+    ],
+    "passed": 2,
+    "failed": 0,
+    "saveIsolation": true,
+    "externalRequests": 0,
+    "runtimeErrors": 0
+  },
+  "evidenceDirectory": "outputs/bloomshot-performance",
+  "limits": [
+    "Desktop Chrome emulation is not Safari/WebKit, a physical iPhone, a native install, or a physical-speaker listening test.",
+    "No Safari FPS gain, touch latency improvement or GPU time is claimed. Canvas counters prove work removed; visibility explicitly excludes an inactive DOM layer.",
+    "Timing includes consistent Canvas instrumentation overhead. Audio-on evidence verifies a running context and music-playing snapshots, not sound quality.",
+    "The two audio runs are a bounded single-case comparison; campaigns, all boss abilities and audio heat cannot be represented by it.",
+    "Physical Safari acceptance remains for the owner to retest with Low Power Mode already off. No purchasing, signing or publishing gate is opened by these checks."
+  ],
+  "finalAdditionalChecks": {
+    "checkedAt": "2026-10-16T07:37:00.416Z",
+    "sourceHashes": {
+      "app.js": "761a184f4a9571db2014286238e3e17b0d4f5839ba88df18b83d3ecd0a71035b",
+      "art.js": "ebc7d53c4a0f5c6009b7431f2f1ef9c4151816f6a51a72c665ef3454025799a1",
+      "styles.css": "1d95e614837938ead18fbc77d4b3066e5f5310f51e7463adf9773076c87f1b97",
+      "sw.js": "ffb85edb92cea41835ef9878961120be66d2f6bb824bab794238a6a477a6b3fa"
+    },
+    "checks": [
+      {
+        "runner": "bloomshot/qa/test-save-integration.cjs",
+        "passed": 87,
+        "failed": 0,
+        "logSha256": "f06ddf979d2462483b49467e0d5f2ad2a29baed859e3b2735aba379e40d04f22"
+      },
+      {
+        "runner": "bloomshot/qa/test-pwa.cjs",
+        "passed": 22,
+        "failed": 0,
+        "logSha256": "cf1e8031cd5c6ca872196bbaa1c1eae1902a7cdffc2ff90c9bacea68195fee6e"
+      },
+      {
+        "runner": "bloomshot/qa/test-seed-art.cjs",
+        "passed": 5,
+        "failed": 0,
+        "logSha256": "d5428bd21828331eb36f7b18b63043990808a87c0a1bb89385fbe514e7841b0a"
+      },
+      {
+        "runner": "bloomshot/qa/test-store-ui.cjs",
+        "passed": 10,
+        "failed": 0,
+        "logSha256": "feb5ba8001e689260ae56133dee8a90bc104be8431375a8a07444a9b0ed80841"
+      }
+    ],
+    "precache": {
+      "passed": true,
+      "assets": 37,
+      "cached": 37,
+      "allBodyHashesMatch": true,
+      "workerSha256": "ffb85edb92cea41835ef9878961120be66d2f6bb824bab794238a6a477a6b3fa"
+    },
+    "nativePackaging": {
+      "passed": true,
+      "assets": 34,
+      "platforms": [
+        "Android source copy",
+        "iOS source copy"
+      ],
+      "commands": [
+        "npm run sync",
+        "npm run check"
+      ],
+      "installedAppTest": false
+    },
+    "scope": "Local checks against final frozen runtime. Dependencies were installed from the unchanged lockfile earlier; CI independently repeats npm ci. Native packaging is the independent PR31 checkout, not evidence of a merged main build or phone installation."
+  }
+}

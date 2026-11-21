@@ -24,9 +24,8 @@
   var SYNC_KEY = 'bloomshot.native.synced.v1';
   var VIBRATION = { tick: 8, tap: 12, surge: [12, 35, 18], warn: [18, 25, 18] };
   var MIRROR_DELAY = 400;
-  // Where a shared link sends people: the Play Store page from the Android app, the free web game from everywhere
-  // else until the App Store listing exists.
-  var LINKS = { android: 'https://play.google.com/store/apps/details?id=dev.bloomshot.game', web: 'https://vexno1r.github.io/Bloomshot/' };
+  // Set a store URL only after its public listing is live. Test builds must not share a missing store page.
+  var LINKS = { android: '', web: '' };
 
   function create(env) {
     env = env || {};
@@ -57,6 +56,9 @@
     // The mirror stays closed until restore() has looked at the backup, so the game's starting save can never
     // overwrite a backup that has not been read yet. A backup that cannot be read keeps it closed for the session.
     var mirrorOpen = false, pending = null, timer = null, reloading = false;
+    // A paid grant may only acknowledge a durable save after backup arbitration has selected this page's
+    // local copy. An unreadable backup is uncertainty, not permission to replace it or spend its receipts.
+    var saveReady = !native || !prefs;
 
     function swallow(result) { if (result && typeof result.catch === 'function') result.catch(function () {}); }
 
@@ -93,7 +95,10 @@
       if (pending !== null && !timer && later) timer = later(flush, MIRROR_DELAY);
     }
 
-    function markSynced() { try { storage.setItem(SYNC_KEY, '1'); } catch (_) { /* the next launch just checks the backup again */ } }
+    function markSynced() {
+      try { storage.setItem(SYNC_KEY, '1'); return storage.getItem(SYNC_KEY) === '1'; }
+      catch (_) { return false; } // the next launch must check the backup again
+    }
 
     // 'usable': a version 1 save. 'foreign': a save from another version of the game, which must not be touched.
     // 'unusable': empty, not JSON, or not a save at all, which is safe to replace.
@@ -111,19 +116,20 @@
       if (!prefs || !storage || key !== SAVE_KEY) return false;
       var verified = false;
       try { verified = storage.getItem(SYNC_KEY) === '1'; } catch (_) { verified = false; }
-      if (verified) { openMirror(); return false; }
+      if (verified) { saveReady = true; openMirror(); return false; }
       var value;
       try { value = (await prefs.get({ key: SAVE_KEY })).value; } catch (_) { return false; } // unreadable: leave the backup alone
       var verdict = judge(value);
       if (verdict === 'usable') {
         // Reload only if the write can be read back, so a storage that silently drops writes cannot loop restore and reload forever.
         try { storage.setItem(SAVE_KEY, value); if (storage.getItem(SAVE_KEY) !== value) return false; } catch (_) { return false; }
-        markSynced();
+        if (!markSynced()) return false;
         reloading = true; pending = null;
         return true;
       }
       if (verdict === 'foreign') return false; // a newer or older game wrote this; do not overwrite it
-      markSynced();
+      if (!markSynced()) return false;
+      saveReady = true;
       openMirror(); // nothing usable to restore (a fresh install, or a damaged backup): the game's own save becomes the backup
       return false;
     }
@@ -168,10 +174,12 @@
       haptic: haptic,
       share: share,
       canShare: Boolean(sharer || webShare || clipboard),
-      link: platform === 'android' ? LINKS.android : LINKS.web,
+      link: platform === 'android' && LINKS.android ? LINKS.android : LINKS.web,
       links: { android: LINKS.android, web: LINKS.web },
       mirror: mirror,
       restore: restore,
+      // False while the native backup is unresolved, unreadable, foreign, or waiting for a reload.
+      get saveReady() { return saveReady && !reloading; },
       // True once a restore has rewritten storage and a reload is on its way: the page must not save again.
       get reloading() { return reloading; },
       flush: function () { if (timer && env.clearTimeout) env.clearTimeout(timer); flush(); }

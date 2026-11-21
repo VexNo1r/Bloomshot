@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-03T05:17:52.406Z",
+  "generatedAt": "2026-11-07T10:13:10.097Z",
   "aimErrorDegrees": 3,
   "runsPerTrial": 40,
   "results": [
@@ -23,8 +23,8 @@
     },
     {
       "id": "moon-4",
-      "clearRate": 0.675,
-      "avgShots": 4.3,
+      "clearRate": 0.575,
+      "avgShots": 4.35,
       "floor": 0.45
     },
     {

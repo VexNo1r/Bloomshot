@@ -1,11 +1,11 @@
 {
   "passed": true,
-  "testedAt": "2026-10-09T10:31:53.028Z",
-  "node": "v22.22.0",
-  "workerSha256": "a9a33410227f4532f0e5b9dee56927ad2bd68625074ce9cb59d0055f86b8c23f",
+  "testedAt": "2026-11-07T10:15:17.821Z",
+  "node": "v22.23.4",
+  "workerSha256": "373f74b9a20eb7815fccece1efab5a3343d44d5df044f6110322410ec7f40490",
   "maxConnections": 3,
-  "workerVersion": "93b634d8bb0b804a",
-  "assetCount": 31,
+  "workerVersion": "a939bebfbc02338a",
+  "assetCount": 39,
   "imageCount": 6,
   "negativeControl": {
     "stalledAsExpected": true,
@@ -13,53 +13,59 @@
     "consumed": 0,
     "bytes": 0,
     "peakConnections": 3,
-    "elapsedMs": 275.97
+    "elapsedMs": 277.06
   },
   "actualInstall": {
-    "headers": 31,
-    "consumed": 31,
-    "bytes": 691097,
+    "headers": 39,
+    "consumed": 39,
+    "bytes": 2596877,
     "peakConnections": 3,
-    "cached": 31,
-    "elapsedMs": 42.54,
+    "cached": 39,
+    "elapsedMs": 75.29,
     "deadlineMs": 15000,
     "allBodyHashesMatch": true
   },
   "assets": [
     {
       "path": "/",
-      "bytes": 24348,
-      "sha256": "179db671072e23e55fddf8d68c95b43f7d9f6fe8bd95f0e9c31ed4d5956ee27f",
+      "bytes": 33277,
+      "sha256": "ea2d5095171459568d8a42ee664ed03df7e164fa0bdf290715b98f1a24aedc49",
       "type": "text/html; charset=utf-8"
     },
     {
       "path": "/index.html",
-      "bytes": 24348,
-      "sha256": "179db671072e23e55fddf8d68c95b43f7d9f6fe8bd95f0e9c31ed4d5956ee27f",
+      "bytes": 33277,
+      "sha256": "ea2d5095171459568d8a42ee664ed03df7e164fa0bdf290715b98f1a24aedc49",
+      "type": "text/html; charset=utf-8"
+    },
+    {
+      "path": "/privacy.html",
+      "bytes": 4820,
+      "sha256": "306b611236ba2a9d5b31f3b12bcd0155149b28b91afb924b90286a337a26a352",
       "type": "text/html; charset=utf-8"
     },
     {
       "path": "/styles.css",
-      "bytes": 52363,
-      "sha256": "eebe72d86168898ecd9f0c8b73773185935c436bdf5bc1ca8daadb90f7491461",
+      "bytes": 87190,
+      "sha256": "5ce63616c05b159c488b65d8ec6d37a982c037c89c18ccc36cb50bfb4199d9c5",
       "type": "text/css; charset=utf-8"
     },
     {
       "path": "/store-config.js",
-      "bytes": 1597,
-      "sha256": "aec3a324c68a195c7921607c2849b14227671c2fa4b2e388091961f661d8a511",
+      "bytes": 4040,
+      "sha256": "8e6de08337b28006ef85010a15240db923054911ed1c9ad01082b3ce510108fd",
       "type": "text/javascript; charset=utf-8"
     },
     {
       "path": "/store.js",
-      "bytes": 13716,
-      "sha256": "a46f0c0c52bbe62b59420febd7d2722f7663f32e9ec3aef9bc27f454f8cc1db9",
+      "bytes": 29404,
+      "sha256": "1aa9f75cd65e4d77bc06193ea4dae5c2aac620c6c98db4850e5f052dfcb22d70",
       "type": "text/javascript; charset=utf-8"
     },
     {
       "path": "/levels.js",
-      "bytes": 11404,
-      "sha256": "c7adb2a7a5bcbc607fdd7214973f4faf4c95e9fd67827f22ab020af8f9032f3a",
+      "bytes": 11420,
+      "sha256": "fc14cef9b47b50e3c8bbc174a11a814308510375dbabffbc13a0d731c7369ef7",
       "type": "text/javascript; charset=utf-8"
     },
     {
@@ -76,80 +82,122 @@
     },
     {
       "path": "/keepsakes.js",
-      "bytes": 4983,
-      "sha256": "cad08fffbb506ff89eda09b39dac39387bc7c91d1d67734792fa87890c390ebc",
+      "bytes": 8130,
+      "sha256": "0b693b44b159e2054f4d20dc365966663a8d7cdc961c1aeee60c01a090a2b524",
       "type": "text/javascript; charset=utf-8"
     },
     {
       "path": "/garden.js",
-      "bytes": 18486,
-      "sha256": "5f5eaa708095c9f7801a7a43a8b7bf0f411e80f5d4e64e5eb852246e614028e2",
+      "bytes": 20554,
+      "sha256": "3aab3c09954f3e6e59cb015e06a8c914043fcbf324be5528171d7a2f14ddc0b7",
       "type": "text/javascript; charset=utf-8"
     },
     {
       "path": "/goals.js",
-      "bytes": 5403,
-      "sha256": "893c6fd799d187cc8e427a7ba85fc958c138fa770b2e08a065ee4ff187876bbb",
+      "bytes": 5789,
+      "sha256": "e7fc03293da71f91bdd30ae24544f63a529ac3987ce93e51209341129e77eacf",
       "type": "text/javascript; charset=utf-8"
     },
     {
       "path": "/depths.js",
-      "bytes": 18433,
-      "sha256": "6f0f290254e7d9bd9e29d72a6b557b7d97fb2bf519070cd707e5ceb42a6c37d5",
+      "bytes": 44647,
+      "sha256": "9347e1a2cda8c01d30163fd556dec0ca6c5fed5bb094c8e6ed99ee862b76a634",
+      "type": "text/javascript; charset=utf-8"
+    },
+    {
+      "path": "/powers.js",
+      "bytes": 5868,
+      "sha256": "397350deb70c7e2eb54aa3e0947f6eec2ae4884bbe1b2bcd01ebe4088c6558dd",
       "type": "text/javascript; charset=utf-8"
     },
     {
       "path": "/engine.js",
-      "bytes": 20500,
-      "sha256": "9d79af9c3b47c1f0827b6d23a4adb32526aac05fc7af252840dd5be2a23dbcf5",
+      "bytes": 22517,
+      "sha256": "1cb84573cc393a1469151aad16972b003e5d8dc182ea19e5c49e998633c4659e",
+      "type": "text/javascript; charset=utf-8"
+    },
+    {
+      "path": "/foes.js",
+      "bytes": 103067,
+      "sha256": "09f726e8b0f7b2c1cfb60047c368bcd7479bbde35e1ec4f9af620482f224bded",
+      "type": "text/javascript; charset=utf-8"
+    },
+    {
+      "path": "/bosses.js",
+      "bytes": 204318,
+      "sha256": "5a0dff5e599d5b9c077f0371e40c787cf91e5b53399d170e2e9e89fcba06ef72",
       "type": "text/javascript; charset=utf-8"
     },
     {
       "path": "/rush.js",
-      "bytes": 17943,
-      "sha256": "b18d61107b9239ad1181e1e37e5e9c7512d79c804d133fb036a948f36cda4d91",
+      "bytes": 60786,
+      "sha256": "5e8909e7545ebce1dec0297044288e2e77bcf0cc8e8cb827fa17f88a885985b4",
+      "type": "text/javascript; charset=utf-8"
+    },
+    {
+      "path": "/tutorial.js",
+      "bytes": 13518,
+      "sha256": "431b9ab5937abc8a475d64196c73d9b1317c4ac873bf186fa8f83f64b2e740cb",
+      "type": "text/javascript; charset=utf-8"
+    },
+    {
+      "path": "/feel.js",
+      "bytes": 16111,
+      "sha256": "06a00cdf26d357e1e36cfce5c4f343043db1c56ad9a7d68f00913e80cc5b3c3a",
       "type": "text/javascript; charset=utf-8"
     },
     {
       "path": "/scenery.js",
-      "bytes": 48776,
-      "sha256": "089db45f33b9e72d4084eb9e053c68a467f6e95a4557bf915f9becd3a56d5694",
+      "bytes": 308100,
+      "sha256": "0b5e89c51533a96fccfe5dce7a89dfeae0749df8d538629757d6fbe66d0c8340",
       "type": "text/javascript; charset=utf-8"
     },
     {
       "path": "/art.js",
-      "bytes": 89619,
-      "sha256": "e6f67b62de7e570c7ca91728a4b91f1aaa6b86bf06ca94349ee19f45796cc58c",
+      "bytes": 369871,
+      "sha256": "877e256ad96dafb3d81b6d77956bf5b31577acfd7397fe7de736d6caf2f18a8b",
+      "type": "text/javascript; charset=utf-8"
+    },
+    {
+      "path": "/foe-art.js",
+      "bytes": 541981,
+      "sha256": "900cc1ecae2e0ef64b89cb8097a61b28e9d9f80834080012af9b2d96ae43389e",
       "type": "text/javascript; charset=utf-8"
     },
     {
       "path": "/meadow.js",
-      "bytes": 41115,
-      "sha256": "070aeaab0efd43aa60c637c23cd0ee933f328a71e6ba0a1f65122526fecfac8a",
+      "bytes": 54157,
+      "sha256": "9f710e9ad0ad4c88593c8f89bd9fd557253cde96d36a5111f57d837c8529f3ff",
+      "type": "text/javascript; charset=utf-8"
+    },
+    {
+      "path": "/petals.js",
+      "bytes": 5427,
+      "sha256": "23312d7d799947cf2f17e31c540c3f1a8403b7c73679a192420c4ecbc4701901",
       "type": "text/javascript; charset=utf-8"
     },
     {
       "path": "/sound.js",
-      "bytes": 11987,
-      "sha256": "812854e3a1df3cdb16605857d50fa8293244cb2d01359779cf62a3429f36af89",
+      "bytes": 134184,
+      "sha256": "46d5adc5f35b22c4e6d8c62bdcd739e033de77c613a8fa699772eb2807d190fe",
       "type": "text/javascript; charset=utf-8"
     },
     {
       "path": "/native.js",
-      "bytes": 7708,
-      "sha256": "737600d83104c07d87c738a651101786fc2274818f4078fd1c798b1c9c520eb2",
+      "bytes": 11099,
+      "sha256": "c3de895288d5c1a502d67917aa06c1f06b782dfc5eba7b359ed2f07e711a42a4",
       "type": "text/javascript; charset=utf-8"
     },
     {
       "path": "/app.js",
-      "bytes": 106614,
-      "sha256": "9d0bf2881fcc539a9f5928c904bcd95068c5f09989376a11b9c3479d102d9843",
+      "bytes": 290573,
+      "sha256": "4e41989d72ccd3fd10f014dfc056c0aa1d62e82273ad18eb24f2f61e0f7229e0",
       "type": "text/javascript; charset=utf-8"
     },
     {
       "path": "/store-ui.js",
-      "bytes": 3402,
-      "sha256": "11577a244a368abc9cd369dd40ef75dd75ace955ee802487481897bba75a76f8",
+      "bytes": 4400,
+      "sha256": "dc9f8c9d75a919c3d47ff19f0cd37aa27d9549f35404fffd28abe6f2d3ff50dc",
       "type": "text/javascript; charset=utf-8"
     },
     {
@@ -217,219 +265,275 @@
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 1,
-      "total": 31,
+      "total": 39,
       "failed": false,
       "cached": 1
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 2,
-      "total": 31,
+      "total": 39,
       "failed": false,
       "cached": 2
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 3,
-      "total": 31,
+      "total": 39,
       "failed": false,
       "cached": 3
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 4,
-      "total": 31,
+      "total": 39,
       "failed": false,
       "cached": 4
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 5,
-      "total": 31,
+      "total": 39,
       "failed": false,
       "cached": 5
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 6,
-      "total": 31,
+      "total": 39,
       "failed": false,
       "cached": 6
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 7,
-      "total": 31,
+      "total": 39,
       "failed": false,
       "cached": 7
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 8,
-      "total": 31,
+      "total": 39,
       "failed": false,
       "cached": 8
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 9,
-      "total": 31,
+      "total": 39,
       "failed": false,
       "cached": 9
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 10,
-      "total": 31,
+      "total": 39,
       "failed": false,
       "cached": 10
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 11,
-      "total": 31,
+      "total": 39,
       "failed": false,
       "cached": 11
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 12,
-      "total": 31,
+      "total": 39,
       "failed": false,
       "cached": 12
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 13,
-      "total": 31,
+      "total": 39,
       "failed": false,
       "cached": 13
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 14,
-      "total": 31,
+      "total": 39,
       "failed": false,
       "cached": 14
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 15,
-      "total": 31,
+      "total": 39,
       "failed": false,
       "cached": 15
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 16,
-      "total": 31,
+      "total": 39,
       "failed": false,
       "cached": 16
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 17,
-      "total": 31,
+      "total": 39,
       "failed": false,
       "cached": 17
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 18,
-      "total": 31,
+      "total": 39,
       "failed": false,
       "cached": 18
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 19,
-      "total": 31,
+      "total": 39,
       "failed": false,
       "cached": 19
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 20,
-      "total": 31,
+      "total": 39,
       "failed": false,
       "cached": 20
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 21,
-      "total": 31,
+      "total": 39,
       "failed": false,
       "cached": 21
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 22,
-      "total": 31,
+      "total": 39,
       "failed": false,
       "cached": 22
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 23,
-      "total": 31,
+      "total": 39,
       "failed": false,
       "cached": 23
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 24,
-      "total": 31,
+      "total": 39,
       "failed": false,
       "cached": 24
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 25,
-      "total": 31,
+      "total": 39,
       "failed": false,
       "cached": 25
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 26,
-      "total": 31,
+      "total": 39,
       "failed": false,
       "cached": 26
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 27,
-      "total": 31,
+      "total": 39,
       "failed": false,
       "cached": 27
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 28,
-      "total": 31,
+      "total": 39,
       "failed": false,
       "cached": 28
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 29,
-      "total": 31,
+      "total": 39,
       "failed": false,
       "cached": 29
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 30,
-      "total": 31,
+      "total": 39,
       "failed": false,
       "cached": 30
     },
     {
       "type": "BLOOMSHOT_DOWNLOAD",
       "completed": 31,
-      "total": 31,
+      "total": 39,
       "failed": false,
       "cached": 31
+    },
+    {
+      "type": "BLOOMSHOT_DOWNLOAD",
+      "completed": 32,
+      "total": 39,
+      "failed": false,
+      "cached": 32
+    },
+    {
+      "type": "BLOOMSHOT_DOWNLOAD",
+      "completed": 33,
+      "total": 39,
+      "failed": false,
+      "cached": 33
+    },
+    {
+      "type": "BLOOMSHOT_DOWNLOAD",
+      "completed": 34,
+      "total": 39,
+      "failed": false,
+      "cached": 34
+    },
+    {
+      "type": "BLOOMSHOT_DOWNLOAD",
+      "completed": 35,
+      "total": 39,
+      "failed": false,
+      "cached": 35
+    },
+    {
+      "type": "BLOOMSHOT_DOWNLOAD",
+      "completed": 36,
+      "total": 39,
+      "failed": false,
+      "cached": 36
+    },
+    {
+      "type": "BLOOMSHOT_DOWNLOAD",
+      "completed": 37,
+      "total": 39,
+      "failed": false,
+      "cached": 37
+    },
+    {
+      "type": "BLOOMSHOT_DOWNLOAD",
+      "completed": 38,
+      "total": 39,
+      "failed": false,
+      "cached": 38
+    },
+    {
+      "type": "BLOOMSHOT_DOWNLOAD",
+      "completed": 39,
+      "total": 39,
+      "failed": false,
+      "cached": 39
     }
   ]
 }

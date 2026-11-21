@@ -86,6 +86,36 @@ test('The painter\'s kit is shared with the Garden tab map', () => {
   assert.equal(Scenery.kit.rgba('255,200,100', 1.4), 'rgba(255,200,100,1.000)', 'alpha is clamped');
 });
 
+test('Level 7\'s basking salamander is scenery: under the danger line at the board\'s edge, in dusky colours at .8', () => {
+  // A context that follows the transform and the alpha, and keeps where each filled dot lands and in what colour.
+  const stack = [], dots = [], colors = new Set(); let m = [1, 0, 0, 1, 0, 0], alpha = 1, arc = null;
+  const mul = (a, b, c, d, e, f) => { m = [m[0] * a + m[2] * b, m[1] * a + m[3] * b, m[0] * c + m[2] * d, m[1] * c + m[3] * d, m[0] * e + m[2] * f + m[4], m[1] * e + m[3] * f + m[5]]; };
+  const own = {
+    createLinearGradient: () => ({ addColorStop: (at, c) => colors.add(c) }), createRadialGradient: () => ({ addColorStop: (at, c) => colors.add(c) }), createPattern: () => null,
+    getTransform: () => ({ a: 2, b: 0, c: 0, d: 2, e: 0, f: 0 }), measureText: text => ({ width: String(text).length * 6 }),
+    save: () => stack.push([m.slice(), alpha]), restore: () => { [m, alpha] = stack.pop(); },
+    translate: (x, y) => mul(1, 0, 0, 1, x, y), scale: (x, y) => mul(x, 0, 0, y, 0, 0), rotate: a => mul(Math.cos(a), Math.sin(a), -Math.sin(a), Math.cos(a), 0, 0),
+    setTransform: (...a) => { m = a.length === 6 ? a : [1, 0, 0, 1, 0, 0]; }, resetTransform: () => { m = [1, 0, 0, 1, 0, 0]; },
+    arc: (x, y) => { arc = [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]]; },
+    fill: () => { if (arc) dots.push({ at: arc, color: target.fillStyle, alpha }); }
+  };
+  const target = {};
+  const ctx = new Proxy(target, {
+    get: (t, key) => key in own ? own[key] : key === 'globalAlpha' ? alpha : key in t ? t[key] : () => { if (key === 'beginPath') arc = null; },
+    set: (t, key, value) => { if (key === 'globalAlpha') alpha = value; else { t[key] = value; if (typeof value === 'string') colors.add(value); } return true; }
+  });
+  Scenery.paint(ctx, 'depth-ember', { frame: true });
+  // The salamander's eye is its one near-black dot.
+  const eye = dots.filter(d => d.color === '#2a0d0a');
+  assert.equal(eye.length, 1, 'one salamander');
+  const [x, y] = eye[0].at;
+  assert(y >= 448, `it sits under the danger line (eye at y ${y.toFixed(1)})`);
+  assert(x >= 360, `it sits at the board's right edge (eye at x ${x.toFixed(1)})`);
+  assert(eye[0].alpha <= .8 + 1e-9, 'it is drawn at no more than .8 strength');
+  // None of the bright foe reds and yellows it used to wear.
+  for (const bright of ['#c8462a', '#e86438', '#ffa45e', '#ffd36a', '#d4502e', '#b8402a']) assert(!colors.has(bright), `${bright} is gone from the scene`);
+});
+
 const report = { passed: results.filter(r => r.passed).length, failed: results.filter(r => !r.passed).length, results };
 console.log(JSON.stringify(report, null, 2));
 process.exitCode = report.failed ? 1 : 0;

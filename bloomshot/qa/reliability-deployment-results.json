@@ -1,0 +1,69 @@
+{
+  "checkedAt": "2026-10-17T03:11:51.654Z",
+  "projectId": "appgprj_6ac04fc69fa881919f50dedb89a70cd6",
+  "deploymentId": "appgdep_6ad2e6fed7048191b88db72b7a3d9d00",
+  "siteSourceCommit": "f597905195f68f2c3ee7dc7de1e1540013cabfa1",
+  "gameSourceCommit": "d647d922aaba7d13578953218b4462d34eddec4b",
+  "workerVersion": "570443dc5aa3284b",
+  "status": "passed",
+  "audience": {
+    "role": "owner",
+    "mode": "custom",
+    "allowedNonOwners": 0,
+    "externalVisitors": 0,
+    "verifiedVersion": 10
+  },
+  "assets": {
+    "checked": 38,
+    "byteIdentical": 35,
+    "htmlDocumentsPreservedWithOneHostingAddition": 3,
+    "failed": 0
+  },
+  "runtime": {
+    "app.js": "286b45ec11419d91d98151661dc045d1856f823387fb97f4f5594f373e4e7407",
+    "art.js": "66d4ddf24618e3b31913a6d91e73b8431ae81152c17a76386d4300f5687a72e4",
+    "styles.css": "3c3649ac0996ca5414d289ed159da22f34f5e27ef4b271c1c35811d5f6df0e1e"
+  },
+  "html": [
+    {
+      "path": "index.html",
+      "servedPath": "/",
+      "httpStatus": 200,
+      "expectedHash": "7b6f80d79f474e285a1122b09fa17c8d4735e6261077fcec3dbd525709a014e3",
+      "removedExpectedCharacters": 0,
+      "hostingAdditionCharacters": 938,
+      "expectedDocumentPreserved": true
+    },
+    {
+      "path": "privacy.html",
+      "servedPath": "/privacy",
+      "httpStatus": 200,
+      "expectedHash": "306b611236ba2a9d5b31f3b12bcd0155149b28b91afb924b90286a337a26a352",
+      "removedExpectedCharacters": 0,
+      "hostingAdditionCharacters": 938,
+      "expectedDocumentPreserved": true
+    },
+    {
+      "path": "privacy/index.html",
+      "servedPath": "/privacy/",
+      "httpStatus": 200,
+      "expectedHash": "306b611236ba2a9d5b31f3b12bcd0155149b28b91afb924b90286a337a26a352",
+      "removedExpectedCharacters": 0,
+      "hostingAdditionCharacters": 938,
+      "expectedDocumentPreserved": true
+    }
+  ],
+  "privacy": {
+    "includedInBuild": true,
+    "offlineFile": "privacy.html",
+    "hostedPaths": [
+      "/privacy",
+      "/privacy/"
+    ],
+    "originalDocumentPreserved": true
+  },
+  "limitations": [
+    "Authenticated HTTP comparison confirms served source. Hosting inserts additional bytes in HTML; all original document characters remain intact.",
+    "No physical Safari timing, owner approval, installed-app test or sandbox purchase is established."
+  ]
+}

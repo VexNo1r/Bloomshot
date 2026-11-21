@@ -65,6 +65,7 @@ function transport() {
         req.once('close', () => requests.delete(req));
         req.once('error', reject);
         req.once('socket', socket => {
+          if (activeSockets.has(socket)) return; // keep-alive reuses the socket; observe its close once
           activeSockets.add(socket);
           stats.peakConnections = Math.max(stats.peakConnections, activeSockets.size);
           socket.once('close', () => activeSockets.delete(socket));
@@ -155,7 +156,15 @@ async function main() {
   const controlStart = performance.now();
   const deferredBatch = Promise.all(metadata.urls.map(url => blocked.fetch(url))).then(responses => Promise.all(responses.map(response => response.drain())));
   deferredBatch.catch(() => {});
-  await within((async () => { while (blocked.stats.headers < 3) await new Promise(resolve => setTimeout(resolve, 10)); })(), 4000, 'Negative control headers');
+  let waitingForHeaders = true;
+  try {
+    // A transport error must surface immediately, and the polling loop must stop on timeout.
+    // Otherwise a restricted localhost connection leaves this test running after it reports failure.
+    await within(Promise.race([
+      (async () => { while (waitingForHeaders && blocked.stats.headers < 3) await new Promise(resolve => setTimeout(resolve, 10)); })(),
+      deferredBatch.then(() => { throw new Error('Negative control consumed its bodies before the headers check'); })
+    ]), 4000, 'Negative control headers');
+  } finally { waitingForHeaders = false; }
   await new Promise(resolve => setTimeout(resolve, 250));
   assert.equal(blocked.stats.headers, 3, 'Deferred consumption should exhaust the three connections.');
   assert.equal(blocked.stats.consumed, 0, 'No body should finish before consumption begins.');

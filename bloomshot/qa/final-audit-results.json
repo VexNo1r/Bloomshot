@@ -1,0 +1,518 @@
+{
+  "generatedAt": "2026-10-15T03:26:43.152Z",
+  "sourceHashes": {
+    "app.js": "62dd5b3547e773850a1c7194c89bde97f9335c3ab57e1b733fd9a54e54bdfa0c",
+    "art.js": "887d366ff6ed11c6562046ccf567bbf50ce9dc4061e26934aaa5862142fd6c53",
+    "bosses.js": "65fd5a1002a44a0135a4716fba1a47bf39d520a4ff0f54c5094968ad2a624205",
+    "depths.js": "d1375c05e6cae72d6cff61613abb882fdd5a86645d11a0324c03f9e1d5bfbbda",
+    "engine.js": "51fbcdcbad7ca83ca5f23d842f019807137fe39e0db99086d18a0a49593cebec",
+    "feel.js": "3a58ec154ecc9ba718e19df36db1dcb22289a902a05661ded7c56ac62de75d45",
+    "garden.js": "9407e299b0c3c9b8980ad4bd0ad5c8d4ba135979da559e17ba84666ee68e028b",
+    "goals.js": "1b7d206a1dbe60c5d0329da4a89a2e5de356cb92feb03d0ac7068aadac334683",
+    "index.html": "84db26bc1e79072c000cbea8dcc8eec20cb62d7794238202dc061ff8065b67f5",
+    "keepsakes.js": "7ba67978ba91b0034a71df1ec9030f976c11129d3064950075c62dba703a65c5",
+    "koi.js": "04e65a355bec849fc36cacb68674b4e7d60e91847807b5916fa9cb663f02b385",
+    "levels.js": "6db3f37e47f27be167ccd7b898ab74256f0e59112f936151c545007771823d73",
+    "meadow.js": "ba42a3fd0973bc7afaffbaebd40535e84c9d084e6b13c9a0aad09e6e68ba2393",
+    "moon.js": "8db81a18101c4fc90a5f2d0675396aa0468cd1b954b84eb471fa7ce410bb2aa2",
+    "native.js": "375ea31e10ef1b3c9bed88027bcfdcd3000faab5c2827267016812f8aeca77d7",
+    "petals.js": "0963ff56f2acf9ff5490541d4c84ce7b6fa0e6d3332f7c694d6a913f01252a6c",
+    "powers.js": "500d859091b53cf965dee95e16ef8577d9b396fbc3ea6738beb4790ec9945d1c",
+    "privacy.html": "306b611236ba2a9d5b31f3b12bcd0155149b28b91afb924b90286a337a26a352",
+    "pwa.js": "05e1444563015afaf8807d73ed27efc1e24171fb8b8243975f1c86e8f128a259",
+    "rush.js": "710b74d78a922f42438ae272b4ad171458eed0cd4c0414af7a7f4481385e8b8a",
+    "scenery.js": "62ac397c592aafa037a2d327a7627e0c39523319601072c4467ef82fa27b1e5e",
+    "sound.js": "6333cfc7e8ee0978515069321c8d23985f347947f0eba9f6fc660d5407314e14",
+    "store-config.js": "841666f9aec771d637dd8d6388b776070f2a6a430fab2201918f1ae10da29f10",
+    "store-ui.js": "18f773284154f0f8b504dd51d3d3395b9be8b06336406dbb84acc67b74fa8fc6",
+    "store.js": "c9ad95cce15b0b8d4db92a3f7f83fc9451814848fa2b14b73adfb623df763099",
+    "styles.css": "a2c85ac0206caef3d559b810cec1f3671f6f6cf0fef3357a22a41f250713d1ec",
+    "sw.js": "2e7b74f90a78a50c416709a06938a2440a2e3d1743d12cde08cb96d8f3b964ce",
+    "tutorial.js": "2795d90f9307282e8683c9fb34688a25b2a2394a1cbf118a5715c56e322d531a"
+  },
+  "unitChecks": {
+    "passed": 30,
+    "failed": 0,
+    "sourceStable": true,
+    "checks": [
+      {
+        "file": "test-bloomfx.cjs",
+        "exitCode": 0,
+        "seconds": 0.79
+      },
+      {
+        "file": "test-boss-art.cjs",
+        "exitCode": 0,
+        "seconds": 0.76
+      },
+      {
+        "file": "test-bosses.cjs",
+        "exitCode": 0,
+        "seconds": 0.42
+      },
+      {
+        "file": "test-depths-bot.cjs",
+        "exitCode": 0,
+        "seconds": 0.44
+      },
+      {
+        "file": "test-depths.cjs",
+        "exitCode": 0,
+        "seconds": 40.24
+      },
+      {
+        "file": "test-engine.cjs",
+        "exitCode": 0,
+        "seconds": 0.43
+      },
+      {
+        "file": "test-feel.cjs",
+        "exitCode": 0,
+        "seconds": 0.45
+      },
+      {
+        "file": "test-garden.cjs",
+        "exitCode": 0,
+        "seconds": 0.12
+      },
+      {
+        "file": "test-goals.cjs",
+        "exitCode": 0,
+        "seconds": 0.09
+      },
+      {
+        "file": "test-keepsakes.cjs",
+        "exitCode": 0,
+        "seconds": 0.25
+      },
+      {
+        "file": "test-koi-levels.cjs",
+        "exitCode": 0,
+        "seconds": 50.92
+      },
+      {
+        "file": "test-moon-engine.cjs",
+        "exitCode": 0,
+        "seconds": 0.12
+      },
+      {
+        "file": "test-moon-levels.cjs",
+        "exitCode": 0,
+        "seconds": 0.74
+      },
+      {
+        "file": "test-music.cjs",
+        "exitCode": 0,
+        "seconds": 4.15
+      },
+      {
+        "file": "test-native.cjs",
+        "exitCode": 0,
+        "seconds": 0.1
+      },
+      {
+        "file": "test-petals.cjs",
+        "exitCode": 0,
+        "seconds": 0.09
+      },
+      {
+        "file": "test-pod.cjs",
+        "exitCode": 0,
+        "seconds": 31.4
+      },
+      {
+        "file": "test-powers.cjs",
+        "exitCode": 0,
+        "seconds": 0.14
+      },
+      {
+        "file": "test-precache-streams.cjs",
+        "exitCode": 0,
+        "seconds": 0.54
+      },
+      {
+        "file": "test-pwa.cjs",
+        "exitCode": 0,
+        "seconds": 0.25
+      },
+      {
+        "file": "test-rush.cjs",
+        "exitCode": 0,
+        "seconds": 0.51
+      },
+      {
+        "file": "test-save-integration.cjs",
+        "exitCode": 0,
+        "seconds": 1.44
+      },
+      {
+        "file": "test-scene-life.cjs",
+        "exitCode": 0,
+        "seconds": 0.5
+      },
+      {
+        "file": "test-scenery.cjs",
+        "exitCode": 0,
+        "seconds": 1.04
+      },
+      {
+        "file": "test-seed-art.cjs",
+        "exitCode": 0,
+        "seconds": 0.13
+      },
+      {
+        "file": "test-sound.cjs",
+        "exitCode": 0,
+        "seconds": 17.43
+      },
+      {
+        "file": "test-stage.cjs",
+        "exitCode": 0,
+        "seconds": 0.41
+      },
+      {
+        "file": "test-store.cjs",
+        "exitCode": 0,
+        "seconds": 0.45
+      },
+      {
+        "file": "test-tutorial.cjs",
+        "exitCode": 0,
+        "seconds": 0.22
+      },
+      {
+        "file": "check-moon-pointer.cjs",
+        "exitCode": 0,
+        "seconds": 122.51
+      }
+    ],
+    "scope": "All 29 test-*.cjs suites and the complete Moon pointer check, sequentially on the frozen sources."
+  },
+  "responsive": {
+    "passed": 192,
+    "failed": 0,
+    "scope": "Real Chromium; all ten campaign levels at waves 1/10, every authored Moon/Koi board, seven tutorial lessons via actual controls, six actual deeper-level previews; selected sizes with synthetic safe areas. No real phone or purchase test.",
+    "sizes": [
+      "360x800",
+      "390x844",
+      "820x1180",
+      "360x640"
+    ]
+  },
+  "controls": {
+    "passed": 62,
+    "failed": 0,
+    "scope": "Real Chromium controls at phone/tablet size in disposable profiles; no physical iPhone or native-store test."
+  },
+  "offline": {
+    "generatedAt": "2026-10-15T03:17:34.856Z",
+    "version": "de1a06c99567b0a8",
+    "passed": 5,
+    "failed": 0,
+    "rows": [
+      "real service worker installed all shipped assets",
+      "offline reload starts actual Starseed encounter",
+      "offline policy retains approved date and contact",
+      "new version waits for explicit restart",
+      "explicit update reloads and preserves saved seeds"
+    ],
+    "scope": "Installed desktop Chromium service worker, actual shipped bytes, offline reload and explicit update in a disposable profile; no physical iPhone or private-host installation test."
+  },
+  "nativePackaging": {
+    "assets": 34,
+    "matches": [
+      "www",
+      "android",
+      "ios"
+    ],
+    "scope": "npm ci (0 reported vulnerabilities), npm run sync and npm run check; this is packaging, not a device or real signing test."
+  },
+  "measurements": {
+    "tuningCases": 1920,
+    "heldoutCases": 320,
+    "report": "campaign-measurement-results.json",
+    "timeouts": 0,
+    "scope": "Seeded engine simulations without bought powerups. See the report for per-level variation and limits."
+  },
+  "storeMedia": {
+    "verifiedAt": "2026-10-15T03:19:35.360Z",
+    "browserCapturesOnly": true,
+    "actualDeviceTested": false,
+    "results": [
+      {
+        "directory": "google-play",
+        "count": 8,
+        "levels": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "capturedAt": "2026-10-15T03:17:52.914Z",
+        "sourceHashes": {
+          "app.js": "62dd5b3547e773850a1c7194c89bde97f9335c3ab57e1b733fd9a54e54bdfa0c",
+          "art.js": "887d366ff6ed11c6562046ccf567bbf50ce9dc4061e26934aaa5862142fd6c53",
+          "bosses.js": "65fd5a1002a44a0135a4716fba1a47bf39d520a4ff0f54c5094968ad2a624205",
+          "depths.js": "d1375c05e6cae72d6cff61613abb882fdd5a86645d11a0324c03f9e1d5bfbbda",
+          "engine.js": "51fbcdcbad7ca83ca5f23d842f019807137fe39e0db99086d18a0a49593cebec",
+          "feel.js": "3a58ec154ecc9ba718e19df36db1dcb22289a902a05661ded7c56ac62de75d45",
+          "garden.js": "9407e299b0c3c9b8980ad4bd0ad5c8d4ba135979da559e17ba84666ee68e028b",
+          "goals.js": "1b7d206a1dbe60c5d0329da4a89a2e5de356cb92feb03d0ac7068aadac334683",
+          "index.html": "84db26bc1e79072c000cbea8dcc8eec20cb62d7794238202dc061ff8065b67f5",
+          "keepsakes.js": "7ba67978ba91b0034a71df1ec9030f976c11129d3064950075c62dba703a65c5",
+          "koi.js": "04e65a355bec849fc36cacb68674b4e7d60e91847807b5916fa9cb663f02b385",
+          "levels.js": "6db3f37e47f27be167ccd7b898ab74256f0e59112f936151c545007771823d73",
+          "meadow.js": "ba42a3fd0973bc7afaffbaebd40535e84c9d084e6b13c9a0aad09e6e68ba2393",
+          "moon.js": "8db81a18101c4fc90a5f2d0675396aa0468cd1b954b84eb471fa7ce410bb2aa2",
+          "native.js": "375ea31e10ef1b3c9bed88027bcfdcd3000faab5c2827267016812f8aeca77d7",
+          "petals.js": "0963ff56f2acf9ff5490541d4c84ce7b6fa0e6d3332f7c694d6a913f01252a6c",
+          "powers.js": "500d859091b53cf965dee95e16ef8577d9b396fbc3ea6738beb4790ec9945d1c",
+          "privacy.html": "306b611236ba2a9d5b31f3b12bcd0155149b28b91afb924b90286a337a26a352",
+          "pwa.js": "05e1444563015afaf8807d73ed27efc1e24171fb8b8243975f1c86e8f128a259",
+          "rush.js": "710b74d78a922f42438ae272b4ad171458eed0cd4c0414af7a7f4481385e8b8a",
+          "scenery.js": "62ac397c592aafa037a2d327a7627e0c39523319601072c4467ef82fa27b1e5e",
+          "sound.js": "6333cfc7e8ee0978515069321c8d23985f347947f0eba9f6fc660d5407314e14",
+          "store-config.js": "841666f9aec771d637dd8d6388b776070f2a6a430fab2201918f1ae10da29f10",
+          "store-ui.js": "18f773284154f0f8b504dd51d3d3395b9be8b06336406dbb84acc67b74fa8fc6",
+          "store.js": "c9ad95cce15b0b8d4db92a3f7f83fc9451814848fa2b14b73adfb623df763099",
+          "styles.css": "a2c85ac0206caef3d559b810cec1f3671f6f6cf0fef3357a22a41f250713d1ec",
+          "sw.js": "2e7b74f90a78a50c416709a06938a2440a2e3d1743d12cde08cb96d8f3b964ce",
+          "tutorial.js": "2795d90f9307282e8683c9fb34688a25b2a2394a1cbf118a5715c56e322d531a"
+        },
+        "contactSheet": "google-play-contact-sheet.png",
+        "files": [
+          {
+            "file": "phone-1-sunny-meadow.png",
+            "sha256": "bc8fce1eff4778c63c950dab8d0c79d3f4eaa79095247b2f4a411bf01f511f19",
+            "width": 1080,
+            "height": 1920
+          },
+          {
+            "file": "phone-2-roots-and-grotto.png",
+            "sha256": "bd6c40153ec4bc08a221769c080147ec7c9fb43362b75bac31d5a07cb7660195",
+            "width": 1080,
+            "height": 1920
+          },
+          {
+            "file": "phone-3-crystal-caves.png",
+            "sha256": "c905deccc9586841d5175bd6897773c52af468da10ef874f9dcb6800748efe68",
+            "width": 1080,
+            "height": 1920
+          },
+          {
+            "file": "phone-4-glowworm-lake.png",
+            "sha256": "cd2b29448818308f6f334bfbc5f570a58bcf6613c31080e7ae227ae339351d4f",
+            "width": 1080,
+            "height": 1920
+          },
+          {
+            "file": "phone-5-fossils-and-geodes.png",
+            "sha256": "41f2c2da7911ad6d8871ca29c97db6e6d63682722b701d4a47b153eb0c60e974",
+            "width": 1080,
+            "height": 1920
+          },
+          {
+            "file": "phone-6-ember-hollows.png",
+            "sha256": "8e7e40d231e4a11b4d80ef9352ed1a68c1e525ff62a8b153c77df5162c05be34",
+            "width": 1080,
+            "height": 1920
+          },
+          {
+            "file": "phone-7-briar-vault.png",
+            "sha256": "b13c811e172a6380960eaa33f36469b53185cc22d708584e0fbe700bc5dbc646",
+            "width": 1080,
+            "height": 1920
+          },
+          {
+            "file": "phone-8-starseed-core.png",
+            "sha256": "fe99ee8d045617e3cc3bcdb12d8731f087b156d34b1ce92eee3f8d5ca982cf89",
+            "width": 1080,
+            "height": 1920
+          }
+        ]
+      },
+      {
+        "directory": "apple/iphone-1290",
+        "count": 10,
+        "levels": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "capturedAt": "2026-10-15T03:18:59.890Z",
+        "sourceHashes": {
+          "app.js": "62dd5b3547e773850a1c7194c89bde97f9335c3ab57e1b733fd9a54e54bdfa0c",
+          "art.js": "887d366ff6ed11c6562046ccf567bbf50ce9dc4061e26934aaa5862142fd6c53",
+          "bosses.js": "65fd5a1002a44a0135a4716fba1a47bf39d520a4ff0f54c5094968ad2a624205",
+          "depths.js": "d1375c05e6cae72d6cff61613abb882fdd5a86645d11a0324c03f9e1d5bfbbda",
+          "engine.js": "51fbcdcbad7ca83ca5f23d842f019807137fe39e0db99086d18a0a49593cebec",
+          "feel.js": "3a58ec154ecc9ba718e19df36db1dcb22289a902a05661ded7c56ac62de75d45",
+          "garden.js": "9407e299b0c3c9b8980ad4bd0ad5c8d4ba135979da559e17ba84666ee68e028b",
+          "goals.js": "1b7d206a1dbe60c5d0329da4a89a2e5de356cb92feb03d0ac7068aadac334683",
+          "index.html": "84db26bc1e79072c000cbea8dcc8eec20cb62d7794238202dc061ff8065b67f5",
+          "keepsakes.js": "7ba67978ba91b0034a71df1ec9030f976c11129d3064950075c62dba703a65c5",
+          "koi.js": "04e65a355bec849fc36cacb68674b4e7d60e91847807b5916fa9cb663f02b385",
+          "levels.js": "6db3f37e47f27be167ccd7b898ab74256f0e59112f936151c545007771823d73",
+          "meadow.js": "ba42a3fd0973bc7afaffbaebd40535e84c9d084e6b13c9a0aad09e6e68ba2393",
+          "moon.js": "8db81a18101c4fc90a5f2d0675396aa0468cd1b954b84eb471fa7ce410bb2aa2",
+          "native.js": "375ea31e10ef1b3c9bed88027bcfdcd3000faab5c2827267016812f8aeca77d7",
+          "petals.js": "0963ff56f2acf9ff5490541d4c84ce7b6fa0e6d3332f7c694d6a913f01252a6c",
+          "powers.js": "500d859091b53cf965dee95e16ef8577d9b396fbc3ea6738beb4790ec9945d1c",
+          "privacy.html": "306b611236ba2a9d5b31f3b12bcd0155149b28b91afb924b90286a337a26a352",
+          "pwa.js": "05e1444563015afaf8807d73ed27efc1e24171fb8b8243975f1c86e8f128a259",
+          "rush.js": "710b74d78a922f42438ae272b4ad171458eed0cd4c0414af7a7f4481385e8b8a",
+          "scenery.js": "62ac397c592aafa037a2d327a7627e0c39523319601072c4467ef82fa27b1e5e",
+          "sound.js": "6333cfc7e8ee0978515069321c8d23985f347947f0eba9f6fc660d5407314e14",
+          "store-config.js": "841666f9aec771d637dd8d6388b776070f2a6a430fab2201918f1ae10da29f10",
+          "store-ui.js": "18f773284154f0f8b504dd51d3d3395b9be8b06336406dbb84acc67b74fa8fc6",
+          "store.js": "c9ad95cce15b0b8d4db92a3f7f83fc9451814848fa2b14b73adfb623df763099",
+          "styles.css": "a2c85ac0206caef3d559b810cec1f3671f6f6cf0fef3357a22a41f250713d1ec",
+          "sw.js": "2e7b74f90a78a50c416709a06938a2440a2e3d1743d12cde08cb96d8f3b964ce",
+          "tutorial.js": "2795d90f9307282e8683c9fb34688a25b2a2394a1cbf118a5715c56e322d531a"
+        },
+        "contactSheet": "apple-iphone-1290-contact-sheet.png",
+        "files": [
+          {
+            "file": "iphone-01-sunny-meadow.png",
+            "sha256": "684ddca3b032dddef16793151f1000588be809a047e084860227c5a96b69917a",
+            "width": 1290,
+            "height": 2796
+          },
+          {
+            "file": "iphone-02-root-tunnels.png",
+            "sha256": "997f72d7361c84daf2984f64f1cd6cbe68358da9927c19d76f9b51c148bf0904",
+            "width": 1290,
+            "height": 2796
+          },
+          {
+            "file": "iphone-03-mushroom-grotto.png",
+            "sha256": "cb5fa481b99b8934f07f02952e1b6bb5b995af9c5c17ef48b257be0eac3047ba",
+            "width": 1290,
+            "height": 2796
+          },
+          {
+            "file": "iphone-04-crystal-caves.png",
+            "sha256": "58315d42f61988d66073baac1843ade1e7e1941ba943c3fa0b1e95261fccf7a5",
+            "width": 1290,
+            "height": 2796
+          },
+          {
+            "file": "iphone-05-glowworm-lake.png",
+            "sha256": "d6dad5410b070e4d38243e1c8b1b033d46faa7014399332262e37501346b9707",
+            "width": 1290,
+            "height": 2796
+          },
+          {
+            "file": "iphone-06-fossil-beds.png",
+            "sha256": "39496da5ece7540ea1727199c94f8f982e615b874c3b6bcd7a7993172ce5d1b6",
+            "width": 1290,
+            "height": 2796
+          },
+          {
+            "file": "iphone-07-ember-hollows.png",
+            "sha256": "ddd359eeddbc7d067940cd91816e16d4c92acc3302281c4dd5f59cbca3a324b9",
+            "width": 1290,
+            "height": 2796
+          },
+          {
+            "file": "iphone-08-geode-mine.png",
+            "sha256": "be206ff80e6f82cbbd14a707901dd0768b6ab395facbd608e7af335c76ef4143",
+            "width": 1290,
+            "height": 2796
+          },
+          {
+            "file": "iphone-09-briar-vault.png",
+            "sha256": "cc2a879a79888d4c45b231a4d6bdc350e954e5fe9f4eccc0ce17eda0e024c4ad",
+            "width": 1290,
+            "height": 2796
+          },
+          {
+            "file": "iphone-10-starseed-core.png",
+            "sha256": "063b7bacf65494e79a178d8f2fc0cc589a5b6df7774287ce02147caa118b51c2",
+            "width": 1290,
+            "height": 2796
+          }
+        ]
+      }
+    ]
+  },
+  "preview": {
+    "file": "bloomshot-preview.mp4",
+    "sha256": "3fc1584acb4a758b362d50f460b2c504871949e7e6f2db89b2c2de259d4d2942",
+    "sourceHashes": {
+      "app.js": "62dd5b3547e773850a1c7194c89bde97f9335c3ab57e1b733fd9a54e54bdfa0c",
+      "art.js": "887d366ff6ed11c6562046ccf567bbf50ce9dc4061e26934aaa5862142fd6c53",
+      "bosses.js": "65fd5a1002a44a0135a4716fba1a47bf39d520a4ff0f54c5094968ad2a624205",
+      "depths.js": "d1375c05e6cae72d6cff61613abb882fdd5a86645d11a0324c03f9e1d5bfbbda",
+      "engine.js": "51fbcdcbad7ca83ca5f23d842f019807137fe39e0db99086d18a0a49593cebec",
+      "feel.js": "3a58ec154ecc9ba718e19df36db1dcb22289a902a05661ded7c56ac62de75d45",
+      "garden.js": "9407e299b0c3c9b8980ad4bd0ad5c8d4ba135979da559e17ba84666ee68e028b",
+      "goals.js": "1b7d206a1dbe60c5d0329da4a89a2e5de356cb92feb03d0ac7068aadac334683",
+      "index.html": "84db26bc1e79072c000cbea8dcc8eec20cb62d7794238202dc061ff8065b67f5",
+      "keepsakes.js": "7ba67978ba91b0034a71df1ec9030f976c11129d3064950075c62dba703a65c5",
+      "koi.js": "04e65a355bec849fc36cacb68674b4e7d60e91847807b5916fa9cb663f02b385",
+      "levels.js": "6db3f37e47f27be167ccd7b898ab74256f0e59112f936151c545007771823d73",
+      "meadow.js": "ba42a3fd0973bc7afaffbaebd40535e84c9d084e6b13c9a0aad09e6e68ba2393",
+      "moon.js": "8db81a18101c4fc90a5f2d0675396aa0468cd1b954b84eb471fa7ce410bb2aa2",
+      "native.js": "375ea31e10ef1b3c9bed88027bcfdcd3000faab5c2827267016812f8aeca77d7",
+      "petals.js": "0963ff56f2acf9ff5490541d4c84ce7b6fa0e6d3332f7c694d6a913f01252a6c",
+      "powers.js": "500d859091b53cf965dee95e16ef8577d9b396fbc3ea6738beb4790ec9945d1c",
+      "privacy.html": "306b611236ba2a9d5b31f3b12bcd0155149b28b91afb924b90286a337a26a352",
+      "pwa.js": "05e1444563015afaf8807d73ed27efc1e24171fb8b8243975f1c86e8f128a259",
+      "rush.js": "710b74d78a922f42438ae272b4ad171458eed0cd4c0414af7a7f4481385e8b8a",
+      "scenery.js": "62ac397c592aafa037a2d327a7627e0c39523319601072c4467ef82fa27b1e5e",
+      "sound.js": "6333cfc7e8ee0978515069321c8d23985f347947f0eba9f6fc660d5407314e14",
+      "store-config.js": "841666f9aec771d637dd8d6388b776070f2a6a430fab2201918f1ae10da29f10",
+      "store-ui.js": "18f773284154f0f8b504dd51d3d3395b9be8b06336406dbb84acc67b74fa8fc6",
+      "store.js": "c9ad95cce15b0b8d4db92a3f7f83fc9451814848fa2b14b73adfb623df763099",
+      "styles.css": "a2c85ac0206caef3d559b810cec1f3671f6f6cf0fef3357a22a41f250713d1ec",
+      "sw.js": "2e7b74f90a78a50c416709a06938a2440a2e3d1743d12cde08cb96d8f3b964ce",
+      "tutorial.js": "2795d90f9307282e8683c9fb34688a25b2a2394a1cbf118a5715c56e322d531a",
+      "qa/depths-bot.cjs": "a3a002dd08cf5a5243eeb7e8fc02ce6c2c97f7394826b6734da36f462963b471"
+    },
+    "validation": {
+      "decodedDurationSeconds": 27.9872,
+      "decodedWidth": 1080,
+      "decodedHeight": 1440,
+      "audio": {
+        "channels": 2,
+        "sampleRate": 48000,
+        "duration": 27.989,
+        "peak": 0.18729856610298157,
+        "rms": 0.021536999349576962
+      },
+      "capturedAudio": {
+        "peak": 0.17063972353935242,
+        "rms": 0.021078296429735365
+      },
+      "decodedFrameSeconds": [
+        2,
+        10,
+        18,
+        24
+      ]
+    },
+    "scope": "Real production game board, driven by QA shot tracer and app aim/fire handlers. Capture-only hooks expose state, starting wave and the original audio output; no game source is changed. Native browser recording, 1080×1440, original synthesized game music and sound effects; no narration or added captions. The canvas-only video is a Play/YouTube preview asset; an Apple app preview still requires Apple device-size capture and console validation."
+  },
+  "unverified": [
+    "Physical iPhone/Android play and installation",
+    "Real sandbox purchase or restore",
+    "Current-game native compilation/signing",
+    "Human difficulty, retention and revenue"
+  ],
+  "supersededBy": "playtest-feedback-results.json",
+  "scopeNote": "Historical October 14 build, with original source fingerprints and observations. Do not use as verification of October 15 gameplay or media."
+}

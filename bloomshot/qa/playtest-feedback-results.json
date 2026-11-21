@@ -1,0 +1,667 @@
+{
+  "schema": 1,
+  "generatedAt": "2026-10-15T21:36:13.787Z",
+  "sourceHashes": {
+    "app.js": "6617d8a3e2077c28fdf130c155b79e399b2e52ae7a1f86b5c5d39c34fc6727ab",
+    "art.js": "3263d939b180ea0bb2e2cf93e2ed76fef942a849b4640bf7e61a063dc6033ef4",
+    "bosses.js": "c9673466e16331b6d929b5807ddcace6af332a9775206f6f2b148da50bbc6a8a",
+    "depths.js": "f7dff1a7bdb3e6c353848a9f6aac76b41920153df1823f4e5c173b7e4ffe877d",
+    "engine.js": "51fbcdcbad7ca83ca5f23d842f019807137fe39e0db99086d18a0a49593cebec",
+    "feel.js": "3a58ec154ecc9ba718e19df36db1dcb22289a902a05661ded7c56ac62de75d45",
+    "garden.js": "9407e299b0c3c9b8980ad4bd0ad5c8d4ba135979da559e17ba84666ee68e028b",
+    "goals.js": "1b7d206a1dbe60c5d0329da4a89a2e5de356cb92feb03d0ac7068aadac334683",
+    "index.html": "3998e0d845d8aefefd103f9550955c55c93c8db1add3d5cea9fac30047b74369",
+    "keepsakes.js": "7ba67978ba91b0034a71df1ec9030f976c11129d3064950075c62dba703a65c5",
+    "koi.js": "04e65a355bec849fc36cacb68674b4e7d60e91847807b5916fa9cb663f02b385",
+    "levels.js": "6db3f37e47f27be167ccd7b898ab74256f0e59112f936151c545007771823d73",
+    "meadow.js": "ba42a3fd0973bc7afaffbaebd40535e84c9d084e6b13c9a0aad09e6e68ba2393",
+    "moon.js": "8db81a18101c4fc90a5f2d0675396aa0468cd1b954b84eb471fa7ce410bb2aa2",
+    "native.js": "375ea31e10ef1b3c9bed88027bcfdcd3000faab5c2827267016812f8aeca77d7",
+    "petals.js": "0963ff56f2acf9ff5490541d4c84ce7b6fa0e6d3332f7c694d6a913f01252a6c",
+    "powers.js": "a511e022c055e7eb1c6bcb473a68689637fd0e1ff936b49eff5335bfbfa9ca62",
+    "privacy.html": "306b611236ba2a9d5b31f3b12bcd0155149b28b91afb924b90286a337a26a352",
+    "pwa.js": "05e1444563015afaf8807d73ed27efc1e24171fb8b8243975f1c86e8f128a259",
+    "rush.js": "378e9a8b333ac4c109402978a7f640768b17ac8d9cb9068f0568535e092b351f",
+    "scenery.js": "62ac397c592aafa037a2d327a7627e0c39523319601072c4467ef82fa27b1e5e",
+    "sound.js": "6333cfc7e8ee0978515069321c8d23985f347947f0eba9f6fc660d5407314e14",
+    "store-config.js": "cef75c4993b9037e75b0e354b65129c244ec7b2924d4157d941e9a34633c8738",
+    "store-ui.js": "18f773284154f0f8b504dd51d3d3395b9be8b06336406dbb84acc67b74fa8fc6",
+    "store.js": "c9ad95cce15b0b8d4db92a3f7f83fc9451814848fa2b14b73adfb623df763099",
+    "styles.css": "f973fab9f064e4e1a774b3d4977b6a0821c06228550ada3ff9ef719bb204c1a3",
+    "sw.js": "c7f6960f3927c9b2cc7a38caa86f13fdc92afe7a43afefb9e71fcec96fd5dbd9",
+    "tutorial.js": "2795d90f9307282e8683c9fb34688a25b2a2394a1cbf118a5715c56e322d531a"
+  },
+  "unitChecks": {
+    "passed": 31,
+    "failed": 0,
+    "sourceStable": true,
+    "scope": "All 30 test-*.cjs suites and Moon pointer passed sequentially on the recorded frozen sources. The only subsequent runtime change is styles.css removing the bottom hint and extending the rendered field; current browser, offline and native checks below cover that CSS. Gameplay/JavaScript and simulation source hashes remain identical.",
+    "checks": [
+      {
+        "file": "test-bloomfx.cjs",
+        "exitCode": 0,
+        "seconds": 0.92
+      },
+      {
+        "file": "test-boss-art.cjs",
+        "exitCode": 0,
+        "seconds": 0.91
+      },
+      {
+        "file": "test-boss-flower-art.cjs",
+        "exitCode": 0,
+        "seconds": 0.17
+      },
+      {
+        "file": "test-bosses.cjs",
+        "exitCode": 0,
+        "seconds": 0.76
+      },
+      {
+        "file": "test-depths-bot.cjs",
+        "exitCode": 0,
+        "seconds": 0.5
+      },
+      {
+        "file": "test-depths.cjs",
+        "exitCode": 0,
+        "seconds": 49.55
+      },
+      {
+        "file": "test-engine.cjs",
+        "exitCode": 0,
+        "seconds": 0.43
+      },
+      {
+        "file": "test-feel.cjs",
+        "exitCode": 0,
+        "seconds": 0.45
+      },
+      {
+        "file": "test-garden.cjs",
+        "exitCode": 0,
+        "seconds": 0.12
+      },
+      {
+        "file": "test-goals.cjs",
+        "exitCode": 0,
+        "seconds": 0.1
+      },
+      {
+        "file": "test-keepsakes.cjs",
+        "exitCode": 0,
+        "seconds": 0.26
+      },
+      {
+        "file": "test-koi-levels.cjs",
+        "exitCode": 0,
+        "seconds": 80.31
+      },
+      {
+        "file": "test-moon-engine.cjs",
+        "exitCode": 0,
+        "seconds": 0.12
+      },
+      {
+        "file": "test-moon-levels.cjs",
+        "exitCode": 0,
+        "seconds": 0.67
+      },
+      {
+        "file": "test-music.cjs",
+        "exitCode": 0,
+        "seconds": 4.01
+      },
+      {
+        "file": "test-native.cjs",
+        "exitCode": 0,
+        "seconds": 0.09
+      },
+      {
+        "file": "test-petals.cjs",
+        "exitCode": 0,
+        "seconds": 0.1
+      },
+      {
+        "file": "test-pod.cjs",
+        "exitCode": 0,
+        "seconds": 34.21
+      },
+      {
+        "file": "test-powers.cjs",
+        "exitCode": 0,
+        "seconds": 0.17
+      },
+      {
+        "file": "test-precache-streams.cjs",
+        "exitCode": 0,
+        "seconds": 0.56
+      },
+      {
+        "file": "test-pwa.cjs",
+        "exitCode": 0,
+        "seconds": 0.26
+      },
+      {
+        "file": "test-rush.cjs",
+        "exitCode": 0,
+        "seconds": 0.78
+      },
+      {
+        "file": "test-save-integration.cjs",
+        "exitCode": 0,
+        "seconds": 1.51
+      },
+      {
+        "file": "test-scene-life.cjs",
+        "exitCode": 0,
+        "seconds": 0.52
+      },
+      {
+        "file": "test-scenery.cjs",
+        "exitCode": 0,
+        "seconds": 1.08
+      },
+      {
+        "file": "test-seed-art.cjs",
+        "exitCode": 0,
+        "seconds": 0.18
+      },
+      {
+        "file": "test-sound.cjs",
+        "exitCode": 0,
+        "seconds": 20.58
+      },
+      {
+        "file": "test-stage.cjs",
+        "exitCode": 0,
+        "seconds": 0.47
+      },
+      {
+        "file": "test-store.cjs",
+        "exitCode": 0,
+        "seconds": 0.46
+      },
+      {
+        "file": "test-tutorial.cjs",
+        "exitCode": 0,
+        "seconds": 0.26
+      },
+      {
+        "file": "check-moon-pointer.cjs",
+        "exitCode": 0,
+        "seconds": 50.84
+      }
+    ],
+    "sourceHashes": {
+      "app.js": "6617d8a3e2077c28fdf130c155b79e399b2e52ae7a1f86b5c5d39c34fc6727ab",
+      "art.js": "3263d939b180ea0bb2e2cf93e2ed76fef942a849b4640bf7e61a063dc6033ef4",
+      "bosses.js": "c9673466e16331b6d929b5807ddcace6af332a9775206f6f2b148da50bbc6a8a",
+      "depths.js": "f7dff1a7bdb3e6c353848a9f6aac76b41920153df1823f4e5c173b7e4ffe877d",
+      "engine.js": "51fbcdcbad7ca83ca5f23d842f019807137fe39e0db99086d18a0a49593cebec",
+      "feel.js": "3a58ec154ecc9ba718e19df36db1dcb22289a902a05661ded7c56ac62de75d45",
+      "garden.js": "9407e299b0c3c9b8980ad4bd0ad5c8d4ba135979da559e17ba84666ee68e028b",
+      "goals.js": "1b7d206a1dbe60c5d0329da4a89a2e5de356cb92feb03d0ac7068aadac334683",
+      "index.html": "3998e0d845d8aefefd103f9550955c55c93c8db1add3d5cea9fac30047b74369",
+      "keepsakes.js": "7ba67978ba91b0034a71df1ec9030f976c11129d3064950075c62dba703a65c5",
+      "koi.js": "04e65a355bec849fc36cacb68674b4e7d60e91847807b5916fa9cb663f02b385",
+      "levels.js": "6db3f37e47f27be167ccd7b898ab74256f0e59112f936151c545007771823d73",
+      "meadow.js": "ba42a3fd0973bc7afaffbaebd40535e84c9d084e6b13c9a0aad09e6e68ba2393",
+      "moon.js": "8db81a18101c4fc90a5f2d0675396aa0468cd1b954b84eb471fa7ce410bb2aa2",
+      "native.js": "375ea31e10ef1b3c9bed88027bcfdcd3000faab5c2827267016812f8aeca77d7",
+      "petals.js": "0963ff56f2acf9ff5490541d4c84ce7b6fa0e6d3332f7c694d6a913f01252a6c",
+      "powers.js": "a511e022c055e7eb1c6bcb473a68689637fd0e1ff936b49eff5335bfbfa9ca62",
+      "privacy.html": "306b611236ba2a9d5b31f3b12bcd0155149b28b91afb924b90286a337a26a352",
+      "pwa.js": "05e1444563015afaf8807d73ed27efc1e24171fb8b8243975f1c86e8f128a259",
+      "rush.js": "378e9a8b333ac4c109402978a7f640768b17ac8d9cb9068f0568535e092b351f",
+      "scenery.js": "62ac397c592aafa037a2d327a7627e0c39523319601072c4467ef82fa27b1e5e",
+      "sound.js": "6333cfc7e8ee0978515069321c8d23985f347947f0eba9f6fc660d5407314e14",
+      "store-config.js": "cef75c4993b9037e75b0e354b65129c244ec7b2924d4157d941e9a34633c8738",
+      "store-ui.js": "18f773284154f0f8b504dd51d3d3395b9be8b06336406dbb84acc67b74fa8fc6",
+      "store.js": "c9ad95cce15b0b8d4db92a3f7f83fc9451814848fa2b14b73adfb623df763099",
+      "styles.css": "dfe7ba71ef56142db9be0717ccdeb484e6517af4e175e13393235b8bd0606064",
+      "sw.js": "c7f6960f3927c9b2cc7a38caa86f13fdc92afe7a43afefb9e71fcec96fd5dbd9",
+      "tutorial.js": "2795d90f9307282e8683c9fb34688a25b2a2394a1cbf118a5715c56e322d531a"
+    }
+  },
+  "bottomTray": {
+    "passed": 39,
+    "failed": 0,
+    "sizes": [
+      "360x640",
+      "390x844",
+      "820x1180"
+    ],
+    "scope": "Desktop Chromium viewport/touch emulation; real app controls, no state hooks. Not a physical iPhone or Safari test."
+  },
+  "tutorial": {
+    "passed": 36,
+    "failed": 0,
+    "sizes": [
+      "360x640",
+      "390x844",
+      "820x1180"
+    ],
+    "scope": "Actual fresh tutorial input through all seven lessons and twelve authored prompts per size; real touches activate all four powers, card and spotlight geometry checked."
+  },
+  "touch": {
+    "passed": 28,
+    "failed": 0,
+    "sourceStable": true,
+    "scope": "Actual touch-pointer drag/end/cancel and 390x664 to 390x844 viewport transitions in Level 1 and Moon, using unmodified source and normal navigation controls.",
+    "limitations": [
+      "Chromium emulation is not Safari, WebKit, a physical iPhone, or a native install.",
+      "Viewport transitions model changing available space, not actual iOS browser-toolbar or safe-area behavior.",
+      "No physical touch latency, audio, haptics, purchases or home-screen installation was tested."
+    ]
+  },
+  "bossArt": {
+    "states": 20,
+    "failed": 0,
+    "sourceHashes": {
+      "engine.js": "51fbcdcbad7ca83ca5f23d842f019807137fe39e0db99086d18a0a49593cebec",
+      "bosses.js": "c9673466e16331b6d929b5807ddcace6af332a9775206f6f2b148da50bbc6a8a",
+      "rush.js": "378e9a8b333ac4c109402978a7f640768b17ac8d9cb9068f0568535e092b351f",
+      "depths.js": "f7dff1a7bdb3e6c353848a9f6aac76b41920153df1823f4e5c173b7e4ffe877d",
+      "scenery.js": "62ac397c592aafa037a2d327a7627e0c39523319601072c4467ef82fa27b1e5e",
+      "art.js": "3263d939b180ea0bb2e2cf93e2ed76fef942a849b4640bf7e61a063dc6033ef4",
+      "styles.css": "f973fab9f064e4e1a774b3d4977b6a0821c06228550ada3ff9ef719bb204c1a3"
+    },
+    "scope": "Actual authored wave-10 controllers advanced after one real opening seed. Target-detail atlas plus full board renders capture both the real 1.3-second warning and active effects. Reduced-motion rendering and nonmutation checked. QA evidence, not store screenshots or a physical-phone test."
+  },
+  "bossSmoke": {
+    "cases": 30,
+    "failed": 0,
+    "timeouts": 0,
+    "report": "boss-flower-smoke-results.json"
+  },
+  "giftEntrances": {
+    "passed": 80,
+    "failed": 0,
+    "sourceHashes": {
+      "rush.js": "378e9a8b333ac4c109402978a7f640768b17ac8d9cb9068f0568535e092b351f",
+      "depths.js": "f7dff1a7bdb3e6c353848a9f6aac76b41920153df1823f4e5c173b7e4ffe877d"
+    },
+    "scope": "Normal authored wave entrances, two seeded placements per eligible campaign wave, actual fire/step and giftAppear events; no replacement flower layouts."
+  },
+  "difficultyComparisons": {
+    "2": {
+      "scope": "Seeded artificial players with no gift drops or inventory powerups; slower is a sensitivity setting, not measured human skill.",
+      "before": {
+        "sourceHashes": {
+          "rush.js": "710b74d78a922f42438ae272b4ad171458eed0cd4c0414af7a7f4481385e8b8a",
+          "depths.js": "d1375c05e6cae72d6cff61613abb882fdd5a86645d11a0324c03f9e1d5bfbbda",
+          "bosses.js": "65fd5a1002a44a0135a4716fba1a47bf39d520a4ff0f54c5094968ad2a624205",
+          "qa/depths-bot.cjs": "a3a002dd08cf5a5243eeb7e8fc02ce6c2c97f7394826b6734da36f462963b471"
+        },
+        "summary": [
+          {
+            "profile": "average",
+            "n": 16,
+            "clears": 16,
+            "bossReached": 16,
+            "meanLivesLost": 0.125,
+            "timedOut": 0
+          },
+          {
+            "profile": "slower",
+            "n": 16,
+            "clears": 10,
+            "bossReached": 10,
+            "meanLivesLost": 1.75,
+            "timedOut": 0
+          }
+        ]
+      },
+      "after": {
+        "sourceHashes": {
+          "rush.js": "378e9a8b333ac4c109402978a7f640768b17ac8d9cb9068f0568535e092b351f",
+          "depths.js": "91a4cdb8bfd2d67dd0687b7f53a30a174a8d462beb2d8c3df332b76b6de8e841",
+          "bosses.js": "e751e9d5128a655f9a5025ff9205509dfbdb832af983f645f866f19711c7ad9e",
+          "qa/depths-bot.cjs": "a3a002dd08cf5a5243eeb7e8fc02ce6c2c97f7394826b6734da36f462963b471"
+        },
+        "summary": [
+          {
+            "profile": "average",
+            "n": 16,
+            "clears": 16,
+            "bossReached": 16,
+            "meanLivesLost": 0,
+            "timedOut": 0
+          },
+          {
+            "profile": "slower",
+            "n": 16,
+            "clears": 15,
+            "bossReached": 15,
+            "meanLivesLost": 0.6875,
+            "timedOut": 0
+          }
+        ]
+      },
+      "note": "Historical paired pace study preceded the ten flower spells. Failures in the pair were in ordinary waves."
+    },
+    "3": {
+      "scope": "Seeded artificial players without gift drops or inventory powerups; profiles are sensitivity settings, not measured human skill.",
+      "before": {
+        "sourceHashes": {
+          "rush.js": "378e9a8b333ac4c109402978a7f640768b17ac8d9cb9068f0568535e092b351f",
+          "depths.js": "7966c9c8fad981844547ed5bca71a533ff55e662a1b6f3539719ea7f2db16532",
+          "bosses.js": "c9673466e16331b6d929b5807ddcace6af332a9775206f6f2b148da50bbc6a8a",
+          "qa/depths-bot.cjs": "a3a002dd08cf5a5243eeb7e8fc02ce6c2c97f7394826b6734da36f462963b471"
+        },
+        "summary": [
+          {
+            "profile": "average",
+            "n": 16,
+            "clears": 13,
+            "bossReached": 13,
+            "meanLivesLost": 1.0625,
+            "timedOut": 0
+          },
+          {
+            "profile": "slower",
+            "n": 16,
+            "clears": 5,
+            "bossReached": 5,
+            "meanLivesLost": 2.625,
+            "timedOut": 0
+          }
+        ],
+        "waves": [
+          {
+            "wave": 1,
+            "flowers": 33,
+            "cupped": 0,
+            "descent": 15.6
+          },
+          {
+            "wave": 2,
+            "flowers": 27,
+            "cupped": 18,
+            "descent": 16.3
+          },
+          {
+            "wave": 3,
+            "flowers": 30,
+            "cupped": 11,
+            "descent": 16.3
+          },
+          {
+            "wave": 4,
+            "flowers": 45,
+            "cupped": 4,
+            "descent": 17
+          },
+          {
+            "wave": 5,
+            "flowers": 42,
+            "cupped": 22,
+            "descent": 17
+          },
+          {
+            "wave": 6,
+            "flowers": 42,
+            "cupped": 8,
+            "descent": 17.8
+          },
+          {
+            "wave": 7,
+            "flowers": 42,
+            "cupped": 15,
+            "descent": 17.8
+          },
+          {
+            "wave": 8,
+            "flowers": 42,
+            "cupped": 11,
+            "descent": 18.5
+          },
+          {
+            "wave": 9,
+            "flowers": 48,
+            "cupped": 23,
+            "descent": 19.2
+          }
+        ]
+      },
+      "after": {
+        "sourceHashes": {
+          "rush.js": "378e9a8b333ac4c109402978a7f640768b17ac8d9cb9068f0568535e092b351f",
+          "depths.js": "f7dff1a7bdb3e6c353848a9f6aac76b41920153df1823f4e5c173b7e4ffe877d",
+          "bosses.js": "c9673466e16331b6d929b5807ddcace6af332a9775206f6f2b148da50bbc6a8a",
+          "qa/depths-bot.cjs": "a3a002dd08cf5a5243eeb7e8fc02ce6c2c97f7394826b6734da36f462963b471"
+        },
+        "summary": [
+          {
+            "profile": "average",
+            "n": 16,
+            "clears": 16,
+            "bossReached": 16,
+            "meanLivesLost": 0.4375,
+            "timedOut": 0
+          },
+          {
+            "profile": "slower",
+            "n": 16,
+            "clears": 12,
+            "bossReached": 12,
+            "meanLivesLost": 1.8125,
+            "timedOut": 0
+          }
+        ],
+        "waves": [
+          {
+            "wave": 1,
+            "flowers": 33,
+            "cupped": 0,
+            "descent": 14.5
+          },
+          {
+            "wave": 2,
+            "flowers": 27,
+            "cupped": 8,
+            "descent": 15.2
+          },
+          {
+            "wave": 3,
+            "flowers": 30,
+            "cupped": 6,
+            "descent": 15.2
+          },
+          {
+            "wave": 4,
+            "flowers": 45,
+            "cupped": 4,
+            "descent": 15.8
+          },
+          {
+            "wave": 5,
+            "flowers": 42,
+            "cupped": 11,
+            "descent": 15.8
+          },
+          {
+            "wave": 6,
+            "flowers": 42,
+            "cupped": 4,
+            "descent": 16.5
+          },
+          {
+            "wave": 7,
+            "flowers": 42,
+            "cupped": 9,
+            "descent": 16.5
+          },
+          {
+            "wave": 8,
+            "flowers": 42,
+            "cupped": 11,
+            "descent": 17.2
+          },
+          {
+            "wave": 9,
+            "flowers": 48,
+            "cupped": 13,
+            "descent": 17.8
+          }
+        ]
+      },
+      "note": "Current gameplay/bot hashes match the after comparison. A small sensitivity sample, not measured human difficulty."
+    }
+  },
+  "offline": {
+    "generatedAt": "2026-10-15T21:34:40.111Z",
+    "version": "25d1fadadbb83e97",
+    "passed": 5,
+    "failed": 0,
+    "rows": [
+      "real service worker installed all shipped assets",
+      "offline reload starts actual Starseed encounter",
+      "offline policy retains approved date and contact",
+      "new version waits for explicit restart",
+      "explicit update reloads and preserves saved seeds"
+    ],
+    "scope": "Installed desktop Chromium service worker, actual shipped bytes, offline reload and explicit update in a disposable profile; no physical iPhone or private-host installation test."
+  },
+  "nativePackaging": {
+    "assets": 34,
+    "matches": [
+      "www",
+      "android",
+      "ios"
+    ],
+    "scope": "npm run sync and npm run check after the final layout change; local dependencies already installed with npm ci (0 reported vulnerabilities). Packaging only, not compilation, signing or physical-device play."
+  },
+  "approvedUsdTargets": {
+    "single": {
+      "count": 1,
+      "price": ".29"
+    },
+    "chosenPack": {
+      "count": 5,
+      "price": ".49"
+    },
+    "mixedBag": {
+      "product": "bloomshot.pack.bag20",
+      "count": 20,
+      "each": 5,
+      "price": "1.00"
+    },
+    "allProductsAvailable": false,
+    "realPurchaseVerified": false
+  },
+  "historicalEvidence": {
+    "report": "final-audit-results.json",
+    "note": "October 14 corpus/media retain original source fingerprints and are superseded for current gameplay verification. Store media must be retaken after Trevor approves the current game. Earlier unsigned iOS simulator compilation was for 06ae817, before these changes."
+  },
+  "unverified": [
+    "Physical iPhone/Android play, latency, Safari safe areas and installation",
+    "Real sandbox purchase, restore or store price setup",
+    "Current-game native compilation/signing",
+    "Human difficulty, retention, commercial results and approval for public release"
+  ],
+  "playfieldExpansion": {
+    "passed": 3,
+    "failed": 0,
+    "scope": "Screen projection of the unchanged authored danger line (y448) and launcher center (y498) using the real rendered canvas bounds from actual-app browser QA. Desktop Chrome viewport emulation, not a physical-device test.",
+    "rows": [
+      {
+        "size": "360x640",
+        "beforeBoard": {
+          "x": 60,
+          "y": 156,
+          "width": 240,
+          "height": 320
+        },
+        "afterBoard": {
+          "x": 44.25,
+          "y": 156,
+          "width": 271.5,
+          "height": 362
+        },
+        "points": {
+          "dangerLine": {
+            "before": 412,
+            "after": 445.6,
+            "downwardPixels": 33.60000000000002
+          },
+          "launcherCenter": {
+            "before": 440.57142857142856,
+            "after": 477.9214285714286,
+            "downwardPixels": 37.35000000000002
+          }
+        },
+        "hintRemoved": true,
+        "powersAndActionsUnchanged": true
+      },
+      {
+        "size": "390x844",
+        "beforeBoard": {
+          "x": 12.75,
+          "y": 184,
+          "width": 364.5,
+          "height": 486
+        },
+        "afterBoard": {
+          "x": 0,
+          "y": 190,
+          "width": 389.984375,
+          "height": 519.984375
+        },
+        "points": {
+          "dangerLine": {
+            "before": 572.8,
+            "after": 605.9875,
+            "downwardPixels": 33.1875
+          },
+          "launcherCenter": {
+            "before": 616.1928571428571,
+            "after": 652.4146763392857,
+            "downwardPixels": 36.22181919642867
+          }
+        },
+        "hintRemoved": true,
+        "powersAndActionsUnchanged": true
+      },
+      {
+        "size": "820x1180",
+        "beforeBoard": {
+          "x": 101.75,
+          "y": 184,
+          "width": 616.5,
+          "height": 822
+        },
+        "afterBoard": {
+          "x": 84.5,
+          "y": 184,
+          "width": 651,
+          "height": 868
+        },
+        "points": {
+          "dangerLine": {
+            "before": 841.6,
+            "after": 878.4000000000001,
+            "downwardPixels": 36.80000000000007
+          },
+          "launcherCenter": {
+            "before": 914.9928571428571,
+            "after": 955.9,
+            "downwardPixels": 40.907142857142844
+          }
+        },
+        "hintRemoved": true,
+        "powersAndActionsUnchanged": true
+      }
+    ]
+  },
+  "bossWarningUI": {
+    "passed": 20,
+    "failed": 0,
+    "sizes": [
+      "390x844",
+      "390x664"
+    ],
+    "scope": "Actual ?alllevels&bosses navigation from fresh profiles; tutorial skipped with its real button, real level cards and one touchscreen tap per encounter. Virtual time reaches each first flower-effect tell. Main Canvas warning is visibly painted, targets and controls do not overlap, the bottom hint stays hidden, and the accessible announcement includes the flower effect. Existing read-only state only; no source hooks, seeded saves or fabricated pieces. Desktop Chromium viewport checks, not a physical iPhone test."
+  }
+}

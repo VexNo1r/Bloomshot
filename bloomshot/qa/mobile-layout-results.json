@@ -1,0 +1,223 @@
+{
+  "generatedAt": "2026-10-16T07:35:16.841Z",
+  "passed": 235,
+  "failed": 0,
+  "scope": "Desktop Chromium viewport/touch emulation with synthetic safe areas. Authored campaign/Moon/Koi board selection uses an isolated browser-only start export. Every tutorial action uses real browser touch input. No physical iPhone, Safari, native store or phone frame-rate claim.",
+  "checkedSourceFingerprints": {
+    "app.js": "f22b70a111ef1c46f9e2ec7dfb949970fd54aca4b9db828eab7293a2c3fc153d",
+    "art.js": "ebc7d53c4a0f5c6009b7431f2f1ef9c4151816f6a51a72c665ef3454025799a1",
+    "styles.css": "1d95e614837938ead18fbc77d4b3066e5f5310f51e7463adf9773076c87f1b97"
+  },
+  "sourceStage": "The 235-check matrix precedes the narrow inactive-life-canvas visibility and viewport-key follow-up. Its fingerprints are preserved; final later-source geometry and touch results are recorded separately below.",
+  "coverage": {
+    "campaignLevels": 10,
+    "campaignWavesPerLevel": [
+      1,
+      10
+    ],
+    "campaignChecks": 100,
+    "moonBoards": 6,
+    "moonChecks": 30,
+    "koiBoards": 8,
+    "koiChecks": 40,
+    "tutorialLessonsPerViewport": 7,
+    "tutorialPromptChecks": 60,
+    "tutorialEndChecks": 5,
+    "total": 235
+  },
+  "geometry": {
+    "logicalBoard": {
+      "width": 420,
+      "height": 560
+    },
+    "uniformAspectRatioPreserved": true,
+    "allHeaderPowerAndActionTargetsAtLeast44CssPixels": true,
+    "boardClearOfVisibleHudAndControls": true,
+    "powerCentersExposedByHitTesting": true,
+    "noHorizontalOverflow": true,
+    "sceneFillsViewport": true,
+    "bottomPowerRowPreserved": true
+  },
+  "accessibility": {
+    "rushLivesAndBloomStatusVisuallyClippedNotDisplayNone": true,
+    "verifiedLivesAriaLabel": "3 lives remaining",
+    "moonAndKoiObjectiveInformationRemainsVisible": true,
+    "splitButtonRetainsChargeText": true
+  },
+  "tutorial": {
+    "allSevenLessonsCompletedAtAllFiveViewports": true,
+    "allFourPowersActivatedByActualTouchesAtAllFiveViewports": true,
+    "taughtTargetsExposedAndAtLeast44CssPixels": true,
+    "cardsFitViewportAndLeavePowerButtonsUncovered": true
+  },
+  "launcher": {
+    "assemblyScale": 1.12,
+    "colliderAndLogicalCenterUnchanged": true,
+    "actualTouchStates": [
+      {
+        "name": "loaded",
+        "pod": 4,
+        "armed": null
+      },
+      {
+        "name": "armed",
+        "pod": 4,
+        "armed": "sunburst"
+      },
+      {
+        "name": "empty",
+        "pod": 0,
+        "armed": null
+      }
+    ],
+    "visualReview": "Actual-touch loaded/armed/empty images at 390x664 inspected. Cup/power icon, fixed tray and all three hearts remain distinguishable with clear spacing.",
+    "fakeStateUsed": false
+  },
+  "sizeGainMethod": "Final board rectangles are observed DOM bounds. Baseline sizes are projected from the preserved baseline CSS at the same viewport/synthetic safe areas (top 184/bottom 128; old 600–740px compact top 156/bottom 122), constrained to uniform 420:560 width. Combined launcher gain also applies the authored 1.12 assembly scale; it is not a change to collision geometry.",
+  "baselineStylesSha256": "f973fab9f064e4e1a774b3d4977b6a0821c06228550ada3ff9ef719bb204c1a3",
+  "sizes": [
+    {
+      "viewport": {
+        "width": 360,
+        "height": 640
+      },
+      "syntheticSafeAreas": {
+        "top": 24,
+        "bottom": 24
+      },
+      "baselineCssProjectedBoard": {
+        "width": 235.5,
+        "height": 314
+      },
+      "checkedBoard": {
+        "x": 47.25,
+        "y": 140,
+        "width": 265.5,
+        "height": 354
+      },
+      "uniformSizeGainPercent": 12.74,
+      "launcherAssemblyScale": 1.12,
+      "combinedLauncherSizeGainPercent": 26.27
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 664
+      },
+      "syntheticSafeAreas": {
+        "top": 0,
+        "bottom": 34
+      },
+      "baselineCssProjectedBoard": {
+        "width": 264,
+        "height": 352
+      },
+      "checkedBoard": {
+        "x": 48,
+        "y": 116,
+        "width": 294,
+        "height": 392
+      },
+      "uniformSizeGainPercent": 11.36,
+      "launcherAssemblyScale": 1.12,
+      "combinedLauncherSizeGainPercent": 24.73
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "syntheticSafeAreas": {
+        "top": 44,
+        "bottom": 34
+      },
+      "baselineCssProjectedBoard": {
+        "width": 340.5,
+        "height": 454
+      },
+      "checkedBoard": {
+        "x": 0,
+        "y": 162.015625,
+        "width": 389.984375,
+        "height": 519.984375
+      },
+      "uniformSizeGainPercent": 14.53,
+      "launcherAssemblyScale": 1.12,
+      "combinedLauncherSizeGainPercent": 28.28
+    },
+    {
+      "viewport": {
+        "width": 820,
+        "height": 1180
+      },
+      "syntheticSafeAreas": {
+        "top": 24,
+        "bottom": 20
+      },
+      "baselineCssProjectedBoard": {
+        "width": 618,
+        "height": 824
+      },
+      "checkedBoard": {
+        "x": 75.5,
+        "y": 140,
+        "width": 669,
+        "height": 892
+      },
+      "uniformSizeGainPercent": 8.25,
+      "launcherAssemblyScale": 1.12,
+      "combinedLauncherSizeGainPercent": 21.24
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 568
+      },
+      "syntheticSafeAreas": {
+        "top": 0,
+        "bottom": 34
+      },
+      "baselineCssProjectedBoard": {
+        "width": 166.5,
+        "height": 222
+      },
+      "checkedBoard": {
+        "x": 84,
+        "y": 116,
+        "width": 222,
+        "height": 296
+      },
+      "uniformSizeGainPercent": 33.33,
+      "launcherAssemblyScale": 1.12,
+      "combinedLauncherSizeGainPercent": 49.33
+    }
+  ],
+  "browserErrors": [],
+  "laterSourceSpotCheck": {
+    "status": "passed",
+    "checkedAt": "2026-10-16T07:39:41.132Z",
+    "passed": 14,
+    "failed": 0,
+    "checkedSourceFingerprints": {
+      "app.js": "761a184f4a9571db2014286238e3e17b0d4f5839ba88df18b83d3ecd0a71035b",
+      "art.js": "ebc7d53c4a0f5c6009b7431f2f1ef9c4151816f6a51a72c665ef3454025799a1",
+      "styles.css": "1d95e614837938ead18fbc77d4b3066e5f5310f51e7463adf9773076c87f1b97"
+    },
+    "scope": "Focused final-source desktop Chromium check through real app navigation, actual power and held-shot touch events, viewport664→844→664 with matching synthetic safe-area changes, real Settings/Help dialogs and accessible Moon/Koi previews. No source hooks, fabricated game state, physical iPhone/Safari or frame-rate claim.",
+    "geometryUnchangedFromMatrix": true,
+    "original235CheckFingerprintsPreserved": true,
+    "fullMatrixRepeatNeeded": false,
+    "sourceStable": true,
+    "browserErrors": 0,
+    "actualScoredSeedTouchAfterEachResize": true,
+    "actualPowerArmAndUnarmAfterEachResize": true,
+    "dialogChecks": [
+      "Settings fits, opens and closes through actual touch at each resize",
+      "How to play fits, opens and closes through actual touch at each resize"
+    ],
+    "additionalWorldChecks": [
+      "Moon preview opened through actual navigation",
+      "Koi preview opened through actual navigation"
+    ]
+  }
+}

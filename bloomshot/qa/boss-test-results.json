@@ -1,0 +1,150 @@
+{
+  "passed": 36,
+  "failed": 0,
+  "results": [
+    {
+      "name": "All ten names and real encounter parts follow the reference; late health scales for the faster pod",
+      "passed": true
+    },
+    {
+      "name": "Old Sunny blocks plain seeds asleep; his bubble wakes a six-second double-damage window",
+      "passed": true
+    },
+    {
+      "name": "Sunny warns before an early two-sprout volley; ignoring the whole pair costs exactly one life",
+      "passed": true
+    },
+    {
+      "name": "Two ordinary aimed seeds can stop Sunny’s whole volley before it takes a life",
+      "passed": true
+    },
+    {
+      "name": "Lullaby freezes Sunny’s launched sprouts and defeat cancels them with the normal finale",
+      "passed": true
+    },
+    {
+      "name": "Every authored boss has a unique ordinary-flower change after its complete visible tell",
+      "passed": true
+    },
+    {
+      "name": "Sunny growth and Root shrink change the actual seed collider, with no tiny target",
+      "passed": true
+    },
+    {
+      "name": "Crystal sways real colliders, Lily lifts flowers safely, and Lullaby holds effect phase and deadlines",
+      "passed": true
+    },
+    {
+      "name": "Temporary fields restore on expiry, near-line entry, boss breach and defeat without changing saved health damage",
+      "passed": true
+    },
+    {
+      "name": "Thornmother converts a whole clean group, regrows it through the engine, then clears temporary timers",
+      "passed": true
+    },
+    {
+      "name": "Geode cannot keep adding rings to the same bud, and Core echoes never copy echoes or exceed four total",
+      "passed": true
+    },
+    {
+      "name": "Modifier selection excludes special pieces and the final reaction margin, and a new wave discards all old effects",
+      "passed": true
+    },
+    {
+      "name": "Rootknot warns of walls and holes, has no underground collider, and emerges hittable",
+      "passed": true
+    },
+    {
+      "name": "Mother Morel guards her bonnet underside; a real nearby puffcap deals two damage",
+      "passed": true
+    },
+    {
+      "name": "Crystal Heart has three colliders and one beating heart; real hits damage and stun",
+      "passed": true
+    },
+    {
+      "name": "Lantern Lily crits once through her lantern, gutters it five seconds and forms a whirlpool",
+      "passed": true
+    },
+    {
+      "name": "Lantern Lily marks only the whirlpool and the real flowers she lifts",
+      "passed": true
+    },
+    {
+      "name": "Ammonite Queen needs the mouth click, then a second aligned ring before taking damage",
+      "passed": true
+    },
+    {
+      "name": "Ember Rose burns plain seeds, takes tunnel criticals and exposes a warned dive",
+      "passed": true
+    },
+    {
+      "name": "Ember fire actually consumes a plain seed; tunnel seeds survive and ignition speeds only marked buds",
+      "passed": true
+    },
+    {
+      "name": "Geode King has eight crust HP; a broken plate opens the heart and regrowth is warned",
+      "passed": true
+    },
+    {
+      "name": "Thornmother patches heal through heart-vines; a complete patch cuts its vine",
+      "passed": true
+    },
+    {
+      "name": "The Starseed uses five real stars, a three-star dome, replayed moves and supernova",
+      "passed": true
+    },
+    {
+      "name": "The Starseed marks every dark or broken satellite before relighting its second phase",
+      "passed": true
+    },
+    {
+      "name": "Moves wait at least 1.3 seconds for the audible warning; Lullaby holds them and defeat cancels future attacks",
+      "passed": true
+    },
+    {
+      "name": "Last-life bosses give one free Lullaby bubble; boss-only retry earns at most one star",
+      "passed": true
+    },
+    {
+      "name": "Paid shot powers retain their exact ring damage and a final multi-hit clears the boss once",
+      "passed": true
+    },
+    {
+      "name": "Seeded chains obey visible boss armor; Morel puff damage and paid Sunburst remain exceptions",
+      "passed": true
+    },
+    {
+      "name": "Prediction is read-only and encounters agree at 30, 60 and 144 FPS",
+      "passed": true
+    },
+    {
+      "name": "Real reinforcements retain broken Geode/Core parts, which revive as hittable colliders",
+      "passed": true
+    },
+    {
+      "name": "Revival reconnects a detached boss part once, preserving its canonical encounter object",
+      "passed": true
+    },
+    {
+      "name": "Crystal proxy bodies breach and reset every heart immediately; underground Root remains exempt",
+      "passed": true
+    },
+    {
+      "name": "Super Bloom cannot turn two-hit boss armor parts into plain pierced flowers",
+      "passed": true
+    },
+    {
+      "name": "Sunburst takes exactly four rings once per whole guardian through bodies or proxies",
+      "passed": true
+    },
+    {
+      "name": "Bee Line takes three rings once per whole guardian while opening its encountered guard parts",
+      "passed": true
+    },
+    {
+      "name": "Real powered seed paths through Crystal hearts and Lily lantern keep the stated whole-boss damage",
+      "passed": true
+    }
+  ]
+}

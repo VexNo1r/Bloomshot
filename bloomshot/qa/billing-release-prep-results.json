@@ -1,0 +1,450 @@
+{
+  "checkedAt": "2026-10-16T02:28:37.703Z",
+  "startedAt": "2026-10-16T02:24:44.836Z",
+  "durationSeconds": 232.869,
+  "scope": "31 automated qa/test-*.cjs suites, Moon pointer sensitivity, native web sync and source packaging checks. This is not an installed iPhone/Android build or a real sandbox purchase.",
+  "gitHead": "2bbfe89321338f49f3d5cdbb17e8cf34b3bdf472",
+  "node": "v24.20.0",
+  "suiteCount": 31,
+  "passedSteps": 34,
+  "failedSteps": 0,
+  "timeouts": [],
+  "changedSources": [],
+  "sourceHashes": {
+    "bloomshot/app.js": "6617d8a3e2077c28fdf130c155b79e399b2e52ae7a1f86b5c5d39c34fc6727ab",
+    "bloomshot/art.js": "3263d939b180ea0bb2e2cf93e2ed76fef942a849b4640bf7e61a063dc6033ef4",
+    "bloomshot/assets/fonts/fredoka.woff2": "99d6c78e043710d4f83ed90716779798b7b04eb690f73e0ad0e8f32d1f0e98c2",
+    "bloomshot/assets/fonts/nunito.woff2": "ba344451eab25b217a165363b1982048a5e5830a0daf36577973955a04cac793",
+    "bloomshot/assets/ui/lock.svg": "20afe0a0cb40d676806270d59b9b4e690aa765d4d3e1709bba045eaa27e89b08",
+    "bloomshot/bosses.js": "c9673466e16331b6d929b5807ddcace6af332a9775206f6f2b148da50bbc6a8a",
+    "bloomshot/depths.js": "f7dff1a7bdb3e6c353848a9f6aac76b41920153df1823f4e5c173b7e4ffe877d",
+    "bloomshot/engine.js": "51fbcdcbad7ca83ca5f23d842f019807137fe39e0db99086d18a0a49593cebec",
+    "bloomshot/feel.js": "3a58ec154ecc9ba718e19df36db1dcb22289a902a05661ded7c56ac62de75d45",
+    "bloomshot/garden.js": "9407e299b0c3c9b8980ad4bd0ad5c8d4ba135979da559e17ba84666ee68e028b",
+    "bloomshot/goals.js": "1b7d206a1dbe60c5d0329da4a89a2e5de356cb92feb03d0ac7068aadac334683",
+    "bloomshot/icons/apple-touch-icon.png": "27f0def161c0c89a1617902fc2e0ed460888ac819a4499be73783e249227b014",
+    "bloomshot/icons/icon-192.png": "055eb68b59f05dafe84ec41de3516b9ae9c11492854e1058b714711ef205fb1d",
+    "bloomshot/icons/icon-512.png": "fb2fcad48d9928980f8519e60629edfc6075d37ac486fe3f7c60d93332d27439",
+    "bloomshot/icons/icon-maskable-512.png": "663a0406b853938ddb5efc8bb5c5bf30149e31a47b882acebee5c1ae3debe3b6",
+    "bloomshot/icons/icon.svg": "18cd7268f94d6901e7df8bae5de0f10da887c0b11d30368319838a82c76ab178",
+    "bloomshot/index.html": "3998e0d845d8aefefd103f9550955c55c93c8db1add3d5cea9fac30047b74369",
+    "bloomshot/keepsakes.js": "7ba67978ba91b0034a71df1ec9030f976c11129d3064950075c62dba703a65c5",
+    "bloomshot/koi.js": "04e65a355bec849fc36cacb68674b4e7d60e91847807b5916fa9cb663f02b385",
+    "bloomshot/levels.js": "6db3f37e47f27be167ccd7b898ab74256f0e59112f936151c545007771823d73",
+    "bloomshot/manifest.webmanifest": "e4736e265f0e8fb0cefc6833db9d6b2690bf597e617f30287e68d60b4d1d3e9c",
+    "bloomshot/meadow.js": "ba42a3fd0973bc7afaffbaebd40535e84c9d084e6b13c9a0aad09e6e68ba2393",
+    "bloomshot/moon.js": "8db81a18101c4fc90a5f2d0675396aa0468cd1b954b84eb471fa7ce410bb2aa2",
+    "bloomshot/native.js": "375ea31e10ef1b3c9bed88027bcfdcd3000faab5c2827267016812f8aeca77d7",
+    "bloomshot/petals.js": "0963ff56f2acf9ff5490541d4c84ce7b6fa0e6d3332f7c694d6a913f01252a6c",
+    "bloomshot/powers.js": "a511e022c055e7eb1c6bcb473a68689637fd0e1ff936b49eff5335bfbfa9ca62",
+    "bloomshot/privacy.html": "306b611236ba2a9d5b31f3b12bcd0155149b28b91afb924b90286a337a26a352",
+    "bloomshot/pwa.js": "05e1444563015afaf8807d73ed27efc1e24171fb8b8243975f1c86e8f128a259",
+    "bloomshot/rush.js": "378e9a8b333ac4c109402978a7f640768b17ac8d9cb9068f0568535e092b351f",
+    "bloomshot/scenery.js": "62ac397c592aafa037a2d327a7627e0c39523319601072c4467ef82fa27b1e5e",
+    "bloomshot/sound.js": "6333cfc7e8ee0978515069321c8d23985f347947f0eba9f6fc660d5407314e14",
+    "bloomshot/store-config.js": "cef75c4993b9037e75b0e354b65129c244ec7b2924d4157d941e9a34633c8738",
+    "bloomshot/store-ui.js": "54063c7c081c616770cb69057601b9b2cb921aad8feac50f46f7483a9a1513b2",
+    "bloomshot/store.js": "07d58d5fe6f88e38734a5bbb7345aabd3609e986646737edb52930b2d08b6825",
+    "bloomshot/styles.css": "f973fab9f064e4e1a774b3d4977b6a0821c06228550ada3ff9ef719bb204c1a3",
+    "bloomshot/sw.js": "ea95ab8c240b0933235bd1612d6caa99d3147d34f6d99de1ab71909c21b0e104",
+    "bloomshot/tutorial.js": "2795d90f9307282e8683c9fb34688a25b2a2394a1cbf118a5715c56e322d531a"
+  },
+  "nativeSourceHashes": {
+    "native/package.json": "0992a34be900cf170b693fa346f2fc49252f80c4b8775cc4e7adb0af8cd37da1",
+    "native/package-lock.json": "3871ab4d5a9b8836bfa6d82c5eee652d542352fafa9085b589f4a6f654d4d891",
+    "native/capacitor.config.json": "4c1b4a392efba187f6647c57b42a45665e153547cdd05899ba150d276c1968d6",
+    "native/scripts/prepare-web.cjs": "b8653b200ca8ae428e9416e4b065bce80b741885e5bf1a088451bb37408f559b",
+    "native/scripts/check.cjs": "22385c85d287282068e6150c57f84f1e4c7883fa36434c76dc3904397781b2ca",
+    "native/android/app/src/main/AndroidManifest.xml": "6f7ed5c29b7f558025a30b9b5b1ba20140f84867c445b7abd0eb3a56fc0f595d",
+    "native/android/app/src/main/java/dev/bloomshot/game/MainActivity.java": "e4d1eb9e3bbdea6bb0e6eb3ed60b3ae368cc9dd7b398794cd87c6c0205d18755",
+    "native/ios/App/App.xcodeproj/project.pbxproj": "f5aa12c49ce7f8b5b995e3552b61699c57d286a21cbd1f100e82b7239f5aa20d",
+    "native/ios/App/App/Info.plist": "bc40fa0d55c2a08b551dbd49e48205a6b245c162d2ed44a9e8ba5c14729646ac"
+  },
+  "testHashes": {
+    "bloomshot/qa/test-bloomfx.cjs": "09efa1a308313ed46a27f588858bcea15538163fe78489d3bf57f71814e31625",
+    "bloomshot/qa/test-boss-art.cjs": "d43f45166f3feb8caf03d98e66f6b458c36bb42e42d452729549c48dabe5ab84",
+    "bloomshot/qa/test-boss-flower-art.cjs": "542458d4ba7aae298ac6fab8e051fa7ef04e2ba90a9e7e54cc168c7f6ca95a15",
+    "bloomshot/qa/test-bosses.cjs": "6290f5ff741bea27cb7a8a150bcd62ba8d59141923d4eb595cc4a8d674919a80",
+    "bloomshot/qa/test-depths-bot.cjs": "c345a55c601006e461fe2a988721c26c8593c7496875e5af6e6418f7ca9b2615",
+    "bloomshot/qa/test-depths.cjs": "b617fcd0f35c85675c5772f217b70e24daa58b4c9793b32f2ae774ccc59f46b5",
+    "bloomshot/qa/test-engine.cjs": "eaec0e48b4dcfb8fb0151ed26b4a7c180c8df995ec05beaf8e30780edbcd6316",
+    "bloomshot/qa/test-feel.cjs": "fb05d9090a1865fecc1e0c70c6cea75daf1fef88627b73b23921f1f530c162b9",
+    "bloomshot/qa/test-garden.cjs": "8554bbf5371277589214d490427e96d32ffb0c8f81b46254626c272ad5960486",
+    "bloomshot/qa/test-goals.cjs": "3986dee0dfecb4fea1ab66b07253bf1c7110b74c62e0cbd4d2d845bb19eb1e9a",
+    "bloomshot/qa/test-keepsakes.cjs": "4a1163267dd8d515ae739028503c8e54368a10acc3ef748cffe34f463dd005f2",
+    "bloomshot/qa/test-koi-levels.cjs": "3e5a5ff479fc42cbb4e28ea16fcabecbcb58a57659d8452af836708215253bcb",
+    "bloomshot/qa/test-moon-engine.cjs": "e0694def9a77c816f0af59dcd9bab815edbad2cdb28db18a978bdb31ba846afe",
+    "bloomshot/qa/test-moon-levels.cjs": "1f4f0460702a944416d97d8d1bd77f908a26ae7fd95dfe29fee3ab4b01bb08fa",
+    "bloomshot/qa/test-music.cjs": "24ba9239c59407ba397f5a6b0cc6f5ec17630d04dbfb056e2a4f648b54501baa",
+    "bloomshot/qa/test-native.cjs": "8101c3d281095c73e91ba06d5c07971a20f42cc4739f4108bf1237aa8f08c95b",
+    "bloomshot/qa/test-petals.cjs": "de4e462d91aa04950248fe711e8d0e476dea8f7dc05317826b973e31b5088659",
+    "bloomshot/qa/test-pod.cjs": "7940e37f3104bd9892765f261d4dc96b2f8a98d3a51656c05cb555a07bc6373f",
+    "bloomshot/qa/test-powers.cjs": "376370617450f4c5de8a8f094153b407fcd325705bd679ef0f659d3c4b76ed57",
+    "bloomshot/qa/test-precache-streams.cjs": "4d275cc6074ee4283ac39136be63c920809d3e97e04c1d74a57e61fc55efc2c0",
+    "bloomshot/qa/test-pwa.cjs": "56dd4c85f1f98f8279695b17f7e4f0d788778375e2055474c363f9e0b88519af",
+    "bloomshot/qa/test-rush.cjs": "418fe5aa2198a08baa2d774461d077f7b6301b8f9d76a183f1747c729c9858b4",
+    "bloomshot/qa/test-save-integration.cjs": "7250b6f36d2bcf3f355c7e20cb55309c160da729f7b012c64eb97a9944d1f9ff",
+    "bloomshot/qa/test-scene-life.cjs": "e76a9eb06bb2d7a6038a51e0c61683afc1c2ed2ac328f363cb8f0e299dd66ff3",
+    "bloomshot/qa/test-scenery.cjs": "2ba7fc2c2ff56908fef81e170501fdbc44ed9145926266eb9683ab30cc09866d",
+    "bloomshot/qa/test-seed-art.cjs": "61b82d143434f071838415678e8caff0807cc24e9feeaecf4112c43b0c2fff6e",
+    "bloomshot/qa/test-sound.cjs": "f9df1cf6f523e335d127212b071e334402cced7c768fa9bcd598432443a2f155",
+    "bloomshot/qa/test-stage.cjs": "0ebd454a6419b76592b4df549d7dfa194d3e23b1bac8b16dcc05f03de52d00c1",
+    "bloomshot/qa/test-store-ui.cjs": "5947347500adccdc3d7ca4c7e5632e5e736e3e387d445df0264e69925b46dd1b",
+    "bloomshot/qa/test-store.cjs": "03b502d46664a3092795446d3fc17b31ce0a3c29889bb653a0a294f479461746",
+    "bloomshot/qa/test-tutorial.cjs": "84d8174ccc240742293183419b8d7749b6fc270562257d6ab4aba3577cc14c24",
+    "bloomshot/qa/check-moon-pointer.cjs": "1a1e0df21cf4b24ee3b343ca7c6f8908218d1e0ff609129e8965865b86959c3e"
+  },
+  "billingConfiguration": {
+    "products": 13,
+    "enabledProducts": [],
+    "iosKeyPresent": false,
+    "androidKeyPresent": false
+  },
+  "steps": [
+    {
+      "name": "test-bloomfx.cjs",
+      "exitCode": 0,
+      "passed": true,
+      "timedOut": false,
+      "seconds": 0.783,
+      "assertionsPassed": 25,
+      "assertionsFailed": 0
+    },
+    {
+      "name": "test-boss-art.cjs",
+      "exitCode": 0,
+      "passed": true,
+      "timedOut": false,
+      "seconds": 0.751,
+      "assertionsPassed": 12,
+      "assertionsFailed": 0
+    },
+    {
+      "name": "test-boss-flower-art.cjs",
+      "exitCode": 0,
+      "passed": true,
+      "timedOut": false,
+      "seconds": 0.183,
+      "assertionsPassed": 8,
+      "assertionsFailed": 0
+    },
+    {
+      "name": "test-bosses.cjs",
+      "exitCode": 0,
+      "passed": true,
+      "timedOut": false,
+      "seconds": 0.636,
+      "assertionsPassed": 35,
+      "assertionsFailed": 0
+    },
+    {
+      "name": "test-depths-bot.cjs",
+      "exitCode": 0,
+      "passed": true,
+      "timedOut": false,
+      "seconds": 0.484,
+      "assertionsPassed": 9,
+      "assertionsFailed": 0
+    },
+    {
+      "name": "test-depths.cjs",
+      "exitCode": 0,
+      "passed": true,
+      "timedOut": false,
+      "seconds": 44.498,
+      "assertionsPassed": 25,
+      "assertionsFailed": 0
+    },
+    {
+      "name": "test-engine.cjs",
+      "exitCode": 0,
+      "passed": true,
+      "timedOut": false,
+      "seconds": 0.507,
+      "assertionsPassed": 20,
+      "assertionsFailed": 0
+    },
+    {
+      "name": "test-feel.cjs",
+      "exitCode": 0,
+      "passed": true,
+      "timedOut": false,
+      "seconds": 0.529
+    },
+    {
+      "name": "test-garden.cjs",
+      "exitCode": 0,
+      "passed": true,
+      "timedOut": false,
+      "seconds": 0.164,
+      "assertionsPassed": 28,
+      "assertionsFailed": 0
+    },
+    {
+      "name": "test-goals.cjs",
+      "exitCode": 0,
+      "passed": true,
+      "timedOut": false,
+      "seconds": 0.132,
+      "assertionsPassed": 8,
+      "assertionsFailed": 0
+    },
+    {
+      "name": "test-keepsakes.cjs",
+      "exitCode": 0,
+      "passed": true,
+      "timedOut": false,
+      "seconds": 0.295,
+      "assertionsPassed": 8,
+      "assertionsFailed": 0
+    },
+    {
+      "name": "test-koi-levels.cjs",
+      "exitCode": 0,
+      "passed": true,
+      "timedOut": false,
+      "seconds": 58.099
+    },
+    {
+      "name": "test-moon-engine.cjs",
+      "exitCode": 0,
+      "passed": true,
+      "timedOut": false,
+      "seconds": 0.153,
+      "assertionsPassed": 15,
+      "assertionsFailed": 0
+    },
+    {
+      "name": "test-moon-levels.cjs",
+      "exitCode": 0,
+      "passed": true,
+      "timedOut": false,
+      "seconds": 0.922
+    },
+    {
+      "name": "test-music.cjs",
+      "exitCode": 0,
+      "passed": true,
+      "timedOut": false,
+      "seconds": 4.813,
+      "assertionsPassed": 14,
+      "assertionsFailed": 0
+    },
+    {
+      "name": "test-native.cjs",
+      "exitCode": 0,
+      "passed": true,
+      "timedOut": false,
+      "seconds": 0.138
+    },
+    {
+      "name": "test-petals.cjs",
+      "exitCode": 0,
+      "passed": true,
+      "timedOut": false,
+      "seconds": 0.125,
+      "assertionsPassed": 5,
+      "assertionsFailed": 0
+    },
+    {
+      "name": "test-pod.cjs",
+      "exitCode": 0,
+      "passed": true,
+      "timedOut": false,
+      "seconds": 39.432,
+      "assertionsPassed": 23,
+      "assertionsFailed": 0
+    },
+    {
+      "name": "test-powers.cjs",
+      "exitCode": 0,
+      "passed": true,
+      "timedOut": false,
+      "seconds": 0.337,
+      "assertionsPassed": 17,
+      "assertionsFailed": 0
+    },
+    {
+      "name": "test-precache-streams.cjs",
+      "exitCode": 0,
+      "passed": true,
+      "timedOut": false,
+      "seconds": 0.235,
+      "attempts": [
+        {
+          "exitCode": 1,
+          "seconds": 0.235,
+          "passed": false,
+          "failure": "{\n  \"passed\": false,\n  \"workerVersion\": \"codex-garden-20261015-2\",\n  \"assets\": 37,\n  \"images\": 6,\n  \"error\": \"Error: connect EACCES 127.0.0.1:56255\\n    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:2017:16)\",\n  \"report\": \"qa\\\\precache-stream-test-results.json\"\n}\n"
+        },
+        {
+          "exitCode": 0,
+          "passed": true,
+          "seconds": 0.875,
+          "note": "Reran with approved localhost access after sandbox connect EACCES; final LF-normalized sw.js.",
+          "assets": 37,
+          "allBodyHashesMatch": true
+        }
+      ]
+    },
+    {
+      "name": "test-pwa.cjs",
+      "exitCode": 0,
+      "passed": true,
+      "timedOut": false,
+      "seconds": 0.61,
+      "assertionsPassed": 22,
+      "assertionsFailed": 0,
+      "finalLineEndingRerun": {
+        "exitCode": 0,
+        "passed": true,
+        "seconds": 0.298,
+        "assertionsPassed": 22,
+        "assertionsFailed": 0
+      }
+    },
+    {
+      "name": "test-rush.cjs",
+      "exitCode": 0,
+      "passed": true,
+      "timedOut": false,
+      "seconds": 0.907,
+      "assertionsPassed": 33,
+      "assertionsFailed": 0
+    },
+    {
+      "name": "test-save-integration.cjs",
+      "exitCode": 0,
+      "passed": true,
+      "timedOut": false,
+      "seconds": 1.592,
+      "assertionsPassed": 87,
+      "assertionsFailed": 0
+    },
+    {
+      "name": "test-scene-life.cjs",
+      "exitCode": 0,
+      "passed": true,
+      "timedOut": false,
+      "seconds": 0.572,
+      "assertionsPassed": 7,
+      "assertionsFailed": 0
+    },
+    {
+      "name": "test-scenery.cjs",
+      "exitCode": 0,
+      "passed": true,
+      "timedOut": false,
+      "seconds": 1.044,
+      "assertionsPassed": 7,
+      "assertionsFailed": 0
+    },
+    {
+      "name": "test-seed-art.cjs",
+      "exitCode": 0,
+      "passed": true,
+      "timedOut": false,
+      "seconds": 0.163,
+      "assertionsPassed": 5,
+      "assertionsFailed": 0
+    },
+    {
+      "name": "test-sound.cjs",
+      "exitCode": 0,
+      "passed": true,
+      "timedOut": false,
+      "seconds": 18.965,
+      "assertionsPassed": 38,
+      "assertionsFailed": 0
+    },
+    {
+      "name": "test-stage.cjs",
+      "exitCode": 0,
+      "passed": true,
+      "timedOut": false,
+      "seconds": 0.479,
+      "assertionsPassed": 16,
+      "assertionsFailed": 0
+    },
+    {
+      "name": "test-store-ui.cjs",
+      "exitCode": 0,
+      "passed": true,
+      "timedOut": false,
+      "seconds": 0.141,
+      "assertionsPassed": 10,
+      "assertionsFailed": 0
+    },
+    {
+      "name": "test-store.cjs",
+      "exitCode": 0,
+      "passed": true,
+      "timedOut": false,
+      "seconds": 0.421,
+      "assertionsPassed": 52,
+      "assertionsFailed": 0
+    },
+    {
+      "name": "test-tutorial.cjs",
+      "exitCode": 0,
+      "passed": true,
+      "timedOut": false,
+      "seconds": 0.282,
+      "assertionsPassed": 12,
+      "assertionsFailed": 0
+    },
+    {
+      "name": "check-moon-pointer.cjs",
+      "exitCode": 0,
+      "passed": true,
+      "timedOut": false,
+      "seconds": 47.405,
+      "observation": "PASS: Moon aim tolerance at 3° error: moon-1 98%, moon-2 95%, moon-3 75%, moon-4 57%, moon-5 63%, moon-6 43%"
+    },
+    {
+      "name": "native-sync",
+      "exitCode": 0,
+      "passed": true,
+      "timedOut": false,
+      "seconds": 5.877
+    },
+    {
+      "name": "native-check",
+      "exitCode": 0,
+      "passed": true,
+      "timedOut": false,
+      "seconds": 1.142,
+      "observation": "> bloomshot-native@0.1.0 check\n> node scripts/check.cjs\n\nok: 34 assets match in www + android + ios"
+    }
+  ],
+  "restoredHistoricalResults": [
+    "bloomshot/qa/depths-test-results.json",
+    "bloomshot/qa/engine-test-results.json",
+    "bloomshot/qa/garden-test-results.json",
+    "bloomshot/qa/goals-test-results.json",
+    "bloomshot/qa/keepsakes-test-results.json",
+    "bloomshot/qa/koi-test-results.json",
+    "bloomshot/qa/moon-engine-results.json",
+    "bloomshot/qa/moon-pointer-sensitivity.json",
+    "bloomshot/qa/moon-test-results.json",
+    "bloomshot/qa/pod-test-results.json",
+    "bloomshot/qa/precache-stream-test-results.json"
+  ],
+  "realDeviceSandboxGate": {
+    "status": "Not run",
+    "requirement": "Keep products disabled until each store/product has physical-device purchase, cancellation, grant capacity, receipt replay, restore and recovery proof. In particular test a delayed pending payment that later declines: a same-SKU durable intent has no expiry and must not leave the product permanently blocked; no timeout or intent erasure is assumed safe.",
+    "knownLimit": "Anonymous local inventory has no server account balance and does not restore spent/unspent consumable balances after reinstall or claw back granted consumables on refund."
+  },
+  "fullSuiteSourceStable": true,
+  "postSuiteNormalization": {
+    "file": "bloomshot/sw.js",
+    "beforeSha256": "5ddd0eababb5daaab6bacb7b0ad01f2982a5e2c6eca39d45a827d43bd41bf24f",
+    "afterSha256": "ea95ab8c240b0933235bd1612d6caa99d3147d34f6d99de1ab71909c21b0e104",
+    "crlfBefore": 62,
+    "crlfAfter": 0,
+    "lineEndingOnly": true,
+    "explanation": "Only CRLF-to-LF normalization after the complete 31-suite run; no executable text changed. PWA and real localhost precache checks passed again on these final bytes. The final source hashes below reflect normalized LF."
+  },
+  "snapshotLimit": "This verifies the reviewed Restore/billing-preparation build before the subsequent iPhone board-size/performance feedback is addressed. It does not close that feedback or constitute a physical-device pass.",
+  "finalizedAt": "2026-10-16T02:29:52.694Z"
+}

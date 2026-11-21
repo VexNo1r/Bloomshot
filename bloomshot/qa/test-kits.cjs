@@ -1,0 +1,2566 @@
+'use strict';
+// The guardian kits (bosses.js). The shared rules first: a kit guardian changes mood at two thirds and one third of its
+// health, a credited seed stops at each threshold, the change is announced (and guarded) before it lands, and the next
+// tier's moves come faster. Then each kit's own moves, rewards and determinism, one block per guardian.
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
+const Depths = require('../depths.js'), Bosses = require('../bosses.js'), Foes = require('../foes.js');
+const { RushGame } = require('../rush.js'), bot = require('./depths-bot.cjs');
+const results = []; let serial = 0;
+function test(name, fn) { try { fn(); results.push({ name, passed: true }); } catch (error) { results.push({ name, passed: false, error: error.stack }); } }
+// The guardian alone on its board, still and not falling (as test-bosses.cjs).
+function arena(id) {
+  const game = new RushGame({ plan: bot.plan(id), startWave: 10 });
+  game.started = true; game.status = 'flying'; game.descentSpeed = 0; game.drops = [];
+  game.buds = game.buds.filter(b => b.boss || b.bossPart); game.bossState.boss.bossFall = 0; game.drainEvents(); return game;
+}
+function advance(game, seconds, fps = 120) { for (let n = 0; n < Math.round(seconds * fps); n++) game.step(1 / fps); }
+// A credited seed's own touch (contact normal nx, ny from the piece toward the seed).
+function hit(game, bud, { nx = 0, ny = 1, gateHops = 0, power, ...extra } = {}) {
+  game.striker = { id: 'seed' + ++serial, type: game.nextType, power, gateHops, bossContact: { nx, ny }, touches: 0, streak: 0, walls: 0, bounces: 0, age: 0, gateAt: -100, petalAt: -100, ...extra };
+  game.strike(bud); game.striker = null;
+}
+// Runs fn with a stand-in kit for `kind` (restoring the real one, if any, after), so the shared rules are checked the
+// same way whichever kits exist.
+function withKit(kind, entry, fn) {
+  const saved = Bosses.kits[kind]; Bosses.kits[kind] = entry;
+  try { fn(); } finally { if (saved) Bosses.kits[kind] = saved; else delete Bosses.kits[kind]; }
+}
+const STAND_IN = { moods: ['Calm', 'Cross', 'Wild'], stageText: [null, 'Now cross!', 'Now wild!'], moves: [['sprouts', 'nap'], ['nap'], ['sprouts']] };
+const tiersOf = maxHp => [Math.ceil(2 * maxHp / 3), Math.ceil(maxHp / 3)];
+// Sunny awake and dizzy (his bubble popped), so a credited seed lands double.
+function dizzySunny(hp) { const g = arena(1), s = g.bossState; hit(g, s.parts[0]); assert.equal(s.mode, 'dizzy'); s.boss.hp = hp; g.drainEvents(); return g; }
+
+// ── Shared tier rules ──
+test('Guardians without a kit keep no tiers; a kit guardian turns at two thirds and one third of its health', () => {
+  for (let id = 1; id <= 10; id++) { // batch 2 gives guardians 6-10 kits: a kit means tiers, no kit none
+    const kind = Depths.bosses[id - 1].kind, g = arena(id);
+    if (Bosses.kits[kind]) assert.deepEqual(g.bossState.tierAt, tiersOf(g.bossState.boss.maxHp), kind);
+    else assert.equal(g.bossState.tierAt, null, kind);
+  }
+  withKit('sunny', STAND_IN, () => { const g = arena(1); assert.deepEqual(g.bossState.tierAt, tiersOf(g.bossState.boss.maxHp)); });
+});
+test('A credited seed stops at a threshold and the next is guarded; powers and uncredited strikes pass it', () => withKit('sunny', STAND_IN, () => {
+  let g = dizzySunny(0); const [first] = g.bossState.tierAt;
+  g = dizzySunny(first + 1); const s = g.bossState, b = s.boss;
+  hit(g, b); assert.equal(b.hp, first, 'a double hit stops at the threshold'); assert(s.shiftPending);
+  hit(g, b); assert.equal(b.hp, first, 'held until the new mood is announced');
+  assert(g.drainEvents().some(e => e.type === 'bossGuard' && e.mode === 'stage'));
+  g.strike(b); assert.equal(b.hp, first - 1, 'an uncredited strike (a script) still lands');
+  g = dizzySunny(first + 1);
+  g.spawnBall({ x: g.bossState.boss.x, y: g.bossState.boss.y + 55, angle: -Math.PI / 2, speed: 520, power: 'sunburst' }); advance(g, .7);
+  assert.equal(g.bossState.boss.hp, first + 1 - 4, 'a Sunburst keeps its stated damage');
+}));
+test('The mood change is a 1.3 s guarded warning, then Phase Bloom: the next tier, a beat of rest, faster moves', () => withKit('sunny', STAND_IN, () => {
+  const g = dizzySunny(0), s = g.bossState, b = s.boss; b.hp = s.tierAt[0] + 1; hit(g, b); g.drainEvents();
+  for (let n = 0; n < 240 && !(s.warning && s.warning.move === 'stage'); n++) g.step(1 / 120);
+  const w = s.warning; assert(w && w.move === 'stage', 'the stage warning comes next'); assert.equal(w.text, 'Now cross!');
+  assert(w.until - w.at >= 1.3 - 1e-9); assert.deepEqual(w.flowerTargets, [], 'no flower spell rides on a mood change');
+  assert.equal(Bosses.canHit(g, b, { nx: 0, ny: 1 }, {}), false, 'seeds glance off while it is announced');
+  assert.equal(Bosses.canHit(g, { ...b }, { nx: 0, ny: 1 }, {}), false, "the bot's copy of the guardian is held too");
+  assert.equal(Bosses.canHit(g, b, { nx: 0, ny: 1 }, { power: 'beeline' }), true, 'powers still land');
+  const events = []; while (s.warning && s.warning.move === 'stage') { g.step(1 / 120); events.push(...g.drainEvents()); }
+  const stage = events.find(e => e.type === 'bossStage');
+  assert(stage && stage.stage === 1 && stage.mood === 'Cross' && stage.kind === 'sunny');
+  assert(!events.some(e => e.type === 'bossAbility' && e.move === 'stage'), 'Phase Bloom has its own voice only');
+  assert.equal(s.tier, 1); assert(!s.shiftPending); assert.equal(s.mode, 'dizzy', 'the earned opening stays open'); assert(Math.abs(s.next - s.age - 1) < .02, 'a one-second beat');
+  for (let n = 0; n < 240 && !s.warning; n++) g.step(1 / 120);
+  assert.equal(s.warning.move, 'nap', 'tier 1 plays its own list');
+  while (s.warning) g.step(1 / 120);
+  assert(Math.abs(s.next - s.age - 10 * .9) < .02, 'the tier-1 pause is nine tenths of the usual');
+}));
+test('A guardian dropped past both thresholds at once changes one mood per warning', () => withKit('sunny', STAND_IN, () => {
+  const g = arena(1), s = g.bossState; s.boss.hp = 1; let stages = 0;
+  for (let n = 0; n < 1200 && s.tier < 2; n++) { g.step(1 / 120); stages += g.drainEvents().filter(e => e.type === 'bossStage').length; }
+  assert.equal(s.tier, 2); assert.equal(stages, 2);
+}));
+test('Kit timers and lob flights keep the guardian clock: a Lullaby holds them', () => withKit('sunny', { ...STAND_IN, timer: { ping(game, s, data) { s.pinged = (s.pinged || 0) + data; } } }, () => {
+  const g = arena(1), s = g.bossState;
+  s.timers.push({ at: s.kitAge + .5, act: 'ping', data: 2 }); s.lobs.push({ look: 'test', x0: 0, y0: 0, x1: 1, y1: 1, t0: s.kitAge, T: .5 });
+  g.lullaby = 1; advance(g, .6); assert.equal(s.pinged, undefined, 'held'); assert.equal(s.lobs.length, 1);
+  advance(g, 1.2); assert.equal(s.pinged, 2, 'fired once the Lullaby ends'); assert.equal(s.lobs.length, 0); assert.equal(s.timers.length, 0);
+}));
+test('A beaten kit guardian leaves nothing behind: no moon gates, carried flowers, timers or raised line', () => withKit('sunny', STAND_IN, () => {
+  const g = arena(1), s = g.bossState, b = s.boss;
+  const carried = { id: 'c1', group: 'c1', x: 500, y: 200, baseX: 500, startY: 200, r: 11, type: 'gold', hp: 1, maxHp: 1, fall: 1, sway: 0, hitAt: -100, bloomAt: -100, bloomed: false, relay: false };
+  carried.carried = { a0: 0 }; g.buds.push(carried); s.carried.push(carried);
+  g.gates.push({ id: 'm-in', pair: 'm-out', x: 210, y: 388, r: 18, angle: 0, bossMoon: true, expires: 99, lastUsed: -100 }, { id: 'm-out', pair: 'm-in', x: 210, y: 52, r: 18, angle: 0, bossMoon: true, expires: 99, lastUsed: -100 });
+  s.timers.push({ at: 99, act: 'close' }); g.dangerY = 430; g.aimNapUntil = g.time + 5;
+  for (let n = 0; n < 200 && !b.bloomed; n++) g.strike(b);
+  assert(b.bloomed); assert(!g.gates.some(x => x.bossMoon)); assert.equal(carried.carried, null); assert.equal(carried.baseX, 398 - carried.r);
+  assert.equal(s.carried.length + s.timers.length + s.lobs.length, 0); assert.equal(g.dangerY, 448); assert.equal(g.aimNapUntil, 0);
+}));
+test('bosses.js never touches the seed pod and never uses Math.random', () => {
+  const source = fs.readFileSync(path.join(__dirname, '../bosses.js'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+  assert(!/\.(pod|podGrow|shotGap)\b/.test(source)); assert(!/Math\.random/.test(source));
+});
+
+// ── Old Sunny (Level 1, `sunny`) ──
+// Runs Sunny's next move from a given tier and cycle (the board is still, so pieces stay where they open).
+function sunnyMove(tier, cycle, g = arena(1)) {
+  const s = g.bossState; s.tier = tier; s.cycle = cycle; s.next = s.age; g.step(1 / 120);
+  const w = s.warning; assert(w, 'a warning is up'); while (s.warning) g.step(1 / 120); return { g, s, w, events: g.drainEvents() };
+}
+const acts = (events, act) => events.filter(e => e.type === 'bossAbility' && e.act === act);
+test('Old Sunny: a power that reaches a portal or the snooze Z blooms it but takes no rings off him', () => {
+  for (const [tier, cycle, role] of [[1, 0, 'portal'], [2, 0, 'z']]) {
+    const { g, s } = sunnyMove(tier, cycle), b = s.boss, part = s.parts.find(p => p.bossPart === role && !p.bloomed), hp = b.hp;
+    if (role === 'z') advance(g, 2.5);
+    g.spawnBall({ x: part.x, y: part.y + 40, angle: -Math.PI / 2, speed: 520, power: 'sunburst' }); advance(g, .5);
+    assert(part.bloomed, `the ${role} bloomed`); assert.equal(b.hp, hp, `the ${role} passed no rings to him`);
+  }
+});
+test('Old Sunny: turning Cranky at two-thirds health and Wide awake at a third, each mood opening on its new move, with his own words for each', () => {
+  const g = arena(1), s = g.bossState, k = Bosses.kits.sunny, hp = Bosses.health.sunny;
+  assert(hp > 18, 'he lasts longer than his old 18'); assert.equal(s.boss.maxHp, hp); assert.deepEqual(s.tierAt, [Math.ceil(2 * hp / 3), Math.ceil(hp / 3)]);
+  assert.deepEqual(k.moods, ['Sleepy', 'Cranky', 'Wide awake']); assert.deepEqual(k.stageText, [null, 'Old Sunny is cranky now!', 'Old Sunny is wide awake!']);
+  assert.deepEqual(k.moves, [['sprouts', 'nap'], ['yawn', 'nap'], ['snooze', 'yawn', 'nap']]);
+  for (const text of [...Object.values(k.text), ...k.stageText.slice(1)]) assert(text.length <= 52, text);
+  assert.equal(k.text.yawn, 'Big yawn! Shut the sun portals.'); assert.equal(k.text.snooze, 'A snooze Z! Pop it before it lands.');
+});
+test('Old Sunny: a credited seed stops at his first mood line and the stage is announced next tick; his portals can still be shot', () => {
+  const line = arena(1).bossState.tierAt[0];
+  let g = dizzySunny(line + 1), s = g.bossState, b = s.boss; s.next = s.age + 9;
+  // A portal open on the board (as a yawn leaves one), to show his attacks stay answerable while he is held.
+  const [portal] = (Bosses.kits.sunny.act.yawn(g, s, { targets: [{ x: 120, y: 190, r: 16, role: 'portal' }] }), s.parts.filter(p => p.bossPart === 'portal'));
+  assert(portal); s.next = s.age + 9; g.drainEvents();
+  hit(g, b); assert.equal(b.hp, line, 'a double hit stops at the threshold'); assert(s.shiftPending);
+  g.step(1 / 120); assert.equal(s.warning && s.warning.move, 'stage', 'the mood change is announced at once, not after the 9 s cooldown');
+  hit(g, b); assert.equal(b.hp, line); assert(g.drainEvents().some(e => e.type === 'bossGuard' && e.mode === 'stage'));
+  assert.equal(Bosses.canHit(g, b, { nx: 0, ny: 1 }, {}), false); assert.equal(Bosses.canHit(g, portal, { nx: 0, ny: 1 }, {}), true);
+  g.strike(b); assert.equal(b.hp, line - 1, 'an uncredited strike still lands');
+  g = dizzySunny(line + 1); b = g.bossState.boss;
+  g.spawnBall({ x: b.x, y: b.y + 55, angle: -Math.PI / 2, speed: 520, power: 'sunburst' }); advance(g, .7);
+  assert.equal(b.hp, line + 1 - 4, 'a Sunburst passes the threshold');
+});
+test('Old Sunny: the change to Cranky is a guarded 1.3 s warning, then Phase Bloom, a dizzy Sunny stays dizzy, and he yawns next', () => {
+  const g = dizzySunny(arena(1).bossState.tierAt[0] + 1), s = g.bossState, b = s.boss, dizzyLeft = s.modeUntil - s.age; s.next = s.age + 9;
+  hit(g, b); g.step(1 / 120);
+  const w = s.warning; assert.equal(w.move, 'stage'); assert(w.until - w.at >= 1.3 - 1e-9); assert.equal(w.text, 'Old Sunny is cranky now!');
+  assert(Math.abs(s.modeUntil - s.age - dizzyLeft - 1.3) < .02, 'the dizzy window is paused for the warning, not lost');
+  assert.equal(Bosses.canHit(g, b, { nx: 0, ny: 1 }, {}), false); assert.equal(Bosses.canHit(g, b, { nx: 0, ny: 1 }, { power: 'beeline' }), true);
+  const events = []; while (s.warning) { g.step(1 / 120); events.push(...g.drainEvents()); }
+  assert(!events.some(e => e.type === 'bossAbility'), 'Phase Bloom has its own voice only');
+  const stage = events.find(e => e.type === 'bossStage'); assert(stage && stage.stage === 1 && stage.mood === 'Cranky' && stage.kind === 'sunny');
+  assert.equal(s.tier, 1); assert.equal(s.mode, 'dizzy');
+  for (let n = 0; n < 240 && !s.warning; n++) g.step(1 / 120);
+  assert.equal(s.warning.move, 'yawn'); assert.equal(s.warning.text, 'Big yawn! Shut the sun portals.');
+  // Wide awake at a third the same way.
+  b.hp = s.tierAt[1] + 1; hit(g, b); assert.equal(b.hp, s.tierAt[1]); for (let n = 0; n < 600 && s.tier < 2; n++) g.step(1 / 120);
+  assert.equal(s.tier, 2);
+});
+test('Old Sunny: a yawn drops the volley and opens a sun portal above each sprout; each spits one more 1.6 s later, then closes', () => {
+  const { g, s, w, events } = sunnyMove(1, 0), b = s.boss;
+  assert.equal(w.move, 'yawn'); const sprouts = w.targets.filter(t => t.role === 'sprout'), marks = w.targets.filter(t => t.role === 'portal');
+  assert.equal(sprouts.length, 2); assert.equal(marks.length, 2);
+  for (const m of marks) assert(sprouts.some(t => t.x === m.x && Math.abs(t.y - 34 - m.y) < 1e-9) && m.r === 16, 'each portal sits 34 px above its sprout');
+  assert.equal(acts(events, 'start').filter(e => e.move === 'yawn').length, 1);
+  const portals = s.parts.filter(p => p.bossPart === 'portal'), volley = g.buds.filter(p => p.sunnySprout);
+  assert.equal(portals.length, 2); assert.equal(volley.length, 2); assert.equal(new Set(volley.map(p => p.group)).size, 1);
+  for (const p of portals) { assert.equal(p.r, 16); assert.equal(p.hp, 1); assert.equal(p.sunBonus, 1); assert.equal(p.born, s.kitAge); assert(g.buds.includes(p)); }
+  // The volley moves down out of the way (a still arena otherwise), so the mouths are clear when they spit.
+  for (const p of volley) p.y += 60;
+  advance(g, 1.55); assert.equal(g.buds.filter(p => p.sunnySprout).length, 2, 'nothing spat before 1.6 s');
+  const before = g.buds.length; advance(g, .1);
+  const spat = g.buds.filter(p => p.sunnySprout && p.group !== volley[0].group);
+  assert.equal(spat.length, 2); assert.equal(g.buds.length, before + 2); assert.equal(new Set(spat.map(p => p.group)).size, 1, 'a spat pair is one life');
+  assert(spat[0].group.startsWith(b.id + '-spit-'));
+  for (const p of spat) { const from = portals.find(q => q.x === p.x); assert(from && Math.abs(p.y - from.y - 34) < 1e-9); assert(p.bossSummon && p.hp === 1 && p.r === 14 && p.type === 'gold'); }
+  assert.equal(acts(g.drainEvents(), 'spit').length, 2);
+  advance(g, 1.3); assert(portals.every(p => !p.closed), 'open until 3 s'); advance(g, .1);
+  assert(portals.every(p => p.closed && !g.buds.includes(p) && !s.parts.includes(p)), 'both close quietly at 3 s');
+  assert.equal(acts(g.drainEvents(), 'shut').length, 0, 'a closing portal is not a shut');
+});
+test('Old Sunny: shutting a portal stops its spit and pays exactly one more sun than a plain part bloom; uncredited pays nothing', () => {
+  const { g, s } = sunnyMove(1, 0), [left, right] = s.parts.filter(p => p.bossPart === 'portal');
+  for (const p of g.buds.filter(p => p.sunnySprout)) p.y += 60;
+  let charge = g.sunCharge; hit(g, left); assert(left.bloomed); assert.equal(g.sunCharge - charge, 2, 'a shut: the bloom plus one sun');
+  const e = acts(g.drainEvents(), 'shut'); assert.equal(e.length, 1); assert.equal(e[0].move, 'yawn');
+  // The plain part bloom to compare with: his nap bubble.
+  charge = g.sunCharge; hit(g, s.parts.find(p => p.bossPart === 'bubble')); assert.equal(g.sunCharge - charge, 1);
+  charge = g.sunCharge; g.strike(right); assert(right.bloomed); assert.equal(g.sunCharge, charge, 'an uncredited shut pays no sun');
+  const before = g.buds.filter(p => p.sunnySprout).length; advance(g, 1.7);
+  assert.equal(g.buds.filter(p => p.sunnySprout).length, before, 'shut portals spit nothing'); assert.equal(acts(g.drainEvents(), 'spit').length, 0);
+  advance(g, 1); assert(!s.parts.includes(left) && !g.buds.includes(left), 'a shut portal leaves the board once its bloom has played');
+});
+test('Old Sunny: a yawn never cuts short a dizzy window, and a portal is dropped where a flower is in its way', () => {
+  const g = dizzySunny(Bosses.health.sunny), s = g.bossState; s.modeUntil = s.age + 6;
+  const { s: t } = sunnyMove(1, 0, g); assert(t.next >= t.modeUntil + .8 - 1e-9, 'the next move waits for the dizzy window');
+  const h = arena(1), u = h.bossState; u.tier = 1; u.cycle = 0;
+  const plan = Bosses.kits.sunny.plan.yawn(h, u, u.boss), mark = plan.targets.find(t => t.role === 'portal');
+  h.buds.push({ id: 'in-the-way', group: 'in-the-way', x: mark.x + 18, y: mark.y, baseX: mark.x + 18, startY: mark.y, r: 11, type: 'sky', hp: 1, maxHp: 1, fall: 1, sway: 0, hitAt: -100, bloomAt: -100, bloomed: false, relay: false });
+  const again = Bosses.kits.sunny.plan.yawn(h, u, u.boss).targets.filter(t => t.role === 'portal');
+  assert.equal(again.length, 1); assert(!again.some(t => t.x === mark.x && t.y === mark.y));
+});
+test('Old Sunny: the snooze Z drifts from beside his face to just above the launcher; landing naps the aim guide only', () => {
+  const { g, s, w, events } = sunnyMove(2, 0), b = s.boss;
+  assert.equal(w.move, 'snooze'); assert.equal(w.text, 'A snooze Z! Pop it before it lands.');
+  assert.deepEqual(w.targets.map(t => t.role), ['z', 'zland']); assert.deepEqual([w.targets[1].x, w.targets[1].y, w.targets[1].r], [210, 430, 20]);
+  assert.equal(acts(events, 'start').filter(e => e.move === 'snooze').length, 1);
+  const z = s.parts.find(p => p.bossPart === 'z'); assert(z && z.r === 13 && z.hp === 1 && g.buds.includes(z));
+  assert(Math.hypot(z.x - b.x, z.y - b.y) >= b.r + z.r - 1e-9, 'it starts beside him');
+  const bubble = s.parts.find(p => p.bossPart === 'bubble'); assert(Math.hypot(z.x - bubble.x, z.y - bubble.y) >= bubble.r + z.r, 'never on his nap bubble');
+  // Its path is closed-form on the kit clock: the bot's forecast is the board.
+  const ahead = Bosses.predictVisible(g, .5).get(z.id); advance(g, .5); assert(Math.abs(ahead.x - z.x) < 1e-6 && Math.abs(ahead.y - z.y) < 1e-6);
+  const pod = g.pod, flight = z.len / 60; assert(flight > 4 && flight < 6, `a lazy ${flight.toFixed(1)} s drift`);
+  let landed = null; for (let n = 0; n < 120 * 6 && !landed; n++) { g.step(1 / 120); landed = acts(g.drainEvents(), 'nap')[0]; }
+  assert(landed, 'it lands'); assert.equal(landed.move, 'snooze'); assert(Math.abs(landed.x - 210) < 1e-6 && Math.abs(landed.y - 430) < 1e-6);
+  assert(z.closed && !g.buds.includes(z)); assert(Math.abs(g.aimNapUntil - g.time - 2.5) < 1e-9, 'the aim guide naps for 2.5 s');
+  assert.equal(g.pod, pod, 'the seed pod is untouched'); assert.equal(s.mode, 'sleeping', 'no reward for letting it land');
+});
+test('Old Sunny: popping the Z wakes him dizzy for 3 s (his nap bubble goes too); double hits still stop at a threshold', () => {
+  const { g, s } = sunnyMove(2, 0), b = s.boss, z = s.parts.find(p => p.bossPart === 'z'), bubble = s.parts.find(p => p.bossPart === 'bubble');
+  assert.equal(s.mode, 'sleeping'); b.hp = 13;
+  hit(g, z); assert(z.bloomed); assert.equal(s.mode, 'dizzy'); assert(s.vulnerable); assert(Math.abs(s.modeUntil - s.age - 3) < 1e-9);
+  assert(bubble.bloomed, 'the jolt pops his nap bubble'); const events = g.drainEvents();
+  assert.equal(acts(events, 'zpop').length, 1); assert(events.some(e => e.type === 'bossPhase' && e.mode === 'dizzy'));
+  s.tier = 0; s.tierAt = [12, 6]; hit(g, b); assert.equal(b.hp, 12, 'a dizzy double hit stops at the threshold'); s.shiftPending = false; s.warning = null; g.bossWarning = null;
+  b.hp = 16; s.tier = 1; s.next = s.age + 20; hit(g, b); assert.equal(b.hp, 14, 'double damage'); advance(g, 3.05); assert.notEqual(s.mode, 'dizzy');
+  // A Z popped while already dizzy never shortens the window.
+  const h = dizzySunny(Bosses.health.sunny), u = h.bossState; u.modeUntil = u.age + 5;
+  const { s: v } = sunnyMove(2, 0, h); hit(h, v.parts.find(p => p.bossPart === 'z')); assert(v.modeUntil - v.age > 3.5);
+});
+test('Old Sunny: from Cranky on his nap bubble takes two hits; Sleepy keeps the one-hit bubble', () => {
+  let { s } = sunnyMove(0, 0, (() => { const g = arena(1); g.bossState.action = 1; return g; })());
+  assert.equal(s.parts.find(p => p.bossPart === 'bubble').maxHp, 1);
+  const g = dizzySunny(Bosses.health.sunny); ({ s } = sunnyMove(1, 1, g)); const bubble = s.parts.find(p => p.bossPart === 'bubble');
+  assert.equal(s.mode, 'sleeping'); assert.equal(bubble.maxHp, 2); assert.equal(bubble.hp, 2); assert(!bubble.bloomed);
+  hit(g, bubble); assert(!bubble.bloomed); assert.equal(s.mode, 'sleeping'); hit(g, bubble); assert(bubble.bloomed); assert.equal(s.mode, 'dizzy');
+});
+test('Old Sunny: the bot ranks a portal about to spit at 70, the Z at 80, and his bubble still first', () => {
+  const { g, s } = sunnyMove(1, 0), rank = () => new Map(Bosses.targets(g).map(t => [t.bud.bossPart || 'boss', t.priority]));
+  assert.equal(rank().get('portal'), 70); assert.equal(rank().get('bubble'), 95);
+  for (const p of g.buds.filter(p => p.sunnySprout)) p.y += 60;
+  advance(g, 1.7); assert.equal(rank().get('portal'), 45, 'after its spit a portal is an ordinary part');
+  const { g: h, s: u } = sunnyMove(2, 0), z = u.parts.find(p => p.bossPart === 'z'), prepared = bot.prepareTrace(h);
+  assert.equal(prepared.priorities.get(z.id), 80); assert(prepared.moving.some(m => m.original === z), 'the bot forecasts the Z in flight');
+});
+test('Old Sunny: tier 2 plays the same at 30, 60 and 144 FPS', () => {
+  const runs = [30, 60, 144].map(fps => {
+    const g = arena(1), s = g.bossState; s.tier = 2; s.cycle = 0; s.next = 0; g.descentSpeed = 12; const log = [];
+    for (let n = 0; n < 14 * fps; n++) { g.step(1 / fps); for (const e of g.drainEvents()) if (e.type === 'bossAbility' || e.type === 'bossWarning') log.push(`${e.type}:${e.move}:${e.act || ''}:${(+e.x).toFixed(3)}`); }
+    return { log: log.join(' '), mode: s.mode, action: s.action, cycle: s.cycle, kit: s.kitAge.toFixed(6), poses: g.buds.map(p => `${p.id}@${p.x.toFixed(4)},${p.y.toFixed(4)}`).join(' ') };
+  });
+  assert(runs[0].log.includes('snooze') && runs[0].log.includes('yawn:spit'), 'the run saw a yawn and a snooze');
+  assert.deepEqual(runs[1], runs[0]); assert.deepEqual(runs[2], runs[0]);
+});
+test('Old Sunny: a Lullaby holds the portals, their spit and the Z in flight; they carry on after it, late by its length', () => {
+  const { g, s } = sunnyMove(1, 0); for (const p of g.buds.filter(p => p.sunnySprout)) p.y += 60;
+  const kit = s.kitAge, spit = s.timers.find(t => t.act === 'spit').at; advance(g, .5);
+  g.lullaby = 1; advance(g, .9); assert(Math.abs(s.kitAge - kit - .5) < 1e-6, 'the kit clock stopped'); assert(!acts(g.drainEvents(), 'spit').length);
+  let at = null; for (let n = 0; n < 240 && at == null; n++) { g.step(1 / 120); if (acts(g.drainEvents(), 'spit').length) at = g.time; }
+  assert(at != null && Math.abs(s.kitAge - spit) < .01, 'it spat on the kit clock, a second late');
+  const { g: h, s: u } = sunnyMove(2, 0), z = u.parts.find(p => p.bossPart === 'z'); advance(h, 1); const pose = [z.x, z.y];
+  h.lullaby = 1; advance(h, .9); assert.deepEqual([z.x, z.y], pose, 'the Z waits in the air');
+});
+// art.js and foe-art.js in a VM with a recording canvas (as test-boss-art.cjs): every number finite, transforms
+// balanced, and no gradient painted per frame.
+function sunnyArt() {
+  const vm = require('node:vm'), totals = { gradients: 0 };
+  function brush() {
+    const stack = []; let matrix = [1, 0, 0, 1, 0, 0];
+    const state = { globalAlpha: 1, fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, shadowBlur: 0, lineDashOffset: 0 };
+    const mul = (a, b, c, d, e, f) => { const m = matrix; matrix = [m[0] * a + m[2] * b, m[1] * a + m[3] * b, m[0] * c + m[2] * d, m[1] * c + m[3] * d, m[0] * e + m[2] * f + m[4], m[1] * e + m[3] * f + m[5]]; };
+    const ctx = new Proxy(state, {
+      get(t, name) {
+        if (name in t) return t[name];
+        if (name === 'canvas') return { width: 420, height: 560 };
+        if (name === 'getTransform') return () => { const [a, b, c, d, e, f] = matrix; return { a, b, c, d, e, f }; };
+        return (...args) => {
+          args.forEach(a => { if (typeof a === 'number') assert(Number.isFinite(a), `${String(name)} received ${a}`); });
+          if (name === 'save') stack.push({ matrix: matrix.slice(), state: { ...state } });
+          else if (name === 'restore') { assert(stack.length, 'restore without save'); const old = stack.pop(); matrix = old.matrix; Object.assign(state, old.state); }
+          else if (name === 'translate') mul(1, 0, 0, 1, ...args);
+          else if (name === 'scale') mul(args[0], 0, 0, args[1], 0, 0);
+          else if (name === 'rotate') mul(Math.cos(args[0]), Math.sin(args[0]), -Math.sin(args[0]), Math.cos(args[0]), 0, 0);
+          else if (name === 'setTransform') matrix = args.slice();
+          else if (name === 'measureText') return { width: String(args[0]).length * 7 };
+          else if (name === 'createLinearGradient' || name === 'createRadialGradient' || name === 'createPattern') { totals.gradients++; return { addColorStop() {} }; }
+        };
+      },
+      set(t, name, value) { if (['globalAlpha', 'lineWidth', 'shadowBlur'].includes(name)) assert(Number.isFinite(value), `${name} is finite`); t[name] = value; return true; }
+    });
+    return { ctx, balanced: () => stack.length === 0 && matrix.every(Number.isFinite) };
+  }
+  class Canvas { constructor(w, h) { this.width = w; this.height = h; this.rec = brush(); } getContext() { return this.rec.ctx; } }
+  const scope = vm.createContext({ console, Math, Map, Set, WeakMap, Array, Object, Number, String, JSON, Date, OffscreenCanvas: Canvas });
+  for (const file of ['art.js', 'foe-art.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), scope, { filename: file });
+  return { Art: scope.BloomArt, looks: scope.BloomFoeArt.KIT_LOOKS, brush, totals };
+}
+test('Old Sunny: his moods, portals, Z and napping aim guide draw balanced, finite and with no per-frame gradients', () => {
+  const { Art, looks, brush, totals } = sunnyArt(), sunny = looks.sunny, drawn = new Set();
+  // The kit, not the stock art, must draw each piece: his face every time, the portals and the Z, the napping guide's zz.
+  for (const hook of ['face', 'part', 'over', 'aim']) {
+    const own = sunny[hook];
+    sunny[hook] = (ctx, state, s, piece, ...rest) => { const done = own(ctx, state, s, piece, ...rest); if (done !== false) drawn.add(hook === 'part' ? piece.bossPart : hook); return done; };
+  }
+  const snap = (label, state) => {
+    for (const reducedMotion of [false, true]) {
+      const options = { theme: 'meadow', reducedMotion, showAim: true };
+      Art.draw(brush().ctx, state, state.time, options);
+      const warm = totals.gradients, rec = brush(); Art.draw(rec.ctx, state, state.time + .05, options);
+      assert(rec.balanced(), `${label}: balanced`); const kitGradients = totals.gradients - warm;
+      const look = looks.sunny; delete looks.sunny; const bare = totals.gradients; Art.draw(brush().ctx, state, state.time + .05, options); looks.sunny = look;
+      assert.equal(kitGradients, totals.gradients - bare, `${label}: the kit adds no per-frame gradient`);
+    }
+  };
+  // Every face, his volley's art-only portals, a yawn from its tell to a shut and a closing portal, the Z, the nap.
+  let g = arena(1), s = g.bossState; snap('asleep', g);
+  for (const [tier, mode] of [[0, 'cross'], [1, 'cross'], [2, 'cross'], [1, 'sleeping'], [2, 'dizzy']]) { const h = arena(1); Object.assign(h.bossState, { tier, mode }); snap(`${tier}:${mode}`, h); }
+  s.next = s.age; s.mode = 'cross'; for (let n = 0; n < 80; n++) g.step(1 / 120); snap('volley tell', g); while (s.warning) g.step(1 / 120); advance(g, .1); snap('volley drop', g);
+  ({ g, s } = sunnyMove(1, 0)); snap('portals pop', g); advance(g, .05); snap('portals open', g); advance(g, 1); snap('peek', g);
+  for (const p of g.buds.filter(p => p.sunnySprout)) p.y += 60; advance(g, .5); snap('spit', g);
+  hit(g, s.parts.find(p => p.bossPart === 'portal')); advance(g, .05); snap('shut', g); advance(g, .95); snap('closing', g);
+  ({ g, s } = sunnyMove(2, 0)); advance(g, 2); snap('z', g);
+  for (let n = 0; n < 900 && !(g.aimNapUntil > 0); n++) g.step(1 / 120);
+  assert(g.aimNapUntil > g.time, 'the Z landed'); g.aim = [{ x: 210, y: 498 }, { x: 150, y: 300 }, { x: 100, y: 120 }]; snap('nap', g);
+  for (const hook of ['face', 'portal', 'z', 'over', 'aim']) assert(drawn.has(hook), hook);
+});
+test('Old Sunny: beaten mid-attack, he leaves no portal, Z, timer or napping aim guide behind', () => {
+  const { g, s } = sunnyMove(1, 0); const { s: t } = sunnyMove(2, 0, g); g.aimNapUntil = g.time + 2;
+  assert(t.parts.some(p => p.bossPart === 'z') && t.timers.length);
+  for (let n = 0; n < 200 && !s.boss.bloomed; n++) g.strike(s.boss, true);
+  assert(s.boss.bloomed); assert.equal(s.timers.length + s.lobs.length + s.portals.length, 0); assert(s.parts.every(p => p.bloomed));
+  assert.equal(g.aimNapUntil, 0); assert.equal(g.dangerY, 448);
+  advance(g, 4); const after = g.drainEvents(); assert(!acts(after, 'spit').length && !acts(after, 'nap').length);
+});
+
+// ── Rootknot (Level 2, `root`) ──
+{
+  const Engine = require('../engine.js'), vm = require('node:vm'), TAU = Math.PI * 2;
+  const flower = (id, x, y, extra) => ({ id, group: id, x, y, baseX: x, startY: y, r: 11, type: 'gold', hp: 1, maxHp: 1, relay: false, fall: 1, sway: 0, hitAt: -100, bloomAt: -100, bloomed: false, ...extra });
+  // Rootknot on his board with his next move forced (the tier, and the move's place in that tier's list) and its warning
+  // up. Unless told otherwise the board holds a clump of three flowers he could carry (a, b, c) and a stray (d).
+  function rootknot(tier, index, { flowers = true, descent = 0, buds = [] } = {}) {
+    const g = arena(2), s = g.bossState; g.descentSpeed = descent;
+    if (flowers) g.buds.push(flower('a', 180, 220), flower('b', 210, 220), flower('c', 195, 246), flower('d', 300, 160));
+    g.buds.push(...buds); s.tier = tier; if (tier) s.cycle = index; else s.action = index; s.next = 0; g.step(1 / 120); return g;
+  }
+  // Steps until `done` (at most `seconds`), returning the events on the way; play() runs a warning out until its move acts.
+  function until(g, done, seconds = 10) { const events = []; for (let n = 0; n < seconds * 120 && !done(); n++) { g.step(1 / 120); events.push(...g.drainEvents()); } return events; }
+  const play = g => until(g, () => !g.bossState.warning, 2);
+  const acts = (events, act) => events.filter(e => e.type === 'bossAbility' && e.kind === 'root' && e.act === act);
+  const knotOf = s => s.parts.find(p => p.bossPart === 'knot' && !p.bloomed) || null;
+  const tossed = g => g.buds.filter(p => p.rootToss);
+  const bud = (g, id) => g.buds.find(p => p.id === id);
+
+  test('Rootknot turns Tangled at two-thirds health and Furious at a third, each mood opening on its new move; every warning fits a phone', () => {
+    const g = arena(2), s = g.bossState, k = Bosses.kits.root, hp = Bosses.health.root;
+    assert(hp > 26, 'he lasts longer than his old 26'); assert.equal(s.boss.maxHp, hp); assert.equal(s.boss.hp, hp); assert.deepEqual(s.tierAt, [Math.ceil(2 * hp / 3), Math.ceil(hp / 3)]);
+    assert.deepEqual(k.moods, ['Grumpy', 'Tangled', 'Furious']); assert.deepEqual(k.stageText, [null, 'Rootknot is tangling up!', 'Rootknot is furious!']);
+    assert.deepEqual(k.moves, [['root', 'toss'], ['carousel', 'toss2'], ['snare', 'carousel', 'toss2']]);
+    for (const text of [...Object.values(k.text), ...k.stageText.slice(1)]) assert(text.length <= 52, text);
+  });
+  test('A credited seed stops Rootknot at each mood line; the change is announced, then Tangled opens with the carousel and Furious with the snare', () => {
+    for (const [tier, text, mood, move, words] of [[0, 'Rootknot is tangling up!', 'Tangled', 'carousel', 'Root carousel! Snap the knot.'], [1, 'Rootknot is furious!', 'Furious', 'snare', 'A root snare blocks one side!']]) {
+      const g = arena(2), s = g.bossState, b = s.boss, line = s.tierAt[tier], hp = line + 1; s.tier = tier; b.hp = hp; s.next = s.age + 9;
+      hit(g, b); hit(g, b); assert.equal(b.hp, line, 'held at the line'); assert(s.shiftPending);
+      g.step(1 / 120); const w = s.warning;
+      assert.equal(w.move, 'stage'); assert.equal(w.text, text); assert(w.until - w.at >= 1.3 - 1e-9);
+      const stage = play(g).find(e => e.type === 'bossStage');
+      assert(stage && stage.kind === 'root' && stage.stage === tier + 1 && stage.mood === mood); assert.equal(s.tier, tier + 1);
+      until(g, () => s.warning, 2); assert.equal(s.warning.move, move); assert.equal(s.warning.text, words);
+    }
+  });
+  test('He comes up at holes 292, 128 and 210 in turn; Grumpy, every other burrow lobs a rolypoly that lands as a real one at +.6 s', () => {
+    for (const [action, move, x] of [[0, 'root', 292], [1, 'toss', 128], [2, 'root', 210]]) {
+      const w = rootknot(0, action).bossState.warning;
+      assert.equal(w.move, move); assert.equal(w.targets.find(t => t.role === 'hole').x, x);
+      assert.equal(w.targets.filter(t => t.role === 'wall').length, 2); assert.equal(w.targets.filter(t => t.role === 'toss').length, move === 'toss' ? 1 : 0);
+    }
+    const g = rootknot(0, 1, { flowers: false }), s = g.bossState, b = s.boss, w = s.warning, mark = w.targets.find(t => t.role === 'toss');
+    assert.equal(w.text, 'Rootknot is tossing a rolypoly!');
+    assert.deepEqual([mark.x, mark.y, mark.r], [210, b.y + 100, 14], 'from the empty hole nearest the middle, 100 px below his row');
+    assert(mark.y - mark.r - 7 > w.y + 61 + 13, 'its landing ring clears the move\'s words');
+    const events = play(g), [flight] = s.lobs;
+    assert.deepEqual(acts(events, 'toss').map(e => e.x), [210]); assert.equal(s.mode, 'burrow'); assert.equal(g.bumpers.filter(p => p.bossWall).length, 2);
+    assert.equal(flight.look, 'rolypoly'); assert.deepEqual([flight.x0, flight.x1, flight.y1, flight.T], [210, 210, mark.y, .6]); assert(flight.y0 > b.y, 'out of the hole on his row');
+    const landing = until(g, () => tossed(g).length, 1), [roly] = tossed(g);
+    assert(s.kitAge >= flight.t0 + .6 - 1e-9 && s.kitAge < flight.t0 + .6 + 1 / 120 + 1e-9, 'none lands before t0 + .6');
+    assert.equal(roly.foe, 'rolypoly'); assert.equal(roly.r, 12); assert.equal(roly.fall, .85); assert(roly.bossSummon && !roly.bloomed && g.foeWave);
+    assert.deepEqual([roly.x, roly.y], [mark.x, mark.y]); assert.equal(s.lobs.length, 0);
+    assert(landing.some(e => e.type === 'foe' && e.kind === 'rolypoly:land' && e.bud === roly)); assert.equal(acts(landing, 'land').length, 1);
+  });
+  test('Tangled, he lobs two (.18 s apart); a blocked hole stays quiet, a drifted flower moves a landing aside, and four is the most', () => {
+    let g = rootknot(1, 1, { flowers: false }), s = g.bossState, b = s.boss;
+    assert.equal(s.warning.text, 'Rootknot is tossing rolypolies!');
+    assert.deepEqual(s.warning.targets.filter(t => t.role === 'toss').map(t => [t.x, t.y]), [[210, b.y + 100], [128, b.y + 100]]);
+    play(g); const t0 = s.kitAge, landed = [];
+    for (let n = 0; n < 120; n++) { const count = tossed(g).length; g.step(1 / 120); if (tossed(g).length > count) landed.push(s.kitAge - t0); }
+    // (to the tick: the second lob leaves on the first tick after .18 s)
+    assert.equal(landed.length, 2); assert(landed[0] >= .6 - 1e-9 && landed[0] < .6 + 2 / 120 && landed[1] >= .78 - 1e-9 && landed[1] < .78 + 2 / 120, landed.join());
+    const marks = buds => rootknot(1, 1, { flowers: false, buds }).bossState.warning;
+    let w = marks([flower('x', 210, b.y + 130)]);
+    assert.deepEqual(w.targets.filter(t => t.role === 'toss').map(t => [t.x, t.y]), [[210, b.y + 70], [128, b.y + 100]], 'else 70 px below');
+    w = marks([flower('x', 210, 174), flower('y', 210, 204)]);
+    assert.deepEqual(w.targets.filter(t => t.role === 'toss').map(t => t.x), [128]); assert.equal(w.text, 'Rootknot is tossing a rolypoly!');
+    w = marks([flower('x', 210, 174), flower('y', 210, 204), flower('z', 128, 174), flower('q', 128, 204)]);
+    assert.equal(w.targets.filter(t => t.role === 'toss').length, 0); assert.equal(w.move, 'toss2'); assert.equal(w.text, 'Root walls! Watch the holes.');
+    const live = n => Array.from({ length: n }, (_, i) => flower('t' + i, 40 + 40 * i, 300, { foe: 'rolypoly', rootToss: true }));
+    assert.equal(marks(live(3)).targets.filter(t => t.role === 'toss').length, 1); assert.equal(marks(live(4)).targets.filter(t => t.role === 'toss').length, 0);
+    // A flower that drifts onto the spot during the flight: it lands 18 px aside, or bounces off with no room at all.
+    for (const [x, y, landsAt] of [[220, b.y + 112, [192, b.y + 100]], [210, b.y + 100, null]]) {
+      g = rootknot(0, 1, { flowers: false }); s = g.bossState; play(g); g.buds.push(flower('drift', x, y));
+      const events = until(g, () => !s.lobs.length, 1);
+      if (landsAt) assert.deepEqual(tossed(g).map(p => [p.x, p.y]), [landsAt]);
+      else { assert.equal(tossed(g).length, 0); assert(events.some(e => e.type === 'foe' && e.kind === 'rolypoly:bump')); }
+    }
+  });
+  test('Bowled over: a rolypoly rolled into Rootknot deals 3 with a critical, never while he is underground, and stops at the mood line', () => {
+    const roll = (g, b) => { g.due = { id: b.id, via: 'roll', by: 'seed-roll', depth: 1, from: { x: b.x, y: b.y + 70 } }; g.strike(b, true); g.due = null; };
+    let g = arena(2), s = g.bossState, b = s.boss; const full = b.maxHp, line = s.tierAt[0];
+    roll(g, b); assert.equal(b.hp, full - 3); assert.equal(s.crits, 1);
+    const crit = g.drainEvents().find(e => e.type === 'bossCritical'); assert(crit && crit.kind === 'root' && crit.via === 'roll' && crit.damage === 3);
+    b.hp = line + 2; roll(g, b); assert.equal(b.hp, line, 'stops at the line'); assert(s.shiftPending);
+    g = rootknot(0, 0); s = g.bossState; b = s.boss; play(g); assert.equal(s.mode, 'burrow'); g.drainEvents();
+    roll(g, b); assert.equal(b.hp, full); assert(!g.drainEvents().some(e => e.type === 'bossCritical'), 'not underground');
+    // End to end: a tossed rolypoly, bumped by a seed toward him once he is up, bowls him over.
+    g = rootknot(0, 1, { flowers: false }); s = g.bossState; b = s.boss; play(g);
+    until(g, () => s.mode !== 'burrow' && tossed(g).length, 4);
+    const [ball] = tossed(g), at = Bosses.predictVisible(g, .4).get(b.id), d = Math.hypot(at.x - ball.x, at.y - ball.y);
+    g.drainEvents(); hit(g, ball, { nx: -(at.x - ball.x) / d, ny: -(at.y - ball.y) / d });
+    const events = until(g, () => b.hp < full, 1.5), bowled = events.find(e => e.type === 'bossCritical');
+    assert(bowled && bowled.via === 'roll'); assert.equal(b.hp, full - 3);
+  });
+  test('Tangled, the Root Carousel takes the biggest clump round a 30 px ring that sinks with the descent, evenly spaced, as forecast', () => {
+    const g = rootknot(1, 0, { descent: 10.5 }), s = g.bossState, w = s.warning, mark = w.targets.find(t => t.role === 'knot');
+    assert.equal(w.move, 'carousel'); assert.equal(w.text, 'Root carousel! Snap the knot.'); assert.equal(mark.r, 40);
+    assert.deepEqual(w.targets.filter(t => t.role === 'carried').map(t => t.id).sort(), ['a', 'b', 'c'], 'the stray stays');
+    const riders = ['a', 'b', 'c'].map(id => bud(g, id)), mean = key => riders.reduce((n, p) => n + p[key], 0) / 3;
+    advance(g, .5); assert(Math.abs(mark.y - mean('y')) < 1e-6, 'the tell follows the falling clump');
+    const start = acts(play(g), 'start'), knot = knotOf(s);
+    assert.equal(start[0].move, 'carousel'); assert.deepEqual([knot.r, knot.hp, knot.until - knot.born], [10, 2, 3.5]);
+    assert(Math.abs(knot.cx - mean('x')) < 1e-6 && Math.abs(knot.cy - mean('y')) < 1e-6); assert.deepEqual(s.carried.map(p => p.id).sort(), ['a', 'b', 'c']);
+    advance(g, .3); let last = null;
+    for (let n = 0; n < 20; n++) {
+      const u = s.kitAge - knot.born, cy = knot.cy + .85 * 10.5 * u; assert(Math.abs(knot.y - cy) < 1e-6, 'the centre sinks at .85 x the descent');
+      const angles = riders.map(p => { assert(Math.abs(Math.hypot(p.x - knot.x, p.y - knot.y) - 30) <= .5, 'radius 30'); return Math.atan2(p.y - knot.y, p.x - knot.x); });
+      const gaps = angles.slice().sort((p, q) => p - q).map((a, i, list) => ((list[(i + 1) % 3] - a) % TAU + TAU) % TAU);
+      for (const gap of gaps) assert(Math.abs(gap - TAU / 3) < .01, 'evenly spaced');
+      if (last) assert(Math.abs(((angles[0] - last.a + Math.PI) % TAU + TAU) % TAU - Math.PI - 1.6 * (s.kitAge - last.t)) < 1e-6, 'turning at 1.6 rad/s');
+      last = { a: angles[0], t: s.kitAge };
+      const forecast = Bosses.predictVisible(g, .1); advance(g, .1);
+      for (const p of [knot, ...riders]) { const f = forecast.get(p.id); assert(Math.abs(f.x - p.x) < 1e-6 && Math.abs(f.y - p.y) < 1e-6, 'posed as forecast'); }
+    }
+  });
+  test('Left alone, the carousel flings its flowers 40 px outward at 3.5 s; they fall 1.3x for 2 s. Furious it spins 7 s, or less near the line', () => {
+    let g = rootknot(1, 0, { descent: 10.5 }), s = g.bossState; play(g);
+    const knot = knotOf(s), riders = s.carried.slice(), events = until(g, () => !knotOf(s), 4);
+    assert(s.kitAge >= knot.until - 1e-9 && s.kitAge < knot.until + 1 / 120 + 1e-9); assert.equal(acts(events, 'fling')[0].n, 3);
+    assert(!g.buds.includes(knot), 'the knot closes quietly'); assert(riders.every(p => !p.bloomed));
+    const centre = { x: knot.cx, y: knot.cy + knot.sink * (knot.until - knot.born) };
+    advance(g, .3 + 1 / 120);
+    for (const p of riders) {
+      assert.equal(p.carried, null); assert(Math.abs(Math.hypot(p.x - centre.x, p.y - centre.y) - 70) < 1, 'thrown 40 px past the ring');
+      assert(p.y <= g.dangerY - 70); assert.equal(p.fall, 1.3);
+    }
+    assert.equal(s.carried.length, 0); advance(g, 2); assert(riders.every(p => p.fall === 1 && p.kitHurry === undefined), 'back to their own pace');
+    g = rootknot(2, 1); s = g.bossState; play(g); assert.equal(knotOf(s).until - knotOf(s).born, 7);
+    // A low clump lets go as soon as the ring's bottom would pass 70 px above the line.
+    g = rootknot(2, 1, { flowers: false, descent: 10.5, buds: [flower('a', 180, 270), flower('b', 210, 270), flower('c', 195, 290)] }); s = g.bossState; play(g);
+    const low = knotOf(s), D = low.until - low.born, low3 = s.carried.slice();
+    assert(D < 7 && Math.abs(D - (g.dangerY - 70 - 42 - low.cy) / (.85 * 10.5)) < 1e-6, 'it ends early');
+    until(g, () => !knotOf(s), 8); assert(low.y + 42 <= g.dangerY - 70 + .1); until(g, () => !s.carried.length, 1);
+    assert(low3.every(p => !p.carried && p.y <= g.dangerY - 70 + .2), 'flung flowers stay above 70 px over the line');
+    // A second ring while one turns is no carousel: he tosses two instead.
+    g = rootknot(1, 0); s = g.bossState; play(g); s.cycle = 0; s.next = s.age; g.step(1 / 120); assert.equal(s.warning.move, 'toss2');
+  });
+  test('With no clump to take he roots up three seedlings of his own on a clear ring and spins them; a seedling spot filled during the tell is a short rest', () => {
+    for (const buds of [[], [flower('a', 200, 200)]]) {
+      const g = rootknot(1, 0, { flowers: false, descent: 10.5, buds }), s = g.bossState, b = s.boss, w = s.warning;
+      assert.equal(w.move, 'carousel'); assert.equal(w.text, 'Root carousel! Snap the knot.');
+      const knotMark = w.targets.find(t => t.role === 'knot'), marks = w.targets.filter(t => t.role === 'seedling');
+      assert.equal(marks.length, 3); assert(!w.targets.some(t => t.role === 'carried'), 'a lone flower is no clump');
+      for (const m of marks) assert(Math.abs(Math.hypot(m.x - knotMark.x, m.y - knotMark.y) - 30) < 1e-6 && m.r === 10);
+      const at = Bosses.predictVisible(g, s.warning.until - g.time).get(b.id); assert(Math.hypot(knotMark.x - at.x, knotMark.y - at.y) > b.r + 30 + 10 + 20 - 1e-6, 'well clear of him');
+      const events = play(g), sprout = acts(events, 'sprout'), start = acts(events, 'start')[0], knot = knotOf(s);
+      assert.equal(sprout.length, 1); assert.deepEqual(sprout[0].marks.map(m => [m.x, m.y]), marks.map(m => [m.x, m.y]));
+      const seedlings = g.buds.filter(p => p.rootSeedling); assert.equal(seedlings.length, 3);
+      assert(seedlings.every(p => p.bossSummon && p.r === 10 && p.hp === 1 && p.carried && p.carried.knot === knot.id), 'they ride his ring');
+      assert.equal(new Set(seedlings.map(p => p.group)).size, 1); assert.deepEqual(start.targets.filter(t => t.role === 'carried').map(t => t.id).sort(), seedlings.map(p => p.id).sort());
+      assert(Math.abs(knot.cx - knotMark.x) < 1e-6 && Math.abs(knot.cy - knotMark.y) < 1e-6); assert(!buds.some(p => p.carried));
+      advance(g, .5); for (const p of seedlings) assert(Math.abs(Math.hypot(p.x - knot.x, p.y - knot.y) - 30) <= .5, 'turning on the ring');
+    }
+    // A piece drifting onto a seedling spot during the tell: none come up, and he rests a moment.
+    const g = rootknot(1, 0, { flowers: false }), s = g.bossState, [m] = s.warning.targets.filter(t => t.role === 'seedling');
+    g.buds.push(flower('drift', m.x, m.y)); const events = play(g);
+    assert(!g.buds.some(p => p.rootSeedling)); assert.equal(knotOf(s), null); assert(!acts(events, 'sprout').length); assert(s.next - s.age <= 1.5 * 1.01 + 1e-9);
+    assert(!acts(events, 'start').some(e => e.move === 'carousel'), 'and no carousel cue for a move that did nothing');
+    // The same for a clump shot down to one flower during the tell.
+    const shot = rootknot(1, 0); hit(shot, bud(shot, 'a')); hit(shot, bud(shot, 'b')); const left = play(shot);
+    assert(!acts(left, 'start').some(e => e.move === 'carousel'), 'no carousel cue with one flower left'); assert.equal(knotOf(shot.bossState), null);
+  });
+  test('Snap the knot (two hits) and its flowers bloom in a cascade credited within .4 s; shot singly they leave the ring; the bot wants the knot', () => {
+    let g = rootknot(1, 0, { descent: 10.5 }), s = g.bossState; play(g); advance(g, .5); g.drainEvents();
+    let knot = knotOf(s);
+    assert.deepEqual(Bosses.targets(g).filter(t => t.bud === knot).map(t => [t.priority, t.reason]), [[90, 'knot']]);
+    hit(g, knot); assert.equal(knot.hp, 1); assert(!knot.bloomed);
+    hit(g, knot); assert(knot.bloomed); const seed = 'seed' + serial, at = g.time;
+    assert.equal(knot.snappedAt, g.time, 'the snap burst plays on game time, so a Lullaby cannot hold it');
+    let events = [...g.drainEvents(), ...until(g, () => ['a', 'b', 'c'].every(id => bud(g, id).bloomed), .5)];
+    let blooms = events.filter(e => e.type === 'bloom' && e.via === 'knot');
+    assert.deepEqual(blooms.map(e => e.bud.id).sort(), ['a', 'b', 'c']); assert(blooms.every(e => e.seed === seed && g.time - at <= .4));
+    assert.equal(acts(events, 'snap')[0].n, 3); assert.equal(s.carried.length, 0);
+    assert.equal(acts(until(g, () => false, 4), 'fling').length, 0, 'a snapped knot never flings');
+    g = rootknot(1, 0, { descent: 10.5 }); s = g.bossState; play(g); advance(g, .5); g.drainEvents(); knot = knotOf(s);
+    g.strike(knot); g.strike(knot); events = [...g.drainEvents(), ...until(g, () => false, .5)];
+    blooms = events.filter(e => e.type === 'bloom' && e.via === 'knot'); assert.equal(blooms.length, 3); assert(blooms.every(e => e.seed === null), 'uncredited: a plain chain');
+    g = rootknot(1, 0, { descent: 10.5 }); s = g.bossState; play(g); advance(g, .5); knot = knotOf(s);
+    hit(g, bud(g, 'a')); g.step(1 / 120);
+    assert(bud(g, 'a').bloomed && !bud(g, 'a').carried); assert.deepEqual(s.carried.map(p => p.id).sort(), ['b', 'c']);
+    assert.equal(Bosses.targets(g).find(t => t.bud === knot).priority, 80);
+  });
+  test('Furious, the Root Snare blocks the busier side of the fan for 4 s: 82 px at y 405.65 and 35°, never below 430', () => {
+    const fan = (side, d) => { const a = 55 * Math.PI / 180; return [210 + side * d * Math.cos(a), 498 - d * Math.sin(a)]; };
+    let g = rootknot(2, 0, { flowers: false }), w = g.bossState.warning;
+    assert.equal(w.move, 'snare'); assert.equal(w.text, 'A root snare blocks one side!'); assert.deepEqual(w.targets.map(t => [t.x, t.y, t.r]), [[145.3, 405.65, 42]], 'ties go left');
+    g = rootknot(2, 0, { flowers: false, buds: [flower('r1', ...fan(1, 200)), flower('r2', ...fan(1, 240)), flower('l1', ...fan(-1, 220))] });
+    assert.equal(g.bossState.warning.targets[0].x, 274.7, 'the busier side');
+    for (const side of [-1, 1]) {
+      g = rootknot(2, 0, { flowers: false, buds: side > 0 ? [flower('r1', ...fan(1, 200))] : [] }); const s = g.bossState, b = s.boss; play(g); const t0 = s.kitAge;
+      const snare = g.bumpers.find(p => p.bossSnare);
+      assert.deepEqual([snare.id, snare.kind, snare.bossWall, snare.length, snare.y, snare.x, snare.angle], [b.id + '-snare', 'rock', true, 82, 405.65, side < 0 ? 145.3 : 274.7, side * .6109]);
+      const ends = [-41, 41].map(k => [snare.x + k * Math.cos(snare.angle), snare.y + k * Math.sin(snare.angle)]);
+      assert(Math.max(...ends.map(e => e[1])) < 430, 'clear of the pod'); if (side < 0) assert.deepEqual(ends.map(e => e.map(n => Math.round(n * 10) / 10)), [[111.7, 429.2], [178.9, 382.1]]);
+      const [dx, dy] = fan(side, 300).map((n, i) => n - [210, 498][i]), shot = Engine.earliest({ buds: [], bumpers: g.bumpers, gates: [] }, { x: 210, y: 498 }, { x: dx, y: dy });
+      assert(shot && shot.item === snare, 'a seed up the middle of that side meets it');
+      const events = until(g, () => !g.bumpers.includes(snare), 5);
+      assert(Math.abs(s.kitAge - t0 - 4) < 1 / 120 + 1e-9, 'gone at 4 s'); assert.equal(acts(events, 'wither').length, 1);
+    }
+    // A burrow's walls replace the last walls, never a standing snare.
+    g = rootknot(2, 0, { flowers: false }); const s = g.bossState; play(g); s.cycle = 2; s.next = s.age; g.step(1 / 120); play(g);
+    assert.equal(g.bumpers.filter(p => p.bossWall).length, 3); assert(g.bumpers.some(p => p.bossSnare));
+  });
+  test('Rootknot plays the same at 30, 60 and 144 FPS', () => {
+    for (const index of [1, 2]) {
+      const run = fps => { const g = rootknot(2, index, { descent: 10.5 }); advance(g, 12, fps); return g; };
+      const sign = g => { const s = g.bossState; return { mode: s.mode, action: s.action, cycle: s.cycle, tier: s.tier, hp: s.boss.hp, carried: s.carried.map(p => p.id), parts: s.parts.map(p => p.bossPart), walls: g.bumpers.filter(p => p.bossWall).map(p => p.id), buds: g.buds.filter(p => !p.bloomed).map(p => p.id).sort() }; };
+      const base = run(60);
+      for (const fps of [30, 144]) {
+        const g = run(fps); assert.deepEqual(sign(g), sign(base), fps + ' FPS');
+        for (const p of base.buds) { const q = bud(g, p.id); assert(Math.hypot(p.x - q.x, p.y - q.y) < .5, `${p.id} at ${fps} FPS`); }
+      }
+    }
+  });
+  test('A Lullaby holds his lobs, carousel and snare where they are; each lands, flings or withers late by its length', () => {
+    let g = rootknot(0, 1), s = g.bossState; play(g); advance(g, .2);
+    const flight = JSON.stringify(s.lobs), age = s.kitAge, t = g.time; g.lullaby = 1; advance(g, .9);
+    assert.equal(s.kitAge, age); assert.equal(JSON.stringify(s.lobs), flight); assert.equal(tossed(g).length, 0);
+    until(g, () => tossed(g).length, 2); assert(Math.abs(g.time - t - .4 - 1) < 2 / 120, 'lands late by the Lullaby');
+    g = rootknot(1, 0, { descent: 10.5 }); s = g.bossState; play(g); const acted = g.time; advance(g, 1);
+    const knot = knotOf(s), poses = () => JSON.stringify([knot, ...s.carried].map(p => [p.x, p.y]));
+    const before = poses(); g.lullaby = 1; advance(g, .9); assert.equal(poses(), before, 'the ring stands still');
+    until(g, () => !knotOf(s), 5); assert(Math.abs(g.time - acted - 3.5 - 1) < 2 / 120, 'flings late by the Lullaby');
+    g = rootknot(2, 0, { flowers: false }); s = g.bossState; play(g); const raised = g.time; g.lullaby = 1;
+    until(g, () => !g.bumpers.some(p => p.bossSnare), 7); assert(Math.abs(g.time - raised - 4 - 1) < 2 / 120, 'withers late by the Lullaby');
+  });
+  test('Beaten mid-move, Rootknot leaves nothing behind: no carried flowers, knot, lobs, timers, snare or hurried falls', () => {
+    let g = rootknot(1, 0, { descent: 10.5 }), s = g.bossState; play(g); until(g, () => !knotOf(s), 4); advance(g, .4);
+    assert(['a', 'b', 'c'].every(id => bud(g, id).fall === 1.3));
+    s.tier = 2; s.cycle = 0; s.next = s.age; g.step(1 / 120); play(g);
+    g.buds.push(flower('e', 150, 200), flower('f', 175, 200)); s.cycle = 1; s.next = s.age; g.step(1 / 120); play(g);
+    s.cycle = 2; s.next = s.age; g.step(1 / 120); play(g);
+    assert(s.lobs.length && s.carried.length && knotOf(s) && g.bumpers.some(p => p.bossSnare), 'a lob, a ring and a snare are up');
+    const b = s.boss; for (let n = 0; n < 200 && !b.bloomed; n++) g.strike(b);
+    assert(b.bloomed); assert.equal(s.carried.length + s.lobs.length + s.timers.length, 0); assert(!g.buds.some(p => p.carried || p.kitHurry != null));
+    assert(!g.bumpers.some(p => p.bossWall)); assert(!g.buds.some(p => p.bossPart === 'knot' && !p.bloomed));
+    assert(['a', 'b', 'c'].every(id => bud(g, id).fall === 1)); assert.equal(g.dangerY, 448); assert.equal(g.aimNapUntil, 0);
+    // Flowers flung a moment ago are still hurried at the kill; cleanup puts them back to their own pace.
+    g = rootknot(1, 0, { descent: 10.5 }); s = g.bossState; play(g); until(g, () => !knotOf(s), 4); advance(g, .4);
+    assert(['a', 'b', 'c'].every(id => bud(g, id).kitHurry === 1 && bud(g, id).fall === 1.3), 'still hurried at the kill');
+    for (let n = 0; n < 200 && !s.boss.bloomed; n++) g.strike(s.boss);
+    assert(['a', 'b', 'c'].every(id => bud(g, id).fall === 1 && bud(g, id).kitHurry === undefined), 'cleanup restores their pace');
+  });
+  test('The good bot beats Rootknot', () => {
+    for (const seed of [7, 19]) {
+      const run = bot.play(2, { seed, startWave: 10, noise: 2.5, think: .3, thinkSpread: .3, bounces: 2 });
+      assert(run.won, `seed ${seed}: ${JSON.stringify(run.bossDiagnostics)}`);
+    }
+  });
+  // The art, in a sandbox with a recording canvas: every move with Animations on and off.
+  function rootArt(canvas) {
+    const tally = { gradients: 0, blur: 0, calls: {}, hook: null, face: [] };
+    const brush = () => {
+      const stack = [], state = { globalAlpha: 1, globalCompositeOperation: 'source-over', fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, shadowBlur: 0, lineDashOffset: 0 };
+      const ctx = new Proxy(state, {
+        get(t, name) {
+          if (name in t) return t[name];
+          if (name === 'canvas') return { width: 420, height: 560 };
+          return (...args) => {
+            for (const a of args) if (typeof a === 'number') assert(Number.isFinite(a), `${String(name)} received ${a}`);
+            if (tally.hook) tally.calls[tally.hook] = (tally.calls[tally.hook] || 0) + 1;
+            if (tally.hook === 'face' && /To$|^arc$|^ellipse$/.test(name)) tally.face.push(name, ...args.map(n => Math.round(n * 100)));
+            if (name === 'save') stack.push({ ...state });
+            else if (name === 'restore') { assert(stack.length, 'restore without save'); Object.assign(state, stack.pop()); }
+            else if (name === 'measureText') return { width: String(args[0]).length * 7 };
+            else if (name === 'getTransform') return { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+            else if (/Gradient$/.test(name)) { if (tally.hook) tally.gradients++; return { addColorStop() {} }; }
+          };
+        },
+        set(t, name, value) {
+          if (['globalAlpha', 'lineWidth', 'shadowBlur', 'lineDashOffset'].includes(name)) assert(Number.isFinite(value), `${name} is finite`);
+          if (name === 'shadowBlur' && value > 0 && tally.hook) tally.blur++;
+          t[name] = value; return true;
+        }
+      });
+      return { ctx, balanced: () => stack.length === 0 };
+    };
+    class Canvas { constructor(w, h) { this.width = w; this.height = h; this.rec = brush(); } getContext() { return this.rec.ctx; } }
+    const scope = vm.createContext({ console, Math, Map, Set, WeakMap, Array, Object, Number, String, JSON, Date, performance, ...(canvas ? { OffscreenCanvas: Canvas } : {}) });
+    for (const file of ['foe-art.js', 'art.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), scope, { filename: file });
+    const kits = scope.BloomFoeArt.kits;
+    for (const hook of ['under', 'part', 'face', 'over', 'aim']) {
+      const call = kits[hook]; kits[hook] = (...args) => { const outer = tally.hook; tally.hook = hook; try { return call(...args); } finally { tally.hook = outer; } };
+    }
+    const frame = (game, still, quality = 0) => {
+      const rec = brush(); scope.BloomArt.draw(rec.ctx, game, game.time, { showAim: false, theme: 'meadow', reducedMotion: still, quality });
+      assert(rec.balanced(), 'transforms balance');
+    };
+    return { tally, frame };
+  }
+  test("Rootknot's art draws every move, Animations on and off, with no gradient or blur per frame; his three moods are three faces", () => {
+    const { tally, frame } = rootArt(true), seen = new Set();
+    const film = (g, seconds) => { for (let n = 0; n < seconds * 120; n++) { g.step(1 / 120); if (n % 15 === 0) { frame(g, false, n % 30 ? 0 : 2); frame(g, true); } } };
+    for (const [tier, index, seconds] of [[0, 0, 3], [0, 1, 3], [1, 1, 3], [1, 0, 5], [2, 1, 1.5], [2, 0, 5.5]]) {
+      const g = rootknot(tier, index, { descent: 10.5 }), s = g.bossState; seen.add(s.warning.move);
+      film(g, 1.4 + seconds);
+      if (tier === 2 && index === 1) { const knot = knotOf(s); g.strike(knot); g.strike(knot); film(g, 1); }
+    }
+    assert.deepEqual([...seen].sort(), ['carousel', 'root', 'snare', 'toss', 'toss2']);
+    assert.equal(tally.gradients, 0, 'no gradient inside his hooks'); assert.equal(tally.blur, 0, 'no shadow blur');
+    for (const hook of ['under', 'part', 'face', 'over']) assert(tally.calls[hook] > 0, hook + ' draws');
+    const flat = rootArt(false), faces = [0, 1, 2].map(tier => { const g = arena(2); g.bossState.tier = tier; flat.tally.face = []; flat.frame(g, true); return JSON.stringify(flat.tally.face); });
+    assert(faces.every(f => f.length > 100)); assert.equal(new Set(faces).size, 3, 'Grumpy, Tangled and Furious');
+  });
+}
+
+// ── Mother Morel (Level 3, `puff`) ──
+// Runs Mother Morel's next move from a given tier, cycle (tiers 1-2) or action (tier 0); the board is still.
+function morelMove(tier, cycle, g = arena(3), action) {
+  const s = g.bossState; s.tier = tier; s.cycle = cycle; if (action != null) s.action = action; s.next = s.age; const before = s.action; g.step(1 / 120);
+  const w = s.warning; assert(w, 'a warning is up'); const tell = w.targets.map(t => ({ ...t }));
+  while (s.warning) g.step(1 / 120); return { g, s, w, tell, before, events: g.drainEvents() };
+}
+// A plain puffcap beside her (dx, dy from her centre).
+function morelPuff(g, dx, dy) {
+  const b = g.bossState.boss, x = b.x + dx, y = b.y + dy;
+  const puff = { id: 'puff' + ++serial, group: 'puff' + serial, x, y, baseX: x, startY: y, r: 12, hp: 1, maxHp: 1, type: 'lilac', puff: true, relay: false, fall: 0, sway: 0, hitAt: -100, bloomAt: -100, bloomed: false };
+  g.buds.push(puff); return puff;
+}
+const TAU_3 = 2 * Math.PI / 3, dancers = s => s.parts.filter(p => p.bossPart === 'waltz' || p.bossPart === 'fibwaltz');
+const foeEvents = (events, kind) => events.filter(e => e.type === 'foe' && e.kind === kind);
+test('Mother Morel: turning Tricky at two-thirds health and Stormy at a third, each mood opening on its new move, with her own words for each', () => {
+  const g = arena(3), s = g.bossState, k = Bosses.kits.puff, hp = Bosses.health.puff;
+  assert(hp > 33, 'she lasts longer than her old 33'); assert.equal(s.boss.maxHp, hp); assert.deepEqual(s.tierAt, [Math.ceil(2 * hp / 3), Math.ceil(hp / 3)]);
+  assert.deepEqual(k.moods, ['Graceful', 'Tricky', 'Stormy']); assert.deepEqual(k.stageText, [null, 'Mother Morel gets tricky!', 'Mother Morel brings the rain!']);
+  assert.deepEqual(k.moves, [['puff', 'waltz'], ['fakeout', 'waltz', 'puff'], ['ink', 'fibwaltz', 'puff']]);
+  for (const text of [...Object.values(k.text), ...k.stageText.slice(1)]) assert(text.length <= 52, text);
+  assert.deepEqual(k.text, { waltz: 'Spore waltz! Pop her dancing cap.', fakeout: 'Which cap is real? Find the spots!', ink: 'Ink rain! Mind the drips.',
+    fibwaltz: 'Watch the paint! Pop the spotty cap.' });
+});
+test('Mother Morel: a credited puff chain one above a threshold stops on it and the stage is announced next tick; an uncredited one passes', () => {
+  let g = arena(3), s = g.bossState, b = s.boss, line = s.tierAt[0]; s.next = s.age + 9; b.hp = line + 1;
+  hit(g, morelPuff(g, 50, 10)); advance(g, .3); assert.equal(b.hp, line, 'a puff (2) stops at the threshold'); assert(s.shiftPending);
+  assert.equal(s.warning && s.warning.move, 'stage'); assert.equal(s.warning.text, 'Mother Morel gets tricky!');
+  hit(g, morelPuff(g, -50, 10)); advance(g, .3); assert.equal(b.hp, line, 'held until the new mood is announced');
+  g = arena(3); s = g.bossState; b = s.boss; s.next = s.age + 9; b.hp = line + 1;
+  g.strike(morelPuff(g, 50, 10)); advance(g, .3); assert.equal(b.hp, line - 1, 'an uncredited chain keeps its damage');
+});
+test('Mother Morel: Tricky and Stormy are each a guarded 1.3 s warning, then Phase Bloom and the new list', () => {
+  const g = arena(3), s = g.bossState, b = s.boss; s.next = s.age + 9; b.hp = s.tierAt[0] + 1; hit(g, morelPuff(g, 50, 10)); advance(g, .2);
+  let w = s.warning; assert.equal(w.move, 'stage'); assert(w.until - w.at >= 1.3 - 1e-9);
+  assert.equal(Bosses.canHit(g, b, { nx: 0, ny: 1 }, {}), false); assert.equal(Bosses.canHit(g, b, { nx: 0, ny: 1 }, { power: 'beeline' }), true);
+  let events = []; while (s.warning) { g.step(1 / 120); events.push(...g.drainEvents()); }
+  assert(!events.some(e => e.type === 'bossAbility'), 'Phase Bloom has its own voice only');
+  let stage = events.find(e => e.type === 'bossStage'); assert(stage && stage.stage === 1 && stage.mood === 'Tricky' && stage.kind === 'puff');
+  for (let n = 0; n < 240 && !s.warning; n++) g.step(1 / 120);
+  assert.equal(s.tier, 1); assert.equal(s.warning.move, 'fakeout', 'Tricky opens on her new trick');
+  while (s.warning) g.step(1 / 120);
+  b.hp = s.tierAt[1] + 1; s.next = s.age + 9; hit(g, morelPuff(g, -50, 10)); advance(g, .2); assert.equal(b.hp, s.tierAt[1]); w = s.warning;
+  assert.equal(w.move, 'stage'); assert.equal(w.text, 'Mother Morel brings the rain!');
+  events = []; while (s.warning) { g.step(1 / 120); events.push(...g.drainEvents()); }
+  stage = events.find(e => e.type === 'bossStage'); assert(stage && stage.stage === 2 && stage.mood === 'Stormy');
+  for (let n = 0; n < 240 && !s.warning; n++) g.step(1 / 120);
+  assert.equal(s.warning.move, 'ink'); assert.equal(s.warning.text, 'Ink rain! Mind the drips.');
+});
+test('Mother Morel: her waltz partner circles her at 58 px for 8 s, forecast exactly, then twirls home quietly', () => {
+  const { g, s, w, tell, events } = morelMove(0, 0, arena(3), 1), b = s.boss;
+  assert.equal(w.move, 'waltz'); assert.equal(w.text, 'Spore waltz! Pop her dancing cap.');
+  assert.deepEqual(tell.map(t => [t.role, t.r]), [['waltz', 14]]);
+  assert.equal(acts(events, 'start').filter(e => e.move === 'waltz').length, 1);
+  const [p] = dancers(s); assert.equal(dancers(s).length, 1);
+  assert(Math.abs(tell[0].x - p.x) < 1 && Math.abs(tell[0].y - p.y) < 1, 'the tell marked where her partner opens (to a tick)');
+  assert(Math.abs(p.x - b.x - 58) < 1e-6 && Math.abs(p.y - b.y) < 1e-6, '58 px to her right');
+  assert(p.puff && p.r === 12 && p.hp === 1 && p.type === 'lilac' && p.a0 === 0 && p.born === s.kitAge && g.buds.includes(p));
+  const ahead = Bosses.predictVisible(g, .5).get(p.id); advance(g, .5);
+  assert(Math.abs(ahead.x - p.x) < 1e-6 && Math.abs(ahead.y - p.y) < 1e-6, 'the bot forecast is the board');
+  assert(Math.abs(Math.atan2(p.y - b.y, p.x - b.x) - (s.kitAge - p.born)) < 1e-6, 'one radian a second, clockwise on screen');
+  for (let i = 0; i < 20; i++) { advance(g, .35); assert(Math.abs(Math.hypot(p.x - b.x, p.y - b.y) - 58) <= .5, `sample ${i}`); }
+  const prepared = bot.prepareTrace(g); assert.equal(prepared.priorities.get(p.id), 75); assert(prepared.moving.some(m => m.original === p), 'the bot leads it');
+  assert.equal(new Map(Bosses.targets(g).map(t => [t.bud.bossPart || 'boss', t.priority])).get('waltz'), 75);
+  const hp = b.hp; g.drainEvents(); advance(g, 8 - (s.kitAge - p.born) - .02); assert(!p.closed, 'it dances for 8 s');
+  advance(g, .05); assert(p.closed && !g.buds.includes(p) && !s.parts.includes(p)); assert.equal(b.hp, hp);
+  assert(!g.drainEvents().some(e => e.type === 'bossCritical' || e.type === 'bossAbility'), 'a closing partner is quiet');
+});
+test('Mother Morel: popping her partner chains into her for 2 with a "waltz" critical, and stops at a threshold', () => {
+  let { g, s } = morelMove(0, 0, arena(3), 1), b = s.boss, [p] = dancers(s), top = s.tierAt[0] + 8;
+  s.next = s.age + 20; b.hp = top; advance(g, .7); hit(g, p); assert(p.bloomed); advance(g, .3);
+  assert.equal(b.hp, top - 2); const crit = g.drainEvents().filter(e => e.type === 'bossCritical');
+  assert.equal(crit.length, 1); assert.equal(crit[0].via, 'waltz'); assert.equal(crit[0].kind, 'puff'); assert.equal(crit[0].damage, 2); assert.equal(s.crits, 1);
+  // A plain puffcap's chain is no waltz.
+  hit(g, morelPuff(g, 0, 50)); advance(g, .3); assert.equal(b.hp, top - 4); assert(!g.drainEvents().some(e => e.type === 'bossCritical'));
+  ({ g, s } = morelMove(0, 0, arena(3), 1)); b = s.boss; [p] = dancers(s); s.next = s.age + 20; b.hp = s.tierAt[0] + 1;
+  hit(g, p); advance(g, .3); assert.equal(b.hp, s.tierAt[0], 'a waltz pop stops at the threshold'); assert(s.shiftPending);
+  advance(g, 2); assert(!s.parts.includes(p) && !g.buds.includes(p), 'a popped partner leaves once its bloom has played');
+});
+test('Mother Morel: a fakeout tosses one real puffcap and two fibcaps to three spots, landing 0.9 s later', () => {
+  const { g, s, w, before, events } = morelMove(1, 0), b = s.boss;
+  assert.equal(w.move, 'fakeout'); assert.equal(w.text, 'Which cap is real? Find the spots!');
+  const marks = w.targets.filter(t => t.role === 'fakeout'); assert.equal(marks.length, 3);
+  assert.deepEqual(marks.map(m => Boolean(m.real)), [0, 1, 2].map(i => i === Math.floor(Foes.hash01(b.id, before) * 3)));
+  for (const m of marks) assert(m.x >= 34 && m.x <= 386 && m.y <= g.dangerY - 120 && m.r === 12);
+  assert.equal(acts(events, 'start').filter(e => e.move === 'fakeout').length, 1);
+  assert.deepEqual(s.lobs.map(l => l.look).sort(), ['fibcap', 'fibcap', 'puffcap']); assert(s.lobs.every(l => l.T === .9 && l.t0 === s.kitAge));
+  const count = g.buds.length; advance(g, .85); assert.equal(g.buds.length, count, 'nothing lands before 0.9 s');
+  advance(g, .1); assert.equal(s.lobs.length, 0); const landed = g.drainEvents();
+  const real = g.buds.filter(p => p.bossSummon && p.puff), fakes = g.buds.filter(p => p.bossSummon && p.foe === 'fibcap');
+  assert.equal(real.length, 1); assert.equal(fakes.length, 2);
+  assert(real[0].r === 12 && real[0].hp === 1 && real[0].type === 'lilac' && real[0].fall === .8);
+  const spot = marks.find(m => m.real); assert(real[0].x === spot.x && real[0].y === spot.y, 'the real cap lands on the real spot');
+  for (const f of fakes) { assert(f.decoy && f.inert); assert(marks.some(m => !m.real && m.x === f.x && m.y === f.y)); assert.equal(bot.value(g, { bud: f, nx: 0, ny: 1, time: 0 }, 0, bot.prepareTrace(g)), -1); }
+  assert.equal(foeEvents(landed, 'fibcap:land').length, 2); assert.equal(acts(landed, 'land').length, 1);
+});
+test('Mother Morel: a fakeout spot filled during the warning gets no cap; the start ring shows the kept spots and one is still real', () => {
+  const g = arena(3), s = g.bossState; s.tier = 1; s.cycle = 0; s.next = s.age; g.step(1 / 120);
+  const marks = s.warning.targets.filter(t => t.role === 'fakeout'), { x, y } = marks.find(m => m.real); assert.equal(marks.length, 3);
+  g.buds.push({ id: 'in-the-way', group: 'in-the-way', x, y, baseX: x, startY: y, r: 11, type: 'sky', hp: 1, maxHp: 1, fall: 1, sway: 0, hitAt: -100, bloomAt: -100, bloomed: false, relay: false });
+  const events = []; while (s.warning) { g.step(1 / 120); events.push(...g.drainEvents()); }
+  const start = acts(events, 'start').find(e => e.move === 'fakeout');
+  assert.equal(start.targets.length, 2); assert(!start.targets.some(t => t.x === x && t.y === y), 'the filled spot is not shown');
+  assert.equal(s.lobs.length, 2); assert.equal(s.lobs.filter(l => l.look === 'puffcap').length, 1, 'one of the two left is real');
+  advance(g, 1); assert.equal(g.buds.filter(p => p.bossSummon && p.puff).length, 1); assert.equal(g.buds.filter(p => p.bossSummon && p.foe === 'fibcap').length, 1);
+});
+test('Mother Morel: wherever her sway has carried her, every cap shown in the fakeout lands, the spotted one included', () => {
+  for (let k = 0; k < 49; k++) {
+    const g = arena(3); g.bossState.next = 1e9; advance(g, k * .25);
+    const { s, w } = morelMove(1, 0, g); g.drainEvents(); const shown = w.targets.filter(t => t.role === 'fakeout');
+    advance(g, 1); const land = acts(g.drainEvents(), 'land');
+    const real = g.buds.filter(p => p.bossSummon && p.puff && !p.bloomed), fakes = g.buds.filter(p => p.bossSummon && p.foe === 'fibcap' && !p.bloomed);
+    assert.equal(real.length + fakes.length, shown.length, `wait ${k * .25} s: every cap shown lands`);
+    if (shown.length) { assert.equal(real.length, 1, `wait ${k * .25} s: the real cap lands`); assert.equal(land.length, 1); assert.equal(land[0].marks.length, shown.length); }
+    assert.equal(s.lobs.length, 0);
+  }
+});
+test('Mother Morel: her bonnet marks no puffcap beside her while her waltz partner is still dancing, and adds none', () => {
+  const { g, s } = morelMove(0, 0, arena(3), 1), [p] = dancers(s); assert(!p.closed);
+  const { w, tell, events } = morelMove(0, 0, g); assert.equal(w.move, 'puff');
+  assert(!tell.some(t => t.role === 'puff'), 'no puffcap is promised'); assert(!acts(events, 'start')[0].targets.some(t => t.role === 'puff'));
+  assert(!g.buds.some(b => b.puff && !b.bloomed && b !== p && !b.bossPart && String(b.id).includes('-puff-')), 'and none comes');
+  // Popped during the tell, the partner is gone but the plan already dropped the mark: still no crash and no cap.
+  const h = morelMove(0, 0, arena(3), 1).g, hs = h.bossState, [q] = dancers(hs); hs.action = 2; hs.next = hs.age; h.step(1 / 120);
+  assert.equal(hs.warning.move, 'puff'); hit(h, q); while (hs.warning) h.step(1 / 120);
+  assert(!h.buds.some(b => b.puff && !b.bloomed && String(b.id).includes('-puff-')));
+});
+test('Mother Morel: ink rain drops from three lanes for 4 s, 15 drops in all, each its own group', () => {
+  const { g, s, w } = morelMove(2, 0), b = s.boss;
+  assert.equal(w.move, 'ink'); const lanes = w.targets.filter(t => t.role === 'ink');
+  assert.equal(lanes.length, 3); assert(lanes.every(t => t.y === 300 && t.r === 18 && t.x >= 40 && t.x <= 380));
+  assert(Math.abs(lanes[1].x - lanes[0].x - 60) < 1e-6 && Math.abs(lanes[2].x - lanes[1].x - 60) < 1e-6, 'lanes 60 px apart');
+  assert.deepEqual(s.ink.lanes, lanes.map(t => t.x)); assert(Math.abs(s.ink.until - s.ink.t0 - 4) < 1e-9);
+  const t0 = s.ink.t0, drips = [];
+  for (let n = 0; n < 120 * 4.7; n++) {
+    g.step(1 / 120);
+    for (const e of g.drainEvents()) if (e.type === 'foe' && e.kind === 'inkcap:drip') { drips.push({ ...e, at: s.kitAge - t0 }); assert(Math.abs(e.y - (b.y + b.r + 8)) < 2, 'it drops from her rim'); }
+  }
+  assert.equal(drips.length, 15);
+  for (let k = 0; k < 3; k++) {
+    const own = drips.filter(e => e.x === lanes[k].x); assert.equal(own.length, 5, `lane ${k}`);
+    own.forEach((e, i) => assert(Math.abs(e.at - (.27 * k + .8 * i)) < 1 / 100, `lane ${k} drop ${i} at ${e.at}`));
+  }
+  const drops = drips.map(e => e.bud); assert(drops.every(d => d.foe === 'inkdrop')); assert.equal(new Set(drops.map(d => d.group)).size, 15, 'each drop is its own life');
+  assert.equal(s.ink, null, 'the rain is over');
+});
+test('Mother Morel: the painted waltz paints all but one partner into fibcaps at 2.3 s; a direct hit sneezes and shuts her bonnet', () => {
+  let { g, s, w } = morelMove(2, 1), b = s.boss, parts = dancers(s);
+  assert.equal(w.move, 'fibwaltz'); assert.equal(w.text, 'Watch the paint! Pop the spotty cap.'); assert.equal(w.targets.filter(t => t.role === 'waltz').length, 3);
+  assert.equal(parts.length, 3); assert.deepEqual(parts.map(p => +p.a0.toFixed(6)), [0, TAU_3, 2 * TAU_3].map(a => +a.toFixed(6)));
+  assert(parts.every(p => p.puff && p.bossPart === 'waltz'));
+  advance(g, 2.25); assert(parts.every(p => p.bossPart === 'waltz'), 'not before 2.3 s');
+  advance(g, .1); const events = g.drainEvents(), real = parts[Math.floor(Foes.hash01(b.id, s.action) * 3)];
+  assert.equal(acts(events, 'paint').length, 1);
+  const painted = parts.filter(p => p.bossPart === 'fibwaltz'); assert.equal(painted.length, 2); assert(!painted.includes(real));
+  for (const p of painted) { assert(p.decoy && p.inert && !p.puff); assert.equal(bot.value(g, { bud: p, nx: 0, ny: 1, time: 0 }, 0, bot.prepareTrace(g)), -1); }
+  assert.equal(real.bossPart, 'waltz'); assert(real.puff && Number.isFinite(real.spottedAt));
+  for (const p of parts) assert(Math.abs(Math.hypot(p.x - b.x, p.y - b.y) - 58) <= .5);
+  const ranked = Bosses.targets(g); assert(!ranked.some(t => t.bud.bossPart === 'fibwaltz')); assert.equal(ranked.find(t => t.bud === real).priority, 75);
+  // A credited direct hit: a sneeze from the painted cap, her bonnet shut for 2 s, no damage.
+  const hp = b.hp; hit(g, painted[0]); let after = g.drainEvents();
+  assert(painted[0].bloomed); assert.equal(foeEvents(after, 'fibcap:sneeze').length, 1); assert.equal((g.sneezes || []).length, 1);
+  assert.equal(s.mode, 'bonnet'); assert(Math.abs(s.modeUntil - s.age - 2) < 1e-9); assert.equal(b.hp, hp);
+  // An uncredited strike pops the other quietly.
+  g.strike(painted[1]); after = g.drainEvents(); assert(painted[1].bloomed); assert.equal(foeEvents(after, 'fibcap:pop').length, 1); assert.equal(g.sneezes.length, 1);
+  // So does a power.
+  ({ g, s } = morelMove(2, 1)); parts = dancers(s); advance(g, 2.4);
+  const fib = parts.find(p => p.bossPart === 'fibwaltz'); hit(g, fib, { power: 'beeline' }); after = g.drainEvents();
+  assert(fib.bloomed); assert.equal(foeEvents(after, 'fibcap:pop').length, 1); assert(!(g.sneezes || []).length); assert.notEqual(s.mode, 'bonnet');
+  // And a Sunburst that opens on one.
+  ({ g, s } = morelMove(2, 1)); parts = dancers(s); advance(g, 2.4); g.drainEvents();
+  const low = parts.filter(p => p.bossPart === 'fibwaltz').sort((a, c) => c.y - a.y)[0]; s.next = s.age + 20;
+  g.spawnBall({ x: low.x, y: low.y + 30, angle: -Math.PI / 2, speed: 520, power: 'sunburst' }); advance(g, .1); after = g.drainEvents();
+  assert(after.some(e => e.type === 'sunburst'), 'the burst opened'); assert(low.bloomed, 'the painted cap popped');
+  assert(foeEvents(after, 'fibcap:pop').some(e => e.bud.id === low.id)); assert.notEqual(s.mode, 'bonnet');
+});
+test('Mother Morel: tier 2 plays the same at 30, 60 and 144 FPS', () => {
+  const runs = [30, 60, 144].map(fps => {
+    const g = arena(3), s = g.bossState; s.tier = 2; s.cycle = 0; s.next = 0; g.descentSpeed = 12; const log = [];
+    for (let n = 0; n < 12 * fps; n++) {
+      g.step(1 / fps);
+      for (const e of g.drainEvents()) if (e.type === 'bossAbility' || e.type === 'bossWarning' || e.type === 'foe') log.push(`${e.type}:${e.move || e.kind}:${e.act || ''}:${(+e.x).toFixed(3)}`);
+    }
+    return { log: log.join(' '), mode: s.mode, action: s.action, cycle: s.cycle, kit: s.kitAge.toFixed(6), poses: g.buds.map(p => `${p.id}@${p.x.toFixed(4)},${p.y.toFixed(4)}`).join(' ') };
+  });
+  assert(runs[0].log.includes('fibwaltz:paint') && runs[0].log.includes('ink:ink') && runs[0].log.includes('inkcap:drip'), 'the run saw a painted waltz and the rain');
+  assert.deepEqual(runs[1], runs[0]); assert.deepEqual(runs[2], runs[0]);
+});
+test('Mother Morel: a Lullaby holds the dance, the tossed caps and the rain; each carries on after it, late by its length', () => {
+  let { g, s } = morelMove(0, 0, arena(3), 1), b = s.boss, [p] = dancers(s); advance(g, .5);
+  let kit = s.kitAge, close = s.timers.find(t => t.act === 'close').at, offset = [p.x - b.x, p.y - b.y];
+  g.lullaby = 1; advance(g, 1); assert(Math.abs(s.kitAge - kit) < 1e-9, 'the kit clock stopped');
+  assert(Math.abs(p.x - b.x - offset[0]) < 1e-9 && Math.abs(p.y - b.y - offset[1]) < 1e-9, 'the partner waits mid-step');
+  let at = null; for (let n = 0; n < 120 * 9 && at == null; n++) { g.step(1 / 120); if (p.closed) at = s.kitAge; }
+  assert(at != null && Math.abs(at - close) < .01, 'it went home on the kit clock, a second late');
+  ({ g, s } = morelMove(1, 0)); advance(g, .3); const lobs = JSON.stringify(s.lobs); kit = s.kitAge;
+  g.lullaby = 1; advance(g, 1); assert.equal(JSON.stringify(s.lobs), lobs, 'the caps hang in the air'); assert(!acts(g.drainEvents(), 'land').length);
+  advance(g, .7); assert(acts(g.drainEvents(), 'land').length === 1, 'they land .6 s of kit clock later');
+  ({ g, s } = morelMove(2, 0)); advance(g, .5); g.drainEvents(); const made = s.ink.made.join();
+  g.lullaby = 1; advance(g, 1); assert.equal(s.ink.made.join(), made, 'no drop falls through a Lullaby'); assert(!foeEvents(g.drainEvents(), 'inkcap:drip').length);
+});
+test('Mother Morel: beaten mid-dance, mid-toss and mid-rain, she leaves no partner, lob, timer or raised line behind', () => {
+  const { g, s } = morelMove(2, 1); advance(g, 2.4); morelMove(2, 0, g); morelMove(1, 0, g);
+  assert(s.lobs.length && s.timers.length && s.ink && dancers(s).some(p => p.inert));
+  for (let n = 0; n < 300 && !s.boss.bloomed; n++) g.strike(s.boss, true);
+  assert(s.boss.bloomed); assert.equal(s.timers.length + s.lobs.length + s.partners.length, 0); assert.equal(s.ink, null);
+  assert(s.parts.every(p => p.bloomed)); assert(!g.buds.some(p => p.bossPart && p.inert && !p.bloomed));
+  assert.equal(g.dangerY, 448); assert.equal(g.aimNapUntil, 0);
+  g.drainEvents(); advance(g, 4); const after = g.drainEvents();
+  assert(!acts(after, 'land').length && !acts(after, 'paint').length && !foeEvents(after, 'inkcap:drip').length);
+});
+test('Mother Morel: her moods, partners, paint, tosses and ink rain draw balanced, finite and with no per-frame gradients', () => {
+  const { Art, looks, brush, totals } = sunnyArt(), drawn = new Set();
+  for (const hook of ['face', 'part', 'under', 'over']) {
+    const own = looks.puff[hook];
+    // Counts what the hook really draws: under() and over() return nothing, so their return value proves nothing.
+    looks.puff[hook] = (ctx, state, s, piece, ...rest) => {
+      let calls = 0;
+      const spy = new Proxy(ctx, { get: (t, n) => { const v = t[n]; return typeof v === 'function' && /^(fill|stroke|drawImage|fillRect|fillText)$/.test(n) ? (...a) => { calls++; return v.apply(t, a); } : typeof v === 'function' ? v.bind(t) : v; },
+        set: (t, n, v) => { t[n] = v; return true; } });
+      const done = own(spy, state, s, piece, ...rest); if (done === true || (done !== false && calls > 0)) drawn.add(hook === 'part' ? piece.bossPart : hook); return done;
+    };
+  }
+  const snap = (label, state) => {
+    for (const reducedMotion of [false, true]) for (const quality of reducedMotion ? [0] : [0, 2]) {
+      const options = { theme: 'meadow', reducedMotion, showAim: true, quality };
+      Art.draw(brush().ctx, state, state.time, options);
+      const warm = totals.gradients, rec = brush(); Art.draw(rec.ctx, state, state.time + .05, options);
+      assert(rec.balanced(), `${label}: balanced`); const kitGradients = totals.gradients - warm;
+      const look = looks.puff; delete looks.puff; const bare = totals.gradients; Art.draw(brush().ctx, state, state.time + .05, options); looks.puff = look;
+      assert.equal(kitGradients, totals.gradients - bare, `${label}: the kit adds no per-frame gradient`);
+    }
+  };
+  const tell = (tier, cycle, action) => { const g = arena(3), s = g.bossState; Object.assign(s, { tier, cycle, next: s.age }); if (action != null) s.action = action; for (let n = 0; n < 80; n++) g.step(1 / 120); assert(s.warning); return g; };
+  // Every face: each mood (and blinking), the bonnet, a hit, and the shiver near the end.
+  for (const [tier, mode] of [[0, 'open'], [1, 'open'], [2, 'open'], [1, 'bonnet']]) { const h = arena(3); Object.assign(h.bossState, { tier, mode }); snap(`${tier}:${mode}`, h); h.time = 1.2; snap(`${tier}:${mode} blink`, h); }
+  let h = arena(3); h.bossState.boss.hp = 4; h.bossState.boss.hitAt = h.time; snap('hurt, shivering', h);
+  // The waltz: its tell, the dance, a pop, a partner going home.
+  snap('waltz tell', tell(0, 0, 1));
+  let { g, s } = morelMove(0, 0, arena(3), 1); advance(g, .1); snap('waltz pop-in', g); advance(g, 1.2); snap('waltz', g);
+  hit(g, dancers(s)[0]); advance(g, .15); snap('waltz pop', g);
+  ({ g, s } = morelMove(0, 0, arena(3), 1)); advance(g, 8.1); snap('waltz home', g);
+  // The painted waltz: its tell, the wipe, the poof and the twinkle, a sneeze.
+  snap('fibwaltz tell', tell(2, 1));
+  ({ g, s } = morelMove(2, 1)); advance(g, 1.6); snap('wipe', g); advance(g, .75); snap('poof', g); advance(g, .5); snap('painted', g);
+  hit(g, dancers(s).find(p => p.bossPart === 'fibwaltz')); advance(g, .15); snap('sneeze', g);
+  // The fakeout: its tell, the caps in the air, landed.
+  snap('fakeout tell', tell(1, 0)); ({ g, s } = morelMove(1, 0)); advance(g, .4); snap('toss', g); advance(g, .6); snap('landed', g);
+  // The rain: its tell, a bead swelling, a drop letting go, the clouds thinning away.
+  snap('ink tell', tell(2, 0)); ({ g, s } = morelMove(2, 0)); advance(g, .6); snap('bead', g); advance(g, .22); snap('plip', g); advance(g, 3.4); snap('thinning', g);
+  for (const hook of ['face', 'waltz', 'fibwaltz', 'under', 'over']) assert(drawn.has(hook), hook);
+});
+
+// ── Crystal Heart (Level 4, `crystal`) ──
+const heartOf = (s, real = true) => s.parts.find(p => p.bossPart === 'heart' && Boolean(p.real) === real && !p.popped);
+const shardsOf = g => g.buds.filter(p => p.bossShard && !p.bloomed);
+// Runs Crystal Heart's next move at a forced tier and cycle, through its warning; returns the events.
+function crystalMove(g, tier, cycle) {
+  const s = g.bossState; s.tier = tier; s.cycle = cycle; s.next = 0; s.warning = null; g.drainEvents();
+  for (let n = 0; n < 240 && !s.warning; n++) g.step(1 / 120);
+  const events = []; while (s.warning) { g.step(1 / 120); events.push(...g.drainEvents()); }
+  return events;
+}
+test('Crystal Heart: longer-lived than her old 36; a credited touch shatters a fake into two coral shards, no damage, and it re-forms 2.0 s later', () => {
+  const g = arena(4), s = g.bossState, b = s.boss, full = Bosses.health.crystal;
+  assert(full > 36); assert.equal(b.maxHp, full); assert.deepEqual(s.tierAt, [Math.ceil(2 * full / 3), Math.ceil(full / 3)]);
+  assert.equal(s.parts.filter(p => p.real).length, 1);
+  for (const p of s.parts) assert.equal(Boolean(p.decoy && p.inert), !p.real, 'the fakes are glass decoys, the real heart is not');
+  const fake = heartOf(s, false); hit(g, fake);
+  assert.equal(b.hp, full); assert(fake.popped && fake.bloomed);
+  const events = g.drainEvents(), shards = shardsOf(g);
+  assert(events.some(e => e.type === 'foe' && e.kind === 'crystal:fake'));
+  assert(events.some(e => e.type === 'bossAbility' && e.move === 'heart' && e.act === 'fake'));
+  assert.equal(shards.length, 2); assert.equal(new Set(shards.map(p => p.group)).size, 1);
+  for (const p of shards) { assert.equal(p.type, 'coral'); assert.equal(p.r, 9); assert.equal(p.hp, 1); assert.equal(p.fall, 1.5); assert(p.gem && p.bossSummon); assert(p.ghost, 'a ghost to the seed that shattered it'); }
+  assert.deepEqual(shards.map(p => Math.round(p.x - fake.x)), [-14, 14]);
+  g.step(1 / 120); assert(shards.every(p => !p.ghost), 'solid once that seed is gone');
+  advance(g, 1.9); assert(fake.popped, 'not yet');
+  advance(g, .15); assert(!fake.popped && !fake.bloomed && fake.decoy && fake.inert, 're-formed as a fake');
+  assert(g.drainEvents().some(e => e.type === 'bossAbility' && e.move === 'heart' && e.act === 'reform'));
+  // A Lullaby holds the re-form on the kit clock: it comes late by the Lullaby's length.
+  const other = heartOf(s, false); hit(g, other); g.lullaby = 1; advance(g, 2.9); assert(other.popped, 'held by the Lullaby');
+  advance(g, .2); assert(!other.popped);
+});
+test('Crystal Heart: no shards while six are loose; powers and credited chains never pop a fake; a script pops one quietly', () => {
+  let g = arena(4), s = g.bossState; g.descentSpeed = 20; // the shards fall clear of their spots between pops
+  for (let k = 0; k < 4; k++) {
+    const before = shardsOf(g).length, fake = heartOf(s, false); hit(g, fake); assert(fake.popped);
+    assert.equal(shardsOf(g).length, Math.min(6, before + 2), `pop ${k + 1}`);
+    if (k % 2) advance(g, 2.1);
+  }
+  assert.equal(shardsOf(g).length, 6);
+  for (const power of ['beeline', 'sunburst']) {
+    g = arena(4); s = g.bossState; const fake = heartOf(s, false);
+    g.spawnBall({ x: fake.x, y: fake.y + 55, angle: -Math.PI / 2, speed: 520, power }); advance(g, .7);
+    assert(s.parts.every(p => !p.popped), power); assert.equal(shardsOf(g).length, 0, power);
+  }
+  g = arena(4); s = g.bossState; let fake = heartOf(s, false);
+  g.striker = { id: 'chain', type: g.nextType, bossContact: { nx: 0, ny: 1 } }; g.due = { by: 1 }; g.strike(fake, true); g.striker = null; g.due = null;
+  assert(!fake.popped, 'a credited chain glances off the glass');
+  g.strike(fake); assert(fake.popped, 'an uncredited strike pops it, so strike loops end');
+  assert.equal(shardsOf(g).length, 0); assert(!g.drainEvents().some(e => e.type === 'bossAbility' && e.act === 'fake'));
+});
+test('Crystal Heart stops at her first mood line: the held real heart turns seeds away while a fake still shatters; a mirror shot clamps too', () => {
+  let g = arena(4), s = g.bossState, b = s.boss; const line = s.tierAt[0]; b.hp = line + 1;
+  hit(g, heartOf(s)); assert.equal(b.hp, line); assert(s.shiftPending);
+  g.drainEvents(); hit(g, heartOf(s)); assert.equal(b.hp, line, 'held');
+  assert(g.drainEvents().some(e => e.type === 'bossGuard' && e.mode === 'stage'));
+  assert.equal(Bosses.canHit(g, heartOf(s), { nx: 0, ny: 1 }, { type: g.nextType }), false);
+  const fake = heartOf(s, false); assert.equal(Bosses.canHit(g, fake, { nx: 0, ny: 1 }, { type: g.nextType }), true);
+  hit(g, fake); assert(fake.popped, 'a fake can still be shot'); assert.equal(b.hp, line);
+  g = arena(4); s = g.bossState; b = s.boss; b.hp = line + 1;
+  hit(g, heartOf(s), { mirrorAt: g.time }); assert.equal(b.hp, line, 'a mirror shot stops at the threshold'); assert(s.shiftPending);
+});
+test('Crystal Heart turns Shining, then Racing, each with its own words; Shining opens with the shuffle', () => {
+  const g = arena(4), s = g.bossState, b = s.boss; b.hp = s.tierAt[0] + 1; hit(g, heartOf(s)); g.drainEvents();
+  for (let n = 0; n < 240 && !(s.warning && s.warning.move === 'stage'); n++) g.step(1 / 120);
+  assert.equal(s.warning.text, 'Crystal Heart is shining!'); assert(s.warning.until - s.warning.at >= 1.3 - 1e-9);
+  let events = []; while (s.warning) { g.step(1 / 120); events.push(...g.drainEvents()); }
+  assert(events.some(e => e.type === 'bossStage' && e.kind === 'crystal' && e.stage === 1 && e.mood === 'Shining'));
+  assert.equal(s.tier, 1);
+  for (let n = 0; n < 480 && !s.warning; n++) g.step(1 / 120);
+  assert.equal(s.warning.move, 'crystal', 'the shuffle first'); while (s.warning) g.step(1 / 120);
+  for (let n = 0; n < 1200 && !s.warning; n++) g.step(1 / 120);
+  assert.equal(s.warning.move, 'mirrors'); assert.equal(s.warning.text, 'Mirror shards! Bank a seed off one.');
+  while (s.warning) g.step(1 / 120); advance(g, 1);
+  b.hp = s.tierAt[1] + 1; hit(g, heartOf(s)); assert.equal(b.hp, s.tierAt[1]); g.drainEvents();
+  for (let n = 0; n < 240 && !(s.warning && s.warning.move === 'stage'); n++) g.step(1 / 120);
+  assert.equal(s.warning.text, 'Crystal Heart is racing!');
+  events = []; while (s.warning) { g.step(1 / 120); events.push(...g.drainEvents()); }
+  assert(events.some(e => e.type === 'bossStage' && e.stage === 2 && e.mood === 'Racing'));
+  for (let n = 0; n < 480 && !s.warning; n++) g.step(1 / 120);
+  assert.equal(s.warning.move, 'hues'); assert.equal(s.warning.text, 'The heart wants one color!');
+});
+test('Mirror Shards open below the sunken guardian and her hearts, and she rests instead when that row would crowd the line', () => {
+  let g = arena(4), s = g.bossState; s.drift = 230;
+  crystalMove(g, 1, 1);
+  const mirrors = g.bumpers.filter(m => m.bossMirror), low = Math.max(...[s.boss, ...s.parts.filter(p => p.bossPart === 'heart')].map(p => p.y + p.r));
+  assert.equal(mirrors.length, 2); assert(low > 356 - 36, `she is low (${low})`);
+  for (const m of mirrors) assert(m.y >= low + 28 + 8 - 1e-6 && m.y <= g.dangerY - 40, `the blades (y ${m.y}) clear her (${low})`);
+  for (let n = 0; n < 6 * 120 && g.bumpers.some(m => m.bossMirror); n++) {
+    g.step(1 / 120); g.drainEvents();
+    for (const p of [s.boss, ...s.parts.filter(q => q.bossPart === 'heart')]) assert(p.y + p.r <= mirrors[0].y - 28, 'clear of the blades all their life');
+  }
+  g = arena(4); s = g.bossState; s.drift = 280; s.tier = 1; s.cycle = 1; s.next = 0; s.warning = null; g.step(1 / 120);
+  assert(!(s.warning && s.warning.move === 'mirrors') && !g.bumpers.some(m => m.bossMirror), 'too near the line: a rest');
+});
+test('Mirror Shards: two blades at y 356 hold still .8 s, turn .7 rad each second, freeze in a Lullaby and leave after 6 s', () => {
+  const g = arena(4), s = g.bossState, events = crystalMove(g, 1, 1);
+  assert(events.some(e => e.type === 'bossAbility' && e.move === 'mirrors' && e.act === 'mirror'));
+  const mirrors = g.bumpers.filter(m => m.bossMirror);
+  assert.equal(mirrors.length, 2);
+  assert.deepEqual(mirrors.map(m => [m.x, m.y, m.length, m.angle, m.kind, m.bossWall]), [[120, 356, 56, .6, 'rock', true], [300, 356, 56, -.6, 'rock', true]]);
+  const t0 = mirrors[0].t0, angles = [], turns = [];
+  for (let n = 0; n < 600; n++) {
+    const u = s.kitAge - t0; angles.push([u, mirrors[0].angle, mirrors[1].angle]); g.step(1 / 120);
+    turns.push(...g.drainEvents().filter(e => e.type === 'bossAbility' && e.act === 'turn'));
+  }
+  for (const [u, a, c] of angles) {
+    const k = Math.floor(u + 1e-9);
+    if (u - k < .8 - 1e-6) { assert(Math.abs(a - (.6 + .7 * k)) < 1e-9, `held at ${u.toFixed(3)}`); assert(Math.abs(c + .6 + .7 * k) < 1e-9); }
+  }
+  assert.deepEqual(turns.map(e => e.n), [1, 2, 3, 4, 5], 'one tick per turn');
+  const kitAge = s.kitAge, pose = mirrors.map(m => m.angle); g.lullaby = 1.5; advance(g, 1);
+  assert.equal(s.kitAge, kitAge); assert.deepEqual(mirrors.map(m => m.angle), pose, 'a Lullaby holds the blades');
+  advance(g, 1.6); assert.equal(g.bumpers.filter(m => m.bossMirror).length, 0, 'gone after 6 s of the kit clock');
+});
+test('A seed banked off a mirror into the real heart is a Mirror shot: two damage, a critical, a flash; a late one is plain', () => {
+  const g = arena(4), s = g.bossState, b = s.boss; crystalMove(g, 1, 1);
+  const m = g.bumpers.find(x => x.bossMirror && x.lead), real = heartOf(s);
+  // Aim so the seed's reflection off the blade's middle heads straight for the real heart.
+  const ux = Math.cos(m.angle), uy = Math.sin(m.angle), L = Math.hypot(real.x - m.x, real.y - m.y), dx = (real.x - m.x) / L, dy = (real.y - m.y) / L;
+  const dot = -dx * uy + dy * ux, ix = dx + 2 * dot * uy, iy = dy - 2 * dot * ux;
+  g.spawnBall({ x: m.x - ix * 60, y: m.y - iy * 60, angle: Math.atan2(iy, ix), speed: 520 });
+  const full = b.hp, events = []; for (let n = 0; n < 120 && b.hp === full; n++) { g.step(1 / 120); events.push(...g.drainEvents()); }
+  g.step(1 / 120); events.push(...g.drainEvents());
+  assert.equal(b.hp, full - 2); assert(Number.isFinite(m.flashAt));
+  assert(events.some(e => e.type === 'bossCritical' && e.via === 'mirror' && e.damage === 2));
+  for (const act of ['bank', 'shot']) assert(events.some(e => e.type === 'bossAbility' && e.move === 'mirrors' && e.act === act), act);
+  advance(g, 1);
+  hit(g, heartOf(s), { mirrorAt: g.time - 1.3 }); assert.equal(b.hp, full - 3, 'more than 1.2 s after the bank, a plain hit');
+  advance(g, 1); hit(g, heartOf(s), { mirrorAt: g.time - .5 }); assert.equal(b.hp, full - 5);
+});
+test('Heartbeat Hues: the real heart wants one of the next three seeds; other colors glance off and the bot holds them', () => {
+  const g = arena(4), s = g.bossState, b = s.boss, types = ['gold', 'coral', 'lilac', 'sky', 'poppy'];
+  for (let k = 0; k < 6; k++) {
+    g.shotNumber += k; const ahead = [0, 1, 2].map(n => g.typeAhead(n)), events = crystalMove(g, 2, 0);
+    assert(ahead.includes(s.hue), `${s.hue} in ${ahead}`);
+    const start = events.find(e => e.type === 'bossAbility' && e.move === 'hues' && e.act === 'start');
+    assert(start && start.targets.some(t => t.role === 'hue' && t.type === s.hue), 'the start event carries the color');
+    assert(Math.abs(s.next - s.age - 4.5) < .02, 'a 4.5 s spell');
+  }
+  const real = heartOf(s), other = types.find(t => t !== s.hue), hp = b.hp;
+  assert.equal(Bosses.canHit(g, real, { nx: 0, ny: 1 }, { type: other }), false);
+  for (const ok of [{ type: s.hue }, { type: other, power: 'beeline' }]) assert.equal(Bosses.canHit(g, real, { nx: 0, ny: 1 }, ok), true);
+  assert.equal(Bosses.canHit(g, real, { nx: 0, ny: 1, chain: true }, { type: other }), true);
+  assert.equal(Bosses.canHit(g, heartOf(s, false), { nx: 0, ny: 1 }, { type: other }), true);
+  hit(g, real, { type: other }); assert.equal(b.hp, hp);
+  assert(g.drainEvents().some(e => e.type === 'bossGuard' && e.mode === 'hue'));
+  hit(g, real, { type: s.hue }); assert.equal(b.hp, hp - 1);
+  // The practice bot: -1 for the real heart unless the seed in the launcher is the wanted color.
+  while (g.nextType === s.hue) g.shotNumber++;
+  let prepared = bot.prepareTrace(g); assert.equal(bot.value(g, { bud: heartOf(s), time: 0, nx: 0, ny: 1 }, .1, prepared), -1);
+  while (g.nextType !== s.hue) g.shotNumber++;
+  prepared = bot.prepareTrace(g); assert(bot.value(g, { bud: heartOf(s), time: 0, nx: 0, ny: 1 }, .1, prepared) > 0);
+  crystalMove(g, 2, 1); assert.equal(s.hue, null, 'the mirrors end the spell');
+});
+test('Crystal Heart replays identically at 30, 60 and 144 FPS, and a strike loop leaves nothing behind', () => {
+  const run = fps => {
+    const g = arena(4), s = g.bossState, snaps = []; s.tier = 2; s.cycle = 0; s.next = 0; serial = 0;
+    for (let sec = 1; sec <= 12; sec++) {
+      for (let n = 0; n < fps; n++) g.step(1 / fps);
+      const fake = s.parts.find(p => !p.real && !p.popped && p.slot === 0); if (fake) hit(g, fake);
+      snaps.push(JSON.stringify([s.mode, s.action, s.cycle, s.hue, s.boss.hp, s.parts.map(p => [p.id, p.real, p.popped, p.x.toFixed(4), p.y.toFixed(4)]),
+        g.bumpers.filter(m => m.bossMirror).map(m => m.angle.toFixed(6)), shardsOf(g).map(p => [p.id, p.y.toFixed(3)])]));
+    }
+    return snaps;
+  };
+  const at30 = run(30); assert.deepEqual(run(60), at30); assert.deepEqual(run(144), at30);
+  const g = arena(4), s = g.bossState, b = s.boss; crystalMove(g, 2, 0); crystalMove(g, 2, 1); hit(g, heartOf(s, false));
+  assert(s.hue === null && g.bumpers.some(m => m.bossMirror) && s.timers.length);
+  for (let n = 0; n < 200 && !b.bloomed; n++) g.strike(b);
+  assert(b.bloomed); assert.equal(s.timers.length + s.lobs.length, 0);
+  assert(!g.buds.some(p => p.inert && !p.bloomed)); assert(!g.bumpers.some(m => m.bossMirror)); assert(!g.buds.some(p => p.ghost));
+  assert.equal(s.hue, null);
+});
+
+// ── Lantern Lily (Level 5, `lotus`) ──
+{
+  const Engine = require('../engine.js'), vm = require('node:vm');
+  const flower = (id, x, y, extra) => ({ id, group: id, x, y, baseX: x, startY: y, r: 11, type: 'gold', hp: 1, maxHp: 1, relay: false, fall: 1, sway: 0, hitAt: -100, bloomAt: -100, bloomed: false, ...extra });
+  // Lily on her board with her next move forced (the tier, and the move's place in that tier's list) and its warning up.
+  // `still` stops her sway and drift, so a seed can be aimed at her through the moons.
+  function lily(tier, index, { descent = 0, still = false, buds = [] } = {}) {
+    const g = arena(5), s = g.bossState; g.descentSpeed = descent; g.buds.push(...buds);
+    if (still) s.stunUntil = 1e9;
+    s.tier = tier; if (tier) s.cycle = index; else s.action = index; s.next = 0; g.step(1 / 120); return g;
+  }
+  function until(g, done, seconds = 10) { const events = []; for (let n = 0; n < seconds * 120 && !done(); n++) { g.step(1 / 120); events.push(...g.drainEvents()); } return events; }
+  const play = g => until(g, () => !g.bossState.warning, 2);
+  const acts = (events, act) => events.filter(e => e.type === 'bossAbility' && e.kind === 'lotus' && e.act === act);
+  const lanternOf = s => s.parts.find(p => p.bossPart === 'lantern');
+  const padsOf = s => s.parts.filter(p => p.bossPart === 'pad');
+  const jellies = g => g.buds.filter(p => p.foe === 'jelly');
+  const moons = g => g.gates.filter(m => m.bossMoon);
+  const glowdrop = (id, x, bottom) => { const [p] = Foes.make('glowdrop', ['glowdrop', x, bottom - 8], id, null, null, null); return Object.assign(p, { hitAt: -100, bloomAt: -100, bloomed: false }); };
+  // A real seed from the launcher, straight at (x, y); `setup` may change it before it flies.
+  function shoot(g, x, y, setup) {
+    g.spawnBall({ x: 210, y: 498, angle: Math.atan2(y - 498, x - 210), speed: 520 }); const ball = g.balls[g.balls.length - 1];
+    if (setup) setup(ball); return ball;
+  }
+
+  test('Lantern Lily turns Glowing at two-thirds health and Moonlit at a third, each mood opening on its new move; every warning fits a phone; she still opens with her whirlpool', () => {
+    const g = arena(5), s = g.bossState, k = Bosses.kits.lotus, hp = Bosses.health.lotus;
+    assert(hp > 46 && hp < Bosses.health.core, 'longer than her old 46, still under the last guardian'); assert.equal(s.boss.maxHp, hp); assert.deepEqual(s.tierAt, [Math.ceil(2 * hp / 3), Math.ceil(hp / 3)]);
+    assert.deepEqual(k.moods, ['Dreamy', 'Glowing', 'Moonlit']); assert.deepEqual(k.stageText, [null, 'Lantern Lily is glowing!', 'Lantern Lily calls the moon!']);
+    assert.deepEqual(k.moves, [['lotus', 'reflect'], ['jellies', 'reflect', 'lotus'], ['worm', 'tide']]);
+    assert.deepEqual(k.text, { reflect: 'Moon gate! Aim low to hit high.', jellies: 'Lily pads! Shut them or catch the jellies.',
+      worm: 'Her lantern is a glowworm! Hit the head.', tide: 'Rising tide! The line creeps up.' });
+    for (const text of [...Object.values(k.text), ...k.stageText.slice(1)]) assert(text.length <= 52, text);
+    s.next = 0; g.step(1 / 120); assert.equal(s.warning.move, 'lotus'); assert.deepEqual(s.warning.targets.map(t => t.role), ['swirl']);
+  });
+  test('A credited seed stops Lily at her first mood line; while the change is announced her lantern is held (it stays lit), a pad can still be shot', () => {
+    let g = arena(5), s = g.bossState, b = s.boss, lantern = lanternOf(s); const line = s.tierAt[0]; b.hp = line + 2; s.next = s.age + 9;
+    hit(g, lantern); assert.equal(b.hp, line, 'a lantern hit stops at the threshold'); assert(s.shiftPending); assert.equal(s.mode, 'gutter');
+    const left = s.gutterUntil - s.age; g.step(1 / 120);
+    assert.equal(s.warning.move, 'stage'); assert.equal(s.warning.text, 'Lantern Lily is glowing!');
+    assert(Math.abs(s.gutterUntil - s.age - left - 1.3) < .02, 'the open gutter is paused for the warning, not lost');
+    g = arena(5); s = g.bossState; b = s.boss; lantern = lanternOf(s); b.hp = line; s.shiftPending = true; s.next = s.age + 9; g.drainEvents();
+    hit(g, lantern); assert(!lantern.bloomed, 'a held lantern stays lit'); assert.equal(b.hp, line); assert.equal(s.mode, 'open');
+    assert(g.drainEvents().some(e => e.type === 'bossGuard' && e.mode === 'stage'));
+    Bosses.kits.lotus.act.jellies(g, s, { targets: [{ x: 110, y: 384, r: 18, role: 'pad' }] });
+    const pad = padsOf(s)[0]; assert.equal(Bosses.canHit(g, pad, { nx: 0, ny: 1 }, {}), true); hit(g, pad); assert(pad.bloomed, 'her attackers stay answerable');
+    const events = until(g, () => s.tier === 1, 3); const stage = events.find(e => e.type === 'bossStage');
+    assert(stage && stage.mood === 'Glowing' && stage.stage === 1); assert(!events.some(e => e.type === 'bossAbility' && e.move === 'stage'));
+    until(g, () => s.warning, 3); assert.equal(s.warning.move, 'jellies', 'Glowing opens with her lily pads');
+    b.hp = s.tierAt[1] + 1; hit(g, b, { ny: -1 }); assert.equal(b.hp, s.tierAt[1]); assert(s.shiftPending);
+    until(g, () => s.tier === 2, 12); until(g, () => s.warning, 3); assert.equal(s.warning.move, 'worm', 'Moonlit opens with the glowworm');
+  });
+  test('Moon Gate: a low moon on the lake and a high one over her, both legal tunnel mouths, for 5 s of her clock', () => {
+    const g = lily(0, 1), s = g.bossState, w = s.warning, X = w.targets[0].x;
+    assert.equal(w.move, 'reflect'); assert.equal(w.text, 'Moon gate! Aim low to hit high.');
+    assert.deepEqual(w.targets.map(t => [t.role, t.x, t.y, t.r]), [['moonIn', X, 388, 22], ['moonOut', X, 52, 22]]); assert(X >= 100 && X <= 320);
+    const events = play(g), [low, high] = moons(g); assert.equal(acts(events, 'start').filter(e => e.move === 'reflect').length, 1);
+    assert.equal(moons(g).length, 2); assert.deepEqual([low.x, low.y, low.r, high.x, high.y, high.r], [X, 388, 18, X, 52, 18]);
+    assert.equal(low.angle, Math.atan2(388 - 498, X - 210)); assert.equal(high.angle, Math.PI / 2); assert(low.moonLow && !high.moonLow);
+    assert.deepEqual(Engine.gatesFor(moons(g)).map(m => m.id).sort(), moons(g).map(m => m.id).sort(), 'both pass the tunnel rules');
+    const out = Engine.gateTransfer(g.gates, low, Math.cos(low.angle) * 500, Math.sin(low.angle) * 500);
+    assert(Math.abs(out.vx) < 1e-6 && out.vy > 499, 'a straight shot leaves the high moon straight down');
+    assert(Math.abs(low.kitUntil - s.kitAge - 5) < 1e-9);
+    advance(g, 4.95); assert.equal(moons(g).length, 2); advance(g, .1); assert.equal(moons(g).length, 0, 'gone at 5 s');
+    const h = lily(0, 1); play(h); advance(h, 1); h.lullaby = 2; advance(h, 5); assert.equal(moons(h).length, 2, 'a Lullaby holds them');
+    advance(h, 1.1); assert.equal(moons(h).length, 0);
+  });
+  test('Moon shot: a seed shot straight into the low moon drops onto her top for two, a critical; touched or late, it is a plain hit', () => {
+    const run = setup => {
+      const g = lily(0, 1, { still: true }), s = g.bossState, b = s.boss; play(g); g.drainEvents();
+      const low = moons(g).find(m => m.moonLow), hp = b.hp, ball = shoot(g, low.x, low.y, setup);
+      const events = until(g, () => b.hp !== hp || !g.balls.includes(ball), 2); return { g, s, b, hp, ball, events };
+    };
+    let { b, hp, ball, events } = run();
+    assert.equal(b.hp, hp - 2, 'two damage'); assert(ball.moonShot && ball.gateHops === 1);
+    const crit = events.find(e => e.type === 'bossCritical'); assert(crit && crit.via === 'moon' && crit.damage === 2);
+    assert.equal(acts(events, 'shot').length, 1);
+    ({ b, hp, events } = run(seed => { seed.touches = 1; })); assert.equal(b.hp, hp - 1, 'a seed that touched a flower first'); assert(!events.some(e => e.type === 'bossCritical'));
+    ({ b, hp } = run(seed => { seed.age = 1.7; })); assert.equal(b.hp, hp - 1, 'a seed that wandered in late');
+    ({ b, hp } = run(seed => { seed.power = 'sunburst'; })); assert(b.hp >= hp - 4, 'a power keeps its own stated damage');
+    // It stops at the mood line like any credited hit.
+    const g = lily(0, 1, { still: true }), s = g.bossState, line = s.tierAt[0]; play(g); s.boss.hp = line + 1; const low = moons(g).find(m => m.moonLow); shoot(g, low.x, low.y);
+    until(g, () => s.boss.hp !== line + 1, 2); assert.equal(s.boss.hp, line); assert(s.shiftPending);
+    // The bot values the moon: the same hit on her is worth 30 more through a gate (on a fresh board: the bot also sees
+    // the mood-change hold above, which makes every hit on her worthless until Phase Bloom).
+    const h = lily(0, 1, { still: true }), v = h.bossState; play(h);
+    const plain = bot.value(h, { bud: { ...v.boss }, nx: 0, ny: -1, time: .5, gateHops: 0 }, 0, bot.prepareTrace(h));
+    const moon = bot.value(h, { bud: { ...v.boss }, nx: 0, ny: -1, time: .5, gateHops: 1 }, 0, bot.prepareTrace(h));
+    assert.equal(Math.round(moon - plain), 30);
+  });
+  test('Lily Pads: two pads open low on the lake; each sends up a moon jelly at +.9 s and +2.1 s, then sinks at +2.6 s', () => {
+    const g = lily(1, 0, { descent: 10 }), s = g.bossState, w = s.warning;
+    assert.equal(w.move, 'jellies'); assert.equal(w.text, 'Lily pads! Shut them or catch the jellies.');
+    assert.deepEqual(w.targets.map(t => [t.role, t.x, t.y, t.r]), [['pad', 110, 384, 18], ['pad', 310, 384, 18]]);
+    const events = play(g), pads = padsOf(s); assert.equal(acts(events, 'start').filter(e => e.move === 'jellies').length, 1);
+    assert.equal(pads.length, 2);
+    for (const p of pads) { assert.deepEqual([p.r, p.hp, p.sunBonus, p.born], [16, 1, 1, s.kitAge]); assert(g.buds.includes(p)); }
+    advance(g, .85); assert.equal(jellies(g).length, 0, 'nothing before +.9 s');
+    let log = until(g, () => jellies(g).length, .2); const first = jellies(g);
+    assert.equal(first.length, 2); assert.equal(acts(log, 'release').length, 2); assert.equal(log.filter(e => e.type === 'foe' && e.kind === 'jelly:spawn').length, 2);
+    for (const j of first) { assert(pads.some(p => p.x === j.x0) && j.y0 === 354); assert(j.bossSummon && j.group === j.id); assert.equal(Foes.breach(g, j), 'skip'); }
+    advance(g, .1); assert(first.every(j => Number.isFinite(j.x) && Number.isFinite(j.y) && j.y < 354), 'born on the foe clock: rising at once');
+    log = until(g, () => jellies(g).length === 4, 1.3); assert.equal(jellies(g).length, 4, 'two each'); assert.equal(new Set(jellies(g).map(j => j.id)).size, 4);
+    for (const p of pads) assert.deepEqual([p.x, p.y], [p.baseX, p.startY], 'pads stay put');
+    assert(pads.every(p => !p.closed)); advance(g, .5); assert(pads.every(p => p.closed && !g.buds.includes(p) && !s.parts.includes(p)), 'both sink at +2.6 s');
+    assert.equal(acts(g.drainEvents(), 'shut').length, 0, 'sinking is not a shut');
+  });
+  test('Shooting a pad shut stops its jellies and pays exactly one more sun than a plain part bloom; uncredited pays nothing', () => {
+    const g = lily(1, 0), s = g.bossState; play(g); const [left, right] = padsOf(s);
+    let charge = g.sunCharge; hit(g, left); assert(left.bloomed); const shut = g.sunCharge - charge;
+    const e = acts(g.drainEvents(), 'shut'); assert.equal(e.length, 1); assert.equal(e[0].move, 'jellies');
+    // The plain part bloom to compare with: the same pad without its bonus.
+    const h = lily(1, 0), t = h.bossState; play(h); const bare = padsOf(t)[0]; delete bare.sunBonus;
+    charge = h.sunCharge; hit(h, bare); assert.equal(shut - (h.sunCharge - charge), 1, 'one more sun');
+    advance(g, 1); assert.deepEqual(jellies(g).map(j => j.x0), [310], 'only the open pad sent one');
+    charge = g.sunCharge; g.strike(right); assert(right.bloomed); assert.equal(g.sunCharge, charge, 'an uncredited shut pays no sun');
+    advance(g, 1.5); assert.equal(jellies(g).length, 1, 'shut pads send nothing'); assert(!s.parts.includes(left) && !g.buds.includes(left), 'a shut pad leaves the board');
+    // A piece sitting on a pad's bud holds that jelly back.
+    const k = lily(1, 0), u = k.bossState; play(k); k.buds.push(flower('sit', 110, 350)); advance(k, 1); assert.deepEqual(jellies(k).map(j => j.x0), [310]);
+    // The bot: a pad with a jelly still to send is worth 70, then 35.
+    const rank = () => new Map(Bosses.targets(k).filter(r => r.bud.bossPart === 'pad').map(r => [r.bud.x, r.priority]));
+    assert.equal(rank().get(310), 70); advance(k, 1.3); assert.equal(rank().get(310), 35);
+    // A piece that drifts onto a pad's spot during the warning: that pad stays shut, and the start ring shows only the other.
+    const m = lily(1, 0); m.buds.push(flower('on-pad', 110, 384)); const st = acts(play(m), 'start').find(e => e.move === 'jellies');
+    assert.deepEqual(padsOf(m.bossState).map(p => p.x), [310]); assert.deepEqual(st.targets.map(t => [t.role, t.x]), [['pad', 310]]);
+  });
+  test('Glowworm Lantern: her lantern crawls off as a glowworm\'s head, 70 px below her at x 300 (else 100); no room, the tide comes', () => {
+    const g = lily(2, 0), s = g.bossState, w = s.warning, b = s.boss, lantern = lanternOf(s), y = w.targets[0].y;
+    assert.equal(w.move, 'worm'); assert.equal(w.text, 'Her lantern is a glowworm! Hit the head.');
+    assert.deepEqual(w.targets.map(t => [t.role, t.x]), [['worm', 300], ['wormBody', 321], ['wormBody', 341], ['wormBody', 361], ['wormBody', 381]]);
+    assert(Math.abs(y - b.y - 70) < 1e-9);
+    const events = play(g), pieces = g.buds.filter(p => p.foe === 'glowworm'), head = pieces.find(p => p.bossLantern);
+    assert.equal(pieces.length, 5); assert(head && head.head && head.r === 11); assert.deepEqual(pieces.map(p => p.y), pieces.map(() => y));
+    assert.equal(new Set(pieces.map(p => p.group)).size, 1); assert(pieces.every(p => p.bossSummon && p.id.startsWith(b.id + '-worm-')));
+    assert(lantern.hidden && lantern.visible === false, 'the lantern has left its stem'); assert.equal(Bosses.canHit(g, lantern, { nx: 0, ny: 1 }, {}), false);
+    assert.equal(events.filter(e => e.type === 'foe' && e.kind === 'glowworm:spawn').length, 1);
+    const rank = Bosses.targets(g).find(t => t.bud === head); assert(rank && rank.priority === 65, 'the bot goes for her lantern on the worm');
+    const lower = lily(2, 0, { buds: [flower('in-the-way', 300, 100 + 70)] }); assert(Math.abs(lower.bossState.warning.targets[0].y - lower.bossState.boss.y - 100) < 1e-9);
+    const none = lily(2, 0, { buds: [flower('a', 330, 170), flower('b', 330, 200)] }); assert.equal(none.bossState.warning.move, 'tide', 'no room: the tide');
+    // A piece drifts onto the shown spot: the worm comes out at the other height, and the start ring shows where it really is.
+    const moved = lily(2, 0), shown = moved.bossState.warning.targets[0].y; moved.buds.push(flower('drift', 300, shown));
+    const st = acts(play(moved), 'start').find(e => e.move === 'worm'), at = moved.buds.find(p => p.bossLantern);
+    assert(at && at.y > shown + 20, `${at && at.y} vs ${shown}`); assert(st.targets.length === 5 && st.targets.every(t => t.y === at.y));
+    // Sunk low on a fast wave, there is no height it could crawl at and puff back before reaching the line.
+    const deep = arena(5), ds = deep.bossState; deep.descentSpeed = 17.2; ds.drift = 280; ds.tier = 2; ds.cycle = 0; ds.next = 0; deep.step(1 / 120);
+    assert.notEqual(ds.warning.move, 'worm', 'too low: the worm would reach the line before it puffs back');
+  });
+  test('Hit the worm\'s head: the light runs home, three damage, her gutter open at +.2 s and closed at +5.3 s; it clamps at a mood line', () => {
+    let g = lily(2, 0), s = g.bossState, b = s.boss, lantern = lanternOf(s); play(g); advance(g, .3); g.drainEvents();
+    const head = g.buds.find(p => p.bossLantern), hp = b.hp; hit(g, head); assert(head.bloomed);
+    let events = until(g, () => false, .2); assert.equal(b.hp, hp - 3); assert.equal(s.mode, 'gutter');
+    assert(lantern.bloomed && !lantern.hidden && lantern.visible, 'the lantern is home, spent');
+    const crit = events.find(e => e.type === 'bossCritical'); assert(crit && crit.via === 'lantern' && crit.damage === 3);
+    assert.equal(acts(events, 'home').length, 1); assert(events.some(e => e.type === 'foe' && e.kind === 'glowworm:ripple'));
+    advance(g, .2); assert(g.buds.filter(p => p.foe === 'glowworm').every(p => p.bloomed), 'the light ran down the whole worm');
+    advance(g, 4.9); assert.equal(s.mode, 'open'); assert(!lantern.bloomed, 'relit when the gutter ends');
+    advance(g, 2); assert.equal(acts(g.drainEvents(), 'puffback').length, 0, 'a spent worm does not puff back');
+    // At a mood line it stops there, but the lantern still comes home and the gutter still opens.
+    g = lily(2, 0); s = g.bossState; b = s.boss; play(g); s.tier = 1; b.hp = s.tierAt[1] + 2; hit(g, g.buds.find(p => p.bossLantern)); advance(g, .2);
+    assert.equal(b.hp, s.tierAt[1]); assert(s.shiftPending); assert.equal(s.mode, 'gutter');
+    // Uncredited (a script), it is a plain hit.
+    g = lily(2, 0); s = g.bossState; b = s.boss; play(g); g.strike(g.buds.find(p => p.bossLantern)); advance(g, .2); assert.equal(b.hp, b.maxHp - 1);
+  });
+  test('Left alone for 7 s the worm puffs away, pieces split off it too, with no life lost; the lantern floats home lit', () => {
+    const g = lily(2, 0, { descent: 10 }), s = g.bossState, lantern = lanternOf(s); play(g); const lives = g.lives;
+    const bead = g.buds.find(p => p.foe === 'glowworm' && p.seg === 2); hit(g, bead); assert(bead.bloomed);
+    assert(g.buds.some(p => p.foe === 'glowworm' && !p.bloomed && p.worm !== s.worm.G), 'the beads behind it split off');
+    advance(g, 6.85); assert(g.buds.some(p => p.foe === 'glowworm' && !p.bloomed)); g.drainEvents();
+    const events = until(g, () => !g.buds.some(p => p.foe === 'glowworm' && !p.bloomed), .3);
+    assert.equal(events.filter(e => e.type === 'foe' && e.kind === 'glowworm:puff').length, 4, 'the head, its bead and the two split off'); assert.equal(acts(events, 'puffback').length, 1);
+    assert(!lantern.hidden && lantern.visible && !lantern.bloomed, 'home and lit'); assert.equal(g.lives, lives);
+  });
+  test('Rising Tide: the line rises up to 28 px over .6 s, holds until the recede at 5.6 s and is back at 448 by 6.4 s', () => {
+    const g = lily(2, 1), s = g.bossState, w = s.warning;
+    assert.equal(w.move, 'tide'); assert.equal(w.text, 'Rising tide! The line creeps up.'); assert.deepEqual(w.targets.map(t => [t.role, t.x, t.y, t.r]), [['tide', 210, 420, 30]]);
+    let events = play(g); assert.equal(acts(events, 'rise').length, 1); assert.equal(s.tide.offset, 28); const t0 = s.kitAge;
+    advance(g, .3); assert(g.dangerY < 448 && g.dangerY > 420); advance(g, .31); assert(Math.abs(g.dangerY - 420) < 1e-9);
+    advance(g, 4.9); assert(Math.abs(g.dangerY - 420) < 1e-9, 'held');
+    events = until(g, () => g.dangerY > 420, 1); assert.equal(acts(events, 'recede').length, 1); assert(Math.abs(s.kitAge - t0 - 5.6) < 2 / 120, 'recedes at 5.6 s');
+    advance(g, .4); assert(g.dangerY > 420 && g.dangerY < 448); advance(g, .42); assert.equal(g.dangerY, 448); assert.equal(s.tide, null);
+  });
+  test('The tide never rises to within 18 px of a piece that would cost a life (glowdrops and worms too); jellies do not count', () => {
+    const buds = [flower('low', 120, 380, { fall: 1 }), glowdrop('drop', 250, 395), flower('far', 300, 200)];
+    const g = lily(2, 1, { descent: 10, buds }), s = g.bossState; Foes.place(g, buds[1]);
+    const jelly = Foes.make('jelly', ['jelly', 60, 430, {}], 'jj', null, null, null)[0]; Foes.place(g, jelly);
+    play(g); assert(s.tide, 'it rises'); advance(g, .6);
+    const costly = g.buds.filter(p => !p.bloomed && !p.bossPart && !(p.foe && Foes.breach(g, p) !== 'life'));
+    assert(costly.length >= 3); for (const p of costly) assert(g.dangerY - p.y - p.r >= 18 - 1e-6, `${p.id} keeps 18 px`);
+    assert(g.dangerY >= 420); const line = g.dangerY; advance(g, 2); assert.equal(g.dangerY, line, 'then it holds (no re-clamp)');
+    // A glowdrop 23 px over the line when the tide comes: no rise at all.
+    const h = lily(2, 1), u = h.bossState; h.buds.push(glowdrop('d2', 200, 425)); Foes.place(h, h.buds[h.buds.length - 1]);
+    const ev = play(h); assert(!u.tide); assert.equal(h.dangerY, 448); assert.equal(acts(ev, 'rise').length, 0);
+    // Too little room to rise even when planned: a quiet rest instead.
+    const k = lily(2, 1, { buds: [flower('x', 200, 415)] }); assert.notEqual(k.bossState.warning && k.bossState.warning.move, 'tide');
+    // A piece that comes in under the warning lowers the tide, and the start ring shows the lower line.
+    const lo = lily(2, 1), v = lo.bossState; assert.equal(v.warning.targets[0].y, 420); lo.buds.push(flower('late', 200, 395));
+    const st = acts(play(lo), 'start').find(e => e.move === 'tide'); assert.equal(v.tide.offset, 24); assert.deepEqual(st.targets.map(t => [t.y, t.offset]), [[424, 24]]);
+  });
+  test('Lily plays the same at 30, 60 and 144 FPS', () => {
+    for (const [tier, index] of [[1, 0], [2, 0], [2, 1]]) {
+      const run = fps => {
+        const g = arena(5), s = g.bossState; g.descentSpeed = 10.5; g.buds.push(flower('a', 120, 300), flower('b', 260, 260), flower('c', 330, 140));
+        s.tier = tier; s.cycle = index; s.next = 0; const log = [];
+        for (let n = 0; n < 12 * fps; n++) { g.step(1 / fps); for (const e of g.drainEvents()) if (e.type === 'bossAbility' || e.type === 'bossWarning') log.push(`${e.move}:${e.act || ''}`); }
+        return { g, sign: { log: log.join(' '), mode: s.mode, action: s.action, cycle: s.cycle, hp: s.boss.hp, kit: s.kitAge.toFixed(6), line: g.dangerY.toFixed(4), buds: g.buds.filter(p => !p.bloomed).map(p => p.id).sort() } };
+      };
+      const base = run(60);
+      for (const fps of [30, 144]) {
+        const { g, sign } = run(fps); assert.deepEqual(sign, base.sign, `${tier}:${index} at ${fps} FPS`);
+        for (const p of base.g.buds) { const q = g.buds.find(o => o.id === p.id); if (q) assert(Math.hypot(p.x - q.x, p.y - q.y) < .5, `${p.id} at ${fps} FPS`); }
+      }
+    }
+  });
+  test('A Lullaby holds her clock: moons, pad jellies, the worm\'s puffback and the tide all wait, then carry on late by its length', () => {
+    let g = lily(1, 0), s = g.bossState; play(g); const acted = g.time; g.lullaby = 1; advance(g, 1.5);
+    assert.equal(jellies(g).length, 0, 'no jelly while the lake sleeps'); until(g, () => jellies(g).length, 1); assert(Math.abs(g.time - acted - .9 - 1) < 2 / 120);
+    g = lily(2, 0); s = g.bossState; play(g); const out = g.time; g.lullaby = 1;
+    until(g, () => s.worm.done, 9); assert(Math.abs(g.time - out - 7 - 1) < 2 / 120, 'puffs back late');
+    g = lily(2, 1); s = g.bossState; play(g); advance(g, 1); g.lullaby = 1; const line = g.dangerY, kit = s.kitAge; advance(g, .9);
+    assert.equal(g.dangerY, line); assert.equal(s.kitAge, kit);
+  });
+  test('Beaten mid-move, Lily leaves nothing behind: no moons, pads, worm, timers or raised line, and her lantern back on its stem', () => {
+    const g = lily(1, 0, { descent: 10.5 }), s = g.bossState, b = s.boss; play(g); advance(g, .95);
+    s.cycle = 1; s.next = s.age; g.step(1 / 120); play(g);
+    s.tier = 2; s.cycle = 0; s.next = s.age; g.step(1 / 120); play(g); s.cycle = 1; s.next = s.age; g.step(1 / 120); play(g);
+    assert(moons(g).length && s.tide && lanternOf(s).hidden && s.timers.length, 'moons, the tide and the worm are up');
+    for (let n = 0; n < 200 && !b.bloomed; n++) g.strike(b);
+    assert(b.bloomed); assert.equal(moons(g).length, 0); assert.equal(s.timers.length + s.lobs.length + s.carried.length, 0);
+    assert.equal(g.dangerY, 448); assert.equal(g.aimNapUntil, 0); assert.equal(s.tide, null); assert(!lanternOf(s).hidden && lanternOf(s).visible);
+    assert(!g.buds.some(p => p.inert && !p.bloomed)); assert(padsOf(s).every(p => p.bloomed));
+    advance(g, 8); assert.equal(g.dangerY, 448); assert.equal(acts(g.drainEvents(), 'puffback').length, 0);
+  });
+  // The art, in a sandbox with a recording canvas: every move with Animations on and off, after her sprites are warmed.
+  function lilyArt(canvas = true) {
+    const tally = { gradients: 0, blur: 0, calls: {}, hook: null, face: [], kit: null };
+    const brush = () => {
+      const stack = [], state = { globalAlpha: 1, globalCompositeOperation: 'source-over', fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, shadowBlur: 0, lineDashOffset: 0 };
+      const ctx = new Proxy(state, {
+        get(t, name) {
+          if (name in t) return t[name];
+          if (name === 'canvas') return { width: 420, height: 560 };
+          return (...args) => {
+            for (const a of args) if (typeof a === 'number') assert(Number.isFinite(a), `${String(name)} received ${a}`);
+            if (tally.hook) tally.calls[tally.hook] = (tally.calls[tally.hook] || 0) + 1;
+            if (tally.hook === 'face' && /To$|^arc$|^ellipse$/.test(name)) tally.face.push(name, ...args.map(n => Math.round(n * 100)));
+            if (name === 'save') stack.push({ ...state });
+            else if (name === 'restore') { assert(stack.length, 'restore without save'); Object.assign(state, stack.pop()); }
+            else if (name === 'measureText') return { width: String(args[0]).length * 7 };
+            else if (name === 'getTransform') return { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+            else if (/Gradient$/.test(name)) { if (tally.hook) tally.gradients++; return { addColorStop() {} }; }
+          };
+        },
+        set(t, name, value) {
+          if (['globalAlpha', 'lineWidth', 'shadowBlur', 'lineDashOffset'].includes(name)) assert(Number.isFinite(value), `${name} is finite`);
+          if (name === 'shadowBlur' && value > 0 && tally.hook) tally.blur++;
+          t[name] = value; return true;
+        }
+      });
+      return { ctx, balanced: () => stack.length === 0 };
+    };
+    class Canvas { constructor(w, h) { this.width = w; this.height = h; this.rec = brush(); } getContext() { return this.rec.ctx; } }
+    const scope = vm.createContext({ console, Math, Map, Set, WeakMap, Array, Object, Number, String, JSON, Date, performance, ...(canvas ? { OffscreenCanvas: Canvas } : {}) });
+    for (const file of ['foe-art.js', 'art.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), scope, { filename: file });
+    const kits = scope.BloomFoeArt.kits, drawn = new Set(), look = scope.BloomFoeArt.KIT_LOOKS.lotus;
+    for (const hook of ['under', 'part', 'face', 'over', 'aim']) {
+      const call = kits[hook]; kits[hook] = (...args) => { const outer = tally.hook; tally.hook = hook; try { const done = call(...args); if (done) drawn.add(hook === 'part' ? args[2].bossPart : hook); return done; } finally { tally.hook = outer; } };
+    }
+    const own = look.under; look.under = (ctx, state, s, time, still, kit, quality) => { if (!tally.kit) { tally.kit = kit; look.warm(kit); tally.gradients = 0; } return own(ctx, state, s, time, still, kit, quality); };
+    const frame = (game, still, quality = 0) => {
+      const rec = brush(); scope.BloomArt.draw(rec.ctx, game, game.time, { showAim: false, theme: 'depth-lake', reducedMotion: still, quality });
+      assert(rec.balanced(), 'transforms balance');
+    };
+    return { tally, frame, drawn };
+  }
+  test("Lily's art draws every move, Animations on and off, with no gradient or blur per frame; her three moods are three faces", () => {
+    const { tally, frame, drawn } = lilyArt(), seen = new Set();
+    const film = (g, seconds) => { for (let n = 0; n < seconds * 120; n++) { g.step(1 / 120); if (n % 12 === 0) { frame(g, false, n % 24 ? 0 : 2); frame(g, true); } } };
+    for (const [tier, index, seconds] of [[0, 1, 5.5], [1, 0, 3.2], [2, 0, 2], [2, 1, 7]]) {
+      const g = lily(tier, index, { descent: 10.5, still: tier === 0 }), s = g.bossState; seen.add(s.warning.move);
+      film(g, 1.4);
+      if (s.warning === null && index === 1 && tier === 0) { const low = moons(g).find(m => m.moonLow); shoot(g, low.x, low.y); }
+      film(g, .4);
+      if (tier === 1) hit(g, padsOf(s)[0]);
+      if (tier === 2 && index === 0) { hit(g, g.buds.find(p => p.bossLantern)); film(g, 1); hit(g, lanternOf(s)); }
+      film(g, seconds);
+    }
+    const g = lily(2, 0); play(g); film(g, 7.5); assert(!lanternOf(g.bossState).hidden, 'a worm puffed back home');
+    assert.deepEqual([...seen].sort(), ['jellies', 'reflect', 'tide', 'worm']);
+    assert.equal(tally.gradients, 0, 'no gradient inside her hooks once warm'); assert.equal(tally.blur, 0, 'no shadow blur');
+    for (const hook of ['under', 'over']) assert(tally.calls[hook] > 0, hook + ' draws'); for (const piece of ['pad', 'face']) assert(drawn.has(piece), piece + ' drawn by the kit');
+    const flat = lilyArt(false), faces = [0, 1, 2].map(tier => { const h = arena(5); h.bossState.tier = tier; flat.tally.face = []; flat.frame(h, true); return JSON.stringify(flat.tally.face); });
+    assert(faces.every(f => f.length > 100)); assert.equal(new Set(faces).size, 3, 'Dreamy, Glowing and Moonlit');
+  });
+  test('The good bot beats Lantern Lily', () => {
+    for (const seed of [7, 19]) {
+      const run = bot.play(5, { seed, startWave: 10, noise: 2.5, think: .3, thinkSpread: .3, bounces: 2 });
+      assert(run.won, `seed ${seed}: ${JSON.stringify(run.bossDiagnostics)}`);
+    }
+  });
+}
+
+// ── Ammonite Queen (Level 6, `fossil`) ──
+function queenMove(tier, cycle, g = arena(6), action) {
+  const s = g.bossState; s.tier = tier; s.cycle = cycle; if (action != null) s.action = action; s.next = s.age; g.step(1 / 120);
+  const w = s.warning; assert(w, 'a warning is up'); const tell = w.targets.map(t => ({ ...t }));
+  const events = []; while (s.warning) { g.step(1 / 120); events.push(...g.drainEvents()); } return { g, s, w, tell, events };
+}
+// The mouth turned to face a seed from straight below (and the inner ring too), so a hit there passes both gaps.
+function openQueen(s) { const b = s.boss; b.shellAngle = Math.PI / 2; b.shellSpin = 0; s.lockAngle = Math.PI / 2; s.lockSpin = 0; }
+test('Ammonite Queen: 32 rings, moods at 22 and 11, Regal opens on her two locks, and her own words for each move', () => {
+  const g = arena(6), s = g.bossState, k = Bosses.kits.fossil;
+  assert.equal(Bosses.health.fossil, 32); assert.equal(s.boss.maxHp, 32); assert.deepEqual(s.tierAt, [22, 11]);
+  assert.deepEqual(k.moods, ['Regal', 'Stony', 'Brooding']);
+  assert.deepEqual(k.stageText, [null, 'The Ammonite Queen grows stony!', 'The Ammonite Queen is brooding!']);
+  assert.deepEqual(k.moves, [['fossil', 'pearls'], ['petrify', 'fossil', 'pearls'], ['hatch', 'pearls', 'petrify', 'fossil']]);
+  for (const text of [...Object.values(k.text), ...k.stageText.slice(1)]) assert(text.length <= 52, text);
+  s.next = 0; g.step(1 / 120); assert.equal(s.warning.move, 'fossil'); assert.equal(s.warning.text, 'Two locks. Wait for both gaps.');
+  assert(s.warning.until - s.warning.at >= 1.3 - 1e-9);
+});
+test('Ammonite Queen: Pearl Volley lobs three pearls to shown marks on her kit clock, forecast exactly; uncaught they land armoured in turning shells', () => {
+  const { g, s, w, tell, events } = queenMove(0, 0, arena(6), 1), b = s.boss;
+  assert.equal(w.move, 'pearls'); assert.equal(w.text, 'Pearl volley! Catch one in the air.');
+  assert.deepEqual(tell.filter(t => t.role === 'pearl').map(t => t.r), [11, 11, 11]);
+  const pearls = s.parts.filter(p => p.bossPart === 'pearl'); assert.equal(pearls.length, 3);
+  assert(pearls.every(p => p.r === 9 && p.hp === 1 && p.sunBonus === 1 && p.T === 1.05 && p.h === 56));
+  const ahead = Bosses.predictVisible(g, .5); advance(g, .5);
+  for (const p of pearls) { const q = ahead.get(p.id); assert(Math.abs(q.x - p.x) < 1e-6 && Math.abs(q.y - p.y) < 1e-6, 'the forecast is the board'); }
+  assert(pearls.every(p => p.y < Math.max(p.y0, p.y1)), 'mid-arc, above the line between her and the mark');
+  const lands = []; for (let n = 0; n < 80; n++) { g.step(1 / 120); lands.push(...g.drainEvents()); }
+  const landed = g.buds.filter(p => p.pearl && !p.bloomed);
+  assert.equal(landed.length, 3); assert.equal(acts(lands, 'land').length, 1);
+  assert(landed.every(p => p.shell && Math.abs(Math.abs(p.shellSpin) - 1.25) < 1e-9 && p.fall === .4 && p.bossSummon && p.r === 11 && p.hp === 1));
+  assert.deepEqual(landed.map(p => Math.sign(p.shellSpin)), [1, -1, 1]); assert(!s.parts.some(p => p.bossPart === 'pearl'));
+  assert(events.some(e => e.type === 'bossAbility' && e.move === 'pearls' && e.act === 'start'));
+});
+test('Ammonite Queen: a seed that meets a pearl in the air is a Pearl catch (bloom, +1 sun, 250 x tempo); a chain or power just blooms it', () => {
+  const { g, s } = queenMove(0, 0, arena(6), 1); advance(g, .3);
+  const [p, q] = s.parts.filter(x => x.bossPart === 'pearl'), score = g.score, sun = g.sunCharge;
+  hit(g, p); const events = g.drainEvents(), catchEvent = acts(events, 'catch')[0];
+  assert(p.bloomed && catchEvent && catchEvent.bonus === Math.round(250 * g.tempo)); assert(g.score > score + catchEvent.bonus); assert(g.sunCharge > sun);
+  hit(g, q, { power: 'beeline' }); assert(q.bloomed && !acts(g.drainEvents(), 'catch').length, 'a power blooms it, no catch');
+  advance(g, 1); assert.equal(g.buds.filter(x => x.pearl).length, 1, 'only the uncaught one landed');
+});
+test('Ammonite Queen: Stony opens on Petrify: three buds (or bare-bed slabs) turn to stone for 5 s on the kit clock, faced to bank toward her', () => {
+  const g = arena(6), s = g.bossState, b = s.boss; s.tier = 1; s.cycle = 0; s.next = s.age; g.step(1 / 120);
+  assert.equal(s.warning.move, 'petrify'); assert.equal(s.warning.text, 'Stone buds! Bank a seed off a slab.');
+  const tell = s.warning.targets.filter(t => t.role === 'stone'); assert.equal(tell.length, 3, 'an empty board is topped up from the bed');
+  const events = []; while (s.warning) { g.step(1 / 120); events.push(...g.drainEvents()); }
+  const stones = g.bumpers.filter(m => m.bossStone), hosts = stones.map(m => g.buds.find(p => p.id === m.host));
+  assert.equal(stones.length, 3); assert(stones.every(m => m.kind === 'rock' && m.bossWall && m.bossMirror && m.kitDrawn && m.length === 18 && m.kitUntil === m.t0 + 5));
+  assert(hosts.every(p => p && p.hidden && p.stoned === b.id && p.hp === 1)); assert.equal(acts(events, 'stone').length, 1);
+  const [stoneAct] = acts(events, 'stone'), slabs = new Map(tell.map(t => [t.id || 'bed', t]));
+  for (const m of stones) { // a straight shot from the launcher at the slab's centre leaves toward where she stands as it turns to stone
+    const ux = Math.cos(m.angle), uy = Math.sin(m.angle), nx = -uy, ny = ux, dx = m.x - g.launcher.x, dy = m.y - g.launcher.y, l = Math.hypot(dx, dy), vx = dx / l, vy = dy / l, d = vx * nx + vy * ny;
+    const rx = vx - 2 * d * nx, ry = vy - 2 * d * ny, to = Math.atan2(stoneAct.y - m.y, stoneAct.x - m.x), err = Math.abs(((Math.atan2(ry, rx) - to) + 3 * Math.PI) % (2 * Math.PI) - Math.PI);
+    assert(err < .03, `faced to bank toward her (${err})`);
+  }
+  assert(tell.every(t => Number.isFinite(t.angle)) && stones.every(m => tell.some(t => t.angle === m.angle)), 'the tell shows the very angle each slab takes');
+  advance(g, 4.9); assert.equal(g.bumpers.filter(m => m.bossStone).length, 3);
+  const thaw = []; for (let n = 0; n < 20; n++) { g.step(1 / 120); thaw.push(...g.drainEvents()); }
+  assert(!g.bumpers.some(m => m.bossStone) && hosts.every(p => !p.hidden && !p.stoned)); assert.equal(acts(thaw, 'thaw').length, 1);
+  assert.deepEqual(acts(thaw, 'thaw')[0].marks.map(m => m.id).sort(), hosts.map(p => p.id).sort(), 'the thaw names the buds it wakes');
+});
+test('Ammonite Queen: a Fossil bank (a seed that banked off a slab within 1.2 s and gets through her gaps) lands for three', () => {
+  let g = arena(6), s = g.bossState, b = s.boss; s.next = 99; openQueen(s); const hp = b.hp;
+  hit(g, b, { mirrorAt: g.time - .5 }); const crit = g.drainEvents().find(e => e.type === 'bossCritical');
+  assert.equal(b.hp, hp - 3); assert(crit && crit.via === 'fossil' && crit.damage === 3); assert.equal(s.lockStage, 0, 'a bank skips the click');
+  hit(g, b, { mirrorAt: g.time - 1.3 }); assert.equal(b.hp, hp - 3, 'later than 1.2 s: the plain click'); assert.equal(s.lockStage, 1);
+  g = arena(6); s = g.bossState; b = s.boss; s.next = 99; openQueen(s); b.shellAngle = -Math.PI / 2;
+  hit(g, b, { mirrorAt: g.time }); assert.equal(b.hp, b.maxHp, 'the mouth still has to be open');
+  g = arena(6); s = g.bossState; b = s.boss; s.next = 99; openQueen(s); b.hp = s.tierAt[0] + 1;
+  hit(g, b, { mirrorAt: g.time }); assert.equal(b.hp, s.tierAt[0], 'the mood clamp still applies');
+});
+test('Ammonite Queen: Brooding spins her lock ring at 1.4 rad/s and opens on an amber egg that hatches an Amberkeeper where it was shown', () => {
+  const g = arena(6), s = g.bossState, b = s.boss; b.hp = s.tierAt[1] + 1; s.tier = 1; s.next = 99; openQueen(s); s.lockSpin = 1.05; b.shellAngle = Math.PI / 2;
+  hit(g, b, { nx: 0, ny: 1 }); hit(g, b); while (!(s.tier === 2)) g.step(1 / 120);
+  assert.equal(s.lockSpin, 1.4);
+  for (let n = 0; n < 600 && !(s.warning && s.warning.move === 'hatch'); n++) g.step(1 / 120);
+  assert.equal(s.warning.move, 'hatch'); const egg = s.warning.targets.find(t => t.role === 'egg');
+  while (s.warning) g.step(1 / 120); assert.equal(s.lobs.length, 1); assert.equal(s.lobs[0].look, 'egg');
+  const events = []; for (let n = 0; n < 140; n++) { g.step(1 / 120); events.push(...g.drainEvents()); }
+  const keeper = g.buds.find(p => p.foe === 'amberkeeper');
+  assert(keeper && keeper.bossSummon && keeper.bossSource === b.id && keeper.x === egg.x && Math.abs(keeper.y - egg.y) < 1e-9);
+  assert(events.some(e => e.type === 'foe' && e.kind === 'amberkeeper:hatch')); assert(g.foeWave, 'the foe step runs this wave');
+});
+test('Ammonite Queen: each move lifts her up to 36 px over .9 s (never above where she started), forecast exactly', () => {
+  const g = arena(6), s = g.bossState, b = s.boss; s.drift = 20; s.next = s.age; s.action = 1; g.step(1 / 120);
+  while (s.warning) g.step(1 / 120); assert(s.rise && Math.abs(s.rise.by - 20) < 1e-9, 'only as far as she has sunk');
+  const y0 = b.y, ahead = Bosses.predictVisible(g, .45).get(b.id); advance(g, .45);
+  assert(Math.abs(ahead.y - b.y) < 1e-6 && b.y < y0); advance(g, .6); assert(!s.rise && Math.abs(s.drift) < 1e-9);
+  const g2 = arena(6), s2 = g2.bossState; s2.drift = 100; s2.next = s2.age; s2.action = 1; g2.step(1 / 120); while (s2.warning) g2.step(1 / 120);
+  assert.equal(s2.rise.by, 36);
+});
+test('Ammonite Queen: a Lullaby holds her pearls in the air, her slabs and her lift; it all carries on after', () => {
+  const { g, s } = queenMove(0, 0, arena(6), 1); advance(g, .3); const p = s.parts.find(x => x.bossPart === 'pearl'), at = [p.x, p.y];
+  g.lullaby = 1; advance(g, .9); assert.deepEqual([p.x, p.y], at); advance(g, 1.2); assert(g.buds.some(x => x.pearl), 'landed after');
+  const r = queenMove(1, 0), g2 = r.g, s2 = r.s; s2.drift = 30; s2.rise = null; s2.next = 99;
+  r.s.rise = { at: s2.kitAge, by: 30 }; s2.timers.push({ at: s2.kitAge + .9, act: 'risen', data: s2.rise });
+  const kit0 = s2.kitAge, stones = () => g2.bumpers.filter(m => m.bossStone).length; assert.equal(stones(), 3);
+  g2.lullaby = 2; advance(g2, 2); assert.equal(s2.kitAge, kit0, 'the kit clock stops'); assert(s2.rise && stones() === 3, 'the lift and the slabs hold');
+  advance(g2, 1); assert(!s2.rise && Math.abs(s2.drift) < 1e-9, 'the lift finishes after'); advance(g2, 3.85); assert.equal(stones(), 3); advance(g2, .2); assert.equal(stones(), 0, 'slabs end 5 s of kit time after they formed');
+});
+test('Ammonite Queen: the same fight at 30, 60 and 144 FPS', () => {
+  const runs = [30, 60, 144].map(fps => {
+    const g = arena(6), s = g.bossState; s.tier = 1; s.cycle = 0; s.next = s.age; const log = [];
+    for (let f = 0; f < 16 * fps; f++) { g.step(1 / fps); for (const e of g.drainEvents()) if (e.type === 'bossAbility') log.push(`${e.move}:${e.act}:${(e.x || 0).toFixed(3)}`); }
+    return { log: log.join(' '), boss: [s.boss.x.toFixed(4), s.boss.y.toFixed(4)], stones: g.bumpers.filter(m => m.bossStone).map(m => m.angle.toFixed(6)), buds: g.buds.filter(p => !p.bloomed).map(p => p.id) };
+  });
+  assert(runs[0].log.includes('petrify:stone')); assert.deepEqual(runs[1], runs[0]); assert.deepEqual(runs[2], runs[0]);
+});
+test('Ammonite Queen: only her jet waits for a clicked mouth; her other moves start, and a click cancels only a jet warning', () => {
+  let g = arena(6), s = g.bossState, b = s.boss; openQueen(s); s.lockSpin = 1.05; hit(g, b); assert.equal(s.lockStage, 1);
+  s.action = 1; s.next = s.age; g.step(1 / 120); assert.equal(s.warning && s.warning.move, 'pearls', 'Pearl Volley does not wait for the click');
+  g = arena(6); s = g.bossState; b = s.boss; openQueen(s); s.lockSpin = 1.05; hit(g, b); s.next = s.age; g.step(1 / 120); assert.equal(s.warning, null, 'the jet waits');
+  g = arena(6); s = g.bossState; b = s.boss; s.action = 1; s.next = s.age; g.step(1 / 120); assert.equal(s.warning.move, 'pearls');
+  openQueen(s); hit(g, b); assert.equal(s.lockStage, 1); assert.equal(s.warning && s.warning.move, 'pearls', 'a click leaves her volley announced');
+});
+test('Ammonite Queen: defeat clears her slabs, wakes their buds and blooms her keeper; the good bot wins her fight', () => {
+  const g = arena(6), s = g.bossState, b = s.boss; s.tier = 1; s.cycle = 0; s.next = s.age; g.step(1 / 120); while (s.warning) g.step(1 / 120);
+  assert(g.bumpers.some(m => m.bossStone)); while (!b.bloomed) g.strike(b, true); g.step(1 / 120);
+  assert(!g.bumpers.some(m => m.bossStone) && !g.buds.some(p => p.stoned || (p.hidden && !p.bloomed && !p.boss)));
+  for (const seed of [7, 19]) { const r = bot.play(6, { seed, startWave: 10, noise: 2.5, think: .3, thinkSpread: .3, bounces: 2 }); assert(r.won, `seed ${seed}`); }
+});
+
+test('Ammonite Queen: her pearls and her egg never land on her, however low she has sunk', () => {
+  let worst = Infinity, pearls = 0, eggs = 0;
+  for (const age of [0, 1.1, 2.3, 3.7, 5.2]) for (const drift of [100, 130, 140, 160, 180]) for (const [tier, cycle, action] of [[0, 0, 1], [2, 0, null]]) {
+    const g = arena(6), s = g.bossState, b = s.boss; s.next = Infinity; advance(g, age); s.drift = drift;
+    s.tier = tier; s.cycle = cycle; if (action != null) s.action = action; s.next = s.age; g.step(1 / 120);
+    if (!s.warning) continue; // no clear mark at all: she rests, which is allowed
+    const move = s.warning.move; while (s.warning) g.step(1 / 120);
+    if (move === 'pearls') for (const p of s.parts.filter(p => p.bossPart === 'pearl')) { pearls++; worst = Math.min(worst, Math.hypot(p.x1 - p.x0, p.y1 - p.y0) - (b.r + 11 + 6)); }
+    if (move === 'hatch') for (const l of s.lobs.filter(l => l.look === 'egg')) { eggs++; worst = Math.min(worst, Math.hypot(l.x1 - l.x0, l.y1 - l.y0) - (b.r + 13 + 6)); }
+  }
+  assert(pearls >= 25 && eggs >= 15, `she still throws (${pearls} pearls, ${eggs} eggs)`); assert(worst >= 0, `every mark clears her (worst ${worst.toFixed(1)} px)`);
+});
+
+// Her art: art.js, foes.js and foe-art.js in a VM with a recording canvas (as sunnyArt, plus foes.js so the keeper she
+// hatches reads his own forecast). Every number finite, every save restored, and her hooks paint no gradient or shadow
+// and, once warm, make no new surface.
+function queenArt() {
+  const vm = require('node:vm'), totals = { hook: null, gradients: 0, shadows: 0, surfaces: 0, draws: new Map() };
+  function brush() {
+    const stack = [], state = { globalAlpha: 1, fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, shadowBlur: 0, lineDashOffset: 0 };
+    const ctx = new Proxy(state, {
+      get(t, name) {
+        if (name in t) return t[name];
+        if (name === 'canvas') return { width: 420, height: 560 };
+        if (name === 'getTransform') return () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 });
+        return (...args) => {
+          args.forEach(a => { if (typeof a === 'number') assert(Number.isFinite(a), `${String(name)} received ${a}`); });
+          if (name === 'save') stack.push({ ...state });
+          else if (name === 'restore') { assert(stack.length, 'restore without save'); Object.assign(state, stack.pop()); }
+          else if (name === 'measureText') return { width: String(args[0]).length * 7 };
+          else if (/^create(Linear|Radial|Conic)Gradient$|^createPattern$/.test(name)) { if (totals.hook) totals.gradients++; return { addColorStop() {} }; }
+          else if (totals.hook && /^(fill|stroke|drawImage)$/.test(name)) totals.draws.set(totals.hook, (totals.draws.get(totals.hook) || 0) + 1);
+        };
+      },
+      set(t, name, value) {
+        if (['globalAlpha', 'lineWidth', 'shadowBlur'].includes(name)) assert(Number.isFinite(value), `${name} is finite`);
+        if (name === 'shadowBlur' && value > 0 && totals.hook) totals.shadows++;
+        t[name] = value; return true;
+      }
+    });
+    return { ctx, balanced: () => stack.length === 0 };
+  }
+  class Canvas { constructor(w, h) { this.width = w; this.height = h; if (totals.hook) totals.surfaces++; this.rec = brush(); } getContext() { return this.rec.ctx; } }
+  const scope = vm.createContext({ console, Math, Map, Set, WeakMap, Array, Object, Number, String, JSON, Date, OffscreenCanvas: Canvas });
+  for (const file of ['foes.js', 'art.js', 'foe-art.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), scope, { filename: file });
+  const A = scope.BloomFoeArt, wrap = (look, name, hooks) => {
+    for (const hook of hooks) {
+      const own = look[hook]; if (!own) continue;
+      look[hook] = function (...args) {
+        if (name === 'fossil' && hook !== 'warm') totals.kit = args[hook === 'face' || hook === 'part' ? 6 : 5];
+        // Warming is the level intro's one-off bake (art.js's own flowers included), so it is not counted.
+        const was = totals.hook; totals.hook = hook === 'warm' ? null : name + ':' + (hook === 'part' ? 'part:' + args[3].bossPart : hook);
+        try { return own.apply(this, args); } finally { totals.hook = was; }
+      };
+    }
+  };
+  wrap(A.KIT_LOOKS.fossil, 'fossil', ['warm', 'under', 'face', 'part', 'over', 'aim']); wrap(A.LOOKS.amberkeeper, 'amberkeeper', ['bud', 'over']); wrap(A.LOOKS.amber, 'amber', ['bud']);
+  return { Art: scope.BloomArt, kits: A.kits, brush, totals, vmFoes: scope.BloomFoes };
+}
+test('Ammonite Queen: her moods, pearls, slabs, egg and lift draw balanced, finite, with no gradient or shadow and no new surface once warm', () => {
+  const { Art, kits, brush, totals, vmFoes } = queenArt();
+  assert(vmFoes && vmFoes.FOES.amberkeeper, 'foes.js is loaded with the art');
+  const boards = [], add = (label, g) => { boards.push([label, g, g.time]); return g; };
+  const tell = (tier, cycle, action, g = arena(6)) => { const s = g.bossState; Object.assign(s, { tier, cycle, next: s.age }); if (action != null) s.action = action; advance(g, .7); assert(s.warning, label); return g; };
+  const full = () => { const g = new RushGame({ plan: bot.plan(6), startWave: 10 }); g.started = true; g.status = 'flying'; g.drainEvents(); return g; };
+  var label = '';
+  // Each mood at rest (Brooding cradling her ready egg), hurt and shivering, and the lift's bubbles.
+  for (const tier of [0, 1, 2]) { const g = arena(6); Object.assign(g.bossState, { tier, next: 99 }); if (tier === 2) g.bossState.lockSpin = 1.4; add(`mood ${tier}`, g); }
+  let g = arena(6); g.bossState.boss.hp = 4; g.bossState.next = 99; g.bossState.boss.hitAt = g.time; add('hurt, shivering', g);
+  g = arena(6); g.bossState.drift = 30; queenMove(0, 0, g, 1); advance(g, .3); assert(g.bossState.rise, 'rising'); add('rise, pearls in flight', g);
+  // Each warning's tell: pearls (Regal), petrify on a bare bed and on her full board (Stony), hatch (Brooding).
+  label = 'pearls tell'; add(label, tell(0, 0, 1)); label = 'petrify bed tell'; add(label, tell(1, 0)); label = 'petrify tell'; add(label, tell(1, 0, null, full())); label = 'hatch tell'; add(label, tell(2, 0));
+  // Pearls landed; slabs fresh, mid, flashing and fading; the egg in flight and just hatched.
+  ({ g } = queenMove(0, 0, arena(6), 1)); advance(g, 1.2); add('pearls landed', g);
+  ({ g } = queenMove(1, 0, full())); advance(g, .1); add('slabs fresh', g);
+  ({ g } = queenMove(1, 0, full())); advance(g, 2.5); for (const m of g.bumpers) if (m.bossStone) m.flashAt = g.time - .1; add('slabs flashing', g);
+  ({ g } = queenMove(1, 0)); advance(g, 4.8); assert(g.bumpers.some(m => m.bossStone), 'fading slabs still up'); add('slabs fading', g);
+  ({ g } = queenMove(2, 0)); advance(g, .5); assert(g.bossState.lobs.some(l => l.look === 'egg')); add('egg in flight', g);
+  ({ g } = queenMove(2, 0)); advance(g, 1.15); assert(g.buds.some(p => p.foe === 'amberkeeper')); add('hatched', g);
+  const frame = (label, board, time, still, quality) => { const rec = brush(); Art.draw(rec.ctx, board, time, { theme: 'meadow', reducedMotion: still, quality }); assert(rec.balanced(), `${label}: balanced`); };
+  // The level's intro paints her sprites (and the keeper's) ahead, as art.js does through kits.warm.
+  frame('first', boards[0][1], boards[0][2], false, 0); kits.warm('fossil', totals.kit);
+  for (const still of [false, true]) for (const quality of [0, 1, 2]) for (const [label, board, time] of boards) frame(label, board, time, still, quality);
+  for (const hook of ['fossil:face', 'fossil:part:pearl', 'fossil:over', 'fossil:under', 'amberkeeper:bud']) assert(totals.draws.get(hook) > 0, hook + ' drew');
+  assert.deepEqual([totals.gradients, totals.shadows], [0, 0], 'no gradient or shadow from her art');
+  const warm = totals.surfaces;
+  for (const still of [false, true]) for (const quality of [0, 1, 2]) for (const dt of [.05, .4, 1.3, 3.71]) for (const [label, board, time] of boards) frame(label, board, time + dt, still, quality);
+  assert.equal(totals.surfaces, warm, 'no new surface once warm'); assert.deepEqual([totals.gradients, totals.shadows], [0, 0]);
+});
+// Level 6's own cues of one tick as the player hears and feels them: sound.js on a recording AudioContext (each pitched
+// note's frequency and start), and the Level 6 effect blocks of app.js with every buzz counted.
+function level6Senses() {
+  const notes = [], param = () => { const p = { value: 0 }; for (const m of ['setValueAtTime', 'linearRampToValueAtTime', 'exponentialRampToValueAtTime', 'setTargetAtTime']) p[m] = x => { p.value = x; return p; };
+    for (const m of ['cancelScheduledValues', 'cancelAndHoldAtTime']) p[m] = () => p; return p; };
+  const node = kind => { const n = { connect: x => x, disconnect() {}, stop() {}, setPeriodicWave() {}, start: t => { if (kind === 'osc') notes.push({ t, f: n.frequency.value }); } };
+    for (const k of ['frequency', 'detune', 'gain', 'Q', 'pan']) n[k] = param(); return n; };
+  let audio = null;
+  class Audio {
+    constructor() { audio = this; this.state = 'running'; this.currentTime = 0; this.sampleRate = 44100; this.destination = node('out'); }
+    createGain() { return node('gain'); } createBiquadFilter() { return node('filter'); } createWaveShaper() { return node('shaper'); }
+    createStereoPanner() { return node('pan'); } createOscillator() { return node('osc'); } createPeriodicWave() { return {}; }
+    resume() { return Promise.resolve(); } suspend() { return Promise.resolve(); } close() { return Promise.resolve(); }
+  }
+  const vm = require('node:vm'), read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
+  const sounds = { console, AudioContext: Audio }; vm.createContext(sounds); vm.runInContext(read('sound.js'), sounds);
+  sounds.BloomSound.setEnabled(true); sounds.BloomSound.wake();
+  const app = read('app.js'), block = (from, to) => app.slice(app.indexOf(from), app.indexOf(to));
+  const buzzes = [], fx = { BOSS_FX: {}, FOE_FX: {}, CRIT_TEXT: {}, game: null, save: { settings: { motion: false } }, Math, haptic: kind => buzzes.push(kind),
+    foeRing() {}, foeDust() {}, burst() {}, bossCallout() {}, jolt() {}, meetFoes() {}, currentKeepsake() {} };
+  vm.createContext(fx); vm.runInContext(block('// ── Amberkeeper (Level 6', '// ── Whizzbang (Level 7') + block('// ── Ammonite Queen (Level 6', '// ── Ember Rose (Level 7'), fx);
+  // Plays one tick's events; returns each event's notes (start relative to the tick) and the buzzes they made.
+  return (game, events) => {
+    audio.currentTime += 5; fx.game = game; buzzes.length = 0; const now = audio.currentTime;
+    const each = events.map(e => {
+      const from = notes.length; sounds.BloomSound.play(e.type, e);
+      const own = e.type === 'foe' ? fx.FOE_FX[e.kind.split(':')[0]] : fx.BOSS_FX[e.kind], act = e.type === 'foe' ? e.kind.split(':')[1] : `${e.move}:${e.act}`;
+      const handler = own && (own[act] || e.type !== 'foe' && own[e.act]); if (handler) handler(e);
+      return { name: e.type === 'foe' ? e.kind : `${e.move}:${e.act}`, notes: notes.slice(from).map(n => ({ t: n.t - now, f: n.f })) };
+    });
+    return { each, buzzes: [...buzzes] };
+  };
+}
+test('Level 6 sounds and buzzes each beat once: no two cues of one tick strike the same note together, one buzz an action', () => {
+  const senses = level6Senses(), mine = e => e.type === 'foe' ? /^amber/.test(e.kind) : e.type === 'bossAbility' && e.kind === 'fossil';
+  // The tick each action lands on, collected from real play.
+  const tickOf = (g, found, limit = 1200) => { for (let n = 0; n < limit; n++) { g.step(1 / 120); const now = g.drainEvents().filter(mine); if (found(now)) return now; } assert.fail('the tick never came'); };
+  const full = () => { const g = new RushGame({ plan: bot.plan(6), startWave: 10 }); g.started = true; g.status = 'flying'; g.drainEvents(); return g; };
+  const ticks = [];
+  for (const [label, g] of [['petrify, full board', full()], ['petrify, bare bed', arena(6)]]) {
+    const s = g.bossState; Object.assign(s, { tier: 1, cycle: 0, next: s.age }); ticks.push([label, g, tickOf(g, now => now.some(e => e.act === 'stone'))]);
+  }
+  { const g = arena(6), s = g.bossState; Object.assign(s, { tier: 2, cycle: 0, next: s.age }); ticks.push(['the egg hatches', g, tickOf(g, now => now.some(e => e.kind === 'amberkeeper:hatch'))]); }
+  { const g = arena(6), s = g.bossState; Object.assign(s, { tier: 0, cycle: 0, action: 1, next: s.age }); ticks.push(['pearls fly', g, tickOf(g, now => now.some(e => e.act === 'start'))]); ticks.push(['pearls land', g, tickOf(g, now => now.some(e => e.act === 'land'))]); }
+  { const g = new RushGame({ plan: { id: 6, name: 'Test', waves: 1, wave: () => Depths.wave(6, 2) }, startWave: 1 }); g.started = true;
+    for (let n = 0; n < 1200 && g.foeClock < 2.91; n++) g.step(1 / 120); g.drainEvents(); const keeper = g.buds.find(b => b.foe === 'amberkeeper');
+    hit(g, keeper); g.drainEvents(); hit(g, keeper); ticks.push(['the keeper breaks', g, g.drainEvents().filter(mine)]); }
+  assert.deepEqual(ticks[0][2].map(e => e.act).sort(), ['start', 'stone'], 'Petrify sets its slabs on the tick the move starts');
+  assert.equal(ticks[5][2].filter(e => e.kind === 'amber:shatter').length, 2, 'both beads shatter as he breaks');
+  for (const [label, g, events] of ticks) {
+    const { each, buzzes } = senses(g, events), all = each.flatMap(e => e.notes);
+    assert(all.length, `${label}: the beat is heard`); assert(all.some(n => n.t < .03), `${label}: on the beat`);
+    for (let i = 0; i < each.length; i++) for (let j = i + 1; j < each.length; j++) for (const a of each[i].notes) for (const b of each[j].notes)
+      assert(!(Math.abs(a.f - b.f) < .5 && Math.abs(a.t - b.t) < .03), `${label}: ${each[i].name} and ${each[j].name} both strike ${a.f.toFixed(1)} Hz at +${a.t.toFixed(2)} s`);
+    assert(buzzes.length <= 1, `${label}: one buzz, not ${buzzes.join(' + ')}`);
+  }
+});
+
+// ── Ember Rose (Level 7, `ember`) ──
+{
+  const EMBER_KIT = Bosses.kits.ember, emberActs = (events, act) => events.filter(e => e.type === 'bossAbility' && e.kind === 'ember' && e.act === act);
+  const emberArena = () => { const g = arena(7); g.drainEvents(); return { g, s: g.bossState, b: g.bossState.boss }; };
+  const steps = (g, seconds, fps = 120) => { const events = []; for (let n = 0; n < Math.round(seconds * fps); n++) { g.step(1 / fps); events.push(...g.drainEvents()); } return events; };
+  // Her next move is `move` from `tier`'s list, announced now; returns the warning.
+  function emberMove(g, tier, move) {
+    const s = g.bossState; s.tier = tier; s.shiftPending = false; s.warning = null;
+    if (tier) s.cycle = EMBER_KIT.moves[tier].indexOf(move); else s.action = EMBER_KIT.moves[0].indexOf(move);
+    s.next = s.age; advance(g, .02); assert.equal(g.bossWarning && g.bossWarning.move, move); return g.bossWarning;
+  }
+  const flower = (id, x, y) => ({ id, group: id, x, y, baseX: x, startY: y, r: 11, type: 'gold', relay: false, hp: 1, maxHp: 1, fall: 1, sway: 0, swayW: 0, swayPhase: 0, hitAt: -100, bloomed: false, bloomAt: -100 });
+  // A cinder spat straight down from (x0, y0) with no sideways hop, timed so it closes at the coal line at x0.
+  function cinderAt(g, x0, y0 = 261) {
+    const s = g.bossState; EMBER_KIT.burned(g, s, { x: x0, y: y0 });
+    const c = s.parts.filter(p => p.bossPart === 'cinder').pop(); c.side = 0; c.x0 = x0; c.y0 = y0; return c;
+  }
+  test('Ember Rose: 100 health with moods at 67 and 34, three moods, her familiar dive first, and every word fits', () => {
+    const { s, b } = emberArena();
+    assert.equal(b.maxHp, 100); assert.deepEqual(s.tierAt, [67, 34]); assert.deepEqual(EMBER_KIT.moods, ['Flickering', 'Dancing', 'Blazing']);
+    assert.equal(EMBER_KIT.moves[0][0], 'ember', 'tier 0 opens on the legacy dive the pinned tests expect');
+    for (const text of [...Object.values(EMBER_KIT.text), ...EMBER_KIT.stageText.filter(Boolean)]) assert(text.length <= 52, text);
+    const tip = fs.readFileSync(path.join(__dirname, '../app.js'), 'utf8').match(/'(Too hot for tunnels![^']*)'/);
+    assert(tip && tip[1].length <= 52, 'the tunnel tip fits');
+  });
+  test('Ember Rose: a seed into her flame spits a cinder you can catch for a sun; a missed one cools to a coal that rolls off tunnel mouths', () => {
+    let { g, s, b } = emberArena();
+    g.spawnBall({ x: b.x, y: b.y + 60, angle: -Math.PI / 2 }); advance(g, .15);
+    const c = s.parts.find(p => p.bossPart === 'cinder'); assert(c && c.ghost, 'a ghost while it is spat'); advance(g, .3); assert(!c.ghost, 'catchable at .45 s');
+    const y0 = c.y; advance(g, 1); assert(c.y > y0 + 40, 'it falls');
+    let events = steps(g, 8); assert(c.bloomed && c.closed, 'it landed');
+    const coal = g.bumpers.find(r => r.bossCoal); assert(coal && coal.y === 404 && coal.kitDrawn); assert.equal(emberActs(events, 'coal').length, 1);
+    advance(g, 4.1); assert(!g.bumpers.some(r => r.bossCoal), 'the coal is gone after 4 s');
+    ({ g, s, b } = emberArena()); const caught = cinderAt(g, 300, 200); advance(g, .5); g.drainEvents();
+    let charge = g.sunCharge; hit(g, caught); assert(caught.bloomed); const paid = g.sunCharge - charge;
+    assert.equal(emberActs(g.drainEvents(), 'catch').length, 1, 'a catch chimes');
+    const h = emberArena().g, bare = flower('bare', 300, 200); h.buds.push(bare); charge = h.sunCharge; hit(h, bare);
+    assert.equal(paid - (h.sunCharge - charge), 1, 'a caught cinder pays one more sun');
+    ({ g, s } = emberArena()); assert(g.gates.some(m => m.x === 100 && m.y === 404 && m.r === 17), 'the level tunnel mouth');
+    const left = cinderAt(g, 96), right = cinderAt(g, 104); events = steps(g, 4);
+    assert(left.closed && right.closed); assert.deepEqual(g.bumpers.filter(r => r.bossCoal).map(r => r.x).sort((p, q) => p - q), [66, 134], 'both roll clear of the mouth');
+    ({ g, s } = emberArena()); g.gates.push({ id: 'qa-a', pair: 'qa-b', x: 60, y: 404, r: 17, angle: 0, lastUsed: -100 });
+    const edge = cinderAt(g, 50); events = steps(g, 4);
+    assert(edge.closed); assert(!g.bumpers.some(r => r.bossCoal), 'no room: it goes out'); assert(emberActs(events, 'coal').some(e => e.out === true));
+  });
+  test('Ember Rose: her fire rings hide her and land her at the far ring; a ring shot deals 3, and at Blazing a level tunnel is too hot', () => {
+    const { g, s, b } = emberArena(); b.hp = 60; s.tier = 1;
+    const w = emberMove(g, 1, 'rings'); advance(g, 1.3);
+    const rings = g.gates.filter(m => m.bossRing); assert.equal(rings.length, 2); assert(b.hidden, 'she dives into ring A');
+    advance(g, .5); assert(!b.hidden); assert(Math.abs(b.x - w.targets.find(t => t.role === 'ringB').x) < 1, 'she lands at ring B');
+    for (const r of rings) r.lastUsed = g.time;
+    let hp = b.hp; g.drainEvents(); hit(g, b, { gateHops: 1, gateAt: g.time }); assert.equal(b.hp, hp - 3);
+    assert(g.drainEvents().some(e => e.type === 'bossCritical' && e.via === 'ring'), 'Ring shot!');
+    hp = b.hp; hit(g, b, { gateHops: 1, gateAt: g.time - 1 }); assert.equal(b.hp, hp - 1, 'a level tunnel deals 1');
+    s.tier = 2;
+    assert.equal(Bosses.canHit(g, b, {}, { gateHops: 1, gateAt: g.time - 1 }), false, 'a level tunnel glances at Blazing');
+    assert.equal(Bosses.canHit(g, b, {}, { gateHops: 1, gateAt: g.time }), true, 'a ring seed still lands');
+    g.drainEvents(); hp = b.hp; hit(g, b, { gateHops: 1, gateAt: g.time - 1 }); assert.equal(b.hp, hp); assert(g.drainEvents().some(e => e.type === 'bossGuard'));
+    advance(g, 6); assert(!g.gates.some(m => m.bossRing), 'the rings gutter out at 6 s');
+    // A real seed through a level tunnel into her at Blazing glances off (the app shows the tunnel tip).
+    const r = emberArena(); r.b.hp = 30; r.s.tier = 2; r.s.next = r.s.age + 99; hp = r.b.hp;
+    r.g.spawnBall({ x: 210, y: 470, angle: -2.9 }); const events = steps(r.g, 2);
+    assert(events.some(e => e.type === 'gate'), 'it went through a level tunnel');
+    assert(events.some(e => e.type === 'shield' && e.bud === r.b), 'and glanced off her'); assert.equal(r.b.hp, hp);
+    const tip = fs.readFileSync(path.join(__dirname, '../app.js'), 'utf8').match(/'(Too hot for tunnels![^']*)'/);
+    assert.equal(tip[1], 'Too hot for tunnels! Shoot through her fire rings.'); assert.equal(tip[1].length, 50);
+  });
+  test('Ember Rose: three castanet clicks, then the stomp shoves flowers 16 px (never past line - 70, never up, never into each other) and Olé opens her', () => {
+    const { g, s, b } = emberArena(); b.hp = 60; s.tier = 1;
+    g.buds.push(flower('hi', 100, 200), flower('mid', 200, 360), flower('lo', 300, 372), flower('up', 360, 340), flower('down', 360, 372), flower('snug', 40, 350), flower('floor', 40, 372));
+    emberMove(g, 1, 'stomp'); const events = steps(g, 1.3);
+    assert.deepEqual(emberActs(events, 'click').map(e => e.n), [1, 2, 3], 'three clicks during the tell');
+    const y = id => g.buds.find(p => p.id === id).y;
+    assert.equal(y('hi'), 216); assert.equal(y('mid'), 367, 'capped at line - 70 - r'); assert.equal(y('lo'), 372, 'never pulled up');
+    assert.equal(y('down'), 372); assert(Math.abs(y('up') - 349) < 1e-9, `the upper stops a spacing (23 px) above the lower (${y('up')})`);
+    assert.equal(y('floor'), 372); assert.equal(y('snug'), 350, 'one already snug stays put, not shoved into the one below');
+    assert.equal(s.mode, 'ole'); const hp = b.hp; hit(g, b); assert.equal(b.hp, hp - 2, 'Olé! deals 2');
+    advance(g, 1.25); assert.equal(s.mode, 'flame');
+  });
+  test('Ember Rose: an Olé hit that brings on her next mood keeps her standing still until Olé ends', () => {
+    const { g, s, b } = emberArena(); b.hp = s.tierAt[1] + 2; s.tier = 1;
+    emberMove(g, 1, 'stomp'); advance(g, 1.3); assert.equal(s.mode, 'ole');
+    hit(g, b); assert.equal(b.hp, s.tierAt[1], 'the Olé hit stops at the threshold'); assert(s.shiftPending);
+    const x = b.x; let far = 0, n = 0;
+    for (; n < 600 && s.mode === 'ole'; n++) { g.step(1 / 120); far = Math.max(far, Math.abs(b.x - x)); }
+    assert(n > 1.2 * 120, 'Olé was held through the mood change'); assert.equal(s.mode, 'flame');
+    assert(far < .5, `she stays where she stomped, then dances on from there (moved ${far.toFixed(2)} px)`);
+  });
+  test('Ember Rose: the wave hint keeps up with her moods (tunnels hit triple only while Flickering)', () => {
+    const { g, s, b } = emberArena(); const legacy = g.waveHint; assert.equal(legacy, 'Tunnel hits count triple.', 'Flickering keeps the legacy hint');
+    const hints = [legacy];
+    for (const tier of [1, 2]) {
+      b.hp = s.tierAt[tier - 1] + 1; s.next = s.age + 99; hit(g, b, { gateHops: tier === 1 ? 1 : 0 });
+      if (tier === 2) { s.mode = 'ole'; s.modeUntil = s.stunUntil = s.age + 1; hit(g, b); }
+      for (let n = 0; n < 600 && s.tier < tier; n++) g.step(1 / 120);
+      assert.equal(s.tier, tier); hints.push(g.waveHint);
+      assert(g.waveHint && g.waveHint.length <= 52, `the ${EMBER_KIT.moods[tier]} hint fits: ${g.waveHint}`);
+      assert(!/tunnel hits count triple/i.test(g.waveHint), `no longer says tunnels hit triple: ${g.waveHint}`);
+    }
+    assert.equal(new Set(hints).size, 3, 'each mood has its own hint');
+  });
+  test('Ember Rose: a Lullaby holds Olé, a falling cinder and her dive', () => {
+    let { g, s, b } = emberArena(); b.hp = 60; s.tier = 1;
+    emberMove(g, 1, 'stomp'); advance(g, 1.3); assert.equal(s.mode, 'ole');
+    const c = cinderAt(g, b.x - 20, b.y + b.r); advance(g, .5); const at = [c.x, c.y], left = s.modeUntil - s.age;
+    g.lullaby = 2.5; advance(g, 2.5); assert.equal(s.mode, 'ole', 'Olé waits out the Lullaby'); assert.deepEqual([c.x, c.y], at, 'the cinder hangs');
+    assert(Math.abs(s.modeUntil - s.age - left) < .02, 'Olé ends on time after it');
+    advance(g, left + .05); assert.equal(s.mode, 'flame');
+    ({ g, s, b } = emberArena()); emberMove(g, 0, 'ember');
+    for (let n = 0; n < 400 && s.mode !== 'dive'; n++) g.step(1 / 120);
+    assert.equal(s.mode, 'dive'); advance(g, 1); const x = b.x;
+    assert(g.lull()); for (let n = 0; n < 2000 && g.lullaby > 0; n++) { g.step(1 / 120); assert.equal(s.mode, 'dive'); }
+    assert(Math.abs(b.x - x) < 1, `she hangs mid-dive (${Math.abs(b.x - x).toFixed(2)} px)`);
+    let t = 0; while (s.mode === 'dive' && t < 3) { g.step(1 / 120); t += 1 / 120; }
+    assert(Math.abs(t - 1.4) <= 1 / 120 + 1e-9, `she lands 1.4 s after it lifts (${t.toFixed(3)})`);
+  });
+  test('Ember Rose: her barrage sows three whizzbangs in one swaying group, and one lit under her deals 3', () => {
+    const { g, s, b } = emberArena(); b.hp = 30; s.tier = 2;
+    emberMove(g, 2, 'barrage'); advance(g, 1.3);
+    const wz = g.buds.filter(p => p.foe === 'whizzbang'); assert.equal(wz.length, 3);
+    assert(wz.every(p => p.group === wz[0].group && p.id !== p.group && p.bossSummon)); assert.equal(new Set(wz.map(p => p.swayPhase)).size, 1);
+    let closest = Infinity;
+    for (let n = 0; n < 480; n++) { g.step(1 / 120); for (let i = 1; i < 3; i++) closest = Math.min(closest, Math.hypot(wz[i].x - wz[i - 1].x, wz[i].y - wz[i - 1].y)); }
+    assert(closest >= 25, `they keep apart (${closest.toFixed(1)} px)`);
+    const mid = wz[1]; mid.sway = 0; mid.x = mid.baseX = b.x; s.stunUntil = s.age + 3; const hp = b.hp;
+    hit(g, mid); const events = steps(g, 1.6);
+    assert(b.hp <= hp - 3, `hp ${hp} -> ${b.hp}`); assert(events.some(e => e.type === 'bossCritical' && e.via === 'whizz'));
+  });
+  test('Ember Rose: the same fight at 30, 60 and 144 FPS', () => {
+    const runs = [30, 60, 144].map(fps => {
+      const { g, s } = emberArena(); s.boss.hp = 30; const log = [];
+      for (let n = 0; n < 30 * fps; n++) { g.step(1 / fps); for (const e of g.drainEvents()) if (/^boss/.test(e.type)) log.push(`${e.type}:${e.move || e.mode || ''}:${e.act || ''}:${(+e.time).toFixed(4)}`); }
+      return log.join(' ') + `|${s.boss.x.toFixed(3)},${s.boss.y.toFixed(3)}`;
+    });
+    assert(runs[0].includes('bossAbility')); assert.equal(runs[1], runs[0]); assert.equal(runs[2], runs[0]);
+  });
+  test('Ember Rose: beaten mid-ring, mid-Olé or right after a barrage, she leaves no ring, coal, cinder or rocket behind', () => {
+    const beat = (g, s) => {
+      let n = 0; for (; n < 300 && !s.boss.bloomed; n++) g.strike(s.boss, true);
+      assert(s.boss.bloomed && n < 300, 'the loop ends'); assert(!s.boss.hidden && s.boss.visible !== false, 'she is seen');
+      assert(!g.gates.some(m => m.bossRing)); assert(!g.bumpers.some(r => r.bossCoal));
+      assert(g.buds.filter(p => p.bossPart === 'cinder').every(p => p.bloomed));
+    };
+    let { g, s, b } = emberArena(); b.hp = 60; s.tier = 1; emberMove(g, 1, 'rings'); advance(g, 1.35); assert(b.hidden);
+    cinderAt(g, 150, 300); g.bumpers.push({ id: 'qa-coal', kind: 'rock', bossWall: true, bossCoal: true, kitDrawn: true, x: 300, y: 404, baseX: 300, length: 26, angle: 0, kitAt: s.kitAge, kitUntil: s.kitAge + 4, expires: Infinity });
+    beat(g, s);
+    ({ g, s, b } = emberArena()); b.hp = 60; s.tier = 1; emberMove(g, 1, 'stomp'); advance(g, 1.35); assert.equal(s.mode, 'ole'); beat(g, s);
+    ({ g, s, b } = emberArena()); b.hp = 30; s.tier = 2; emberMove(g, 2, 'barrage'); advance(g, 1.35);
+    const wz = g.buds.filter(p => p.foe === 'whizzbang'); assert.equal(wz.length, 3); beat(g, s);
+    g.drainEvents(); advance(g, 3);
+    assert(wz.every(p => p.bloomed && !p.whizz), 'the rockets bloom plainly'); assert(!foeEvents(g.drainEvents(), 'whizzbang:launch').length);
+  });
+  // The art, in a sandbox with a recording canvas (Lily's harness): every move with Animations on and off and quality 0
+  // and 2, after her sprites are warmed.
+  function emberArt(canvas = true) {
+    const vm = require('node:vm'), tally = { gradients: 0, blur: 0, calls: {}, hook: null, face: [], kit: null, lamps: [], arcR: 0 };
+    const brush = () => {
+      const stack = [], state = { globalAlpha: 1, globalCompositeOperation: 'source-over', fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, shadowBlur: 0, lineDashOffset: 0 };
+      const ctx = new Proxy(state, {
+        get(t, name) {
+          if (name in t) return t[name];
+          if (name === 'canvas') return { width: 420, height: 560 };
+          return (...args) => {
+            for (const a of args) if (typeof a === 'number') assert(Number.isFinite(a), `${String(name)} received ${a}`);
+            if (tally.hook) tally.calls[tally.hook] = (tally.calls[tally.hook] || 0) + 1;
+            if (tally.hook === 'face' && /To$|^arc$|^ellipse$/.test(name)) tally.face.push(name, ...args.map(n => Math.round(n * 100)));
+            // Her stomp lamps (r 4.5 dots over her head): the fill each one gets.
+            if (tally.hook === 'over' && name === 'arc') tally.arcR = args[2];
+            if (tally.hook === 'over' && name === 'fill' && tally.arcR === 4.5) tally.lamps.push(t.fillStyle);
+            if (name === 'save') stack.push({ ...state });
+            else if (name === 'restore') { assert(stack.length, 'restore without save'); Object.assign(state, stack.pop()); }
+            else if (name === 'measureText') return { width: String(args[0]).length * 7 };
+            else if (name === 'getTransform') return { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+            else if (/Gradient$|^createPattern$/.test(name)) { if (tally.hook) tally.gradients++; return { addColorStop() {} }; }
+          };
+        },
+        set(t, name, value) {
+          if (['globalAlpha', 'lineWidth', 'shadowBlur', 'lineDashOffset'].includes(name)) assert(Number.isFinite(value), `${name} is finite`);
+          if (name === 'shadowBlur' && value > 0 && tally.hook) tally.blur++;
+          t[name] = value; return true;
+        }
+      });
+      return { ctx, balanced: () => stack.length === 0 };
+    };
+    class Canvas { constructor(w, h) { this.width = w; this.height = h; this.rec = brush(); } getContext() { return this.rec.ctx; } }
+    const scope = vm.createContext({ console, Math, Map, Set, WeakMap, Array, Object, Number, String, JSON, Date, performance, ...(canvas ? { OffscreenCanvas: Canvas } : {}) });
+    for (const file of ['foe-art.js', 'art.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), scope, { filename: file });
+    const kits = scope.BloomFoeArt.kits, drawn = new Set(), look = scope.BloomFoeArt.KIT_LOOKS.ember;
+    for (const hook of ['under', 'part', 'face', 'over', 'aim']) {
+      const call = kits[hook]; kits[hook] = (...args) => { const outer = tally.hook; tally.hook = hook; try { const done = call(...args); if (done) drawn.add(hook === 'part' ? args[2].bossPart : hook); return done; } finally { tally.hook = outer; } };
+    }
+    const own = look.under; look.under = (ctx, state, s, time, still, kit, quality) => { if (!tally.kit) { tally.kit = kit; look.warm(kit); tally.gradients = 0; } return own(ctx, state, s, time, still, kit, quality); };
+    const frame = (game, still, quality = 0) => {
+      const rec = brush(); scope.BloomArt.draw(rec.ctx, game, game.time, { showAim: false, theme: 'depth-ember', reducedMotion: still, quality });
+      assert(rec.balanced(), 'transforms balance');
+    };
+    return { tally, frame, drawn };
+  }
+  test("Ember Rose's art draws every move, Animations on and off, with no gradient or blur per frame; her three moods are three faces", () => {
+    const { tally, frame, drawn } = emberArt(), seen = new Set(), during = {};
+    const film = (g, seconds, label) => {
+      for (let n = 0; n < seconds * 120; n++) {
+        g.step(1 / 120); if (n % 12) continue;
+        const before = { ...tally.calls }; frame(g, false, n % 24 ? 0 : 2); frame(g, true);
+        for (const hook of ['under', 'over', 'part']) if ((tally.calls[hook] || 0) > (before[hook] || 0)) (during[label] = during[label] || new Set()).add(hook);
+      }
+    };
+    // Her dive, the fire rings (the teleport dive in and the burst out), the stomp's tell and Olé, the barrage's tell and
+    // its rockets, and two cinders falling to coals; each from its warning.
+    for (const [tier, move, seconds] of [[0, 'ember', 4], [1, 'rings', 5], [1, 'stomp', 2.8], [2, 'barrage', 3]]) {
+      const { g, b } = emberArena(); b.hp = tier ? 60 - 25 * (tier - 1) : 90; emberMove(g, tier, move); seen.add(move);
+      film(g, seconds, move);
+      if (move === 'rings') assert(g.gates.filter(m => m.bossRing).every(m => m.kitDrawn), 'the kit draws her rings');
+    }
+    const { g } = emberArena(); g.bossState.next = g.bossState.age + 99; cinderAt(g, 150, 300); cinderAt(g, 300, 261);
+    film(g, 1, 'cinder'); for (let n = 0; n < 60 && !g.bumpers.some(r => r.bossCoal); n++) film(g, .1, 'cinder');
+    film(g, 1, 'coal'); assert(g.bumpers.some(r => r.bossCoal && r.kitDrawn), 'a coal the kit draws');
+    film(g, 4.5, 'cooled'); assert(!g.bumpers.some(r => r.bossCoal), 'the coals cool away');
+    assert.deepEqual([...seen].sort(), ['barrage', 'ember', 'rings', 'stomp']);
+    assert.equal(tally.gradients, 0, 'no gradient inside her hooks once warm'); assert.equal(tally.blur, 0, 'no shadow blur');
+    for (const piece of ['face', 'cinder']) assert(drawn.has(piece), piece + ' drawn by the kit');
+    for (const move of ['rings', 'stomp', 'barrage']) assert(during[move] && during[move].has('over'), `the kit draws ${move}: its tell and action`);
+    assert(during.coal && during.coal.has('under'), 'the kit draws the coals');
+    // A Lullaby holds the tells with her clock: the stomp lamps light with the castanet clicks, not ahead of them.
+    { const { g } = emberArena(); emberMove(g, 1, 'stomp'); g.lullaby = 3; const clicks = emberActs(steps(g, 1), 'click').length;
+      tally.lamps = []; frame(g, false); assert.equal(tally.lamps.length, 3, 'three lamps drawn');
+      assert.equal(tally.lamps.filter(c => c === '#ffd148').length, clicks, `lamps lit match the ${clicks} click(s) heard`); }
+    const flat = emberArt(false), faces = [0, 1, 2].map(tier => { const h = arena(7); h.bossState.tier = tier; flat.tally.face = []; flat.frame(h, true); return JSON.stringify(flat.tally.face); });
+    assert(faces.every(f => f.length > 100)); assert.equal(new Set(faces).size, 3, 'Flickering, Dancing and Blazing');
+  });
+}
+
+// ── Geode King (Level 8, `geode`) ──
+const platesOf = s => s.parts.filter(p => p.bossPart === 'plate');
+const brokenOf = s => platesOf(s).filter(p => p.bloomed);
+const piecesOf = (s, role) => s.parts.filter(p => p.bossPart === role && !p.bloomed);
+// Runs the Geode King's move at a forced tier and turn (s.action for Proud, s.cycle after), through its warning.
+function geodeMove(g, tier, turn) {
+  const s = g.bossState; s.tier = tier; if (tier) s.cycle = turn; else s.action = turn; s.next = 0; s.warning = null; g.drainEvents();
+  for (let n = 0; n < 240 && !s.warning; n++) g.step(1 / 120);
+  const warning = s.warning, events = []; while (s.warning) { g.step(1 / 120); events.push(...g.drainEvents()); }
+  return { warning, events };
+}
+const geodeActs = (events, move) => events.filter(e => e.type === 'bossAbility' && (!move || e.move === move)).map(e => e.act);
+// Breaks a plate with credited seeds (it takes GEODE.plateHp[tier] hits).
+function breakPlate(g, plate) { for (let k = 0; k < 4 && !plate.bloomed; k++) hit(g, plate); assert(plate.bloomed); g.drainEvents(); }
+test('Geode King: 104 health (no more than the finale), Proud, Grumbly and Magnetic, opening on his old toss; words fit', () => {
+  const g = arena(8), s = g.bossState, k = Bosses.kits.geode;
+  assert.equal(Bosses.health.geode, 104); assert.equal(s.boss.maxHp, 104); assert(Bosses.health.geode <= Depths.bosses.at(-1).hp);
+  assert.deepEqual(s.tierAt, [70, 35]); assert.deepEqual(k.moods, ['Proud', 'Grumbly', 'Magnetic']);
+  assert.equal(k.moves[0][0], 'geode', 'tier 0 opens on the legacy move'); assert.equal(k.moves[1][0], 'lob'); assert.equal(k.moves[2][0], 'magnet');
+  for (const text of [...Object.values(k.text), ...k.stageText.filter(Boolean)]) assert(text.length <= 52, text);
+  assert.equal(platesOf(s).length, 4);
+});
+test('Geode King: the Pyrite Toss lobs three pieces to the top on a shown arc; one is fool\'s gold, the rest real gems', () => {
+  const g = arena(8), s = g.bossState, { warning, events } = geodeMove(g, 0, 1);
+  assert.equal(warning.move, 'pyrite'); assert(warning.until - warning.at >= 1.2 - 1e-9, 'a tell of at least 1.2 s');
+  const marks = warning.targets.filter(t => t.role === 'toss'); assert.equal(marks.length, 3); assert.equal(marks.filter(m => m.pyrite).length, 1);
+  assert.equal(warning.text, "Fool's gold! Pop only the sparkly gems.");
+  assert(geodeActs(events, 'pyrite').includes('start')); assert.equal(s.lobs.filter(l => l.look === 'pyrite').length, 1);
+  advance(g, .95); const land = g.drainEvents().find(e => e.type === 'bossAbility' && e.act === 'land');
+  assert.equal(land.n, 3); assert.equal(land.fools, 1);
+  const gems = g.buds.filter(b => b.gem && b.bossSummon && !b.bloomed), fools = piecesOf(s, 'pyrite');
+  assert.equal(gems.length, 2); assert.equal(new Set(gems.map(b => b.group)).size, 1); assert(gems.every(b => b.fall === .85 && b.r === 10));
+  assert.equal(fools.length, 1); assert(fools[0].decoy && fools[0].inert && fools[0].type === 'gold');
+  // From Grumbly he tosses four, still one fool; Magnetic, four with two fools.
+  for (const [tier, n, f] of [[1, 4, 1], [2, 4, 2]]) {
+    const h = arena(8), t = geodeMove(h, tier, tier === 1 ? 1 : 2).warning.targets.filter(m => m.role === 'toss');
+    assert.equal(t.length, n, `tier ${tier}`); assert.equal(t.filter(m => m.pyrite).length, f);
+  }
+});
+test("Geode King: a seed's own touch on fool's gold glues his newest broken plate back on; powers, chains and strikes never do", () => {
+  const ready = () => { const g = arena(8), s = g.bossState; geodeMove(g, 0, 1); advance(g, .95); g.drainEvents(); breakPlate(g, platesOf(s)[1]); return { g, s, fool: piecesOf(s, 'pyrite')[0] }; };
+  let { g, s, fool } = ready(); const hp = s.boss.hp;
+  hit(g, fool); assert(fool.bloomed); assert.equal(brokenOf(s).length, 0, 'glued back'); assert.equal(s.boss.hp, hp, 'no damage either way');
+  assert.deepEqual(geodeActs(g.drainEvents(), 'pyrite'), ['fool']);
+  ({ g, s, fool } = ready()); g.strike(fool); assert(fool.bloomed); assert.equal(brokenOf(s).length, 1); assert.deepEqual(geodeActs(g.drainEvents(), 'pyrite'), ['crumble']);
+  ({ g, s, fool } = ready()); hit(g, fool, { power: 'beeline' }); assert(fool.bloomed); assert.equal(brokenOf(s).length, 1, 'a power crumbles it quietly');
+  ({ g, s, fool } = ready()); g.striker = { id: 'chain', type: g.nextType, bossContact: { nx: 0, ny: 1 } }; g.due = { by: 1 }; g.strike(fool, true); g.striker = null; g.due = null;
+  assert(!fool.bloomed, 'a credited chain passes it by');
+  // It sinks with the board and fades at the line: no life lost.
+  ({ g, s, fool } = ready()); const lives = g.lives; fool.startY = g.dangerY - fool.r; advance(g, .1);
+  assert(fool.bloomed); assert.equal(g.lives, lives); assert(geodeActs(g.drainEvents(), 'pyrite').includes('fade'));
+});
+test('Geode King: the Gem Lob arcs a gem at a shoulder; a seed meeting it is a catch, a landed one is a burr until knocked off', () => {
+  let g = arena(8), s = g.bossState, { warning, events } = geodeMove(g, 1, 0);
+  assert.equal(warning.move, 'lob'); assert.equal(warning.text, 'Gem lob! Catch them before they land.');
+  const marks = warning.targets.filter(t => t.role === 'shoulder'); assert.equal(marks.length, 1); assert.deepEqual([marks[0].x, marks[0].y], [150, 404]);
+  let gem = piecesOf(s, 'lobgem')[0]; assert(gem && geodeActs(events, 'lob').includes('start'));
+  advance(g, 1.1); const at = Foes.lobAt(gem.x0, gem.y0, gem.x1, gem.y1, gem.T, s.kitAge - gem.t0, gem.h);
+  assert(Math.abs(gem.x - at.x) < 1e-6 && Math.abs(gem.y - at.y) < 1e-6, 'it flies the shown arc');
+  const score = g.score; hit(g, gem); assert(gem.bloomed); assert(g.score - score >= Math.round(300 * g.tempo));
+  assert(geodeActs(g.drainEvents(), 'lob').includes('catch')); advance(g, 1.3); assert(!g.bumpers.some(m => m.bossBurr), 'caught: no burr');
+  ({ g, s } = { g: arena(8) }); s = g.bossState; geodeMove(g, 1, 0); gem = piecesOf(s, 'lobgem')[0];
+  advance(g, 2.25); const burr = g.bumpers.find(m => m.bossBurr);
+  assert(burr && burr.kitDrawn && burr.length === 30 && burr.x === 150 && burr.y === 404); assert(geodeActs(g.drainEvents(), 'lob').includes('land'));
+  burr.flashAt = g.time; g.step(1 / 120); g.step(1 / 120); assert(!g.bumpers.includes(burr), 'a bank knocks it off'); assert(geodeActs(g.drainEvents(), 'lob').includes('knock'));
+  ({ g } = { g: arena(8) }); s = g.bossState; geodeMove(g, 1, 0); advance(g, 2.25); advance(g, 6.05); assert(!g.bumpers.some(m => m.bossBurr), 'gone after 6 s');
+  // Magnetic lobs at both shoulders.
+  g = arena(8); assert.equal(geodeMove(g, 2, 1).warning.targets.filter(t => t.role === 'shoulder').length, 2);
+});
+test('Geode King: the Magnet Heart plants him in a field that curls seeds through his gaps for a Magnet shot of 3; his plates turn iron', () => {
+  const g = arena(8), s = g.bossState, b = s.boss; breakPlate(g, platesOf(s)[0]); breakPlate(g, platesOf(s)[2]);
+  g.buds.push({ id: 'loose', group: 'loose', x: b.x + 60, y: b.y + 40, baseX: b.x + 60, startY: b.y + 40, r: 10, type: 'sky', hp: 1, maxHp: 1, gem: true, fall: 1, sway: 0, hitAt: -100, bloomed: false, bloomAt: -100, spawnAt: 0 });
+  const { warning, events } = geodeMove(g, 2, 0);
+  assert.equal(warning.move, 'magnet'); assert.equal(warning.text, 'Magnet heart! Shoot when the needle finds a gap.');
+  assert.deepEqual(warning.targets.filter(t => t.role === 'pull').map(t => t.id), ['loose']);
+  assert(!g.buds.some(p => p.id === 'loose'), 'the loose gem flew in'); assert.equal(brokenOf(s).length, 1, 'and glued a plate back');
+  assert(geodeActs(events, 'magnet').includes('pull'));
+  const field = Foes.fields(g).find(f => f.boss); assert(field && field.id === b.id && field.R === 100);
+  const x = b.x, y = b.y; advance(g, 2); assert.equal(b.x, x); assert.equal(b.y, y, 'he plants his feet');
+  const plate = platesOf(s).find(p => !p.bloomed);
+  assert.equal(Bosses.canHit(g, plate, { nx: 0, ny: 1 }, {}), false, 'a plain seed glances off an iron plate');
+  assert.notEqual(Bosses.canHit(g, plate, { nx: 0, ny: 1 }, { power: 'beeline' }), false, 'powers still land');
+  // Through the gap (the broken plate's quarter, turning .18 rad/s with his age) a curled seed is a Magnet shot.
+  const gap = () => { const a = brokenOf(s)[0].slot * Math.PI / 2 + s.age * .18; return { nx: Math.cos(a), ny: Math.sin(a) }; };
+  let hp = b.hp; hit(g, b, { ...gap(), pullBy: b.id, pullAt: g.time - .2 }); assert.equal(hp - b.hp, 3, 'Magnet shot');
+  const crit = g.drainEvents().find(e => e.type === 'bossCritical' && e.via === 'magnet'); assert(crit && crit.damage === 3);
+  hp = b.hp; hit(g, b, { ...gap(), pullBy: b.id, pullAt: g.time - .8 }); assert.equal(hp - b.hp, 2, 'an old curl is his usual gap hit');
+  hp = b.hp; hit(g, b, { ...gap(), power: 'beeline', pullBy: b.id, pullAt: g.time }); assert.equal(hp - b.hp, 1, 'a power keeps its own damage');
+  hp = b.hp; g.strike(b); assert(hp - b.hp < 3, 'uncredited: never a Magnet shot');
+  advance(g, 4.1); assert.equal(s.magnet, null); assert(geodeActs(g.drainEvents(), 'magnet').includes('end'));
+  assert.notEqual(Bosses.canHit(g, plate, { nx: 0, ny: 1 }, {}), false, 'plates are plain again');
+});
+test("Geode King: with a whole crust there is no gap, so no Magnet Heart; fool's gold is never pulled in", () => {
+  let g = arena(8); assert.notEqual(geodeMove(g, 2, 0).warning.move, 'magnet', 'no gap: he rests and moves on');
+  g = arena(8); const s = g.bossState, b = s.boss; geodeMove(g, 0, 1); advance(g, .95); g.drainEvents(); breakPlate(g, platesOf(s)[0]);
+  const fool = piecesOf(s, 'pyrite')[0]; fool.x = fool.baseX = b.x - 50; fool.y = fool.startY = b.y + 30; fool.sink = 0;
+  const { warning } = geodeMove(g, 2, 0); assert.equal(warning.move, 'magnet');
+  assert(!warning.targets.some(t => t.id === fool.id), 'fool\'s gold stays put'); assert(!fool.bloomed); assert.equal(brokenOf(s).length, 1);
+  assert.equal(Foes.fields(g).find(f => f.boss).until, 6, 'the aim line knows when the field ends');
+});
+test('Geode King: a Lullaby holds the magnet\'s needle and its end, the lobbed gem and the sinking fool\'s gold', () => {
+  let g = arena(8), s = g.bossState; breakPlate(g, platesOf(s)[0]); geodeMove(g, 2, 0); advance(g, 1);
+  const m = s.magnet, t = m.t; g.lullaby = 1.5; advance(g, 1); assert.equal(s.magnet.t, t, 'the needle is held');
+  advance(g, 4.4); assert(s.magnet, 'its end comes late by the Lullaby'); advance(g, 1.2); assert.equal(s.magnet, null);
+  g = arena(8); s = g.bossState; geodeMove(g, 1, 0); advance(g, .5); const gem = piecesOf(s, 'lobgem')[0], at = [gem.x, gem.y];
+  g.lullaby = 1; advance(g, .8); assert.deepEqual([gem.x, gem.y], at, 'the lob hangs');
+  g = arena(8); s = g.bossState; g.descentSpeed = 20; geodeMove(g, 0, 1); advance(g, .95); const fool = piecesOf(s, 'pyrite')[0], y = fool.y;
+  g.lullaby = 1; advance(g, .8); assert.equal(fool.y, y, 'fool\'s gold stops sinking');
+});
+test('Geode King: every move heaves him up (at most 24 px, never above where he started)', () => {
+  const g = arena(8), s = g.bossState; s.drift = 50; g.step(1 / 120); const y0 = s.boss.y; s.stunUntil = s.age + 9; geodeMove(g, 1, 0); advance(g, .9);
+  assert(s.boss.y < y0 - 20 && s.boss.y >= y0 - 24 - 1e-6, `lifted ${y0 - s.boss.y}`); assert.equal(s.drift, 26);
+  const h = arena(8), t = h.bossState; t.drift = 0; t.stunUntil = t.age + 9; h.step(1 / 120); const y1 = t.boss.y; geodeMove(h, 1, 0); advance(h, .9); assert(t.boss.y >= y1 - 1e-6, 'not above his start');
+});
+test('Geode King: a long slow fight never sinks him onto the shoulders or the line (past 150 px a heave lifts him back)', () => {
+  const g = arena(8), s = g.bossState; s.boss.bossFall = Depths.bosses[7].descent; s.tier = 1; s.boss.hp = 60; s.next = 0;
+  let low = 0;
+  for (let n = 0; n < 160 * 120; n++) { g.step(1 / 120); low = Math.max(low, s.boss.y); }
+  // His crust reaches 52 px below his middle (plates ride 39 px out, r 13); the Gem Lob's shoulder marks sit at y 404 (r 16).
+  assert(low + 52 < 404 - 16, `he sank to y ${low.toFixed(0)}`); assert.equal(s.lostLives, 0, 'he never reached the line');
+  const h = arena(8), t = h.bossState; t.drift = 230; t.stunUntil = t.age + 9; geodeMove(h, 1, 0); advance(h, .9); assert.equal(t.drift, 150, 'one heave back up to 150 px');
+});
+test('Geode King: Magnetic plays the same at 30, 60 and 144 FPS', () => {
+  const runs = [30, 60, 144].map(fps => {
+    const g = arena(8), s = g.bossState; breakPlate(g, platesOf(s)[0]); s.tier = 2; s.boss.hp = 30; s.next = 0; const log = [];
+    for (let n = 0; n < 30 * fps; n++) { g.step(1 / fps); for (const e of g.drainEvents()) if (e.type === 'bossAbility') log.push(`${e.move}:${e.act}:${(+e.x).toFixed(3)}`); }
+    return { log: log.join(' '), kit: s.kitAge.toFixed(6), poses: g.buds.map(p => `${p.id}@${p.x.toFixed(4)},${p.y.toFixed(4)}`).join(' '), burrs: g.bumpers.filter(m => m.bossBurr).length };
+  });
+  assert(runs[0].log.includes('magnet:start')); assert.deepEqual(runs[1], runs[0]); assert.deepEqual(runs[2], runs[0]);
+});
+test('Geode King: beaten mid-magnet and mid-lob, he leaves no field, lob, fool\'s gold, burr or planted feet behind', () => {
+  const g = arena(8), s = g.bossState; breakPlate(g, platesOf(s)[0]); geodeMove(g, 2, 0); geodeMove(g, 2, 1); advance(g, .5);
+  assert(s.magnet && piecesOf(s, 'lobgem').length);
+  let n = 0; while (!s.boss.bloomed && n++ < 400) g.strike(s.boss); advance(g, .5);
+  assert(!g.bossState || (!g.bossState.magnet && !g.bossState.rise)); assert(!g.buds.some(p => ['lobgem', 'pyrite'].includes(p.bossPart) && !p.bloomed));
+  assert(!g.bumpers.some(m => m.bossBurr)); assert.equal(Foes.fields(g), null);
+});
+test('Geode King: his moods, flights, fool\'s gold, lobbed gems, burrs, magnet and tells draw balanced, finite and with no per-frame gradients', () => {
+  const { Art, looks, brush, totals } = sunnyArt(), drawn = new Set();
+  for (const hook of ['face', 'part', 'under', 'over']) {
+    const own = looks.geode[hook];
+    // Counts what the hook really draws (under() and over() return nothing).
+    looks.geode[hook] = (ctx, state, s, piece, ...rest) => {
+      let calls = 0;
+      const spy = new Proxy(ctx, { get: (t, n) => { const v = t[n]; return typeof v === 'function' && /^(fill|stroke|drawImage|fillRect|fillText)$/.test(n) ? (...a) => { calls++; return v.apply(t, a); } : typeof v === 'function' ? v.bind(t) : v; },
+        set: (t, n, v) => { t[n] = v; return true; } });
+      const done = own(spy, state, s, piece, ...rest); if (done === true || (done !== false && calls > 0)) drawn.add(hook === 'part' ? piece.bossPart : hook); return done;
+    };
+  }
+  const snap = (label, state) => {
+    for (const reducedMotion of [false, true]) for (const quality of reducedMotion ? [0] : [0, 2]) {
+      const options = { theme: 'meadow', reducedMotion, showAim: true, quality };
+      Art.draw(brush().ctx, state, state.time, options);
+      const warm = totals.gradients, rec = brush(); Art.draw(rec.ctx, state, state.time + .05, options);
+      assert(rec.balanced(), `${label}: balanced`); const kitGradients = totals.gradients - warm;
+      const look = looks.geode; delete looks.geode; const bare = totals.gradients; Art.draw(brush().ctx, state, state.time + .05, options); looks.geode = look;
+      assert.equal(kitGradients, totals.gradients - bare, `${label}: the kit adds no per-frame gradient`);
+    }
+  };
+  const tell = (tier, turn, prep) => { const g = arena(8), s = g.bossState; if (prep) prep(g, s); s.tier = tier; if (tier) s.cycle = turn; else s.action = turn; s.next = 0; s.warning = null;
+    for (let n = 0; n < 240 && !s.warning; n++) g.step(1 / 120); for (let n = 0; n < 80; n++) g.step(1 / 120); assert(s.warning); return g; };
+  // Every face: each mood, blinking, a hit, the heave, the hum, the shiver near the end.
+  for (const tier of [0, 1, 2]) { const h = arena(8); h.bossState.tier = tier; snap(`mood ${tier}`, h); h.time = 1.2; snap(`mood ${tier} blink`, h); }
+  let h = arena(8); h.bossState.boss.hp = 8; h.bossState.boss.hitAt = h.time; snap('hurt, shivering', h);
+  // The Pyrite Toss: its tell, the pieces in the air (and his heave), landed, a fool's gold near the line.
+  snap('pyrite tell', tell(0, 1));
+  let g = arena(8), s = g.bossState; s.drift = 30; geodeMove(g, 0, 1); advance(g, .4); snap('toss flight, heave', g); advance(g, .6); snap('landed', g);
+  const fool = piecesOf(s, 'pyrite')[0]; fool.y = fool.startY = g.dangerY - 30; fool.sink = 0; advance(g, .05); snap('fool near the line', g);
+  // The Gem Lob: its tell, high in its flight, low enough to catch, landed as a burr.
+  snap('lob tell', tell(1, 0));
+  g = arena(8); s = g.bossState; geodeMove(g, 1, 0); advance(g, .4); snap('lob high', g); advance(g, 1.5); snap('lob low', g); advance(g, .4); snap('burr', g);
+  assert(g.bumpers.some(m => m.bossBurr), 'it landed');
+  // The Magnet Heart: its tell (with a gem marked to pull), then the ring, the iron and the gap.
+  snap('magnet tell', tell(2, 0, (g, s) => { breakPlate(g, platesOf(s)[0]); breakPlate(g, platesOf(s)[1]); g.buds.push({ id: 'loose', group: 'loose', x: s.boss.x + 60, y: s.boss.y + 40, baseX: s.boss.x + 60, startY: s.boss.y + 40, r: 10, type: 'coral', hp: 1, maxHp: 1, gem: true, fall: 1, sway: 0, relay: false, hitAt: -100, bloomAt: -100, bloomed: false }); }));
+  g = arena(8); s = g.bossState; breakPlate(g, platesOf(s)[0]); geodeMove(g, 2, 0); advance(g, 1); assert(s.magnet); snap('magnet on', g); advance(g, 4.7); snap('magnet ending', g);
+  for (const hook of ['face', 'pyrite', 'lobgem', 'under', 'over']) assert(drawn.has(hook), hook);
+});
+test('The good bot beats the Geode King', () => {
+  for (const seed of [7, 19]) {
+    const run = bot.play(8, { seed, startWave: 10, noise: 2.5, think: .3, thinkSpread: .3, bounces: 2 });
+    assert(run.won, `seed ${seed}: ${JSON.stringify(run.bossDiagnostics)}`);
+  }
+});
+
+// ── Thornmother (Level 9, `briar`) ──
+{
+  const flower = (id, x, y, extra) => ({ id, group: id, x, y, baseX: x, startY: y, r: 11, type: 'gold', hp: 1, maxHp: 1, relay: false, fall: 1, sway: 0, hitAt: -100, bloomAt: -100, bloomed: false, ...extra });
+  // Thornmother on her board with her next move forced (the tier, and the move's place in that tier's list) and its
+  // warning up. Unless told otherwise the board holds three plain flowers she could reel (a, b, c) and one too far (d).
+  function thorn(tier, index, { flowers = true, buds = [] } = {}) {
+    const g = arena(9), s = g.bossState;
+    if (flowers) g.buds.push(flower('a', 150, 200), flower('b', 210, 230), flower('c', 270, 200), flower('d', 380, 320));
+    g.buds.push(...buds); s.tier = tier; if (tier) s.cycle = index; else s.action = index; s.next = 0; g.step(1 / 120); return g;
+  }
+  function until(g, done, seconds = 10) { const events = []; for (let n = 0; n < seconds * 120 && !done(); n++) { g.step(1 / 120); events.push(...g.drainEvents()); } return events; }
+  const play = g => until(g, () => !g.bossState.warning, 2);
+  const acts = (events, act) => events.filter(e => e.type === 'bossAbility' && e.kind === 'briar' && e.act === act);
+  const K = () => Bosses.kits.briar;
+  const docked = s => s.carried.filter(p => p.carried && p.carried.reel && !p.bloomed);
+  const knots = s => s.parts.filter(p => p.bossPart === 'lasso' && !p.bloomed && !p.closed);
+
+  test('Thornmother has 100 health, turns Smitten at 67 and Wild at 34, and every word fits a phone', () => {
+    const g = arena(9), s = g.bossState, k = K();
+    assert.equal(Bosses.health.briar, 100); assert.equal(s.boss.maxHp, 100); assert.deepEqual(s.tierAt, [67, 34]);
+    assert(Bosses.health.core >= Bosses.health.briar, 'the Starseed keeps the largest health');
+    assert.deepEqual(k.moods, ['Prickly', 'Smitten', 'Wild']); assert.deepEqual(k.stageText, [null, 'Thornmother is in love!', 'Thornmother is running wild!']);
+    assert.deepEqual(k.moves, [['briar', 'reel'], ['sweet', 'briar', 'reel'], ['lasso', 'briar', 'sweet', 'reel']]);
+    for (const text of [...Object.values(k.text), ...k.stageText.slice(1), ...k.moods]) assert(text.length <= 52, text);
+  });
+  test('Prickly opens on her old patch at 2.2 s; Smitten opens on Sweetheart Vines and Wild on the Vine Lasso', () => {
+    const g = arena(9), s = g.bossState; until(g, () => s.warning, 3);
+    assert.equal(s.warning.move, 'briar'); assert(Math.abs(s.warning.at - 2.2) < .01); assert.equal(s.warning.text, 'Cut the vines! Clear a whole patch.');
+    for (const [tier, text, mood, move, words] of [[0, 'Thornmother is in love!', 'Smitten', 'sweet', 'Sweethearts! Hit both together to win her heart.'], [1, 'Thornmother is running wild!', 'Wild', 'lasso', 'Vine lasso! Shoot the pink bow to untie it.']]) {
+      const g2 = arena(9), s2 = g2.bossState, b = s2.boss, line = s2.tierAt[tier]; s2.tier = tier; b.hp = line + 1; s2.next = s2.age + 9;
+      hit(g2, b, { ny: -1 }); hit(g2, b, { ny: -1 }); assert.equal(b.hp, line, 'held at the line'); assert(s2.shiftPending);
+      g2.step(1 / 120); assert.equal(s2.warning.move, 'stage'); assert.equal(s2.warning.text, text);
+      const stage = play(g2).find(e => e.type === 'bossStage'); assert(stage && stage.mood === mood);
+      until(g2, () => s2.warning, 2); assert.equal(s2.warning.move, move); assert.equal(s2.warning.text, words); assert(s2.warning.until - s2.warning.at >= 1.3 - 1e-9);
+    }
+  });
+  test('Bramble Reel: the tell marks the nearest plain flowers; they slide 1.1 s onto her skirt, each heals +1 at 4 and 8 s, then drop', () => {
+    const g = thorn(0, 1, { buds: [flower('p', 210, 180, { healing: true, bossSummon: true }), flower('q', 180, 170, { briar: true })] }), s = g.bossState, b = s.boss, w = s.warning;
+    assert.equal(w.move, 'reel'); assert.equal(w.text, 'Bramble reel! Snip the flowers off her vines.');
+    assert.deepEqual(w.targets.filter(t => t.role === 'reel').map(t => t.id).sort(), ['a', 'b', 'c'], 'never a patch bud, a briar or one out of reach');
+    const events = play(g), at = s.kitAge; assert.equal(acts(events, 'start').length, 1);
+    assert.deepEqual(docked(s).map(p => [p.id, p.carried.slot]), [['a', 0], ['b', 1], ['c', 2]]);
+    advance(g, 1.1); const pose = Bosses.predictVisible(g, 0);
+    for (const p of docked(s)) { const [ox, oy] = [[-46, 30], [0, 44], [46, 30]][p.carried.slot]; assert(Math.abs(p.x - (b.x + ox)) < .5 && Math.abs(p.y - (b.y + oy)) < .5); assert.equal(pose.get(p.id).x, p.x); }
+    b.hp = 80; until(g, () => s.kitAge >= at + 5.1 - 1e-9); assert.equal(b.hp, 83, 'three docked flowers drink at 4 s (80 stays above her Smitten line at 67)');
+    hit(g, docked(s)[0], { ny: 1 }); const snip = acts(g.drainEvents(), 'snip'); assert.equal(snip.length, 1); assert.equal(docked(s).length, 2);
+    until(g, () => s.kitAge >= at + 9.1 - 1e-9); assert.equal(b.hp, 85, 'two still docked drink again at 8 s');
+    advance(g, .05); assert.equal(docked(s).length, 0, 'then she lets them drop'); assert(['b', 'c'].every(id => !g.buds.find(p => p.id === id).carried));
+  });
+  test('With nothing to reel she sprouts three 2-hit rosebuds already docked; low on the board she plants a patch instead', () => {
+    const g = thorn(0, 1, { flowers: false }), s = g.bossState, w = s.warning;
+    assert.equal(w.move, 'reel'); assert.equal(w.targets.filter(t => t.role === 'bud').length, 3);
+    const events = play(g); assert.equal(acts(events, 'sprout').length, 1);
+    const own = docked(s); assert.equal(own.length, 3); assert(own.every(p => p.thornBud && p.hp === 2 && p.bossSummon));
+    const low = arena(9), ls = low.bossState; ls.drift = 200; ls.action = 1; ls.next = 0; low.step(1 / 120); assert.equal(ls.warning.move, 'briar');
+  });
+  test('Sweetheart Vines: a pair sprouts at the landing spot and heals her +1 every 4 s until it blooms', () => {
+    const g = thorn(1, 0, { flowers: false }), s = g.bossState, b = s.boss, w = s.warning;
+    assert.equal(w.move, 'sweet'); const mid = w.targets.find(t => t.role === 'sweet'); assert.equal(mid.y, 70);
+    play(g); const roses = g.buds.filter(p => p.foe === 'sweetheart'); assert.equal(roses.length, 2);
+    assert.deepEqual(roses.map(p => [p.x, p.y, p.bossSummon, p.group]), [[mid.x - 24, 70, true, roses[0].group], [mid.x + 24, 70, true, roses[0].group]]);
+    b.hp = 50; const at = s.kitAge; until(g, () => s.kitAge >= at + 4 - 1e-9); assert.equal(b.hp, 51);
+    g.lull(); advance(g, 6); assert.equal(b.hp, 51, 'a Lullaby holds the vine'); advance(g, 0);
+  });
+  test('A kiss makes her Lovestruck for 2.5 s: she floats up 160 px, her skirt opens and every seed lands double; a plain cut does neither', () => {
+    const g = thorn(1, 0, { flowers: false }), s = g.bossState, b = s.boss; play(g);
+    const [r0, r1] = g.buds.filter(p => p.foe === 'sweetheart'); s.drift = 200; b.hp = 50;
+    hit(g, r0); hit(g, r1); const kiss = acts(g.drainEvents(), 'kiss'); assert.equal(kiss.length, 1);
+    assert.equal(s.mode, 'smitten'); assert.equal(s.drift, 40); assert(Bosses.canHit(g, b, { nx: 0, ny: 1 }, {}), 'open from below');
+    hit(g, b, { ny: 1 }); assert.equal(b.hp, 48); const crit = g.drainEvents().find(e => e.type === 'bossCritical'); assert(crit && crit.via === 'heart' && crit.damage === 2);
+    advance(g, 2.45); assert.equal(s.mode, 'smitten'); advance(g, .1); assert.equal(s.mode, 'skirt');
+    const g2 = thorn(1, 0, { flowers: false }), s2 = g2.bossState; play(g2); const r = g2.buds.find(p => p.foe === 'sweetheart');
+    g2.strike(r, true); advance(g2, .1); assert(g2.buds.filter(p => p.foe === 'sweetheart').every(p => p.bloomed)); assert.equal(acts(g2.drainEvents(), 'cut').length, 1); assert.notEqual(s2.mode, 'smitten');
+  });
+  test('Her float eases up over 0.5 s of kit time (exact for the bot, held by a Lullaby), and a Lovestruck outlasts her next patch move', () => {
+    const g = thorn(1, 0, { flowers: false }), s = g.bossState, b = s.boss; play(g);
+    const [r0, r1] = g.buds.filter(p => p.foe === 'sweetheart'); s.drift = 200; Bosses.step(g, 0); const y0 = b.y;
+    hit(g, r0); hit(g, r1); assert.equal(s.drift, 40); Bosses.step(g, 0); assert(Math.abs(b.y - y0) < 1e-9, 'no jump: she starts where she was');
+    const later = Bosses.predictVisible(g, .5).get(b.id).y; advance(g, .25); assert(b.y < y0 - 40 && b.y > later + 40, 'half way up');
+    g.lull(); const held = K().rise(s, s.kitAge); advance(g, .4); assert.equal(K().rise(s, s.kitAge), held, 'a Lullaby holds the float');
+    const g2 = thorn(1, 0, { flowers: false }), s2 = g2.bossState; play(g2); const [a, c] = g2.buds.filter(p => p.foe === 'sweetheart'); s2.drift = 200; Bosses.step(g2, 0);
+    const ahead = Bosses.predictVisible(g2, .5); hit(g2, a); hit(g2, c); const to = Bosses.predictVisible(g2, .5).get(s2.boss.id).y;
+    advance(g2, .5); assert(Math.abs(s2.boss.y - to) < 1e-6, 'the forecast is the board'); assert(ahead.get(s2.boss.id).y - to > 100);
+    s2.next = s2.age; until(g2, () => s2.warning, 1); assert.equal(s2.warning.move, 'briar'); const love = s2.modeUntil;
+    play(g2); assert(s2.patches.length >= 1, 'the patch is planted'); assert.equal(s2.mode, 'smitten'); assert.equal(s2.modeUntil, love, 'the Lovestruck keeps its time');
+    until(g2, () => s2.mode !== 'smitten', 3); assert.equal(s2.mode, 'skirt');
+    const g3 = thorn(1, 0, { flowers: false }), s3 = g3.bossState; play(g3); const [d, e] = g3.buds.filter(p => p.foe === 'sweetheart'); s3.drift = 200; Bosses.step(g3, 0);
+    hit(g3, d); hit(g3, e); advance(g3, .1); assert(K().rise(s3, s3.kitAge) < -100, 'floating'); Bosses.breach(g3); assert.equal(K().rise(s3, s3.kitAge), 0, 'a breach ends the float');
+    assert.equal(s3.boss.y, Bosses.predictVisible(g3, 0).get(s3.boss.id).y); assert(s3.boss.y < s3.boss.startY + 20, 'back at the top, not left floating down from below it');
+  });
+  test('Vine Lasso: five knots crawl from her skirt at 70 px/s; plain knots turn seeds away and the pink bow unties it for +1 sun', () => {
+    const g = thorn(2, 0), s = g.bossState, b = s.boss, w = s.warning, t = w.targets.find(t => t.role === 'lasso'), arch = w.targets.find(t => t.role === 'arch');
+    assert.equal(w.move, 'lasso'); assert(arch.y < 430);
+    play(g); const ks = knots(s); assert.equal(ks.length, 5); assert.deepEqual(ks.map(p => p.bow), [false, true, false, false, false]);
+    const head = ks[0], t0 = s.kitAge; advance(g, 1); const moved = Math.hypot(head.x - t.sx, head.y - t.sy); assert(moved > 88 + 70 * .9 - 15 && moved < 88 + 70 * 1.1 + 15, `head ${moved}`);
+    assert.equal(Bosses.canHit(g, ks[0], { nx: 0, ny: 1 }, {}), false); assert.equal(Bosses.canHit(g, ks[1], { nx: 0, ny: 1 }, {}), true);
+    hit(g, ks[0]); assert(!ks[0].bloomed, 'a plain knot turns a seed away');
+    s.drift = 100; const charge = g.sunCharge; hit(g, ks[1]); assert(ks[1].bloomed); assert.equal(knots(s).length, 0); assert.equal(s.lasso, null);
+    assert.equal(acts(g.drainEvents(), 'untie').length, 1); assert.equal(s.drift, 40, 'the rope yanks her up 60 px'); assert(g.sunCharge > charge);
+  });
+  test('If the lasso arrives it wraps that side in a two-piece thorn arch below y 430 for 4 s of kit time; a power unties a plain knot', () => {
+    const g = thorn(2, 0), s = g.bossState; play(g); const l = s.lasso;
+    const events = until(g, () => !s.lasso, 6); assert.equal(acts(events, 'wrap').length, 1); assert(Math.abs(s.kitAge - l.until) < 1 / 120 + 1e-9);
+    const rocks = g.bumpers.filter(p => p.bossArch); assert.equal(rocks.length, 2);
+    for (const r of rocks) { const dy = Math.abs(Math.sin(r.angle)) * r.length / 2; assert(r.y + dy < 430); assert.equal(r.kitUntil, s.kitAge + 4 - (s.kitAge - r.kitAt)); }
+    g.lull(); advance(g, 5); assert.equal(g.bumpers.filter(p => p.bossArch).length, 2, 'a Lullaby holds it');
+    until(g, () => !g.bumpers.some(p => p.bossArch), 5); assert(!g.bumpers.some(p => p.bossArch));
+    const g2 = thorn(2, 0), s2 = g2.bossState; play(g2); hit(g2, knots(s2)[3], { power: 'dandelion' }); assert.equal(knots(s2).length, 0);
+  });
+  test('The bot goes for the bow, the docked flowers, the sweethearts and her open skirt; it never values a plain knot', () => {
+    const g = thorn(2, 0), s = g.bossState; play(g);
+    const list = Bosses.targets(g), of = p => list.find(t => t.bud === p);
+    assert.equal(of(knots(s)[1]).priority, 95); assert.equal(of(knots(s)[0]).priority, 0);
+    assert.equal(bot.value(g, { bud: knots(s)[0], nx: 0, ny: 1, time: .3 }, .1, bot.prepareTrace(g)), -1);
+    const g2 = thorn(0, 1), s2 = g2.bossState; play(g2); assert(docked(s2).length >= 2); // the flower encounter may keep one group for itself
+    assert.deepEqual(Bosses.targets(g2).filter(t => t.reason === 'reel').map(t => [t.bud.id, t.priority]), docked(s2).map(p => [p.id, 70]));
+  });
+  test('Her defeat ends her vines: the gold cascade blooms a live pair with no cut or kiss of hers over the finale', () => {
+    const g = thorn(1, 0, { flowers: false }), s = g.bossState, b = s.boss; play(g);
+    assert.equal(g.buds.filter(p => p.foe === 'sweetheart' && !p.bloomed).length, 2); g.drainEvents();
+    b.hp = 1; g.strike(b); assert(b.bloomed); const events = [...g.drainEvents(), ...until(g, () => false, 2)];
+    assert(g.buds.filter(p => p.foe === 'sweetheart').every(p => p.bloomed), 'the cascade blooms the pair');
+    assert.deepEqual(events.filter(e => e.type === 'bossAbility').map(e => `${e.move}:${e.act}`), []);
+  });
+  test('Thornmother plays the same at 30, 60 and 144 FPS', () => {
+    const snaps = [30, 60, 144].map(fps => {
+      const g = thorn(2, 0); advance(g, 6, fps); const s = g.bossState;
+      return [s.mode, s.action, s.cycle, +s.kitAge.toFixed(6), ...s.parts.map(p => [p.id, +p.x.toFixed(4), +p.y.toFixed(4), p.bloomed]), ...g.bumpers.filter(p => p.bossArch).map(p => [p.id, +p.x.toFixed(4)])];
+    });
+    assert.deepEqual(snaps[0], snaps[1]); assert.deepEqual(snaps[1], snaps[2]);
+  });
+  test('Thornmother: her moods, reel, sweetheart vine, Lovestruck float, lasso and arch draw balanced, finite and with no per-frame gradients', () => {
+    const { Art, looks, brush, totals } = sunnyArt(), drawn = new Set();
+    for (const hook of ['face', 'part', 'under', 'over']) {
+      const own = looks.briar[hook];
+      // Counts what the hook really draws: under() and over() return nothing, so their return value proves nothing.
+      looks.briar[hook] = (ctx, state, s, piece, ...rest) => {
+        let calls = 0;
+        const spy = new Proxy(ctx, { get: (t, n) => { const v = t[n]; return typeof v === 'function' && /^(fill|stroke|drawImage|fillRect|fillText)$/.test(n) ? (...a) => { calls++; return v.apply(t, a); } : typeof v === 'function' ? v.bind(t) : v; },
+          set: (t, n, v) => { t[n] = v; return true; } });
+        const done = own(spy, state, s, piece, ...rest); if (done === true || (done !== false && calls > 0)) drawn.add(hook === 'part' ? piece.bossPart : hook); return done;
+      };
+    }
+    const snap = (label, state) => {
+      for (const reducedMotion of [false, true]) for (const quality of [0, 1, 2]) {
+        const options = { theme: 'meadow', reducedMotion, showAim: true, quality };
+        Art.draw(brush().ctx, state, state.time, options);
+        const warm = totals.gradients, rec = brush(); Art.draw(rec.ctx, state, state.time + .05, options);
+        assert(rec.balanced(), `${label}: balanced`); const kitGradients = totals.gradients - warm;
+        const look = looks.briar; delete looks.briar; const bare = totals.gradients; Art.draw(brush().ctx, state, state.time + .05, options); looks.briar = look;
+        assert.equal(kitGradients, totals.gradients - bare, `${label}: the kit adds no per-frame gradient`);
+      }
+    };
+    // Each mood's face, a hit, and the shiver near the end.
+    for (const tier of [0, 1, 2]) { const h = arena(9); h.bossState.tier = tier; snap(`mood ${tier}`, h); h.time = 2.95; snap(`mood ${tier} blink`, h); }
+    let h = arena(9); h.bossState.boss.hp = 12; h.bossState.boss.hitAt = h.time; snap('hurt, shivering', h);
+    // The reel: its tell, the slide, docked with sap running, a snip whipping its vine back; her own rosebuds' tell.
+    let g = thorn(0, 1), s = g.bossState; advance(g, .7); snap('reel tell', g); play(g); advance(g, .5); snap('reel slide', g);
+    until(g, () => s.kitAge >= s.reel.next - .3); snap('reel sap', g); hit(g, docked(s)[0]); advance(g, .1); snap('snip', g);
+    g = thorn(0, 1, { flowers: false }); advance(g, .7); snap('rosebud tell', g); play(g); advance(g, .4); snap('rosebuds docked', g);
+    // Sweetheart Vines: the tell, the pair on its vine with sap running, a kiss, the float and the ring with its arc.
+    g = thorn(1, 0, { flowers: false }); s = g.bossState; advance(g, .7); snap('sweet tell', g); play(g); advance(g, .5); snap('pair', g);
+    const v = s.vines.find(v => !v.cut); until(g, () => s.kitAge >= v.next - .5); snap('pair sap', g);
+    const [r0, r1] = g.buds.filter(p => p.foe === 'sweetheart'); s.drift = 200; hit(g, r0); hit(g, r1); assert.equal(s.mode, 'smitten');
+    advance(g, .2); snap('swept off her feet', g); advance(g, 1); snap('lovestruck', g);
+    // The lasso: the tell, crawling with its bow, untied by the bow, and an arch bursting up and shrivelling.
+    g = thorn(2, 0); s = g.bossState; advance(g, .7); snap('lasso tell', g); play(g); advance(g, 1); snap('lasso', g);
+    hit(g, knots(s)[1]); advance(g, .15); snap('untied', g);
+    g = thorn(2, 0); s = g.bossState; play(g); until(g, () => !s.lasso, 6); advance(g, .1); snap('arch', g);
+    const rock = g.bumpers.find(p => p.bossArch); until(g, () => s.kitAge >= rock.kitUntil - .15); snap('arch withering', g);
+    for (const hook of ['face', 'lasso', 'under', 'over']) assert(drawn.has(hook), hook);
+  });
+}
+
+// ── The Starseed (Level 10, `core`) ──
+{
+  const flower = (id, x, y, extra) => ({ id, group: id, x, y, baseX: x, startY: y, r: 11, type: 'gold', hp: 1, maxHp: 1, relay: false, fall: 1, sway: 0, hitAt: -100, bloomAt: -100, bloomed: false, ...extra });
+  const K = Bosses.kits.core;
+  // The Starseed on her board with her next move forced (the tier, and the move's place in its list) and played to its
+  // start (the warning has run). Returns the events of the tell and the start.
+  function star(tier, index, { g = arena(10), buds = [] } = {}) {
+    const s = g.bossState; g.buds.push(...buds);
+    s.tier = tier; if (tier) s.cycle = index; else s.action = index; if (tier) s.phase = Math.max(s.phase, 1);
+    s.next = s.age; g.step(1 / 120); const w = s.warning; assert(w, 'a warning is up');
+    const events = []; while (s.warning) { g.step(1 / 120); events.push(...g.drainEvents()); }
+    return { g, s, b: s.boss, w, events };
+  }
+  function until(g, done, seconds = 10) { const events = []; for (let n = 0; n < seconds * 120 && !done(); n++) { g.step(1 / 120); events.push(...g.drainEvents()); } return events; }
+  const sats = s => s.parts.filter(p => p.bossPart === 'satellite');
+  const lit = s => sats(s).filter(p => p.lit && !p.bloomed).length;
+  const coreActs = (events, move, act) => events.filter(e => e.type === 'bossAbility' && e.kind === 'core' && e.move === move && e.act === act);
+  const crits = (events, via) => events.filter(e => e.type === 'bossCritical' && e.kind === 'core' && (!via || e.via === via));
+
+  test('The Starseed: Wishful, Dazzling and Radiant at 200 health (134 and 67), each mood opening on its new move, in her own words', () => {
+    const g = arena(10), s = g.bossState;
+    assert.equal(Bosses.health.core, 200); assert.equal(s.boss.maxHp, 200); assert.deepEqual(s.tierAt, [134, 67]);
+    assert.equal(Math.max(...Object.values(Bosses.health)), 200, 'still the largest health of all ten');
+    assert.deepEqual(K.moods, ['Wishful', 'Dazzling', 'Radiant']);
+    assert.deepEqual(K.stageText, [null, 'The Starseed is dazzling!', 'The Starseed is radiant!']);
+    assert.deepEqual(K.moves, [['satellites', 'swirl', 'portal', 'waltz', 'glass'], ['dome', 'pearl', 'rocket', 'gem', 'lasso'], ['starfall', 'dome', 'rocket', 'lasso', 'starfall', 'gem', 'pearl']]);
+    for (const text of [...Object.values(K.text), ...K.stageText.slice(1)]) assert(text.length <= 52, text);
+    assert.equal(s.boss.bossFall, 0, 'the arena holds her still'); assert.equal(arena(10).bossState.kind, 'core');
+    const real = new RushGame({ plan: bot.plan(10), startWave: 10 }); assert.equal(real.bossState.boss.bossFall, 4.5, 'she drifts down at 4.5 px/s, not 6.65');
+  });
+  test('The Starseed: her old relight first, a swirl by 14 s, and a lent star riding the swirl: shot, the swirl stops and its star stays dark', () => {
+    const g = arena(10), s = g.bossState, events = until(g, () => s.age >= 14, 14);
+    assert.deepEqual(events.filter(e => e.type === 'bossAbility' && e.act === 'start').map(e => e.move), ['satellites', 'swirl']);
+    const rider = s.parts.find(p => p.bossPart === 'swirlstar'); assert(rider && rider.lent && rider.hp === 1 && !rider.lit);
+    assert(g.currents.some(c => c.bossSwirl)); const lender = sats(s).find(p => p.id === rider.lender); assert(lender && !lender.lit, 'lent by a dark star');
+    advance(g, .5); const a = Math.atan2(rider.y - 305, rider.x - 210); assert(Math.abs(Math.hypot(rider.x - 210, rider.y - 305) - 42) < 1e-6, 'it rides the swirl ring');
+    hit(g, rider); const ev = g.drainEvents(); assert(rider.bloomed); assert(!g.currents.some(c => c.bossSwirl), 'the swirl stops');
+    assert.equal(coreActs(ev, 'swirl', 'answer').length, 1); assert(!lender.lit && !lender.lending, 'its star stays dark');
+    assert(Number.isFinite(a));
+  });
+  test('The Starseed: a lent star nobody shoots flies home after 5 s and relights its star; a Lullaby holds it', () => {
+    const { g, s } = star(0, 1), rider = s.parts.find(p => p.bossPart === 'swirlstar'), lender = sats(s).find(p => p.id === rider.lender), before = lit(s);
+    g.lull(); advance(g, 5.5); assert(!rider.closed, 'held by the Lullaby');
+    const events = until(g, () => rider.closed, 6); assert(rider.closed); assert(lender.lit && !lender.bloomed); assert.equal(lit(s), before + 1);
+    assert.equal(coreActs(events, 'swirl', 'home').length, 1);
+  });
+  test("The Starseed: Old Sunny's portal drops a sprout at once and spits at 1.6 and 3.2 s unless it is shot shut (+1 sun)", () => {
+    // The board falls at a real pace (each sprout is clear of the portal's mouth by the next spit).
+    let { g, s, events } = star(0, 2), portal = s.parts.find(p => p.bossPart === 'portal'); g.descentSpeed = 10;
+    assert(portal.lent && portal.sunBonus === 1); assert.equal(coreActs(events, 'portal', 'spit').length, 1);
+    events = until(g, () => s.kitAge >= portal.born + 3.3, 4); assert.equal(coreActs(events, 'portal', 'spit').length, 2);
+    ({ g, s } = star(0, 2)); portal = s.parts.find(p => p.bossPart === 'portal'); hit(g, portal); events = [...g.drainEvents(), ...until(g, () => false, 4)];
+    assert(portal.bloomed); assert.equal(coreActs(events, 'portal', 'answer').length, 1); assert.equal(coreActs(events, 'portal', 'spit').length, 0);
+  });
+  test("The Starseed: Morel's waltz partner popped beside her reaches her through the dome: a two-hit Waltz pop", () => {
+    const { g, s, b } = star(0, 3), partner = s.parts.find(p => p.bossPart === 'waltz');
+    assert.equal(s.mode, 'domed'); assert(partner.puff && partner.lent); const hp = b.hp;
+    hit(g, partner); advance(g, .4); const events = g.drainEvents();
+    assert.equal(b.hp, hp - 2); assert.equal(crits(events, 'waltz').length, 1);
+  });
+  test("The Starseed: Crystal Heart's glass: two glass stars turn seeds away, the gold one lands two through the dome", () => {
+    const { g, s, b, w } = star(0, 4), glass = s.parts.filter(p => p.bossPart === 'glass'), real = glass.find(p => p.real), fakes = glass.filter(p => !p.real);
+    assert.equal(w.targets.filter(t => t.real).length, 1); assert.equal(fakes.length, 2);
+    for (const f of fakes) { assert(f.decoy); assert.equal(Bosses.canHit(g, f, { nx: 0, ny: 1 }, {}), false); assert.equal(Bosses.canHit(g, f, { nx: 0, ny: 1 }, { power: 'dandelion' }), true, 'no power is turned away'); }
+    { const t = star(0, 4), fake = t.s.parts.find(p => p.bossPart === 'glass' && !p.real), score = t.g.score, sun = t.g.sunCharge;
+      hit(t.g, fake, { power: 'dandelion' }); assert(fake.bloomed && fake.popped, 'a power pops a fake'); assert.equal(t.g.score, score); assert.equal(t.g.sunCharge, sun, 'a decoy pays nothing'); }
+    advance(g, 1.2); assert.notEqual(real.from, real.to, 'they shuffle'); assert(Math.abs(real.x - (b.x + (real.to - 1) * 56)) < 1e-6);
+    const hp = b.hp; hit(g, real); advance(g, .4); const events = g.drainEvents();
+    assert.equal(b.hp, hp - 2); assert.equal(crits(events, 'glass').length, 1); assert(fakes.every(f => f.closed));
+  });
+  test('The Starseed: the Constellation Dome relights all five with numbers round a pentagram; out of turn a seed glances', () => {
+    const { g, s, b, w } = star(1, 0); assert.equal(w.move, 'dome');
+    assert.deepEqual(w.targets.map(t => t.role), ['satellite', 'satellite', 'satellite', 'satellite', 'satellite']);
+    assert.equal(lit(s), 5); assert.equal(s.mode, 'domed');
+    const order = sats(s).sort((p, q) => p.pip - q.pip);
+    assert.deepEqual(order.map(p => p.pip), [1, 2, 3, 4, 5]);
+    assert.deepEqual(w.targets.map(t => t.pip), w.targets.map(t => s.parts.find(p => p.id === t.id).pip), 'the tell showed the numbers the dome got');
+    for (let k = 1; k < 5; k++) assert.equal((order[k].slot - order[k - 1].slot + 5) % 5, 2, 'each next star two slots on: a pentagram');
+    assert(order.every(p => p.hp === 1));
+    assert.equal(Bosses.canHit(g, order[2], { nx: 0, ny: 1 }, {}), false); assert(order[2].decoy, 'the bot leaves it');
+    assert.equal(Bosses.canHit(g, order[2], { nx: 0, ny: 1 }, { power: 'beeline' }), true, 'powers still land');
+    assert.equal(Bosses.canHit(g, order[2], { nx: 0, ny: 1 }, { power: 'dandelion' }), true, 'every power');
+    hit(g, order[2]); assert(!order[2].bloomed); assert.equal(Bosses.canHit(g, order[0], { nx: 0, ny: 1 }, {}), true);
+    assert(b.hp === b.maxHp);
+    // A dark dome star lends the next trick; flying home it relights as a plain star, with no number.
+    hit(g, order[0]); advance(g, .05); assert.equal(s.dome.next, 2); const t = star(1, 1, { g }), portal = t.s.parts.find(p => p.bossPart === 'portal');
+    assert.equal(portal.lender, order[0].id); until(g, () => portal.closed, 5);
+    assert(!order[0].bloomed && order[0].lit && !order[0].pip && !order[0].decoy); assert.equal(Bosses.canHit(g, order[0], { nx: 0, ny: 1 }, {}), true); assert.equal(s.dome.next, 2);
+  });
+  test('The Starseed: five in turn ring five bells, three break the dome, and the fifth is a three-hit Shooting star', () => {
+    const { g, s, b } = star(1, 0), order = sats(s).sort((p, q) => p.pip - q.pip), events = [];
+    b.hp = 100;
+    for (const [k, p] of order.entries()) {
+      hit(g, p); advance(g, .02); events.push(...g.drainEvents());
+      if (k === 2) assert.equal(s.mode, 'exposed', 'three broken: the dome is down');
+    }
+    advance(g, .4); events.push(...g.drainEvents());
+    assert.deepEqual(coreActs(events, 'dome', 'ring').map(e => e.n), [1, 2, 3, 4, 5]); assert.equal(coreActs(events, 'dome', 'shoot').length, 1);
+    assert.equal(b.hp, 97); assert.equal(crits(events, 'shooting').length, 1); assert.equal(s.dome, null);
+    assert(sats(s).every(p => !p.pip && !p.decoy));
+  });
+  test('The Starseed: Pearl Portal spits two shelled pearls (turning shells) unless it is shot shut', () => {
+    const { g, s } = star(1, 1), portal = s.parts.find(p => p.bossPart === 'portal'); g.descentSpeed = 10;
+    assert(portal.pearly); const events = until(g, () => s.kitAge >= portal.born + 2.8, 4);
+    const pearls = g.buds.filter(p => p.pearl); assert.equal(pearls.length, 2); assert.equal(coreActs(events, 'pearl', 'spit').length, 2);
+    for (const p of pearls) { assert(p.shell && p.bossSummon && p.hp === 1); assert.equal(Math.abs(p.shellSpin), 1.4); }
+  });
+  test('The Starseed: Firework Star: hit before its fuse, it rockets into her for three; left, it bursts into cinders and flies home', () => {
+    let { g, s, b } = star(1, 2), rocket = s.parts.find(p => p.bossPart === 'rocket');
+    const hp = b.hp; hit(g, rocket); advance(g, .4); let events = g.drainEvents();
+    assert.equal(b.hp, hp - 3); assert.equal(crits(events, 'rocket').length, 1);
+    ({ g, s, b } = star(1, 2)); rocket = s.parts.find(p => p.bossPart === 'rocket'); const summons = s.summons;
+    events = until(g, () => rocket.closed, 5); assert.equal(coreActs(events, 'rocket', 'burst').length, 1); assert.equal(s.summons, summons + 1);
+  });
+  test('The Starseed: Gem Lob: catch the gold gem in the air for two; a landed one is a burr rock above the close band for 6 s', () => {
+    let { g, s, b } = star(1, 3), gems = s.parts.filter(p => p.bossPart === 'gem'), real = gems.find(p => p.real);
+    assert.equal(gems.length, 3); assert(gems.filter(p => !p.real).every(p => p.decoy));
+    advance(g, .7); assert(real.y < Math.max(real.y0, real.y1), 'it arcs'); const hp = b.hp; hit(g, real); advance(g, .4);
+    assert.equal(b.hp, hp - 2); assert.equal(crits(g.drainEvents(), 'gem').length, 1);
+    ({ g, s } = star(1, 3)); real = s.parts.find(p => p.bossPart === 'gem' && p.real);
+    const events = until(g, () => s.parts.every(p => p.bossPart !== 'gem' || p.closed), 3);
+    const burr = g.bumpers.find(r => r.burr); assert(burr && burr.y + 6 < 430 && burr.kitUntil - s.kitAge > 5.8); assert.equal(coreActs(events, 'gem', 'land').length, 1);
+    advance(g, 6.1); assert(!g.bumpers.some(r => r.burr), 'gone after 6 s');
+  });
+  test('The Starseed: Star Lasso: two thorns circle the knot and turn seeds away; untied, nothing grows; arrived, a thorn arch for 4 s', () => {
+    let { g, s } = star(1, 4), knot = s.parts.find(p => p.bossPart === 'knot'), thorns = s.parts.filter(p => p.bossPart === 'thorn');
+    assert.equal(thorns.length, 2); for (const t of thorns) assert.equal(Bosses.canHit(g, t, { nx: 0, ny: 1 }, {}), false);
+    advance(g, 1); for (const t of thorns) assert(Math.abs(Math.hypot(t.x - knot.x, t.y - knot.y) - 24) < 1e-6);
+    hit(g, knot); assert(knot.bloomed && thorns.every(t => t.closed)); advance(g, 6); assert(!g.bumpers.some(r => r.thorn));
+    ({ g, s } = star(1, 4)); knot = s.parts.find(p => p.bossPart === 'knot');
+    const events = until(g, () => knot.closed, 8), arch = g.bumpers.filter(r => r.thorn);
+    assert.equal(arch.length, 2); assert(arch.every(r => r.y < 430 && r.kitUntil > s.kitAge)); assert.equal(coreActs(events, 'lasso', 'arch').length, 1);
+    advance(g, 4.1); assert(!g.bumpers.some(r => r.thorn));
+  });
+  test('The Starseed: Starfall: three comets streak down, .5 s apart; a caught one chains the pieces along its line, a missed one lands as a two-hit star', () => {
+    const buds = [flower('f1', 120, 200), flower('f2', 110, 240), flower('f3', 300, 160)];
+    let { g, s, w } = star(2, 0, { buds }); assert.equal(w.move, 'starfall');
+    const lines = w.targets.filter(t => t.role === 'comet'); assert.equal(lines.length, 3); for (const t of lines) assert(t.y1 + 12 <= g.dangerY - 120);
+    advance(g, .02); let comets = s.parts.filter(p => p.bossPart === 'comet'); assert.equal(comets.length, 1);
+    advance(g, 1.05); comets = s.parts.filter(p => p.bossPart === 'comet'); assert.equal(comets.length, 3);
+    const left = comets.find(p => p.k === 0); hit(g, left); const events = [...g.drainEvents(), ...until(g, () => false, .5)];
+    assert.equal(coreActs(events, 'starfall', 'catch').length, 1);
+    assert(g.buds.find(p => p.id === 'f2').bloomed, 'the piece on its line blooms'); assert(!g.buds.find(p => p.id === 'f3').bloomed);
+    until(g, () => s.parts.every(p => p.bossPart !== 'comet' || p.closed || p.bloomed), 3);
+    const fallen = g.buds.filter(p => p.fallenStar); assert.equal(fallen.length, 2); assert(fallen.every(p => p.hp === 2 && p.bossSummon));
+  });
+  test('The Starseed: her old Supernova is kept once, at 15% health in her last mood, and every seed on her lands double after', () => {
+    const g = arena(10), s = g.bossState, b = s.boss; s.tier = 2; s.phase = 1; b.hp = 27; s.next = s.age;
+    g.step(1 / 120); assert.equal(s.warning.move, 'supernova'); while (s.warning) g.step(1 / 120);
+    assert.equal(s.mode, 'supernova'); assert.equal(s.phase, 2); hit(g, b); assert.equal(b.hp, 25);
+    s.next = s.age; g.step(1 / 120); assert.notEqual(s.warning.move, 'supernova', 'only once');
+  });
+  test('The Starseed: each mood change floats her up (at most 160 px of her drift) over 1.2 s', () => {
+    const g = arena(10), s = g.bossState, b = s.boss; s.drift = 200;
+    b.hp = s.tierAt[0]; until(g, () => s.tier === 1, 3); const rise = s.rise; assert(rise && rise.by === 160);
+    const k = Bosses.kits.core; assert.equal(k.rise(s, rise.at), 0); assert(Math.abs(k.rise(s, rise.at + .6) - 80) < 1e-9, 'eased: half way at half time');
+    advance(g, 1.25); assert(Math.abs(s.drift - 40) < 1e-6, 'committed off her drift'); assert.equal(s.rise, null);
+  });
+  test('The Starseed: the same at 30, 60 and 144 FPS through each mood', () => {
+    for (const tier of [0, 1, 2]) {
+      const runs = [30, 60, 144].map(fps => {
+        const g = arena(10), s = g.bossState; s.tier = tier; if (tier) s.phase = 1; s.next = 1; advance(g, 12, fps);
+        return [s.action, s.cycle, ...s.parts.map(p => [p.id, +p.x.toFixed(4), +p.y.toFixed(4), p.bloomed, Boolean(p.closed)])];
+      });
+      assert.deepEqual(runs[1], runs[0], `tier ${tier} 60`); assert.deepEqual(runs[2], runs[0], `tier ${tier} 144`);
+    }
+  });
+  test('The Starseed: beaten mid-trick she leaves no lent star, burr, arch, dome number, timer or raised guardian behind', () => {
+    const { g, s, b } = star(1, 3); star(1, 4, { g }); s.dome = { next: 2, rings: 1 }; for (const p of sats(s)) p.pip = 1;
+    assert(s.timers.length);
+    for (let n = 0; n < 400 && !b.bloomed; n++) g.strike(b, true);
+    assert(b.bloomed); assert.equal(s.timers.length + s.lobs.length, 0); assert(s.parts.every(p => p.bloomed));
+    assert(!g.bumpers.some(r => r.burr || r.thorn)); assert.equal(s.dome, null); assert(sats(s).every(p => !p.pip && !p.lending));
+    assert.equal(g.dangerY, 448); advance(g, 8); assert(!g.drainEvents().some(e => e.type === 'bossAbility'));
+  });
+  test('The Starseed: the bot chases lent stars and comets, takes the dome in number order, and never lists a fake', () => {
+    let { g, s } = star(0, 4); let list = Bosses.targets(g);
+    assert(!list.some(t => t.bud.decoy)); assert.equal(list.find(t => t.bud.lent).priority, 75);
+    ({ g, s } = star(1, 0)); list = Bosses.targets(g);
+    const pips = list.filter(t => t.bud.bossPart === 'satellite'); assert.equal(pips.length, 1); assert.equal(pips[0].bud.pip, 1); assert.equal(pips[0].priority, 90);
+  });
+  // The art, in a sandbox with a recording canvas: every move's tell and action with Animations on and off and at each
+  // quality, once her sprites are warm (as the level's intro warms them).
+  function starArt(canvas = true) {
+    const vm = require('node:vm'), tally = { gradients: 0, blur: 0, surfaces: 0, calls: {}, hook: null, face: [], kit: null, warm: false };
+    const brush = () => {
+      const stack = [], state = { globalAlpha: 1, globalCompositeOperation: 'source-over', fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, shadowBlur: 0, lineDashOffset: 0 };
+      const ctx = new Proxy(state, {
+        get(t, name) {
+          if (name in t) return t[name];
+          if (name === 'canvas') return { width: 420, height: 560 };
+          return (...args) => {
+            for (const a of args) if (typeof a === 'number') assert(Number.isFinite(a), `${String(name)} received ${a}`);
+            if (tally.hook) tally.calls[tally.hook] = (tally.calls[tally.hook] || 0) + 1;
+            if (tally.hook === 'face' && /To$|^arc$|^ellipse$/.test(name)) tally.face.push(name, ...args.map(n => Math.round(n * 100)));
+            if (name === 'save') stack.push({ ...state });
+            else if (name === 'restore') { assert(stack.length, 'restore without save'); Object.assign(state, stack.pop()); }
+            else if (name === 'measureText') return { width: String(args[0]).length * 7 };
+            else if (name === 'getTransform') return { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+            else if (/Gradient$|^createPattern$/.test(name)) { if (tally.hook) tally.gradients++; return { addColorStop() {} }; }
+          };
+        },
+        set(t, name, value) {
+          if (['globalAlpha', 'lineWidth', 'shadowBlur', 'lineDashOffset'].includes(name)) assert(Number.isFinite(value), `${name} is finite`);
+          if (name === 'shadowBlur' && value > 0 && tally.hook) tally.blur++;
+          t[name] = value; return true;
+        }
+      });
+      return { ctx, balanced: () => stack.length === 0 };
+    };
+    class Canvas { constructor(w, h) { this.width = w; this.height = h; if (tally.hook && tally.warm) tally.surfaces++; this.rec = brush(); } getContext() { return this.rec.ctx; } }
+    const scope = vm.createContext({ console, Math, Map, Set, WeakMap, Array, Object, Number, String, JSON, Date, performance, ...(canvas ? { OffscreenCanvas: Canvas } : {}) });
+    for (const file of ['foe-art.js', 'art.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), scope, { filename: file });
+    const kits = scope.BloomFoeArt.kits, drawn = new Set(), look = scope.BloomFoeArt.KIT_LOOKS.core;
+    for (const hook of ['under', 'part', 'face', 'over']) {
+      const call = kits[hook]; kits[hook] = (...args) => { const outer = tally.hook; tally.hook = hook; try { const done = call(...args); if (done) drawn.add(hook === 'part' ? args[2].bossPart : hook); return done; } finally { tally.hook = outer; } };
+    }
+    // Every sprite she uses is painted by warm: a sprite key first asked for later would be painted mid-fight.
+    // The kit is frozen, so her hooks are handed a copy whose atlasSprite notes each key.
+    const known = new Set(); tally.late = new Set();
+    const spyOf = kit => {
+      if (!tally.kit) {
+        tally.kit = { ...kit, atlasSprite: (key, ...rest) => { if (/^core:/.test(key)) (tally.warm ? known.has(key) || tally.late.add(key) : known.add(key)); return kit.atlasSprite(key, ...rest); } };
+        look.warm(tally.kit); tally.gradients = 0; tally.warm = true;
+      }
+      return tally.kit;
+    };
+    for (const [hook, at] of [['under', 5], ['part', 6], ['face', 6], ['over', 5]]) {
+      const own = look[hook]; look[hook] = (...args) => { args[at] = spyOf(args[at]); return own(...args); };
+    }
+    const frame = (game, still, quality = 0) => {
+      const rec = brush(); scope.BloomArt.draw(rec.ctx, game, game.time, { showAim: false, theme: 'depth-core', reducedMotion: still, quality });
+      assert(rec.balanced(), 'transforms balance');
+    };
+    return { tally, frame, drawn };
+  }
+  test("The Starseed's art draws every move's tell and action, Animations on and off, with no gradient, blur or new surface per frame; her three moods are three faces", () => {
+    const { tally, frame, drawn } = starArt(), seen = new Set();
+    const film = (g, seconds) => { for (let n = 0; n < seconds * 120; n++) { g.step(1 / 120); if (n % 12 === 0) { frame(g, false, (n / 12) % 3); frame(g, true, 1); } } };
+    const buds = () => [flower('f1', 120, 200), flower('f2', 110, 240), flower('f3', 300, 160)];
+    for (const [tier, index, seconds] of [[0, 0, 3], [0, 1, 3], [0, 2, 4], [0, 3, 3], [0, 4, 3], [1, 0, 1], [1, 1, 4], [1, 2, 4.5], [1, 3, 3], [1, 4, 6.5], [2, 0, 4]]) {
+      const g = arena(10), s = g.bossState; g.buds.push(...buds());
+      s.tier = tier; if (tier) { s.cycle = index; s.phase = Math.max(s.phase, 1); } else s.action = index;
+      s.next = s.age; g.step(1 / 120); assert(s.warning, 'a warning is up'); seen.add(s.warning.move);
+      while (s.warning) { g.step(1 / 120); if (Math.round(g.time * 120) % 12 === 0) { frame(g, false); frame(g, true); } }
+      if (s.warning === null && tier === 1 && index === 0) { const order = s.parts.filter(p => p.bossPart === 'satellite').sort((p, q) => p.pip - q.pip); hit(g, order[0]); film(g, .5); hit(g, order[1]); }
+      film(g, seconds);
+    }
+    // Her old Supernova, low on health in her last mood.
+    const g = arena(10), s = g.bossState; s.tier = 2; s.phase = 1; s.boss.hp = 25; s.next = s.age; g.step(1 / 120); while (s.warning) g.step(1 / 120); film(g, 1);
+    assert.deepEqual([...seen].sort(), ['dome', 'gem', 'glass', 'lasso', 'pearl', 'portal', 'rocket', 'satellites', 'starfall', 'swirl', 'waltz']);
+    assert.equal(tally.gradients, 0, 'no gradient inside her hooks once warm'); assert.equal(tally.blur, 0, 'no shadow blur'); assert.equal(tally.surfaces, 0, 'no new surface once warm');
+    assert.deepEqual([...tally.late], [], 'every sprite painted ahead');
+    for (const hook of ['under', 'over']) assert(tally.calls[hook] > 0, hook + ' draws');
+    for (const piece of ['face', 'satellite', 'portal', 'waltz', 'rocket', 'glass', 'gem', 'knot', 'thorn', 'comet', 'swirlstar']) assert(drawn.has(piece), piece + ' drawn by the kit');
+    const flat = starArt(false), faces = [0, 1, 2].map(tier => { const h = arena(10); h.bossState.tier = tier; flat.tally.face = []; flat.frame(h, true); return JSON.stringify(flat.tally.face); });
+    assert(faces.every(f => f.length > 100)); assert.equal(new Set(faces).size, 3, 'Wishful, Dazzling and Radiant');
+  });
+  test("The Starseed's dome rings each bell once: the fifth star's bell is the Shooting star's own run, not struck twice", () => {
+    // sound.js's own cue rows for the events of one tick (its voices captured instead of played).
+    const vm = require('node:vm'), source = fs.readFileSync(path.join(__dirname, '..', 'sound.js'), 'utf8')
+      .replace('  function foeRows(rows, pan) {', '  function foeRows(rows, pan) { if (globalThis.__rows) { globalThis.__rows.push(...rows); return; }')
+      .replace('  function play(type, data = {}) {', '  globalThis.__cues = { FOE_CUES, BOSS_ACTS };\n  function play(type, data = {}) {');
+    const scope = vm.createContext({ console, Math, Date }); vm.runInContext(source, scope, { filename: 'sound.js' });
+    const tones = events => {
+      scope.__rows = [];
+      const notes = [];
+      for (const [cueAt, e] of events.entries()) {
+        scope.__rows = []; const cue = scope.__cues.BOSS_ACTS[`core:${e.move}:${e.act}`]; if (typeof cue === 'function') cue(e, 0); else if (cue) scope.__rows.push(...cue);
+        for (const r of scope.__rows) if (r[0] !== 'crunch') notes.push({ cue: cueAt, pitch: Math.round(r[1] * 100), at: r[2] });
+      }
+      scope.__rows = null; return notes;
+    };
+    const { g, s } = star(1, 0), order = sats(s).sort((p, q) => p.pip - q.pip);
+    for (const p of order) {
+      const n = p.pip; hit(g, p); const events = g.drainEvents().filter(e => e.type === 'bossAbility'), notes = tones(events);
+      assert(notes.some(n => n.at === 0), `star ${n}: a note on the hit`);
+      // Two cues on one tick never strike the same note within .2 s of each other (a flam).
+      for (const [i, a] of notes.entries()) for (const z of notes.slice(i + 1)) assert(!(a.cue !== z.cue && a.pitch === z.pitch && Math.abs(a.at - z.at) < .2), `star ${n}: no note doubled within .2 s`);
+      if (n === 5) assert(events.some(e => e.act === 'shoot'), 'the fifth shoots');
+      advance(g, .3); g.drainEvents();
+    }
+  });
+  test("The Starseed's tells mark where each trick will be: the gold gem's landing, the rocket's 58 px orbit round her, the swirl rider's first spot", () => {
+    // Her `over` hook drawn on a recording canvas: each sprite stamped (its key and where), and each dot of a dotted line.
+    const vm = require('node:vm'), marks = []; let key = null, live = false;
+    const ctx = new Proxy({}, {
+      get(t, name) {
+        if (name in t) return t[name];
+        if (name === 'canvas') return { width: 420, height: 560 };
+        return (...args) => {
+          if (name === 'measureText') return { width: String(args[0]).length * 7 };
+          if (name === 'getTransform') return { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+          if (/Gradient$|^createPattern$/.test(name)) return { addColorStop() {} };
+          if (live && name === 'translate' && key) { marks.push({ key, x: args[0], y: args[1] }); key = null; }
+          if (live && name === 'arc') marks.push({ dot: args[2], x: args[0], y: args[1] });
+        };
+      },
+      set(t, name, value) { t[name] = value; return true; }
+    });
+    const scope = vm.createContext({ console, Math, Map, Set, WeakMap, Array, Object, Number, String, JSON, Date, performance });
+    for (const file of ['foe-art.js', 'art.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), scope, { filename: file });
+    const look = scope.BloomFoeArt.KIT_LOOKS.core, over = look.over;
+    look.over = (c, state, s, time, still, kit, quality) => {
+      live = true;
+      try { return over(c, state, s, time, still, { ...kit, atlasSprite: (k, ...rest) => { key = k; return kit.atlasSprite(k, ...rest); } }, quality); } finally { live = false; }
+    };
+    const tell = (tier, index, still) => {
+      const g = arena(10), s = g.bossState; s.tier = tier; if (tier) { s.cycle = index; s.phase = 1; } else s.action = index;
+      s.next = s.age; g.step(1 / 120); for (let n = 0; n < 100; n++) g.step(1 / 120);
+      marks.length = 0; scope.BloomArt.draw(ctx, g, g.time, { showAim: false, theme: 'depth-core', reducedMotion: still, quality: 0 });
+      return { g, s, w: s.warning, marks: [...marks] };
+    };
+    for (const still of [false, true]) {
+      // Gem Lob: the gold gem's spot shows a gold gem, the others coral ones.
+      let { w, marks: m } = tell(1, 3, still);
+      assert.equal(w.move, 'gem');
+      for (const t of w.targets.filter(t => t.role === 'gem')) {
+        const at = m.find(a => a.key && /^core:(lent:gem|gem:fake)$/.test(a.key) && Math.hypot(a.x - t.x, a.y - t.y) < 1);
+        assert(at, `a ghost gem at ${t.x},${t.y}`); assert.equal(at.key, t.real ? 'core:lent:gem' : 'core:gem:fake', 'the gold one is marked');
+      }
+      // Firework Star: the dotted orbit runs 58 px round her (her rocket circles her at 58), wherever she has drifted.
+      let g, s; ({ g, s, w, marks: m } = tell(1, 2, still));
+      assert.equal(w.move, 'rocket'); const ring = m.filter(a => a.dot === 1.2);
+      assert(ring.length > 20, 'the orbit is drawn'); for (const a of ring) assert(Math.abs(Math.hypot(a.x - s.boss.x, a.y - s.boss.y) - 58) < .5, 'on her 58 px orbit');
+      // Lake swirl: the ghost rider waits where the lent star will appear (the swirl's top), not in its middle.
+      ({ w, marks: m } = tell(0, 1, still));
+      assert.equal(w.move, 'swirl'); const rider = m.find(a => a.key === 'core:lent:swirlstar');
+      assert(rider && Math.abs(rider.x - 210) < .5 && Math.abs(rider.y - (305 - 42)) < .5, 'the rider ghost sits at the top of the swirl');
+      assert(g);
+    }
+  });
+  test('The good bot beats the Starseed', () => {
+    for (const seed of [7, 19]) {
+      const run = bot.play(10, { seed, startWave: 10, noise: 2.5, think: .3, thinkSpread: .3, bounces: 2 });
+      assert(run.won, `seed ${seed}: ${JSON.stringify(run.bossDiagnostics)}`);
+    }
+  });
+}
+
+const report = { passed: results.filter(r => r.passed).length, failed: results.filter(r => !r.passed).length, results };
+fs.writeFileSync(path.join(__dirname, 'kits-test-results.json'), JSON.stringify(report, null, 2) + '\n');
+console.log(JSON.stringify(report, null, 2)); process.exitCode = report.failed ? 1 : 0;

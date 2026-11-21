@@ -29,9 +29,13 @@ const CUES = [
   ['roll', { dur: 0.9 }], ['finale', { x: 210, type: 'gold' }], ['finale', { x: 90, type: 'poppy' }], ['sweep', { i: 0, n: 10, type: 'coral' }], ['sweep', { i: 9, n: 10, type: 'sky' }],
   ['aimTick', { notch: -30 }], ['aimTick', { notch: 4 }], ['aimLock', { type: 'gold' }], ['heartbeat', {}],
   ['intro', { level: 4, boss: false }], ['intro', { level: 10, boss: true }], ['intro', { level: 'rush', boss: false }], ['pluck', { i: 0, n: 24 }], ['pluck', { i: 23, n: 24 }],
-  ['plop', { i: 3, x: 120 }], ['bossLand', { x: 210 }], ['tally', { i: 0, n: 14 }], ['tally', { i: 13, n: 14 }], ['record', {}], ['splitReady', {}],
+  ['plop', { i: 3, x: 120 }], ['bossLand', { x: 210 }], ['tally', { i: 0, n: 14 }], ['tally', { i: 13, n: 14 }], ['record', {}], ['newBest', {}], ['ribbon', { tier: 'bronze' }], ['ribbon', { tier: 'silver' }], ['ribbon', { tier: 'gold' }], ['splitReady', {}],
   ['lullabyTick', { left: 3 }], ['lullabyTick', { left: 1 }], ['lullabyWake', {}], ['briarTick', { left: 2, x: 100 }], ['briarTick', { left: 0.5, x: 300 }],
-  ['podSeed', { pod: 2 }], ['podSeed', { pod: 4 }], ['dry', { wait: 1.2, grow: .3 }]
+  ['podSeed', { pod: 2 }], ['podSeed', { pod: 4 }], ['dry', { wait: 1.2, grow: .3 }],
+  ['bossWarning', { kind: 'sunny', x: 150, at: 4, until: 5.2 }], ['bossGuard', { kind: 'fossil', bud: { x: 300 } }],
+  ['bossCritical', { kind: 'lotus', bud: { x: 160 }, damage: 3 }], ['bossBurn', { kind: 'ember', x: 310, y: 150 }],
+  // Every new piece's cues (qa/foe-cues.cjs) meet the same rules.
+  ...require('./foe-cues.cjs')
 ];
 const FLOWERS = ['gold', 'coral', 'lilac', 'sky', 'poppy'];
 function fixture(options = {}) {
@@ -130,6 +134,8 @@ const tones = (h, voice) => h.context.nodes.filter(n => n.kind === 'oscillator' 
 // Where a note's pitch automation settles (after any glide into it).
 const target = osc => osc.frequency.events[osc.frequency.events.length - 1].value;
 const inKey = frequency => { const semis = 12 * Math.log2(frequency / 261.6255653); const pc = ((Math.round(semis) % 12) + 12) % 12; return Math.abs(semis - Math.round(semis)) < 0.01 && [0, 2, 4, 5, 7, 9, 11].includes(pc); };
+const h2 = osc => Math.max(...osc.frequency.events.map(e => e.value || 0));
+const peak = node => Math.max(...node.gain.events.map(e => e.value || 0));
 async function test(name, run) {
   const started = Date.now();
   try { await run(); results.push({ name, passed: true }); if (process.env.SOUND_TEST_TIMING) console.error(Date.now() - started, 'ms', name); }
@@ -292,7 +298,8 @@ async function main() {
       const before = h.context.nodes.length, now = h.context.currentTime;
       h.sound.play('bloom', { combo, bud: { x: 210 } });
       const nodes = h.context.nodes.slice(before), oscillators = nodes.filter(n => n.kind === 'oscillator');
-      assert(oscillators.length >= 2 && oscillators.length <= 4); assert(oscillators.every(n => n.startAt === now));
+      // From 25 in a row a single soft octave sine joins the note (its own test below).
+      assert(oscillators.length >= 2 && oscillators.length <= (combo >= 25 ? 5 : 4)); assert(oscillators.every(n => n.startAt === now));
       const fundamental = oscillators.find(n => n.onended);
       assert(fundamental.frequency.value >= 140 && fundamental.frequency.value <= 1100);
       for (const osc of oscillators) {
@@ -311,6 +318,31 @@ async function main() {
       h.tick(0.1);
     }
     h.sound.play('bloom', { combo: Infinity });
+  });
+  await test('From 25 in a row a soft octave rides on the bloom note, under half its level, inside the bloom rate limit', () => {
+    const bloom = (combo, extra = {}) => {
+      const h = fixture(); h.sound.wake(); h.tick(1);
+      h.sound.play('bloom', { combo, bud: { x: 210, type: 'coral' }, ...extra });
+      return { notes: h.voices() };
+    };
+    for (const combo of [1, 8, 14, 24]) assert.equal(bloom(combo).notes.length, 1, `no octave at ${combo}`);
+    for (const combo of [25, 40, 75, 150]) for (const extra of [{}, { chain: true }, { super: true }, { seedStep: 3 }]) {
+      const { notes } = bloom(combo, extra);
+      assert.equal(notes.length, 2, `an octave at ${combo}`);
+      const [main, octave] = notes;
+      assert(Math.abs(target(octave) / target(main) - 2) < 0.01, 'exactly an octave above the note');
+      assert(target(octave) < 3600, 'under the frequency check');
+      const level = v => peak(v.connections[0]);
+      assert(level(octave) <= level(main) * 0.4 + 1e-9, `at most 0.4x the note (${level(octave)} vs ${level(main)})`);
+      assert.equal(octave.startAt, main.startAt, 'struck with the note');
+      assert(octave.stopAt <= main.stopAt + 1e-9, 'and gone by the time it is');
+    }
+    // A chain can bloom every few milliseconds: the octave is held to the bloom note's own 22 ms limit.
+    const h = fixture(); h.sound.wake(); h.tick(1);
+    for (let i = 0; i < 20; i++) { h.sound.play('bloom', { combo: 30 + i, bud: { x: 210 } }); h.tick(0.005); }
+    const voices = h.voices();
+    assert(voices.length <= 10, `20 blooms in 0.1 s ring at most ${voices.length} voices`);
+    assert.equal(voices.length % 2, 0, 'every bloom that sounds brings its octave, and no octave sounds alone');
   });
   await test('Chains walk the bloom chords, and shimmer and fever arpeggiate the chord the chain is on', () => {
     const notes = combos => combos.map(combo => { const h = fixture(); h.sound.wake(); h.tick(1); h.sound.play('bloom', { combo }); return target(h.voices()[0]); });
@@ -399,6 +431,58 @@ async function main() {
     assert(h.oscillators().every(n => n.stopAt <= h.context.currentTime + 0.025));
     h.tick(0.04); assert.equal(h.voices().length, 0); assert.equal(h.oscillators().length, 0);
   });
+  await test('All ten guardian warnings start immediately with distinct restrained colors and finish before the attack', () => {
+    const signatures = new Set(), kinds = ['sunny', 'root', 'puff', 'crystal', 'lotus', 'fossil', 'ember', 'geode', 'briar', 'core'];
+    for (const kind of kinds) {
+      const h = fixture({ buffers: true, random: '() => .5' }); h.sound.wake(); h.tick(1);
+      const now = h.context.currentTime; h.sound.play('bossWarning', { kind, x: 120, at: 4, until: 5.2 });
+      const notes = h.voices().sort((a, b) => a.startAt - b.startAt);
+      assert.equal(notes.length, 2, kind); assert.equal(notes[0].startAt, now, 'no scheduled delay reduces the telegraph lead');
+      assert(notes[1].startAt <= now + .13);
+      for (const voice of notes) { assert(voice.stopAt < now + .45); assert(peak(voice.connections[0]) <= .085); }
+      signatures.add(notes.map(voice => `${target(voice).toFixed(3)}:${h.oscillators().filter(osc => osc.connections[0] === voice.connections[0] || osc.connections[0].connections.includes(voice.connections[0])).map(osc => (target(osc) / target(voice)).toFixed(3)).join(',')}`).join('|'));
+      const before = h.context.nodes.length; for (let i = 0; i < 40; i++) h.sound.play('bossWarning', { kind });
+      assert.equal(h.context.nodes.length, before, 'repeated warning events share one cue');
+      h.tick(2); assert.equal(h.voices().length, 0); assert.equal(h.context.nodes.filter(node => node.kind === 'source' && !node.ended).length, 0);
+    }
+    assert.equal(signatures.size, 10, 'guardian colors differ without importing sounds');
+  });
+  await test('Actual controller warning events retain at least 1.2 seconds of lead and all reach the sound handler', () => {
+    const { RushGame } = require('../rush.js'), Depths = require('../depths.js');
+    for (let level = 1; level <= 10; level++) {
+      const info = Depths.level(level), game = new RushGame({ plan: { id: level, name: info.name, waves: 10, wave: n => Depths.wave(level, n) }, startWave: 10 });
+      game.started = true; game.status = 'flying'; game.descentSpeed = 0; game.drops = []; game.bossState.next = 0; game.step(1 / 120);
+      const warning = game.drainEvents().find(event => event.type === 'bossWarning');
+      assert(warning, info.name + ' emits the actual warning event'); assert(warning.until - warning.at >= 1.2 - 1e-9); assert.equal(game.bossState.action, 0);
+      const h = fixture(); h.sound.wake(); h.tick(1); h.sound.play(warning.type, warning);
+      assert(h.voices().length > 0); assert.equal(Math.min(...h.voices().map(voice => voice.startAt)), h.context.currentTime);
+      assert(Math.max(...h.voices().map(voice => voice.stopAt)) - h.context.currentTime < warning.until - warning.at);
+    }
+  });
+  await test('Guard, weakspot and burned-seed sounds differ, debounce fast impacts, and obey mute', async () => {
+    const pitches = new Set();
+    for (const type of ['bossGuard', 'bossCritical', 'bossBurn']) {
+      const h = fixture({ buffers: true }); h.sound.wake(); h.tick(1); h.sound.play(type, { kind: 'ember', x: 300, damage: NaN });
+      const notes = h.voices(); assert(notes.length >= 1 && notes.length <= 2);
+      pitches.add(notes.map(target).join(','));
+      assert(notes.every(voice => voice.startAt >= h.context.currentTime && voice.stopAt - h.context.currentTime < .35 && peak(voice.connections[0]) <= .08));
+      const before = h.context.nodes.length; for (let i = 0; i < 100; i++) h.sound.play(type, { x: Infinity }); assert.equal(h.context.nodes.length, before);
+      h.sound.setEnabled(false); const muted = h.context.nodes.length; h.sound.play(type); h.sound.play('bossWarning', { kind: 'core' }); assert.equal(h.context.nodes.length, muted);
+      h.tick(.04); assert.equal(h.voices().length, 0);
+      h.sound.setEnabled(true); h.tick(.4); h.sound.play(type); assert(h.voices().length > 0); h.tick(2); assert.equal(h.voices().length, 0);
+      const resumed = fixture({ suspended: true }); resumed.sound.wake(); resumed.sound.play(type, { kind: 'ember', x: 300 }); resumed.sound.setEnabled(false); await resumed.resume(); assert.equal(resumed.voices().length, 0, 'a muted queued impact never replays');
+    }
+    assert.equal(pitches.size, 3, 'the impact meanings have distinct audible contours');
+  });
+  await test('A boss warning retains reserved room during a dense bloom chain without exceeding caps', () => {
+    const h = fixture(); h.sound.wake(); h.tick(1);
+    for (let i = 0; i < 13; i++) { h.sound.play('bloom', { combo: i + 1 }); h.tick(.024); }
+    const before = h.voices().length; h.sound.play('bossWarning', { kind: 'core' });
+    assert(h.voices().length > before, 'at least the immediate warning voice reaches the bus');
+    assert(h.voices().length <= MAX_VOICES); assert(h.oscillators().length <= MAX_OSCILLATORS);
+    for (let i = 0; i < 200; i++) { for (const type of ['bossGuard', 'bossCritical', 'bossBurn', 'bossWarning']) h.sound.play(type, { kind: 'ember' }); assert(h.voices().length <= MAX_VOICES); assert(h.oscillators().length <= MAX_OSCILLATORS); h.tick(.01); }
+    h.tick(2); assert.equal(h.voices().length, 0); assert.equal(h.oscillators().length, 0);
+  });
   await test('Koi currents play two quiet rising water drops and debounce lane re-entry', () => {
     const h = fixture(); h.sound.wake(); h.tick(1);
     h.sound.play('current', { x: 100 });
@@ -459,6 +543,42 @@ async function main() {
     assert(voices.every(n => n.frequency.value < 1600 && n.stopAt - n.startAt <= 0.62));
     const nodes = h.context.nodes.length; h.sound.play('cleared', { wave: 4 }); assert.equal(h.context.nodes.length, nodes);
     h.tick(3); assert.equal(h.voices().length, 0);
+  });
+  await test('A level\'s wave chords keep climbing through every wave, stay in key and in range, and survive a queued first gesture', () => {
+    const voicesFor = (type, data) => { const h = fixture(); h.sound.wake(); h.tick(1); h.sound.play(type, data); return h.voices(); };
+    const lowest = (type, wave, extra = {}) => Math.min(...voicesFor(type, { wave, finalWave: 10, ...extra }).filter(v => v.frequency.value > 200).map(target));
+    for (const type of ['wave', 'cleared']) {
+      const climb = [1, 2, 3, 4, 5, 6, 7, 8, 9].map(w => lowest(type, w));
+      for (let i = 2; i < climb.length; i++) assert(climb[i] > climb[i - 1] * 1.01, `${type}: wave ${i + 1} sits higher than wave ${i}`);
+      if (type === 'cleared') assert(climb[1] > climb[0] * 1.01, 'cleared: wave 2 clears higher than wave 1');
+      else assert(climb[1] >= climb[0] - 1e-6, `${type}: wave 2 is never lower than wave 1`);
+      // A clear rings one step above its own wave's start (where the next wave will start).
+      if (type === 'cleared') for (let w = 2; w <= 9; w++) assert(lowest('cleared', w) > lowest('wave', w) * 1.01, `wave ${w} clears higher than it started`);
+      climb.forEach(f => assert(inKey(f), `${type} stays in C major`));
+      // Waves 5 to 9 used to share one chord; now they are five different ones.
+      assert.equal(new Set(climb.slice(4).map(f => f.toFixed(2))).size, 5, `${type}: waves 5 to 9 all differ`);
+      assert(Math.abs(lowest(type, 10) - lowest(type, 9)) < 1e-6 && Math.abs(lowest(type, 30) - lowest(type, 9)) < 1e-6, `${type}: the lift tops out (seven steps for a start, eight for a clear)`);
+      for (let w = 1; w <= 12; w++) for (const v of voicesFor(type, { wave: w, finalWave: 10, boss: w === 10 })) {
+        assert(v.frequency.value < 3600, `${type} wave ${w} stays under the frequency check`);
+        assert(h2(v) < 2400, `${type} wave ${w} never gets shrill`);
+      }
+    }
+    // Wave two of a level still starts on middle C, like Rush.
+    assert(Math.abs(lowest('wave', 2) - 261.6255653) < 0.01);
+    // The boss wave keeps its low marimba root an octave under the chord.
+    const boss = voicesFor('wave', { wave: 10, finalWave: 10, boss: true }), plain = voicesFor('wave', { wave: 10, finalWave: 10 });
+    assert.equal(boss.length, plain.length + 1, 'A boss wave adds a low root');
+    const root = Math.min(...boss.map(target)), chordRoot = Math.min(...plain.map(target));
+    assert(Math.abs(root * 2 - chordRoot) < 0.01, 'one octave under the chord');
+    // A shorter level spreads the same climb over its own waves.
+    const short = [2, 3, 4].map(w => Math.min(...voicesFor('wave', { wave: w, finalWave: 5 }).map(target)));
+    assert(short[1] > short[0] && short[2] > short[1]);
+    // The first gesture's cue keeps finalWave through the audio context's resume.
+    return (async () => {
+      const queued = fixture({ suspended: true }); queued.sound.wake(); queued.sound.play('wave', { wave: 9, finalWave: 10 });
+      await queued.resume();
+      assert(Math.abs(Math.min(...queued.voices().map(target)) - lowest('wave', 9)) < 1e-6, 'finalWave survives the resume queue');
+    })();
   });
   await test('Big moments flourish over a soft chord, finish within about a second, and stay soft', () => {
     for (const [type, data] of [['won', { stars: 3 }], ['boss', {}], ['sunburst', { x: 210 }], ['gift', { x: 210 }], ['cleared', { wave: 2 }], ['power', { power: 'lullaby' }]]) {
@@ -592,7 +712,6 @@ async function main() {
     assert.equal(h.context.nodes.filter(n => n.kind === 'convolver').length, 1, 'A new context gets its own room');
   });
   const pitchClass = f => ((Math.round(12 * Math.log2(f / 261.6255653)) % 12) + 12) % 12;
-  const peak = node => Math.max(...node.gain.events.map(e => e.value || 0));
   await test('Crisp transients run through one seeded noise buffer and a band at or under 3.6 kHz, then clean up', () => {
     const h = fixture({ buffers: true }); h.sound.wake(); h.tick(1); const shared = h.context.nodes.length;
     const expect = [['bloom', { combo: 1, bud: { x: 100 } }, 2000, 0.025], ['crack', { bud: { x: 90 } }, 1200, 0.03],
@@ -639,6 +758,18 @@ async function main() {
     assert(fanfare.length >= 6, 'the fanfare plays'); assert(fanfare.some(v => tones(h, v).length >= 3), 'over a chord');
     assert(fanfare.every(v => inKey(target(v)) && v.stopAt - now <= 1.1));
     const alone = fixture(); alone.sound.wake(); alone.tick(1); alone.sound.play('record', {}); assert(alone.voices().length >= 6, 'it also plays on its own');
+  });
+  await test('A new best mid-run is a soft, short chime, quieter than the record fanfare and never cutting other sounds', () => {
+    const h = fixture(); h.sound.wake(); h.tick(1); h.sound.play('bloom', { combo: 1 });
+    const before = h.voices(); h.tick(0.02); const now = h.context.currentTime;
+    h.sound.play('newBest', {});
+    const chime = h.voices().filter(v => !before.includes(v));
+    assert(chime.length >= 2 && chime.length <= 3, 'two or three soft notes'); assert(before.every(v => v.stopAt > now + 0.1), 'the bloom rings on');
+    assert(chime.every(v => inKey(target(v)) && v.stopAt - now <= 0.7), 'in key and over in well under a second');
+    const peak = voices => Math.max(...voices.map(v => Math.max(...v.connections[0].gain.events.map(e => e.value || 0))));
+    const loud = fixture(); loud.sound.wake(); loud.tick(1); loud.sound.play('record', {});
+    assert(peak(chime) < peak(loud.voices()), 'softer than the end-of-run record fanfare');
+    h.sound.play('newBest', {}); assert.equal(h.voices().filter(v => !before.includes(v)).length, chime.length, 'once per second at most');
   });
   await test('The seed ladder climbs the chord (root, third, fifth, octave) and stays in it, within 140 Hz to 1.1 kHz', () => {
     const triads = [[0, 4, 7], [9, 0, 4], [5, 9, 0], [7, 11, 2]];
@@ -720,6 +851,32 @@ async function main() {
     const tick = fixture(); tick.sound.wake(); tick.tick(1); tick.sound.play('aimTick', { notch: 3 });
     assert(tick.voices().every(v => peak(v.connections[0]) <= 0.025)); assert.equal(climb('aimTick', [{ notch: 3 }])[0].toFixed(3), climb('aimTick', [{ notch: 10 }])[0].toFixed(3));
   });
+  await test('Batch-2 payoffs strike each note once: whizz-bang crit, Starfall, the Starseed\'s sun portal and the Lodestone open', () => {
+    // Every voice's pitch and start; two strikes of one pitch closer than `gap` s are a flam (or a doubled, wobbly note).
+    const strikes = (h, from = 0) => h.context.nodes.filter(n => n.kind === 'oscillator' && n.onended).slice(from).map(v => ({ f: target(v), t: v.startAt }));
+    const doubled = (list, gap) => list.filter((a, i) => list.some((b, j) => j > i && Math.abs(a.f - b.f) < .5 && Math.abs(a.t - b.t) < gap)).map(a => `${a.f.toFixed(1)} Hz at +${(a.t - 1).toFixed(3)} s`);
+    const fresh = () => { const h = fixture(); h.sound.wake(); h.tick(1); return h; };
+    // The whizz-bang crit lands a frame or two after the bang, whose bell chord is its sound; another crit still rings.
+    for (const frame of [1 / 60, 1 / 30]) {
+      const h = fresh(); h.sound.play('foe', { kind: 'whizzbang:bang', x: 210 }); h.tick(frame); h.sound.play('bossCritical', { kind: 'ember', bud: { x: 210 }, damage: 3, via: 'whizz' });
+      assert.deepEqual(doubled(strikes(h), .06), [], `the whizz-bang crit ${(frame * 1000).toFixed(0)} ms after its bang`);
+    }
+    let h = fresh(); h.sound.play('foe', { kind: 'whizzbang:bang', x: 210 }); h.tick(1 / 60); const n = strikes(h).length;
+    h.sound.play('bossCritical', { kind: 'ember', bud: { x: 210 }, damage: 2, via: 'ring' }); assert(strikes(h).length > n, 'a ring-shot crit next to a bang still rings');
+    // Starfall's start and its first comet streak share a tick.
+    h = fresh(); h.sound.play('bossAbility', { kind: 'core', move: 'starfall', act: 'start', x: 210 }); h.sound.play('bossAbility', { kind: 'core', move: 'starfall', act: 'streak', n: 0, x: 210 });
+    assert.deepEqual(doubled(strikes(h), .03), [], 'Starfall opens on one G6');
+    // The sun portal's at-once sprout spits in the same tick as its yawn: silent, as Old Sunny's; later spits sound.
+    h = fresh(); h.sound.play('bossAbility', { kind: 'core', move: 'portal', act: 'spit', first: true, x: 210 }); h.sound.play('bossAbility', { kind: 'core', move: 'portal', act: 'start', x: 210 });
+    assert.deepEqual(doubled(strikes(h), .06), [], 'the portal\'s yawn is struck once');
+    h = fresh(); h.sound.play('bossAbility', { kind: 'core', move: 'portal', act: 'spit', x: 210 }); assert(strikes(h).length >= 2, 'a later spit sounds');
+    // The Lodestone open: a curl with gems strikes no pitch twice, and its bell rings through a busy pool (payoff priority).
+    h = fresh(); h.sound.play('foe', { kind: 'lodestone:open', curl: true, gems: [{}, {}], x: 210 });
+    assert.deepEqual(doubled(strikes(h), .1), [], 'curl chime and gem run');
+    h = fresh(); for (let i = 0; i < 13; i++) { h.sound.play('bloom', { combo: i + 1 }); h.tick(.024); }
+    assert.equal(h.voices().length, MAX_VOICES - 3, 'the pool is as busy as a big chain leaves it');
+    const busy = strikes(h).length; h.sound.play('foe', { kind: 'lodestone:open', x: 210 }); assert(strikes(h).length > busy, 'the open\'s bell still rings');
+  });
   await test('Without an offline renderer the music is silently off, and the music calls never throw', () => {
     const h = fixture(); h.sound.wake(); h.tick(1);
     const states = [undefined, null, {}, { route: 'game', groove: 'meadow', heat: 1, threat: 1, superBloom: true, boss: true }, { route: 'levels' }, { hidden: true }, { hidden: false }];
@@ -730,6 +887,7 @@ async function main() {
   });
   const report = { passed: results.filter(r => r.passed).length, failed: results.filter(r => !r.passed).length,
     limits: 'Instrumented Web Audio API scheduling/graph tests, not a rendered browser audio capture or a listening assessment. Device speakers, perceptual loudness, and audio-to-screen latency still require on-device listening.', results };
+  fs.writeFileSync(path.join(__dirname, 'sound-test-results.json'), JSON.stringify(report, null, 2) + '\n');
   console.log(JSON.stringify(report, null, 2)); if (report.failed) process.exitCode = 1;
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-03T05:17:52.448Z",
+  "generatedAt": "2026-11-07T10:14:16.018Z",
   "levels": [
     {
       "id": "koi-1",
@@ -16,8 +16,8 @@
       "par": 3,
       "luckyOpeners": 0,
       "samples": 55,
-      "clearRateAt3Deg": 0.875,
-      "avgShots": 3.46
+      "clearRateAt3Deg": 0.9,
+      "avgShots": 3.53
     },
     {
       "id": "koi-3",
@@ -34,8 +34,8 @@
       "par": 3,
       "luckyOpeners": 0,
       "samples": 55,
-      "clearRateAt3Deg": 0.725,
-      "avgShots": 4.14
+      "clearRateAt3Deg": 0.75,
+      "avgShots": 4.17
     },
     {
       "id": "koi-5",
@@ -52,8 +52,8 @@
       "par": 3,
       "luckyOpeners": 0,
       "samples": 55,
-      "clearRateAt3Deg": 0.6,
-      "avgShots": 3.96
+      "clearRateAt3Deg": 0.8,
+      "avgShots": 4.22
     },
     {
       "id": "koi-7",
