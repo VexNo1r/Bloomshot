@@ -1631,7 +1631,8 @@
   const rankOf = item => item.rank || (item.kind === 'title' && item.size === 'small' ? 0 : item.intro ? 2 : HEADLINE[item.kind] || 0);
   function headline(item) {
     if (item.kind === 'life') { game.floaters = game.floaters.filter(f => f.kind !== 'life' && f.kind !== 'combo'); game.floaters.push(item); return true; }
-    if (!item.boss && bossCardUp()) { if (item.kind !== 'combo') holdPopup({ item }); return false; }
+    // A mood change under the name card says itself in the small callout now, so its ribbon is not held to show late.
+    if (!item.boss && bossCardUp()) { if (item.kind !== 'combo' && item.kind !== 'mood') holdPopup({ item }); return false; }
     const rank = rankOf(item);
     if (game.floaters.some(f => rankOf(f) > rank && f.life > .25)) return false;
     game.floaters = game.floaters.filter(f => !(rankOf(f) > 0 && rankOf(f) <= rank));

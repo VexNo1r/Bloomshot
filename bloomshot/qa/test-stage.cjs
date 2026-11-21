@@ -302,6 +302,8 @@ test('A guardian\'s mood change raises a ribbon in its colours, named for it and
 test('The mood ribbon never stacks with "Wave clear!", the finale or a title, and the count after a pause clears it', () => {
   const app = level(player(), 4, {}, '?alllevels'), game = app.game(); app.run(1.3);
   const boss = bossWave(app); app.run(1.7);
+  // The guardian's name card holds every other headline, so these start once it has gone.
+  assert(app.run(4, () => !(game.stage.vine.cardUntil > game.time)), 'the name card goes');
   // A mood change's hit-stop holds a frame or two, so each event is given a moment to land.
   const settle = () => app.run(.15);
   const stage = (extra = {}) => { settle(); game.events.push({ type: 'bossStage', kind: 'crystal', stage: 1, mood: 'Shining', name: 'Crystal Heart', x: boss.x, y: boss.y, ...extra }); settle(); };
@@ -485,6 +487,19 @@ test('A guardian lands on a clean board: pop-ups and headlines wait for its name
   // Nothing waits once the card is down (and the gift's headline, which outranks praise, has gone).
   app.run(1.5); game.events.push({ type: 'chainEnd', chain: 10 }); app.run(.1);
   assert(game.floaters.some(f => f.kind === 'combo'), 'praise after the card shows as usual');
+});
+test('A guardian\'s mood change under its name card says the mood in the small callout and never raises a late ribbon', () => {
+  const app = level(player(), 1, {}, '', { timers: true }); app.run(1.3);
+  const game = app.game(), boss = bossWave(app, 'Old Sunny');
+  assert(app.run(1.5, () => app.cues('bossLand').length > 0), 'it lands'); quietBoss(game);
+  const vine = game.stage.vine, cardUp = () => vine.cardUntil > game.time;
+  assert(cardUp(), 'the name card is up');
+  game.events.push({ type: 'bossStage', kind: 'sunny', stage: 1, mood: 'Sleepy', name: 'Old Sunny', x: boss.x, y: boss.y }); app.run(.1);
+  assert(cardUp(), 'still within the card');
+  assert(!game.floaters.some(f => f.kind === 'mood'), 'no ribbon over the card');
+  assert(game.floaters.some(f => f.kind === 'trick' && f.text === 'Sleepy!'), 'the small callout carries the mood');
+  assert(app.run(3, () => !cardUp()), 'the card goes'); app.run(.3);
+  assert(!game.floaters.some(f => f.kind === 'mood'), 'no stale ribbon shows after the card');
 });
 test('A charged Split that cannot go yet says "Split soon" with seeds in the air, and "Fire first" with none', () => {
   const app = level(player(), 1); app.run(1.3);
