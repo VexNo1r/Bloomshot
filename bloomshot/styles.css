@@ -651,6 +651,11 @@ dialog[open]{animation:dialog-in .34s var(--press)}
 .guide-line{font-size:13px;line-height:1.35;color:var(--ink-soft)}
 .guide-entry.unmet .guide-line{font:600 14px/1.25 var(--display);color:#4d675b}
 .guide-tag{padding:1px 8px 2px;border-radius:999px;background:var(--pink-soft);color:#b02f57;font:600 11.5px/1.2 var(--display)}
+/* A piece a plain seed can't just shoot. */
+.guide-tag.trick{background:var(--gold-soft);color:var(--gold-ink)}
+.guide-does{font-size:13px;line-height:1.35;color:var(--ink)}
+.guide-beat{font-size:13px;line-height:1.35;color:var(--ink-soft)}
+.guide-how{font:600 12.5px/1.2 var(--display);color:var(--green-deep)}
 
 .world-dialog{padding-top:0}
 .world-close{position:absolute;right:14px;top:14px;z-index:2}
@@ -845,6 +850,10 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
 .pause-row .button-secondary{min-height:48px;padding:0 10px;font-size:16px}
 .pause-row svg{width:19px;height:19px}
 .pause-dialog .button-link{margin-top:6px}
+.pause-links{display:flex;justify-content:center;flex-wrap:wrap;column-gap:4px}
+.pause-links .button-link{display:inline-flex;align-items:center;gap:6px;margin:6px 0 0}
+.pause-links .button-link[hidden]{display:none}
+.pause-links svg{width:19px;height:19px}
 .resume-count{position:absolute;inset:0;z-index:10;display:grid;place-items:center;background:#1d3a2e5c;pointer-events:auto;touch-action:none}
 .resume-number{display:grid;place-items:center;min-width:124px;height:124px;padding:0 6px;border-radius:999px;background:var(--cream);color:var(--green-deep);
   font:700 76px/1 var(--display);font-variant-numeric:tabular-nums;box-shadow:inset 0 0 0 4px var(--edge),0 7px 0 var(--edge-dark),0 18px 40px #10302455}

@@ -28,7 +28,9 @@
   // where it first shows up, in the order a player meets them. id is what save.met keeps: a classic piece's own id, a
   // foes.js family (kind 'foe'; its picture is that foe built at the middle of a board) or boss-<kind> for a guardian
   // (its name comes from depths.js). take says which piece of its first wave a classic piece's picture shows. line is
-  // one short piece of advice (70 characters at most) that agrees with the piece's first-time tip in play.
+  // one short piece of advice on how to beat it (70 characters at most) that agrees with the piece's first-time tip in
+  // play, and does says what it does (70 at most too). trick marks a piece a plain seed can't just shoot (it needs
+  // timing, an angle, the right color or an order); its card wears a Tricky tag.
   // The picture's framing, set only where the plain square around the piece left it small or faint in its round frame
   // (measured in real Chromium; qa/check-responsive.cjs and qa/test-guide.cjs keep a floor under every picture):
   // gather pulls a spread-out piece's parts in toward their middle (each keeps that share of its distance), crop cuts
@@ -38,40 +40,40 @@
   // qa/test-guide.cjs checks that every foes.js family and every guardian has an entry here, and that each level and
   // wave is where the piece really debuts.
   const GUIDE = [
-    { id: 'crown', level: 1, wave: 1, name: 'Crowned flower', line: 'Hit the crown and its whole bunch blooms with it.', take: 'relay' },
-    { id: 'gift', level: 1, wave: 2, name: 'Gift bubble', line: 'Shoot the bubble to keep the free powerup inside.', take: 'gift' },
-    { id: 'rings', level: 1, wave: 3, name: 'Ringed bud', line: 'Each ring takes one hit. Keep hitting until it opens.', take: 'rings' },
-    { id: 'boss-sunny', level: 1, kind: 'guardian', line: 'Pop his bubble for double hits, and pop the sleepy Z he blows.' },
-    { id: 'rock', level: 2, wave: 1, name: 'Rock', line: 'Rocks bounce your seeds. Bank your shots around them.', take: 'rock', crop: .74, under: ['#8f5a35', '#5a361f'] },
-    { id: 'rolypoly', level: 2, wave: 2, kind: 'foe', name: 'Rolypoly', line: 'Bump it and it rolls away, bowling over the flowers in its path.' },
-    { id: 'mole', level: 2, wave: 5, kind: 'foe', name: 'Peekaboo Mole', line: 'Watch which hill rumbles, then bonk him when he pops up.', gather: .76, crop: .86 },
-    { id: 'boss-root', level: 2, kind: 'guardian', line: 'Bank around his roots. Snap the knot when his carousel spins.' },
-    { id: 'puffcap', level: 3, wave: 1, name: 'Puffcap', line: 'Pop it to bloom every flower close by.', take: 'puff', under: ['#5e4f98', '#2f2560'] },
-    { id: 'cup', level: 3, wave: 2, name: 'Acorn cup', line: 'Cups block shots from below. Hit from the side or the top.', take: 'cup' },
-    { id: 'fibcap', level: 3, wave: 4, kind: 'foe', name: 'Fibcap', line: "Striped caps are fakes. Don't shoot them, or they sneeze!" },
-    { id: 'inkcap', level: 3, wave: 6, kind: 'foe', name: 'Drippy Inkcap', line: 'Two hits bloom it. Aim around its ink drops: they gulp seeds.' },
-    { id: 'boss-puff', level: 3, kind: 'guardian', line: 'Puffcaps hurt her for two. Only the spotted cap is real.' },
-    { id: 'chroma', level: 4, wave: 3, kind: 'foe', name: 'Chroma Crystal', line: 'It opens only for a seed of its own color. Check your next seed.', opts: { type: 'sky' }, crop: .78 },
-    { id: 'bat', level: 4, wave: 4, kind: 'foe', name: 'Echo Bat', line: 'Watch its dashed swoop line, then catch it in mid-air.' },
-    { id: 'boss-crystal', level: 4, kind: 'guardian', line: 'Follow the beating heart. Bank off her glass for a double hit.', gather: .62, crop: .8 },
-    { id: 'current', level: 5, wave: 1, name: 'Current', line: 'Currents bend your shots. Follow the aim line.', take: 'current', under: ['#0e7d75', '#03464e'] },
-    { id: 'jelly', level: 5, wave: 2, kind: 'foe', name: 'Moon Jelly', line: 'Hit it while it glides, not while it pulses up.' },
-    { id: 'glowworm', level: 5, wave: 3, kind: 'foe', name: 'Glowworm', line: 'Hit the glowing head. A hit on its body snaps it in two.' },
-    { id: 'boss-lotus', level: 5, kind: 'guardian', line: 'Aim for the lantern. Shut her lily pads before jellies rise.' },
-    { id: 'shell', level: 6, wave: 1, name: 'Turning shell', line: 'Shells turn. Shoot when the opening faces you.', take: 'shell' },
-    { id: 'amberkeeper', level: 6, wave: 2, kind: 'foe', name: 'Amberkeeper', line: 'Two hits break him and free every bud he sealed in amber.' },
-    { id: 'boss-fossil', level: 6, kind: 'guardian', line: 'Open both turning locks. Catch her pearls in the air.', under: ['#7d5a62', '#46304a'] },
-    { id: 'tunnel', level: 7, wave: 1, name: 'Tunnel', line: 'Shoot into one hole and your seed flies out of the other.', take: 'tunnel' },
-    { id: 'whizzbang', level: 7, wave: 5, kind: 'foe', name: 'Whizzbang', line: 'Light it under a crowd. It rockets up and blooms them all.' },
-    { id: 'boss-ember', level: 7, kind: 'guardian', line: 'Tunnel hits count triple. Light whizzbangs right under her.' },
-    { id: 'geode', level: 8, wave: 1, name: 'Geode', line: 'Crack it open, then bloom the gems before they fall.', take: 'geode' },
-    { id: 'lodestone', level: 8, wave: 3, kind: 'foe', name: 'Lodestone', line: 'It tugs seeds. Curl a shot onto the green moss, not the iron.' },
-    { id: 'boss-geode', level: 8, kind: 'guardian', line: 'Break a plate, then aim through the gap. Catch his big gem.', gather: .92, crop: .76 },
-    { id: 'briar', level: 9, wave: 1, name: 'Briar patch', line: 'Bloom all three fast, or the patch grows back.', take: 'briar' },
-    { id: 'sweetheart', level: 9, wave: 3, kind: 'foe', name: 'Sweetheart Roses', line: 'Hit one rose, then the other, quick! They bloom together.', gather: .7, crop: .85 },
-    { id: 'boss-briar', level: 9, kind: 'guardian', line: 'Clear a patch to cut her vine. Untie the pink bow, fast.' },
-    { id: 'wishstar', level: 10, wave: 2, kind: 'foe', name: 'Wishing Stars', line: 'Shoot the stars in order, 1 to 4. Only the twinkling one opens.', gather: .75, crop: .85, under: ['#4a3274', '#221c46'] },
-    { id: 'boss-core', level: 10, kind: 'guardian', line: 'Break her stars in order to drop the dome. Catch the comets.', gather: .72, crop: .9, under: ['#4a3274', '#221c46'] }
+    { id: 'crown', level: 1, wave: 1, name: 'Crowned flower', does: 'The bud with a crown leads its whole bunch.', line: 'Hit the crown and its whole bunch blooms with it.', take: 'relay' },
+    { id: 'gift', level: 1, wave: 2, name: 'Gift bubble', does: 'A bubble with a free powerup floats down.', line: 'Shoot the bubble to keep the free powerup inside.', take: 'gift' },
+    { id: 'rings', level: 1, wave: 3, name: 'Ringed bud', does: 'Rings show it needs more than one hit.', line: 'Each ring takes one hit. Keep hitting until it opens.', take: 'rings' },
+    { id: 'boss-sunny', level: 1, kind: 'guardian', does: 'A sleepy sun. His snooze makes your aim line nap.', line: 'Pop his bubble for double hits, and pop the sleepy Z he blows.' },
+    { id: 'rock', level: 2, wave: 1, name: 'Rock', does: 'Rocks sit in the way, and seeds bounce off them.', line: 'Rocks bounce your seeds. Bank your shots around them.', take: 'rock', crop: .74, under: ['#8f5a35', '#5a361f'] },
+    { id: 'rolypoly', level: 2, wave: 2, kind: 'foe', name: 'Rolypoly', does: 'A bug that curls up and rolls when bumped.', line: 'Bump it and it rolls away, bowling over the flowers in its path.' },
+    { id: 'mole', level: 2, wave: 5, kind: 'foe', name: 'Peekaboo Mole', does: 'He hides under a hill and pops up for a moment.', line: 'Watch which hill rumbles, then bonk him when he pops up.', trick: true, gather: .76, crop: .86 },
+    { id: 'boss-root', level: 2, kind: 'guardian', does: 'He builds root walls and spins flowers round.', line: 'Bank around his roots. Snap the knot when his carousel spins.' },
+    { id: 'puffcap', level: 3, wave: 1, name: 'Puffcap', does: 'A mushroom full of bloom dust.', line: 'Pop it to bloom every flower close by.', take: 'puff', under: ['#5e4f98', '#2f2560'] },
+    { id: 'cup', level: 3, wave: 2, name: 'Acorn cup', does: "An acorn cup covers a bud's bottom. Shots from below bounce.", line: 'Hit it from the side or the top. Bank off a wall.', trick: true, take: 'cup' },
+    { id: 'fibcap', level: 3, wave: 4, kind: 'foe', name: 'Fibcap', does: 'A striped cap that pretends to be a flower.', line: "Don't shoot it, or it sneezes! Let it float by.", trick: true },
+    { id: 'inkcap', level: 3, wave: 6, kind: 'foe', name: 'Drippy Inkcap', does: 'A mushroom that drips ink drops. Drops gulp seeds.', line: 'Two hits bloom it. Aim around its ink drops.', trick: true },
+    { id: 'boss-puff', level: 3, kind: 'guardian', does: 'She hides among caps and makes it rain ink.', line: 'Puffcaps hurt her for two. Only the spotted cap is real.' },
+    { id: 'chroma', level: 4, wave: 3, kind: 'foe', name: 'Chroma Crystal', does: 'A crystal that only opens for one color.', line: 'Wait for a seed of its own color. Check your next seed.', trick: true, opts: { type: 'sky' }, crop: .78 },
+    { id: 'bat', level: 4, wave: 4, kind: 'foe', name: 'Echo Bat', does: 'It swoops down along a dashed line.', line: 'Watch its dashed swoop line, then catch it in mid-air.' },
+    { id: 'boss-crystal', level: 4, kind: 'guardian', does: 'She splits into three hearts. Only one beats.', line: 'Follow the beating heart. Bank off her glass for a double hit.', gather: .62, crop: .8 },
+    { id: 'current', level: 5, wave: 1, name: 'Current', does: 'Flowing water that bends your seeds.', line: 'Currents bend your shots. Follow the aim line.', take: 'current', under: ['#0e7d75', '#03464e'] },
+    { id: 'jelly', level: 5, wave: 2, kind: 'foe', name: 'Moon Jelly', does: 'It pulses up, then glides. Seeds bounce off a pulse.', line: 'Hit it while it glides, not while it pulses up.', trick: true },
+    { id: 'glowworm', level: 5, wave: 3, kind: 'foe', name: 'Glowworm', does: 'A long worm with a glowing head.', line: 'Hit the glowing head. A hit on its body snaps it in two.', trick: true },
+    { id: 'boss-lotus', level: 5, kind: 'guardian', does: 'Her lily pads guard below and call up jellies.', line: 'Aim for the lantern. Shut her lily pads before jellies rise.' },
+    { id: 'shell', level: 6, wave: 1, name: 'Turning shell', does: 'A shell turns round its bud. It blocks shots, but not its gap.', line: 'Wait for the gap to face you, then shoot through it.', trick: true, take: 'shell' },
+    { id: 'amberkeeper', level: 6, wave: 2, kind: 'foe', name: 'Amberkeeper', does: 'A trilobite that seals buds in hard amber.', line: 'Two hits break him and free every bud he sealed.', trick: true },
+    { id: 'boss-fossil', level: 6, kind: 'guardian', does: 'Her shell has two turning locks, and she throws pearls.', line: 'Open both turning locks. Catch her pearls in the air.', under: ['#7d5a62', '#46304a'] },
+    { id: 'tunnel', level: 7, wave: 1, name: 'Tunnel', does: 'Two holes joined underground.', line: 'Shoot into one hole and your seed flies out of the other.', take: 'tunnel' },
+    { id: 'whizzbang', level: 7, wave: 5, kind: 'foe', name: 'Whizzbang', does: 'A firework flower that rockets up when hit.', line: 'Light it under a crowd. It rockets up and blooms them all.' },
+    { id: 'boss-ember', level: 7, kind: 'guardian', does: 'Her flames burn up plain seeds that hit her.', line: 'Tunnel hits count triple. Light whizzbangs right under her.' },
+    { id: 'geode', level: 8, wave: 1, name: 'Geode', does: 'A rock with gems inside.', line: 'Crack it open, then bloom the gems before they fall.', take: 'geode' },
+    { id: 'lodestone', level: 8, wave: 3, kind: 'foe', name: 'Lodestone', does: 'A magnet stone that tugs your seeds toward it.', line: 'Curl a shot onto the green moss, not the iron.', trick: true },
+    { id: 'boss-geode', level: 8, kind: 'guardian', does: 'Stone plates guard him, and he lobs gems.', line: 'Break a plate, then aim through the gap. Catch his big gem.', gather: .92, crop: .76 },
+    { id: 'briar', level: 9, wave: 1, name: 'Briar patch', does: 'Three thorny buds with no crown. They grow back.', line: 'Bloom all three fast, or the patch grows back.', trick: true, take: 'briar' },
+    { id: 'sweetheart', level: 9, wave: 3, kind: 'foe', name: 'Sweetheart Roses', does: 'Two shy roses. Hit one and it blushes for a moment.', line: 'Hit one rose, then the other, quick! They bloom together.', trick: true, gather: .7, crop: .85 },
+    { id: 'boss-briar', level: 9, kind: 'guardian', does: 'Her thorns take whole patches and lasso flowers.', line: 'Clear a patch to cut her vine. Untie the pink bow, fast.' },
+    { id: 'wishstar', level: 10, wave: 2, kind: 'foe', name: 'Wishing Stars', does: 'Four numbered stars. Only the twinkling one opens.', line: 'Shoot them in order, 1 to 4. Wait for the twinkle.', trick: true, gather: .75, crop: .85, under: ['#4a3274', '#221c46'] },
+    { id: 'boss-core', level: 10, kind: 'guardian', does: 'A dome guards her, and her stars hold it up.', line: 'Break her stars in order to drop the dome. Catch the comets.', gather: .72, crop: .9, under: ['#4a3274', '#221c46'] }
   ].map(entry => {
     if (entry.kind !== 'guardian') return Object.freeze({ kind: 'piece', ...entry });
     const boss = Depths.bosses.find(item => `boss-${item.kind}` === entry.id);
@@ -3497,6 +3499,7 @@
     // Settings or How to play give way to the Paused card; their changes are already saved.
     for (const id of dialogs) if (id !== 'pause-dialog' && id !== 'result-dialog') closeDialog(id);
     $('pause-where').textContent = boardLine();
+    $('pause-guide').hidden = !isDepth(); // Who's who is the levels' guide
     if (!$('pause-dialog').open) { showDialog('pause-dialog'); if (!auto) { BloomSound.wake(); BloomSound.play('tap'); } }
     say(`Paused. ${boardLine()}.`);
     return true;
@@ -3527,6 +3530,15 @@
   $('pause-restart').addEventListener('click', () => { BloomSound.wake(); closeDialog('pause-dialog'); restartNow(); });
   $('pause-levels').addEventListener('click', () => { BloomSound.wake(); closeDialog('pause-dialog'); leaveBoard(); });
   $('pause-settings').addEventListener('click', () => { updateSettings(); showDialog('settings-dialog'); });
+  // Who's who from the Paused card: How to play opens on just the guide, at this level's group. It stacks over the
+  // Paused card, so closing it (the x, Escape or a tap outside) leaves the run paused on the card.
+  $('pause-guide').addEventListener('click', () => {
+    BloomSound.wake(); BloomSound.play('tap');
+    for (const id of ['levels-help', 'rush-help', 'campaign-help', 'moon-help', 'koi-help']) $(id).open = false;
+    $('guide-help').open = true;
+    $('tutorial-replay').hidden = true; showDialog('help-dialog');
+    guideCount(); guideShown();
+  });
   // Escape or a tap outside the card also resumes, through the same count. The close event arrives a moment late, so a
   // card that has opened again by then (the phone hid once more) stays a plain pause.
   $('pause-dialog').addEventListener('close', () => { if (countLeft <= 0 && !$('pause-dialog').open) startCount(); });
@@ -3834,7 +3846,17 @@
           const art = guideNode('span', known ? 'guide-art' : 'guide-art guide-unknown', known ? null : '?'), text = guideNode('span', 'guide-text');
           art.setAttribute('aria-hidden', 'true');
           if (entry.kind === 'guardian') text.appendChild(guideNode('span', 'guide-tag', 'Guardian'));
-          if (known) { text.appendChild(guideNode('strong', 'guide-name', entry.name)); text.appendChild(guideNode('span', 'guide-line', entry.line)); }
+          // A piece a plain seed can't just shoot says so: it needs timing, an angle, the right color or an order.
+          else if (known && entry.trick) text.appendChild(guideNode('span', 'guide-tag trick', 'Tricky'));
+          if (known) {
+            text.appendChild(guideNode('strong', 'guide-name', entry.name));
+            text.appendChild(guideNode('span', 'guide-does', entry.does));
+            const beat = guideNode('span', 'guide-beat');
+            beat.appendChild(guideNode('span', 'guide-how', entry.kind === 'guardian' ? 'Watch for' : 'Beat it'));
+            beat.appendChild(document.createTextNode(' '));
+            beat.appendChild(guideNode('span', 'guide-line', entry.line));
+            text.appendChild(beat);
+          }
           else text.appendChild(guideNode('span', 'guide-line', `Meet it in Level ${entry.level}`));
           item.appendChild(art); item.appendChild(text); items.appendChild(item);
           if (!known) continue;

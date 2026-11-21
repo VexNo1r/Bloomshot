@@ -153,7 +153,7 @@ async function main() {
       return { dialog: { x: r.x, right: r.right, width: r.width }, scrollWidth: dialog.scrollWidth, clientWidth: dialog.clientWidth, page: document.documentElement.scrollWidth,
         entries: items.length, pictures: document.querySelectorAll('#guide-list .guide-canvas').length, count: document.getElementById('guide-count').textContent,
         outside: items.filter(el => { const b = el.getBoundingClientRect(); return b.left < r.x - .5 || b.right > r.right + .5; }).map(el => el.dataset.guide),
-        clipped: [...document.querySelectorAll('#guide-list .guide-name, #guide-list .guide-line')].filter(el => el.scrollWidth > el.clientWidth + .5).map(el => el.textContent),
+        clipped: [...document.querySelectorAll('#guide-list .guide-name, #guide-list .guide-line, #guide-list .guide-does')].filter(el => el.scrollWidth > el.clientWidth + .5).map(el => el.textContent),
         columns: new Set(items.map(el => Math.round(el.getBoundingClientRect().x))).size,
         // Each level ends on a full row: its last card (the guardian) reaches the grid's right edge.
         endsShort: [...document.querySelectorAll('#guide-list .guide-grid')].filter(grid => grid.lastElementChild.getBoundingClientRect().right < grid.getBoundingClientRect().right - 1).map(grid => grid.lastElementChild.dataset.guide) };
@@ -175,7 +175,7 @@ async function main() {
         const dialog = document.getElementById('help-dialog'), r = dialog.getBoundingClientRect();
         return { scrollWidth: dialog.scrollWidth, clientWidth: dialog.clientWidth, right: r.right, page: document.documentElement.scrollWidth,
           outside: [...document.querySelectorAll('#guide-list .guide-entry')].filter(el => { const b = el.getBoundingClientRect(); return b.left < r.x - .5 || b.right > r.right + .5; }).map(el => el.dataset.guide),
-          clipped: [...document.querySelectorAll('#guide-list .guide-name, #guide-list .guide-line')].filter(el => el.scrollWidth > el.clientWidth + .5).map(el => el.textContent) };
+          clipped: [...document.querySelectorAll('#guide-list .guide-name, #guide-list .guide-line, #guide-list .guide-does')].filter(el => el.scrollWidth > el.clientWidth + .5).map(el => el.textContent) };
       });
       assert.equal(narrow.scrollWidth, narrow.clientWidth, `280x${size.height} Who's who: no sideways scroll in the dialog`);
       assert.equal(narrow.page, 280, `280x${size.height} Who's who: no horizontal overflow`); assert(narrow.right <= 280.6, `280x${size.height} Who's who: the dialog stays on screen`);
@@ -190,6 +190,37 @@ async function main() {
       await page.clock.runFor(2200); await geometry(`Level ${level}, wave ${wave}`);
       if (level === 1 && wave === 1) { await page.screenshot({ path: path.join(output, `${key}-sunny.png`) }); await longToast('Level 1 in play'); }
       if (level === 10 && wave === 10) await page.screenshot({ path: path.join(output, `${key}-starseed.png`) });
+      // The Paused card's Who's who opens the guide at this level's group over the card; closing it leaves the card up.
+      if (level === 7 && wave === 1) {
+        await page.evaluate(() => document.getElementById('pause-btn').click()); await page.clock.runFor(400);
+        const card = await page.evaluate(() => {
+          const d = document.getElementById('pause-dialog'), r = d.getBoundingClientRect(), b = document.getElementById('pause-guide').getBoundingClientRect();
+          return { open: d.open, hidden: document.getElementById('pause-guide').hidden, dialog: { x: r.x, y: r.y, right: r.right, bottom: r.bottom }, button: { x: b.x, y: b.y, width: b.width, height: b.height, right: b.right, bottom: b.bottom } };
+        });
+        assert(card.open && !card.hidden, `${key} Paused: the card offers Who's who`);
+        assert(card.button.width >= 44 && card.button.height >= 44, `${key} Paused: 44px Who's who button ${JSON.stringify(card.button)}`);
+        assert(card.button.x >= card.dialog.x && card.button.right <= card.dialog.right + .5 && card.button.bottom <= card.dialog.bottom + .5, `${key} Paused: Who's who sits on the card`);
+        assert(card.dialog.y >= 0 && card.dialog.bottom <= size.height + .5, `${key} Paused: the card fits the screen ${JSON.stringify(card.dialog)}`);
+        await page.locator('#pause-dialog').screenshot({ path: path.join(output, `${key}-paused.png`) });
+        await page.evaluate(() => document.getElementById('pause-guide').click()); await page.clock.runFor(2000);
+        const opened = await page.evaluate(() => {
+          const d = document.getElementById('help-dialog'), r = d.getBoundingClientRect(), group = document.querySelector('#guide-list .guide-level[data-level="7"]').getBoundingClientRect();
+          return { help: d.open, pause: document.getElementById('pause-dialog').open, guide: document.getElementById('guide-help').open, dialog: { x: r.x, y: r.y, right: r.right, bottom: r.bottom }, group: { y: group.y, bottom: group.bottom },
+            scrollWidth: d.scrollWidth, clientWidth: d.clientWidth, page: document.documentElement.scrollWidth,
+            clipped: [...document.querySelectorAll('#guide-list .guide-name, #guide-list .guide-line, #guide-list .guide-does')].filter(el => el.scrollWidth > el.clientWidth + .5).map(el => el.textContent) };
+        });
+        assert(opened.help && opened.pause && opened.guide, `${key} Paused: Who's who opens over the Paused card`);
+        assert(opened.group.y >= opened.dialog.y - .5 && opened.group.y <= opened.dialog.y + 160, `${key} Paused: the guide starts at Level 7 ${JSON.stringify(opened)}`);
+        assert.equal(opened.scrollWidth, opened.clientWidth, `${key} Paused: no sideways scroll in the guide`); assert.equal(opened.page, size.width, `${key} Paused: no horizontal overflow`);
+        assert(opened.dialog.x >= 0 && opened.dialog.right <= size.width + .6, `${key} Paused: the guide stays on screen`);
+        assert.deepEqual(opened.clipped, [], `${key} Paused: no clipped guide text`);
+        await page.locator('#help-dialog').screenshot({ path: path.join(output, `${key}-paused-guide.png`) });
+        await page.evaluate(() => document.getElementById('close-help').click()); await page.clock.runFor(400);
+        const back = await page.evaluate(() => ({ help: document.getElementById('help-dialog').open, pause: document.getElementById('pause-dialog').open, count: !document.getElementById('resume-count').hidden }));
+        assert.deepEqual(back, { help: false, pause: true, count: false }, `${key} Paused: closing the guide goes back to the Paused card, still paused`);
+        rows.push({ size: key, label: "Paused card and its Who's who", card, opened });
+        await page.evaluate(() => document.getElementById('pause-levels').click()); await page.clock.runFor(400);
+      }
     }
     for (const chapter of chapters) for (const level of chapter.levels) {
       await page.evaluate(level => window.__layoutQA.startLevel(level), level);

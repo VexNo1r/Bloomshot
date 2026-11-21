@@ -458,6 +458,62 @@ test('Who\'s who stays open only beside Levels, and opened during a level it sta
   assert.equal(scrolled().length, 2, 'and starts at the level again');
 });
 
+test('Each card says what the piece does and how to beat it, and the tricky ones say so', () => {
+  const app = boot(player(), { search: '?alllevels' }), guide = plain(app.guide);
+  // A piece a plain seed can't just shoot (it needs timing, an angle, the right color or an order) is marked.
+  const tricky = ['mole', 'cup', 'fibcap', 'inkcap', 'chroma', 'jelly', 'glowworm', 'shell', 'amberkeeper', 'lodestone', 'briar', 'sweetheart', 'wishstar'];
+  assert.deepEqual(guide.filter(e => e.trick).map(e => e.id), tricky, 'the tricky pieces, in the order they are met');
+  for (const entry of guide) {
+    assert(typeof entry.does === 'string' && entry.does.length >= 12 && entry.does.length <= 70, `${entry.id} says what it does in a short line (${entry.does && entry.does.length})`);
+    assert(/[.!]$/.test(entry.does), `${entry.id}'s does line is a sentence`);
+    assert(!/[$€£]|\bbuy\b|\bunlock|\bprice/i.test(entry.does), `${entry.id}'s does line never sells`);
+    assert.notEqual(entry.does, entry.line, `${entry.id}: what it does and how to beat it are different lines`);
+  }
+  app.openGuide();
+  for (const item of entries(app)) {
+    const entry = guide.find(e => e.id === item.id), all = walk(item.node), text = cls => (all.find(n => hasClass(n, cls)) || {}).textContent;
+    assert.equal(text('guide-does'), entry.does, `${item.id} shows what it does`);
+    assert.equal(item.line, entry.line, `${item.id} shows how to beat it`);
+    assert.equal(text('guide-how'), entry.kind === 'guardian' ? 'Watch for' : 'Beat it', `${item.id} labels the advice`);
+    const tags = all.filter(n => hasClass(n, 'guide-tag')).map(n => n.textContent);
+    assert.deepEqual(tags, entry.kind === 'guardian' ? ['Guardian'] : entry.trick ? ['Tricky'] : [], `${item.id} tags`);
+  }
+  // A "?" card still gives nothing away.
+  const fresh = boot(player()); fresh.openGuide();
+  const unmet = entries(fresh).filter(item => !item.met);
+  assert(unmet.length > 20 && unmet.every(item => !walk(item.node).some(n => hasClass(n, 'guide-does') || hasClass(n, 'guide-tag') && n.textContent === 'Tricky')), 'unmet cards show no does line or tag');
+});
+
+test('The Paused card opens Who\'s who at the level being played, and closing it leaves the run paused', () => {
+  const app = boot(player({ depths: { 1: { stars: 3, best: 3000, wave: 10 } } }), { search: '?alllevels' }), help = app.$('help-dialog'), pause = app.$('pause-dialog');
+  const scrolled = () => app.scrolls.filter(item => hasClass(item.node, 'guide-level')).map(item => item.node.dataset.level);
+  app.click('depth-map', { depth: '7' }); app.frame();
+  const game = app.game(); game.started = true; app.frame();
+  assert.equal(game.plan.id, 7);
+  app.click('pause-btn');
+  assert(pause.open, 'the Paused card is up');
+  assert.equal(app.$('pause-guide').hidden, false, "the Paused card offers Who's who in a level");
+  const before = { time: game.time, wave: game.wave, lives: game.lives };
+  app.click('pause-guide');
+  assert(help.open && pause.open, 'How to play opens over the Paused card');
+  assert(app.$('guide-help').open, "on Who's who");
+  for (const id of ['levels-help', 'rush-help', 'campaign-help', 'moon-help', 'koi-help']) assert.equal(app.$(id).open, false, `${id} is shut, so the guide is first`);
+  assert.equal(scrolled().at(-1), '7', 'scrolled to the level being played');
+  assert(entries(app).length === 34, 'the guide is built');
+  for (let i = 0; i < 20; i++) app.frame();
+  assert.deepEqual({ time: game.time, wave: game.wave, lives: game.lives }, before, 'nothing moves while the guide is open');
+  app.click('close-help');
+  assert(!help.open && pause.open, 'closing it goes back to the Paused card');
+  for (let i = 0; i < 20; i++) app.frame();
+  assert.deepEqual({ time: game.time, wave: game.wave, lives: game.lives }, before, 'and the run stays paused');
+  assert(app.$('resume-count').hidden !== false, 'no count starts until Resume');
+  // Meadow Rush is not a level: its Paused card has no guide button.
+  pause.close(); app.click('pause-levels');
+  app.click('levels-rush-btn'); app.frame(); app.game().started = true; app.frame();
+  app.click('pause-btn');
+  assert(pause.open && app.$('pause-guide').hidden === true, "Meadow Rush's Paused card leaves Who's who out");
+});
+
 test('Pictures are painted a few a frame: each frame stops once its 6 ms are spent', () => {
   // 10 ms a picture: one a frame. 4 ms: two a frame (the second runs over). Every picture is painted, each once.
   for (const [paintMs, perFrame] of [[10, 1], [4, 2]]) {
@@ -498,8 +554,8 @@ test('Each picture shows its own piece: the current on its dark lake water, shel
     assert(lum(under[0]) < 150 && lum(under[1]) < lum(under[0]), `${entry.id}: darker than the card, darkest at the rim`);
   }
   assert(guide.filter(entry => entry.under).length <= 8, 'a backing stays the exception');
-  // The lodestone's line agrees with its hint in play: it tugs seeds.
-  assert.match(guide.find(entry => entry.id === 'lodestone').line, /\btugs?\b/);
+  // The lodestone's card agrees with its hint in play: it tugs seeds.
+  assert.match(guide.find(entry => entry.id === 'lodestone').does, /\btugs?\b/);
   assert.match(Foes.hint('lodestone'), /\btug/);
 });
 
@@ -531,7 +587,8 @@ test('Card text is readable: every name, line and tag reaches 4.5:1 against its 
   const ratio = (a, b) => { const [x, y] = [luminance(a), luminance(b)].sort((p, q) => q - p); return (x + .05) / (y + .05); };
   const card = prop('.guide-entry', 'background'), unmet = prop('.guide-entry.unmet', 'background');
   for (const [label, color, back] of [['name', prop('.guide-name', 'color'), card], ['line', prop('.guide-line', 'color'), card],
-    ['"Meet it in Level N"', prop('.guide-entry.unmet .guide-line', 'color'), unmet], ['Guardian tag', prop('.guide-tag', 'color'), prop('.guide-tag', 'background')]]) {
+    ['"Meet it in Level N"', prop('.guide-entry.unmet .guide-line', 'color'), unmet], ['Guardian tag', prop('.guide-tag', 'color'), prop('.guide-tag', 'background')],
+    ['what it does', prop('.guide-does', 'color'), card], ['Beat it label', prop('.guide-how', 'color'), card], ['Tricky tag', prop('.guide-tag.trick', 'color'), prop('.guide-tag.trick', 'background')]]) {
     assert(ratio(color, back) >= 4.5, `${label}: ${color} on ${back} is ${ratio(color, back).toFixed(2)}:1`);
   }
 });
