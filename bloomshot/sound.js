@@ -823,15 +823,18 @@
 
   // How many scale steps a wave's chord sits above home. Rush climbs one step a wave from wave `first` and stops at
   // a fifth (4 steps), so its endless run never gets shrill. A level knows its last wave: waves 2 to finalWave - 1
-  // are spread evenly over 0 to 7 steps, so every wave up to the last starts (and clears) higher than the one before.
+  // are spread evenly over 0 to 7 steps, so every wave up to the last starts (and clears) higher than the one before;
+  // each clear sits where the next wave will start.
   const LEVEL_LIFT = 7;
   // The long-chain octave on the bloom note: from this chain length, at this share of the note's level.
   const OCTAVE_FROM = 25, OCTAVE_LEVEL = 0.35;
   function waveLift(data, first) {
     const wave = Number(data.wave) || 1, last = Math.floor(Number(data.finalWave));
     if (!(Number.isFinite(last) && last >= 2)) return Math.min(4, Math.max(0, wave - first));
-    const span = Math.max(1, last - 3);
-    return clamp(Math.round((wave - 2) / span * LEVEL_LIFT), 0, LEVEL_LIFT);
+    // A clear (first = 1) rings one wave ahead of that wave's start, so it keeps its one-step lead and can reach a step
+    // past the starts' top.
+    const span = Math.max(1, last - 3), lead = 2 - first;
+    return clamp(Math.round((wave - first) / span * LEVEL_LIFT), 0, LEVEL_LIFT + lead);
   }
   function play(type, data = {}) {
     if (!enabled || !context || asleep) return;

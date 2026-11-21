@@ -550,11 +550,14 @@ async function main() {
     for (const type of ['wave', 'cleared']) {
       const climb = [1, 2, 3, 4, 5, 6, 7, 8, 9].map(w => lowest(type, w));
       for (let i = 2; i < climb.length; i++) assert(climb[i] > climb[i - 1] * 1.01, `${type}: wave ${i + 1} sits higher than wave ${i}`);
-      assert(climb[1] >= climb[0] - 1e-6, `${type}: wave 2 is never lower than wave 1`);
+      if (type === 'cleared') assert(climb[1] > climb[0] * 1.01, 'cleared: wave 2 clears higher than wave 1');
+      else assert(climb[1] >= climb[0] - 1e-6, `${type}: wave 2 is never lower than wave 1`);
+      // A clear rings one step above its own wave's start (where the next wave will start).
+      if (type === 'cleared') for (let w = 2; w <= 9; w++) assert(lowest('cleared', w) > lowest('wave', w) * 1.01, `wave ${w} clears higher than it started`);
       climb.forEach(f => assert(inKey(f), `${type} stays in C major`));
       // Waves 5 to 9 used to share one chord; now they are five different ones.
       assert.equal(new Set(climb.slice(4).map(f => f.toFixed(2))).size, 5, `${type}: waves 5 to 9 all differ`);
-      assert(Math.abs(lowest(type, 10) - lowest(type, 9)) < 1e-6 && Math.abs(lowest(type, 30) - lowest(type, 9)) < 1e-6, `${type}: the lift tops out at seven steps`);
+      assert(Math.abs(lowest(type, 10) - lowest(type, 9)) < 1e-6 && Math.abs(lowest(type, 30) - lowest(type, 9)) < 1e-6, `${type}: the lift tops out (seven steps for a start, eight for a clear)`);
       for (let w = 1; w <= 12; w++) for (const v of voicesFor(type, { wave: w, finalWave: 10, boss: w === 10 })) {
         assert(v.frequency.value < 3600, `${type} wave ${w} stays under the frequency check`);
         assert(h2(v) < 2400, `${type} wave ${w} never gets shrill`);
