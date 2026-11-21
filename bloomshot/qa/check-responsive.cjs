@@ -58,8 +58,13 @@ function labelContrast() {
   box.innerHTML = probes.join('');
   const rows = [...box.children].map(el => { const t = el.matches('.power-chip') ? el.firstElementChild : el, css = getComputedStyle(t); return { label: t.className + (el !== t ? ` in ${el.className}` : ''), ratio: ratio(css.color, css.backgroundColor) }; });
   box.remove();
-  const tag = document.getElementById('level-label'), theme = document.body.dataset.theme; document.body.dataset.theme = 'depth-fossil';
-  const css = getComputedStyle(tag); rows.push({ label: 'Level 6 level-tag', ratio: ratio(css.color, css.backgroundColor) }); document.body.dataset.theme = theme;
+  // The 'Level N · Wave X/10' tag in every level's theme (and Rush's, the Moon's and the Koi pond's).
+  const tag = document.getElementById('level-label'), theme = document.body.dataset.theme;
+  for (const look of ['', 'meadow', 'depth-meadow', 'moon', 'koi', 'depth-roots', 'depth-grotto', 'depth-crystal', 'depth-lake', 'depth-fossil', 'depth-ember', 'depth-geode', 'depth-briar', 'depth-core']) {
+    if (look) document.body.dataset.theme = look; else delete document.body.dataset.theme;
+    const css = getComputedStyle(tag); rows.push({ label: `level-tag in ${look || 'the meadow'}`, ratio: ratio(css.color, css.backgroundColor) });
+  }
+  if (theme === undefined) delete document.body.dataset.theme; else document.body.dataset.theme = theme;
   return rows.filter(row => !(row.ratio >= 4.5)).map(row => `${row.label} ${row.ratio.toFixed(2)}`);
 }
 function intersect(a, b) { return Math.min(a.x + a.width, b.x + b.width) > Math.max(a.x, b.x) + 1 && Math.min(a.y + a.height, b.y + b.height) > Math.max(a.y, b.y) + 1; }

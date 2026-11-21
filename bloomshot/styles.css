@@ -102,9 +102,9 @@ body[data-view="game"] .back-button{display:grid}
 .game-hud{flex:0 0 auto;padding:9px 14px 8px;border-radius:20px;background:var(--cream);box-shadow:var(--tile)}
 .game-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .level-title-group{min-width:0}
-.level-tag{display:inline-block;padding:2px 9px 3px;border-radius:999px;background:var(--accent);color:#fff;font:600 12px/1.2 var(--display);letter-spacing:.2px;box-shadow:0 2px 0 var(--accent-edge);white-space:nowrap}
-/* Fossil Beds' sandy accent is too pale under small white words, so its tag takes a deeper brown. */
-body[data-theme="depth-fossil"] .level-tag{background:#9a6430;box-shadow:0 2px 0 var(--accent-deep)}
+/* The tag takes each theme's deep accent: its bright accent is too pale under small white words (Level 1's green
+   read at 2.3:1); every deep accent reads at 5.7:1 or better. */
+.level-tag{display:inline-block;padding:2px 9px 3px;border-radius:999px;background:var(--accent-deep);color:#fff;font:600 12px/1.2 var(--display);letter-spacing:.2px;box-shadow:0 2px 0 rgba(0,0,0,.22);white-space:nowrap}
 .level-title-group h1{margin-top:4px;font:700 22px/1.1 var(--display);color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .score-display{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end}
 .score-caption{display:none}
