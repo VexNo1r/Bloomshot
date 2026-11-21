@@ -335,7 +335,10 @@ async function main() {
     // and its Paused card's way back to the Hall.
     await page.evaluate(() => sessionStorage.setItem('qa-hall', '1'));
     await page.goto('http://localhost/?qa&alllevels', { waitUntil: 'networkidle' }); await page.evaluate(() => document.fonts.ready);
-    const entry = await page.evaluate(() => { const el = document.getElementById('hall-btn'), r = el.getBoundingClientRect(); return { hidden: el.hidden, height: r.height, width: r.width, x: r.x, label: el.getAttribute('aria-label') }; });
+    const entry = await page.evaluate(() => { const el = document.getElementById('hall-btn'), r = el.getBoundingClientRect(); return { hidden: el.hidden, height: r.height, width: r.width, x: r.x, label: el.getAttribute('aria-label'),
+      // It sits above the ladder, where a player who has just beaten a guardian sees it without scrolling past ten levels.
+      bottom: r.bottom + scrollY, ladder: document.querySelector('.depth-card').getBoundingClientRect().top + scrollY, view: innerHeight }; });
+    assert(entry.bottom <= entry.ladder && entry.bottom <= entry.view, `${key}: the Guardian Hall card is above the levels, in the first screen ${JSON.stringify(entry)}`);
     assert(!entry.hidden && entry.height >= 44 && entry.x >= 0 && entry.x + entry.width <= size.width + .6, `${key}: the Guardian Hall card shows on the map ${JSON.stringify(entry)}`);
     await page.locator('#hall-btn').scrollIntoViewIfNeeded(); await page.locator('#hall-btn').click(); await page.clock.runFor(1500);
     const hallLayout = () => page.evaluate(() => {
