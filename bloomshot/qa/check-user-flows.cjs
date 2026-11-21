@@ -121,7 +121,7 @@ async function main() {
     await click('[data-hall="2"]'); await advance(1500);
     check('Rematch starts the guardian wave with three lives', (await state()).route === 'game' && (await state()).hallRun && (await state()).wave === 10 && (await state()).lives === 3);
     await page.locator('#game-canvas').focus(); await page.keyboard.press('Space'); await advance(400);
-    check('the rematch clock runs from the first seed', (await state()).hallTime > 0 && /^Hall · 0:0\d$/.test(await page.locator('#level-label').innerText()));
+    check('the rematch clock runs from the first seed', (await state()).hallTime > 0 && /^0:0\d$/.test(await page.locator('#score-value').innerText()) && (await page.locator('#level-label').innerText()) === 'Guardian Hall');
     await click('#pause-btn'); check('the Paused card offers the Hall', (await page.locator('#pause-levels').innerText()) === 'Hall');
     await click('#pause-levels'); check('Pause goes back to the Hall', (await state()).route === 'hall' && (await page.locator('[data-hall="2"]').innerText()) === 'Resume');
     await click('[data-hall="2"]'); await advance(2500); await click('#back-btn');

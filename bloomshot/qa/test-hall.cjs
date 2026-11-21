@@ -224,7 +224,9 @@ test('A rematch is the level\'s own guardian wave, the "Try the boss" start', ()
   assert.equal(game.speed, plain.speed); assert.equal(game.descentSpeed, plain.descentSpeed); assert.equal(game.bossWave, true);
   assert.equal(game.buds.filter(b => !b.gift).length, plain.buds.filter(b => !b.gift).length, 'the same escorts');
   assert.equal(app.$('level-name').textContent, 'Mother Morel');
-  assert.match(app.$('level-label').textContent, /^Hall · 0:0\d$/);
+  assert.equal(app.$('level-label').textContent, 'Guardian Hall');
+  assert.match(app.$('score-value').textContent, /^0:0\d$/, 'the headline is the running clock, not points');
+  assert.equal(app.$('score-display').attributes['aria-label'], 'Time');
   assert.equal(app.$('pause-levels-label').textContent, 'Hall'); assert.equal(app.$('back-btn').attributes['aria-label'], 'Back to the Guardian Hall');
 });
 

@@ -363,7 +363,6 @@
   const clock = (seconds, tenths = true) => { const t = Math.max(0, Number(seconds) || 0), n = tenths ? Math.round(t * 10) : Math.floor(t) * 10, m = Math.floor(n / 600), s = Math.floor(n % 600 / 10);
     return `${m}:${String(s).padStart(2, '0')}${tenths ? `.${n % 10}` : ''}`; };
   const hallSeconds = () => game.hallTime ?? (Number.isFinite(game.hallFrom) ? game.time - game.hallFrom : 0);
-  const hallClock = () => `Hall · ${clock(hallSeconds(), false)}`;
   const clearTitle = () => isTaste() ? 'Nice run!' : isHall() ? 'Rematch won!' : `Level ${game.plan.id} clear!`;
   function depthPlan(id, taste, hall) { const level = Depths.level(id); return { id, name: level.name, waves: taste ? TASTE.waves : Depths.waveCount, wave: n => Depths.wave(id, n), taste: Boolean(taste), hall: Boolean(hall) }; }
   // A phone can close the app while it is hidden, so a level run keeps a checkpoint in the save (save.run): the wave
@@ -553,6 +552,7 @@
     $('back-btn').querySelector('span').textContent = isHall() ? 'Hall' : isRush() ? 'Levels' : isChapter() ? 'Worlds' : 'Meadow';
     $('back-btn').setAttribute('aria-label', isHall() ? 'Back to the Guardian Hall' : isRush() ? 'Back to levels' : isChapter() ? 'Back to worlds' : 'Back to meadow');
     $('pause-levels-label').textContent = isHall() ? 'Hall' : 'Levels';
+    $('score-display').setAttribute('aria-label', isHall() ? 'Time' : 'Score');
     if (isChapter()) {
       const list = chapters[level.worldId].levels;
       $('level-label').textContent = `${CHAPTER_NAMES[level.worldId]} ${list.findIndex(item => item.id === level.id) + 1}/${list.length}`;
@@ -588,7 +588,7 @@
       $('seed-count').innerHTML = Array.from({ length: isChapter() ? game.rules.shots : 3 }, (_, index) => `<span class="seed-dot ${index < remaining ? 'available' : 'used'}" aria-hidden="true"></span>`).join('') + `<span class="seed-label">${remaining} ${units}</span>`;
       $('seed-count').setAttribute('aria-label', `${remaining} ${units} remaining`);
       $('bloom-count').textContent = rush ? `${game.bloomedCount} ${game.bloomedCount === 1 ? 'bloom' : 'blooms'}` : `${game.bloomedCount} / ${game.buds.length} bloomed`;
-      if (rush) $('level-label').textContent = isTutorial() ? 'Tutorial' : isHall() ? hallClock() : isDepth() ? `Level ${game.plan.id} · Wave ${game.wave}/${game.finalWave}` : `Wave ${game.wave} · ×${game.tempo.toFixed(1)}`;
+      if (rush) $('level-label').textContent = isTutorial() ? 'Tutorial' : isHall() ? 'Guardian Hall' : isDepth() ? `Level ${game.plan.id} · Wave ${game.wave}/${game.finalWave}` : `Wave ${game.wave} · ×${game.tempo.toFixed(1)}`;
       // Once the run passes the saved best, the caption under the score reads 'Best · beaten!' to the end of the run.
       $('best-value').textContent = preview ? 'Preview' : isHall() ? hallSave()[game.plan.id] ? clock(hallSave()[game.plan.id].bestTime) : '—' : game.bestState > 0 ? '· beaten!' : record()?.best ? fmt(record().best) : '—';
       canvas.dataset.status = game.status; canvas.dataset.blooms = game.bloomedCount; canvas.dataset.level = game.level.id; canvas.dataset.shots = game.shotsLeft;
@@ -597,8 +597,8 @@
       put($('rotate-btn'), 'hidden', !game.bumpers.length);
       $('rotate-btn').textContent = game.rotationUsed ? 'Petal turned' : 'Turn petal';
     }
-    put($('score-value'), 'textContent', fmt(displayScore));
-    if (isHall()) put($('level-label'), 'textContent', hallClock());
+    // A rematch is timed, not scored: its headline is the running clock, over the best time.
+    put($('score-value'), 'textContent', isHall() ? clock(hallSeconds(), false) : fmt(displayScore));
     putClass($('score-value'), 'record', game.bestState > 0);
     put($('pause-btn'), 'hidden', !(rush && !isTutorial() && !preview && !game.over));
     putData(canvas, 'balls', game.balls.length);
