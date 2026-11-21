@@ -4038,7 +4038,7 @@
   $('help-btn').addEventListener('click', () => {
     const play = route === 'game';
     helpWhole(); $('help-dialog').scrollTop = 0;
-    $('levels-help').open = play ? isDepth() : route === 'levels' || route === 'collection';
+    $('levels-help').open = play ? isDepth() : route === 'levels' || route === 'hall' || route === 'collection';
     $('rush-help').open = play && isRush() && !isDepth();
     $('campaign-help').open = play ? !isRush() && !isChapter() : route === 'garden';
     $('moon-help').open = play ? isMoon() : route === 'worlds';
