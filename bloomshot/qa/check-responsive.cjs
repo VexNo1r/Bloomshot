@@ -377,6 +377,13 @@ async function main() {
     assert.equal(await page.locator('#pause-levels').innerText(), 'Hall', `${key}: the Paused card offers the Hall`);
     await page.evaluate(() => document.getElementById('pause-levels').click()); await page.clock.runFor(400);
     assert.equal(await page.evaluate(() => document.body.dataset.view), 'hall', `${key}: and goes back to it`);
+    // A lost rematch's only way back besides Rematch is the result card's text link, so it reads at 4.5:1 there.
+    const linkRatio = await page.evaluate(() => {
+      const lum = rgb => { const c = rgb.match(/[\d.]+/g).slice(0, 3).map(v => { v /= 255; return v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }); return .2126 * c[0] + .7152 * c[1] + .0722 * c[2]; };
+      const a = lum(getComputedStyle(document.getElementById('result-garden-btn')).color), b = lum(getComputedStyle(document.getElementById('result-dialog')).backgroundColor);
+      return (Math.max(a, b) + .05) / (Math.min(a, b) + .05);
+    });
+    assert(linkRatio >= 4.5, `${key}: the result card's Hall link reads at 4.5:1 (${linkRatio.toFixed(2)})`);
     await page.evaluate(() => sessionStorage.removeItem('qa-hall'));
     }
     await page.goto('http://localhost/?qa', { waitUntil: 'networkidle' });
