@@ -452,7 +452,7 @@
     if (next === 'collection') { keepsakePreview = null; showcase.dirty = true; renderCollection(); }
     if (next === 'worlds') renderWorlds();
     if (next === 'levels') renderLevels();
-    document.body.dataset.view = next;
+    document.body.dataset.view = next; orientationNote();
     $('tutorial').hidden = !(tutorial && next === 'game');
     if (next === 'game') resize();
   }
@@ -4077,6 +4077,13 @@
     lastFrame = 0; accumulator = 0; if (frameMeter) frameMeter.sample(0, 0, false); cancelInteraction(); musicFrame(performance.now(), true);
   });
   window.addEventListener('pagehide', () => { keepProgress(); pauseGame(true); });
+  // Turning a phone sideways mid-run pauses it like going to another app, so turning it upright again shows the Paused
+  // card and its count, never play that is already moving. The note only says the game is paused when one is.
+  function orientationNote() { put($('orientation-paused'), 'textContent', route === 'game' && inProgress() ? 'Your game is paused.' : 'Turn your phone upright to play.'); }
+  function onOrientation(event) { if (event.matches && inProgress()) pauseGame(true); orientationNote(); }
+  if (typeof narrowLandscape.addEventListener === 'function') narrowLandscape.addEventListener('change', onOrientation);
+  else if (typeof narrowLandscape.addListener === 'function') narrowLandscape.addListener(onOrientation); // older Safari
+  orientationNote();
   function frame(timestamp) {
     if (!sayLines) return sayTogether(frame, timestamp); // what one frame says is read as one announcement
     requestAnimationFrame(frame);

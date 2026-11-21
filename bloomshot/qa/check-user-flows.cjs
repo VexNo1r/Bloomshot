@@ -34,6 +34,11 @@ async function main() {
     const check = (label, condition) => { assert(condition, `${key}: ${label}`); rows.push({ size: key, label }); };
     await page.goto('http://localhost/?qa', { waitUntil: 'networkidle' }); await advance(1500);
     check('fresh map opens', (await state()).route === 'levels');
+    if (viewport.width < 500) {
+      await page.setViewportSize({ width: viewport.height, height: viewport.width }); await advance(300);
+      check('the sideways note on the map asks to turn upright to play', await page.locator('#orientation-paused').textContent() === 'Turn your phone upright to play.' && await page.locator('#orientation-note').isVisible());
+      await page.setViewportSize(viewport); await advance(300);
+    }
     await click('[data-depth="2"]'); check('locked level does not start', (await state()).route === 'levels');
     await click('[data-depth="1"]'); await advance(1800);
     check('actual level button starts level one', (await state()).level === 1 && (await state()).route === 'game');
@@ -43,6 +48,20 @@ async function main() {
     await page.mouse.move(board.x + board.width * .3, board.y + board.height * .35);
     await page.mouse.down(); await advance(100); await page.mouse.up(); await advance(150);
     check('touch-style aim/release keeps play active', (await state()).status === 'flying');
+    // Turning the phone sideways mid-run pauses it: upright again, the Paused card waits and play counts back in.
+    const note = () => page.locator('#orientation-paused').textContent();
+    if (viewport.width < 500) {
+      await page.setViewportSize({ width: viewport.height, height: viewport.width }); await advance(300);
+      const sideways = await state();
+      check('the sideways note says the run is paused', await note() === 'Your game is paused.');
+      await advance(1500); await page.setViewportSize(viewport); await advance(300);
+      check('upright again shows the Paused card', await page.locator('#pause-dialog').evaluate(el => el.open));
+      await advance(1500);
+      check('play stays still behind the Paused card after rotating back', Math.abs((await state()).elapsed - sideways.elapsed) < .5);
+      await click('#pause-resume');
+      check('resuming after the turn counts in', await page.locator('#resume-count').isVisible());
+      await advance(2400); check('play moves again after the count', (await state()).elapsed > sideways.elapsed);
+    }
     await click('#settings-btn'); const stopped = await state(); await advance(2500);
     check('settings pauses falling flowers', (await state()).elapsed === stopped.elapsed && JSON.stringify((await state()).buds) === JSON.stringify(stopped.buds));
     await click('#privacy-btn');
