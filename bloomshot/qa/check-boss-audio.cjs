@@ -9,7 +9,7 @@ const cues = ['sunny', 'root', 'puff', 'crystal', 'lotus', 'fossil', 'ember', 'g
 cues.push({ type: 'bossGuard', kind: 'fossil' }, { type: 'bossCritical', kind: 'lotus' }, { type: 'bossBurn', kind: 'ember' });
 let browser;
 (async () => {
-  browser = await chromium.launch({ headless: true, executablePath: process.env.BLOOMSHOT_CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe' });
+  browser = await chromium.launch({ headless: true, executablePath: process.env.BLOOMSHOT_CHROME || (fs.existsSync('C:/Program Files/Google/Chrome/Application/chrome.exe') ? 'C:/Program Files/Google/Chrome/Application/chrome.exe' : undefined) });
   const page = await browser.newPage();
   const rendered = await page.evaluate(async ({ source, cues }) => {
     const rate = 48000, seconds = 2.2, make = new Function('globalThis', source + '\nreturn globalThis.BloomSound;');

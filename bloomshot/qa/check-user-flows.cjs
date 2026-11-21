@@ -10,7 +10,7 @@ const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css
 let browser;
 async function main() {
   fs.mkdirSync(output, { recursive: true });
-  browser = await chromium.launch({ headless: true, executablePath: process.env.BLOOMSHOT_CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe' });
+  browser = await chromium.launch({ headless: true, executablePath: process.env.BLOOMSHOT_CHROME || (fs.existsSync('C:/Program Files/Google/Chrome/Application/chrome.exe') ? 'C:/Program Files/Google/Chrome/Application/chrome.exe' : undefined) });
   for (const viewport of [{ width: 390, height: 844 }, { width: 820, height: 1180 }]) {
     const context = await browser.newContext({ viewport, deviceScaleFactor: 1, isMobile: true, hasTouch: true, serviceWorkers: 'block' });
     const page = await context.newPage(), key = `${viewport.width}x${viewport.height}`;

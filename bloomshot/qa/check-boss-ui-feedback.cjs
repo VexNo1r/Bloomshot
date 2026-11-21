@@ -13,7 +13,7 @@ const intersect = (a, b) => Math.min(a.x + a.width, b.x + b.width) > Math.max(a.
 const inside = (r, width, height) => r.x >= -.6 && r.y >= -.6 && r.x + r.width <= width + .6 && r.y + r.height <= height + .6;
 (async () => {
   fs.mkdirSync(output, { recursive: true });
-  browser = await chromium.launch({ headless: true, executablePath: process.env.BLOOMSHOT_CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe' });
+  browser = await chromium.launch({ headless: true, executablePath: process.env.BLOOMSHOT_CHROME || (fs.existsSync('C:/Program Files/Google/Chrome/Application/chrome.exe') ? 'C:/Program Files/Google/Chrome/Application/chrome.exe' : undefined) });
   for (const viewport of [{ width: 390, height: 844 }, { width: 390, height: 664 }]) {
     const key = `${viewport.width}x${viewport.height}`;
     const context = await browser.newContext({ viewport, deviceScaleFactor: 2, isMobile: true, hasTouch: true, serviceWorkers: 'block' });

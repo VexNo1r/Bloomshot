@@ -32,7 +32,7 @@ const rows = [], errors = []; let browser;
 function intersect(a, b) { return Math.min(a.x + a.width, b.x + b.width) > Math.max(a.x, b.x) + 1 && Math.min(a.y + a.height, b.y + b.height) > Math.max(a.y, b.y) + 1; }
 async function main() {
   fs.mkdirSync(output, { recursive: true });
-  browser = await chromium.launch({ headless: true, executablePath: process.env.BLOOMSHOT_CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe' });
+  browser = await chromium.launch({ headless: true, executablePath: process.env.BLOOMSHOT_CHROME || (fs.existsSync('C:/Program Files/Google/Chrome/Application/chrome.exe') ? 'C:/Program Files/Google/Chrome/Application/chrome.exe' : undefined) });
   for (const size of sizes) {
     const key = `${size.width}x${size.height}`, context = await browser.newContext({ viewport: { width: size.width, height: size.height }, deviceScaleFactor: 2, isMobile: !size.desktop, hasTouch: !size.desktop, serviceWorkers: 'block' });
     const page = await context.newPage();
