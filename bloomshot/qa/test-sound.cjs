@@ -298,7 +298,8 @@ async function main() {
       const before = h.context.nodes.length, now = h.context.currentTime;
       h.sound.play('bloom', { combo, bud: { x: 210 } });
       const nodes = h.context.nodes.slice(before), oscillators = nodes.filter(n => n.kind === 'oscillator');
-      assert(oscillators.length >= 2 && oscillators.length <= 4); assert(oscillators.every(n => n.startAt === now));
+      // From 25 in a row a single soft octave sine joins the note (its own test below).
+      assert(oscillators.length >= 2 && oscillators.length <= (combo >= 25 ? 5 : 4)); assert(oscillators.every(n => n.startAt === now));
       const fundamental = oscillators.find(n => n.onended);
       assert(fundamental.frequency.value >= 140 && fundamental.frequency.value <= 1100);
       for (const osc of oscillators) {
@@ -317,6 +318,31 @@ async function main() {
       h.tick(0.1);
     }
     h.sound.play('bloom', { combo: Infinity });
+  });
+  await test('From 25 in a row a soft octave rides on the bloom note, under half its level, inside the bloom rate limit', () => {
+    const bloom = (combo, extra = {}) => {
+      const h = fixture(); h.sound.wake(); h.tick(1);
+      h.sound.play('bloom', { combo, bud: { x: 210, type: 'coral' }, ...extra });
+      return { notes: h.voices() };
+    };
+    for (const combo of [1, 8, 14, 24]) assert.equal(bloom(combo).notes.length, 1, `no octave at ${combo}`);
+    for (const combo of [25, 40, 75, 150]) for (const extra of [{}, { chain: true }, { super: true }, { seedStep: 3 }]) {
+      const { notes } = bloom(combo, extra);
+      assert.equal(notes.length, 2, `an octave at ${combo}`);
+      const [main, octave] = notes;
+      assert(Math.abs(target(octave) / target(main) - 2) < 0.01, 'exactly an octave above the note');
+      assert(target(octave) < 3600, 'under the frequency check');
+      const level = v => peak(v.connections[0]);
+      assert(level(octave) <= level(main) * 0.4 + 1e-9, `at most 0.4x the note (${level(octave)} vs ${level(main)})`);
+      assert.equal(octave.startAt, main.startAt, 'struck with the note');
+      assert(octave.stopAt <= main.stopAt + 1e-9, 'and gone by the time it is');
+    }
+    // A chain can bloom every few milliseconds: the octave is held to the bloom note's own 22 ms limit.
+    const h = fixture(); h.sound.wake(); h.tick(1);
+    for (let i = 0; i < 20; i++) { h.sound.play('bloom', { combo: 30 + i, bud: { x: 210 } }); h.tick(0.005); }
+    const voices = h.voices();
+    assert(voices.length <= 10, `20 blooms in 0.1 s ring at most ${voices.length} voices`);
+    assert.equal(voices.length % 2, 0, 'every bloom that sounds brings its octave, and no octave sounds alone');
   });
   await test('Chains walk the bloom chords, and shimmer and fever arpeggiate the chord the chain is on', () => {
     const notes = combos => combos.map(combo => { const h = fixture(); h.sound.wake(); h.tick(1); h.sound.play('bloom', { combo }); return target(h.voices()[0]); });

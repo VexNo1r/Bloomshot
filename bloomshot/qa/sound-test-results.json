@@ -1,5 +1,5 @@
 {
-  "passed": 41,
+  "passed": 42,
   "failed": 0,
   "limits": "Instrumented Web Audio API scheduling/graph tests, not a rendered browser audio capture or a listening assessment. Device speakers, perceptual loudness, and audio-to-screen latency still require on-device listening.",
   "results": [
@@ -52,6 +52,10 @@
     },
     {
       "name": "Bloom cues begin immediately with soft attacks and moderate harmonic frequencies",
+      "passed": true
+    },
+    {
+      "name": "From 25 in a row a soft octave rides on the bloom note, under half its level, inside the bloom rate limit",
       "passed": true
     },
     {

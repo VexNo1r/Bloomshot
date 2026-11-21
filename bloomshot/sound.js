@@ -825,6 +825,8 @@
   // a fifth (4 steps), so its endless run never gets shrill. A level knows its last wave: waves 2 to finalWave - 1
   // are spread evenly over 0 to 7 steps, so every wave up to the last starts (and clears) higher than the one before.
   const LEVEL_LIFT = 7;
+  // The long-chain octave on the bloom note: from this chain length, at this share of the note's level.
+  const OCTAVE_FROM = 25, OCTAVE_LEVEL = 0.35;
   function waveLift(data, first) {
     const wave = Number(data.wave) || 1, last = Math.floor(Number(data.finalWave));
     if (!(Number.isFinite(last) && last >= 2)) return Math.min(4, Math.max(0, wave - first));
@@ -858,7 +860,11 @@
       // A long chain rings a little brighter; Super Bloom brighter still.
       const bright = Math.min(data.super ? 1.15 : 1, 0.8 + combo * 0.015 + (data.super ? 0.15 : 0));
       const flower = flowerOf(data), [style, level] = flower ? FLOWER_VOICES[flower] : ['bell', 1];
-      note(pitch, 0, data.chain ? 0.3 : 0.42, (data.chain ? 0.1 : 0.15) * level, pan, style, 1, { bright });
+      const volume = (data.chain ? 0.1 : 0.15) * level, length = data.chain ? 0.3 : 0.42;
+      note(pitch, 0, length, volume, pan, style, 1, { bright });
+      // From 25 in a row a soft sine an octave up rides on each bloom note, at well under half its level. It shares the
+      // bloom's own rate limit above and asks for no reserved room, so a fast chain never crowds out other cues.
+      if (combo >= OCTAVE_FROM) note(pitch * 2, 0, length * .85, volume * OCTAVE_LEVEL, pan, 'pad', 0, { space: 'high' });
       crunch('pop', 0, pan, data.chain ? 0.55 : 1);
     } else if (type === 'bounce') {
       if (!allowed('bounce', 0.075)) return;
