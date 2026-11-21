@@ -4,4 +4,4 @@ Generated files for playtesting only. Nothing here is merged anywhere, and no pu
 
 Each commit holds one `index.html`: the game from PR #31 with its styles, scripts, fonts and icons inlined into a single file, so a free file host serves one request instead of about seventy (githack answers bursts with 429 errors, which left the game unstyled or broken). Offline play is switched off in these builds; everything else is unchanged.
 
-Current build: game commit 2cd6e66649dbd250ad926e63aa05ea18d95812d7 (branch codex/launch-ready-assets).
+Current build: game commit db47d459f0b0f787eb21a2518492930cd54e0e49 (branch codex/launch-ready-assets).
