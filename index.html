@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <!-- Bloomshot playtest bundle of 5eeb0465db98f8c1ffdbfb11a5aa142f5a885211, built from bloomshot/ -->
+  <!-- Bloomshot playtest bundle of 9f4b43b766e3d0b3476212d717c628f96e9c863b, built from bloomshot/ -->
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#d7f0df">
@@ -640,6 +640,12 @@ dialog[open]{animation:dialog-in .34s var(--press)}
 /* Who's who: each level's pieces and guardian, on cream cards with a round picture painted by the board's own art.
    An unmet one is a dashed "?" card. Two columns once the dialog is wide enough (tablets and desktop). */
 @media(min-width:700px){.help-dialog{width:min(640px,calc(100vw - 48px))}}
+/* The heading (and its close button) stays at the top while How to play scrolls, so a phone with no Escape key can
+   always shut it. Opened from the Paused card, the dialog holds only Who's who (data-only="guide"). */
+.help-dialog{--pad-top:22px;--pad-x:20px}
+.help-dialog>.dialog-heading{position:sticky;top:calc(0px - var(--pad-top));z-index:3;margin:calc(0px - var(--pad-top)) calc(0px - var(--pad-x)) 8px;padding:var(--pad-top) var(--pad-x) 8px;background:var(--cream);border-radius:28px 28px 0 0;box-shadow:inset 0 3px 0 var(--edge),inset 3px 0 0 var(--edge),inset -3px 0 0 var(--edge)}
+.help-dialog[data-only="guide"]>details:not(#guide-help){display:none}
+.help-dialog .guide-level{scroll-margin-top:72px}
 .guide-intro{margin:0 0 4px;font-size:13px;line-height:1.4;color:var(--ink-soft)}
 .guide-list{padding:0 0 12px}
 .guide-level{--tint:#d9f3df;margin-top:12px;scroll-margin-top:10px}
@@ -666,6 +672,11 @@ dialog[open]{animation:dialog-in .34s var(--press)}
 .guide-line{font-size:13px;line-height:1.35;color:var(--ink-soft)}
 .guide-entry.unmet .guide-line{font:600 14px/1.25 var(--display);color:#4d675b}
 .guide-tag{padding:1px 8px 2px;border-radius:999px;background:var(--pink-soft);color:#b02f57;font:600 11.5px/1.2 var(--display)}
+/* A piece a plain seed can't just shoot. */
+.guide-tag.trick{background:var(--gold-soft);color:var(--gold-ink)}
+.guide-does{font-size:13px;line-height:1.35;color:var(--ink)}
+.guide-beat{font-size:13px;line-height:1.35;color:var(--ink-soft)}
+.guide-how{font:600 12.5px/1.2 var(--display);color:var(--green-deep)}
 
 .world-dialog{padding-top:0}
 .world-close{position:absolute;right:14px;top:14px;z-index:2}
@@ -814,6 +825,7 @@ body[data-world="moon"] .desktop-mode-moon,body[data-world="koi"] .desktop-mode-
   .level-grid{gap:8px;padding:2px 10px 14px}
   .plant-button{flex-basis:100%}
   dialog{padding:20px 16px}
+  .help-dialog{--pad-top:20px;--pad-x:16px}
   .world-preview-art{margin:0 -16px 14px}
   .help-mode:not(.guide-help)>summary small{display:none}
 }
@@ -860,6 +872,10 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
 .pause-row .button-secondary{min-height:48px;padding:0 10px;font-size:16px}
 .pause-row svg{width:19px;height:19px}
 .pause-dialog .button-link{margin-top:6px}
+.pause-links{display:flex;justify-content:center;flex-wrap:wrap;column-gap:4px}
+.pause-links .button-link{display:inline-flex;align-items:center;gap:6px;margin:6px 0 0}
+.pause-links .button-link[hidden]{display:none}
+.pause-links svg{width:19px;height:19px}
 .resume-count{position:absolute;inset:0;z-index:10;display:grid;place-items:center;background:#1d3a2e5c;pointer-events:auto;touch-action:none}
 .resume-number{display:grid;place-items:center;min-width:124px;height:124px;padding:0 6px;border-radius:999px;background:var(--cream);color:var(--green-deep);
   font:700 76px/1 var(--display);font-variant-numeric:tabular-nums;box-shadow:inset 0 0 0 4px var(--edge),0 7px 0 var(--edge-dark),0 18px 40px #10302455}
@@ -1186,7 +1202,10 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
       <button id="pause-restart" class="button-secondary" type="button"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4.3 7.4a6 6 0 1 1-.2 4.3M4 3.5v4.3h4.3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Restart</button>
       <button id="pause-levels" class="button-secondary" type="button"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m12.5 4.5-5.5 5.5 5.5 5.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Levels</button>
     </div>
-    <button id="pause-settings" class="button-link" type="button">Settings</button>
+    <div class="pause-links">
+      <button id="pause-guide" class="button-link" type="button" hidden><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M3.5 5.2c2.3-1 4.6-.9 6.5.6 1.9-1.5 4.2-1.6 6.5-.6v10.1c-2.3-1-4.6-.9-6.5.6-1.9-1.5-4.2-1.6-6.5-.6Z" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="M10 5.8v10.1" stroke="currentColor" stroke-width="1.9"/></svg>Who's who</button>
+      <button id="pause-settings" class="button-link" type="button">Settings</button>
+    </div>
   </dialog>
 
   <dialog id="settings-dialog" class="settings-dialog" aria-labelledby="settings-title">
@@ -4843,7 +4862,11 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
   const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
   const FLOWER_TIME = { sunny: 4, root: 4, puff: 4.5, crystal: 4.5, lotus: 2.5, fossil: 4.5, ember: 3, geode: 5, briar: 5, core: 4.5 };
   const FLOWER_TEXT = { sunny: 'Warmth swells the buds.', root: 'The roots are shrinking the buds.', puff: 'A soft spore veil is settling.', crystal: 'The buds are swaying sideways.', lotus: 'The lake is lifting the flowers.', fossil: 'Shells are closing around the buds.', ember: 'Marked flowers are catching fire.', geode: 'A crystal ring is growing.', briar: 'Thorns are taking a whole patch.', core: 'The flowers are making echoes.' };
-  const flowerFields = ['r', 'shell', 'shellAngle', 'shellSpin', 'briar', 'relay', 'bossFlameUntil'];
+  // The Ammonite Queen's mouth (and her lock) open QUEEN_GAP radians either side and her mouth turns QUEEN_SPIN a
+  // second: open about 2.8 s a turn, back within 3.9 s. Flowers she turns to stone open as wide as Level 6's shells
+  // (depths.js SHELLS) and turn .9 a second, so they are never shut longer than 3.9 s either.
+  const QUEEN_GAP = Math.acos(.25), QUEEN_SPIN = .95, FOSSIL_FLOWER_GAP = 1.40;
+  const flowerFields = ['r', 'shell', 'shellAngle', 'shellSpin', 'shellGap', 'briar', 'relay', 'bossFlameUntil'];
   // Guardian kits (the first five guardians): three tiers of moves, a mood per tier, and the hooks each kit uses. A guardian
   // without a kit plays exactly as before. Kits are defined at the end of this file, one block each.
   const KITS = Object.create(null), TIER_PACE = [1, .9, .8];
@@ -4938,7 +4961,7 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
       if(kind==='puff')effect.opacity=.4;
       if(kind==='crystal')effect.amplitude=16;
       if(kind==='lotus')effect.lift=12;
-      if(kind==='fossil'){p.shell=true;p.shellAngle=Math.PI/2;p.shellSpin=.9;}
+      if(kind==='fossil'){p.shell=true;p.shellAngle=Math.PI/2;p.shellSpin=.9;p.shellGap=FOSSIL_FLOWER_GAP;}
       if(kind==='ember')p.bossFlameUntil=s.age+FLOWER_TIME[kind];
       if(kind==='geode'){
         record.health={hp:p.hp,maxHp:p.maxHp};p.hp=Math.min(3,p.hp+1);p.maxHp=Math.max(p.maxHp,p.hp);s.flowerUsed.add(p.id);
@@ -4990,7 +5013,7 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     if (s.kind === 'sunny') { s.mode = 'sleeping'; s.vulnerable = false; part(game, 'bubble', boss.x, boss.y + 46, 18, 1); }
     if (s.kind === 'crystal') { s.mode = 'split'; boss.hidden = true; boss.visible = false; for (let n = 0; n < 3; n++) part(game, 'heart', boss.x + (n - 1) * 64, boss.y, 22, 1, { real: n === 1, slot: n }); }
     if (s.kind === 'lotus') { part(game, 'lantern', boss.x + 40, boss.y + 8, 11, 1); s.weakspot = 'lantern'; }
-    if (s.kind === 'fossil') { s.mode = 'lock-mouth'; boss.shell = true; boss.shellAngle = Math.PI / 2; boss.shellSpin = .75; s.shellBaseSpin=.75;s.lockAngle = Math.PI / 2; s.lockSpin=1.05;s.lockStage = 0; }
+    if (s.kind === 'fossil') { s.mode = 'lock-mouth'; boss.shell = true; boss.shellAngle = Math.PI / 2; boss.shellSpin = QUEEN_SPIN; boss.shellGap = QUEEN_GAP; s.shellBaseSpin=QUEEN_SPIN;s.lockAngle = Math.PI / 2; s.lockSpin=1.05;s.lockStage = 0; }
     if (s.kind === 'ember') { s.mode = 'flame'; s.vulnerable = false; }
     if (s.kind === 'geode') { s.mode = 'crust'; for (let n = 0; n < 4; n++) part(game, 'plate', boss.x, boss.y, 13, 2, { slot: n }); }
     if (s.kind === 'briar') { s.mode = 'skirt'; s.next = 2.2; }
@@ -5329,7 +5352,7 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     if (fling) p.y = Math.min(p.y, game.dangerY - 70);
     p.carried = null; const s = game.bossState; if (s) s.carried = s.carried.filter(b => b !== p);
   }
-  function shellOpen(angle, hit) { return hit.nx * Math.cos(angle) + hit.ny * Math.sin(angle) >= .25; }
+  function shellOpen(angle, hit) { return hit.nx * Math.cos(angle) + hit.ny * Math.sin(angle) >= Math.cos(QUEEN_GAP); }
   function burns(game, bud, seed) {
     const s=active(game),yes=Boolean(s && s.kind==='ember' && bud===s.boss && s.mode==='flame' && !(seed.gateHops>0) && !['beeline','sunburst'].includes(seed.power));
     const k=yes?kitOf(s):null; if(k && k.burned) k.burned(game,s,seed); return yes; // Cinder Catch: a kit sees each burned seed (Ember kit)
@@ -7760,6 +7783,15 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     ['core', 'The Starseed', 1.35, 6.65, 7.2, 'Break the stars to drop the dome.']
   ].map(function (b) { return { kind: b[0], name: b[1], hp: Bosses.health[b[0]], rate: b[2], descent: b[3], interval: b[4], warning: b[5], telegraph: Bosses.telegraph }; });
 
+  // Turning shells, set per level. gap is half the opening (radians either side of where it points), spin is
+  // radians a second. The easiest shell level turns fastest with the widest opening, the hardest turns slowest
+  // with the narrowest, and every wave of a level uses the same pair. For a shot from one direction the opening
+  // stays over it for 2 * gap / spin seconds and comes back after (2 * PI - 2 * gap) / spin: at least 1.3 s open
+  // and at most 3.6 s closed here (qa/test-shells.cjs keeps the floor of 1 s and 4 s).
+  var SHELLS = { 6: { gap: 1.40, spin: 2.0 }, 8: { gap: 1.19, spin: 1.5 }, 10: { gap: 1.01, spin: 1.2 } };
+  var SHELL_DEFAULT = { gap: Math.acos(.34), spin: 1.2 };
+  function shellFor(levelId) { return SHELLS[levelId] || SHELL_DEFAULT; }
+
   // pace scales regular-flower fall speed. Levels with shells need more time for timing shots;
   // the free fourth level has a gentler pace than the paid layers, and the final layer combines their pressure.
   // The regression player checks careful aim, slower reactions and flat-out mashing without powerups.
@@ -7774,7 +7806,8 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
   // plus t, the earliest second it may arrive).
   // Deeper levels add: currents ([x, y, length, width, degrees it flows, turn rate]), gates (tunnel pairs
   // [x, y, exit x, exit y, exit degrees]: a straight shot into the first hole leaves the second at that heading),
-  // shell (clusters in turning shells that only open on one side) with spin (radians a second), geodes
+  // shell (clusters in turning shells that only open on one side; how fast they turn and how wide they open is
+  // the level's SHELLS row), geodes
   // ([x, y, hp, gems]: they crack into gems that must be bloomed too), and briar (crownless clusters that grow
   // back unless all three bloom within regrow seconds). Levels 2-5 add foes ([name, x, y, opts]: the new pieces of
   // foes.js, added beside the clusters) and vents ([x, y, first s, every s, count]: Moon Jelly vents).
@@ -7820,12 +7853,12 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
       { f: 'grid', s: 'tri', d: 12.5, hp: 2, rocks: [[210, 312, 56, 0, 92, .25]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2 }, { t: 12, f: 'top4', s: 'line', hp: 3 }], hint: 'Moving crystals. Time your shots.' },
       { f: 'wall', s: 'tri', d: 13, hp3: 2, cup: [0, 4], then: [{ t: 6, f: 'top5', s: 'tri', hp3: 2, cup: [1, 3] }, { t: 12, f: 'topvee', s: 'line', hp: 2 }], hint: 'Double rings take three hits.' },
       { f: 'vee', s: 'tri', d: 13, hp: 2, sway: 16, rocks: [[120, 322, 44, 0, 50, .3], [300, 322, 44, 0, 50, .3]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 3, sway: 14 }, { t: 12, f: 'topstacks', s: 'stack', hp: 2 }], foes: [['chroma', 110, 250, { type: 'sky' }], ['chroma', 210, 250, { type: 'gold' }], ['chroma', 310, 250, { type: 'poppy' }]], hint: 'Crystals open only for a seed of their color.' },
-      { f: 'stacks5', s: 'stack', d: 13.5, hp: 1, cup: [0, 1, 2, 3, 4], puffs: [[174, 214], [246, 214]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, cup: [0, 2, 4] }, { t: 12, f: 'topstacks', s: 'stack', hp3: 1, cup: [0, 1, 2, 3] }], foes: [['bat', 110, 236], ['bat', 310, 236]], hint: 'Bats swoop! Catch one mid-air for a bonus.' },
+      { f: 'stacks5', s: 'stack', d: 13.5, hp: 1, cup: [0, 1, 2, 3, 4], puffs: [[174, 214], [246, 214]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, cup: [0, 2, 4] }, { t: 14, f: 'topstacks', s: 'stack', hp3: 1, cup: [0, 1, 2, 3] }], foes: [['bat', 110, 236], ['bat', 310, 236]], hint: 'Bats swoop! Catch one mid-air for a bonus.' },
       { f: 'ring', s: 'tri', d: 13.5, hp: 2, hp3: 1, fast: [2, 3], rocks: [[210, 171, 46, 90]], then: [{ t: 6, f: 'topvee', s: 'tri', hp: 2, fast: [0, 4] }, { t: 12, f: 'top5', s: 'line', hp3: 2 }], foes: [['fibcap', 110, 262], ['chroma', 368, 262, { type: 'lilac' }]] },
       { f: 'columns', s: 'tri', d: 14, hp: 3, sway: 16, rocks: [[150, 300, 40, 30], [270, 300, 40, -30], [210, 352, 40, 0, 70, .35]], petal: [210, 400, 45], then: [{ t: 6, f: 'top5', s: 'tri', hp: 3, sway: 16 }, { t: 12, f: 'top4', s: 'stack', hp: 2, fast: [1, 2] }], foes: [['mole', 90, 262, { up: 1.2 }], ['bat', 324, 250]] },
       { f: 'zigzag', s: 'tri', d: 14, hp: 1, cup: [0, 2, 4], cupAll: [1, 3], puffs: [[105, 140], [245, 140]], rocks: [[210, 302, 60, 0, 80, .3]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, cupAll: [0, 4], puffs: [[140, 112], [280, 112]] }, { t: 12, f: 'topvee', s: 'tri', hp3: 2, cup: [1, 2, 3] }], foes: [['inkcap', 210, 206], ['chroma', 340, 240, { type: 'coral' }]] },
       { f: 'stairs', s: 'line', d: 14.5, hp: 2, hp3: 2, fast: [0, 2, 4], sway: 18, then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, hp3: 1, fast: [1, 3], sway: 14 }, { t: 12, f: 'topstacks', s: 'stack', hp3: 2, fast: [0, 3] }], foes: [['bat', 140, 220], ['bat', 320, 140]] },
-      { f: 'grid', s: 'tri', d: 15, hp: 2, hp3: 1, sway: 10, cup: [0, 2], cupAll: [4], puffs: [[210, 158]], rocks: [[210, 322, 50, 0, 90, .3]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, hp3: 1, cup: [0, 2, 4], sway: 12 }, { t: 12, f: 'topvee', s: 'tri', hp3: 2, cupAll: [2], fast: [0, 4], puffs: [[120, 116], [280, 114]] }], foes: [['fibcap', 150, 158], ['fibcap', 270, 158], ['chroma', 150, 262, { type: 'sky' }], ['bat', 270, 262]] },
+      { f: 'grid', s: 'tri', d: 15, hp: 2, hp3: 1, sway: 10, cup: [0, 2], cupAll: [4], puffs: [[210, 158]], rocks: [[210, 322, 50, 0, 90, .3]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, hp3: 1, cup: [0, 2, 4], sway: 12 }, { t: 12, f: 'topvee', s: 'tri', hp3: 1, cupAll: [2], fast: [0, 4], puffs: [[120, 116], [280, 114]] }], foes: [['fibcap', 150, 158], ['fibcap', 270, 158], ['chroma', 150, 262, { type: 'sky' }], ['bat', 270, 262]] },
       { f: [[76, 192], [344, 192], [140, 252], [280, 252]], s: 'tri', d: 8.5, hp: 2, cup: [0, 1, 2, 3], puffs: [[150, 138], [270, 138]], rocks: [[210, 304, 60, 0, 100, .3]], boss: { name: 'Crystal Heart', hp: 12, r: 26, type: 'coral', sway: 60, x: 210, y: 98 }, then: [{ t: 8, f: 'topsides', s: 'tri', hp: 2, hp3: 1, cup: [0, 1, 2, 3] }, { t: 16, f: 'topsides', s: 'stack', hp3: 2, fast: [0, 3] }, { t: 24, f: 'topsides', s: 'tri', hp: 3, puffs: [[210, 66]] }], hint: 'Crystal heart! Twelve hits.' }
     ]),
     lv(5, 'lake', 'Glowworm Lake', 'Ride the currents', 2.15, [
@@ -7835,25 +7868,25 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
       { f: 'arch', s: 'line', d: 11.5, hp: 2, sway: 12, currents: [[112, 360, 160, 56, -55, 4], [308, 360, 160, 56, -125, 4]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 1 }, { t: 12, f: 'topvee', s: 'tri', hp: 2 }], foes: [['glowworm', 250, 250, { dir: -1 }]] },
       { f: 'grid', s: 'tri', d: 12, hp: 2, puffs: [[210, 158]], currents: [[210, 296, 80, 130, 90, 6]], then: [{ t: 6, f: 'top4', s: 'tri', hp: 2, puffs: [[210, 104]] }], hint: 'Falling water pushes shots aside.', foes: [['fibcap', 150, 150], ['fibcap', 270, 150]] },
       { f: 'columns', s: 'stack', d: 12, hp: 2, currents: [[210, 380, 330, 50, 0, 5], [210, 286, 330, 50, 180, 5]], then: [{ t: 6, f: 'topstacks', s: 'stack', hp: 2 }, { t: 12, f: 'top5', s: 'tri', fast: [1, 3] }], hint: 'Two currents, two ways. Plan the S-bend.', vents: [[90, 332, 1.5, 4.5, 2], [330, 332, 3.75, 4.5, 2]] },
-      { f: 'ring', s: 'tri', d: 12.5, hp: 2, cupAll: [0], cup: [3], currents: [[58, 300, 280, 36, -90, 5], [362, 300, 280, 36, -90, 5]], then: [{ t: 6, f: 'topsides', s: 'tri', hp: 2 }, { t: 12, f: 'top3', s: 'tri', cupAll: [1] }], hint: 'Ride the side streams up and over.', foes: [['glowworm', 250, 171, { dir: -1 }]] },
+      { f: 'ring', s: 'tri', d: 12.5, hp: 1, cupAll: [0], cup: [3], currents: [[58, 300, 280, 36, -90, 5], [362, 300, 280, 36, -90, 5]], then: [{ t: 6, f: 'topsides', s: 'tri', hp: 2 }, { t: 12, f: 'top3', s: 'tri', cupAll: [1] }], hint: 'Ride the side streams up and over.', foes: [['glowworm', 250, 171, { dir: -1 }]] },
       { f: 'zigzag', s: 'tri', d: 12, hp: 2, hp3: 1, sway: 14, currents: [[140, 350, 200, 56, -30, 4.5], [290, 258, 200, 56, -150, 4.5]], then: [{ t: 6, f: 'top5', s: 'line', hp: 2 }, { t: 12, f: 'topvee', s: 'tri', hp3: 1, sway: 12 }], foes: [['glowworm', 150, 236, { dir: 1 }]], vents: [[320, 404, 3, 5, 2]] },
       { f: 'grid', s: ['tri', 'line', 'tri', 'line', 'tri', 'line'], d: 12.5, hp: 2, hp3: 1, cup: [0, 2, 3, 5], puffs: [[150, 158], [270, 158]], currents: [[210, 262, 340, 44, 180, 6], [210, 372, 330, 50, 0, 4]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, cup: [1, 3] }, { t: 12, f: 'topvee', s: 'line', hp3: 2 }], foes: [['glowworm', 180, 70, { dir: 1 }], ['bat', 268, 206]], vents: [[310, 332, 3, 5, 2]] },
       { f: [[76, 192], [344, 192], [140, 250], [280, 250]], s: 'tri', d: 8, hp: 2, cup: [2, 3], currents: [[210, 352, 330, 56, 0, 4.5]], boss: { name: 'Lantern Lily', hp: 13, r: 26, type: 'lilac', sway: 56, x: 210, y: 100 }, then: [{ t: 8, f: 'topsides', s: 'tri', hp: 2, cup: [0, 1, 2, 3] }, { t: 16, f: 'topsides', s: 'line', hp: 2 }], hint: 'Big bloom! Thirteen hits.' }
     ]),
     // Batch 2: the Amberkeeper debuts in W2 (back in W5, W8, W9) among Rolypoly, Peekaboo Mole and Echo Bat rows.
-    lv(6, 'fossil', 'Fossil Beds', 'Turning shells', 1.5, [
-      { f: 'square', s: 'tri', d: 10.5, shell: [0, 3], spin: 1.1, then: [{ t: 6, f: 'top3', s: 'tri', shell: [1] }], hint: 'Shells turn. Shoot through the opening.' },
-      { f: 'wall', s: 'tri', d: 11, hp: 1, shell: [1, 3], spin: 1.3, rocks: [[150, 318, 52, 0], [270, 318, 52, 0]], then: [{ t: 6, f: 'top4', s: 'tri', shell: [1, 2] }], foes: [['amberkeeper', 210, 200]], hint: 'Amber seals buds! Break the trilobite to free them.' },
-      { f: 'corners', s: 'tri', d: 11.5, shell: [0, 1, 2, 3], spin: 1, then: [{ t: 7, f: 'top4', s: 'tri', hp: 1 }], hint: 'Crowns in shells. Wait for the gap.' },
-      { f: 'diamond', s: 'tri', d: 12, hp: 2, shell: [0, 3], cup: [1, 2], spin: 1.5, then: [{ t: 6, f: 'top5', s: 'tri', hp: 1, shell: [0, 4] }, { t: 12, f: 'top3', s: 'stack', cup: [1] }], foes: [['rolypoly', 210, 150]] },
-      { f: 'ring', s: 'tri', d: 12, hp: 2, shell: [0, 2, 4], spin: 1.7, puffs: [[210, 171]], then: [{ t: 6, f: 'top4', s: 'tri', hp: 2, shell: [1, 2] }], foes: [['amberkeeper', 160, 172]], hint: 'Puffcaps bloom shelled buds too.' },
-      { f: 'grid', s: 'tri', d: 12.5, hp: 2, shell: [0, 1, 2, 3, 4, 5], spin: 1.3, rocks: [[110, 322, 46, 0], [310, 322, 46, 0]], then: [{ t: 6, f: 'topvee', s: 'tri', hp: 2 }, { t: 12, f: 'top4', s: 'tri', shell: [0, 3] }], foes: [['bat', 150, 158], ['bat', 270, 158]] },
-      { f: 'zigzag', s: 'tri', d: 13, hp: 2, hp3: 1, sway: 14, shell: [0, 2, 4], spin: 1.9, then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, shell: [1, 3] }, { t: 12, f: 'topvee', s: 'line', hp3: 1, sway: 12 }], foes: [['mole', 210, 268]] },
-      { f: 'columns', s: 'tri', d: 13, hp: 2, fast: [2, 3], shell: [0, 1, 4, 5], spin: 2.1, rocks: [[210, 300, 60, 0, 70, .3]], then: [{ t: 6, f: 'topstacks', s: 'stack', hp: 2 }, { t: 12, f: 'top5', s: 'tri', fast: [0, 4], shell: [2] }], foes: [['amberkeeper', 150, 250], ['rolypoly', 270, 262]] },
-      { f: 'stairs', s: 'tri', d: 13.5, hp: 2, hp3: 1, shell: [0, 1, 2, 3, 4], spin: 2.3, rocks: [[150, 330, 44, 30], [270, 330, 44, -30]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, hp3: 1, shell: [0, 2, 4] }, { t: 12, f: 'topstacks', s: 'stack', hp3: 2 }], foes: [['amberkeeper', 150, 200], ['bat', 330, 140]] },
-      { f: [[76, 192], [344, 192], [140, 252], [280, 252]], s: 'tri', d: 8.5, hp: 2, shell: [0, 1], cup: [2, 3], spin: 1.4, boss: { name: 'Ammonite Queen', hp: 14, r: 26, type: 'gold', sway: 56, x: 210, y: 100, shell: 1.1 }, then: [{ t: 8, f: 'topsides', s: 'tri', hp: 2, shell: [0, 3] }, { t: 16, f: 'topsides', s: 'stack', hp: 2 }], hint: 'A shelled big bloom! Aim for the gap.' }
+    lv(6, 'fossil', 'Fossil Beds', 'Turning shells', 1.72, [
+      { f: 'square', s: 'tri', d: 10.5, shell: [0, 3], then: [{ t: 6, f: 'top3', s: 'tri', shell: [1] }], hint: 'Shells turn. Shoot through the opening.' },
+      { f: 'wall', s: 'tri', d: 11, hp: 1, shell: [1, 3], rocks: [[150, 318, 52, 0], [270, 318, 52, 0]], then: [{ t: 6, f: 'top4', s: 'tri', shell: [1, 2] }], foes: [['amberkeeper', 210, 200]], hint: 'Amber seals buds! Break the trilobite to free them.' },
+      { f: 'corners', s: 'tri', d: 11.5, shell: [0, 1, 2, 3], then: [{ t: 7, f: 'top4', s: 'tri', hp: 1 }], hint: 'Crowns in shells. Wait for the gap.' },
+      { f: 'diamond', s: 'tri', d: 12, hp: 2, shell: [0, 3], cup: [1, 2], then: [{ t: 6, f: 'top5', s: 'tri', hp: 1, shell: [0, 4] }, { t: 12, f: 'top3', s: 'stack', cup: [1] }], foes: [['rolypoly', 210, 150]] },
+      { f: 'ring', s: 'tri', d: 12, hp: 2, shell: [0, 2, 4], puffs: [[210, 171]], then: [{ t: 6, f: 'top4', s: 'tri', hp: 2, shell: [1, 2] }], foes: [['amberkeeper', 160, 172]], hint: 'Puffcaps bloom shelled buds too.' },
+      { f: 'grid', s: 'tri', d: 12.5, hp: 2, shell: [0, 1, 2, 3, 4, 5], rocks: [[110, 322, 46, 0], [310, 322, 46, 0]], then: [{ t: 6, f: 'topvee', s: 'tri', hp: 2 }, { t: 12, f: 'top4', s: 'tri', shell: [0, 3] }], foes: [['bat', 150, 158], ['bat', 270, 158]] },
+      { f: 'zigzag', s: 'tri', d: 13, hp: 2, sway: 14, shell: [0, 2, 4], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, shell: [1, 3] }, { t: 12, f: 'topvee', s: 'line', hp3: 1, sway: 12 }], foes: [['mole', 210, 268]] },
+      { f: 'columns', s: 'tri', d: 13, hp: 2, hp3: 1, fast: [2, 3], shell: [0, 1, 4, 5], rocks: [[210, 300, 60, 0, 70, .3]], then: [{ t: 6, f: 'topstacks', s: 'stack', hp: 2 }, { t: 12, f: 'top5', s: 'tri', fast: [0, 4], shell: [2] }], foes: [['amberkeeper', 150, 250], ['rolypoly', 270, 262]] },
+      { f: 'stairs', s: 'tri', d: 13.5, hp: 2, shell: [0, 1, 2, 3, 4], rocks: [[150, 330, 44, 30], [270, 330, 44, -30]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, shell: [0, 2, 4] }, { t: 12, f: 'topstacks', s: 'stack', hp3: 2 }], foes: [['amberkeeper', 150, 200], ['bat', 330, 140]] },
+      { f: [[76, 192], [344, 192], [140, 252], [280, 252]], s: 'tri', d: 8.5, hp: 2, shell: [0, 1], cup: [2, 3], boss: { name: 'Ammonite Queen', hp: 14, r: 26, type: 'gold', sway: 56, x: 210, y: 100, shell: 1.1 }, then: [{ t: 8, f: 'topsides', s: 'tri', hp: 2, shell: [0, 3] }, { t: 16, f: 'topsides', s: 'stack', hp: 2 }], hint: 'A shelled big bloom! Aim for the gap.' }
     ]),
-    lv(7, 'ember', 'Ember Hollows', 'Tunnels', 2.05, [ // batch 2: the Whizzbang debuts in W5; Fibcap, Amberkeeper, Glowworm and Echo Bat mix in
+    lv(7, 'ember', 'Ember Hollows', 'Tunnels', 2.1, [ // batch 2: the Whizzbang debuts in W5; Fibcap, Amberkeeper, Glowworm and Echo Bat mix in
       { f: 'grid', s: 'tri', d: 10.5, rocks: [[210, 300, 160, 0]], gates: [[80, 404, 350, 296, -125]], then: [{ t: 6, f: 'top3', s: 'tri' }], hint: 'Tunnels! Shoot in one, out the other.' },
       { f: [[110, 150], [210, 150], [310, 150]], s: 'tri', d: 11, cupAll: [0, 1, 2], gates: [[100, 404, 56, 92, 30], [320, 404, 364, 92, 150]], then: [{ t: 7, f: 'top3', s: 'tri', cup: [0, 1, 2] }], hint: 'All cupped? Tunnel in from above.', foes: [['fibcap', 210, 228]] },
       { f: 'stacks', s: 'stack', d: 11.5, hp: 1, rocks: [[210, 292, 290, 0]], gates: [[150, 392, 64, 236, -62], [270, 392, 356, 236, -118]], then: [{ t: 6, f: 'topstacks', s: 'stack', hp: 1 }], hint: 'Walled off? Take the tunnels around.', foes: [['amberkeeper', 205, 214]] },
@@ -7861,46 +7894,46 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
       { f: 'zigzag', s: 'tri', d: 12.5, hp: 2, fast: [1, 3], gates: [[96, 404, 360, 250, -150], [324, 404, 60, 250, -30]], then: [{ t: 6, f: 'top5', s: 'line', hp: 2 }, { t: 12, f: 'top4', s: 'tri', fast: [0, 3], foes: [['whizzbang', 210, 110, { sway: 28 }]] }], foes: [['whizzbang', 140, 250, { sway: 28 }], ['whizzbang', 280, 250, { sway: 28 }]], hint: 'Light a whizzbang under a crowd. Whoosh, bang!' },
       { f: 'columns', s: 'stack', d: 12.5, hp: 2, cupAll: [2], cup: [0, 4], rocks: [[150, 300, 44, 0], [270, 300, 44, 0]], gates: [[210, 404, 210, 58, 90]], petal: [110, 384, 45], then: [{ t: 6, f: 'topsides', s: 'stack', hp: 2 }, { t: 12, f: 'topsides', s: 'tri', hp: 2, cup: [0, 3] }], hint: 'Up the chimney, down on top of them.', foes: [['whizzbang', 210, 280, { sway: 24 }], ['fibcap', 150, 236]] },
       { f: 'grid', s: 'tri', d: 13, hp: 2, hp3: 1, cup: [0, 1, 2], puffs: [[150, 158], [270, 158]], rocks: [[210, 300, 200, 0]], gates: [[150, 360, 62, 248, -45], [270, 360, 358, 248, -135]], petal: [330, 410, 45], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2 }, { t: 12, f: 'topvee', s: 'tri', hp3: 1, cup: [1, 3] }], foes: [['glowworm', 200, 262, { dir: -1 }]] },
-      { f: 'diamond', s: ['tri', 'stack', 'stack', 'tri'], d: 13, hp: 2, hp3: 1, fast: [3], cupAll: [0], rocks: [[210, 312, 60, 0, 90, .3]], gates: [[64, 404, 356, 140, 180], [356, 404, 64, 140, 0]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2 }, { t: 12, f: 'topstacks', s: 'stack', hp: 2, hp3: 1 }], foes: [['whizzbang', 210, 270, { sway: 30 }], ['bat', 302, 236]] },
-      { f: 'grid', s: 'tri', d: 13, hp: 2, hp3: 1, cupAll: [0, 2], cup: [1, 3, 4, 5], puffs: [[210, 158]], rocks: [[210, 300, 60, 0, 90, .3]], gates: [[100, 404, 56, 70, 35], [320, 404, 364, 70, 145]], then: [{ t: 6, f: 'top3', s: 'tri', hp: 2, cup: [0, 2] }, { t: 12, f: 'top3', s: 'tri', hp3: 1 }], foes: [['whizzbang', 210, 262, { sway: 28 }]] },
+      { f: 'diamond', s: ['tri', 'stack', 'stack', 'tri'], d: 13, hp: 2, hp3: 1, fast: [3], cupAll: [0], rocks: [[210, 312, 60, 0, 90, .3]], gates: [[64, 404, 356, 140, 180], [356, 404, 64, 140, 0]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2 }, { t: 12, f: 'topstacks', s: 'stack', hp: 2 }], foes: [['whizzbang', 210, 270, { sway: 30 }], ['bat', 302, 236]] },
+      { f: 'grid', s: 'tri', d: 13, hp: 2, cupAll: [0, 2], cup: [1, 3, 4, 5], puffs: [[210, 158]], rocks: [[210, 300, 60, 0, 90, .3]], gates: [[100, 404, 56, 70, 35], [320, 404, 364, 70, 145]], then: [{ t: 6, f: 'top3', s: 'tri', hp: 2, cup: [0, 2] }, { t: 12, f: 'top3', s: 'tri', hp3: 1 }], foes: [['whizzbang', 210, 262, { sway: 28 }]] },
       { f: [[80, 190], [340, 190]], s: 'tri', d: 8.5, hp: 2, cupAll: [0, 1], rocks: [[210, 300, 120, 0]], gates: [[100, 404, 56, 120, 60], [320, 404, 364, 120, 120]], boss: { name: 'Ember Rose', hp: 15, r: 26, type: 'coral', sway: 58, x: 210, y: 100 }, then: [{ t: 8, f: 'topsides', s: 'tri', hp: 2, cup: [0, 3] }, { t: 16, f: 'topsides', s: 'stack', hp: 2 }], hint: 'Big bloom! Fifteen hits.' }
     ]),
-    lv(8, 'geode', 'Geode Mine', 'Geodes and gems', 2.2, [
+    lv(8, 'geode', 'Geode Mine', 'Geodes and gems', 2.0, [
       // Batch 2 foe rows: the Lodestone debuts in W3 (with its hint) and returns in W8 and W9; Chroma, Mole, Rolypoly, one Whizzbang mix in.
       { f: 'square', s: 'tri', d: 10.5, geodes: [[210, 150, 2, 3]], then: [{ t: 6, f: 'top3', s: 'tri' }], hint: 'Geodes crack into gems. Catch them!' },
       { f: 'wall', s: 'line', d: 11, hp: 1, geodes: [[120, 210, 2, 2], [300, 210, 2, 2]], rocks: [[210, 318, 60, 0, 90, .28]], then: [{ t: 6, f: 'top4', s: 'tri', hp: 1 }], hint: 'Mine carts roll by. Time your shots.', foes: [['rolypoly', 210, 200], ['chroma', 60, 236, { type: 'sky' }]] },
       { f: 'vee', s: 'tri', d: 11.5, hp: 1, cup: [1, 3], geodes: [[210, 252, 3, 3]], then: [{ t: 6, f: 'top5', s: 'line', hp: 1 }, { t: 12, f: 'top3', s: 'tri', geodes: [[158, 100, 2, 2]] }], foes: [['lodestone', 112, 240], ['chroma', 318, 236, { type: 'poppy' }]], hint: 'Lodestones tug seeds! Curl one onto the moss.' },
       { f: 'grid', s: 'tri', d: 12, hp: 2, geodes: [[150, 158, 2, 3], [270, 158, 2, 3]], then: [{ t: 6, f: 'topvee', s: 'tri', hp: 1 }, { t: 12, f: 'top4', s: 'line', hp: 2 }], foes: [['mole', 210, 276], ['chroma', 330, 262, { type: 'sky' }]] },
       { f: 'stacks5', s: 'stack', d: 12.5, hp: 1, cup: [0, 2, 4], geodes: [[102, 236, 2, 2], [318, 236, 2, 2]], rocks: [[210, 320, 56, 0, 100, .3]], then: [{ t: 6, f: 'topstacks', s: 'stack', hp: 1 }, { t: 12, f: 'top5', s: 'tri', hp: 2, cup: [1, 3] }], foes: [['chroma', 150, 268, { type: 'gold' }], ['chroma', 270, 268, { type: 'lilac' }]] },
-      { f: 'ring', s: 'tri', d: 12.5, hp: 2, geodes: [[210, 171, 3, 3]], rocks: [[120, 330, 50, 0, 60, .35], [300, 330, 50, 0, 60, .35]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2 }, { t: 12, f: 'topvee', s: 'tri', hp3: 1 }], hint: 'Crack the big geode before it sinks.', foes: [['whizzbang', 150, 262, { sway: 26 }], ['rolypoly', 270, 262]] },
-      { f: 'zigzag', s: 'tri', d: 13, hp: 2, hp3: 1, fast: [1, 3], geodes: [[105, 240, 2, 3], [315, 240, 2, 3]], rocks: [[210, 330, 70, 0, 100, .32]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2 }, { t: 12, f: 'top4', s: 'stack', hp: 2, fast: [1, 2] }], foes: [['chroma', 150, 268, { type: 'sky' }]] },
+      { f: 'ring', s: 'tri', d: 12.5, hp: 2, hp3: 1, geodes: [[210, 171, 3, 3]], rocks: [[120, 330, 50, 0, 60, .35], [300, 330, 50, 0, 60, .35]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2 }, { t: 12, f: 'topvee', s: 'tri', hp3: 1 }], hint: 'Crack the big geode before it sinks.', foes: [['whizzbang', 150, 262, { sway: 26 }], ['rolypoly', 270, 262]] },
+      { f: 'zigzag', s: 'tri', d: 13, hp: 2, fast: [1], geodes: [[105, 240, 2, 3], [315, 240, 2, 3]], rocks: [[210, 330, 70, 0, 100, .32]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2 }, { t: 12, f: 'top4', s: 'stack', hp: 2, fast: [1, 2] }], foes: [['chroma', 150, 268, { type: 'sky' }]] },
       { f: 'columns', s: 'stack', d: 13, hp: 2, cupAll: [2], cup: [0, 4], geodes: [[153, 150, 2, 2], [267, 150, 2, 2]], gates: [[210, 404, 210, 58, 90]], petal: [110, 384, 45], then: [{ t: 6, f: 'topsides', s: 'stack', hp: 2 }, { t: 12, f: 'topsides', s: 'tri', hp: 2, cup: [0, 3] }], hint: 'Up the shaft, down onto the cups.', foes: [['lodestone', 153, 236], ['chroma', 267, 236, { type: 'lilac' }]] },
-      { f: 'grid', s: 'tri', d: 13.5, hp: 2, hp3: 1, shell: [1, 4], spin: 1.8, cup: [0, 2], puffs: [[150, 220], [270, 220]], geodes: [[150, 158, 3, 3], [270, 158, 3, 3]], rocks: [[210, 312, 60, 0, 100, .3]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, cup: [0, 4] }, { t: 12, f: 'top4', s: 'line', hp3: 1 }], hint: 'Pop the puffcaps before the geodes sink.', foes: [['lodestone', 210, 266]] },
+      { f: 'grid', s: 'tri', d: 13.5, hp: 2, hp3: 1, shell: [1, 4], cup: [0, 2], puffs: [[150, 220], [270, 220]], geodes: [[150, 158, 3, 3], [270, 158, 3, 3]], rocks: [[210, 312, 60, 0, 100, .3]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, cup: [0, 4] }, { t: 12, f: 'top4', s: 'line', hp3: 1 }], hint: 'Pop the puffcaps before the geodes sink.', foes: [['lodestone', 210, 266]] },
       { f: [[76, 186], [344, 186]], s: 'tri', d: 8.5, hp: 2, cup: [0, 1], geodes: [[120, 260, 2, 3], [300, 260, 2, 3]], rocks: [[210, 330, 60, 0, 100, .3]], boss: { name: 'Geode King', hp: 16, r: 26, type: 'coral', sway: 58, x: 210, y: 100 }, then: [{ t: 8, f: 'topsides', s: 'tri', hp: 2, geodes: [[210, 92, 2, 2]] }, { t: 16, f: 'topsides', s: 'stack', hp: 2, cup: [0, 3] }], hint: 'Big bloom! Sixteen hits.' }
     ]),
-    lv(9, 'briar', 'Briar Vault', 'Briars grow back', 2.7, [
+    lv(9, 'briar', 'Briar Vault', 'Briars grow back', 2.65, [
       { f: 'square', s: 'tri', d: 10.5, briar: [0, 1], regrow: 5, then: [{ t: 6, f: 'top3', s: 'tri' }], hint: 'Briars regrow. Bloom all three fast!' },
       { f: 'wall', s: 'line', d: 11, briar: [0, 2, 4], regrow: 4.5, puffs: [[70, 178], [210, 178], [350, 178]], then: [{ t: 6, f: 'top4', s: 'tri', hp: 1 }], foes: [['fibcap', 210, 232]], hint: 'A puffcap blooms a whole briar patch.' },
       { f: 'vee', s: 'tri', d: 11.5, hp: 1, briar: [1, 3], cup: [0, 4], regrow: 4.5, then: [{ t: 6, f: 'top5', s: 'tri', briar: [1, 3] }], foes: [['sweetheart', 210, 250]], hint: 'Sweethearts bloom together. Hit both fast!' },
       { f: 'grid', s: 'tri', d: 12, hp: 1, briar: [0, 2, 3, 5], regrow: 4, rocks: [[210, 300, 64, 0]], then: [{ t: 6, f: 'topvee', s: 'tri', hp: 1, briar: [0, 4] }, { t: 12, f: 'top3', s: 'stack' }], foes: [['mole', 90, 280]], hint: 'Crack ringed briars first, then bloom.' },
-      { f: 'stacks', s: 'stack', d: 12, briar: [0, 1, 2, 3], regrow: 4, then: [{ t: 6, f: 'topstacks', s: 'stack', briar: [1, 2] }], foes: [['sweetheart', 205, 250, { dx: 52, dy: 24 }], ['inkcap', 100, 262]], hint: 'Stacked briars. Fire fast, bottom up.' },
+      { f: 'stacks', s: 'stack', d: 12, briar: [0, 1, 2, 3], regrow: 5, then: [{ t: 6, f: 'topstacks', s: 'stack', briar: [1, 2] }], foes: [['sweetheart', 205, 222, { dx: 52, dy: 24 }]], hint: 'Stacked briars. Fire fast, bottom up.' },
       { f: 'ring', s: 'tri', d: 12.5, hp: 2, briar: [0, 2, 4], puffs: [[210, 171]], regrow: 4, then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, briar: [2] }, { t: 12, f: 'topvee', s: 'line' }], foes: [['lodestone', 348, 101], ['fibcap', 300, 272]] },
       { f: 'zigzag', s: 'line', d: 13, hp: 1, briar: [0, 1, 2, 3, 4], regrow: 4, gates: [[96, 404, 360, 250, -150], [324, 404, 60, 250, -30]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, briar: [0, 4] }, { t: 12, f: 'top4', s: 'line', hp: 1 }], foes: [['sweetheart', 210, 262]] },
-      { f: 'columns', s: 'tri', d: 13, hp: 1, briar: [1, 3, 5], cup: [0, 2, 4], regrow: 4, currents: [[210, 330, 330, 56, 0, 4]], then: [{ t: 6, f: 'topstacks', s: 'stack', hp: 2 }, { t: 12, f: 'top5', s: 'tri', hp: 3, briar: [1, 3], foes: [['sweetheart', 175, 115]] }], foes: [['inkcap', 210, 280], ['mole', 96, 274]] },
-      { f: 'grid', s: 'tri', d: 13.5, hp: 3, briar: [0, 1, 2, 3, 4, 5], regrow: 3.6, puffs: [[150, 158], [270, 158]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, briar: [0, 2, 4] }, { t: 12, f: 'topvee', s: 'line', hp3: 1 }], foes: [['sweetheart', 210, 262], ['fibcap', 90, 272]] },
+      { f: 'columns', s: 'tri', d: 13, hp: 1, briar: [1, 3, 5], cup: [0, 4], regrow: 5, currents: [[210, 330, 330, 56, 0, 4]], then: [{ t: 6, f: 'topstacks', s: 'stack', hp: 2 }, { t: 14, f: 'top5', s: 'tri', hp: 2, briar: [1, 3], foes: [['sweetheart', 175, 115]] }], foes: [['inkcap', 210, 264]] },
+      { f: 'grid', s: 'tri', d: 13.5, hp: 2, briar: [0, 1, 2, 3, 4, 5], regrow: 4.5, puffs: [[150, 158], [270, 158]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 1, briar: [0, 2, 4] }, { t: 12, f: 'topvee', s: 'line', hp3: 1 }], foes: [['sweetheart', 210, 262], ['fibcap', 90, 272]] },
       { f: [[80, 190], [340, 190]], s: 'tri', d: 8.5, hp: 1, briar: [0], regrow: 4, boss: { name: 'Thornmother', hp: 17, r: 26, type: 'lilac', sway: 58, x: 210, y: 100 }, then: [{ t: 8, f: 'topsides', s: 'tri', hp: 1, briar: [0, 3] }, { t: 16, f: 'topsides', s: 'line', hp: 2 }], hint: 'Big bloom! Seventeen hits.' }
     ]),
-    lv(10, 'core', 'Starseed Core', 'The final test', 2.3, [
-      { f: 'grid', s: 'tri', d: 11, hp: 1, shell: [0, 2], spin: 1.3, currents: [[210, 330, 330, 56, 0, 4]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 1 }], hint: 'The last level. Everything you learned.' },
+    lv(10, 'core', 'Starseed Core', 'The final test', 2.2, [
+      { f: 'grid', s: 'tri', d: 11, hp: 1, shell: [0, 2], currents: [[210, 330, 330, 56, 0, 4]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 1 }], hint: 'The last level. Everything you learned.' },
       { f: [[110, 150], [210, 150], [310, 150]], s: 'tri', d: 11.5, hp: 1, cupAll: [0, 2], cup: [1], gates: [[100, 404, 56, 92, 30], [320, 404, 364, 92, 150]], then: [{ t: 6, f: 'top3', s: 'tri', hp: 2, cup: [1] }], foes: [['wishstar', 210, 248]], hint: 'Wishing stars! Bloom them in order, 1 to 4.' },
       { f: 'vee', s: 'tri', d: 12, hp: 1, briar: [1, 3], cup: [0, 4], geodes: [[210, 252, 2, 3]], then: [{ t: 6, f: 'top5', s: 'line', hp: 2 }, { t: 12, f: 'top3', s: 'tri', briar: [1] }], foes: [['chroma', 104, 216, { type: 'sky' }]], vents: [[210, 404, 3, 5, 2]] },
-      { f: 'ring', s: 'tri', d: 12, hp: 2, shell: [1, 4], spin: 1.6, puffs: [[210, 171]], currents: [[58, 300, 280, 36, -90, 5], [362, 300, 280, 36, -90, 5]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2 }, { t: 12, f: 'topvee', s: 'tri', hp: 2, shell: [2] }], foes: [['glowworm', 250, 60, { dir: -1 }], ['bat', 264, 178]] },
+      { f: 'ring', s: 'tri', d: 12, hp: 1, shell: [1, 4], puffs: [[210, 171]], currents: [[58, 300, 280, 36, -90, 5], [362, 300, 280, 36, -90, 5]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2 }, { t: 12, f: 'topvee', s: 'tri', hp: 2, shell: [2] }], foes: [['glowworm', 250, 60, { dir: -1 }], ['bat', 264, 178]] },
       { f: 'zigzag', s: 'tri', d: 12.5, hp: 3, briar: [0, 2, 4], regrow: 4.5, gates: [[96, 404, 360, 250, -150], [324, 404, 60, 250, -30]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2 }, { t: 12, f: 'top4', s: 'tri', hp: 2, briar: [1, 2] }], foes: [['sweetheart', 210, 262], ['amberkeeper', 84, 210]] },
-      { f: 'grid', s: 'tri', d: 12.5, hp: 2, hp3: 1, shell: [0, 1, 2], spin: 1.8, geodes: [[150, 158, 2, 2], [270, 158, 2, 2]], rocks: [[210, 312, 60, 0, 90, .3]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2 }, { t: 12, f: 'topvee', s: 'tri', hp3: 1 }], foes: [['whizzbang', 210, 262, { sway: 26 }]], vents: [[100, 400, 2.5, 5, 2]] },
+      { f: 'grid', s: 'tri', d: 12.5, hp: 2, shell: [0, 1, 2], geodes: [[150, 158, 2, 2], [270, 158, 2, 2]], rocks: [[210, 312, 60, 0, 90, .3]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2 }, { t: 12, f: 'topvee', s: 'tri', hp3: 1 }], foes: [['whizzbang', 210, 262, { sway: 26 }]], vents: [[100, 400, 2.5, 5, 2]] },
       { f: 'columns', s: 'tri', d: 13, hp: 2, briar: [1, 5], cup: [0, 2, 4], currents: [[210, 290, 330, 44, 180, 6]], then: [{ t: 6, f: 'topsides', s: 'tri', hp: 2, cup: [0, 3] }, { t: 12, f: 'top5', s: 'tri', hp: 2, briar: [2] }], foes: [['wishstar', 156, 166, { spin: -1 }], ['lodestone', 284, 130]] },
-      { f: 'diamond', s: ['tri', 'stack', 'stack', 'tri'], d: 13, hp: 2, hp3: 1, shell: [0, 3], spin: 2, geodes: [[210, 152, 2, 3]], gates: [[64, 404, 356, 140, 180], [356, 404, 64, 140, 0]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2 }, { t: 12, f: 'topstacks', s: 'stack', hp: 2, hp3: 1 }], foes: [['sweetheart', 210, 262], ['bat', 300, 208], ['chroma', 64, 244, { type: 'poppy' }]] },
-      { f: 'grid', s: 'tri', d: 13.5, hp: 2, hp3: 1, cupAll: [1], shell: [0, 2], briar: [3, 5], spin: 2, puffs: [[150, 158], [270, 158]], gates: [[210, 404, 210, 58, 90]], currents: [[58, 340, 200, 36, -90, 5], [362, 340, 200, 36, -90, 5]], petal: [110, 384, 45], then: [{ t: 6, f: 'topsides', s: 'tri', hp: 2, shell: [1, 2] }, { t: 12, f: 'topsides', s: 'tri', hp: 2, briar: [0, 3] }], foes: [['wishstar', 271, 253, { spin: -1 }], ['glowworm', 184, 70, { dir: 1 }]], vents: [[160, 340, 3, 5, 2]] },
-      { f: [[76, 196], [344, 196], [150, 256], [270, 256]], s: 'tri', d: 8.5, hp: 2, cup: [0, 1], briar: [2, 3], currents: [[210, 352, 330, 50, 180, 4]], boss: { name: 'The Starseed', hp: 18, r: 27, type: 'gold', sway: 60, x: 210, y: 100, shell: 1.1 }, then: [{ t: 8, f: 'topsides', s: 'tri', hp: 2, shell: [1, 2], spin: 1.5 }, { t: 16, f: 'topsides', s: 'line', hp3: 1, geodes: [[210, 90, 2, 3]] }, { t: 24, f: 'topsides', s: 'tri', hp: 2, briar: [0, 3] }], hint: 'The Starseed! Hit it through its shell.' }
+      { f: 'diamond', s: ['tri', 'stack', 'stack', 'tri'], d: 13, hp: 2, shell: [0, 3], geodes: [[210, 152, 2, 3]], gates: [[64, 404, 356, 140, 180], [356, 404, 64, 140, 0]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2 }, { t: 14, f: 'topstacks', s: 'stack', hp: 2 }], foes: [['sweetheart', 210, 262], ['bat', 300, 208], ['chroma', 64, 244, { type: 'poppy' }]] },
+      { f: 'grid', s: 'tri', d: 13.5, hp: 2, cupAll: [1], shell: [0, 2], briar: [3, 5], puffs: [[150, 158], [270, 158]], gates: [[210, 404, 210, 58, 90]], currents: [[58, 340, 200, 36, -90, 5], [362, 340, 200, 36, -90, 5]], petal: [110, 384, 45], then: [{ t: 6, f: 'topsides', s: 'tri', hp: 2, shell: [1, 2] }, { t: 12, f: 'topsides', s: 'tri', hp: 2, briar: [0, 3] }], foes: [['wishstar', 271, 253, { spin: -1 }], ['glowworm', 184, 70, { dir: 1 }]], vents: [[160, 340, 3, 5, 2]] },
+      { f: [[76, 196], [344, 196], [150, 256], [270, 256]], s: 'tri', d: 8.5, hp: 2, cup: [0, 1], briar: [2, 3], currents: [[210, 352, 330, 50, 180, 4]], boss: { name: 'The Starseed', hp: 18, r: 27, type: 'gold', sway: 60, x: 210, y: 100, shell: 1.1 }, then: [{ t: 8, f: 'topsides', s: 'tri', hp: 2, shell: [1, 2] }, { t: 16, f: 'topsides', s: 'line', hp3: 1, geodes: [[210, 90, 2, 3]] }, { t: 24, f: 'topsides', s: 'tri', hp: 2, briar: [0, 3] }], hint: 'The Starseed! Hit it through its shell.' }
     ])
   ];
 
@@ -7931,7 +7964,7 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
           shield: has(spec.cupAll, gi) || (bi > 0 && has(spec.cup, gi)),
           fall: has(spec.fast, gi) ? 1.6 : 1, sway: sway, swayW: 2 * Math.PI * .34, swayPhase: gi * 1.3 };
         // Shells start with their openings spread around and turn in opposite directions cluster to cluster.
-        if (shelled) { bud.shell = true; bud.shellAngle = Math.PI / 2 + gi * 1.9 + bi * 2.1; bud.shellSpin = (gi % 2 ? -1 : 1) * (spec.spin || 1.2); }
+        if (shelled) { bud.shell = true; bud.shellAngle = Math.PI / 2 + gi * 1.9 + bi * 2.1; bud.shellSpin = (gi % 2 ? -1 : 1) * shellFor(levelId).spin; bud.shellGap = shellFor(levelId).gap; }
         if (briar) bud.briar = true;
         buds.push(bud);
         k++;
@@ -8025,7 +8058,7 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
   }
 
   return Object.freeze({ levels: LEVELS.map(function (level) { return { id: level.id, key: level.key, name: level.name, twist: level.twist, waves: WAVES }; }),
-    total: TOTAL, waveCount: WAVES, free: FREE, checkpoint: CHECKPOINT, puffReach: PUFF_REACH, product: PRODUCT, entitlement: ENTITLEMENT,
+    total: TOTAL, waveCount: WAVES, free: FREE, checkpoint: CHECKPOINT, puffReach: PUFF_REACH, shells: SHELLS, shellFor: shellFor, product: PRODUCT, entitlement: ENTITLEMENT,
     bosses: BOSSES.map(function (boss) { return Object.assign({}, boss); }),
     level: byId, wave: wave, starsFor: starsFor, normalize: normalize, unlocked: unlocked, record: record });
 });
@@ -8052,9 +8085,18 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
   // dropped and says so ('dry'); a kept tap that still cannot fire in time says why ('dropped').
   const BOSS_BODY = new Set(['bubble', 'heart', 'lantern', 'plate', 'satellite']);
   const POD = 4, POD_GAP = .15, POD_REGROW = 6, REFUND = .5, GLANCE = .25, KEEP = .15, HELD = .2, AIM_KEEP = .6;
-  // A turning shell lets a shot through only near its opening (about 140 degrees of the circle). Briars
-  // grow back unless their whole patch blooms within a few seconds of the first one.
-  const SHELL_OPEN = .34, REGROW = 4;
+  // A turning shell lets a shot through only near its opening: within shellGap radians either side of shellAngle
+  // (each level sets its own, depths.js SHELLS; a shell without one opens about 140 degrees). art.js draws the
+  // opening from the same shellGap, and the finale/dip slow-motion predictor (app.js guardedHit) and the practice bot
+  // ask shellOpen; the aim line players see does not know about shells. Briars grow back unless their whole patch
+  // blooms within a few seconds of the first one.
+  const SHELL_GAP = Math.acos(.34), REGROW = 4;
+  const shellGap = bud => Number.isFinite(bud.shellGap) && bud.shellGap > 0 ? bud.shellGap : SHELL_GAP;
+  // Is the direction (nx, ny) from the bud's middle inside its opening t seconds from now?
+  const shellOpen = (bud, nx, ny, t = 0) => {
+    const a = (bud.shellAngle || 0) + (bud.shellSpin || 0) * t;
+    return nx * Math.cos(a) + ny * Math.sin(a) >= Math.cos(shellGap(bud));
+  };
   // Powerups. Sunburst blooms everything within reach of its first touch, Dandelion fans into three seeds,
   // Bee Line flies through flowers (cups and shells too) and blooms each one, Lullaby stops the falling for a
   // few seconds. A free gift floats down every other regular wave; shooting it keeps the powerup.
@@ -8650,7 +8692,7 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
       if ((bud.boss || bud.bossPart) && Bosses && this.bossState) return !Bosses.canHit(this, bud, hit, this.striker || {});
       if (bud.foe && Foes && Foes.guard(this, bud, hit, this.striker)) return true;
       if (bud.shield && hit.ny > .28) return true;
-      return Boolean(bud.shell) && hit.nx * Math.cos(bud.shellAngle || 0) + hit.ny * Math.sin(bud.shellAngle || 0) < SHELL_OPEN;
+      return Boolean(bud.shell) && !shellOpen(bud, hit.nx, hit.ny);
     }
     _loadWave() {
       const missed = this.buds.find(bud => bud.gift);
@@ -8903,7 +8945,8 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     }
   }
   return { RushGame, tempoFor, fireDelayFor, descentFor, SUN_REACH, LULLABY, GIFT_EVERY, SHOT_POWERS,
-    COMBO_WINDOW, SUN_FULL, FIRST_FILL, SUPER_TIME, SUPER_DELAY, PIERCE, CLOSE_BAND, TRICKS, POD, POD_GAP, POD_REGROW, REFUND, GLANCE, KEEP, HELD, AIM_KEEP, bossMotion };
+    COMBO_WINDOW, SUN_FULL, FIRST_FILL, SUPER_TIME, SUPER_DELAY, PIERCE, CLOSE_BAND, TRICKS, POD, POD_GAP, POD_REGROW, REFUND, GLANCE, KEEP, HELD, AIM_KEEP, bossMotion,
+    SHELL_GAP, shellGap, shellOpen };
 });
 
 </script>
@@ -15597,12 +15640,17 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
 
   // A fossil shell turns around its bud. Shots only get in through the open side, so the gap is drawn wide and
   // clean; the coiled whorl at one lip makes it read as a shell rather than a ring.
-  const SHELL_OPEN = Math.acos(.34);
+  // The opening is the same shellGap the hit rule uses (rush.js shellGap), so what you see is what lets a seed in:
+  // the outline's ink stops right at the rule's edge (the body starts half a line width in), and the whorl and cap
+  // sit on the shell just past each lip, never inside the opening.
+  const SHELL_GAP = Math.acos(.34), SHELL_LINE = 1.4, WHORL = 4.3, CAP = 2.8;
+  const shellGap = bud => root.BloomRush && root.BloomRush.shellGap ? root.BloomRush.shellGap(bud) : Number.isFinite(bud.shellGap) && bud.shellGap > 0 ? bud.shellGap : SHELL_GAP;
   function shellPath(ctx, r, open) {
-    ctx.beginPath(); ctx.arc(0, 0, r + 2.7, open, TAU - open); ctx.arc(0, 0, r - 2.7, TAU - open, open, true); ctx.closePath();
+    const edge = open + SHELL_LINE / 2 / (r - 2.7);
+    ctx.beginPath(); ctx.arc(0, 0, r + 2.7, edge, TAU - edge); ctx.arc(0, 0, r - 2.7, TAU - edge, edge, true); ctx.closePath();
   }
   function drawShell(ctx, bud) {
-    const r = (Number(bud.r) || 11) + 4.6, a = Number(bud.shellAngle) || 0, open = bud.boss && bud.bossKind === 'fossil' ? Math.acos(.25) : SHELL_OPEN;
+    const r = (Number(bud.r) || 11) + 4.6, a = Number(bud.shellAngle) || 0, open = shellGap(bud);
     ctx.save(); ctx.translate(bud.x, bud.y); ctx.rotate(a);
     shellPath(ctx, r, open); ctx.fillStyle = '#ecd8ab'; ctx.fill();
     ctx.save(); ctx.clip();
@@ -15617,13 +15665,15 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
       ctx.quadraticCurveTo(Math.cos(k + .07) * r, Math.sin(k + .07) * r, Math.cos(k) * (r + 2.7), Math.sin(k) * (r + 2.7)); ctx.stroke();
     }
     ctx.restore();
-    shellPath(ctx, r, open); ctx.strokeStyle = '#7a5530'; ctx.lineWidth = 1.4; ctx.lineJoin = 'round'; ctx.stroke();
-    // The whorl at the leading lip and a rounded cap at the other.
-    const wx = Math.cos(open) * r, wy = Math.sin(open) * r;
-    circle(ctx, wx, wy, 4.3, '#f6e8c4', '#7a5530', 1.3);
+    shellPath(ctx, r, open); ctx.strokeStyle = '#7a5530'; ctx.lineWidth = SHELL_LINE; ctx.lineJoin = 'round'; ctx.stroke();
+    // The whorl at the leading lip and a rounded cap at the other, each turned just far enough onto the shell that
+    // its inked edge touches the lip.
+    const past = size => open + Math.asin(Math.min(1, size / r));
+    const wa = past(WHORL + SHELL_LINE / 2), wx = Math.cos(wa) * r, wy = Math.sin(wa) * r;
+    circle(ctx, wx, wy, WHORL, '#f6e8c4', '#7a5530', 1.3);
     ctx.beginPath(); ctx.arc(wx + .4, wy, 2.4, 0, 4.6); ctx.arc(wx + .2, wy - .6, 1, 4.6, 1.2); ctx.strokeStyle = '#8c6338'; ctx.lineWidth = .9; ctx.stroke();
-    const cx = Math.cos(-open) * r, cy = Math.sin(-open) * r;
-    circle(ctx, cx, cy, 2.8, '#e3c995', '#7a5530', 1.2);
+    const ca = -past(CAP + SHELL_LINE / 2), cx = Math.cos(ca) * r, cy = Math.sin(ca) * r;
+    circle(ctx, cx, cy, CAP, '#e3c995', '#7a5530', 1.2);
     ctx.restore();
   }
   // A geode: a lumpy stone with amethyst showing through its cracks. Each hit opens the cracks wider.
@@ -28400,7 +28450,9 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
   // where it first shows up, in the order a player meets them. id is what save.met keeps: a classic piece's own id, a
   // foes.js family (kind 'foe'; its picture is that foe built at the middle of a board) or boss-<kind> for a guardian
   // (its name comes from depths.js). take says which piece of its first wave a classic piece's picture shows. line is
-  // one short piece of advice (70 characters at most) that agrees with the piece's first-time tip in play.
+  // one short piece of advice on how to beat it (70 characters at most) that agrees with the piece's first-time tip in
+  // play, and does says what it does (70 at most too). trick marks a piece a plain seed can't just shoot (it needs
+  // timing, an angle, the right color or an order); its card wears a Tricky tag.
   // The picture's framing, set only where the plain square around the piece left it small or faint in its round frame
   // (measured in real Chromium; qa/check-responsive.cjs and qa/test-guide.cjs keep a floor under every picture):
   // gather pulls a spread-out piece's parts in toward their middle (each keeps that share of its distance), crop cuts
@@ -28410,40 +28462,40 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
   // qa/test-guide.cjs checks that every foes.js family and every guardian has an entry here, and that each level and
   // wave is where the piece really debuts.
   const GUIDE = [
-    { id: 'crown', level: 1, wave: 1, name: 'Crowned flower', line: 'Hit the crown and its whole bunch blooms with it.', take: 'relay' },
-    { id: 'gift', level: 1, wave: 2, name: 'Gift bubble', line: 'Shoot the bubble to keep the free powerup inside.', take: 'gift' },
-    { id: 'rings', level: 1, wave: 3, name: 'Ringed bud', line: 'Each ring takes one hit. Keep hitting until it opens.', take: 'rings' },
-    { id: 'boss-sunny', level: 1, kind: 'guardian', line: 'Pop his bubble for double hits, and pop the sleepy Z he blows.' },
-    { id: 'rock', level: 2, wave: 1, name: 'Rock', line: 'Rocks bounce your seeds. Bank your shots around them.', take: 'rock', crop: .74, under: ['#8f5a35', '#5a361f'] },
-    { id: 'rolypoly', level: 2, wave: 2, kind: 'foe', name: 'Rolypoly', line: 'Bump it and it rolls away, bowling over the flowers in its path.' },
-    { id: 'mole', level: 2, wave: 5, kind: 'foe', name: 'Peekaboo Mole', line: 'Watch which hill rumbles, then bonk him when he pops up.', gather: .76, crop: .86 },
-    { id: 'boss-root', level: 2, kind: 'guardian', line: 'Bank around his roots. Snap the knot when his carousel spins.' },
-    { id: 'puffcap', level: 3, wave: 1, name: 'Puffcap', line: 'Pop it to bloom every flower close by.', take: 'puff', under: ['#5e4f98', '#2f2560'] },
-    { id: 'cup', level: 3, wave: 2, name: 'Acorn cup', line: 'Cups block shots from below. Hit from the side or the top.', take: 'cup' },
-    { id: 'fibcap', level: 3, wave: 4, kind: 'foe', name: 'Fibcap', line: "Striped caps are fakes. Don't shoot them, or they sneeze!" },
-    { id: 'inkcap', level: 3, wave: 6, kind: 'foe', name: 'Drippy Inkcap', line: 'Two hits bloom it. Aim around its ink drops: they gulp seeds.' },
-    { id: 'boss-puff', level: 3, kind: 'guardian', line: 'Puffcaps hurt her for two. Only the spotted cap is real.' },
-    { id: 'chroma', level: 4, wave: 3, kind: 'foe', name: 'Chroma Crystal', line: 'It opens only for a seed of its own color. Check your next seed.', opts: { type: 'sky' }, crop: .78 },
-    { id: 'bat', level: 4, wave: 4, kind: 'foe', name: 'Echo Bat', line: 'Watch its dashed swoop line, then catch it in mid-air.' },
-    { id: 'boss-crystal', level: 4, kind: 'guardian', line: 'Follow the beating heart. Bank off her glass for a double hit.', gather: .62, crop: .8 },
-    { id: 'current', level: 5, wave: 1, name: 'Current', line: 'Currents bend your shots. Follow the aim line.', take: 'current', under: ['#0e7d75', '#03464e'] },
-    { id: 'jelly', level: 5, wave: 2, kind: 'foe', name: 'Moon Jelly', line: 'Hit it while it glides, not while it pulses up.' },
-    { id: 'glowworm', level: 5, wave: 3, kind: 'foe', name: 'Glowworm', line: 'Hit the glowing head. A hit on its body snaps it in two.' },
-    { id: 'boss-lotus', level: 5, kind: 'guardian', line: 'Aim for the lantern. Shut her lily pads before jellies rise.' },
-    { id: 'shell', level: 6, wave: 1, name: 'Turning shell', line: 'Shells turn. Shoot when the opening faces you.', take: 'shell' },
-    { id: 'amberkeeper', level: 6, wave: 2, kind: 'foe', name: 'Amberkeeper', line: 'Two hits break him and free every bud he sealed in amber.' },
-    { id: 'boss-fossil', level: 6, kind: 'guardian', line: 'Open both turning locks. Catch her pearls in the air.', under: ['#7d5a62', '#46304a'] },
-    { id: 'tunnel', level: 7, wave: 1, name: 'Tunnel', line: 'Shoot into one hole and your seed flies out of the other.', take: 'tunnel' },
-    { id: 'whizzbang', level: 7, wave: 5, kind: 'foe', name: 'Whizzbang', line: 'Light it under a crowd. It rockets up and blooms them all.' },
-    { id: 'boss-ember', level: 7, kind: 'guardian', line: 'Tunnel hits count triple. Light whizzbangs right under her.' },
-    { id: 'geode', level: 8, wave: 1, name: 'Geode', line: 'Crack it open, then bloom the gems before they fall.', take: 'geode' },
-    { id: 'lodestone', level: 8, wave: 3, kind: 'foe', name: 'Lodestone', line: 'It tugs seeds. Curl a shot onto the green moss, not the iron.' },
-    { id: 'boss-geode', level: 8, kind: 'guardian', line: 'Break a plate, then aim through the gap. Catch his big gem.', gather: .92, crop: .76 },
-    { id: 'briar', level: 9, wave: 1, name: 'Briar patch', line: 'Bloom all three fast, or the patch grows back.', take: 'briar' },
-    { id: 'sweetheart', level: 9, wave: 3, kind: 'foe', name: 'Sweetheart Roses', line: 'Hit one rose, then the other, quick! They bloom together.', gather: .7, crop: .85 },
-    { id: 'boss-briar', level: 9, kind: 'guardian', line: 'Clear a patch to cut her vine. Untie the pink bow, fast.' },
-    { id: 'wishstar', level: 10, wave: 2, kind: 'foe', name: 'Wishing Stars', line: 'Shoot the stars in order, 1 to 4. Only the twinkling one opens.', gather: .75, crop: .85, under: ['#4a3274', '#221c46'] },
-    { id: 'boss-core', level: 10, kind: 'guardian', line: 'Break her stars in order to drop the dome. Catch the comets.', gather: .72, crop: .9, under: ['#4a3274', '#221c46'] }
+    { id: 'crown', level: 1, wave: 1, name: 'Crowned flower', does: 'The bud with a crown leads its whole bunch.', line: 'Hit the crown and its whole bunch blooms with it.', take: 'relay' },
+    { id: 'gift', level: 1, wave: 2, name: 'Gift bubble', does: 'A bubble with a free powerup floats down.', line: 'Shoot the bubble to keep the free powerup inside.', take: 'gift' },
+    { id: 'rings', level: 1, wave: 3, name: 'Ringed bud', does: 'Rings show it needs more than one hit.', line: 'Each ring takes one hit. Keep hitting until it opens.', take: 'rings' },
+    { id: 'boss-sunny', level: 1, kind: 'guardian', does: 'A sleepy sun. His snooze makes your aim line nap.', line: 'Pop his bubble for double hits, and pop the sleepy Z he blows.' },
+    { id: 'rock', level: 2, wave: 1, name: 'Rock', does: 'Rocks sit in the way, and seeds bounce off them.', line: 'Rocks bounce your seeds. Bank your shots around them.', take: 'rock', crop: .74, under: ['#8f5a35', '#5a361f'] },
+    { id: 'rolypoly', level: 2, wave: 2, kind: 'foe', name: 'Rolypoly', does: 'A bug that curls up and rolls when bumped.', line: 'Bump it and it rolls away, bowling over the flowers in its path.' },
+    { id: 'mole', level: 2, wave: 5, kind: 'foe', name: 'Peekaboo Mole', does: 'He hides under a hill and pops up for a moment.', line: 'Watch which hill rumbles, then bonk him when he pops up.', trick: true, gather: .76, crop: .86 },
+    { id: 'boss-root', level: 2, kind: 'guardian', does: 'He builds root walls and spins flowers round.', line: 'Bank around his roots. Snap the knot when his carousel spins.' },
+    { id: 'puffcap', level: 3, wave: 1, name: 'Puffcap', does: 'A mushroom full of bloom dust.', line: 'Pop it to bloom every flower close by.', take: 'puff', under: ['#5e4f98', '#2f2560'] },
+    { id: 'cup', level: 3, wave: 2, name: 'Acorn cup', does: "An acorn cup covers a bud's bottom. Shots from below bounce.", line: 'Hit it from the side or the top. Bank off a wall.', trick: true, take: 'cup' },
+    { id: 'fibcap', level: 3, wave: 4, kind: 'foe', name: 'Fibcap', does: 'A striped cap that pretends to be a flower.', line: "Don't shoot it, or it sneezes! Let it float by.", trick: true },
+    { id: 'inkcap', level: 3, wave: 6, kind: 'foe', name: 'Drippy Inkcap', does: 'A mushroom that drips ink drops. Drops gulp seeds.', line: 'Two hits bloom it. Aim around its ink drops.', trick: true },
+    { id: 'boss-puff', level: 3, kind: 'guardian', does: 'She hides among caps and makes it rain ink.', line: 'Puffcaps hurt her for two. Only the spotted cap is real.' },
+    { id: 'chroma', level: 4, wave: 3, kind: 'foe', name: 'Chroma Crystal', does: 'A crystal that only opens for one color.', line: 'Wait for a seed of its own color. Check your next seed.', trick: true, opts: { type: 'sky' }, crop: .78 },
+    { id: 'bat', level: 4, wave: 4, kind: 'foe', name: 'Echo Bat', does: 'It swoops down along a dashed line.', line: 'Watch its dashed swoop line, then catch it in mid-air.' },
+    { id: 'boss-crystal', level: 4, kind: 'guardian', does: 'She splits into three hearts. Only one beats.', line: 'Follow the beating heart. Bank off her glass for a double hit.', gather: .62, crop: .8 },
+    { id: 'current', level: 5, wave: 1, name: 'Current', does: 'Flowing water that bends your seeds.', line: 'Currents bend your shots. Follow the aim line.', take: 'current', under: ['#0e7d75', '#03464e'] },
+    { id: 'jelly', level: 5, wave: 2, kind: 'foe', name: 'Moon Jelly', does: 'It pulses up, then glides. Seeds bounce off a pulse.', line: 'Hit it while it glides, not while it pulses up.', trick: true },
+    { id: 'glowworm', level: 5, wave: 3, kind: 'foe', name: 'Glowworm', does: 'A long worm with a glowing head.', line: 'Hit the glowing head. A hit on its body snaps it in two.', trick: true },
+    { id: 'boss-lotus', level: 5, kind: 'guardian', does: 'Her lily pads guard below and call up jellies.', line: 'Aim for the lantern. Shut her lily pads before jellies rise.' },
+    { id: 'shell', level: 6, wave: 1, name: 'Turning shell', does: 'A shell turns round its bud. It blocks shots, but not its gap.', line: 'Wait for the gap to face you, then shoot through it.', trick: true, take: 'shell' },
+    { id: 'amberkeeper', level: 6, wave: 2, kind: 'foe', name: 'Amberkeeper', does: 'A trilobite that seals buds in hard amber.', line: 'Two hits break him and free every bud he sealed.', trick: true },
+    { id: 'boss-fossil', level: 6, kind: 'guardian', does: 'Her shell has two turning locks, and she throws pearls.', line: 'Open both turning locks. Catch her pearls in the air.', under: ['#7d5a62', '#46304a'] },
+    { id: 'tunnel', level: 7, wave: 1, name: 'Tunnel', does: 'Two holes joined underground.', line: 'Shoot into one hole and your seed flies out of the other.', take: 'tunnel' },
+    { id: 'whizzbang', level: 7, wave: 5, kind: 'foe', name: 'Whizzbang', does: 'A firework flower that rockets up when hit.', line: 'Light it under a crowd. It rockets up and blooms them all.' },
+    { id: 'boss-ember', level: 7, kind: 'guardian', does: 'Her flames burn up plain seeds that hit her.', line: 'Tunnel hits count triple. Light whizzbangs right under her.' },
+    { id: 'geode', level: 8, wave: 1, name: 'Geode', does: 'A rock with gems inside.', line: 'Crack it open, then bloom the gems before they fall.', take: 'geode' },
+    { id: 'lodestone', level: 8, wave: 3, kind: 'foe', name: 'Lodestone', does: 'A magnet stone that tugs your seeds toward it.', line: 'Curl a shot onto the green moss, not the iron.', trick: true },
+    { id: 'boss-geode', level: 8, kind: 'guardian', does: 'Stone plates guard him, and he lobs gems.', line: 'Break a plate, then aim through the gap. Catch his big gem.', gather: .92, crop: .76 },
+    { id: 'briar', level: 9, wave: 1, name: 'Briar patch', does: 'Three thorny buds with no crown. They grow back.', line: 'Bloom all three fast, or the patch grows back.', trick: true, take: 'briar' },
+    { id: 'sweetheart', level: 9, wave: 3, kind: 'foe', name: 'Sweetheart Roses', does: 'Two shy roses. Hit one and it blushes for a moment.', line: 'Hit one rose, then the other, quick! They bloom together.', trick: true, gather: .7, crop: .85 },
+    { id: 'boss-briar', level: 9, kind: 'guardian', does: 'Her thorns take whole patches and lasso flowers.', line: 'Clear a patch to cut her vine. Untie the pink bow, fast.' },
+    { id: 'wishstar', level: 10, wave: 2, kind: 'foe', name: 'Wishing Stars', does: 'Four numbered stars. Only the twinkling one opens.', line: 'Shoot them in order, 1 to 4. Wait for the twinkle.', trick: true, gather: .75, crop: .85, under: ['#4a3274', '#221c46'] },
+    { id: 'boss-core', level: 10, kind: 'guardian', does: 'A dome guards her, and her stars hold it up.', line: 'Break her stars in order to drop the dome. Catch the comets.', gather: .72, crop: .9, under: ['#4a3274', '#221c46'] }
   ].map(entry => {
     if (entry.kind !== 'guardian') return Object.freeze({ kind: 'piece', ...entry });
     const boss = Depths.bosses.find(item => `boss-${item.kind}` === entry.id);
@@ -30092,8 +30144,7 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     if (bud.foe && window.BloomFoes && window.BloomFoes.guard(game, bud, { ...hit, time: hit.t }, ball)) return true; // a foe's guard (a crystal turning a seed of another color away) is no finale either
     if (bud.shield && hit.ny > .28) return true;
     if (!bud.shell) return false;
-    const a = (bud.shellAngle || 0) + (bud.shellSpin || 0) * hit.t;
-    return hit.nx * Math.cos(a) + hit.ny * Math.sin(a) < .34;
+    return !window.BloomRush.shellOpen(bud, hit.nx, hit.ny, hit.t);
   }
   // Does this bloom end the wave? A boss blooms the rest of its wave (and calls off its reinforcements); anything
   // else must leave nothing open that is not already on its way to blooming.
@@ -31870,6 +31921,7 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     // Settings or How to play give way to the Paused card; their changes are already saved.
     for (const id of dialogs) if (id !== 'pause-dialog' && id !== 'result-dialog') closeDialog(id);
     $('pause-where').textContent = boardLine();
+    $('pause-guide').hidden = !isDepth(); // Who's who is the levels' guide
     if (!$('pause-dialog').open) { showDialog('pause-dialog'); if (!auto) { BloomSound.wake(); BloomSound.play('tap'); } }
     say(`Paused. ${boardLine()}.`);
     return true;
@@ -31900,6 +31952,17 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
   $('pause-restart').addEventListener('click', () => { BloomSound.wake(); closeDialog('pause-dialog'); restartNow(); });
   $('pause-levels').addEventListener('click', () => { BloomSound.wake(); closeDialog('pause-dialog'); leaveBoard(); });
   $('pause-settings').addEventListener('click', () => { updateSettings(); showDialog('settings-dialog'); });
+  // Who's who from the Paused card: How to play opens on just the guide (the other sections are hidden and the
+  // title says Who's who), at this level's group. It stacks over the Paused card, so closing it (the x, which stays
+  // at the top while the guide scrolls, Escape or a tap outside) leaves the run paused on the card.
+  $('pause-guide').addEventListener('click', () => {
+    BloomSound.wake(); BloomSound.play('tap');
+    for (const id of ['levels-help', 'rush-help', 'campaign-help', 'moon-help', 'koi-help']) $(id).open = false;
+    $('help-dialog').dataset.only = 'guide'; $('help-title').textContent = "Who's who";
+    $('guide-help').open = true;
+    $('tutorial-replay').hidden = true; showDialog('help-dialog');
+    guideCount(); guideShown();
+  });
   // Escape or a tap outside the card also resumes, through the same count. The close event arrives a moment late, so a
   // card that has opened again by then (the phone hid once more) stays a plain pause.
   $('pause-dialog').addEventListener('close', () => { if (countLeft <= 0 && !$('pause-dialog').open) startCount(); });
@@ -32158,8 +32221,12 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
   $('privacy-btn').addEventListener('click', () => { closeDialog('settings-dialog'); showDialog('privacy-dialog'); });
   $('close-privacy').addEventListener('click', () => { closeDialog('privacy-dialog'); updateSettings(); showDialog('settings-dialog'); });
   // How to play opens at the section for what is on screen: the board being played, or else the tab the player is on.
+  // The ? button always shows every section, from the top.
+  function helpWhole() { delete $('help-dialog').dataset.only; $('help-title').textContent = 'How to play'; }
+  $('help-dialog').addEventListener('close', helpWhole);
   $('help-btn').addEventListener('click', () => {
     const play = route === 'game';
+    helpWhole(); $('help-dialog').scrollTop = 0;
     $('levels-help').open = play ? isDepth() : route === 'levels' || route === 'collection';
     $('rush-help').open = play && isRush() && !isDepth();
     $('campaign-help').open = play ? !isRush() && !isChapter() : route === 'garden';
@@ -32207,7 +32274,17 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
           const art = guideNode('span', known ? 'guide-art' : 'guide-art guide-unknown', known ? null : '?'), text = guideNode('span', 'guide-text');
           art.setAttribute('aria-hidden', 'true');
           if (entry.kind === 'guardian') text.appendChild(guideNode('span', 'guide-tag', 'Guardian'));
-          if (known) { text.appendChild(guideNode('strong', 'guide-name', entry.name)); text.appendChild(guideNode('span', 'guide-line', entry.line)); }
+          // A piece a plain seed can't just shoot says so: it needs timing, an angle, the right color or an order.
+          else if (known && entry.trick) text.appendChild(guideNode('span', 'guide-tag trick', 'Tricky'));
+          if (known) {
+            text.appendChild(guideNode('strong', 'guide-name', entry.name));
+            text.appendChild(guideNode('span', 'guide-does', entry.does));
+            const beat = guideNode('span', 'guide-beat');
+            beat.appendChild(guideNode('span', 'guide-how', entry.kind === 'guardian' ? 'Watch for' : 'Beat it'));
+            beat.appendChild(document.createTextNode(' '));
+            beat.appendChild(guideNode('span', 'guide-line', entry.line));
+            text.appendChild(beat);
+          }
           else text.appendChild(guideNode('span', 'guide-line', `Meet it in Level ${entry.level}`));
           item.appendChild(art); item.appendChild(text); items.appendChild(item);
           if (!known) continue;
