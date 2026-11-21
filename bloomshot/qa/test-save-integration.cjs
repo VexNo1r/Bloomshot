@@ -1644,6 +1644,15 @@ test('Chain milestones past 50 open wider rings around the flower each time', ()
   assert(r125.every(r => Math.hypot(r.x - bud.x, r.y - bud.y) < 1), 'around the flower that hit the milestone');
   assert.equal(ringsAt(76).length, 0); assert.deepEqual(praise(), [], 'only the milestones themselves');
 });
+test('From 8 in a row a level\'s seeds wear the long-chain rim, while the rainbow stays Super Bloom\'s', () => {
+  const app = boot(moving()); app.click('depth-map', { depth: '1' });
+  const game = depthGame(app); settleLevel(app); assert(game.fire(0, -1)); app.frame(); app.frame();
+  const ball = () => game.balls[0];
+  assert(ball(), 'a seed is in the air');
+  game.combo = 7; game.lastHitAt = game.time; app.frame(); assert.equal(ball().chainHot, false, 'not before 8');
+  game.combo = 8; game.lastHitAt = game.time; app.frame(); assert.equal(ball().chainHot, true, 'from 8 in a row');
+  assert.equal(ball().hot, false, 'the rainbow hot trail stays off in levels');
+});
 test('Boss tells name the flower change in the hint and announce both the attack and the change', () => {
   const app = boot(legacySave()); app.click('depth-map', { depth: '1' });
   const game = depthGame(app); settleLevel(app);

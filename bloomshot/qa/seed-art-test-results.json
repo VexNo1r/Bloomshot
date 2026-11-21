@@ -1,5 +1,5 @@
 {
-  "passed": 12,
+  "passed": 13,
   "failed": 0,
   "results": [
     {
@@ -48,6 +48,10 @@
     },
     {
       "name": "The glyphs, discs and tray body are cached: a second frame makes no new surface or gradient",
+      "passed": true
+    },
+    {
+      "name": "A long chain in Rush or a level gives the seed a gold rim and a brighter comet in its own color, never Super Bloom's rainbow",
       "passed": true
     }
   ]

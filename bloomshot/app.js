@@ -4116,7 +4116,7 @@
       accumulator += gdt;
       while (accumulator >= 1 / 120) { game.step(1 / 120); accumulator -= 1 / 120; }
       processEvents(); bestWatch();
-      for (const ball of game.balls || []) ball.hot = !isRush() && (game.combo || 0) >= 8;
+      for (const ball of game.balls || []) { ball.hot = !isRush() && (game.combo || 0) >= 8; ball.chainHot = isRush() && (game.combo || 0) >= 8; }
       game.particles = stepParticles(game.particles, gdt, 24, 396, 530);
       // Words age in real time in the tutorial, so a 'Lovely!' does not hang for 13 s while a card waits at 8% speed.
       const fdt = isTutorial() ? dt : gdt;

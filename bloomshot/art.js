@@ -3880,6 +3880,7 @@
     const edge = r + 2;
     return atlasSprite(`shot-seed:${colors.base}:${r}`, -edge, -edge, edge, edge, c => paintShotSeed(c, r, colors));
   }
+  const CHAIN_RIM = '#ffc93a';
   function drawProjectile(ctx, ball, index, time, reducedMotion, fever, style) {
     const offset = projectileOffset(ball), ox = offset.x, oy = offset.y;
     if (ball.power && POWER_TINT[ball.power]) {
@@ -3887,21 +3888,29 @@
       else drawPowerShot(ctx, ball, time, reducedMotion);
       return;
     }
-    if (style && style.seed) { drawStyledProjectile(ctx, ball, time, reducedMotion, fever, style, index); return; }
+    // A long chain (8 in a row) in Rush or a level: the seed wears a gold rim and its comet a wider glow and a longer,
+    // brighter core, all in the flower's own color. The turning rainbow stays Super Bloom's alone.
+    const warm = !(fever || ball.hot) && Boolean(ball.chainHot);
+    if (style && style.seed) {
+      drawStyledProjectile(ctx, ball, time, reducedMotion, fever, style, index);
+      if (warm) chainRim(ctx, ball.x + ox, ball.y + oy, ball.r || 5.5);
+      return;
+    }
     const c = FLOWERS[ball.type] || FLOWERS[['coral', 'gold', 'lilac'][index % 3]];
     const r = ball.r || 5.5, trail = ball.trail || [], x = ball.x + ox, y = ball.y + oy, hot = Boolean(fever || ball.hot);
     ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     // A comet: one tapered ribbon in the flower's color (a turning rainbow when the chain runs hot) and a bright
     // core along its last few samples. On a struggling phone only the first three seeds keep their tails.
     if (!reducedMotion && trail.length > 1 && !(feelQuality >= 1 && index >= 3)) {
-      cometTrail(ctx, trail, x, y, r * .95, hot ? `hsl(${Math.round(time * 240) % 360},95%,66%)` : c.base, .55);
-      const start = Math.max(0, trail.length - 7);
+      if (warm) cometTrail(ctx, trail, x, y, r * 1.45, c.light, .5);
+      cometTrail(ctx, trail, x, y, r * .95, hot ? `hsl(${Math.round(time * 240) % 360},95%,66%)` : c.base, warm ? .75 : .55);
+      const start = Math.max(0, trail.length - (warm ? 11 : 7));
       ctx.beginPath(); ctx.moveTo(trail[start].x, trail[start].y);
       for (let i = start + 1; i < trail.length; i++) {
         if (trail[i].move) ctx.moveTo(trail[i].x, trail[i].y);
         else ctx.lineTo(trail[i].x, trail[i].y);
       }
-      ctx.lineTo(x, y); ctx.strokeStyle = '#fffbe1'; ctx.lineWidth = r * .55; ctx.globalAlpha = .8; ctx.stroke();
+      ctx.lineTo(x, y); ctx.strokeStyle = '#fffbe1'; ctx.lineWidth = r * (warm ? .72 : .55); ctx.globalAlpha = warm ? 1 : .8; ctx.stroke();
     }
     ctx.globalAlpha = 1;
     if (!reducedMotion) {
@@ -3923,6 +3932,13 @@
       ctx.globalAlpha = .85;
       sparkle(ctx, x, y, r * 1.95, '#fffce999', time + index);
     }
+    if (warm) chainRim(ctx, x, y, r);
+    ctx.restore();
+  }
+  // The long-chain seed's gold rim: still, so it shows the same with Animations off.
+  function chainRim(ctx, x, y, r) {
+    ctx.save(); ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    ctx.beginPath(); ctx.arc(x, y, r + 1.7, 0, TAU); ctx.strokeStyle = CHAIN_RIM; ctx.lineWidth = 1.9; ctx.stroke();
     ctx.restore();
   }
 
