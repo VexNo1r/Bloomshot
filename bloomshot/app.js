@@ -1600,7 +1600,7 @@
   // Game feel: trauma-based screen shake, brief hit-stop on big moments and a
   // soft screen flash. All three are skipped when reduced motion is on.
   let trauma = 0, freeze = 0, flash = 0, lastBump = 0, kick = 0;
-  const PRAISE = ['Lovely!', 'Blooming!', 'Gorgeous!', 'Dazzling!', 'Magnificent!', 'Legendary!'];
+  const PRAISE = ['Lovely!', 'Blooming!', 'Gorgeous!', 'Dazzling!', 'Magnificent!', 'Legendary!', 'Spectacular!', 'Unstoppable!', 'Mythical!'];
   const POP_COLORS = { coral: '#e8366f', gold: '#e59a12', lilac: '#7b52e6', sky: '#1f7fe0', poppy: '#e24a14' };
   // One headline at a time. Stage titles outrank banners, which outrank chain praise: a new headline replaces any of
   // its own rank or lower, and one that ranks below what is showing is dropped, never stacked. A lost life has its own
@@ -2002,6 +2002,12 @@
     return '';
   }
   // Small shared pieces for the effects: a ring, a few motes of dust, a quick sparkle.
+  // Rings for the long-chain milestones (75, 100, 125): step 1, 2 or 3, each one wider and longer-lived.
+  const MILESTONE_RINGS = ['#ffd65a', '#ff8fb8', '#b49cff'];
+  function milestoneRings(bud, step) {
+    const x = bud && Number.isFinite(bud.x) ? bud.x : 210, y = bud && Number.isFinite(bud.y) ? bud.y : 240;
+    for (let i = 0; i < step + 1; i++) foeRing(x, y, i ? MILESTONE_RINGS[(step + i - 1) % 3] : '#fff7be', 12 + i * 6, 46 + step * 28 + i * 18, .5 + step * .1 + i * .08);
+  }
   function foeRing(x, y, color, size = 10, grow = 24, life = .4) {
     if (save.settings.motion) game.particles.push({ x, y, vx: 0, vy: 0, life, maxLife: life, kind: 'ring', color, size, grow, gravity: 0, drag: 0 });
   }
@@ -2765,6 +2771,8 @@
           // Long chains earn a bigger word at each milestone, each in a new flower's color.
           const tier = milestone;
           headline({ x: 210, y: praiseY(), text: PRAISE[tier], label: `${event.combo} in a row`, tier, life: 1.05, maxLife: 1.05, kind: 'combo' });
+          // Past 50 the chain is rare: each later milestone opens wider rings around the flower than the one before.
+          if (tier >= 6) milestoneRings(event.bud, tier - 5);
         }
         if (event.combo % 3 === 1) haptic('tick');
         $('game-hint').textContent = game.bossWarning?.text || (isKoi() ? 'Ride it!' : isMoon() ? 'Nice path!' : isRush() ? isDepth() ? game.splitReady ? 'Split is ready!' : depthHint() : game.superBloom > 0 || game.splitReady ? rushHint() : 'Crowns bloom their whole bunch.' : game.guideCharge > 0 ? 'Drag to steer!' : 'Keep the chain going!');
@@ -3054,7 +3062,7 @@
     }
   }
   // Long chains are praised at these lengths, one PRAISE word each. The first Super Bloom of a session explains itself.
-  const CHAIN_MILESTONES = [8, 16, 24, 32, 40, 50];
+  const CHAIN_MILESTONES = [8, 16, 24, 32, 40, 50, 75, 100, 125];
   let superSeen = false;
   // A level run lost at wave 6 or later can start again from wave 6, free and as often as the player likes.
   // Stars from those runs stop at two, and the card says so.
