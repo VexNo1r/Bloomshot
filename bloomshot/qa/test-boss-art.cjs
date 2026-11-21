@@ -330,5 +330,61 @@ test('A guardian warning label is never covered: pieces on its spot draw under t
   }
 });
 
+test('A guardian hit flashes its body for 35 ms and squashes it 3%; Crystal keeps only her own squash; Animations off shows neither', () => {
+  const { Art } = load(true);
+  // The same board at the same moment; only how long ago the guardian was hit differs. .29 s ago its hurt face still
+  // shows (as before this change) but the flash and the squash are over, so that frame is the baseline.
+  const frame = (kind, ago, reducedMotion) => {
+    const boss = guardian(kind); boss.hitAt = 5 - ago;
+    const rec = paintBrush(); Art.draw(rec.ctx, board(boss), 5, { ...options, reducedMotion });
+    return rec.paints;
+  };
+  const sig = paints => JSON.stringify(paints.map(p => [p.op, p.color, p.box && p.box.map(n => Math.round(n * 100) / 100), Math.round(p.alpha * 1000)]));
+  // The guardian's body blit: the biggest image drawn around its centre.
+  const body = paints => paints.filter(p => p.op === 'drawImage' && p.box[0] < 210 && p.box[2] > 210 && p.box[1] < 125 && p.box[3] > 125 && p.box[2] - p.box[0] < 200).sort((a, b) => (b.box[2] - b.box[0]) * (b.box[3] - b.box[1]) - (a.box[2] - a.box[0]) * (a.box[3] - a.box[1]))[0];
+  for (const kind of kinds) {
+    const base = frame(kind, .29, false), hit0 = frame(kind, 0, false), hit66 = frame(kind, .066, false);
+    assert.notEqual(sig(hit0), sig(base), `${kind}: the frame of the hit differs`);
+    if (kind !== 'crystal') assert.notEqual(sig(hit66), sig(base), `${kind}: the frame 66 ms after the hit differs`);
+    const flare = hit0.filter(p => p.op === 'drawImage' && p.alpha > .5 && p.alpha <= .6 + 1e-9);
+    assert.equal(hit0.filter(p => p.op === 'drawImage').length, base.filter(p => p.op === 'drawImage').length + 1, `${kind}: one extra body blit at the hit`);
+    assert(flare.length >= 1, `${kind}: the flare is drawn at .6 at the instant of the hit`);
+    assert.equal(hit66.filter(p => p.op === 'drawImage').length, base.filter(p => p.op === 'drawImage').length, `${kind}: the flare is gone by 66 ms`);
+    const w = p => p.box[2] - p.box[0], h = p => p.box[3] - p.box[1], b0 = body(base), b66 = body(hit66);
+    if (kind === 'crystal') assert.deepEqual(b66.box, b0.box, 'crystal: her body is not squashed a second time');
+    else {
+      const sx = w(b66) / w(b0), sy = h(b66) / h(b0);
+      assert(sx > 1.02 && sx < 1.035 && sy < .98 && sy > .965, `${kind}: a 3% squash at 66 ms (x ${sx.toFixed(3)}, y ${sy.toFixed(3)})`);
+    }
+    // Animations off: nothing of the hit moves or flashes, so the three frames are the same.
+    const still = sig(frame(kind, .29, true));
+    assert.equal(sig(frame(kind, 0, true)), still, `${kind}: Animations off, no flash`);
+    assert.equal(sig(frame(kind, .066, true)), still, `${kind}: Animations off, no squash`);
+  }
+});
+
+test('On all ten real guardian boards a hit shows at once and 66 ms on, Crystal Heart\'s own squash included, and never with Animations off', () => {
+  const { RushGame } = require('../rush.js'), bot = require('./depths-bot.cjs');
+  class Canvas { constructor(w, h) { this.width = w; this.height = h; this.rec = paintBrush(); } getContext() { return this.rec.ctx; } }
+  const scope = vm.createContext({ console, Math, Map, Set, WeakMap, Array, Object, Number, String, JSON, Date, OffscreenCanvas: Canvas });
+  for (const file of ['foes.js', 'art.js', 'foe-art.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), scope, { filename: file });
+  const sig = paints => JSON.stringify(paints.map(p => [p.op, p.color, p.box && p.box.map(n => Math.round(n * 100) / 100), Math.round(p.alpha * 1000)]));
+  for (let id = 1; id <= 10; id++) {
+    const g = new RushGame({ plan: bot.plan(id), startWave: 10 }); g.started = true; g.status = 'flying'; g.drainEvents();
+    // A second in, past the pop-in of the guardian and its parts.
+    for (let n = 0; n < 120; n++) g.step(1 / 120);
+    const s = g.bossState, boss = s.boss, t = g.time;
+    // No move under way, so only the hit differs between the frames.
+    s.warning = null; g.bossWarning = null;
+    const frame = (ago, reducedMotion) => { boss.hitAt = t - ago; const rec = paintBrush(); scope.BloomArt.draw(rec.ctx, g, t, { theme: 'meadow', reducedMotion, quality: 0, showAim: false }); return sig(rec.paints); };
+    const base = frame(.29, false);
+    assert.notEqual(frame(0, false), base, `L${id} ${s.kind}: the hit shows at once`);
+    assert.notEqual(frame(.066, false), base, `L${id} ${s.kind}: the hit still shows 66 ms on`);
+    const still = frame(.29, true);
+    assert.equal(frame(0, true), still, `L${id} ${s.kind}: Animations off, the instant of the hit adds nothing`);
+    assert.equal(frame(.066, true), still, `L${id} ${s.kind}: Animations off, nothing squashes`);
+  }
+});
+
 const report = { passed: results.filter(r => r.passed).length, failed: results.filter(r => !r.passed).length, results };
 console.log(JSON.stringify(report, null, 2)); process.exitCode = report.failed ? 1 : 0;

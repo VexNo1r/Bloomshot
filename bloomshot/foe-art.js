@@ -4340,7 +4340,10 @@
       }
       const beat = grow * (1 + pulse * CRY.beatAmp[tier]);
       ctx.scale(beat * (1 + .12 * squash), beat * (1 - .1 * squash));
-      crystalStamp(ctx, kit, s.hue && kit.FLOWERS[s.hue] ? hueHeart(kit, r, s.hue) : realHeart(kit, r), 0, 0);
+      const heart = s.hue && kit.FLOWERS[s.hue] ? hueHeart(kit, r, s.hue) : realHeart(kit, r);
+      crystalStamp(ctx, kit, heart, 0, 0);
+      // The shared guardian hit flare (art.js): for 35 ms the heart is added over itself once more, fading out.
+      if (!still && hitAge >= 0 && hitAge < .035) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha *= .6 * (1 - hitAge / .035); crystalStamp(ctx, kit, heart, 0, 0); ctx.restore(); }
       const blink = !still && (time + .7) % 3.4 < .12;
       crystalStamp(ctx, kit, heartFace(r, hitAge >= 0 && hitAge < .3 ? 'hurt' : blink ? 'blink' : CRY.moods[tier]), 0, 0);
       return true;

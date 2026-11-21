@@ -543,7 +543,7 @@
   // by petal from the far side, alternating left and right, before handing off to the resting sprite. Everything is
   // stateless (a function of the bud and its age) and composited from 3x sprites painted once with the same petal()
   // geometry, so a frame full of blooms costs drawImage calls, not gradients or shadows.
-  const UNFURL = .55, FLASH = .035, UNFURL_MAX = 16, UNFURL_LOW = 6;
+  const UNFURL = .55, FLASH = .035, UNFURL_MAX = 16, UNFURL_LOW = 6, BOSS_SQUASH = .2;
   // Every sprite painted (or sheet frame baked) bumps this count, so the app can tell a frame that paid for a first
   // paint from one that is really slow (the quality governor skips the former).
   let painted = 0;
@@ -5054,6 +5054,13 @@
           ctx.translate(bud.x, bud.y); ctx.scale(1 + squash * .18, 1 - squash * .20); ctx.translate(-bud.x, -bud.y);
         }
       }
+      // A guardian takes a hit with a small squash of its own (3%, over BOSS_SQUASH s), leaves, body, face and ring
+      // together. Crystal Heart already squashes in her kit, so she is left out rather than squashed twice.
+      const bossHit = !options.reducedMotion && bud.boss && !bud.bloomed && bossLook(bud) && typeof bud.hitAt === 'number' ? time - bud.hitAt : -1;
+      if (bossHit >= 0 && bossHit < BOSS_SQUASH && bud.bossKind !== 'crystal') {
+        const squash = Math.sin(bossHit / BOSS_SQUASH * Math.PI) * .03;
+        ctx.translate(bud.x, bud.y); ctx.scale(1 + squash, 1 - squash); ctx.translate(-bud.x, -bud.y);
+      }
       if (!bud.bloomed && hp > 1 && !bud.boss && !bud.geode) {
         for (let layer = 1; layer < hp; layer++) {
           const rr = radius + 2.5 + layer * 3;
@@ -5095,7 +5102,11 @@
       if (bud.boss && !bud.bloomed) drawBossLeaves(ctx, bud, time, options.reducedMotion);
       else if (crack > 0) { const a = ctx.globalAlpha; ctx.globalAlpha = a * crack; drawBossLeaves(ctx, bud, time, false); ctx.globalAlpha = a; }
       if (bud.briar && !bud.bloomed) drawThorns(ctx, bud);
-      if (bud.boss && !bud.bloomed && bossLook(bud)) drawBossBody(ctx, bud, time, Boolean(options.reducedMotion));
+      if (bud.boss && !bud.bloomed && bossLook(bud)) {
+        drawBossBody(ctx, bud, time, Boolean(options.reducedMotion));
+        // And a FLASH-long white flare of its own body, under its face, fading out: the same cached sprite added once more.
+        if (bossHit >= 0 && bossHit < FLASH) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha *= .6 * (1 - bossHit / FLASH); drawBossBody(ctx, bud, time, false); ctx.restore(); }
+      }
       else if (bud.puff) { if (!bud.bloomed) drawPuffcap(ctx, bud, time, options.reducedMotion); }
       else if (foeArt && !bud.bloomed && foeArt.has(bud)) foeArt.bud(ctx, bud, time, still, state, FOE_KIT, foeQuality);
       else if (bud.geode && !bud.bloomed) drawGeode(ctx, bud, time);
