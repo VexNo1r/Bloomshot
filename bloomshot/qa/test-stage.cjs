@@ -280,6 +280,49 @@ test('Ember Rose\'s new rule for each mood shows as a toast when the mood starts
   app.$('toast').textContent = ''; app.run(1.7); game.events.push({ type: 'bossStage', kind: 'ember', stage: 1, mood: 'Dancing', name: 'Ember Rose', x: boss.x, y: boss.y }); app.frame();
   assert.equal(app.$('toast').textContent, '', 'the same rule is not said twice');
 });
+test('A guardian\'s mood change raises a ribbon in its colours, named for it and its new mood, on L1, L4 and L10', () => {
+  const want = { 1: ['sunny', 'Old Sunny is Cranky!'], 4: ['crystal', 'Crystal Heart is Shining!'], 10: ['core', 'The Starseed is Dazzling!'] };
+  for (const motion of [true, false]) for (const id of [1, 4, 10]) {
+    const app = level(player(motion), id, {}, '?alllevels'), game = app.game(); app.run(1.3);
+    const boss = bossWave(app), s = game.bossState; app.run(1.7);
+    boss.hp = s.tierAt[0];
+    const ribbon = () => game.floaters.find(f => f.kind === 'mood');
+    assert(app.run(12, () => ribbon()), `L${id}: the mood ribbon shows (motion ${motion})`);
+    const r = ribbon(), [kind, text] = want[id];
+    assert.equal(s.tier, 1);
+    assert.equal(r.text, text, `L${id}: it names the guardian and its new mood`);
+    assert.equal(r.bossKind, kind, `L${id}: in the guardian's own colours`);
+    assert(!game.floaters.some(f => f.kind === 'trick' && f.trick === 'boss' && /!$/.test(f.text) && f.text.endsWith(`${text.split(' is ')[1]}`)), 'the small callout is gone');
+    assert(r.y > boss.y + (boss.r || 26), `L${id}: below the guardian`);
+    assert(r.y >= 200 && r.y <= 380 && r.x === 210, 'on the board');
+    const y = r.y; app.run(.6); assert.equal(ribbon() && ribbon().y, y, 'it holds its place');
+    app.run(1.6); assert(!ribbon(), 'and is gone after about two seconds');
+  }
+});
+test('The mood ribbon never stacks with "Wave clear!", the finale or a title, and the count after a pause clears it', () => {
+  const app = level(player(), 4, {}, '?alllevels'), game = app.game(); app.run(1.3);
+  const boss = bossWave(app); app.run(1.7);
+  // A mood change's hit-stop holds a frame or two, so each event is given a moment to land.
+  const settle = () => app.run(.15);
+  const stage = (extra = {}) => { settle(); game.events.push({ type: 'bossStage', kind: 'crystal', stage: 1, mood: 'Shining', name: 'Crystal Heart', x: boss.x, y: boss.y, ...extra }); settle(); };
+  const kinds = () => game.floaters.filter(f => ['mood', 'wave', 'title'].includes(f.kind) && !(f.kind === 'title' && f.size === 'small')).map(f => f.kind);
+  // A wave banner and the ribbon replace each other.
+  game.floaters = []; stage(); assert.deepEqual(kinds(), ['mood']);
+  game.floaters = []; settle(); game.floaters.push({ kind: 'combo', text: 'Lovely!', label: '8 in a row', x: 210, y: 92, life: 1, maxLife: 1 });
+  game.events.push({ type: 'bossStage', kind: 'crystal', stage: 1, mood: 'Shining', name: 'Crystal Heart', x: boss.x, y: boss.y }); app.frame(); assert(!game.floaters.some(f => f.kind === 'combo'), 'chain praise steps aside for it');
+  game.events.push({ type: 'cleared', wave: 9, next: 1.9, blooms: 3 }); settle();
+  assert.deepEqual(kinds(), ['wave'], '"Wave clear!" takes its place');
+  stage(); assert.deepEqual(kinds(), ['mood'], 'and the other way around');
+  // A stage title (a name card, the finale ribbon) is never covered: the old small callout says the mood instead.
+  settle(); game.floaters = [{ kind: 'title', boss: true, text: 'Crystal Heart', x: 210, y: 178, life: 1.6, maxLife: 1.6 }];
+  game.events.push({ type: 'bossStage', kind: 'crystal', stage: 1, mood: 'Shining', name: 'Crystal Heart', x: boss.x, y: boss.y }); app.frame();
+  assert.deepEqual(kinds(), ['title']);
+  assert(game.floaters.some(f => f.kind === 'trick' && f.text === 'Shining!'), 'the small callout carries the mood');
+  // The count after a pause clears it like the other callouts.
+  game.floaters = []; stage(); assert.deepEqual(kinds(), ['mood']);
+  app.click('pause-btn'); app.click('pause-resume');
+  assert(!game.floaters.some(f => f.kind === 'mood'), 'the count clears the ribbon');
+});
 test('A wish shows its "Wish!" stamp with Animations off too', () => {
   const app = level(player(false), 10, {}, '?alllevels'), game = app.game(); app.run(1.3);
   game.events.push({ type: 'foe', kind: 'wishstar:wish', x: 210, y: 200, path: [] }); app.frame();
@@ -606,6 +649,38 @@ test('Every stage piece draws on the board, and after the first frame adds no gr
   assert.equal(surfaces, before, 'no new sprites on a repeat frame');
   // 24 orb glows, 3 ribbons, 8 stamps, the life band, the vine pieces and the two curtain strips.
   assert(count(staged, 'drawImage') - count(plain, 'drawImage') >= 24 + 3 + 8 + 1 + 2 + 2, 'orbs, ribbons, stamps, the vine and the curtain come from sprites');
+});
+test('The mood ribbon draws in each guardian\'s colours with its emblem, fits the board, and holds still with Animations off', () => {
+  const kinds = ['sunny', 'root', 'puff', 'crystal', 'lotus', 'fossil', 'ember', 'geode', 'briar', 'core'];
+  const ribbonOf = (kind, text, age, reducedMotion) => {
+    const calls = [], ops = [], ctx = recordingContext(calls), seen = new Proxy(ctx, {
+      get(target, name) { const v = target[name]; return typeof v === 'function' ? (...args) => { ops.push([name, ...args]); return v(...args); } : v; },
+      set(target, name, value) { target[name] = value; return true; }
+    });
+    const before = surfaces;
+    Art.draw(seen, board({ floaters: [{ kind: 'mood', text, bossKind: kind, x: 210, y: 250, life: 1.9 - age, maxLife: 1.9 }] }), 5, { theme: 'meadow', reducedMotion });
+    return { ops, made: surfaces - before };
+  };
+  for (const kind of kinds) {
+    const text = `${kind === 'fossil' ? 'Ammonite Queen' : 'Crystal Heart'} is Brooding!`;
+    const first = ribbonOf(kind, text, .5, false);
+    assert(first.made >= 1, `${kind}: the ribbon is painted once into a sprite`);
+    const again = ribbonOf(kind, text, .6, false); assert.equal(again.made, 0, `${kind}: and reused`);
+    const at = first.ops.findIndex(op => op[0] === 'drawImage' && op[4] > 200 && op[5] > 60 && op[5] < 90);
+    assert(at >= 0, `${kind}: drawn as one wide ribbon`);
+    const [, , dx, , w] = first.ops[at], move = first.ops.slice(0, at).reverse().find(op => op[0] === 'translate');
+    const left = move[1] + dx;
+    assert(left >= 0 && left + w <= 420, `${kind}: inside the board (${left}..${left + w})`);
+    // With Animations off it appears with no spring, sway or sparkle: the frames at .05 s and 1 s are identical.
+    const piece = ops => { const end = ops.findIndex(op => op[0] === 'drawImage' && op[4] > 200 && op[5] > 60 && op[5] < 90); let start = end; while (start > 0 && ops[start][0] !== 'translate') start--; return ops.slice(start, ops.findIndex((op, i) => i > end && op[0] === 'restore') + 1); };
+    const a = piece(ribbonOf(kind, text, .05, true).ops), b = piece(ribbonOf(kind, text, 1, true).ops);
+    assert.deepEqual(JSON.stringify(a), JSON.stringify(b), `${kind}: still with motion off`);
+    assert(!a.some(op => op[0] === 'scale'), `${kind}: no scale with motion off`);
+    const sprung = piece(ribbonOf(kind, text, .05, false).ops);
+    assert(sprung.some(op => op[0] === 'scale' && op[1] < 1), `${kind}: with motion on it springs in`);
+  }
+  const longest = ribbonOf('fossil', 'Ammonite Queen is Brooding!', .5, true).ops.find(op => op[0] === 'drawImage' && op[4] > 200 && op[5] > 60 && op[5] < 90);
+  assert(longest[4] <= 410, 'the longest name still fits the board');
 });
 test('A piece passing under the guardian\'s name shows through it: the name fades to a ghost and eases back', () => {
   // The Starseed's top dome star (y 44 when she is at y 100) sits under her name at y 37; its number must stay readable.

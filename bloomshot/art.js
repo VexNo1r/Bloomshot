@@ -4134,6 +4134,7 @@
     if (floater.kind === 'title') { drawTitle(ctx, floater, reducedMotion); return; }
     if (floater.kind === 'trick') { drawStamp(ctx, floater, reducedMotion); return; }
     if (floater.kind === 'life') { drawLifeBand(ctx, floater, reducedMotion); return; }
+    if (floater.kind === 'mood') { drawMoodRibbon(ctx, floater, reducedMotion); return; }
     const life = Math.max(0, floater.life == null ? 1 : floater.life), duration = floater.maxLife || 1;
     const age = Math.max(0, duration - life), text = String(floater.text || '');
     const combo = floater.kind === 'combo' || /CHAIN|in bloom|BLOOM CHAIN/i.test(text);
@@ -4316,6 +4317,65 @@
       sparkle(ctx, -hw + 10 - k * 8, -hh - 6 - k * 10, 4.2, '#fffbe0', k * 2);
       sparkle(ctx, hw - 16 + k * 9, -hh - 2 - k * 12, 3.2, '#fffbe0', -k * 2);
       sparkle(ctx, hw - 4 + k * 6, hh + 4 + k * 6, 2.6, '#fffbe0', k);
+    }
+    ctx.restore();
+  }
+
+  // A guardian's mood change: a wide ribbon in the guardian's own colours with its emblem on a medallion at each
+  // end, reading 'Crystal Heart is Shining!'. It unfurls with a small spring; with Animations off it is simply there.
+  const MOOD = { title: 21, h: 44, pad: 50, min: 220, max: 380 };
+  function moodLayout(ctx, floater) {
+    const text = String(floater.text || ''), kind = BOSS_LOOKS[floater.bossKind] ? floater.bossKind : 'sunny';
+    const tf = `700 ${MOOD.title}px Fredoka, system-ui, sans-serif`;
+    ctx.save(); const wide = measure(ctx, tf, text); ctx.restore();
+    let size = MOOD.title, bw = Math.max(MOOD.min, wide + MOOD.pad * 2);
+    // A long name shrinks its lettering, so the ribbon never runs off a narrow board.
+    if (bw > MOOD.max) { size = Math.max(14, Math.floor(MOOD.title * (MOOD.max - MOOD.pad * 2) / Math.max(1, wide))); bw = MOOD.max; }
+    return { text, kind, look: BOSS_LOOKS[kind], tf: `700 ${size}px Fredoka, system-ui, sans-serif`, size, bw, bh: MOOD.h, w: Math.ceil(bw + 24), h: MOOD.h + 30 };
+  }
+  function paintMood(c, L) {
+    const hw = L.bw / 2, hh = L.bh / 2, sag = L.bh * .07, rr = Math.min(14, L.bh * .3), look = L.look;
+    c.save(); c.lineJoin = 'round'; c.lineCap = 'round';
+    // Forked tails tucked behind the band's ends.
+    for (const side of [-1, 1]) {
+      c.beginPath(); c.moveTo(side * (hw - 18), -hh + 8); c.lineTo(side * (hw + 9), -hh + 4); c.lineTo(side * (hw + 2), 1); c.lineTo(side * (hw + 9), hh + 4); c.lineTo(side * (hw - 18), hh - 2); c.closePath();
+      c.fillStyle = look.dark; c.fill();
+    }
+    c.save(); c.shadowColor = 'rgba(40,20,40,.38)'; c.shadowBlur = 9; c.shadowOffsetY = 3.5;
+    ribbonPath(c, hw - 6, hh, sag, rr);
+    const band = c.createLinearGradient(0, -hh, 0, hh);
+    band.addColorStop(0, look.light); band.addColorStop(.55, look.base); band.addColorStop(1, look.dark);
+    c.fillStyle = band; c.fill(); c.restore();
+    ribbonPath(c, hw - 6, hh, sag, rr); c.strokeStyle = look.dark; c.lineWidth = 2.2; c.stroke();
+    ribbonPath(c, hw - 9.6, hh - 3.6, sag, Math.max(2, rr - 3.6)); c.strokeStyle = 'rgba(255,255,255,.6)'; c.lineWidth = 1.1; c.stroke();
+    // The guardian's emblem on a cream medallion at each end.
+    for (const side of [-1, 1]) {
+      const mx = side * (hw - 24);
+      circle(c, mx, 0, 15.5, '#fffaf0', look.dark, 2);
+      circle(c, mx, 0, 12.5, look.light);
+      c.save(); c.translate(mx, 1); c.scale(1.15, 1.15); drawBossEmblem(c, { bossKind: L.kind }, 0, 0); c.restore();
+    }
+    c.textAlign = 'center'; c.textBaseline = 'middle'; c.font = L.tf;
+    c.lineWidth = 4; c.strokeStyle = 'rgba(255,252,240,.95)'; c.strokeText(L.text, 0, 1);
+    c.fillStyle = look.ink; c.fillText(L.text, 0, 1);
+    c.restore();
+  }
+  function drawMoodRibbon(ctx, floater, reducedMotion) {
+    const life = Math.max(0, floater.life == null ? 1 : floater.life), duration = floater.maxLife || 1.9, age = Math.max(0, duration - life);
+    const L = layoutOf(ctx, floater, 'mood', moodLayout);
+    let scale = 1, alpha = Math.min(1, life / .3);
+    if (!reducedMotion) { scale = age < .22 ? .55 + .45 * backOut(age / .22, 2.2) : 1; alpha *= Math.min(1, age / .06); }
+    ctx.save();
+    ctx.translate(onBoard(floater.x, L.w - 8), Number(floater.y) || 230);
+    if (scale !== 1) ctx.scale(scale, scale);
+    ctx.globalAlpha *= alpha;
+    const sprite = fontReady(L.tf) ? stageSprite(`mood|${L.kind}|${L.text}|${L.size}`, L.w, L.h, c => { c.translate(L.w / 2, L.h / 2); paintMood(c, L); }) : null;
+    if (sprite) ctx.drawImage(sprite.surface, -L.w / 2, -L.h / 2, L.w, L.h); else paintMood(ctx, L);
+    if (!reducedMotion && age < .7) {
+      const k = age / .7, hw = L.bw / 2, hh = L.bh / 2;
+      ctx.globalAlpha *= Math.sin(k * Math.PI);
+      sparkle(ctx, -hw + 30 - k * 10, -hh - 4 - k * 10, 4, L.look.light, k * 2);
+      sparkle(ctx, hw - 30 + k * 10, -hh - 2 - k * 12, 3.4, L.look.light, -k * 2);
     }
     ctx.restore();
   }

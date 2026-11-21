@@ -1605,7 +1605,9 @@
   // One headline at a time. Stage titles outrank banners, which outrank chain praise: a new headline replaces any of
   // its own rank or lower, and one that ranks below what is showing is dropped, never stacked. A lost life has its own
   // place low on the board; it is never dropped, and it quiets the praise.
-  const HEADLINE = { title: 3, wave: 2, combo: 1 };
+  // A guardian's mood ribbon ranks with the wave banners: 'Wave clear!' and a mood change replace each other, and a
+  // stage title (the guardian's name card, the finale) is never covered by one.
+  const HEADLINE = { title: 3, wave: 2, mood: 2, combo: 1 };
   // The opening title only names the level, so anything that happens over it takes its place.
   const rankOf = item => item.rank || (item.kind === 'title' && item.size === 'small' ? 0 : item.intro ? 2 : HEADLINE[item.kind] || 0);
   function headline(item) {
@@ -1849,7 +1851,7 @@
     if (!origin || f.sweepWave === game.wave) return;
     f.sweepWave = game.wave;
     if (isDepth()) {
-      game.floaters = game.floaters.filter(item => !['wave', 'combo', 'bonus', 'title', 'trick', 'pop', 'life'].includes(item.kind));
+      game.floaters = game.floaters.filter(item => !['wave', 'mood', 'combo', 'bonus', 'title', 'trick', 'pop', 'life'].includes(item.kind));
       // The ribbon sits clear of the flower that ended the level and stays up until the result card comes. It takes the
       // far half of the board, at the first height that also leaves the petal and any rocks uncovered.
       const bossName = f.bossName && f.impactWave === game.wave ? f.bossName : '';
@@ -2370,7 +2372,9 @@
       foeRing(x, y, color, r * .7, 46, .5); foeRing(x, y, '#fff7be', r * .5, 30, .35);
     }
     game.floaters = game.floaters.filter(f => f.kind !== 'trick');
-    bossCallout(x, y - 20, event.mood ? `${event.mood}!` : '', 1.3);
+    // The new mood gets a ribbon in the guardian's colours with its emblem; if a title is up, the old small callout.
+    const text = event.mood ? event.name ? `${event.name} is ${event.mood}!` : `${event.mood}!` : '';
+    if (text && !headline({ kind: 'mood', text, bossKind: event.kind || game.bossState?.kind || '', x: 210, y: moodY(y, boss?.r), life: 1.9, maxLife: 1.9 })) bossCallout(x, y - 20, `${event.mood}!`, 1.3);
     const vine = game.stage && game.stage.vine;
     if (vine) { vine.knotAt = vine.knotAt || []; vine.knotAt[(event.stage || 1) - 1] = game.time; }
     // A kit that changes what reaches its guardian (Ember Rose's tunnels and rings) says so as the new mood starts: one
@@ -2379,6 +2383,15 @@
     const rule = game.waveHint && game.waveHint !== game.bossHint ? game.waveHint : '';
     if (event.name && event.mood) say(`${event.name} is ${event.mood.toLowerCase()}!${rule ? ` ${rule}` : ''}`);
     if (rule) { game.bossHint = rule; levelTip(rule, { again: Infinity, speak: !(event.name && event.mood) }); }
+  }
+  // The mood ribbon sits below the guardian, at the height that hides the fewest flowers still to shoot and the petal.
+  function moodY(bossY, r) {
+    const top = (Number(bossY) || 120) + (Number(r) || 26) + 46;
+    const open = game.buds.filter(bud => !bud.bloomed && !bud.gift && !bud.hidden && !bud.boss);
+    // The petal you turn counts double, so the ribbon does not sit on it either.
+    const covers = y => open.filter(bud => Math.abs(bud.y - y) < 40).length + 2 * (game.bumpers || []).filter(b => !b.bossMirror && Math.abs(b.y - y) < 46).length;
+    const spots = [200, 250, 300, 350].filter(y => y >= top);
+    return (spots.length ? spots : [Math.min(380, top)]).reduce((best, y) => covers(y) < covers(best) ? y : best);
   }
   // A special hit on a guardian says what made it special.
   const CRIT_TEXT = { roll: 'Bowled over!', mirror: 'Mirror shot!', moon: 'Moon shot!' };
@@ -2794,7 +2807,7 @@
         // and the wave's blooms flying into the score (a finale's sweep takes the harvest's place).
         // A finale clear has had its own light and sweep; a plain one gets the golden shower.
         if (!event.finale) { burst({ x: 210, y: 230, type: 'gold', r: 18 }, 30); burst({ x: 120, y: 170, type: 'coral' }, 20); burst({ x: 300, y: 170, type: 'lilac' }, 20); jolt(.32, .07, .5); }
-        game.floaters = game.floaters.filter(item => !['wave', 'combo', 'bonus', 'pop', 'trick'].includes(item.kind));
+        game.floaters = game.floaters.filter(item => !['wave', 'mood', 'combo', 'bonus', 'pop', 'trick'].includes(item.kind));
         // The next wave's number arrives on its own ribbon, so the clear only names what is special about it.
         const next = isDepth() ? Depths.wave(game.plan.id, event.wave + 1) : null, nextBoss = next && next.boss ? next.buds.find(bud => bud.boss) : null;
         const label = next ? next.boss ? `${(nextBoss && nextBoss.name) || 'Big bloom'} next!` : '' : `next ×${event.next.toFixed(1)}`;
@@ -2879,7 +2892,7 @@
         { const tip = 'The briars grew back! Bloom the whole patch fast.'; if (waveTeaches(/briar|grow/i)) $('game-hint').textContent = tip; else levelTip(tip, { again: Infinity }); }
       } else if (event.type === 'boss') {
         const name = event.name || (event.bud && event.bud.name) || '';
-        game.floaters = game.floaters.filter(item => !['wave', 'combo', 'bonus', 'pop', 'trick'].includes(item.kind));
+        game.floaters = game.floaters.filter(item => !['wave', 'mood', 'combo', 'bonus', 'pop', 'trick'].includes(item.kind));
         // On the level's last beat the finale owns the moment and the title ribbon names the boss; otherwise a banner.
         if (!event.finale) {
           burst(event.bud, 40, game.particles, currentKeepsake(), false); burst({ x: 110, y: 200, type: 'gold' }, 24); burst({ x: 310, y: 200, type: 'lilac' }, 24);
@@ -3520,7 +3533,7 @@
     // Callouts frozen behind the pause ("Wave clear!", a trick stamp, praise, score pops) are stale by now and would sit
     // half hidden round the count, so they go, as at a wave's clear; ribbons and name cards stay. So does the Super Bloom
     // or Lullaby explainer while its effect still runs (`live`): the first Super Bloom's is never shown again.
-    game.floaters = game.floaters.filter(item => item.live ? game[item.live] > 0 : !['wave', 'combo', 'bonus', 'pop', 'trick'].includes(item.kind));
+    game.floaters = game.floaters.filter(item => item.live ? game[item.live] > 0 : !['wave', 'mood', 'combo', 'bonus', 'pop', 'trick'].includes(item.kind));
     say(`${lead}${save.settings.motion ? 'Get ready. 3, 2, 1.' : 'Get ready.'}`);
   }
   function renderCount() {
@@ -4121,7 +4134,8 @@
       // Words age in real time in the tutorial, so a 'Lovely!' does not hang for 13 s while a card waits at 8% speed.
       const fdt = isTutorial() ? dt : gdt;
       // Words drift up as they fade; the wave ribbon holds still at the top edge so its tip never slides off the board.
-      for (const p of game.floaters) { p.life -= fdt; if (!(p.kind === 'title' && p.size === 'small')) p.y -= fdt * 12; }
+      // A guardian's mood ribbon holds its place too, so it reads as a banner, not a word drifting off.
+      for (const p of game.floaters) { p.life -= fdt; if (!(p.kind === 'title' && p.size === 'small') && p.kind !== 'mood') p.y -= fdt * 12; }
       game.floaters = game.floaters.filter(p => p.life > 0).slice(-16);
       if (!resultShown && game.time >= resultAt && !(feel && feel.out.busy)) showResult();
     }
