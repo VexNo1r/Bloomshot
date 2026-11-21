@@ -7,7 +7,7 @@
 // the launcher shows, aiming anywhere upward (mode 'wild'), wiggling across the middle ('sweep') or roughly, within
 // 12 degrees, at the lowest flower ('lazy'). -> { won, wave, lives, shots, taps, dry, rate }, dry being taps on an empty pod.
 const Engine = require('../engine.js');
-const { RushGame, bossMotion } = require('../rush.js');
+const { RushGame, bossMotion, shellGap } = require('../rush.js');
 const Depths = require('../depths.js');
 const Bosses = require('../bosses.js');
 const Foes = require('../foes.js');
@@ -109,7 +109,7 @@ function value(game, hit, timing, prepared) {
   // A shell keeps turning while the shot flies, so check where its opening will be on arrival.
   if (bud.shell && !(prepared && prepared.rich && (bud.boss || bud.bossPart))) {
     const a = bud.shellAngle + bud.shellSpin * (hit.time + .03);
-    if (hit.nx * Math.cos(a) + hit.ny * Math.sin(a) < .34 + timing) return -1;
+    if (hit.nx * Math.cos(a) + hit.ny * Math.sin(a) < Math.cos(shellGap(bud)) + timing) return -1;
   }
   const fall = Number.isFinite(bud.fall) ? Math.max(.15, bud.fall) : 1, danger = (bud.y + bud.r) / game.dangerY * fall;
   // Tactical parts get a soft bonus; an escort at the line still outranks a distant weakspot.

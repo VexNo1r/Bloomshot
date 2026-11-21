@@ -66,6 +66,15 @@
     ['core', 'The Starseed', 1.35, 6.65, 7.2, 'Break the stars to drop the dome.']
   ].map(function (b) { return { kind: b[0], name: b[1], hp: Bosses.health[b[0]], rate: b[2], descent: b[3], interval: b[4], warning: b[5], telegraph: Bosses.telegraph }; });
 
+  // Turning shells, set per level. gap is half the opening (radians either side of where it points), spin is
+  // radians a second. The easiest shell level turns fastest with the widest opening, the hardest turns slowest
+  // with the narrowest, and every wave of a level uses the same pair. For a shot from one direction the opening
+  // stays over it for 2 * gap / spin seconds and comes back after (2 * PI - 2 * gap) / spin: at least 1.3 s open
+  // and at most 3.6 s closed here (qa/test-depths.cjs keeps the floor of 1 s and 4 s).
+  var SHELLS = { 6: { gap: 1.40, spin: 2.0 }, 8: { gap: 1.19, spin: 1.5 }, 10: { gap: 1.01, spin: 1.2 } };
+  var SHELL_DEFAULT = { gap: Math.acos(.34), spin: 1.2 };
+  function shellFor(levelId) { return SHELLS[levelId] || SHELL_DEFAULT; }
+
   // pace scales regular-flower fall speed. Levels with shells need more time for timing shots;
   // the free fourth level has a gentler pace than the paid layers, and the final layer combines their pressure.
   // The regression player checks careful aim, slower reactions and flat-out mashing without powerups.
@@ -80,7 +89,8 @@
   // plus t, the earliest second it may arrive).
   // Deeper levels add: currents ([x, y, length, width, degrees it flows, turn rate]), gates (tunnel pairs
   // [x, y, exit x, exit y, exit degrees]: a straight shot into the first hole leaves the second at that heading),
-  // shell (clusters in turning shells that only open on one side) with spin (radians a second), geodes
+  // shell (clusters in turning shells that only open on one side; how fast they turn and how wide they open is
+  // the level's SHELLS row), geodes
   // ([x, y, hp, gems]: they crack into gems that must be bloomed too), and briar (crownless clusters that grow
   // back unless all three bloom within regrow seconds). Levels 2-5 add foes ([name, x, y, opts]: the new pieces of
   // foes.js, added beside the clusters) and vents ([x, y, first s, every s, count]: Moon Jelly vents).
@@ -148,16 +158,16 @@
     ]),
     // Batch 2: the Amberkeeper debuts in W2 (back in W5, W8, W9) among Rolypoly, Peekaboo Mole and Echo Bat rows.
     lv(6, 'fossil', 'Fossil Beds', 'Turning shells', 1.5, [
-      { f: 'square', s: 'tri', d: 10.5, shell: [0, 3], spin: 1.1, then: [{ t: 6, f: 'top3', s: 'tri', shell: [1] }], hint: 'Shells turn. Shoot through the opening.' },
-      { f: 'wall', s: 'tri', d: 11, hp: 1, shell: [1, 3], spin: 1.3, rocks: [[150, 318, 52, 0], [270, 318, 52, 0]], then: [{ t: 6, f: 'top4', s: 'tri', shell: [1, 2] }], foes: [['amberkeeper', 210, 200]], hint: 'Amber seals buds! Break the trilobite to free them.' },
-      { f: 'corners', s: 'tri', d: 11.5, shell: [0, 1, 2, 3], spin: 1, then: [{ t: 7, f: 'top4', s: 'tri', hp: 1 }], hint: 'Crowns in shells. Wait for the gap.' },
-      { f: 'diamond', s: 'tri', d: 12, hp: 2, shell: [0, 3], cup: [1, 2], spin: 1.5, then: [{ t: 6, f: 'top5', s: 'tri', hp: 1, shell: [0, 4] }, { t: 12, f: 'top3', s: 'stack', cup: [1] }], foes: [['rolypoly', 210, 150]] },
-      { f: 'ring', s: 'tri', d: 12, hp: 2, shell: [0, 2, 4], spin: 1.7, puffs: [[210, 171]], then: [{ t: 6, f: 'top4', s: 'tri', hp: 2, shell: [1, 2] }], foes: [['amberkeeper', 160, 172]], hint: 'Puffcaps bloom shelled buds too.' },
-      { f: 'grid', s: 'tri', d: 12.5, hp: 2, shell: [0, 1, 2, 3, 4, 5], spin: 1.3, rocks: [[110, 322, 46, 0], [310, 322, 46, 0]], then: [{ t: 6, f: 'topvee', s: 'tri', hp: 2 }, { t: 12, f: 'top4', s: 'tri', shell: [0, 3] }], foes: [['bat', 150, 158], ['bat', 270, 158]] },
-      { f: 'zigzag', s: 'tri', d: 13, hp: 2, hp3: 1, sway: 14, shell: [0, 2, 4], spin: 1.9, then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, shell: [1, 3] }, { t: 12, f: 'topvee', s: 'line', hp3: 1, sway: 12 }], foes: [['mole', 210, 268]] },
-      { f: 'columns', s: 'tri', d: 13, hp: 2, fast: [2, 3], shell: [0, 1, 4, 5], spin: 2.1, rocks: [[210, 300, 60, 0, 70, .3]], then: [{ t: 6, f: 'topstacks', s: 'stack', hp: 2 }, { t: 12, f: 'top5', s: 'tri', fast: [0, 4], shell: [2] }], foes: [['amberkeeper', 150, 250], ['rolypoly', 270, 262]] },
-      { f: 'stairs', s: 'tri', d: 13.5, hp: 2, hp3: 1, shell: [0, 1, 2, 3, 4], spin: 2.3, rocks: [[150, 330, 44, 30], [270, 330, 44, -30]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, hp3: 1, shell: [0, 2, 4] }, { t: 12, f: 'topstacks', s: 'stack', hp3: 2 }], foes: [['amberkeeper', 150, 200], ['bat', 330, 140]] },
-      { f: [[76, 192], [344, 192], [140, 252], [280, 252]], s: 'tri', d: 8.5, hp: 2, shell: [0, 1], cup: [2, 3], spin: 1.4, boss: { name: 'Ammonite Queen', hp: 14, r: 26, type: 'gold', sway: 56, x: 210, y: 100, shell: 1.1 }, then: [{ t: 8, f: 'topsides', s: 'tri', hp: 2, shell: [0, 3] }, { t: 16, f: 'topsides', s: 'stack', hp: 2 }], hint: 'A shelled big bloom! Aim for the gap.' }
+      { f: 'square', s: 'tri', d: 10.5, shell: [0, 3], then: [{ t: 6, f: 'top3', s: 'tri', shell: [1] }], hint: 'Shells turn. Shoot through the opening.' },
+      { f: 'wall', s: 'tri', d: 11, hp: 1, shell: [1, 3], rocks: [[150, 318, 52, 0], [270, 318, 52, 0]], then: [{ t: 6, f: 'top4', s: 'tri', shell: [1, 2] }], foes: [['amberkeeper', 210, 200]], hint: 'Amber seals buds! Break the trilobite to free them.' },
+      { f: 'corners', s: 'tri', d: 11.5, shell: [0, 1, 2, 3], then: [{ t: 7, f: 'top4', s: 'tri', hp: 1 }], hint: 'Crowns in shells. Wait for the gap.' },
+      { f: 'diamond', s: 'tri', d: 12, hp: 2, shell: [0, 3], cup: [1, 2], then: [{ t: 6, f: 'top5', s: 'tri', hp: 1, shell: [0, 4] }, { t: 12, f: 'top3', s: 'stack', cup: [1] }], foes: [['rolypoly', 210, 150]] },
+      { f: 'ring', s: 'tri', d: 12, hp: 2, shell: [0, 2, 4], puffs: [[210, 171]], then: [{ t: 6, f: 'top4', s: 'tri', hp: 2, shell: [1, 2] }], foes: [['amberkeeper', 160, 172]], hint: 'Puffcaps bloom shelled buds too.' },
+      { f: 'grid', s: 'tri', d: 12.5, hp: 2, shell: [0, 1, 2, 3, 4, 5], rocks: [[110, 322, 46, 0], [310, 322, 46, 0]], then: [{ t: 6, f: 'topvee', s: 'tri', hp: 2 }, { t: 12, f: 'top4', s: 'tri', shell: [0, 3] }], foes: [['bat', 150, 158], ['bat', 270, 158]] },
+      { f: 'zigzag', s: 'tri', d: 13, hp: 2, hp3: 1, sway: 14, shell: [0, 2, 4], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, shell: [1, 3] }, { t: 12, f: 'topvee', s: 'line', hp3: 1, sway: 12 }], foes: [['mole', 210, 268]] },
+      { f: 'columns', s: 'tri', d: 13, hp: 2, fast: [2, 3], shell: [0, 1, 4, 5], rocks: [[210, 300, 60, 0, 70, .3]], then: [{ t: 6, f: 'topstacks', s: 'stack', hp: 2 }, { t: 12, f: 'top5', s: 'tri', fast: [0, 4], shell: [2] }], foes: [['amberkeeper', 150, 250], ['rolypoly', 270, 262]] },
+      { f: 'stairs', s: 'tri', d: 13.5, hp: 2, hp3: 1, shell: [0, 1, 2, 3, 4], rocks: [[150, 330, 44, 30], [270, 330, 44, -30]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, hp3: 1, shell: [0, 2, 4] }, { t: 12, f: 'topstacks', s: 'stack', hp3: 2 }], foes: [['amberkeeper', 150, 200], ['bat', 330, 140]] },
+      { f: [[76, 192], [344, 192], [140, 252], [280, 252]], s: 'tri', d: 8.5, hp: 2, shell: [0, 1], cup: [2, 3], boss: { name: 'Ammonite Queen', hp: 14, r: 26, type: 'gold', sway: 56, x: 210, y: 100, shell: 1.1 }, then: [{ t: 8, f: 'topsides', s: 'tri', hp: 2, shell: [0, 3] }, { t: 16, f: 'topsides', s: 'stack', hp: 2 }], hint: 'A shelled big bloom! Aim for the gap.' }
     ]),
     lv(7, 'ember', 'Ember Hollows', 'Tunnels', 2.05, [ // batch 2: the Whizzbang debuts in W5; Fibcap, Amberkeeper, Glowworm and Echo Bat mix in
       { f: 'grid', s: 'tri', d: 10.5, rocks: [[210, 300, 160, 0]], gates: [[80, 404, 350, 296, -125]], then: [{ t: 6, f: 'top3', s: 'tri' }], hint: 'Tunnels! Shoot in one, out the other.' },
@@ -181,7 +191,7 @@
       { f: 'ring', s: 'tri', d: 12.5, hp: 2, geodes: [[210, 171, 3, 3]], rocks: [[120, 330, 50, 0, 60, .35], [300, 330, 50, 0, 60, .35]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2 }, { t: 12, f: 'topvee', s: 'tri', hp3: 1 }], hint: 'Crack the big geode before it sinks.', foes: [['whizzbang', 150, 262, { sway: 26 }], ['rolypoly', 270, 262]] },
       { f: 'zigzag', s: 'tri', d: 13, hp: 2, hp3: 1, fast: [1, 3], geodes: [[105, 240, 2, 3], [315, 240, 2, 3]], rocks: [[210, 330, 70, 0, 100, .32]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2 }, { t: 12, f: 'top4', s: 'stack', hp: 2, fast: [1, 2] }], foes: [['chroma', 150, 268, { type: 'sky' }]] },
       { f: 'columns', s: 'stack', d: 13, hp: 2, cupAll: [2], cup: [0, 4], geodes: [[153, 150, 2, 2], [267, 150, 2, 2]], gates: [[210, 404, 210, 58, 90]], petal: [110, 384, 45], then: [{ t: 6, f: 'topsides', s: 'stack', hp: 2 }, { t: 12, f: 'topsides', s: 'tri', hp: 2, cup: [0, 3] }], hint: 'Up the shaft, down onto the cups.', foes: [['lodestone', 153, 236], ['chroma', 267, 236, { type: 'lilac' }]] },
-      { f: 'grid', s: 'tri', d: 13.5, hp: 2, hp3: 1, shell: [1, 4], spin: 1.8, cup: [0, 2], puffs: [[150, 220], [270, 220]], geodes: [[150, 158, 3, 3], [270, 158, 3, 3]], rocks: [[210, 312, 60, 0, 100, .3]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, cup: [0, 4] }, { t: 12, f: 'top4', s: 'line', hp3: 1 }], hint: 'Pop the puffcaps before the geodes sink.', foes: [['lodestone', 210, 266]] },
+      { f: 'grid', s: 'tri', d: 13.5, hp: 2, hp3: 1, shell: [1, 4], cup: [0, 2], puffs: [[150, 220], [270, 220]], geodes: [[150, 158, 3, 3], [270, 158, 3, 3]], rocks: [[210, 312, 60, 0, 100, .3]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2, cup: [0, 4] }, { t: 12, f: 'top4', s: 'line', hp3: 1 }], hint: 'Pop the puffcaps before the geodes sink.', foes: [['lodestone', 210, 266]] },
       { f: [[76, 186], [344, 186]], s: 'tri', d: 8.5, hp: 2, cup: [0, 1], geodes: [[120, 260, 2, 3], [300, 260, 2, 3]], rocks: [[210, 330, 60, 0, 100, .3]], boss: { name: 'Geode King', hp: 16, r: 26, type: 'coral', sway: 58, x: 210, y: 100 }, then: [{ t: 8, f: 'topsides', s: 'tri', hp: 2, geodes: [[210, 92, 2, 2]] }, { t: 16, f: 'topsides', s: 'stack', hp: 2, cup: [0, 3] }], hint: 'Big bloom! Sixteen hits.' }
     ]),
     lv(9, 'briar', 'Briar Vault', 'Briars grow back', 2.7, [
@@ -197,16 +207,16 @@
       { f: [[80, 190], [340, 190]], s: 'tri', d: 8.5, hp: 1, briar: [0], regrow: 4, boss: { name: 'Thornmother', hp: 17, r: 26, type: 'lilac', sway: 58, x: 210, y: 100 }, then: [{ t: 8, f: 'topsides', s: 'tri', hp: 1, briar: [0, 3] }, { t: 16, f: 'topsides', s: 'line', hp: 2 }], hint: 'Big bloom! Seventeen hits.' }
     ]),
     lv(10, 'core', 'Starseed Core', 'The final test', 2.3, [
-      { f: 'grid', s: 'tri', d: 11, hp: 1, shell: [0, 2], spin: 1.3, currents: [[210, 330, 330, 56, 0, 4]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 1 }], hint: 'The last level. Everything you learned.' },
+      { f: 'grid', s: 'tri', d: 11, hp: 1, shell: [0, 2], currents: [[210, 330, 330, 56, 0, 4]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 1 }], hint: 'The last level. Everything you learned.' },
       { f: [[110, 150], [210, 150], [310, 150]], s: 'tri', d: 11.5, hp: 1, cupAll: [0, 2], cup: [1], gates: [[100, 404, 56, 92, 30], [320, 404, 364, 92, 150]], then: [{ t: 6, f: 'top3', s: 'tri', hp: 2, cup: [1] }], foes: [['wishstar', 210, 248]], hint: 'Wishing stars! Bloom them in order, 1 to 4.' },
       { f: 'vee', s: 'tri', d: 12, hp: 1, briar: [1, 3], cup: [0, 4], geodes: [[210, 252, 2, 3]], then: [{ t: 6, f: 'top5', s: 'line', hp: 2 }, { t: 12, f: 'top3', s: 'tri', briar: [1] }], foes: [['chroma', 104, 216, { type: 'sky' }]], vents: [[210, 404, 3, 5, 2]] },
-      { f: 'ring', s: 'tri', d: 12, hp: 2, shell: [1, 4], spin: 1.6, puffs: [[210, 171]], currents: [[58, 300, 280, 36, -90, 5], [362, 300, 280, 36, -90, 5]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2 }, { t: 12, f: 'topvee', s: 'tri', hp: 2, shell: [2] }], foes: [['glowworm', 250, 60, { dir: -1 }], ['bat', 264, 178]] },
+      { f: 'ring', s: 'tri', d: 12, hp: 2, shell: [1, 4], puffs: [[210, 171]], currents: [[58, 300, 280, 36, -90, 5], [362, 300, 280, 36, -90, 5]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2 }, { t: 12, f: 'topvee', s: 'tri', hp: 2, shell: [2] }], foes: [['glowworm', 250, 60, { dir: -1 }], ['bat', 264, 178]] },
       { f: 'zigzag', s: 'tri', d: 12.5, hp: 3, briar: [0, 2, 4], regrow: 4.5, gates: [[96, 404, 360, 250, -150], [324, 404, 60, 250, -30]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2 }, { t: 12, f: 'top4', s: 'tri', hp: 2, briar: [1, 2] }], foes: [['sweetheart', 210, 262], ['amberkeeper', 84, 210]] },
-      { f: 'grid', s: 'tri', d: 12.5, hp: 2, hp3: 1, shell: [0, 1, 2], spin: 1.8, geodes: [[150, 158, 2, 2], [270, 158, 2, 2]], rocks: [[210, 312, 60, 0, 90, .3]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2 }, { t: 12, f: 'topvee', s: 'tri', hp3: 1 }], foes: [['whizzbang', 210, 262, { sway: 26 }]], vents: [[100, 400, 2.5, 5, 2]] },
+      { f: 'grid', s: 'tri', d: 12.5, hp: 2, hp3: 1, shell: [0, 1, 2], geodes: [[150, 158, 2, 2], [270, 158, 2, 2]], rocks: [[210, 312, 60, 0, 90, .3]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2 }, { t: 12, f: 'topvee', s: 'tri', hp3: 1 }], foes: [['whizzbang', 210, 262, { sway: 26 }]], vents: [[100, 400, 2.5, 5, 2]] },
       { f: 'columns', s: 'tri', d: 13, hp: 2, briar: [1, 5], cup: [0, 2, 4], currents: [[210, 290, 330, 44, 180, 6]], then: [{ t: 6, f: 'topsides', s: 'tri', hp: 2, cup: [0, 3] }, { t: 12, f: 'top5', s: 'tri', hp: 2, briar: [2] }], foes: [['wishstar', 156, 166, { spin: -1 }], ['lodestone', 284, 130]] },
-      { f: 'diamond', s: ['tri', 'stack', 'stack', 'tri'], d: 13, hp: 2, hp3: 1, shell: [0, 3], spin: 2, geodes: [[210, 152, 2, 3]], gates: [[64, 404, 356, 140, 180], [356, 404, 64, 140, 0]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2 }, { t: 12, f: 'topstacks', s: 'stack', hp: 2, hp3: 1 }], foes: [['sweetheart', 210, 262], ['bat', 300, 208], ['chroma', 64, 244, { type: 'poppy' }]] },
-      { f: 'grid', s: 'tri', d: 13.5, hp: 2, hp3: 1, cupAll: [1], shell: [0, 2], briar: [3, 5], spin: 2, puffs: [[150, 158], [270, 158]], gates: [[210, 404, 210, 58, 90]], currents: [[58, 340, 200, 36, -90, 5], [362, 340, 200, 36, -90, 5]], petal: [110, 384, 45], then: [{ t: 6, f: 'topsides', s: 'tri', hp: 2, shell: [1, 2] }, { t: 12, f: 'topsides', s: 'tri', hp: 2, briar: [0, 3] }], foes: [['wishstar', 271, 253, { spin: -1 }], ['glowworm', 184, 70, { dir: 1 }]], vents: [[160, 340, 3, 5, 2]] },
-      { f: [[76, 196], [344, 196], [150, 256], [270, 256]], s: 'tri', d: 8.5, hp: 2, cup: [0, 1], briar: [2, 3], currents: [[210, 352, 330, 50, 180, 4]], boss: { name: 'The Starseed', hp: 18, r: 27, type: 'gold', sway: 60, x: 210, y: 100, shell: 1.1 }, then: [{ t: 8, f: 'topsides', s: 'tri', hp: 2, shell: [1, 2], spin: 1.5 }, { t: 16, f: 'topsides', s: 'line', hp3: 1, geodes: [[210, 90, 2, 3]] }, { t: 24, f: 'topsides', s: 'tri', hp: 2, briar: [0, 3] }], hint: 'The Starseed! Hit it through its shell.' }
+      { f: 'diamond', s: ['tri', 'stack', 'stack', 'tri'], d: 13, hp: 2, hp3: 1, shell: [0, 3], geodes: [[210, 152, 2, 3]], gates: [[64, 404, 356, 140, 180], [356, 404, 64, 140, 0]], then: [{ t: 6, f: 'top5', s: 'tri', hp: 2 }, { t: 12, f: 'topstacks', s: 'stack', hp: 2, hp3: 1 }], foes: [['sweetheart', 210, 262], ['bat', 300, 208], ['chroma', 64, 244, { type: 'poppy' }]] },
+      { f: 'grid', s: 'tri', d: 13.5, hp: 2, hp3: 1, cupAll: [1], shell: [0, 2], briar: [3, 5], puffs: [[150, 158], [270, 158]], gates: [[210, 404, 210, 58, 90]], currents: [[58, 340, 200, 36, -90, 5], [362, 340, 200, 36, -90, 5]], petal: [110, 384, 45], then: [{ t: 6, f: 'topsides', s: 'tri', hp: 2, shell: [1, 2] }, { t: 12, f: 'topsides', s: 'tri', hp: 2, briar: [0, 3] }], foes: [['wishstar', 271, 253, { spin: -1 }], ['glowworm', 184, 70, { dir: 1 }]], vents: [[160, 340, 3, 5, 2]] },
+      { f: [[76, 196], [344, 196], [150, 256], [270, 256]], s: 'tri', d: 8.5, hp: 2, cup: [0, 1], briar: [2, 3], currents: [[210, 352, 330, 50, 180, 4]], boss: { name: 'The Starseed', hp: 18, r: 27, type: 'gold', sway: 60, x: 210, y: 100, shell: 1.1 }, then: [{ t: 8, f: 'topsides', s: 'tri', hp: 2, shell: [1, 2] }, { t: 16, f: 'topsides', s: 'line', hp3: 1, geodes: [[210, 90, 2, 3]] }, { t: 24, f: 'topsides', s: 'tri', hp: 2, briar: [0, 3] }], hint: 'The Starseed! Hit it through its shell.' }
     ])
   ];
 
@@ -237,7 +247,7 @@
           shield: has(spec.cupAll, gi) || (bi > 0 && has(spec.cup, gi)),
           fall: has(spec.fast, gi) ? 1.6 : 1, sway: sway, swayW: 2 * Math.PI * .34, swayPhase: gi * 1.3 };
         // Shells start with their openings spread around and turn in opposite directions cluster to cluster.
-        if (shelled) { bud.shell = true; bud.shellAngle = Math.PI / 2 + gi * 1.9 + bi * 2.1; bud.shellSpin = (gi % 2 ? -1 : 1) * (spec.spin || 1.2); }
+        if (shelled) { bud.shell = true; bud.shellAngle = Math.PI / 2 + gi * 1.9 + bi * 2.1; bud.shellSpin = (gi % 2 ? -1 : 1) * shellFor(levelId).spin; bud.shellGap = shellFor(levelId).gap; }
         if (briar) bud.briar = true;
         buds.push(bud);
         k++;
@@ -331,7 +341,7 @@
   }
 
   return Object.freeze({ levels: LEVELS.map(function (level) { return { id: level.id, key: level.key, name: level.name, twist: level.twist, waves: WAVES }; }),
-    total: TOTAL, waveCount: WAVES, free: FREE, checkpoint: CHECKPOINT, puffReach: PUFF_REACH, product: PRODUCT, entitlement: ENTITLEMENT,
+    total: TOTAL, waveCount: WAVES, free: FREE, checkpoint: CHECKPOINT, puffReach: PUFF_REACH, shells: SHELLS, shellFor: shellFor, product: PRODUCT, entitlement: ENTITLEMENT,
     bosses: BOSSES.map(function (boss) { return Object.assign({}, boss); }),
     level: byId, wave: wave, starsFor: starsFor, normalize: normalize, unlocked: unlocked, record: record });
 });

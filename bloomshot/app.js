@@ -1720,8 +1720,7 @@
     if (bud.foe && window.BloomFoes && window.BloomFoes.guard(game, bud, { ...hit, time: hit.t }, ball)) return true; // a foe's guard (a crystal turning a seed of another color away) is no finale either
     if (bud.shield && hit.ny > .28) return true;
     if (!bud.shell) return false;
-    const a = (bud.shellAngle || 0) + (bud.shellSpin || 0) * hit.t;
-    return hit.nx * Math.cos(a) + hit.ny * Math.sin(a) < .34;
+    return !window.BloomRush.shellOpen(bud, hit.nx, hit.ny, hit.t);
   }
   // Does this bloom end the wave? A boss blooms the rest of its wave (and calls off its reinforcements); anything
   // else must leave nothing open that is not already on its way to blooming.

@@ -15,7 +15,11 @@
   const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
   const FLOWER_TIME = { sunny: 4, root: 4, puff: 4.5, crystal: 4.5, lotus: 2.5, fossil: 4.5, ember: 3, geode: 5, briar: 5, core: 4.5 };
   const FLOWER_TEXT = { sunny: 'Warmth swells the buds.', root: 'The roots are shrinking the buds.', puff: 'A soft spore veil is settling.', crystal: 'The buds are swaying sideways.', lotus: 'The lake is lifting the flowers.', fossil: 'Shells are closing around the buds.', ember: 'Marked flowers are catching fire.', geode: 'A crystal ring is growing.', briar: 'Thorns are taking a whole patch.', core: 'The flowers are making echoes.' };
-  const flowerFields = ['r', 'shell', 'shellAngle', 'shellSpin', 'briar', 'relay', 'bossFlameUntil'];
+  // The Ammonite Queen's mouth (and her lock) open QUEEN_GAP radians either side and her mouth turns QUEEN_SPIN a
+  // second: open about 2.8 s a turn, back within 3.9 s. Flowers she turns to stone open as wide as Level 6's shells
+  // (depths.js SHELLS) and turn .9 a second, so they are never shut longer than 3.9 s either.
+  const QUEEN_GAP = Math.acos(.25), QUEEN_SPIN = .95, FOSSIL_FLOWER_GAP = 1.40;
+  const flowerFields = ['r', 'shell', 'shellAngle', 'shellSpin', 'shellGap', 'briar', 'relay', 'bossFlameUntil'];
   // Guardian kits (the first five guardians): three tiers of moves, a mood per tier, and the hooks each kit uses. A guardian
   // without a kit plays exactly as before. Kits are defined at the end of this file, one block each.
   const KITS = Object.create(null), TIER_PACE = [1, .9, .8];
@@ -110,7 +114,7 @@
       if(kind==='puff')effect.opacity=.4;
       if(kind==='crystal')effect.amplitude=16;
       if(kind==='lotus')effect.lift=12;
-      if(kind==='fossil'){p.shell=true;p.shellAngle=Math.PI/2;p.shellSpin=.9;}
+      if(kind==='fossil'){p.shell=true;p.shellAngle=Math.PI/2;p.shellSpin=.9;p.shellGap=FOSSIL_FLOWER_GAP;}
       if(kind==='ember')p.bossFlameUntil=s.age+FLOWER_TIME[kind];
       if(kind==='geode'){
         record.health={hp:p.hp,maxHp:p.maxHp};p.hp=Math.min(3,p.hp+1);p.maxHp=Math.max(p.maxHp,p.hp);s.flowerUsed.add(p.id);
@@ -162,7 +166,7 @@
     if (s.kind === 'sunny') { s.mode = 'sleeping'; s.vulnerable = false; part(game, 'bubble', boss.x, boss.y + 46, 18, 1); }
     if (s.kind === 'crystal') { s.mode = 'split'; boss.hidden = true; boss.visible = false; for (let n = 0; n < 3; n++) part(game, 'heart', boss.x + (n - 1) * 64, boss.y, 22, 1, { real: n === 1, slot: n }); }
     if (s.kind === 'lotus') { part(game, 'lantern', boss.x + 40, boss.y + 8, 11, 1); s.weakspot = 'lantern'; }
-    if (s.kind === 'fossil') { s.mode = 'lock-mouth'; boss.shell = true; boss.shellAngle = Math.PI / 2; boss.shellSpin = .75; s.shellBaseSpin=.75;s.lockAngle = Math.PI / 2; s.lockSpin=1.05;s.lockStage = 0; }
+    if (s.kind === 'fossil') { s.mode = 'lock-mouth'; boss.shell = true; boss.shellAngle = Math.PI / 2; boss.shellSpin = QUEEN_SPIN; boss.shellGap = QUEEN_GAP; s.shellBaseSpin=QUEEN_SPIN;s.lockAngle = Math.PI / 2; s.lockSpin=1.05;s.lockStage = 0; }
     if (s.kind === 'ember') { s.mode = 'flame'; s.vulnerable = false; }
     if (s.kind === 'geode') { s.mode = 'crust'; for (let n = 0; n < 4; n++) part(game, 'plate', boss.x, boss.y, 13, 2, { slot: n }); }
     if (s.kind === 'briar') { s.mode = 'skirt'; s.next = 2.2; }
@@ -501,7 +505,7 @@
     if (fling) p.y = Math.min(p.y, game.dangerY - 70);
     p.carried = null; const s = game.bossState; if (s) s.carried = s.carried.filter(b => b !== p);
   }
-  function shellOpen(angle, hit) { return hit.nx * Math.cos(angle) + hit.ny * Math.sin(angle) >= .25; }
+  function shellOpen(angle, hit) { return hit.nx * Math.cos(angle) + hit.ny * Math.sin(angle) >= Math.cos(QUEEN_GAP); }
   function burns(game, bud, seed) {
     const s=active(game),yes=Boolean(s && s.kind==='ember' && bud===s.boss && s.mode==='flame' && !(seed.gateHops>0) && !['beeline','sunburst'].includes(seed.power));
     const k=yes?kitOf(s):null; if(k && k.burned) k.burned(game,s,seed); return yes; // Cinder Catch: a kit sees each burned seed (Ember kit)

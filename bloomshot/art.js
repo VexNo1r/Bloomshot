@@ -2489,12 +2489,14 @@
 
   // A fossil shell turns around its bud. Shots only get in through the open side, so the gap is drawn wide and
   // clean; the coiled whorl at one lip makes it read as a shell rather than a ring.
-  const SHELL_OPEN = Math.acos(.34);
+  // The opening is the same shellGap the hit rule uses (rush.js shellGap), so what you see is what lets a seed in.
+  const SHELL_GAP = Math.acos(.34);
+  const shellGap = bud => root.BloomRush && root.BloomRush.shellGap ? root.BloomRush.shellGap(bud) : Number.isFinite(bud.shellGap) && bud.shellGap > 0 ? bud.shellGap : SHELL_GAP;
   function shellPath(ctx, r, open) {
     ctx.beginPath(); ctx.arc(0, 0, r + 2.7, open, TAU - open); ctx.arc(0, 0, r - 2.7, TAU - open, open, true); ctx.closePath();
   }
   function drawShell(ctx, bud) {
-    const r = (Number(bud.r) || 11) + 4.6, a = Number(bud.shellAngle) || 0, open = bud.boss && bud.bossKind === 'fossil' ? Math.acos(.25) : SHELL_OPEN;
+    const r = (Number(bud.r) || 11) + 4.6, a = Number(bud.shellAngle) || 0, open = shellGap(bud);
     ctx.save(); ctx.translate(bud.x, bud.y); ctx.rotate(a);
     shellPath(ctx, r, open); ctx.fillStyle = '#ecd8ab'; ctx.fill();
     ctx.save(); ctx.clip();

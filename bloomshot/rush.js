@@ -18,9 +18,17 @@
   // dropped and says so ('dry'); a kept tap that still cannot fire in time says why ('dropped').
   const BOSS_BODY = new Set(['bubble', 'heart', 'lantern', 'plate', 'satellite']);
   const POD = 4, POD_GAP = .15, POD_REGROW = 6, REFUND = .5, GLANCE = .25, KEEP = .15, HELD = .2, AIM_KEEP = .6;
-  // A turning shell lets a shot through only near its opening (about 140 degrees of the circle). Briars
-  // grow back unless their whole patch blooms within a few seconds of the first one.
-  const SHELL_OPEN = .34, REGROW = 4;
+  // A turning shell lets a shot through only near its opening: within shellGap radians either side of shellAngle
+  // (each level sets its own, depths.js SHELLS; a shell without one opens about 140 degrees). art.js draws the
+  // opening from the same shellGap and the aim line asks shellOpen. Briars grow back unless their whole patch
+  // blooms within a few seconds of the first one.
+  const SHELL_GAP = Math.acos(.34), REGROW = 4;
+  const shellGap = bud => Number.isFinite(bud.shellGap) && bud.shellGap > 0 ? bud.shellGap : SHELL_GAP;
+  // Is the direction (nx, ny) from the bud's middle inside its opening t seconds from now?
+  const shellOpen = (bud, nx, ny, t = 0) => {
+    const a = (bud.shellAngle || 0) + (bud.shellSpin || 0) * t;
+    return nx * Math.cos(a) + ny * Math.sin(a) >= Math.cos(shellGap(bud));
+  };
   // Powerups. Sunburst blooms everything within reach of its first touch, Dandelion fans into three seeds,
   // Bee Line flies through flowers (cups and shells too) and blooms each one, Lullaby stops the falling for a
   // few seconds. A free gift floats down every other regular wave; shooting it keeps the powerup.
@@ -616,7 +624,7 @@
       if ((bud.boss || bud.bossPart) && Bosses && this.bossState) return !Bosses.canHit(this, bud, hit, this.striker || {});
       if (bud.foe && Foes && Foes.guard(this, bud, hit, this.striker)) return true;
       if (bud.shield && hit.ny > .28) return true;
-      return Boolean(bud.shell) && hit.nx * Math.cos(bud.shellAngle || 0) + hit.ny * Math.sin(bud.shellAngle || 0) < SHELL_OPEN;
+      return Boolean(bud.shell) && !shellOpen(bud, hit.nx, hit.ny);
     }
     _loadWave() {
       const missed = this.buds.find(bud => bud.gift);
@@ -869,5 +877,6 @@
     }
   }
   return { RushGame, tempoFor, fireDelayFor, descentFor, SUN_REACH, LULLABY, GIFT_EVERY, SHOT_POWERS,
-    COMBO_WINDOW, SUN_FULL, FIRST_FILL, SUPER_TIME, SUPER_DELAY, PIERCE, CLOSE_BAND, TRICKS, POD, POD_GAP, POD_REGROW, REFUND, GLANCE, KEEP, HELD, AIM_KEEP, bossMotion };
+    COMBO_WINDOW, SUN_FULL, FIRST_FILL, SUPER_TIME, SUPER_DELAY, PIERCE, CLOSE_BAND, TRICKS, POD, POD_GAP, POD_REGROW, REFUND, GLANCE, KEEP, HELD, AIM_KEEP, bossMotion,
+    SHELL_GAP, shellGap, shellOpen };
 });
