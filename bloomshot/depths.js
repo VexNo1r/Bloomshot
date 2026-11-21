@@ -368,15 +368,17 @@
   }
   // Only a beaten guardian can be rematched, and a paid level's only while the levels unlock is owned.
   function hallOpen(progress, hall, id, ownsFull) { return beaten(progress, hall, id) && (id <= FREE || Boolean(ownsFull)); }
+  // A rematch is timed in tenths of a second: the time judged against par is the time saved and shown.
+  function tenths(seconds) { return Math.round(Math.max(.1, Number(seconds) || 0) * 10) / 10; }
   function ribbonFor(id, result) {
     if (!result || !result.won || !byId(id)) return '';
     if ((Number(result.livesLost) || 0) > 0) return 'bronze';
-    return Number(result.seconds) <= PAR[id] ? 'gold' : 'silver';
+    return tenths(result.seconds) <= PAR[id] ? 'gold' : 'silver';
   }
   function hallRecord(hall, id, result) {
     var next = hallNormalize(hall), before = next[id] || null, ribbon = ribbonFor(id, result);
     if (!ribbon) return { hall: next, ribbon: '', newRibbon: false, newBest: false };
-    var seconds = Math.round(Math.max(.1, Number(result.seconds) || 0) * 10) / 10;
+    var seconds = tenths(result.seconds);
     var best = before ? Math.min(before.bestTime, seconds) : seconds, kept = before && ribbonRank(before.ribbon) > ribbonRank(ribbon) ? before.ribbon : ribbon;
     next[id] = { wins: Math.min(Number.MAX_SAFE_INTEGER, (before ? before.wins : 0) + 1), bestTime: best, ribbon: kept };
     return { hall: next, ribbon: ribbon, newRibbon: !before || ribbonRank(ribbon) > ribbonRank(before.ribbon), newBest: Boolean(before) && seconds < before.bestTime };
@@ -386,5 +388,5 @@
     total: TOTAL, waveCount: WAVES, free: FREE, checkpoint: CHECKPOINT, puffReach: PUFF_REACH, shells: SHELLS, shellFor: shellFor, product: PRODUCT, entitlement: ENTITLEMENT,
     bosses: BOSSES.map(function (boss) { return Object.assign({}, boss); }),
     level: byId, wave: wave, starsFor: starsFor, normalize: normalize, unlocked: unlocked, record: record,
-    hall: Object.freeze({ ribbons: RIBBONS.slice(), par: Object.freeze(Object.assign({}, PAR)), normalize: hallNormalize, beaten: beaten, open: hallOpen, ribbonFor: ribbonFor, record: hallRecord, rank: ribbonRank }) });
+    hall: Object.freeze({ ribbons: RIBBONS.slice(), par: Object.freeze(Object.assign({}, PAR)), normalize: hallNormalize, beaten: beaten, open: hallOpen, ribbonFor: ribbonFor, tenths: tenths, record: hallRecord, rank: ribbonRank }) });
 });

@@ -256,7 +256,7 @@ test('Ribbons follow lives and par; a lost rematch writes nothing and counts no 
   assert.match(app.$('result-message').textContent, /Keep all 3 lives for silver/);
   app.click('retry-btn'); app.frame(); shoot(app); win(app, Depths.hall.par[4] + .5);
   assert.equal(app.saved().hall[4].ribbon, 'silver', 'clean but over par is silver');
-  assert.equal(app.$('result-message').textContent, `No lives lost! Under 1:00 wins gold.`);
+  assert.equal(app.$('result-message').textContent, 'No lives lost! Win in 1:00 or less for gold.');
   app.click('retry-btn'); app.frame(); shoot(app); lose(app);
   assert.deepEqual(app.saved().hall[4], { wins: 2, bestTime: 5, ribbon: 'silver' }, 'a loss changes nothing');
   assert.deepEqual(economy(app.saved()), before, 'and still no boss loss, seeds or goals');
@@ -300,6 +300,24 @@ test('A rematch won as the app closes keeps its ribbon: the guardian\'s cascade 
   const hall = app.saved().hall;
   assert(hall && hall[1] && hall[1].wins === 1 && hall[1].ribbon === 'gold', JSON.stringify(hall));
   assert(Math.abs(hall[1].bestTime - 10) < .2, 'with the time at the guardian\'s bloom');
+});
+
+test('The time shown is the time judged: rounded to tenths alike on the result, the save and the Hall card', () => {
+  const app = boot(player({}, 2));
+  const timed = (id, seconds) => { const game = rematch(app, id); game.hallTime = seconds; const boss = game.buds.find(b => b.boss); boss.hp = 1; game.bloom(boss);
+    assert(app.run(8, () => app.$('result-dialog').open), 'the result shows'); };
+  const label = () => app.$('result-dialog').querySelector('.score-label').textContent;
+  timed(1, Depths.hall.par[1] + .04);
+  assert.deepEqual(app.saved().hall[1], { wins: 1, bestTime: Depths.hall.par[1], ribbon: 'gold' }, 'a time that shows as par is gold');
+  assert.equal(app.$('result-score').textContent, '0:20.0'); assert.equal(label(), 'Time', 'a first win has no earlier best to show');
+  assert.equal(app.$('result-message').textContent, 'No lives lost, in 0:20 or less. Wonderful!');
+  app.click('retry-btn'); app.frame(); shoot(app); app.game().hallTime = Depths.hall.par[1] + .06; const boss = app.game().buds.find(b => b.boss); boss.hp = 1; app.game().bloom(boss);
+  assert(app.run(8, () => app.$('result-dialog').open));
+  assert.equal(app.$('result-score').textContent, '0:20.1'); assert.equal(label(), 'Time · best 0:20.0');
+  app.click('next-btn'); app.click('hall-back');
+  timed(2, 18.46);
+  assert.equal(app.$('result-score').textContent, '0:18.5'); assert.equal(label(), 'Time');
+  app.click('next-btn'); assert.match(app.$('hall-list').innerHTML, /best 0:18\.5/);
 });
 
 test('A gift caught in a rematch is lent for it only, and is spent before the player\'s own', () => {

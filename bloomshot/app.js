@@ -357,9 +357,11 @@
   const hallBeaten = id => Depths.hall.beaten(save.depths, hallSave(), id);
   const hallOpen = id => Depths.hall.open(save.depths, hallSave(), id, depthsOwned());
   const hallShown = () => !reviewBosses && Depths.levels.some(level => hallBeaten(level.id));
-  // Hall times read m:ss, with tenths on the cards and results so a time just over par never reads as par.
-  const clock = (seconds, tenths = true) => { const t = Math.max(0, Number(seconds) || 0), whole = tenths ? Math.floor(t * 10) / 10 : Math.floor(t), m = Math.floor(whole / 60), rest = whole - m * 60;
-    return `${m}:${String(Math.floor(rest)).padStart(2, '0')}${tenths ? `.${Math.round((rest % 1) * 10) % 10}` : ''}`; };
+  // Hall times read m:ss, with tenths on the cards and results so a time just over par never reads as par. Tenths
+  // round as the save and the ribbon do (Depths.hall.tenths), so the time shown is the time judged; the running clock
+  // shows whole seconds.
+  const clock = (seconds, tenths = true) => { const t = Math.max(0, Number(seconds) || 0), n = tenths ? Math.round(t * 10) : Math.floor(t) * 10, m = Math.floor(n / 600), s = Math.floor(n % 600 / 10);
+    return `${m}:${String(s).padStart(2, '0')}${tenths ? `.${n % 10}` : ''}`; };
   const hallSeconds = () => game.hallTime ?? (Number.isFinite(game.hallFrom) ? game.time - game.hallFrom : 0);
   const hallClock = () => `Hall · ${clock(hallSeconds(), false)}`;
   const clearTitle = () => isTaste() ? 'Nice run!' : isHall() ? 'Rematch won!' : `Level ${game.plan.id} clear!`;
@@ -852,7 +854,7 @@
   const hallGoing = () => inProgress() && isHall() ? game.plan.id : 0;
   function hallGoal(id) {
     const record = hallSave()[id], par = clock(Depths.hall.par[id], false);
-    return !record ? 'Win it for bronze' : record.ribbon === 'bronze' ? 'Keep all 3 lives for silver' : record.ribbon === 'silver' ? `Gold: no lives lost, under ${par}` : 'Top ribbon won!';
+    return !record ? 'Win it for bronze' : record.ribbon === 'bronze' ? 'Keep all 3 lives for silver' : record.ribbon === 'silver' ? `Gold: no lives lost, ${par} or less` : 'Top ribbon won!';
   }
   function renderHall() {
     const counts = hallCounts(), going = hallGoing();
@@ -3152,7 +3154,7 @@
         if (isHall()) {
           // A Guardian Hall rematch records its ribbon and best time, and nothing else: no seeds, goals, stars or best.
           const id = game.plan.id, won = event.type === 'won', before = hallSave()[id] || null;
-          const seconds = game.hallTime ?? hallSeconds();
+          const seconds = Depths.hall.tenths(game.hallTime ?? hallSeconds());
           const recorded = Depths.hall.record(hallSave(), id, { won, livesLost: 3 - game.lives, seconds });
           if (won) { save.hall = recorded.hall; persist(); }
           hallNews = { won, seconds, ribbon: recorded.ribbon, newRibbon: recorded.newRibbon, newBest: recorded.newBest, before };
@@ -3434,7 +3436,7 @@
     $('result-title').textContent = won ? boss.name : 'Not this time';
     $('result-stars').hidden = true; $('garden-reward').hidden = true; $('result-goals').hidden = true; $('share-btn').hidden = true;
     $('result-message').textContent = won
-      ? news.ribbon === 'gold' ? `No lives lost, under ${clock(par, false)}. Wonderful!` : news.ribbon === 'silver' ? `No lives lost! Under ${clock(par, false)} wins gold.` : 'Keep all 3 lives for silver.'
+      ? news.ribbon === 'gold' ? `No lives lost, in ${clock(par, false)} or less. Wonderful!` : news.ribbon === 'silver' ? `No lives lost! Win in ${clock(par, false)} or less for gold.` : 'Keep all 3 lives for silver.'
       : `${boss.name} is still awake. Try a new angle.`;
     scoreLabel.textContent = won ? news.newBest ? 'New best time!' : record && record.bestTime < news.seconds ? `Time · best ${clock(record.bestTime)}` : 'Time' : 'Best time';
     scoreLabel.classList.toggle('best', Boolean(won && news.newBest));
