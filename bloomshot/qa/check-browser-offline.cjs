@@ -15,7 +15,7 @@ const types={'.js':'text/javascript','.css':'text/css','.html':'text/html','.jso
   try{const body=target===path.join(root,'sw.js')&&updating?worker.replace(`const VERSION = '${version}'`,`const VERSION = '${version}-update-check'`):fs.readFileSync(target);res.writeHead(200,{'Content-Type':types[path.extname(target)]||'application/octet-stream','Cache-Control':'no-store'}).end(body)}catch{res.writeHead(404).end()}
  });await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  const url=`http://127.0.0.1:${server.address().port}/?alllevels&bosses`;
- browser=await chromium.launch({headless:true,executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe'});
+ browser=await chromium.launch({headless:true,executablePath:process.env.BLOOMSHOT_CHROME || (fs.existsSync('C:/Program Files/Google/Chrome/Application/chrome.exe') ? 'C:/Program Files/Google/Chrome/Application/chrome.exe' : undefined)});
  const context=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true});const page=await context.newPage();page.setDefaultTimeout(45000);
  page.on('pageerror',e=>errors.push(e.message));
  await page.addInitScript(()=>{if(!localStorage.getItem('bloomshot.qa.v1'))localStorage.setItem('bloomshot.qa.v1',JSON.stringify({version:1,tutorial:true,garden:{seeds:37},settings:{sound:false,music:false,motion:false}}));});

@@ -299,7 +299,7 @@ test('A guardian fight\'s second lost life and its free Lullaby, in the same fra
   // "1 life left" line before a screen reader read it.
   for (const id of [1, 4, 7]) {
     const app = level(player(), id, {}, '?alllevels'); app.run(1.3);
-    const game = app.game(); bossWave(app); app.run(2);
+    const game = app.game(); bossWave(app); app.run(3); // past the name card, which holds pop-ups back
     game.lives = 2;
     const bud = game.buds.find(b => !b.bloomed && !b.gift && !b.foe && !b.boss && !b.bossPart && !b.hidden && !b.inert);
     assert(bud, `L${id}: a flower to let through`);
@@ -419,6 +419,41 @@ test('A boss wave drops its big bloom from 140 px, then its name card and health
   const banner = game.floaters.find(f => f.kind === 'wave');
   assert.equal(banner.text, 'Mother Morel bloomed!'); assert.equal(banner.label, 'everything blooms');
   assert.match(app.$('announcement').textContent, /^Mother Morel bloomed\./);
+});
+test('A guardian lands on a clean board: pop-ups and headlines wait for its name card, chain praise is dropped, its own tip still shows', () => {
+  const app = level(player(), 1, {}, '', { timers: true }); app.run(1.3);
+  const game = app.game(), boss = bossWave(app, 'Old Sunny'), log = toastLog(app);
+  assert(app.run(1.5, () => app.cues('bossLand').length > 0), 'it lands'); quietBoss(game);
+  const vine = game.stage.vine, cardUp = () => vine.cardUntil > game.time;
+  assert(cardUp(), 'the name card is up');
+  game.events.push({ type: 'giftAppear', power: 'lullaby', x: 210, y: 60 });
+  game.events.push({ type: 'gift', power: 'lullaby', x: 210, y: 60 });
+  game.events.push({ type: 'chainEnd', chain: 10 }); app.frame();
+  assert(cardUp(), 'still within the card');
+  assert(!app.$('toast').classList.contains('visible') && !log.some(text => text.startsWith('Gift bubble')), `no toast over the card (${log.join(' | ')})`);
+  assert.deepEqual(plain(game.floaters.filter(f => f.kind === 'title' || f.kind === 'wave' || f.kind === 'combo').map(f => f.text)), ['Old Sunny'], 'only the name card is up');
+  // The guardian's own tip (a seed turned away) is part of its entrance and still pops up.
+  game.events.push({ type: 'shield', bud: boss, x: boss.x, y: boss.y }); app.run(.1); // past the gift's hit-stop
+  assert(cardUp(), 'still within the card');
+  assert.equal(log.at(-1), 'Pop the bubble first', 'the guardian\'s tip shows over its card');
+  assert(app.run(2, () => !cardUp() && log.some(text => text.startsWith('Gift bubble'))), `the waiting gift toast shows once the card has gone (${log.join(' | ')})`);
+  assert(game.floaters.some(f => f.kind === 'wave' && f.text === '+1 Lullaby'), 'the waiting gift headline shows after the card');
+  assert(!game.floaters.some(f => f.kind === 'combo'), 'late chain praise was dropped, not kept');
+  // Nothing waits once the card is down (and the gift's headline, which outranks praise, has gone).
+  app.run(1.5); game.events.push({ type: 'chainEnd', chain: 10 }); app.run(.1);
+  assert(game.floaters.some(f => f.kind === 'combo'), 'praise after the card shows as usual');
+});
+test('A charged Split that cannot go yet says "Split soon" with seeds in the air, and "Fire first" with none', () => {
+  const app = level(player(), 1); app.run(1.3);
+  const game = app.game(), split = app.$('split-btn'); game.started = true; game.status = 'flying';
+  game.splitCharge = 1; app.$('pause-dialog').open = true; // the board holds, the buttons still update
+  const seed = () => ({ x: 210, y: 300, vx: 0, vy: -200, r: 5, trail: [] });
+  game.balls = [1, 2, 3, 4].map(seed); app.frame();
+  assert.equal(split.textContent, 'Split soon'); assert(split.disabled && split.classList.contains('waiting'), 'dimmed, not pressable');
+  game.balls = []; app.frame();
+  assert.equal(split.textContent, 'Fire first');
+  game.balls = [seed()]; app.frame();
+  assert.equal(split.textContent, 'Split! +2'); assert(!split.disabled);
 });
 test('A guardian crit near the top of the board is called out below her name and health vine (y >= 70), a low one where it landed', () => {
   // The vine pill (y 5-31) and the name (y 37) are drawn over the floaters, so a word stamped higher lost its top.

@@ -29,10 +29,43 @@ const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css
 const hash = file => crypto.createHash('sha256').update(fs.readFileSync(path.join(root, file))).digest('hex');
 const sourceFiles = fs.readdirSync(root).filter(file => /\.(js|css|html)$/.test(file)), startHashes = Object.fromEntries(sourceFiles.map(file => [file, hash(file)]));
 const rows = [], errors = []; let browser;
+// In the page: each visible button in `selector` takes a tap 21.5 px from its centre on every side (its 44 px hit ring),
+// unless that spot is nearer another button's face (two close buttons share the gap between them), and its own centre
+// is never taken by a neighbour's ring.
+function hitRings(selector) {
+  const out = [];
+  for (const el of document.querySelectorAll(selector)) {
+    const r = el.getBoundingClientRect(); if (!r.width || getComputedStyle(el).visibility === 'hidden') continue;
+    const cx = r.x + r.width / 2, cy = r.y + r.height / 2, owner = (x, y) => document.elementFromPoint(x, y)?.closest('button');
+    if (owner(cx, cy) !== el) out.push(`${el.id}: centre taken by ${owner(cx, cy)?.id}`);
+    for (const [dx, dy] of [[-21.5, 0], [21.5, 0], [0, -21.5], [0, 21.5]]) {
+      const x = cx + dx, y = cy + dy; if (x < 0 || y < 0 || x >= innerWidth || y >= innerHeight) continue;
+      const hit = owner(x, y);
+      const gap = rect => Math.hypot(Math.max(rect.left - x, 0, x - rect.right), Math.max(rect.top - y, 0, y - rect.bottom));
+      if (hit !== el && !(hit && gap(hit.getBoundingClientRect()) <= gap(r))) out.push(`${el.id}: ${dx},${dy} goes to ${hit?.id || document.elementFromPoint(x, y)?.className || 'nothing'}`);
+    }
+    if (r.width > 44.5 || r.height > 44.5) out.push(`${el.id}: drawn larger than before (${r.width}x${r.height})`);
+  }
+  return out;
+}
+// In the page: the small white-on-colour labels read at 4.5:1 or better. Probes are built from the real classes.
+function labelContrast() {
+  const lum = rgb => { const c = rgb.match(/[\d.]+/g).slice(0, 3).map(v => { v /= 255; return v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }); return .2126 * c[0] + .7152 * c[1] + .0722 * c[2]; };
+  const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); };
+  const box = document.createElement('div'); box.style.cssText = 'position:fixed;left:-999px;top:0'; document.body.append(box);
+  const probes = ['<span class="help-number">1</span>', '<span class="power-chip"><span class="power-count">3</span></span>', '<span class="power-chip empty"><span class="power-count">0</span></span>',
+    ...['', 'green', 'gold', 'sky', 'meadow', 'moon', 'koi'].map(tone => `<span class="card-tag ${tone}">Tag</span>`)];
+  box.innerHTML = probes.join('');
+  const rows = [...box.children].map(el => { const t = el.matches('.power-chip') ? el.firstElementChild : el, css = getComputedStyle(t); return { label: t.className + (el !== t ? ` in ${el.className}` : ''), ratio: ratio(css.color, css.backgroundColor) }; });
+  box.remove();
+  const tag = document.getElementById('level-label'), theme = document.body.dataset.theme; document.body.dataset.theme = 'depth-fossil';
+  const css = getComputedStyle(tag); rows.push({ label: 'Level 6 level-tag', ratio: ratio(css.color, css.backgroundColor) }); document.body.dataset.theme = theme;
+  return rows.filter(row => !(row.ratio >= 4.5)).map(row => `${row.label} ${row.ratio.toFixed(2)}`);
+}
 function intersect(a, b) { return Math.min(a.x + a.width, b.x + b.width) > Math.max(a.x, b.x) + 1 && Math.min(a.y + a.height, b.y + b.height) > Math.max(a.y, b.y) + 1; }
 async function main() {
   fs.mkdirSync(output, { recursive: true });
-  browser = await chromium.launch({ headless: true, executablePath: process.env.BLOOMSHOT_CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe' });
+  browser = await chromium.launch({ headless: true, executablePath: process.env.BLOOMSHOT_CHROME || (fs.existsSync('C:/Program Files/Google/Chrome/Application/chrome.exe') ? 'C:/Program Files/Google/Chrome/Application/chrome.exe' : undefined) });
   for (const size of sizes) {
     const key = `${size.width}x${size.height}`, context = await browser.newContext({ viewport: { width: size.width, height: size.height }, deviceScaleFactor: 2, isMobile: !size.desktop, hasTouch: !size.desktop, serviceWorkers: 'block' });
     const page = await context.newPage();
@@ -71,6 +104,7 @@ async function main() {
       assert(scene && scene.width === size.width && scene.height === size.height && scene.x === 0 && scene.y === 0, `${key} ${label}: scene fills viewport`);
       if (state.tutorial !== 'on') {
         assert(state.rects['back-btn'], `${key} ${label}: visible exit control`);
+        assert.deepEqual(await page.evaluate(hitRings, '.app-header .icon-button'), [], `${key} ${label}: 44px header tap targets`);
         // The levels show a round 44 px pause button in the header, clear of the other header buttons; the puzzle boards have none.
         const pause = state.rects['pause-btn'];
         if (state.mode === 'rush') { assert(pause && pause.width >= 44 && pause.height >= 44, `${key} ${label}: 44px pause button`); for (const id of ['back-btn', 'sound-btn', 'help-btn', 'settings-btn']) if (state.rects[id]) assert(!intersect(pause, state.rects[id]), `${key} ${label}: pause clear of ${id}`); }
@@ -120,6 +154,9 @@ async function main() {
     else { assert.equal(map.shell.width, size.width, `${key}: the menus fill the screen`); assert.deepEqual(map.notes, [false, false], `${key}: no desktop notes on a touch screen`); }
     rows.push({ size: key, safeTop: size.top, safeBottom: size.bottom, label: 'Levels map', ...map });
     await longToast('Levels map');
+    // Header icons answer a 44 px tap without being drawn bigger, and the small labels read clearly.
+    assert.deepEqual(await page.evaluate(hitRings, '.header-actions .icon-button'), [], `${key} Levels map: 44px header tap targets`);
+    assert.deepEqual(await page.evaluate(labelContrast), [], `${key}: small labels read at 4.5:1`);
     // How to play's Who's who, every entry shown (the review link): all 34 cards and pictures fit the dialog with no
     // sideways scroll and no clipped text, in two columns where the dialog is wide enough and one on phones.
     // Each guide picture's pixels just before the board drawing, so what it drew can be told from a backing under it.
@@ -190,6 +227,7 @@ async function main() {
       const r = d.getBoundingClientRect(), c = document.getElementById('close-help').getBoundingClientRect();
       return { scrolled: d.scrollTop, dialog: { x: r.x, y: r.y, right: r.right }, close: { x: c.x, y: c.y, right: c.right, bottom: c.bottom } };
     });
+    assert.deepEqual(await page.evaluate(hitRings, '#close-help'), [], `${key} Who's who: 44px close tap target`);
     assert(stuck.scrolled > 0 && stuck.close.y >= stuck.dialog.y - .5 && stuck.close.bottom <= stuck.dialog.y + 80 && stuck.close.right <= stuck.dialog.right + .5,
       `${key} Who's who: the close button stays in reach at the bottom of the guide ${JSON.stringify(stuck)}`);
     await page.evaluate(() => { document.getElementById('guide-help').open = false; document.getElementById('levels-help').open = true; document.getElementById('help-dialog').close(); });

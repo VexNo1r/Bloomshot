@@ -25,7 +25,7 @@ async function geometry(page,label,rush){
  rows.push({label,...g});
 }
 (async()=>{
- fs.mkdirSync(out,{recursive:true});browser=await chromium.launch({headless:true,executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe'});
+ fs.mkdirSync(out,{recursive:true});browser=await chromium.launch({headless:true,executablePath:process.env.BLOOMSHOT_CHROME || (fs.existsSync('C:/Program Files/Google/Chrome/Application/chrome.exe') ? 'C:/Program Files/Google/Chrome/Application/chrome.exe' : undefined)});
  for(const viewport of [{width:360,height:640},{width:390,height:844},{width:820,height:1180}]){
   const key=viewport.width+'x'+viewport.height,context=await browser.newContext({viewport,isMobile:true,hasTouch:true,serviceWorkers:'block'}),page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
   await page.route('**/*',route=>{const u=new URL(route.request().url());assert.equal(u.origin,'http://localhost','no external traffic');const f=path.resolve(root,'.'+(u.pathname==='/'?'/index.html':decodeURIComponent(u.pathname)));if(!f.startsWith(root+path.sep)||!fs.existsSync(f))return route.fulfill({status:404});const ext=path.extname(f),mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.woff2':'font/woff2','.svg':'image/svg+xml','.png':'image/png'};return route.fulfill({contentType:mime[ext]||'application/octet-stream',body:fs.readFileSync(f)});});

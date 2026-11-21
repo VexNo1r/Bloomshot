@@ -10,7 +10,7 @@ const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css
 let browser;
 async function main() {
   fs.mkdirSync(output, { recursive: true });
-  browser = await chromium.launch({ headless: true, executablePath: process.env.BLOOMSHOT_CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe' });
+  browser = await chromium.launch({ headless: true, executablePath: process.env.BLOOMSHOT_CHROME || (fs.existsSync('C:/Program Files/Google/Chrome/Application/chrome.exe') ? 'C:/Program Files/Google/Chrome/Application/chrome.exe' : undefined) });
   for (const viewport of [{ width: 390, height: 844 }, { width: 820, height: 1180 }]) {
     const context = await browser.newContext({ viewport, deviceScaleFactor: 1, isMobile: true, hasTouch: true, serviceWorkers: 'block' });
     const page = await context.newPage(), key = `${viewport.width}x${viewport.height}`;
@@ -34,6 +34,11 @@ async function main() {
     const check = (label, condition) => { assert(condition, `${key}: ${label}`); rows.push({ size: key, label }); };
     await page.goto('http://localhost/?qa', { waitUntil: 'networkidle' }); await advance(1500);
     check('fresh map opens', (await state()).route === 'levels');
+    if (viewport.width < 500) {
+      await page.setViewportSize({ width: viewport.height, height: viewport.width }); await advance(300);
+      check('the sideways note on the map asks to turn upright to play', await page.locator('#orientation-paused').textContent() === 'Turn your phone upright to play.' && await page.locator('#orientation-note').isVisible());
+      await page.setViewportSize(viewport); await advance(300);
+    }
     await click('[data-depth="2"]'); check('locked level does not start', (await state()).route === 'levels');
     await click('[data-depth="1"]'); await advance(1800);
     check('actual level button starts level one', (await state()).level === 1 && (await state()).route === 'game');
@@ -43,6 +48,20 @@ async function main() {
     await page.mouse.move(board.x + board.width * .3, board.y + board.height * .35);
     await page.mouse.down(); await advance(100); await page.mouse.up(); await advance(150);
     check('touch-style aim/release keeps play active', (await state()).status === 'flying');
+    // Turning the phone sideways mid-run pauses it: upright again, the Paused card waits and play counts back in.
+    const note = () => page.locator('#orientation-paused').textContent();
+    if (viewport.width < 500) {
+      await page.setViewportSize({ width: viewport.height, height: viewport.width }); await advance(300);
+      const sideways = await state();
+      check('the sideways note says the run is paused', await note() === 'Your game is paused.');
+      await advance(1500); await page.setViewportSize(viewport); await advance(300);
+      check('upright again shows the Paused card', await page.locator('#pause-dialog').evaluate(el => el.open));
+      await advance(1500);
+      check('play stays still behind the Paused card after rotating back', Math.abs((await state()).elapsed - sideways.elapsed) < .5);
+      await click('#pause-resume');
+      check('resuming after the turn counts in', await page.locator('#resume-count').isVisible());
+      await advance(2400); check('play moves again after the count', (await state()).elapsed > sideways.elapsed);
+    }
     await click('#settings-btn'); const stopped = await state(); await advance(2500);
     check('settings pauses falling flowers', (await state()).elapsed === stopped.elapsed && JSON.stringify((await state()).buds) === JSON.stringify(stopped.buds));
     await click('#privacy-btn');
@@ -53,10 +72,13 @@ async function main() {
     check('animation preference persists', await page.evaluate(() => JSON.parse(localStorage.getItem('bloomshot.qa.v1')).settings.motion === false));
     const pixels = await page.locator('#life-canvas').evaluate(canvas => { const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data; for (let i = 3; i < data.length; i += 4) if (data[i]) return true; return false; });
     check('animation-off removes scene visitors', !pixels);
-    check('closing settings resumes play', (await state()).elapsed > stopped.elapsed);
+    check('closing settings counts back in before play moves', await page.locator('#resume-count').isVisible() && (await state()).elapsed === stopped.elapsed);
+    await advance(1200); check('closing settings resumes play after the count', (await state()).elapsed > stopped.elapsed);
     await click('#help-btn'); check('help opens during play', await page.locator('#help-dialog').evaluate(el => el.open));
     await page.keyboard.press('Escape'); await advance(250);
     check('Escape dismisses help', !await page.locator('#help-dialog').evaluate(el => el.open));
+    check('closing help counts back in', await page.locator('#resume-count').isVisible());
+    await advance(1500);
     await click('#back-btn'); check('exit returns to map', (await state()).route === 'levels');
     await click('#resume-btn'); check('resume restores the active level', (await state()).route === 'game' && (await state()).level === 1);
     await click('#back-btn'); await click('#garden-btn'); check('garden navigation works', (await state()).route === 'garden');
@@ -68,6 +90,8 @@ async function main() {
       await click('#world-preview-btn'); await advance(500);
       check(`${world} free board starts`, (await state()).route === 'game' && String((await state()).level).startsWith(world + '-'));
       await click('#back-btn');
+      check(`${world} board returns to its garden card`, (await state()).route === 'worlds' && await page.locator('#world-dialog').evaluate(el => el.open));
+      await click('#close-world');
     }
     await click('#rush-btn'); await click('#levels-rush-btn'); await advance(1500);
     check('endless Rush starts', (await state()).route === 'game' && (await state()).level === 'rush');

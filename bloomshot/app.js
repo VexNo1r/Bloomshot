@@ -208,6 +208,8 @@
   const dialogs = ['result-dialog', 'settings-dialog', 'privacy-dialog', 'help-dialog', 'world-dialog', 'pause-dialog'];
   // Play holds while a card is open, while a phone is sideways, and while the count after a pause is still running.
   let countLeft = 0, countShown = '';
+  // Whether a card was up over the board on the last frame, so the frame a card goes away on starts the count.
+  let cardsUp = false;
   const holding = () => narrowLandscape.matches || dialogs.some(id => $(id).open) || countLeft > 0;
   // Three filled stars, the unearned ones dimmed, so a row of stars always reads the same width.
   const starHTML = n => '<span>★</span>'.repeat(n) + '<span class="off">★</span>'.repeat(3 - n);
@@ -235,7 +237,23 @@
   // speak: false when the caller has already said it (a guardian's mood line carries its new rule).
   const TOAST_LIFE = 2800, TIP_HELD = 1500;
   let toastAt = -Infinity, tipTimer = null, tipQueue = [], tipShown = null;
+  // A guardian's entrance is its own: while its name card is up, plain pop-ups (a gift bubble, a foe's first hint) and
+  // headlines other than the card wait, and show once it has gone. Chain praise is dropped instead, since a late
+  // "Lovely!" reads wrong. A guardian's own tip (a 'guard:' level tip) still shows.
+  const bossCardUp = () => Boolean(route === 'game' && game && game.stage && game.stage.vine && game.stage.vine.cardUntil > game.time && !game.stage.vine.bud?.bloomed);
+  let heldPopups = [];
+  function holdPopup(entry) { heldPopups = heldPopups.filter(held => held.run === game).concat({ ...entry, run: game }).slice(-4); }
+  function releasePopups() {
+    if (!heldPopups.length || bossCardUp()) return;
+    heldPopups = heldPopups.filter(held => held.run === game && !game.over);
+    // Headlines go back through headline(), which keeps one at a time; an explainer whose effect has run out is gone.
+    for (const held of heldPopups.filter(held => held.item)) if (!held.item.live || game[held.item.live] > 0) headline(held.item);
+    heldPopups = heldPopups.filter(held => !held.item);
+    // Pop-ups show one after another, each given a moment to be read.
+    if (heldPopups.length && performance.now() - toastAt >= TIP_HELD) { const held = heldPopups.shift(); toast(held.text, held.speak); }
+  }
   function toast(text, speak = true, tip = null) {
+    if (!tip && bossCardUp()) { if (!heldPopups.some(held => held.text === text && held.run === game)) holdPopup({ text, speak }); return; }
     // A plain toast (a gift bubble, a foe's first hint) that lands on a tip barely read puts the tip back to show next.
     if (!tip && tipShown && tipShown.tip.run === game && performance.now() - tipShown.at < TIP_HELD && !tipQueue.some(t => t.key === tipShown.tip.key)) {
       game.tipsSeen && game.tipsSeen.delete(tipShown.tip.key); tipQueue.unshift(tipShown.tip);
@@ -277,7 +295,8 @@
     tipQueue = tipQueue.filter(t => t.run === game && !game.over);
     if (!tipQueue.length) return;
     const wait = Math.max(0, toastAt + TOAST_LIFE - performance.now());
-    if (wait || route !== 'game' || holding() || resultShown) { tipTimer = setTimeout(pumpTips, Math.max(wait, 400)); return; }
+    const heldBack = bossCardUp() && !String(tipQueue[0].key).startsWith('guard:');
+    if (wait || route !== 'game' || holding() || resultShown || heldBack) { tipTimer = setTimeout(pumpTips, Math.max(wait, 400)); return; }
     const tip = tipQueue.shift(), text = tip.due ? tip.due() : tip.text;
     if (!text) { pumpTips(); return; }
     tip.text = text;
@@ -441,7 +460,7 @@
   function record() { return isTutorial() ? null : isDepth() ? save.depths[game.plan.id] : isRush() ? save.rush : isChapter() ? save[game.level.worldId][game.level.id] : typeof game.level.id === 'number' ? save.progress[game.level.id] : save.daily[game.level.id]; }
   function localDate() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
   function setRoute(next) {
-    route = next; cancelInteraction();
+    route = next; cancelInteraction(); cardsUp = false;
     if (next !== 'game' && countLeft > 0) { countLeft = 0; renderCount(); }
     for (const name of ['game', 'levels', 'garden', 'collection', 'worlds']) $(`${name}-view`).hidden = next !== name;
     for (const name of ['rush', 'garden', 'collection', 'worlds']) {
@@ -452,7 +471,7 @@
     if (next === 'collection') { keepsakePreview = null; showcase.dirty = true; renderCollection(); }
     if (next === 'worlds') renderWorlds();
     if (next === 'levels') renderLevels();
-    document.body.dataset.view = next;
+    document.body.dataset.view = next; orientationNote();
     $('tutorial').hidden = !(tutorial && next === 'game');
     if (next === 'game') resize();
   }
@@ -587,8 +606,8 @@
       put(split, 'disabled', !game.splitReady);
       // Once the run is over the bar empties, so a full gold Split no longer looks pressable behind the finale.
       putVar(split, '--split-charge', `${game.over ? 0 : game.splitCharge * 100}%`);
-      put(split, 'textContent', game.over ? 'Split' : game.splitReady ? 'Split! +2' : game.splitCharge >= 1 ? game.balls.length ? 'Too many seeds' : 'Fire first' : `Split ${Math.round(game.splitCharge * 6)}/6`);
-      // Charged but not usable this instant (no seed flying, or too many): the gold dims, so it never looks ready.
+      put(split, 'textContent', game.over ? 'Split' : game.splitReady ? 'Split! +2' : game.splitCharge >= 1 ? game.balls.length ? 'Split soon' : 'Fire first' : `Split ${Math.round(game.splitCharge * 6)}/6`);
+      // Charged but not usable this instant (no seed flying, or too many: "Split soon"): the gold dims, so it never looks ready.
       putClass(split, 'waiting', !game.over && !game.splitReady && game.splitCharge >= 1);
       putData(canvas, 'sun', (game.sun || 0).toFixed(2)); putData(canvas, 'mult', game.mult || 1); putData(canvas, 'superBloom', (game.superBloom || 0).toFixed(1));
       put(banner, 'hidden', game.feverTime <= 0);
@@ -1610,6 +1629,7 @@
   const rankOf = item => item.rank || (item.kind === 'title' && item.size === 'small' ? 0 : item.intro ? 2 : HEADLINE[item.kind] || 0);
   function headline(item) {
     if (item.kind === 'life') { game.floaters = game.floaters.filter(f => f.kind !== 'life' && f.kind !== 'combo'); game.floaters.push(item); return true; }
+    if (!item.boss && bossCardUp()) { if (item.kind !== 'combo') holdPopup({ item }); return false; }
     const rank = rankOf(item);
     if (game.floaters.some(f => rankOf(f) > rank && f.life > .25)) return false;
     game.floaters = game.floaters.filter(f => !(rankOf(f) > 0 && rankOf(f) <= rank));
@@ -3544,6 +3564,12 @@
   // Escape or a tap outside the card also resumes, through the same count. The close event arrives a moment late, so a
   // card that has opened again by then (the phone hid once more) stays a plain pause.
   $('pause-dialog').addEventListener('close', () => { if (countLeft <= 0 && !$('pause-dialog').open) startCount(); });
+  // Help, Settings or the privacy page opened mid-run hold the board without the Paused card; closing the last of them
+  // counts back in too. The check waits a microtask, so a card that gives way to another (privacy back to Settings,
+  // Settings to the Paused card) is not taken for the last one closing.
+  // The frame loop catches the same moment first (the close event can come a frame late, after play has moved).
+  for (const id of ['help-dialog', 'settings-dialog', 'privacy-dialog']) $(id).addEventListener('close', () => Promise.resolve().then(cardsClosed));
+  function cardsClosed() { if (dialogs.some(id => $(id).open)) return; cardsUp = false; if (countLeft <= 0) startCount(); }
   // The tutorial plays on the Sunny Meadow board. Finishing it (or skipping) marks it seen; the first time through
   // it leads straight into level 1, and it can be played again from How to play.
   function startTutorial() { if (preview) exitPreview(); startLevel({ id: 'rush', name: 'How to play', tutorial: true }, { theme: depthTheme(1) }); }
@@ -4077,6 +4103,13 @@
     lastFrame = 0; accumulator = 0; if (frameMeter) frameMeter.sample(0, 0, false); cancelInteraction(); musicFrame(performance.now(), true);
   });
   window.addEventListener('pagehide', () => { keepProgress(); pauseGame(true); });
+  // Turning a phone sideways mid-run pauses it like going to another app, so turning it upright again shows the Paused
+  // card and its count, never play that is already moving. The note only says the game is paused when one is.
+  function orientationNote() { put($('orientation-paused'), 'textContent', route === 'game' && inProgress() ? 'Your game is paused.' : 'Turn your phone upright to play.'); }
+  function onOrientation(event) { if (event.matches && inProgress()) pauseGame(true); orientationNote(); }
+  if (typeof narrowLandscape.addEventListener === 'function') narrowLandscape.addEventListener('change', onOrientation);
+  else if (typeof narrowLandscape.addListener === 'function') narrowLandscape.addListener(onOrientation); // older Safari
+  orientationNote();
   function frame(timestamp) {
     if (!sayLines) return sayTogether(frame, timestamp); // what one frame says is read as one announcement
     requestAnimationFrame(frame);
@@ -4094,6 +4127,9 @@
     }
     const dt = Math.min(lastFrame ? (timestamp - lastFrame) / 1000 : 0, .06); lastFrame = timestamp;
     game.quality = Math.max(graphics().effects, governor ? governor.tier : 0);
+    const cardsNow = dialogs.some(id => $(id).open);
+    if (cardsUp && !cardsNow) cardsClosed();
+    cardsUp = cardsNow;
     // The count after a pause runs only while nothing else holds the board (a card on top, a sideways phone).
     if (countLeft > 0 && !narrowLandscape.matches && !dialogs.some(id => $(id).open)) { countLeft = Math.max(0, countLeft - dt); renderCount(); }
     feelStep(dt);
@@ -4105,7 +4141,7 @@
     else if (!paused) {
       accumulator += gdt;
       while (accumulator >= 1 / 120) { game.step(1 / 120); accumulator -= 1 / 120; }
-      processEvents(); bestWatch();
+      processEvents(); releasePopups(); bestWatch();
       for (const ball of game.balls || []) ball.hot = !isRush() && (game.combo || 0) >= 8;
       game.particles = stepParticles(game.particles, gdt, 24, 396, 530);
       // Words age in real time in the tutorial, so a 'Lovely!' does not hang for 13 s while a card waits at 8% speed.

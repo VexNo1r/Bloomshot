@@ -9,7 +9,7 @@ const sha = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 const sourceHashes = Object.fromEntries(Object.entries(sources).map(([name, bytes]) => [name, sha(bytes)]));
 let browser;
 (async () => {
-  browser = await chromium.launch({ headless: true, executablePath: process.env.BLOOMSHOT_CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe' });
+  browser = await chromium.launch({ headless: true, executablePath: process.env.BLOOMSHOT_CHROME || (fs.existsSync('C:/Program Files/Google/Chrome/Application/chrome.exe') ? 'C:/Program Files/Google/Chrome/Application/chrome.exe' : undefined) });
   const page = await browser.newPage(), errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.route('**/*', async route => {
