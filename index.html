@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <!-- Bloomshot playtest bundle of 9f4b43b766e3d0b3476212d717c628f96e9c863b, built from bloomshot/ -->
+  <!-- Bloomshot playtest bundle of 2cd6e66649dbd250ad926e63aa05ea18d95812d7, built from bloomshot/ -->
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#d7f0df">
@@ -74,6 +74,10 @@ button svg{flex-shrink:0}
 body[data-view="game"] .back-button{display:grid}
 .icon-button{width:40px;height:40px;display:grid;place-items:center;border-radius:50%;color:var(--ink-soft);background:var(--cream);box-shadow:inset 0 0 0 2px var(--edge),0 3px 0 var(--edge-dark);transition:transform .15s var(--press)}
 .icon-button svg{width:21px;height:21px}
+/* Header icons and card close buttons answer a 44px touch, whatever size they are drawn: a clear ring around the
+   button takes the tap, so the look and the layout stay as they are. */
+.icon-button,.close-button{position:relative}
+.icon-button::before,.close-button::before{content:"";position:absolute;inset:min(0px,calc(50% - 22px));border-radius:50%}
 .icon-button:active{transform:translateY(2px);box-shadow:inset 0 0 0 2px var(--edge),0 1px 0 var(--edge-dark)}
 .help-button{font:700 20px/1 var(--display)}
 .icon-button.muted .sound-waves{opacity:.15}
@@ -113,7 +117,9 @@ body[data-view="game"] .back-button{display:grid}
 .game-hud{flex:0 0 auto;padding:9px 14px 8px;border-radius:20px;background:var(--cream);box-shadow:var(--tile)}
 .game-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .level-title-group{min-width:0}
-.level-tag{display:inline-block;padding:2px 9px 3px;border-radius:999px;background:var(--accent);color:#fff;font:600 12px/1.2 var(--display);letter-spacing:.2px;box-shadow:0 2px 0 var(--accent-edge);white-space:nowrap}
+/* The tag takes each theme's deep accent: its bright accent is too pale under small white words (Level 1's green
+   read at 2.3:1); every deep accent reads at 5.7:1 or better. */
+.level-tag{display:inline-block;padding:2px 9px 3px;border-radius:999px;background:var(--accent-deep);color:#fff;font:600 12px/1.2 var(--display);letter-spacing:.2px;box-shadow:0 2px 0 rgba(0,0,0,.22);white-space:nowrap}
 .level-title-group h1{margin-top:4px;font:700 22px/1.1 var(--display);color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .score-display{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end}
 .score-caption{display:none}
@@ -168,11 +174,11 @@ body[data-mode="rush"] .power-group{display:flex}
 .power-chip[data-power="lullaby"]{--chip-top:#efe6ff;--chip:#c4adff;--chip-edge:#8467dc}
 .power-chip:active{transform:translateY(3px);box-shadow:inset 0 0 0 2px var(--edge-dark),0 1px 0 var(--edge-dark)}
 .power-count{position:absolute;right:-6px;bottom:-5px;min-width:20px;height:20px;padding:0 5px;display:grid;place-items:center;border-radius:999px;
-  font:600 12px/1 var(--display);color:#fff;background:var(--green);box-shadow:inset 0 0 0 1.5px var(--green-edge),0 2px 0 var(--green-edge)}
+  font:600 12px/1 var(--display);color:#fff;background:#238450;box-shadow:inset 0 0 0 1.5px var(--green-deep),0 2px 0 var(--green-deep)}
 .power-chip.got{animation:chip-got .45s cubic-bezier(.3,1.5,.5,1)}
 @keyframes chip-got{35%{transform:scale(1.3)}}
 .power-chip.empty img{filter:saturate(.2);opacity:.5}
-.power-chip.empty .power-count{background:#d9d0bc;box-shadow:inset 0 0 0 1.5px #c3b796,0 2px 0 #c3b796}
+.power-chip.empty .power-count{background:#d9d0bc;color:var(--ink);box-shadow:inset 0 0 0 1.5px #c3b796,0 2px 0 #c3b796}
 .power-chip.empty[data-power]{background:linear-gradient(180deg,#fffef8,var(--cream-2));box-shadow:inset 0 0 0 2px var(--edge-dark),0 4px 0 var(--edge-dark)}
 .power-chip.armed,.power-chip.armed[data-power]{background:linear-gradient(180deg,var(--gold-top),var(--gold));box-shadow:inset 0 0 0 2px var(--gold-edge),0 4px 0 var(--gold-edge),0 0 0 4px #ffe48a90;animation:power-armed 1s ease-in-out infinite}
 .power-chip.active,.power-chip.active[data-power]{background:linear-gradient(180deg,#efe9ff,#d9cdfc);box-shadow:inset 0 0 0 2px #8b74e6,0 4px 0 #6a55c0,0 0 0 4px #c9b8ff80}
@@ -243,13 +249,14 @@ body[data-restart="armed"] .game-hint{opacity:0;transition:opacity .15s}
 button.panel{transition:transform .12s var(--press),box-shadow .12s}
 button.panel:active{transform:translateY(3px);box-shadow:inset 0 0 0 2px var(--edge),0 1px 0 var(--edge-dark)}
 .card-head{display:flex;align-items:center;gap:7px}
-.card-tag{display:inline-block;padding:2px 9px 3px;border-radius:999px;background:var(--pink);color:#fff;font:600 11.5px/1.2 var(--display);letter-spacing:.2px;box-shadow:0 2px 0 var(--pink-edge)}
-.card-tag.green{background:var(--green);box-shadow:0 2px 0 var(--green-edge)}
+/* Small white words need a deep enough colour behind them to read (4.5:1), so tags use the deeper shade of each hue. */
+.card-tag{display:inline-block;padding:2px 9px 3px;border-radius:999px;background:#c4365e;color:#fff;font:600 11.5px/1.2 var(--display);letter-spacing:.2px;box-shadow:0 2px 0 #982849}
+.card-tag.green{background:#238450;box-shadow:0 2px 0 var(--green-deep)}
 .card-tag.gold{background:var(--gold);color:var(--gold-ink);box-shadow:0 2px 0 var(--gold-edge)}
-.card-tag.sky{background:var(--sky);box-shadow:0 2px 0 var(--sky-edge)}
-.card-tag.meadow{background:var(--green);box-shadow:0 2px 0 var(--green-edge)}
+.card-tag.sky{background:#2479a6;box-shadow:0 2px 0 #1b5f84}
+.card-tag.meadow{background:#238450;box-shadow:0 2px 0 var(--green-deep)}
 .card-tag.moon{background:#8063cf;box-shadow:0 2px 0 #5c44a3}
-.card-tag.koi{background:#22a99b;box-shadow:0 2px 0 #167b70}
+.card-tag.koi{background:#167b70;box-shadow:0 2px 0 #0f5c54}
 .card-meta{font:500 13px/1 var(--display);color:var(--ink-soft)}
 
 /* Garden */
@@ -331,6 +338,14 @@ button.panel:active{transform:translateY(3px);box-shadow:inset 0 0 0 2px var(--e
 .today-goal.done .today-ring{background:var(--green) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'%3E%3Cpath d='m6.5 11.2 3 3 6-6.4' fill='none' stroke='%23fff' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/100% no-repeat;box-shadow:0 0 0 1.5px var(--green-edge)}
 .today-name{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 12px/1.1 var(--display);color:var(--ink)}
 .today-goal.done .today-name{color:var(--ink-soft)}
+/* The stars in a short label ("★★★ puzzle") sit a little smaller and closer, so the label fits whole on phones. */
+.today-name .goal-stars{font-size:.84em;letter-spacing:-.08em}
+/* Up to 400 px wide (most phones, iPhone 13 at 390) the strip gives its three goals a little more room. */
+@media(max-width:400px){
+  .today-strip{gap:4px;padding:4px 6px 4px 10px}
+  .today-goals{gap:0}
+  .today-goal{padding:4px 0}
+}
 .today-bonus{flex:0 0 auto;display:inline-flex;align-items:center;gap:4px;padding:5px 9px 6px;border-radius:999px;background:var(--cream-2);box-shadow:inset 0 0 0 2px var(--edge);font:600 13px/1 var(--display);color:var(--ink)}
 .today-bonus .purse-leaf{width:7px;height:11px}
 .today-bonus.done{background:var(--green-soft);box-shadow:none;color:var(--green-deep)}
@@ -633,7 +648,7 @@ dialog[open]{animation:dialog-in .34s var(--press)}
 .help-mode[open]>summary::after{content:"−"}
 .help-steps{list-style:none;margin:0;padding:0 0 4px}
 .help-steps li{display:flex;gap:12px;padding:8px 0}
-.help-number{flex:0 0 28px;height:28px;display:grid;place-items:center;border-radius:50%;background:var(--green);color:#fff;font:700 14px/1 var(--display);box-shadow:0 2px 0 var(--green-edge)}
+.help-number{flex:0 0 28px;height:28px;display:grid;place-items:center;border-radius:50%;background:#238450;color:#fff;font:700 14px/1 var(--display);box-shadow:0 2px 0 var(--green-deep)}
 .help-steps h3{margin-bottom:2px;font:600 16px/1.25 var(--display)}
 .help-steps p{font-size:13.5px;line-height:1.4;color:var(--ink-soft)}
 .help-tip{margin:4px 0 14px;padding:9px 12px;border-radius:14px;background:#fff;font-size:13px;line-height:1.4;color:var(--ink-soft);box-shadow:inset 0 0 0 2px var(--edge)}
@@ -813,6 +828,9 @@ body[data-world="moon"] .desktop-mode-moon,body[data-world="koi"] .desktop-mode-
 }
 @media(max-width:350px){
   .app-header{padding:0 8px}
+  /* The narrowest phones also set the Today strip a size smaller. */
+  .today-label{font-size:14px}
+  .today-name{font-size:11px}
   .wordmark{font-size:21px}
   .brand-mark{width:22px;height:22px}
   .header-actions .quiet-button{display:none}
@@ -1326,7 +1344,7 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
   <div id="toast" class="toast" aria-hidden="true"></div>
   <output id="frame-rate-meter" class="frame-rate-meter" aria-label="Recent animation frame rate" aria-live="off" hidden></output>
   <div id="announcement" class="sr-only" aria-live="polite" aria-atomic="true"></div>
-  <div id="orientation-note" role="status"><span aria-hidden="true">↻</span><strong>Turn your phone upright</strong><p>Your game is paused.</p></div>
+  <div id="orientation-note" role="status"><span aria-hidden="true">↻</span><strong>Turn your phone upright</strong><p id="orientation-paused">Turn your phone upright to play.</p></div>
 <script>/* store-config.js */
 // Purchase catalog and store settings. Pure data: edit this file, not store.js.
 // RevenueCat public SDK keys are safe to ship in the app; leave them empty until the accounts exist.
@@ -2725,7 +2743,7 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     goal('rush-wave', 'rush', 'Reach wave 4', 4, 'rush', 'Wave 4'),
     goal('rush-chain', 'rush', 'Make an 8 chain', 8, 'rush', '8 chain'),
     goal('puzzles', 'puzzle', 'Clear 2 puzzles', 2, 'puzzles', '2 puzzles'),
-    goal('perfect', 'puzzle', 'Get ★★★ on a puzzle', 1, 'puzzles', 'Get ★★★'),
+    goal('perfect', 'puzzle', 'Get ★★★ on a puzzle', 1, 'puzzles', '★★★ puzzle'),
     goal('daily', 'puzzle', "Clear today's garden", 1, 'daily', 'Daily'),
     goal('moon', 'explore', 'Clear a Moon trial', 1, 'moon', 'Moon trial'),
     goal('koi', 'explore', 'Clear a Koi pool', 1, 'koi', 'Koi pool'),
@@ -11888,25 +11906,29 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     ctx.restore();
   }
   // The fire salamander, basking on a column top above the right-hand pool, its belly lit from below.
+  // The basking salamander is scenery, so it wears dusky, smoky colours at .8 strength: the bright red and yellow
+  // spots belong to the pieces in play, and it never reads as one of them.
+  const SALAMANDER = { line: '#4a2622', top: '#7a4436', mid: '#8e5640', low: '#a87458', tail: '#80483a', rim: 'rgba(214,160,120,.4)', spot: '#b89464', leg: '#74402f', foot: '#8e5640', mouth: '#3e1c18', cheek: 'rgba(200,160,140,.4)', belly: 'rgba(214,180,140,.55)' };
   function emberSalamander(ctx, x, y, s, flip) {
-    ctx.save(); ctx.translate(x, y); ctx.scale(flip ? -s : s, s);
-    const line = '#7a2618', skin = lin(ctx, 0, -12, 0, 2, [[0, '#c8462a'], [.6, '#e86438'], [1, '#ffa45e']]), spot = '#ffd36a';
+    const C = SALAMANDER;
+    ctx.save(); ctx.translate(x, y); ctx.scale(flip ? -s : s, s); ctx.globalAlpha *= .8;
+    const line = C.line, skin = lin(ctx, 0, -12, 0, 2, [[0, C.top], [.6, C.mid], [1, C.low]]), spot = C.spot;
     soft(ctx, () => ctx.ellipse(2, 1.5, 22, 2.4, 0, 0, TAU), 'rgba(12,4,10,.55)', 2);
     const tail = [[14, -3], [22, -2], [26, 4], [24, 12], [19, 15]];
-    stroke(ctx, tail, line, 6); stroke(ctx, tail, '#d4502e', 4); stroke(ctx, tail.map(([px, py]) => [px + .8, py + .4]), 'rgba(255,170,100,.55)', 1.2);
-    for (const [lx, ly, a] of [[-8, 0, -.5], [8, 0, .5]]) { ctx.save(); ctx.translate(lx, ly); ctx.rotate(a); ctx.beginPath(); ctx.ellipse(0, 1.6, 2, 3.4, 0, 0, TAU); ctx.fillStyle = '#b8402a'; ctx.fill(); ctx.restore(); }
+    stroke(ctx, tail, line, 6); stroke(ctx, tail, C.tail, 4); stroke(ctx, tail.map(([px, py]) => [px + .8, py + .4]), C.rim, 1.2);
+    for (const [lx, ly, a] of [[-8, 0, -.5], [8, 0, .5]]) { ctx.save(); ctx.translate(lx, ly); ctx.rotate(a); ctx.beginPath(); ctx.ellipse(0, 1.6, 2, 3.4, 0, 0, TAU); ctx.fillStyle = C.leg; ctx.fill(); ctx.restore(); }
     const body = [[-14, -2], [-8, -7.6], [4, -8], [15, -5], [16, -1], [4, .6], [-8, .6]];
     shape(ctx, body, skin, line, 1.1);
-    stroke(ctx, [[-8, -.2], [4, 0], [13, -1.2]], 'rgba(255,214,150,.8)', 1.1);
+    stroke(ctx, [[-8, -.2], [4, 0], [13, -1.2]], C.belly, 1.1);
     for (const [sx, sy, sr] of [[-4, -5, 1.6], [3, -6, 1.3], [9, -4.4, 1.2], [21, 0, 1], [24.4, 7, 1]]) dot(ctx, sx, sy, sr, spot);
     const head = [[-24, -3], [-22.4, -9.6], [-15, -12], [-9, -8.6], [-8, -2], [-15, .8], [-21.6, .6]];
     shape(ctx, head, skin, line, 1.1);
-    stroke(ctx, [[-22, -.6], [-15, .2], [-9.5, -1.6]], 'rgba(255,214,150,.75)', 1);
+    stroke(ctx, [[-22, -.6], [-15, .2], [-9.5, -1.6]], C.belly, 1);
     dot(ctx, -13, -10.4, 1.3, spot);
     dot(ctx, -18.4, -6.4, 2.2, '#2a0d0a'); dot(ctx, -19.1, -7.2, .8, '#ffffff');
-    ctx.beginPath(); ctx.moveTo(-23, -2.2); ctx.quadraticCurveTo(-19, .2, -15.4, -2.6); ctx.strokeStyle = '#5a160e'; ctx.lineWidth = .9; ctx.stroke();
-    dot(ctx, -14.6, -4.4, 1.5, 'rgba(255,200,170,.6)');
-    for (const [lx, a] of [[-11, -.3], [6, .4]]) { ctx.save(); ctx.translate(lx, 0); ctx.rotate(a); ctx.beginPath(); ctx.ellipse(0, 1.8, 2.2, 3.6, 0, 0, TAU); ctx.fillStyle = '#e86438'; ctx.fill(); ctx.strokeStyle = line; ctx.lineWidth = .9; ctx.stroke(); for (const t of [-1.4, 0, 1.4]) dot(ctx, t, 5.2, .7, line); ctx.restore(); }
+    ctx.beginPath(); ctx.moveTo(-23, -2.2); ctx.quadraticCurveTo(-19, .2, -15.4, -2.6); ctx.strokeStyle = C.mouth; ctx.lineWidth = .9; ctx.stroke();
+    dot(ctx, -14.6, -4.4, 1.5, C.cheek);
+    for (const [lx, a] of [[-11, -.3], [6, .4]]) { ctx.save(); ctx.translate(lx, 0); ctx.rotate(a); ctx.beginPath(); ctx.ellipse(0, 1.8, 2.2, 3.6, 0, 0, TAU); ctx.fillStyle = C.foot; ctx.fill(); ctx.strokeStyle = line; ctx.lineWidth = .9; ctx.stroke(); for (const t of [-1.4, 0, 1.4]) dot(ctx, t, 5.2, .7, line); ctx.restore(); }
     ctx.restore();
   }
   // The floor: the worn tops of short columns, a causeway in perspective, dark except where a pool lights it; the
@@ -11980,9 +12002,8 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     bloom(ctx, 30, 460, 54, '255,120,50', .32);
     for (const [w, c] of [[9, 'rgba(255,110,50,.16)'], [4.4, '#c8481c'], [2.8, '#ff9338'], [1.1, '#ffe8a8']]) stroke(ctx, fall, c, w);
     magma(ctx, [[17, 416], [24, 411], [30, 412], [36, 409]], .75);
-    // Bracket fungi on the left wall, the salamander basking on the right.
+    // Bracket fungi on the left wall.
     for (const [x, y, w] of [[34, 352, 13], [34, 338, 9], [62, 404, 11]]) emberBracket(ctx, x, y, w, false);
-    emberSalamander(ctx, 350, 318, 1.05, false);
     // The floor, the launch stone and the lava pools.
     emberFloor(ctx);
     soft(ctx, () => ctx.ellipse(210, 520, 80, 22, 0, 0, TAU), 'rgba(14,4,12,.6)', 10);
@@ -12007,6 +12028,9 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     emberDrift(ctx, [104, 520], [136, 476], [116, 440], 6, 13, 26);
     // Foreground: a broken stump in the lower right corner, almost in silhouette.
     emberColumn(ctx, 408, 478, 58, 600, { pal: EMBER_FORE, toward: -1, seed: 9, tilt: .1, heat: .8 });
+    // The salamander basks on that stump, under the danger line and half past the board's edge on a narrow phone, well
+    // away from where pieces fall.
+    emberSalamander(ctx, 398, 474, .95, false);
     grade(ctx, 'rgba(110,104,200,.5)', 'rgba(255,140,80,.45)', 'rgba(24,8,26,.6)');
     grain(ctx, .08);
     if (framed) frame(ctx, '#a5503a', '#ffb27a');
@@ -13694,7 +13718,7 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
   // by petal from the far side, alternating left and right, before handing off to the resting sprite. Everything is
   // stateless (a function of the bud and its age) and composited from 3x sprites painted once with the same petal()
   // geometry, so a frame full of blooms costs drawImage calls, not gradients or shadows.
-  const UNFURL = .55, FLASH = .035, UNFURL_MAX = 16, UNFURL_LOW = 6;
+  const UNFURL = .55, FLASH = .035, UNFURL_MAX = 16, UNFURL_LOW = 6, BOSS_SQUASH = .2;
   // Every sprite painted (or sheet frame baked) bumps this count, so the app can tell a frame that paid for a first
   // paint from one that is really slow (the quality governor skips the former).
   let painted = 0;
@@ -15468,9 +15492,14 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     for (let i = -2; i <= 2; i++) { const x = i * length / 6, side = i % 2 ? 1 : -1; ctx.beginPath(); ctx.moveTo(x, 0); ctx.quadraticCurveTo(x - 1, side * 7, x + 7, side * 10); ctx.strokeStyle = '#947348'; ctx.lineWidth = 3; ctx.stroke(); }
     ctx.restore();
   }
-  function drawBossWarning(ctx, state, time, still) {
+  function activeBossWarning(state, time) {
     const w = state.bossWarning || state.bossState && state.bossState.warning;
-    if (!w || !Number.isFinite(w.until) || !(time < w.until) || !Number.isFinite(w.x) || !Number.isFinite(w.y)) return;
+    return !w || !Number.isFinite(w.until) || !(time < w.until) || !Number.isFinite(w.x) || !Number.isFinite(w.y) ? null : w;
+  }
+  // The move's ground marks: dashed footprints on its targets with a filling timer ring, under the flowers.
+  function drawBossWarning(ctx, state, time, still) {
+    const w = activeBossWarning(state, time);
+    if (!w) return;
     const L = BOSS_LOOKS[w.kind] || BOSS_LOOKS.sunny, span = Math.max(.1, Math.min(Number(root.BloomBosses && root.BloomBosses.telegraph) || 1.3, w.until - (Number(w.at) || 0)));
     const p = clamp(1 - (w.until - time) / span, 0, 1);
     ctx.save(); ctx.lineCap = 'round';
@@ -15483,6 +15512,15 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
       ctx.setLineDash([4, 4]); circle(ctx, t.x, t.y, radius, null, '#fff6ce', 4); circle(ctx, t.x, t.y, radius, null, '#b55c67', 2); ctx.setLineDash([]);
       if (!still) { ctx.beginPath(); ctx.arc(t.x, t.y, radius + 5, -Math.PI / 2, -Math.PI / 2 + TAU * p); ctx.strokeStyle = L.base; ctx.lineWidth = 2; ctx.stroke(); }
     }
+    ctx.restore();
+  }
+  // The move's words, drawn after the pieces (and the kits' over hooks) and before aiming feedback and floaters, so a
+  // flower sitting on the label spot never covers them. The ground marks above stay under the flowers.
+  function drawBossWarningLabel(ctx, state, time) {
+    const w = activeBossWarning(state, time);
+    if (!w) return;
+    const L = BOSS_LOOKS[w.kind] || BOSS_LOOKS.sunny;
+    ctx.save();
     const text = String(w.text || 'A guardian is stirring'), tf = '600 12px Fredoka';
     ctx.font = tf; const width = Math.min(310, Math.max(130, ctx.measureText(text).width + 28)), x = clamp(w.x, width / 2 + 10, 410 - width / 2), y = clamp(w.y + 61, 45, 395);
     const sprite = stageSprite(`warning-rich:${w.kind}:${text}:${width}`, Math.ceil(width + 6), 32, c => {
@@ -16590,7 +16628,17 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     ctx.font = `700 ${shown >= 10 ? 13 : 15}px Fredoka, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillStyle = tint.ink; ctx.fillText('×' + shown, 0, .5);
     ctx.restore();
+    // From 15 in a row the chain's length shows in small type under the badge (it holds still, even as the badge pulses).
+    // While a praise headline carries the same count ('Spectacular!' over '75 in a row'), the small one gives way.
+    const chain = Math.floor(Number(state.combo) || 0), label = `${chain} in a row`;
+    if (chain >= CHAIN_COUNT_FROM && !(state.floaters || []).some(f => f.kind === 'combo' && f.label === label)) {
+      ctx.save(); ctx.font = '700 10px Fredoka, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.lineJoin = 'round'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,252,236,.95)'; ctx.strokeText(label, x, y + r + 12);
+      ctx.fillStyle = tint.ring === BADGE[1].ring ? '#7a5a22' : tint.edge; ctx.fillText(label, x, y + r + 12);
+      ctx.restore();
+    }
   }
+  const CHAIN_COUNT_FROM = 15;
 
   // A score pop. Its size grows with the chain multiplier; the type is set at 15 px and scaled, so the white
   // outline grows with it. Pops from a Super Bloom wear a gold rim.
@@ -17031,6 +17079,7 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     const edge = r + 2;
     return atlasSprite(`shot-seed:${colors.base}:${r}`, -edge, -edge, edge, edge, c => paintShotSeed(c, r, colors));
   }
+  const CHAIN_RIM = '#ffc93a';
   function drawProjectile(ctx, ball, index, time, reducedMotion, fever, style) {
     const offset = projectileOffset(ball), ox = offset.x, oy = offset.y;
     if (ball.power && POWER_TINT[ball.power]) {
@@ -17038,21 +17087,29 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
       else drawPowerShot(ctx, ball, time, reducedMotion);
       return;
     }
-    if (style && style.seed) { drawStyledProjectile(ctx, ball, time, reducedMotion, fever, style, index); return; }
+    // A long chain (8 in a row) in Rush or a level: the seed wears a gold rim and its comet a wider glow and a longer,
+    // brighter core, all in the flower's own color. The turning rainbow stays Super Bloom's alone.
+    const warm = !(fever || ball.hot) && Boolean(ball.chainHot);
+    if (style && style.seed) {
+      drawStyledProjectile(ctx, ball, time, reducedMotion, fever, style, index);
+      if (warm) chainRim(ctx, ball.x + ox, ball.y + oy, ball.r || 5.5);
+      return;
+    }
     const c = FLOWERS[ball.type] || FLOWERS[['coral', 'gold', 'lilac'][index % 3]];
     const r = ball.r || 5.5, trail = ball.trail || [], x = ball.x + ox, y = ball.y + oy, hot = Boolean(fever || ball.hot);
     ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     // A comet: one tapered ribbon in the flower's color (a turning rainbow when the chain runs hot) and a bright
     // core along its last few samples. On a struggling phone only the first three seeds keep their tails.
     if (!reducedMotion && trail.length > 1 && !(feelQuality >= 1 && index >= 3)) {
-      cometTrail(ctx, trail, x, y, r * .95, hot ? `hsl(${Math.round(time * 240) % 360},95%,66%)` : c.base, .55);
-      const start = Math.max(0, trail.length - 7);
+      if (warm) cometTrail(ctx, trail, x, y, r * 1.45, c.light, .5);
+      cometTrail(ctx, trail, x, y, r * .95, hot ? `hsl(${Math.round(time * 240) % 360},95%,66%)` : c.base, warm ? .75 : .55);
+      const start = Math.max(0, trail.length - (warm ? 11 : 7));
       ctx.beginPath(); ctx.moveTo(trail[start].x, trail[start].y);
       for (let i = start + 1; i < trail.length; i++) {
         if (trail[i].move) ctx.moveTo(trail[i].x, trail[i].y);
         else ctx.lineTo(trail[i].x, trail[i].y);
       }
-      ctx.lineTo(x, y); ctx.strokeStyle = '#fffbe1'; ctx.lineWidth = r * .55; ctx.globalAlpha = .8; ctx.stroke();
+      ctx.lineTo(x, y); ctx.strokeStyle = '#fffbe1'; ctx.lineWidth = r * (warm ? .72 : .55); ctx.globalAlpha = warm ? 1 : .8; ctx.stroke();
     }
     ctx.globalAlpha = 1;
     if (!reducedMotion) {
@@ -17074,6 +17131,13 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
       ctx.globalAlpha = .85;
       sparkle(ctx, x, y, r * 1.95, '#fffce999', time + index);
     }
+    if (warm) chainRim(ctx, x, y, r);
+    ctx.restore();
+  }
+  // The long-chain seed's gold rim: still, so it shows the same with Animations off.
+  function chainRim(ctx, x, y, r) {
+    ctx.save(); ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    ctx.beginPath(); ctx.arc(x, y, r + 1.7, 0, TAU); ctx.strokeStyle = CHAIN_RIM; ctx.lineWidth = 1.9; ctx.stroke();
     ctx.restore();
   }
 
@@ -17259,6 +17323,7 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     if (floater.kind === 'title') { drawTitle(ctx, floater, reducedMotion); return; }
     if (floater.kind === 'trick') { drawStamp(ctx, floater, reducedMotion); return; }
     if (floater.kind === 'life') { drawLifeBand(ctx, floater, reducedMotion); return; }
+    if (floater.kind === 'mood') { drawMoodRibbon(ctx, floater, reducedMotion); return; }
     const life = Math.max(0, floater.life == null ? 1 : floater.life), duration = floater.maxLife || 1;
     const age = Math.max(0, duration - life), text = String(floater.text || '');
     const combo = floater.kind === 'combo' || /CHAIN|in bloom|BLOOM CHAIN/i.test(text);
@@ -17441,6 +17506,65 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
       sparkle(ctx, -hw + 10 - k * 8, -hh - 6 - k * 10, 4.2, '#fffbe0', k * 2);
       sparkle(ctx, hw - 16 + k * 9, -hh - 2 - k * 12, 3.2, '#fffbe0', -k * 2);
       sparkle(ctx, hw - 4 + k * 6, hh + 4 + k * 6, 2.6, '#fffbe0', k);
+    }
+    ctx.restore();
+  }
+
+  // A guardian's mood change: a wide ribbon in the guardian's own colours with its emblem on a medallion at each
+  // end, reading 'Crystal Heart is Shining!'. It unfurls with a small spring; with Animations off it is simply there.
+  const MOOD = { title: 21, h: 44, pad: 50, min: 220, max: 380 };
+  function moodLayout(ctx, floater) {
+    const text = String(floater.text || ''), kind = BOSS_LOOKS[floater.bossKind] ? floater.bossKind : 'sunny';
+    const tf = `700 ${MOOD.title}px Fredoka, system-ui, sans-serif`;
+    ctx.save(); const wide = measure(ctx, tf, text); ctx.restore();
+    let size = MOOD.title, bw = Math.max(MOOD.min, wide + MOOD.pad * 2);
+    // A long name shrinks its lettering, so the ribbon never runs off a narrow board.
+    if (bw > MOOD.max) { size = Math.max(14, Math.floor(MOOD.title * (MOOD.max - MOOD.pad * 2) / Math.max(1, wide))); bw = MOOD.max; }
+    return { text, kind, look: BOSS_LOOKS[kind], tf: `700 ${size}px Fredoka, system-ui, sans-serif`, size, bw, bh: MOOD.h, w: Math.ceil(bw + 24), h: MOOD.h + 30 };
+  }
+  function paintMood(c, L) {
+    const hw = L.bw / 2, hh = L.bh / 2, sag = L.bh * .07, rr = Math.min(14, L.bh * .3), look = L.look;
+    c.save(); c.lineJoin = 'round'; c.lineCap = 'round';
+    // Forked tails tucked behind the band's ends.
+    for (const side of [-1, 1]) {
+      c.beginPath(); c.moveTo(side * (hw - 18), -hh + 8); c.lineTo(side * (hw + 9), -hh + 4); c.lineTo(side * (hw + 2), 1); c.lineTo(side * (hw + 9), hh + 4); c.lineTo(side * (hw - 18), hh - 2); c.closePath();
+      c.fillStyle = look.dark; c.fill();
+    }
+    c.save(); c.shadowColor = 'rgba(40,20,40,.38)'; c.shadowBlur = 9; c.shadowOffsetY = 3.5;
+    ribbonPath(c, hw - 6, hh, sag, rr);
+    const band = c.createLinearGradient(0, -hh, 0, hh);
+    band.addColorStop(0, look.light); band.addColorStop(.55, look.base); band.addColorStop(1, look.dark);
+    c.fillStyle = band; c.fill(); c.restore();
+    ribbonPath(c, hw - 6, hh, sag, rr); c.strokeStyle = look.dark; c.lineWidth = 2.2; c.stroke();
+    ribbonPath(c, hw - 9.6, hh - 3.6, sag, Math.max(2, rr - 3.6)); c.strokeStyle = 'rgba(255,255,255,.6)'; c.lineWidth = 1.1; c.stroke();
+    // The guardian's emblem on a cream medallion at each end.
+    for (const side of [-1, 1]) {
+      const mx = side * (hw - 24);
+      circle(c, mx, 0, 15.5, '#fffaf0', look.dark, 2);
+      circle(c, mx, 0, 12.5, look.light);
+      c.save(); c.translate(mx, 1); c.scale(1.15, 1.15); drawBossEmblem(c, { bossKind: L.kind }, 0, 0); c.restore();
+    }
+    c.textAlign = 'center'; c.textBaseline = 'middle'; c.font = L.tf;
+    c.lineWidth = 4; c.strokeStyle = 'rgba(255,252,240,.95)'; c.strokeText(L.text, 0, 1);
+    c.fillStyle = look.ink; c.fillText(L.text, 0, 1);
+    c.restore();
+  }
+  function drawMoodRibbon(ctx, floater, reducedMotion) {
+    const life = Math.max(0, floater.life == null ? 1 : floater.life), duration = floater.maxLife || 1.9, age = Math.max(0, duration - life);
+    const L = layoutOf(ctx, floater, 'mood', moodLayout);
+    let scale = 1, alpha = Math.min(1, life / .3);
+    if (!reducedMotion) { scale = age < .22 ? .55 + .45 * backOut(age / .22, 2.2) : 1; alpha *= Math.min(1, age / .06); }
+    ctx.save();
+    ctx.translate(onBoard(floater.x, L.w - 8), Number(floater.y) || 230);
+    if (scale !== 1) ctx.scale(scale, scale);
+    ctx.globalAlpha *= alpha;
+    const sprite = fontReady(L.tf) ? stageSprite(`mood|${L.kind}|${L.text}|${L.size}`, L.w, L.h, c => { c.translate(L.w / 2, L.h / 2); paintMood(c, L); }) : null;
+    if (sprite) ctx.drawImage(sprite.surface, -L.w / 2, -L.h / 2, L.w, L.h); else paintMood(ctx, L);
+    if (!reducedMotion && age < .7) {
+      const k = age / .7, hw = L.bw / 2, hh = L.bh / 2;
+      ctx.globalAlpha *= Math.sin(k * Math.PI);
+      sparkle(ctx, -hw + 30 - k * 10, -hh - 4 - k * 10, 4, L.look.light, k * 2);
+      sparkle(ctx, hw - 30 + k * 10, -hh - 2 - k * 12, 3.4, L.look.light, -k * 2);
     }
     ctx.restore();
   }
@@ -18191,6 +18315,13 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
           ctx.translate(bud.x, bud.y); ctx.scale(1 + squash * .18, 1 - squash * .20); ctx.translate(-bud.x, -bud.y);
         }
       }
+      // A guardian takes a hit with a small squash of its own (3%, over BOSS_SQUASH s), leaves, body, face and ring
+      // together. Crystal Heart already squashes in her kit, so she is left out rather than squashed twice.
+      const bossHit = !options.reducedMotion && bud.boss && !bud.bloomed && bossLook(bud) && typeof bud.hitAt === 'number' ? time - bud.hitAt : -1;
+      if (bossHit >= 0 && bossHit < BOSS_SQUASH && bud.bossKind !== 'crystal') {
+        const squash = Math.sin(bossHit / BOSS_SQUASH * Math.PI) * .03;
+        ctx.translate(bud.x, bud.y); ctx.scale(1 + squash, 1 - squash); ctx.translate(-bud.x, -bud.y);
+      }
       if (!bud.bloomed && hp > 1 && !bud.boss && !bud.geode) {
         for (let layer = 1; layer < hp; layer++) {
           const rr = radius + 2.5 + layer * 3;
@@ -18232,7 +18363,11 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
       if (bud.boss && !bud.bloomed) drawBossLeaves(ctx, bud, time, options.reducedMotion);
       else if (crack > 0) { const a = ctx.globalAlpha; ctx.globalAlpha = a * crack; drawBossLeaves(ctx, bud, time, false); ctx.globalAlpha = a; }
       if (bud.briar && !bud.bloomed) drawThorns(ctx, bud);
-      if (bud.boss && !bud.bloomed && bossLook(bud)) drawBossBody(ctx, bud, time, Boolean(options.reducedMotion));
+      if (bud.boss && !bud.bloomed && bossLook(bud)) {
+        drawBossBody(ctx, bud, time, Boolean(options.reducedMotion));
+        // And a FLASH-long white flare of its own body, under its face, fading out: the same cached sprite added once more.
+        if (bossHit >= 0 && bossHit < FLASH) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha *= .6 * (1 - bossHit / FLASH); drawBossBody(ctx, bud, time, false); ctx.restore(); }
+      }
       else if (bud.puff) { if (!bud.bloomed) drawPuffcap(ctx, bud, time, options.reducedMotion); }
       else if (foeArt && !bud.bloomed && foeArt.has(bud)) foeArt.bud(ctx, bud, time, still, state, FOE_KIT, foeQuality);
       else if (bud.geode && !bud.bloomed) drawGeode(ctx, bud, time);
@@ -18279,6 +18414,7 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
       else if (bumper.kind === 'rock' && root.BloomScenery) root.BloomScenery.drawRock(ctx, bumper, options.theme);
       else drawBumper(ctx, bumper, options.selectedBumper === bumper.id, time, colors, options.reducedMotion);
     }
+    if (rush) drawBossWarningLabel(ctx, state, time);
     if (options.showAim !== false && state.aim && (state.status !== 'flying' || options.showAim === true)) {
       const hollow = rush && Number(state.podSize) > 0 && Number.isFinite(state.pod) && state.pod < 1 && !(Number(state.superBloom) > 0);
       // Old Sunny's landed snooze Z naps the aim guide (spec 1.9): only its first 60 px show; his kit art adds the zz.
@@ -18527,8 +18663,8 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
       carry = (carry + len) % gap;
     }
   }
-  // The move's label (art.js drawBossWarning) is drawn before the looks' under/over hooks: a tell drawn through draw()
-  // is at full strength around the label and faint (.22) across it, so the words stay readable. draw() must only
+  // The move's label (art.js drawBossWarningLabel) is drawn on top of the looks' under/over hooks; a tell drawn through
+  // draw() is still at full strength around the label and faint (.22) across it, so it never crowds the words. draw() must only
   // multiply globalAlpha, never set it.
   function labelTell(ctx, w, draw) {
     if (!w || !Number.isFinite(w.x) || !Number.isFinite(w.y)) { draw(); return; }
@@ -21654,7 +21790,7 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
       // Tells: through a volley's or a yawn's warning, a small portal swirls open over each sprout spot.
       if (w && (w.move === 'sprouts' || w.move === 'yawn') && w.until > w.at) {
         const p = clamp((time - w.at) / (w.until - w.at), 0, 1), open = .25 + .4 * p, reach = 24 * open;
-        // The move's label (art.js drawBossWarning) is drawn before this hook, so a tell over it fades to keep it readable.
+        // The move's label (art.js drawBossWarningLabel) is drawn over this hook; a tell across it still fades so it never crowds the words.
         ctx.save(); ctx.font = '600 12px Fredoka';
         const lw = Math.min(310, Math.max(130, ctx.measureText(String(w.text || 'A guardian is stirring')).width + 28));
         ctx.restore();
@@ -21988,7 +22124,7 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
       if (!s.boss || s.boss.bloomed) return;
       const clock = s.kitAge, row = rkRow(s), w = s.warning;
       // Toss tells: a dotted arc from the hole to the landing mark, marching that way. The move's label (art.js
-      // drawBossWarning) is drawn before this hook, so an arc running through it fades to keep the words readable.
+      // drawBossWarningLabel) is drawn over this hook; an arc running through it still fades so it never crowds the words.
       const tells = rkTossTell(s);
       if (tells.length) {
         ctx.save(); ctx.font = '600 12px Fredoka';
@@ -22800,7 +22936,10 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
       }
       const beat = grow * (1 + pulse * CRY.beatAmp[tier]);
       ctx.scale(beat * (1 + .12 * squash), beat * (1 - .1 * squash));
-      crystalStamp(ctx, kit, s.hue && kit.FLOWERS[s.hue] ? hueHeart(kit, r, s.hue) : realHeart(kit, r), 0, 0);
+      const heart = s.hue && kit.FLOWERS[s.hue] ? hueHeart(kit, r, s.hue) : realHeart(kit, r);
+      crystalStamp(ctx, kit, heart, 0, 0);
+      // The shared guardian hit flare (art.js): for 35 ms the heart is added over itself once more, fading out.
+      if (!still && hitAge >= 0 && hitAge < .035) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha *= .6 * (1 - hitAge / .035); crystalStamp(ctx, kit, heart, 0, 0); ctx.restore(); }
       const blink = !still && (time + .7) % 3.4 < .12;
       crystalStamp(ctx, kit, heartFace(r, hitAge >= 0 && hitAge < .3 ? 'hurt' : blink ? 'blink' : CRY.moods[tier]), 0, 0);
       return true;
@@ -24462,8 +24601,8 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     ctx.beginPath(); ctx.moveTo(x - tx * 2 * size, y - ty * 2 * size); ctx.lineTo(x + (nx * 4.6 + tx * 1.6) * size, y + (ny * 4.6 + ty * 1.6) * size); ctx.lineTo(x + tx * 2 * size, y + ty * 2 * size); ctx.closePath();
     ctx.fillStyle = TM.thorn; ctx.fill(); tmStroke(ctx, .8, TM.thornLight);
   }
-  // The move's label (art.js drawBossWarning) is drawn before this look's over hook, so a tell is drawn at full strength
-  // around the label and faint across it, keeping the words readable.
+  // The move's label (art.js drawBossWarningLabel) is drawn over this look's over hook; a tell is still at full strength
+  // around the label and faint across it, so it never crowds the words.
   function tmTell(ctx, w, draw) {
     ctx.save(); ctx.font = '600 12px Fredoka';
     const width = Math.min(310, Math.max(130, ctx.measureText(String(w.text || 'A guardian is stirring')).width + 28)); ctx.restore();
@@ -25159,7 +25298,7 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     return [`core:arch:${side}`, box, c => paintStarArch(c, rel)];
   }
   const STAR_LENT = { swirlstar: 'swirlstar', waltz: 'waltz', rocket: 'rocket', knot: 'knot', thorn: 'thorn', comet: 'comet' };
-  // The move's label (art.js drawBossWarning) is drawn before the kit's `over`: a tell on top of it fades to keep it readable.
+  // The move's label (art.js drawBossWarningLabel) is drawn over the kit's `over`; a tell across it still fades so it never crowds the words.
   const STAR_LABELS = new Map();
   function starLabel(ctx, w) {
     const text = String(w.text || 'A guardian is stirring');
@@ -27217,6 +27356,21 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
   BOSS_ACTS['core:starfall:land'] = [['wood', step(-1), 0, .1, .06], ['crunch', 'thock', 0, .8], ['bell', step(4), .06, .25, .035]];
   BOSS_ACTS['core:supernova:start'] = [['bell', step(0), 0, .4, .06], ['bell', step(4), .1, .4, .055], ['bell', step(7), .2, .5, .05], ['crunch', 'burst', 0, .8], ['chime', step(14), .3, .5, .04]];
 
+  // How many scale steps a wave's chord sits above home. Rush climbs one step a wave from wave `first` and stops at
+  // a fifth (4 steps), so its endless run never gets shrill. A level knows its last wave: waves 2 to finalWave - 1
+  // are spread evenly over 0 to 7 steps, so every wave up to the last starts (and clears) higher than the one before;
+  // each clear sits where the next wave will start.
+  const LEVEL_LIFT = 7;
+  // The long-chain octave on the bloom note: from this chain length, at this share of the note's level.
+  const OCTAVE_FROM = 25, OCTAVE_LEVEL = 0.35;
+  function waveLift(data, first) {
+    const wave = Number(data.wave) || 1, last = Math.floor(Number(data.finalWave));
+    if (!(Number.isFinite(last) && last >= 2)) return Math.min(4, Math.max(0, wave - first));
+    // A clear (first = 1) rings one wave ahead of that wave's start, so it keeps its one-step lead and can reach a step
+    // past the starts' top.
+    const span = Math.max(1, last - 3), lead = 2 - first;
+    return clamp(Math.round((wave - first) / span * LEVEL_LIFT), 0, LEVEL_LIFT + lead);
+  }
   function play(type, data = {}) {
     if (!enabled || !context || asleep) return;
     if (!data || typeof data !== 'object') data = {};
@@ -27224,7 +27378,7 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
       // Keep the first gesture's sound through resume, not a backlog of old audio.
       if (waiting.length < 8) {
         const kept = { x: data.bud ? data.bud.x : data.x, bud: data.bud ? { x: data.bud.x, type: data.bud.type } : undefined };
-        for (const key of ['combo', 'chain', 'kind', 'wave', 'power', 'index', 'stars', 'boss', 'seedStep', 'type', 'mult', 'petal', 'notch', 'i', 'n', 'dur', 'finale', 'level', 'left', 'super', 'k', 'move', 'act', 'stage']) if (data[key] !== undefined) kept[key] = data[key];
+        for (const key of ['combo', 'chain', 'kind', 'wave', 'finalWave', 'power', 'index', 'stars', 'boss', 'seedStep', 'type', 'mult', 'petal', 'notch', 'i', 'n', 'dur', 'finale', 'level', 'left', 'super', 'k', 'move', 'act', 'stage']) if (data[key] !== undefined) kept[key] = data[key];
         waiting.push({ type, data: kept, at: Date.now() });
       }
       return;
@@ -27244,7 +27398,11 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
       // A long chain rings a little brighter; Super Bloom brighter still.
       const bright = Math.min(data.super ? 1.15 : 1, 0.8 + combo * 0.015 + (data.super ? 0.15 : 0));
       const flower = flowerOf(data), [style, level] = flower ? FLOWER_VOICES[flower] : ['bell', 1];
-      note(pitch, 0, data.chain ? 0.3 : 0.42, (data.chain ? 0.1 : 0.15) * level, pan, style, 1, { bright });
+      const volume = (data.chain ? 0.1 : 0.15) * level, length = data.chain ? 0.3 : 0.42;
+      note(pitch, 0, length, volume, pan, style, 1, { bright });
+      // From 25 in a row a soft sine an octave up rides on each bloom note, at well under half its level. It shares the
+      // bloom's own rate limit above and asks for no reserved room, so a fast chain never crowds out other cues.
+      if (combo >= OCTAVE_FROM) note(pitch * 2, 0, length * .85, volume * OCTAVE_LEVEL, pan, 'pad', 0, { space: 'high' });
       crunch('pop', 0, pan, data.chain ? 0.55 : 1);
     } else if (type === 'bounce') {
       if (!allowed('bounce', 0.075)) return;
@@ -27270,14 +27428,15 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
       if (!(Number(data.stars) < 3)) note(hz(24), wait + 0.4, 0.5, 0.04, 0, 'chime', 2);
     } else if ((type === 'burst' || type === 'split') && allowed('split', 0.16)) phrase([7, 12, 16].map(hz), 0.038, 0.32, 0.085, pan);
     else if (type === 'wave' && allowed('wave', 0.4)) {
-      // Each Rush wave starts one step higher up the C major scale, up to a fifth, so the run audibly climbs.
-      const lift = Math.min(4, Math.max(0, (Number(data.wave) || 1) - 2));
+      // Each Rush wave starts one step higher up the C major scale, up to a fifth, so the run audibly climbs. A level
+      // (finalWave given) climbs through all its waves instead, up to an octave and a fifth's worth of steps.
+      const lift = waveLift(data, 2);
       phrase([0, 4, 5].map(n => step(n + lift)), 0.075, 0.4, 0.1);
       if (data.boss) note(step(lift - 7), 0, 0.6, 0.06, 0, 'marimba', 2);
     } else if (type === 'cleared') {
       // After a finale the sweep is the wave's music, so a cleared wave adds nothing.
       if (data.finale || !allowed('cleared', 0.5)) return;
-      const lift = Math.min(4, Math.max(0, (Number(data.wave) || 1) - 1));
+      const lift = waveLift(data, 1);
       phrase([4, 7, 9, 11].map(n => step(n + lift)), 0.055, 0.5, 0.11);
       pad([0, 2, 4].map(n => n + lift), 0, 0.6, 0.022);
     }
@@ -28630,6 +28789,8 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
   const dialogs = ['result-dialog', 'settings-dialog', 'privacy-dialog', 'help-dialog', 'world-dialog', 'pause-dialog'];
   // Play holds while a card is open, while a phone is sideways, and while the count after a pause is still running.
   let countLeft = 0, countShown = '';
+  // Whether a card was up over the board on the last frame, so the frame a card goes away on starts the count.
+  let cardsUp = false;
   const holding = () => narrowLandscape.matches || dialogs.some(id => $(id).open) || countLeft > 0;
   // Three filled stars, the unearned ones dimmed, so a row of stars always reads the same width.
   const starHTML = n => '<span>★</span>'.repeat(n) + '<span class="off">★</span>'.repeat(3 - n);
@@ -28657,6 +28818,28 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
   // speak: false when the caller has already said it (a guardian's mood line carries its new rule).
   const TOAST_LIFE = 2800, TIP_HELD = 1500;
   let toastAt = -Infinity, tipTimer = null, tipQueue = [], tipShown = null;
+  // A guardian's entrance is its own: while its name card is up, plain pop-ups (a gift bubble, a foe's first hint) and
+  // headlines other than the card wait, and show once it has gone. Chain praise is dropped instead, since a late
+  // "Lovely!" reads wrong. A guardian's own tip (a 'guard:' level tip) still shows.
+  const bossCardUp = () => Boolean(route === 'game' && game && game.stage && game.stage.vine && game.stage.vine.cardUntil > game.time && !game.stage.vine.bud?.bloomed);
+  let heldPopups = [];
+  function holdPopup(entry) { heldPopups = heldPopups.filter(held => held.run === game).concat({ ...entry, run: game }).slice(-4); }
+  function releasePopups() {
+    if (!heldPopups.length || bossCardUp()) return;
+    heldPopups = heldPopups.filter(held => held.run === game && !game.over);
+    // Headlines go back through headline(), which keeps one at a time; an explainer whose effect has run out is gone.
+    for (const held of heldPopups.filter(held => held.item)) if (!held.item.live || game[held.item.live] > 0) headline(held.item);
+    heldPopups = heldPopups.filter(held => !held.item);
+    // Pop-ups show one after another, each given a moment to be read.
+    if (heldPopups.length && performance.now() - toastAt >= TIP_HELD) { const held = heldPopups.shift(); toast(held.text, held.speak); }
+  }
+  // A pop-up the game raises by itself (a gift bubble, a foe's first hint, a first-time note) waits for a guardian's
+  // name card. A toast that answers the player's own tap ('Sound off', a refused turn) goes through toast() and shows
+  // at once.
+  function popup(text, speak = true) {
+    if (bossCardUp()) { if (!heldPopups.some(held => held.text === text && held.run === game)) holdPopup({ text, speak }); return; }
+    toast(text, speak);
+  }
   function toast(text, speak = true, tip = null) {
     // A plain toast (a gift bubble, a foe's first hint) that lands on a tip barely read puts the tip back to show next.
     if (!tip && tipShown && tipShown.tip.run === game && performance.now() - tipShown.at < TIP_HELD && !tipQueue.some(t => t.key === tipShown.tip.key)) {
@@ -28699,7 +28882,8 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     tipQueue = tipQueue.filter(t => t.run === game && !game.over);
     if (!tipQueue.length) return;
     const wait = Math.max(0, toastAt + TOAST_LIFE - performance.now());
-    if (wait || route !== 'game' || holding() || resultShown) { tipTimer = setTimeout(pumpTips, Math.max(wait, 400)); return; }
+    const heldBack = bossCardUp() && !String(tipQueue[0].key).startsWith('guard:');
+    if (wait || route !== 'game' || holding() || resultShown || heldBack) { tipTimer = setTimeout(pumpTips, Math.max(wait, 400)); return; }
     const tip = tipQueue.shift(), text = tip.due ? tip.due() : tip.text;
     if (!text) { pumpTips(); return; }
     tip.text = text;
@@ -28863,7 +29047,7 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
   function record() { return isTutorial() ? null : isDepth() ? save.depths[game.plan.id] : isRush() ? save.rush : isChapter() ? save[game.level.worldId][game.level.id] : typeof game.level.id === 'number' ? save.progress[game.level.id] : save.daily[game.level.id]; }
   function localDate() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
   function setRoute(next) {
-    route = next; cancelInteraction();
+    route = next; cancelInteraction(); cardsUp = false;
     if (next !== 'game' && countLeft > 0) { countLeft = 0; renderCount(); }
     for (const name of ['game', 'levels', 'garden', 'collection', 'worlds']) $(`${name}-view`).hidden = next !== name;
     for (const name of ['rush', 'garden', 'collection', 'worlds']) {
@@ -28874,7 +29058,7 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     if (next === 'collection') { keepsakePreview = null; showcase.dirty = true; renderCollection(); }
     if (next === 'worlds') renderWorlds();
     if (next === 'levels') renderLevels();
-    document.body.dataset.view = next;
+    document.body.dataset.view = next; orientationNote();
     $('tutorial').hidden = !(tutorial && next === 'game');
     if (next === 'game') resize();
   }
@@ -29009,8 +29193,8 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
       put(split, 'disabled', !game.splitReady);
       // Once the run is over the bar empties, so a full gold Split no longer looks pressable behind the finale.
       putVar(split, '--split-charge', `${game.over ? 0 : game.splitCharge * 100}%`);
-      put(split, 'textContent', game.over ? 'Split' : game.splitReady ? 'Split! +2' : game.splitCharge >= 1 ? game.balls.length ? 'Too many seeds' : 'Fire first' : `Split ${Math.round(game.splitCharge * 6)}/6`);
-      // Charged but not usable this instant (no seed flying, or too many): the gold dims, so it never looks ready.
+      put(split, 'textContent', game.over ? 'Split' : game.splitReady ? 'Split! +2' : game.splitCharge >= 1 ? game.balls.length ? 'Split soon' : 'Fire first' : `Split ${Math.round(game.splitCharge * 6)}/6`);
+      // Charged but not usable this instant (no seed flying, or too many: "Split soon"): the gold dims, so it never looks ready.
       putClass(split, 'waiting', !game.over && !game.splitReady && game.splitCharge >= 1);
       putData(canvas, 'sun', (game.sun || 0).toFixed(2)); putData(canvas, 'mult', game.mult || 1); putData(canvas, 'superBloom', (game.superBloom || 0).toFixed(1));
       put(banner, 'hidden', game.feverTime <= 0);
@@ -30022,16 +30206,20 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
   // Game feel: trauma-based screen shake, brief hit-stop on big moments and a
   // soft screen flash. All three are skipped when reduced motion is on.
   let trauma = 0, freeze = 0, flash = 0, lastBump = 0, kick = 0;
-  const PRAISE = ['Lovely!', 'Blooming!', 'Gorgeous!', 'Dazzling!', 'Magnificent!', 'Legendary!'];
+  const PRAISE = ['Lovely!', 'Blooming!', 'Gorgeous!', 'Dazzling!', 'Magnificent!', 'Legendary!', 'Spectacular!', 'Unstoppable!', 'Mythical!'];
   const POP_COLORS = { coral: '#e8366f', gold: '#e59a12', lilac: '#7b52e6', sky: '#1f7fe0', poppy: '#e24a14' };
   // One headline at a time. Stage titles outrank banners, which outrank chain praise: a new headline replaces any of
   // its own rank or lower, and one that ranks below what is showing is dropped, never stacked. A lost life has its own
   // place low on the board; it is never dropped, and it quiets the praise.
-  const HEADLINE = { title: 3, wave: 2, combo: 1 };
+  // A guardian's mood ribbon ranks with the wave banners: 'Wave clear!' and a mood change replace each other, and a
+  // stage title (the guardian's name card, the finale) is never covered by one.
+  const HEADLINE = { title: 3, wave: 2, mood: 2, combo: 1 };
   // The opening title only names the level, so anything that happens over it takes its place.
   const rankOf = item => item.rank || (item.kind === 'title' && item.size === 'small' ? 0 : item.intro ? 2 : HEADLINE[item.kind] || 0);
   function headline(item) {
     if (item.kind === 'life') { game.floaters = game.floaters.filter(f => f.kind !== 'life' && f.kind !== 'combo'); game.floaters.push(item); return true; }
+    // A mood change under the name card says itself in the small callout now, so its ribbon is not held to show late.
+    if (!item.boss && bossCardUp()) { if (item.kind !== 'combo' && item.kind !== 'mood') holdPopup({ item }); return false; }
     const rank = rankOf(item);
     if (game.floaters.some(f => rankOf(f) > rank && f.life > .25)) return false;
     game.floaters = game.floaters.filter(f => !(rankOf(f) > 0 && rankOf(f) <= rank));
@@ -30244,7 +30432,8 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
       if (type === 'boss') { if (!event.finale && feel) feel.request('punch', bud); }
       else if (event.finale && (type === 'won' || !isDepth())) startSweep();
     } else if (type === 'puff') jolt(0, .04);
-    else if (type === 'crack' && bud && bud.boss) jolt(0, .05);
+    // A guardian hit: a small shake (.12 trauma) on top of the same .05 s hit-stop it always had, no longer freeze.
+    else if (type === 'crack' && bud && bud.boss) jolt(.12, .05);
     else if (type === 'superBloom') { if (feel) feel.request('punch'); }
     else if (type === 'trick') {
       if (event.kind === 'hat' || event.kind === 'slam') jolt(0, .04);
@@ -30271,7 +30460,7 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     if (!origin || f.sweepWave === game.wave) return;
     f.sweepWave = game.wave;
     if (isDepth()) {
-      game.floaters = game.floaters.filter(item => !['wave', 'combo', 'bonus', 'title', 'trick', 'pop', 'life'].includes(item.kind));
+      game.floaters = game.floaters.filter(item => !['wave', 'mood', 'combo', 'bonus', 'title', 'trick', 'pop', 'life'].includes(item.kind));
       // The ribbon sits clear of the flower that ended the level and stays up until the result card comes. It takes the
       // far half of the board, at the first height that also leaves the petal and any rocks uncovered.
       const bossName = f.bossName && f.impactWave === game.wave ? f.bossName : '';
@@ -30419,11 +30608,17 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
       const hint = game.foeHint(bud.foe);
       if (!hint || seen.has(hint)) continue;
       // The level view hides #game-hint (styles.css keeps the bottom edge for the pod), so the hint is a toast.
-      seen.add(hint); toast(hint); return hint;
+      seen.add(hint); popup(hint); return hint;
     }
     return '';
   }
   // Small shared pieces for the effects: a ring, a few motes of dust, a quick sparkle.
+  // Rings for the long-chain milestones (75, 100, 125): step 1, 2 or 3, each one wider and longer-lived.
+  const MILESTONE_RINGS = ['#ffd65a', '#ff8fb8', '#b49cff'];
+  function milestoneRings(bud, step) {
+    const x = bud && Number.isFinite(bud.x) ? bud.x : 210, y = bud && Number.isFinite(bud.y) ? bud.y : 240;
+    for (let i = 0; i < step + 1; i++) foeRing(x, y, i ? MILESTONE_RINGS[(step + i - 1) % 3] : '#fff7be', 12 + i * 6, 46 + step * 28 + i * 18, .5 + step * .1 + i * .08);
+  }
   function foeRing(x, y, color, size = 10, grow = 24, life = .4) {
     if (save.settings.motion) game.particles.push({ x, y, vx: 0, vy: 0, life, maxLife: life, kind: 'ring', color, size, grow, gravity: 0, drag: 0 });
   }
@@ -30786,7 +30981,9 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
       foeRing(x, y, color, r * .7, 46, .5); foeRing(x, y, '#fff7be', r * .5, 30, .35);
     }
     game.floaters = game.floaters.filter(f => f.kind !== 'trick');
-    bossCallout(x, y - 20, event.mood ? `${event.mood}!` : '', 1.3);
+    // The new mood gets a ribbon in the guardian's colours with its emblem; if a title is up, the old small callout.
+    const text = event.mood ? event.name ? `${event.name} is ${event.mood}!` : `${event.mood}!` : '';
+    if (text && !headline({ kind: 'mood', text, bossKind: event.kind || game.bossState?.kind || '', x: 210, y: moodY(y, boss?.r), life: 1.9, maxLife: 1.9 })) bossCallout(x, y - 20, `${event.mood}!`, 1.3);
     const vine = game.stage && game.stage.vine;
     if (vine) { vine.knotAt = vine.knotAt || []; vine.knotAt[(event.stage || 1) - 1] = game.time; }
     // A kit that changes what reaches its guardian (Ember Rose's tunnels and rings) says so as the new mood starts: one
@@ -30795,6 +30992,18 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     const rule = game.waveHint && game.waveHint !== game.bossHint ? game.waveHint : '';
     if (event.name && event.mood) say(`${event.name} is ${event.mood.toLowerCase()}!${rule ? ` ${rule}` : ''}`);
     if (rule) { game.bossHint = rule; levelTip(rule, { again: Infinity, speak: !(event.name && event.mood) }); }
+  }
+  // The mood ribbon sits below the guardian, at the height that hides the fewest flowers still to shoot and the petal.
+  function moodY(bossY, r) {
+    const top = (Number(bossY) || 120) + (Number(r) || 26) + 46;
+    const open = game.buds.filter(bud => !bud.bloomed && !bud.gift && !bud.hidden && !bud.boss);
+    // A rock counts double. The petal you turn is never covered: the ribbon (44 tall) is opaque and stays up in live
+    // play, so a height within 50 of a petal is used only when every height is.
+    const solid = (game.bumpers || []).filter(b => !b.bossMirror), petals = solid.filter(b => b.kind !== 'rock');
+    const covers = y => open.filter(bud => Math.abs(bud.y - y) < 40).length + 2 * solid.filter(b => b.kind === 'rock' && Math.abs(b.y - y) < 46).length;
+    const below = [200, 250, 300, 350].filter(y => y >= top), clear = below.filter(y => !petals.some(b => Math.abs(b.y - y) < 50));
+    const spots = clear.length ? clear : below;
+    return (spots.length ? spots : [Math.min(380, top)]).reduce((best, y) => covers(y) < covers(best) ? y : best);
   }
   // A special hit on a guardian says what made it special.
   const CRIT_TEXT = { roll: 'Bowled over!', mirror: 'Mirror shot!', moon: 'Moon shot!' };
@@ -31154,12 +31363,14 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     for (const event of game.drainEvents()) {
       if (isTutorial()) tutorial.observe(event);
       if (feel && !isTutorial()) feelEvent(event);
+      // A level's wave chords climb through the whole level, so its sound needs to know how many waves there are.
+      if ((event.type === 'wave' || event.type === 'cleared') && isDepth() && Number.isFinite(game.finalWave)) event.finalWave = game.finalWave;
       BloomSound.play(event.type === 'shield' && event.bud?.bossKind ? 'bossGuard' : event.type, event);
       if (event.type === 'launch') {
         // A kept tap launches a tick later with its own aim, so the recoil follows the shot, not the pointer.
         kick = 1; game.recoilAt = game.time; game.recoilAngle = event.angle ?? angle;
         firstShot();
-        if (event.pod === 0 && isRush() && !(game.superBloom > 0) && !isTutorial() && !preview && !save.podMet) { save.podMet = true; persist(); toast('Your pod holds 4 seeds. Quick hits grow new ones!'); }
+        if (event.pod === 0 && isRush() && !(game.superBloom > 0) && !isTutorial() && !preview && !save.podMet) { save.podMet = true; persist(); popup('Your pod holds 4 seeds. Quick hits grow new ones!'); }
       }
       else if (event.type === 'dry') { if (!(game.time - game.dryTickAt < .25)) { game.dryTickAt = game.time; haptic('tick'); } }
       // A kept tap that could not fire in time says why, the same way a dropped tap does.
@@ -31185,6 +31396,8 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
           // Long chains earn a bigger word at each milestone, each in a new flower's color.
           const tier = milestone;
           headline({ x: 210, y: praiseY(), text: PRAISE[tier], label: `${event.combo} in a row`, tier, life: 1.05, maxLife: 1.05, kind: 'combo' });
+          // Past 50 the chain is rare: each later milestone opens wider rings around the flower than the one before.
+          if (tier >= 6) milestoneRings(event.bud, tier - 5);
         }
         if (event.combo % 3 === 1) haptic('tick');
         $('game-hint').textContent = game.bossWarning?.text || (isKoi() ? 'Ride it!' : isMoon() ? 'Nice path!' : isRush() ? isDepth() ? game.splitReady ? 'Split is ready!' : depthHint() : game.superBloom > 0 || game.splitReady ? rushHint() : 'Crowns bloom their whole bunch.' : game.guideCharge > 0 ? 'Drag to steer!' : 'Keep the chain going!');
@@ -31206,7 +31419,7 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
         // and the wave's blooms flying into the score (a finale's sweep takes the harvest's place).
         // A finale clear has had its own light and sweep; a plain one gets the golden shower.
         if (!event.finale) { burst({ x: 210, y: 230, type: 'gold', r: 18 }, 30); burst({ x: 120, y: 170, type: 'coral' }, 20); burst({ x: 300, y: 170, type: 'lilac' }, 20); jolt(.32, .07, .5); }
-        game.floaters = game.floaters.filter(item => !['wave', 'combo', 'bonus', 'pop', 'trick'].includes(item.kind));
+        game.floaters = game.floaters.filter(item => !['wave', 'mood', 'combo', 'bonus', 'pop', 'trick'].includes(item.kind));
         // The next wave's number arrives on its own ribbon, so the clear only names what is special about it.
         const next = isDepth() ? Depths.wave(game.plan.id, event.wave + 1) : null, nextBoss = next && next.boss ? next.buds.find(bud => bud.boss) : null;
         const label = next ? next.boss ? `${(nextBoss && nextBoss.name) || 'Big bloom'} next!` : '' : `next ×${event.next.toFixed(1)}`;
@@ -31291,7 +31504,7 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
         { const tip = 'The briars grew back! Bloom the whole patch fast.'; if (waveTeaches(/briar|grow/i)) $('game-hint').textContent = tip; else levelTip(tip, { again: Infinity }); }
       } else if (event.type === 'boss') {
         const name = event.name || (event.bud && event.bud.name) || '';
-        game.floaters = game.floaters.filter(item => !['wave', 'combo', 'bonus', 'pop', 'trick'].includes(item.kind));
+        game.floaters = game.floaters.filter(item => !['wave', 'mood', 'combo', 'bonus', 'pop', 'trick'].includes(item.kind));
         // On the level's last beat the finale owns the moment and the title ribbon names the boss; otherwise a banner.
         if (!event.finale) {
           burst(event.bud, 40, game.particles, currentKeepsake(), false); burst({ x: 110, y: 200, type: 'gold' }, 24); burst({ x: 310, y: 200, type: 'lilac' }, 24);
@@ -31334,7 +31547,7 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
         $('game-hint').textContent = `A gift bubble! Shoot it to keep the ${Powers.byId[event.power].name}.`;
         // The bubble floats in at the top among score pops, so it announces itself: two gold rings and a note up top.
         if (save.settings.motion) for (const slow of [0, .3]) game.particles.push({ x: event.x, y: event.y, vx: 0, vy: 0, life: .7 + slow, maxLife: .7 + slow, kind: 'ring', color: '#ffd148', size: 16, grow: 26 + slow * 50, gravity: 0, drag: 0 });
-        if (!isTutorial()) toast(`Gift bubble! Shoot it for a free ${Powers.byId[event.power].name}.`); else say($('game-hint').textContent);
+        if (!isTutorial()) popup(`Gift bubble! Shoot it for a free ${Powers.byId[event.power].name}.`); else say($('game-hint').textContent);
         keepRun(); // a level picked up again later does not offer this wave's gift twice
       } else if (event.type === 'gift') {
         const def = Powers.byId[event.power];
@@ -31474,7 +31687,7 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     }
   }
   // Long chains are praised at these lengths, one PRAISE word each. The first Super Bloom of a session explains itself.
-  const CHAIN_MILESTONES = [8, 16, 24, 32, 40, 50];
+  const CHAIN_MILESTONES = [8, 16, 24, 32, 40, 50, 75, 100, 125];
   let superSeen = false;
   // A level run lost at wave 6 or later can start again from wave 6, free and as often as the player likes.
   // Stars from those runs stop at two, and the card says so.
@@ -31932,7 +32145,7 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     // Callouts frozen behind the pause ("Wave clear!", a trick stamp, praise, score pops) are stale by now and would sit
     // half hidden round the count, so they go, as at a wave's clear; ribbons and name cards stay. So does the Super Bloom
     // or Lullaby explainer while its effect still runs (`live`): the first Super Bloom's is never shown again.
-    game.floaters = game.floaters.filter(item => item.live ? game[item.live] > 0 : !['wave', 'combo', 'bonus', 'pop', 'trick'].includes(item.kind));
+    game.floaters = game.floaters.filter(item => item.live ? game[item.live] > 0 : !['wave', 'mood', 'combo', 'bonus', 'pop', 'trick'].includes(item.kind));
     say(`${lead}${save.settings.motion ? 'Get ready. 3, 2, 1.' : 'Get ready.'}`);
   }
   function renderCount() {
@@ -31966,6 +32179,12 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
   // Escape or a tap outside the card also resumes, through the same count. The close event arrives a moment late, so a
   // card that has opened again by then (the phone hid once more) stays a plain pause.
   $('pause-dialog').addEventListener('close', () => { if (countLeft <= 0 && !$('pause-dialog').open) startCount(); });
+  // Help, Settings or the privacy page opened mid-run hold the board without the Paused card; closing the last of them
+  // counts back in too. The check waits a microtask, so a card that gives way to another (privacy back to Settings,
+  // Settings to the Paused card) is not taken for the last one closing.
+  // The frame loop catches the same moment first (the close event can come a frame late, after play has moved).
+  for (const id of ['help-dialog', 'settings-dialog', 'privacy-dialog']) $(id).addEventListener('close', () => Promise.resolve().then(cardsClosed));
+  function cardsClosed() { if (dialogs.some(id => $(id).open)) return; cardsUp = false; if (countLeft <= 0) startCount(); }
   // The tutorial plays on the Sunny Meadow board. Finishing it (or skipping) marks it seen; the first time through
   // it leads straight into level 1, and it can be played again from How to play.
   function startTutorial() { if (preview) exitPreview(); startLevel({ id: 'rush', name: 'How to play', tutorial: true }, { theme: depthTheme(1) }); }
@@ -32499,6 +32718,13 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     lastFrame = 0; accumulator = 0; if (frameMeter) frameMeter.sample(0, 0, false); cancelInteraction(); musicFrame(performance.now(), true);
   });
   window.addEventListener('pagehide', () => { keepProgress(); pauseGame(true); });
+  // Turning a phone sideways mid-run pauses it like going to another app, so turning it upright again shows the Paused
+  // card and its count, never play that is already moving. The note only says the game is paused when one is.
+  function orientationNote() { put($('orientation-paused'), 'textContent', route === 'game' && inProgress() ? 'Your game is paused.' : 'Turn your phone upright to play.'); }
+  function onOrientation(event) { if (event.matches && inProgress()) pauseGame(true); orientationNote(); }
+  if (typeof narrowLandscape.addEventListener === 'function') narrowLandscape.addEventListener('change', onOrientation);
+  else if (typeof narrowLandscape.addListener === 'function') narrowLandscape.addListener(onOrientation); // older Safari
+  orientationNote();
   function frame(timestamp) {
     if (!sayLines) return sayTogether(frame, timestamp); // what one frame says is read as one announcement
     requestAnimationFrame(frame);
@@ -32516,6 +32742,9 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     }
     const dt = Math.min(lastFrame ? (timestamp - lastFrame) / 1000 : 0, .06); lastFrame = timestamp;
     game.quality = Math.max(graphics().effects, governor ? governor.tier : 0);
+    const cardsNow = dialogs.some(id => $(id).open);
+    if (cardsUp && !cardsNow) cardsClosed();
+    cardsUp = cardsNow;
     // The count after a pause runs only while nothing else holds the board (a card on top, a sideways phone).
     if (countLeft > 0 && !narrowLandscape.matches && !dialogs.some(id => $(id).open)) { countLeft = Math.max(0, countLeft - dt); renderCount(); }
     feelStep(dt);
@@ -32527,13 +32756,14 @@ body[data-view="game"][data-mode="rush"] .pause-button{display:grid}
     else if (!paused) {
       accumulator += gdt;
       while (accumulator >= 1 / 120) { game.step(1 / 120); accumulator -= 1 / 120; }
-      processEvents(); bestWatch();
-      for (const ball of game.balls || []) ball.hot = !isRush() && (game.combo || 0) >= 8;
+      processEvents(); releasePopups(); bestWatch();
+      for (const ball of game.balls || []) { ball.hot = !isRush() && (game.combo || 0) >= 8; ball.chainHot = isRush() && (game.combo || 0) >= 8; }
       game.particles = stepParticles(game.particles, gdt, 24, 396, 530);
       // Words age in real time in the tutorial, so a 'Lovely!' does not hang for 13 s while a card waits at 8% speed.
       const fdt = isTutorial() ? dt : gdt;
       // Words drift up as they fade; the wave ribbon holds still at the top edge so its tip never slides off the board.
-      for (const p of game.floaters) { p.life -= fdt; if (!(p.kind === 'title' && p.size === 'small')) p.y -= fdt * 12; }
+      // A guardian's mood ribbon holds its place too, so it reads as a banner, not a word drifting off.
+      for (const p of game.floaters) { p.life -= fdt; if (!(p.kind === 'title' && p.size === 'small') && p.kind !== 'mood') p.y -= fdt * 12; }
       game.floaters = game.floaters.filter(p => p.life > 0).slice(-16);
       if (!resultShown && game.time >= resultAt && !(feel && feel.out.busy)) showResult();
     }
