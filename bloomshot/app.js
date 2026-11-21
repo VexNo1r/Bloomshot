@@ -3550,7 +3550,7 @@
   // counts back in too. The check waits a microtask, so a card that gives way to another (privacy back to Settings,
   // Settings to the Paused card) is not taken for the last one closing.
   // The frame loop catches the same moment first (the close event can come a frame late, after play has moved).
-  for (const id of ['help-dialog', 'settings-dialog', 'privacy-dialog']) $(id).addEventListener('close', () => queueMicrotask(cardsClosed));
+  for (const id of ['help-dialog', 'settings-dialog', 'privacy-dialog']) $(id).addEventListener('close', () => Promise.resolve().then(cardsClosed));
   function cardsClosed() { if (dialogs.some(id => $(id).open)) return; cardsUp = false; if (countLeft <= 0) startCount(); }
   // The tutorial plays on the Sunny Meadow board. Finishing it (or skipping) marks it seen; the first time through
   // it leads straight into level 1, and it can be played again from How to play.
