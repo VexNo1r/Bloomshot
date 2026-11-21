@@ -3454,9 +3454,9 @@
     ctx.fillStyle = tint.ink; ctx.fillText('×' + shown, 0, .5);
     ctx.restore();
     // From 15 in a row the chain's length shows in small type under the badge (it holds still, even as the badge pulses).
-    const chain = Math.floor(Number(state.combo) || 0);
-    if (chain >= CHAIN_COUNT_FROM) {
-      const label = `${chain} in a row`;
+    // While a praise headline carries the same count ('Spectacular!' over '75 in a row'), the small one gives way.
+    const chain = Math.floor(Number(state.combo) || 0), label = `${chain} in a row`;
+    if (chain >= CHAIN_COUNT_FROM && !(state.floaters || []).some(f => f.kind === 'combo' && f.label === label)) {
       ctx.save(); ctx.font = '700 10px Fredoka, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.lineJoin = 'round'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,252,236,.95)'; ctx.strokeText(label, x, y + r + 12);
       ctx.fillStyle = tint.ring === BADGE[1].ring ? '#7a5a22' : tint.edge; ctx.fillText(label, x, y + r + 12);

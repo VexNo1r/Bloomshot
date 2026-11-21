@@ -509,6 +509,10 @@ test('The sun fan, the multiplier badge and the gold sky draw cleanly through a 
     game.combo = 14; frame(reducedMotion); assert(!texts.includes('14 in a row'), 'not before 15');
     game.combo = 15; frame(reducedMotion); assert(texts.includes('15 in a row'), 'from 15 in a row the count shows under the badge');
     game.combo = 132; frame(reducedMotion); assert(texts.includes('132 in a row'));
+    // A praise headline that already says the count (at a milestone) is the only one on screen.
+    game.combo = 75; game.floaters = [{ kind: 'combo', x: 210, y: 300, text: 'Spectacular!', label: '75 in a row', tier: 4, life: .9, maxLife: 1.05 }];
+    frame(reducedMotion); assert.equal(texts.filter(t => t === '75 in a row').length, 1, `'75 in a row' shows once (${texts.join(' | ')})`);
+    game.floaters = []; frame(reducedMotion); assert(texts.includes('75 in a row'), 'the small count comes back after the headline');
     game.combo = 6;
     game._charge(game._sunNeed() - game.sunCharge, { by: 1 }); assert(game.superBloom > 0);
     for (const t of [0, .2, 1.7, 3.3, 5.6, 5.95]) { advance(game, t - (6 - game.superBloom)); frame(reducedMotion); }
