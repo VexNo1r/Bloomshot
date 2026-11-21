@@ -291,6 +291,17 @@ test('Back, Pause and Levels during a rematch go to the Hall, which offers to re
   assert.equal(app.$('resume-btn').hidden, true, 'the map does not offer a rematch as a level run');
 });
 
+test('A rematch won as the app closes keeps its ribbon: the guardian\'s cascade is settled as the page hides', () => {
+  const app = boot(player({}, 2)), game = rematch(app, 1);
+  game.hallFrom = game.time - 10; const boss = game.buds.find(b => b.boss); boss.hp = 1; game.bloom(boss); app.frame();
+  assert(game.bossDown && game.status !== 'won', 'the guardian is down and its cascade is still blooming');
+  app.fire('window', 'pagehide'); app.hide();
+  assert.equal(game.status, 'won', 'the cascade is played out');
+  const hall = app.saved().hall;
+  assert(hall && hall[1] && hall[1].wins === 1 && hall[1].ribbon === 'gold', JSON.stringify(hall));
+  assert(Math.abs(hall[1].bestTime - 10) < .2, 'with the time at the guardian\'s bloom');
+});
+
 test('A gift caught in a rematch is lent for it only, and is spent before the player\'s own', () => {
   const powers = { sunburst: 1, dandelion: 1, beeline: 1, lullaby: 1 };
   const app = boot(player({ powers }, 2)), game = rematch(app, 2);

@@ -389,7 +389,8 @@
   // keep the win but never cost a life or a star. Only on the board: a cascade left waiting behind the map or the
   // garden keeps its wave-10 checkpoint, and the Resume card plays it out to its result as before.
   function settleWin() {
-    if (route !== 'game' || !keepsRun() || !game.bossDown) return;
+    // A Guardian Hall rematch keeps no run, but its won ribbon is settled the same way.
+    if (route !== 'game' || !(keepsRun() || isHall() && !game.over) || !game.bossDown) return;
     // Nothing of it is heard or felt: the sound is put to sleep first, as a navigation or a reload sends pagehide while
     // the page is still showing, and nothing buzzes.
     BloomSound.music?.frame?.({ hidden: true });
