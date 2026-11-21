@@ -134,6 +134,7 @@ const tones = (h, voice) => h.context.nodes.filter(n => n.kind === 'oscillator' 
 // Where a note's pitch automation settles (after any glide into it).
 const target = osc => osc.frequency.events[osc.frequency.events.length - 1].value;
 const inKey = frequency => { const semis = 12 * Math.log2(frequency / 261.6255653); const pc = ((Math.round(semis) % 12) + 12) % 12; return Math.abs(semis - Math.round(semis)) < 0.01 && [0, 2, 4, 5, 7, 9, 11].includes(pc); };
+const h2 = osc => Math.max(...osc.frequency.events.map(e => e.value || 0));
 const peak = node => Math.max(...node.gain.events.map(e => e.value || 0));
 async function test(name, run) {
   const started = Date.now();
@@ -516,6 +517,39 @@ async function main() {
     assert(voices.every(n => n.frequency.value < 1600 && n.stopAt - n.startAt <= 0.62));
     const nodes = h.context.nodes.length; h.sound.play('cleared', { wave: 4 }); assert.equal(h.context.nodes.length, nodes);
     h.tick(3); assert.equal(h.voices().length, 0);
+  });
+  await test('A level\'s wave chords keep climbing through every wave, stay in key and in range, and survive a queued first gesture', () => {
+    const voicesFor = (type, data) => { const h = fixture(); h.sound.wake(); h.tick(1); h.sound.play(type, data); return h.voices(); };
+    const lowest = (type, wave, extra = {}) => Math.min(...voicesFor(type, { wave, finalWave: 10, ...extra }).filter(v => v.frequency.value > 200).map(target));
+    for (const type of ['wave', 'cleared']) {
+      const climb = [1, 2, 3, 4, 5, 6, 7, 8, 9].map(w => lowest(type, w));
+      for (let i = 2; i < climb.length; i++) assert(climb[i] > climb[i - 1] * 1.01, `${type}: wave ${i + 1} sits higher than wave ${i}`);
+      assert(climb[1] >= climb[0] - 1e-6, `${type}: wave 2 is never lower than wave 1`);
+      climb.forEach(f => assert(inKey(f), `${type} stays in C major`));
+      // Waves 5 to 9 used to share one chord; now they are five different ones.
+      assert.equal(new Set(climb.slice(4).map(f => f.toFixed(2))).size, 5, `${type}: waves 5 to 9 all differ`);
+      assert(Math.abs(lowest(type, 10) - lowest(type, 9)) < 1e-6 && Math.abs(lowest(type, 30) - lowest(type, 9)) < 1e-6, `${type}: the lift tops out at seven steps`);
+      for (let w = 1; w <= 12; w++) for (const v of voicesFor(type, { wave: w, finalWave: 10, boss: w === 10 })) {
+        assert(v.frequency.value < 3600, `${type} wave ${w} stays under the frequency check`);
+        assert(h2(v) < 2400, `${type} wave ${w} never gets shrill`);
+      }
+    }
+    // Wave two of a level still starts on middle C, like Rush.
+    assert(Math.abs(lowest('wave', 2) - 261.6255653) < 0.01);
+    // The boss wave keeps its low marimba root an octave under the chord.
+    const boss = voicesFor('wave', { wave: 10, finalWave: 10, boss: true }), plain = voicesFor('wave', { wave: 10, finalWave: 10 });
+    assert.equal(boss.length, plain.length + 1, 'A boss wave adds a low root');
+    const root = Math.min(...boss.map(target)), chordRoot = Math.min(...plain.map(target));
+    assert(Math.abs(root * 2 - chordRoot) < 0.01, 'one octave under the chord');
+    // A shorter level spreads the same climb over its own waves.
+    const short = [2, 3, 4].map(w => Math.min(...voicesFor('wave', { wave: w, finalWave: 5 }).map(target)));
+    assert(short[1] > short[0] && short[2] > short[1]);
+    // The first gesture's cue keeps finalWave through the audio context's resume.
+    return (async () => {
+      const queued = fixture({ suspended: true }); queued.sound.wake(); queued.sound.play('wave', { wave: 9, finalWave: 10 });
+      await queued.resume();
+      assert(Math.abs(Math.min(...queued.voices().map(target)) - lowest('wave', 9)) < 1e-6, 'finalWave survives the resume queue');
+    })();
   });
   await test('Big moments flourish over a soft chord, finish within about a second, and stay soft', () => {
     for (const [type, data] of [['won', { stars: 3 }], ['boss', {}], ['sunburst', { x: 210 }], ['gift', { x: 210 }], ['cleared', { wave: 2 }], ['power', { power: 'lullaby' }]]) {

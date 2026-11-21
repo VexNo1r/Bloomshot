@@ -2732,6 +2732,8 @@
     for (const event of game.drainEvents()) {
       if (isTutorial()) tutorial.observe(event);
       if (feel && !isTutorial()) feelEvent(event);
+      // A level's wave chords climb through the whole level, so its sound needs to know how many waves there are.
+      if ((event.type === 'wave' || event.type === 'cleared') && isDepth() && Number.isFinite(game.finalWave)) event.finalWave = game.finalWave;
       BloomSound.play(event.type === 'shield' && event.bud?.bossKind ? 'bossGuard' : event.type, event);
       if (event.type === 'launch') {
         // A kept tap launches a tick later with its own aim, so the recoil follows the shot, not the pointer.

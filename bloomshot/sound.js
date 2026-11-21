@@ -821,6 +821,16 @@
   BOSS_ACTS['core:starfall:land'] = [['wood', step(-1), 0, .1, .06], ['crunch', 'thock', 0, .8], ['bell', step(4), .06, .25, .035]];
   BOSS_ACTS['core:supernova:start'] = [['bell', step(0), 0, .4, .06], ['bell', step(4), .1, .4, .055], ['bell', step(7), .2, .5, .05], ['crunch', 'burst', 0, .8], ['chime', step(14), .3, .5, .04]];
 
+  // How many scale steps a wave's chord sits above home. Rush climbs one step a wave from wave `first` and stops at
+  // a fifth (4 steps), so its endless run never gets shrill. A level knows its last wave: waves 2 to finalWave - 1
+  // are spread evenly over 0 to 7 steps, so every wave up to the last starts (and clears) higher than the one before.
+  const LEVEL_LIFT = 7;
+  function waveLift(data, first) {
+    const wave = Number(data.wave) || 1, last = Math.floor(Number(data.finalWave));
+    if (!(Number.isFinite(last) && last >= 2)) return Math.min(4, Math.max(0, wave - first));
+    const span = Math.max(1, last - 3);
+    return clamp(Math.round((wave - 2) / span * LEVEL_LIFT), 0, LEVEL_LIFT);
+  }
   function play(type, data = {}) {
     if (!enabled || !context || asleep) return;
     if (!data || typeof data !== 'object') data = {};
@@ -828,7 +838,7 @@
       // Keep the first gesture's sound through resume, not a backlog of old audio.
       if (waiting.length < 8) {
         const kept = { x: data.bud ? data.bud.x : data.x, bud: data.bud ? { x: data.bud.x, type: data.bud.type } : undefined };
-        for (const key of ['combo', 'chain', 'kind', 'wave', 'power', 'index', 'stars', 'boss', 'seedStep', 'type', 'mult', 'petal', 'notch', 'i', 'n', 'dur', 'finale', 'level', 'left', 'super', 'k', 'move', 'act', 'stage']) if (data[key] !== undefined) kept[key] = data[key];
+        for (const key of ['combo', 'chain', 'kind', 'wave', 'finalWave', 'power', 'index', 'stars', 'boss', 'seedStep', 'type', 'mult', 'petal', 'notch', 'i', 'n', 'dur', 'finale', 'level', 'left', 'super', 'k', 'move', 'act', 'stage']) if (data[key] !== undefined) kept[key] = data[key];
         waiting.push({ type, data: kept, at: Date.now() });
       }
       return;
@@ -874,14 +884,15 @@
       if (!(Number(data.stars) < 3)) note(hz(24), wait + 0.4, 0.5, 0.04, 0, 'chime', 2);
     } else if ((type === 'burst' || type === 'split') && allowed('split', 0.16)) phrase([7, 12, 16].map(hz), 0.038, 0.32, 0.085, pan);
     else if (type === 'wave' && allowed('wave', 0.4)) {
-      // Each Rush wave starts one step higher up the C major scale, up to a fifth, so the run audibly climbs.
-      const lift = Math.min(4, Math.max(0, (Number(data.wave) || 1) - 2));
+      // Each Rush wave starts one step higher up the C major scale, up to a fifth, so the run audibly climbs. A level
+      // (finalWave given) climbs through all its waves instead, up to an octave and a fifth's worth of steps.
+      const lift = waveLift(data, 2);
       phrase([0, 4, 5].map(n => step(n + lift)), 0.075, 0.4, 0.1);
       if (data.boss) note(step(lift - 7), 0, 0.6, 0.06, 0, 'marimba', 2);
     } else if (type === 'cleared') {
       // After a finale the sweep is the wave's music, so a cleared wave adds nothing.
       if (data.finale || !allowed('cleared', 0.5)) return;
-      const lift = Math.min(4, Math.max(0, (Number(data.wave) || 1) - 1));
+      const lift = waveLift(data, 1);
       phrase([4, 7, 9, 11].map(n => step(n + lift)), 0.055, 0.5, 0.11);
       pad([0, 2, 4].map(n => n + lift), 0, 0.6, 0.022);
     }
