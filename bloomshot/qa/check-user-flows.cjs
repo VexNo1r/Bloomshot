@@ -68,6 +68,8 @@ async function main() {
       await click('#world-preview-btn'); await advance(500);
       check(`${world} free board starts`, (await state()).route === 'game' && String((await state()).level).startsWith(world + '-'));
       await click('#back-btn');
+      check(`${world} board returns to its garden card`, (await state()).route === 'worlds' && await page.locator('#world-dialog').evaluate(el => el.open));
+      await click('#close-world');
     }
     await click('#rush-btn'); await click('#levels-rush-btn'); await advance(1500);
     check('endless Rush starts', (await state()).route === 'game' && (await state()).level === 'rush');
