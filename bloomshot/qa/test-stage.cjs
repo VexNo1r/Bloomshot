@@ -488,6 +488,19 @@ test('A guardian lands on a clean board: pop-ups and headlines wait for its name
   app.run(1.5); game.events.push({ type: 'chainEnd', chain: 10 }); app.run(.1);
   assert(game.floaters.some(f => f.kind === 'combo'), 'praise after the card shows as usual');
 });
+test('Under a guardian\'s name card, a toast that answers the player\'s own tap shows at once while a gift bubble still waits', () => {
+  const app = level(player(), 1, {}, '', { timers: true }); app.run(1.3);
+  const game = app.game(); bossWave(app, 'Old Sunny'); const log = toastLog(app);
+  assert(app.run(1.5, () => app.cues('bossLand').length > 0), 'it lands'); quietBoss(game);
+  const vine = game.stage.vine, cardUp = () => vine.cardUntil > game.time;
+  assert(cardUp(), 'the name card is up');
+  game.events.push({ type: 'giftAppear', power: 'lullaby', x: 210, y: 60 }); app.frame();
+  app.$('sound-btn').emit('click');
+  assert(cardUp(), 'still within the card');
+  assert.equal(log.at(-1), 'Sound off', `the sound toggle answers at once (${log.join(' | ')})`);
+  assert(!log.some(text => text.startsWith('Gift bubble')), 'the gift bubble waits for the card');
+  assert(app.run(3, () => !cardUp() && log.some(text => text.startsWith('Gift bubble'))), `the gift toast shows once the card has gone (${log.join(' | ')})`);
+});
 test('A guardian\'s mood change under its name card says the mood in the small callout and never raises a late ribbon', () => {
   const app = level(player(), 1, {}, '', { timers: true }); app.run(1.3);
   const game = app.game(), boss = bossWave(app, 'Old Sunny');

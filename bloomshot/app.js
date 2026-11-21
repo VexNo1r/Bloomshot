@@ -252,8 +252,14 @@
     // Pop-ups show one after another, each given a moment to be read.
     if (heldPopups.length && performance.now() - toastAt >= TIP_HELD) { const held = heldPopups.shift(); toast(held.text, held.speak); }
   }
+  // A pop-up the game raises by itself (a gift bubble, a foe's first hint, a first-time note) waits for a guardian's
+  // name card. A toast that answers the player's own tap ('Sound off', a refused turn) goes through toast() and shows
+  // at once.
+  function popup(text, speak = true) {
+    if (bossCardUp()) { if (!heldPopups.some(held => held.text === text && held.run === game)) holdPopup({ text, speak }); return; }
+    toast(text, speak);
+  }
   function toast(text, speak = true, tip = null) {
-    if (!tip && bossCardUp()) { if (!heldPopups.some(held => held.text === text && held.run === game)) holdPopup({ text, speak }); return; }
     // A plain toast (a gift bubble, a foe's first hint) that lands on a tip barely read puts the tip back to show next.
     if (!tip && tipShown && tipShown.tip.run === game && performance.now() - tipShown.at < TIP_HELD && !tipQueue.some(t => t.key === tipShown.tip.key)) {
       game.tipsSeen && game.tipsSeen.delete(tipShown.tip.key); tipQueue.unshift(tipShown.tip);
@@ -2021,7 +2027,7 @@
       const hint = game.foeHint(bud.foe);
       if (!hint || seen.has(hint)) continue;
       // The level view hides #game-hint (styles.css keeps the bottom edge for the pod), so the hint is a toast.
-      seen.add(hint); toast(hint); return hint;
+      seen.add(hint); popup(hint); return hint;
     }
     return '';
   }
@@ -2780,7 +2786,7 @@
         // A kept tap launches a tick later with its own aim, so the recoil follows the shot, not the pointer.
         kick = 1; game.recoilAt = game.time; game.recoilAngle = event.angle ?? angle;
         firstShot();
-        if (event.pod === 0 && isRush() && !(game.superBloom > 0) && !isTutorial() && !preview && !save.podMet) { save.podMet = true; persist(); toast('Your pod holds 4 seeds. Quick hits grow new ones!'); }
+        if (event.pod === 0 && isRush() && !(game.superBloom > 0) && !isTutorial() && !preview && !save.podMet) { save.podMet = true; persist(); popup('Your pod holds 4 seeds. Quick hits grow new ones!'); }
       }
       else if (event.type === 'dry') { if (!(game.time - game.dryTickAt < .25)) { game.dryTickAt = game.time; haptic('tick'); } }
       // A kept tap that could not fire in time says why, the same way a dropped tap does.
@@ -2957,7 +2963,7 @@
         $('game-hint').textContent = `A gift bubble! Shoot it to keep the ${Powers.byId[event.power].name}.`;
         // The bubble floats in at the top among score pops, so it announces itself: two gold rings and a note up top.
         if (save.settings.motion) for (const slow of [0, .3]) game.particles.push({ x: event.x, y: event.y, vx: 0, vy: 0, life: .7 + slow, maxLife: .7 + slow, kind: 'ring', color: '#ffd148', size: 16, grow: 26 + slow * 50, gravity: 0, drag: 0 });
-        if (!isTutorial()) toast(`Gift bubble! Shoot it for a free ${Powers.byId[event.power].name}.`); else say($('game-hint').textContent);
+        if (!isTutorial()) popup(`Gift bubble! Shoot it for a free ${Powers.byId[event.power].name}.`); else say($('game-hint').textContent);
         keepRun(); // a level picked up again later does not offer this wave's gift twice
       } else if (event.type === 'gift') {
         const def = Powers.byId[event.power];
