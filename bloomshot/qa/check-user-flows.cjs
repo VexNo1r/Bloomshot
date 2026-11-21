@@ -72,10 +72,13 @@ async function main() {
     check('animation preference persists', await page.evaluate(() => JSON.parse(localStorage.getItem('bloomshot.qa.v1')).settings.motion === false));
     const pixels = await page.locator('#life-canvas').evaluate(canvas => { const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data; for (let i = 3; i < data.length; i += 4) if (data[i]) return true; return false; });
     check('animation-off removes scene visitors', !pixels);
-    check('closing settings resumes play', (await state()).elapsed > stopped.elapsed);
+    check('closing settings counts back in before play moves', await page.locator('#resume-count').isVisible() && (await state()).elapsed === stopped.elapsed);
+    await advance(1200); check('closing settings resumes play after the count', (await state()).elapsed > stopped.elapsed);
     await click('#help-btn'); check('help opens during play', await page.locator('#help-dialog').evaluate(el => el.open));
     await page.keyboard.press('Escape'); await advance(250);
     check('Escape dismisses help', !await page.locator('#help-dialog').evaluate(el => el.open));
+    check('closing help counts back in', await page.locator('#resume-count').isVisible());
+    await advance(1500);
     await click('#back-btn'); check('exit returns to map', (await state()).route === 'levels');
     await click('#resume-btn'); check('resume restores the active level', (await state()).route === 'game' && (await state()).level === 1);
     await click('#back-btn'); await click('#garden-btn'); check('garden navigation works', (await state()).route === 'garden');

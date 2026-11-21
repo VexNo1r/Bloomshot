@@ -208,6 +208,8 @@
   const dialogs = ['result-dialog', 'settings-dialog', 'privacy-dialog', 'help-dialog', 'world-dialog', 'pause-dialog'];
   // Play holds while a card is open, while a phone is sideways, and while the count after a pause is still running.
   let countLeft = 0, countShown = '';
+  // Whether a card was up over the board on the last frame, so the frame a card goes away on starts the count.
+  let cardsUp = false;
   const holding = () => narrowLandscape.matches || dialogs.some(id => $(id).open) || countLeft > 0;
   // Three filled stars, the unearned ones dimmed, so a row of stars always reads the same width.
   const starHTML = n => '<span>★</span>'.repeat(n) + '<span class="off">★</span>'.repeat(3 - n);
@@ -441,7 +443,7 @@
   function record() { return isTutorial() ? null : isDepth() ? save.depths[game.plan.id] : isRush() ? save.rush : isChapter() ? save[game.level.worldId][game.level.id] : typeof game.level.id === 'number' ? save.progress[game.level.id] : save.daily[game.level.id]; }
   function localDate() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
   function setRoute(next) {
-    route = next; cancelInteraction();
+    route = next; cancelInteraction(); cardsUp = false;
     if (next !== 'game' && countLeft > 0) { countLeft = 0; renderCount(); }
     for (const name of ['game', 'levels', 'garden', 'collection', 'worlds']) $(`${name}-view`).hidden = next !== name;
     for (const name of ['rush', 'garden', 'collection', 'worlds']) {
@@ -3544,6 +3546,12 @@
   // Escape or a tap outside the card also resumes, through the same count. The close event arrives a moment late, so a
   // card that has opened again by then (the phone hid once more) stays a plain pause.
   $('pause-dialog').addEventListener('close', () => { if (countLeft <= 0 && !$('pause-dialog').open) startCount(); });
+  // Help, Settings or the privacy page opened mid-run hold the board without the Paused card; closing the last of them
+  // counts back in too. The check waits a microtask, so a card that gives way to another (privacy back to Settings,
+  // Settings to the Paused card) is not taken for the last one closing.
+  // The frame loop catches the same moment first (the close event can come a frame late, after play has moved).
+  for (const id of ['help-dialog', 'settings-dialog', 'privacy-dialog']) $(id).addEventListener('close', () => queueMicrotask(cardsClosed));
+  function cardsClosed() { if (dialogs.some(id => $(id).open)) return; cardsUp = false; if (countLeft <= 0) startCount(); }
   // The tutorial plays on the Sunny Meadow board. Finishing it (or skipping) marks it seen; the first time through
   // it leads straight into level 1, and it can be played again from How to play.
   function startTutorial() { if (preview) exitPreview(); startLevel({ id: 'rush', name: 'How to play', tutorial: true }, { theme: depthTheme(1) }); }
@@ -4101,6 +4109,9 @@
     }
     const dt = Math.min(lastFrame ? (timestamp - lastFrame) / 1000 : 0, .06); lastFrame = timestamp;
     game.quality = Math.max(graphics().effects, governor ? governor.tier : 0);
+    const cardsNow = dialogs.some(id => $(id).open);
+    if (cardsUp && !cardsNow) cardsClosed();
+    cardsUp = cardsNow;
     // The count after a pause runs only while nothing else holds the board (a card on top, a sideways phone).
     if (countLeft > 0 && !narrowLandscape.matches && !dialogs.some(id => $(id).open)) { countLeft = Math.max(0, countLeft - dt); renderCount(); }
     feelStep(dt);
