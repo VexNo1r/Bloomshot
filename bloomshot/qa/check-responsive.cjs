@@ -85,7 +85,9 @@ async function main() {
       await route.fulfill({ contentType: mime[path.extname(file)] || 'application/octet-stream', body });
     });
     await page.addInitScript(() => {
-      localStorage.setItem('bloomshot.qa.v1', JSON.stringify({ version: 1, tutorial: true, powersMet: true, podMet: true, settings: { sound: false, music: false, haptics: false, motion: true } }));
+      // The Guardian Hall pass reloads with three guardians beaten (one with a gold ribbon) and the rest still locked.
+      const hall = sessionStorage.getItem('qa-hall') ? { depths: { 1: { stars: 3, best: 3000, wave: 10 }, 2: { stars: 2, best: 2000, wave: 10 }, 3: { stars: 1, best: 1000, wave: 10 } }, hall: { 1: { wins: 2, bestTime: 18.4, ribbon: 'gold' } } } : {};
+      localStorage.setItem('bloomshot.qa.v1', JSON.stringify({ version: 1, tutorial: true, powersMet: true, podMet: true, settings: { sound: false, music: false, haptics: false, motion: true }, ...hall }));
     });
     await page.clock.install({ time: new Date('2026-10-13T12:00:00Z') });
     await page.clock.pauseAt(new Date('2026-10-13T12:00:05Z'));
@@ -328,6 +330,54 @@ async function main() {
     assert.equal(screens.size, 7, `${key}: all seven lessons reached with actual controls`);
     assert(elapsed < 65, `${key}: tutorial completed`);
     await page.screenshot({ path: path.join(output, `${key}-tutorial-end.png`) });
+    // The Guardian Hall: its card on the map, the ten guardian cards (beaten ones with 44 px Rematch buttons, locked ones as
+    // silhouettes), nothing clipped or off screen, readable labels, here and on a 320 x 568 phone; then a rematch's board
+    // and its Paused card's way back to the Hall.
+    await page.evaluate(() => sessionStorage.setItem('qa-hall', '1'));
+    await page.goto('http://localhost/?qa&alllevels', { waitUntil: 'networkidle' }); await page.evaluate(() => document.fonts.ready);
+    const entry = await page.evaluate(() => { const el = document.getElementById('hall-btn'), r = el.getBoundingClientRect(); return { hidden: el.hidden, height: r.height, width: r.width, x: r.x, label: el.getAttribute('aria-label') }; });
+    assert(!entry.hidden && entry.height >= 44 && entry.x >= 0 && entry.x + entry.width <= size.width + .6, `${key}: the Guardian Hall card shows on the map ${JSON.stringify(entry)}`);
+    await page.locator('#hall-btn').scrollIntoViewIfNeeded(); await page.locator('#hall-btn').click(); await page.clock.runFor(1500);
+    const hallLayout = () => page.evaluate(() => {
+      const box = el => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height, right: r.right }; };
+      const lum = rgb => { const c = rgb.match(/[\d.]+/g).slice(0, 3).map(v => { v /= 255; return v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }); return .2126 * c[0] + .7152 * c[1] + .0722 * c[2]; };
+      const bg = el => { for (let n = el; n; n = n.parentElement) { const c = getComputedStyle(n).backgroundColor; if (c && !c.endsWith(', 0)') && c !== 'transparent') return c; } return 'rgb(255,255,255)'; };
+      const ratio = el => { const a = lum(getComputedStyle(el).color), b = lum(bg(el)); return (Math.max(a, b) + .05) / (Math.min(a, b) + .05); };
+      const texts = [...document.querySelectorAll('#hall-view .hall-level, #hall-view .hall-name, #hall-view .hall-stats, #hall-view .hall-note, #hall-summary, .hall-footnote')];
+      return { route: document.body.dataset.view, scrollWidth: document.documentElement.scrollWidth, cards: [...document.querySelectorAll('.hall-card')].map(el => el.getAttribute('aria-label')),
+        cardBoxes: [...document.querySelectorAll('.hall-card')].map(box), buttons: [...document.querySelectorAll('.hall-go')].map(el => ({ id: el.dataset.hall, label: el.getAttribute('aria-label'), ...box(el) })),
+        back: box(document.getElementById('hall-back')), locked: document.querySelectorAll('.hall-card.locked').length, canvases: document.querySelectorAll('.hall-canvas').length,
+        clipped: texts.filter(el => el.scrollWidth > el.clientWidth + .5 || el.getBoundingClientRect().right > innerWidth + .5).map(el => el.textContent),
+        lowContrast: texts.filter(el => ratio(el) < 4.5).map(el => `${el.className || el.id} ${ratio(el).toFixed(2)}`) };
+    });
+    const checkHall = (h, at) => {
+      assert.equal(h.route, 'hall', `${at}: the Hall opens`); assert.equal(h.scrollWidth, at.startsWith(key) ? size.width : 320, `${at} Hall: no horizontal overflow`);
+      assert.equal(h.cards.length, 10, `${at}: ten guardian cards`);
+      assert(h.cards.slice(0, 3).every((label, i) => label.includes(`level ${i + 1},`)) && h.cards.slice(3).every((label, i) => label.startsWith(`Level ${i + 4} ·`)), `${at}: guardians in level order ${JSON.stringify(h.cards)}`);
+      assert.equal(h.locked, 7, `${at}: seven locked silhouettes`); assert.deepEqual(h.buttons.map(b => b.id), ['1', '2', '3'], `${at}: Rematch only for beaten guardians`);
+      for (const b of h.buttons) assert(b.width >= 44 && b.height >= 44 && b.x >= 0 && b.right <= (at.startsWith(key) ? size.width : 320) + .6, `${at}: 44px Rematch button on screen ${JSON.stringify(b)}`);
+      assert(h.back.height >= 44 && h.back.width >= 44, `${at}: 44px Levels button`);
+      assert.deepEqual(h.clipped, [], `${at}: no clipped Hall text`); assert.deepEqual(h.lowContrast, [], `${at}: Hall text reads at 4.5:1`);
+      assert(h.cardBoxes.every((r, i) => !i || r.y >= h.cardBoxes[i - 1].y), `${at}: cards run down the page`);
+    };
+    let hallState = await hallLayout(); checkHall(hallState, `${key}`);
+    assert.equal(hallState.canvases, 10, `${key}: every guardian card has its drawn portrait`);
+    rows.push({ size: key, label: 'Guardian Hall', ...hallState });
+    await page.screenshot({ path: path.join(output, `${key}-guardian-hall.png`) });
+    if (size.width < 700) {
+      await page.setViewportSize({ width: 320, height: 568 }); await page.clock.runFor(300);
+      hallState = await hallLayout(); checkHall(hallState, '320x568');
+      rows.push({ size: '320x568', label: 'Guardian Hall', ...hallState });
+      await page.setViewportSize({ width: size.width, height: size.height }); await page.clock.runFor(300);
+    }
+    await page.locator('[data-hall="2"]').click(); await page.clock.runFor(1800);
+    assert.equal(await page.evaluate(() => window.bloomshotState.hallRun && window.bloomshotState.wave), 10, `${key}: Rematch starts the guardian's wave`);
+    await geometry('Guardian Hall rematch');
+    await page.evaluate(() => document.getElementById('pause-btn').click()); await page.clock.runFor(400);
+    assert.equal(await page.locator('#pause-levels').innerText(), 'Hall', `${key}: the Paused card offers the Hall`);
+    await page.evaluate(() => document.getElementById('pause-levels').click()); await page.clock.runFor(400);
+    assert.equal(await page.evaluate(() => document.body.dataset.view), 'hall', `${key}: and goes back to it`);
+    await page.evaluate(() => sessionStorage.removeItem('qa-hall'));
     }
     await page.goto('http://localhost/?qa', { waitUntil: 'networkidle' });
     await page.evaluate(() => document.fonts.ready);

@@ -109,6 +109,25 @@ async function main() {
     check('reload keeps animation preference', await page.evaluate(() => document.body.classList.contains('reduce-motion')));
     check('review and QA never overwrite normal progress', await page.evaluate(() => localStorage.getItem('bloomshot.save.v1') === 'normal-player-save-is-untouched'));
     check('all screens fit without horizontal scroll', await page.evaluate(() => document.documentElement.scrollWidth === innerWidth));
+    // The Guardian Hall with real taps: hidden until a guardian is beaten, then a card on the map, a locked guardian that
+    // stays put, a rematch on the guardian's wave, and Pause and Back leading to the Hall.
+    check('no Guardian Hall before a guardian is beaten', await page.locator('#hall-btn').isHidden());
+    await page.evaluate(() => { const save = JSON.parse(localStorage.getItem('bloomshot.qa.v1')); save.depths = { 1: { stars: 3, best: 3000, wave: 10 }, 2: { stars: 1, best: 900, wave: 10 } }; localStorage.setItem('bloomshot.qa.v1', JSON.stringify(save)); });
+    await page.goto('http://localhost/?qa', { waitUntil: 'networkidle' }); await advance(300);
+    check('the Guardian Hall card shows once a guardian is beaten', await page.locator('#hall-btn').isVisible());
+    await click('#hall-btn'); check('the Guardian Hall opens', (await state()).route === 'hall' && await page.locator('.hall-card').count() === 10);
+    await page.locator('.hall-card.locked').first().click(); await advance(300);
+    check('a locked guardian has no button and starts nothing', (await state()).route === 'hall' && await page.locator('[data-hall="3"]').count() === 0);
+    await click('[data-hall="2"]'); await advance(1500);
+    check('Rematch starts the guardian wave with three lives', (await state()).route === 'game' && (await state()).hallRun && (await state()).wave === 10 && (await state()).lives === 3);
+    await page.locator('#game-canvas').focus(); await page.keyboard.press('Space'); await advance(400);
+    check('the rematch clock runs from the first seed', (await state()).hallTime > 0 && /^Hall · 0:0\d$/.test(await page.locator('#level-label').innerText()));
+    await click('#pause-btn'); check('the Paused card offers the Hall', (await page.locator('#pause-levels').innerText()) === 'Hall');
+    await click('#pause-levels'); check('Pause goes back to the Hall', (await state()).route === 'hall' && (await page.locator('[data-hall="2"]').innerText()) === 'Resume');
+    await click('[data-hall="2"]'); await advance(2500); await click('#back-btn');
+    check('Back goes to the Hall', (await state()).route === 'hall');
+    await click('#hall-back'); check('the Hall goes back to the Levels map', (await state()).route === 'levels');
+    check('a rematch saves no level run and changes no stars', await page.evaluate(() => { const save = JSON.parse(localStorage.getItem('bloomshot.qa.v1')); return !save.run && save.depths[2].stars === 1 && !save.hall; }));
     await context.close(); console.log(`Checked real controls at ${key}`);
   }
   assert.deepEqual(errors, [], 'no browser runtime exceptions'); assert.deepEqual(external, [], 'no external service or tracking requests');
